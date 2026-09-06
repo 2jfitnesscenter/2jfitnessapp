@@ -2,6 +2,7 @@
   "name": "2J Fitness Center",
   "short_name": "2J Fitness",
   "description": "2J Fitness Center — workout & training tracker",
+  "lang": "es",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
