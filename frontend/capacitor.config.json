@@ -1,8 +1,8 @@
 {
-  "appId": "ch.duartesantos.opengym",
-  "appName": "openGym",
+  "appId": "com.twojfitnesscenter.app",
+  "appName": "2J Fitness Center",
   "webDir": "dist",
-  "backgroundColor": "#0c0e12",
+  "backgroundColor": "#000000",
   "android": {
     "allowMixedContent": false
   }
