@@ -708,6 +708,16 @@ export default {
   '{0}: reps': '{0}: repeticiones',
   '{0}: sets': '{0}: series',
 
+  // Registration basics (name, date of birth, sex, height, starting weight) + Settings edit rows
+  'Basic info': 'Datos básicos',
+  'Date of birth': 'Fecha de nacimiento',
+  'Height': 'Altura',
+  'Height (cm)': 'Altura (cm)',
+  'Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.': 'Opcional, y puedes cambiarlo después en Ajustes — ayuda al Coach de IA a ajustar tu plan.',
+  'Sex': 'Sexo',
+  'Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.': 'El sexo usa la opción de Diagrama corporal de abajo. El peso inicial es tu primer registro de peso — añádelo o edítalo desde Inicio.',
+  'Starting weight ({0})': 'Peso inicial ({0})',
+
   // Biometric label (lib/api.js BIO) — passed as a t() arg, not translated by the call site itself
   'Face ID / Touch ID': 'Face ID / Touch ID',
   'fingerprint or face unlock': 'huella dactilar o desbloqueo facial',

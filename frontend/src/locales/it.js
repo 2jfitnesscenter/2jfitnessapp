@@ -707,4 +707,14 @@ export default {
   '{0}: rep-range floor': '{0}: minimo del range di ripetizioni',
   '{0}: reps': '{0}: ripetizioni',
   '{0}: sets': '{0}: serie',
+
+  // Registration basics (added alongside the Spanish-default pass — see es.js for the full set)
+  "Basic info": "Informazioni di base",
+  "Date of birth": "Data di nascita",
+  "Height": "Altezza",
+  "Height (cm)": "Altezza (cm)",
+  "Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.": "Facoltativo, puoi modificarlo dopo nelle Impostazioni — aiuta il Coach IA a personalizzare il tuo piano.",
+  "Sex": "Sesso",
+  "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "Il sesso usa la scelta dello schema del corpo qui sotto. Il peso iniziale è la tua prima registrazione del peso — aggiungilo o modificalo dalla Home.",
+  "Starting weight ({0})": "Peso iniziale ({0})",
 }

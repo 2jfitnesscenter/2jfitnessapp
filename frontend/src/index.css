@@ -466,6 +466,9 @@ h4.sec{
 }
 .timef::-webkit-calendar-picker-indicator{filter:invert(.5)}
 :root[data-theme="light"] .timef::-webkit-calendar-picker-indicator{filter:none}
+/* full-width date field (registration's date of birth) — same dark-mode icon fix as .timef */
+input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
+:root[data-theme="light"] input.input[type="date"]::-webkit-calendar-picker-indicator{filter:none}
 
 /* --- stepper --- */
 .stp-w{display:flex;flex-direction:column;gap:6px;min-width:0}

@@ -29,7 +29,7 @@ const CATEGORY_TEXT = {
   plan: ['Your plan', 'Routines, exercises, sets and reps, your weekly schedule and progression settings.'],
   training: ['Your logged training', 'Sets you logged in the review window — weights, reps, times, effort ratings and how long sessions took.'],
   bodyweight: ['Body weight', 'Weigh-ins from the same window, and your goal weight if you set one.'],
-  profile: ['What you tell the Coach', 'Your intake answers, including any limitations or injuries you describe.'],
+  profile: ['What you tell the Coach', 'Your intake answers, including any limitations or injuries you describe, plus your age, sex and height from your account basics.'],
   prefs: ['A few preferences', 'Your unit, your language and which effort scale you log.']
 }
 

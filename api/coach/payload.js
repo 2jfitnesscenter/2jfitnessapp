@@ -33,7 +33,7 @@ export const DATA_CATEGORIES = [
   'plan',        // routines, exercises, sets/reps, schedule, progression settings
   'training',    // logged sets, targets, effort ratings, durations, PRs in the review window
   'bodyweight',  // weigh-ins in the window and your goal weight
-  'profile',     // the intake answers you gave the Coach, including any limitations
+  'profile',     // the intake answers you gave the Coach, including any limitations, plus age/sex/height from your account basics
   'prefs'        // unit, language, effort scale
 ];
 
@@ -143,6 +143,19 @@ export function librarySlice(S, equipment) {
 export const libraryHas = id => LIB_BY_ID.has(id);
 export const libraryName = id => LIB_BY_ID.get(id)?.n || null;
 export { LIBRARY };
+
+/** Whole years between an ISO birth date and today. Never the raw date — the payload gets
+ * only what the model needs to reason about training, not a stored birth date. */
+function ageFrom(birthDate) {
+  if (!birthDate) return null;
+  const b = new Date(birthDate);
+  if (Number.isNaN(b.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  const beforeBirthdayThisYear = now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate());
+  if (beforeBirthdayThisYear) age--;
+  return age >= 0 && age < 130 ? age : null;
+}
 
 /* ---------- effort scale (mirrors history.js effortOf) ---------- */
 const effortOf = S => {
@@ -261,7 +274,12 @@ export function build(S, uid, opts = {}) {
       limitations: profile.limitations || '',
       likes: profile.likes || '',
       dislikes: profile.dislikes || '',
-      notes: profile.notes || ''
+      notes: profile.notes || '',
+      // From the registration basics (state.birthDate/body/height), not the intake wizard —
+      // present whenever the profile has them, regardless of task or intake answers.
+      age: ageFrom(S.birthDate),
+      sex: S.body === 'female' ? 'female' : (S.body === 'male' ? 'male' : null),
+      heightCm: Number.isFinite(S.height) && S.height > 0 ? S.height : null
     } : null,
     plan: cleanPlan(S)
   };

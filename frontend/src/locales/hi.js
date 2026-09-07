@@ -707,4 +707,14 @@ export default {
   '{0}: rep-range floor': '{0}: रेप-रेंज की न्यूनतम सीमा',
   '{0}: reps': '{0}: रेप्स',
   '{0}: sets': '{0}: सेट',
+
+  // Registration basics (added alongside the Spanish-default pass — see es.js for the full set)
+  "Basic info": "बुनियादी जानकारी",
+  "Date of birth": "जन्म तिथि",
+  "Height": "ऊंचाई",
+  "Height (cm)": "ऊंचाई (cm)",
+  "Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.": "वैकल्पिक, और आप इसे बाद में सेटिंग्स में बदल सकते हैं — यह AI कोच को आपकी योजना बनाने में मदद करता है।",
+  "Sex": "लिंग",
+  "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "लिंग नीचे दिए गए बॉडी डायग्राम विकल्प का उपयोग करता है। शुरुआती वज़न आपकी पहली वज़न प्रविष्टि है — इसे होम से जोड़ें या बदलें।",
+  "Starting weight ({0})": "शुरुआती वज़न ({0})",
 }

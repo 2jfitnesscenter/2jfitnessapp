@@ -707,4 +707,14 @@ export default {
   '{0}: rep-range floor': '{0}：次数区间下限',
   '{0}: reps': '{0}：次数',
   '{0}: sets': '{0}：组数',
+
+  // Registration basics (added alongside the Spanish-default pass — see es.js for the full set)
+  "Basic info": "基本信息",
+  "Date of birth": "出生日期",
+  "Height": "身高",
+  "Height (cm)": "身高（厘米）",
+  "Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.": "可选，之后可以在设置中修改——帮助 AI 教练调整你的计划。",
+  "Sex": "性别",
+  "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "性别使用下方\"身体图示\"的选择。起始体重是你的第一条体重记录——可以在首页添加或编辑。",
+  "Starting weight ({0})": "起始体重（{0}）",
 }

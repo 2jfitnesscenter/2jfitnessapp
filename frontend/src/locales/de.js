@@ -725,4 +725,14 @@ export default {
   '{0}: rep-range floor': '{0}: Untergrenze des Wiederholungsbereichs',
   '{0}: reps': '{0}: Wiederholungen',
   '{0}: sets': '{0}: Sätze',
+
+  // Registration basics (added alongside the Spanish-default pass — see es.js for the full set)
+  "Basic info": "Grunddaten",
+  "Date of birth": "Geburtsdatum",
+  "Height": "Größe",
+  "Height (cm)": "Größe (cm)",
+  "Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.": "Optional, du kannst es später in den Einstellungen ändern – hilft dem KI-Coach, deinen Plan anzupassen.",
+  "Sex": "Geschlecht",
+  "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "Das Geschlecht nutzt die Auswahl beim Körperdiagramm unten. Das Startgewicht ist dein erster Gewichtseintrag – füge ihn auf der Startseite hinzu oder bearbeite ihn dort.",
+  "Starting weight ({0})": "Startgewicht ({0})",
 }

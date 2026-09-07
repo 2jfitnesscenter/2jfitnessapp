@@ -707,4 +707,14 @@ export default {
   '{0}: rep-range floor': '{0}: нижняя граница диапазона повторений',
   '{0}: reps': '{0}: повторения',
   '{0}: sets': '{0}: подходы',
+
+  // Registration basics (added alongside the Spanish-default pass — see es.js for the full set)
+  "Basic info": "Основная информация",
+  "Date of birth": "Дата рождения",
+  "Height": "Рост",
+  "Height (cm)": "Рост (см)",
+  "Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.": "Необязательно, можно изменить позже в Настройках — помогает ИИ-тренеру подстроить план.",
+  "Sex": "Пол",
+  "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "Пол использует выбор в разделе «Схема тела» ниже. Начальный вес — это твоя первая запись веса — добавь или измени её на главном экране.",
+  "Starting weight ({0})": "Начальный вес ({0})",
 }

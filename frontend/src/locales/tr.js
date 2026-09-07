@@ -707,4 +707,14 @@ export default {
   '{0}: rep-range floor': '{0}: tekrar aralığı alt sınırı',
   '{0}: reps': '{0}: tekrar',
   '{0}: sets': '{0}: set',
+
+  // Registration basics (added alongside the Spanish-default pass — see es.js for the full set)
+  "Basic info": "Temel bilgiler",
+  "Date of birth": "Doğum tarihi",
+  "Height": "Boy",
+  "Height (cm)": "Boy (cm)",
+  "Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.": "İsteğe bağlı, daha sonra Ayarlar'dan değiştirebilirsin — Yapay Zeka Koçu'nun planını uyarlamasına yardımcı olur.",
+  "Sex": "Cinsiyet",
+  "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "Cinsiyet, aşağıdaki Vücut şeması seçimini kullanır. Başlangıç kilosu ilk kilo kaydındır — Ana Sayfa'dan ekleyebilir veya düzenleyebilirsin.",
+  "Starting weight ({0})": "Başlangıç kilosu ({0})",
 }

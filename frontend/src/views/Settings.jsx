@@ -101,6 +101,19 @@ export default function Settings() {
     </Section>
     {!user && !DEMO && !MOBILE && <p className="sect-f" style={{ marginTop: -18, marginBottom: 22 }}>{t('Guest mode — data lives only in this browser.')}</p>}
 
+    {/* ---------- basic info — asked at registration, editable here, read by the AI Coach ---------- */}
+    <Section title={t('Basic info')} footer={t('Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.')}>
+      <Row icon="calendar" iconTint="var(--pink)" title={t('Date of birth')}>
+        <input type="date" className="timef" value={S.birthDate || ''} max={todayISO()}
+          onChange={e => update(s => { s.birthDate = e.target.value || null })} />
+      </Row>
+      <Row icon="expand" iconTint="var(--mint)" title={t('Height')}>
+        <input type="number" inputMode="decimal" className="timef" style={{ width: 56, textAlign: 'right' }} min="0" max="250"
+          value={S.height ?? ''} onChange={e => update(s => { const n = Math.round(Number(e.target.value)); s.height = n > 0 ? n : null })} />
+        <span className="muted small" style={{ marginLeft: 6 }}>cm</span>
+      </Row>
+    </Section>
+
     {/* ---------- general ---------- */}
     <Section title={t('General')} footer={t('Note: switching units only changes the label — logged numbers are not converted.')}>
       <SelectRow
@@ -165,7 +178,8 @@ export default function Settings() {
           onChange={v => update(s => { s.theme = v })}
         />
       </Row>
-      {/* Purely how the muscle map is drawn — nothing else in the app reads this. */}
+      {/* Drives the muscle map illustration and, as "sex", is also sent to the AI Coach
+          (api/coach/payload.js) when it builds a plan — set here, not asked again in the intake. */}
       <Row icon="figureStrength" iconTint="var(--teal)" title={t('Body diagram')}>
         <Segmented
           className="seg-inline"

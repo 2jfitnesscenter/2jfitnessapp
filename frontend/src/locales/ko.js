@@ -707,4 +707,14 @@ export default {
   '{0}: rep-range floor': '{0}: 횟수 범위 하한',
   '{0}: reps': '{0}: 횟수',
   '{0}: sets': '{0}: 세트',
+
+  // Registration basics (added alongside the Spanish-default pass — see es.js for the full set)
+  "Basic info": "기본 정보",
+  "Date of birth": "생년월일",
+  "Height": "키",
+  "Height (cm)": "키 (cm)",
+  "Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.": "선택 사항이며 나중에 설정에서 변경할 수 있어요 — AI 코치가 계획을 맞춤화하는 데 도움이 됩니다.",
+  "Sex": "성별",
+  "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "성별은 아래 신체 도해 선택을 사용해요. 시작 체중은 첫 체중 기록이에요 — 홈에서 추가하거나 수정할 수 있어요.",
+  "Starting weight ({0})": "시작 체중 ({0})",
 }
