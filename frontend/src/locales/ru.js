@@ -717,4 +717,5 @@ export default {
   "Sex": "Пол",
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "Пол использует выбор в разделе «Схема тела» ниже. Начальный вес — это твоя первая запись веса — добавь или измени её на главном экране.",
   "Starting weight ({0})": "Начальный вес ({0})",
+  "Auto": "Авто",
 }

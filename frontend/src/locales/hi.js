@@ -717,4 +717,5 @@ export default {
   "Sex": "लिंग",
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "लिंग नीचे दिए गए बॉडी डायग्राम विकल्प का उपयोग करता है। शुरुआती वज़न आपकी पहली वज़न प्रविष्टि है — इसे होम से जोड़ें या बदलें।",
   "Starting weight ({0})": "शुरुआती वज़न ({0})",
+  "Auto": "ऑटो",
 }

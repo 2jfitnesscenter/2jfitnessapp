@@ -717,4 +717,5 @@ export default {
   "Sex": "성별",
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "성별은 아래 신체 도해 선택을 사용해요. 시작 체중은 첫 체중 기록이에요 — 홈에서 추가하거나 수정할 수 있어요.",
   "Starting weight ({0})": "시작 체중 ({0})",
+  "Auto": "자동",
 }

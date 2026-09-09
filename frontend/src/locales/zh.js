@@ -717,4 +717,5 @@ export default {
   "Sex": "性别",
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "性别使用下方\"身体图示\"的选择。起始体重是你的第一条体重记录——可以在首页添加或编辑。",
   "Starting weight ({0})": "起始体重（{0}）",
+  "Auto": "自动",
 }

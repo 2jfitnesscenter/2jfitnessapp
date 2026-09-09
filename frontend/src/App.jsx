@@ -30,9 +30,14 @@ import CoachProposal from './views/CoachProposal.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
+// 'system' (the default for new profiles) follows the device's own setting; 'dark'/'light'
+// are an explicit, sticky override once the user picks one in Settings.
+const systemPrefersLight = () => window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+const resolveTheme = theme => (theme === 'light' || theme === 'dark') ? theme : (systemPrefersLight() ? 'light' : 'dark')
+
 function applyPrefs(theme, accent) {
   const de = document.documentElement
-  de.dataset.theme = theme === 'light' ? 'light' : 'dark'
+  de.dataset.theme = resolveTheme(theme)
   de.dataset.accent = ACCENTS[accent] ? accent : 'lime'
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) meta.content = de.dataset.theme === 'light' ? '#f2f2f7' : '#000000'
@@ -45,7 +50,15 @@ function Shell() {
   const isGuest = useStore(s => s.isGuest())
   const langV = useLang()   // re-renders the whole shell when the language (pack) changes
   useEffect(() => { setNav(navigate) }, [navigate])
-  useEffect(() => { applyPrefs(S.theme, S.accent) }, [S.theme, S.accent])
+  useEffect(() => {
+    applyPrefs(S.theme, S.accent)
+    if (S.theme !== 'system' || !window.matchMedia) return
+    // live-follow the OS toggle (e.g. sunset auto dark mode) while on 'system', no reload needed
+    const mq = window.matchMedia('(prefers-color-scheme: light)')
+    const onChange = () => applyPrefs(S.theme, S.accent)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [S.theme, S.accent])
   useEffect(() => { setLang(S.lang || 'es') }, [S.lang])
   useEffect(() => { document.documentElement.lang = S.lang || 'es' }, [langV, S.lang])
   // every tab/route change starts at the top of the page

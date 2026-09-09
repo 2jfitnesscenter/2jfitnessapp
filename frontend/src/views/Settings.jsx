@@ -173,8 +173,8 @@ export default function Settings() {
       <Row icon="moon" iconTint="var(--indigo)" title={t('Theme')}>
         <Segmented
           className="seg-inline"
-          options={[{ value: 'dark', icon: 'moon', label: t('Dark') }, { value: 'light', icon: 'sun', label: t('Light') }]}
-          value={S.theme === 'light' ? 'light' : 'dark'}
+          options={[{ value: 'system', label: t('Auto') }, { value: 'dark', icon: 'moon', label: t('Dark') }, { value: 'light', icon: 'sun', label: t('Light') }]}
+          value={S.theme === 'light' || S.theme === 'dark' ? S.theme : 'system'}
           onChange={v => update(s => { s.theme = v })}
         />
       </Row>

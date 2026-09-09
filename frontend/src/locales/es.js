@@ -708,6 +708,9 @@ export default {
   '{0}: reps': '{0}: repeticiones',
   '{0}: sets': '{0}: series',
 
+  // Theme picker's third option — follows the device's light/dark setting
+  'Auto': 'Auto',
+
   // Registration basics (name, date of birth, sex, height, starting weight) + Settings edit rows
   'Basic info': 'Datos básicos',
   'Date of birth': 'Fecha de nacimiento',

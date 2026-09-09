@@ -717,4 +717,5 @@ export default {
   "Sex": "Cinsiyet",
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "Cinsiyet, aşağıdaki Vücut şeması seçimini kullanır. Başlangıç kilosu ilk kilo kaydındır — Ana Sayfa'dan ekleyebilir veya düzenleyebilirsin.",
   "Starting weight ({0})": "Başlangıç kilosu ({0})",
+  "Auto": "Auto",
 }

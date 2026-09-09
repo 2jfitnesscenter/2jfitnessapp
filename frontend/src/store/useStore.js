@@ -8,7 +8,9 @@ import { MOBILE, nativeLoad, nativeSave, syncReminder } from '../lib/mobile.js'
 const KEY = 'gym_state_v1'
 export const DEF = {
   unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'es',
-  theme: 'dark', accent: 'lime', body: 'male', targetW: null,
+  // 'system' follows the device's own light/dark setting until the user picks one explicitly
+  // in Settings — see App.jsx's applyPrefs().
+  theme: 'system', accent: 'lime', body: 'male', targetW: null,
   // Basic profile, collected (optionally) at registration and editable later in Settings.
   // birthDate is the ISO date, not a stored age — age is derived from it wherever it is needed.
   birthDate: null, height: null,

@@ -717,4 +717,5 @@ export default {
   "Sex": "Sexo",
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "O sexo usa a escolha do Diagrama do corpo abaixo. O peso inicial é o teu primeiro registo de peso — adiciona-o ou edita-o a partir do Início.",
   "Starting weight ({0})": "Peso inicial ({0})",
+  "Auto": "Auto",
 }
