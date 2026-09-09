@@ -711,6 +711,32 @@ export default {
   // Theme picker's third option — follows the device's light/dark setting
   'Auto': 'Auto',
 
+  // AI Coach intake (CoachIntake.jsx GOALS/EXPERIENCE — passed to t() as a variable, not a
+  // literal, so these were invisible to earlier audits and were leaking English)
+  'Get stronger': 'Ganar fuerza',
+  'Build muscle': 'Ganar músculo',
+  'Lose fat': 'Perder grasa',
+  'Endurance': 'Resistencia',
+  'General fitness': 'Forma física general',
+  'New to lifting': 'Nuevo en esto',
+  'Coming back after a break': 'Retomando tras un parón',
+  'Training regularly': 'Entreno con regularidad',
+  // Coach.jsx summarise() — the bare goal slug, same t(variable) issue
+  'strength': 'Fuerza',
+  'muscle': 'Músculo',
+  'fatloss': 'Pérdida de grasa',
+  'endurance': 'Resistencia',
+  'general': 'General',
+  // Coach consent screen (Coach.jsx CATEGORY_TEXT) — also t(variable), also leaking English
+  'Routines, exercises, sets and reps, your weekly schedule and progression settings.': 'Rutinas, ejercicios, series y repeticiones, tu horario semanal y los ajustes de progresión.',
+  'Your logged training': 'Tu entrenamiento registrado',
+  'Sets you logged in the review window — weights, reps, times, effort ratings and how long sessions took.': 'Las series que registraste en la ventana revisada — pesos, repeticiones, tiempos, valoración de esfuerzo y duración de las sesiones.',
+  'Weigh-ins from the same window, and your goal weight if you set one.': 'Los pesajes de esa misma ventana, y tu peso objetivo si has puesto uno.',
+  'What you tell the Coach': 'Lo que le cuentas al Coach',
+  'Your intake answers, including any limitations or injuries you describe, plus your age, sex and height from your account basics.': 'Tus respuestas del cuestionario, incluidas las limitaciones o lesiones que describas, además de tu edad, sexo y altura de tus datos básicos.',
+  'A few preferences': 'Algunas preferencias',
+  'Your unit, your language and which effort scale you log.': 'Tu unidad, tu idioma y la escala de esfuerzo que registras.',
+
   // Registration basics (name, date of birth, sex, height, starting weight) + Settings edit rows
   'Basic info': 'Datos básicos',
   'Date of birth': 'Fecha de nacimiento',

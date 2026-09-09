@@ -718,4 +718,19 @@ export default {
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "लिंग नीचे दिए गए बॉडी डायग्राम विकल्प का उपयोग करता है। शुरुआती वज़न आपकी पहली वज़न प्रविष्टि है — इसे होम से जोड़ें या बदलें।",
   "Starting weight ({0})": "शुरुआती वज़न ({0})",
   "Auto": "ऑटो",
+
+  // AI Coach intake + summary — t(variable) calls, invisible to string-literal audits
+  "Get stronger": "अधिक ताकतवर बनना",
+  "Build muscle": "मांसपेशियां बढ़ाना",
+  "Lose fat": "वसा कम करना",
+  "Endurance": "सहनशक्ति",
+  "General fitness": "सामान्य फिटनेस",
+  "New to lifting": "वेटलिफ्टिंग में नया",
+  "Coming back after a break": "ब्रेक के बाद वापसी",
+  "Training regularly": "नियमित रूप से ट्रेनिंग",
+  "strength": "ताकत",
+  "muscle": "मांसपेशी",
+  "fatloss": "वसा कम होना",
+  "endurance": "सहनशक्ति",
+  "general": "सामान्य",
 }

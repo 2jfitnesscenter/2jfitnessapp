@@ -16,12 +16,15 @@ import { Button, TextArea, Segmented } from '../components/ui.jsx'
    abandon. Only the first two questions are required — everything after them improves the
    plan without gating it, and someone who wants to just get training should be able to. */
 
+// 2J Fitness Center is a strength gym — strength/muscle lead the list since that is what most
+// members are here for, but the other goals stay available rather than removed (see project
+// notes): someone training here can still tell the Coach their goal is fat loss or endurance.
 const GOALS = [
   ['strength', 'Get stronger'],
   ['muscle', 'Build muscle'],
-  ['general', 'General fitness'],
   ['fatloss', 'Lose fat'],
-  ['endurance', 'Endurance']
+  ['endurance', 'Endurance'],
+  ['general', 'General fitness']
 ]
 const EXPERIENCE = [
   ['new', 'New to lifting'],

@@ -718,4 +718,19 @@ export default {
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "Płeć korzysta z wyboru w Diagramie ciała poniżej. Waga początkowa to Twój pierwszy wpis wagi — dodaj go lub edytuj z Ekranu głównego.",
   "Starting weight ({0})": "Waga początkowa ({0})",
   "Auto": "Auto",
+
+  // AI Coach intake + summary — t(variable) calls, invisible to string-literal audits
+  "Get stronger": "Zwiększyć siłę",
+  "Build muscle": "Zbudować mięśnie",
+  "Lose fat": "Zrzucić tłuszcz",
+  "Endurance": "Wytrzymałość",
+  "General fitness": "Ogólna sprawność",
+  "New to lifting": "Nowy w treningu siłowym",
+  "Coming back after a break": "Wracam po przerwie",
+  "Training regularly": "Trenuję regularnie",
+  "strength": "Siła",
+  "muscle": "Mięśnie",
+  "fatloss": "Redukcja tkanki tłuszczowej",
+  "endurance": "Wytrzymałość",
+  "general": "Ogólne",
 }

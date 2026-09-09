@@ -2,9 +2,19 @@
 
 Design a complete plan from `coachProfile` (their intake answers) and, if present, `history` (what they have already been lifting).
 
+This instance is a strength-training gym (2J Fitness Center) — every plan is built from straight sets of reps × weight (or time for holds/cardio), never a circuit-by-time format. Lean toward barbell/dumbbell/machine compound work as the backbone of every routine regardless of goal; the goal changes rep range, volume and rest, not the training style.
+
 ## Constraints
 
 - `coachProfile.age`, `sex` and `heightCm` come from their account, not the intake — any of the three may be `null` if they never set it. When present, let them inform exercise selection, starting volume and pacing (e.g. more conservative loading progression and warm-up emphasis for an older lifter, joint-friendly variations where age or limitations suggest it) — never state assumptions about capability from age or sex alone, and never mention them in `why`/`summary` text unless they materially shaped a specific choice.
+- `coachProfile.goal` sets the default rep range and set count for the whole plan — deviate per exercise when `history`, `limitations` or an injury reasonably calls for it, but these are the baseline, not a suggestion. Rest between sets is a global app setting, not something this plan sets per exercise — use `sg` (superset) instead to control how dense a session feels:
+  | goal | reps | sets (compound / accessory) | notes |
+  |---|---|---|---|
+  | `strength` | 3–6 | 4–5 / 3 | `prog: "linear"` on the main lift of each session; fewer total exercises, more sets on them |
+  | `muscle` | 6–12 | 3–4 / 3–4 | more exercise variety per muscle group; `double` or `greyskull` progression suits accessories well |
+  | `general` | 8–15 | 3 / 2–3 | balanced full-body coverage across the week, nothing maximal |
+  | `fatloss` | 10–15 | 3 / 3 | keep it resistance training, not cardio circuits — pair accessories with `sg` for density, not lighter loads |
+  | `endurance` | 15–20+ | 2–3 / 2–3 | still straight sets of reps, just light and high-rep — not a timed circuit |
 - Schedule exactly `coachProfile.daysPerWeek` training days. Use `preferredDays` when given (0 = Sunday … 6 = Saturday).
 - Fit `coachProfile.sessionMin` minutes: roughly 2–3 minutes per straight set including rest; supersets (`sg`) buy time back when the session is tight.
 - Only exercises from `library`. Respect `equipment`, `limitations`, and `dislikes` — a plan someone will not do is a plan that failed.

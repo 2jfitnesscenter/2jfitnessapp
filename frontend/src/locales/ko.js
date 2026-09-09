@@ -718,4 +718,19 @@ export default {
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "성별은 아래 신체 도해 선택을 사용해요. 시작 체중은 첫 체중 기록이에요 — 홈에서 추가하거나 수정할 수 있어요.",
   "Starting weight ({0})": "시작 체중 ({0})",
   "Auto": "자동",
+
+  // AI Coach intake + summary — t(variable) calls, invisible to string-literal audits
+  "Get stronger": "더 강해지기",
+  "Build muscle": "근육 늘리기",
+  "Lose fat": "체지방 줄이기",
+  "Endurance": "지구력",
+  "General fitness": "전반적인 체력",
+  "New to lifting": "웨이트 트레이닝 처음",
+  "Coming back after a break": "쉬었다가 복귀",
+  "Training regularly": "꾸준히 운동 중",
+  "strength": "근력",
+  "muscle": "근육",
+  "fatloss": "체지방 감량",
+  "endurance": "지구력",
+  "general": "일반",
 }

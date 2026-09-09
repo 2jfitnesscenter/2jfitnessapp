@@ -718,4 +718,19 @@ export default {
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "性别使用下方\"身体图示\"的选择。起始体重是你的第一条体重记录——可以在首页添加或编辑。",
   "Starting weight ({0})": "起始体重（{0}）",
   "Auto": "自动",
+
+  // AI Coach intake + summary — t(variable) calls, invisible to string-literal audits
+  "Get stronger": "变得更强壮",
+  "Build muscle": "增肌",
+  "Lose fat": "减脂",
+  "Endurance": "耐力",
+  "General fitness": "全面健身",
+  "New to lifting": "刚开始力量训练",
+  "Coming back after a break": "中断后重新开始",
+  "Training regularly": "定期训练",
+  "strength": "力量",
+  "muscle": "肌肉",
+  "fatloss": "减脂",
+  "endurance": "耐力",
+  "general": "综合",
 }

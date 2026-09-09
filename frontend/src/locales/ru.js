@@ -718,4 +718,19 @@ export default {
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "Пол использует выбор в разделе «Схема тела» ниже. Начальный вес — это твоя первая запись веса — добавь или измени её на главном экране.",
   "Starting weight ({0})": "Начальный вес ({0})",
   "Auto": "Авто",
+
+  // AI Coach intake + summary — t(variable) calls, invisible to string-literal audits
+  "Get stronger": "Стать сильнее",
+  "Build muscle": "Набрать мышечную массу",
+  "Lose fat": "Сбросить жир",
+  "Endurance": "Выносливость",
+  "General fitness": "Общая физическая форма",
+  "New to lifting": "Новичок в силовых",
+  "Coming back after a break": "Возвращаюсь после перерыва",
+  "Training regularly": "Тренируюсь регулярно",
+  "strength": "Сила",
+  "muscle": "Мышцы",
+  "fatloss": "Похудение",
+  "endurance": "Выносливость",
+  "general": "Общее",
 }

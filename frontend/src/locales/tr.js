@@ -718,4 +718,19 @@ export default {
   "Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.": "Cinsiyet, aşağıdaki Vücut şeması seçimini kullanır. Başlangıç kilosu ilk kilo kaydındır — Ana Sayfa'dan ekleyebilir veya düzenleyebilirsin.",
   "Starting weight ({0})": "Başlangıç kilosu ({0})",
   "Auto": "Auto",
+
+  // AI Coach intake + summary — t(variable) calls, invisible to string-literal audits
+  "Get stronger": "Daha güçlü olmak",
+  "Build muscle": "Kas kazanmak",
+  "Lose fat": "Yağ kaybetmek",
+  "Endurance": "Dayanıklılık",
+  "General fitness": "Genel fitness",
+  "New to lifting": "Ağırlık antrenmanında yeniyim",
+  "Coming back after a break": "Aradan sonra geri dönüyorum",
+  "Training regularly": "Düzenli antrenman yapıyorum",
+  "strength": "Güç",
+  "muscle": "Kas",
+  "fatloss": "Yağ kaybı",
+  "endurance": "Dayanıklılık",
+  "general": "Genel",
 }
