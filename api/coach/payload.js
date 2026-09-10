@@ -285,11 +285,16 @@ export function build(S, uid, opts = {}) {
       likes: profile.likes || '',
       dislikes: profile.dislikes || '',
       notes: profile.notes || '',
-      // From the registration basics (state.birthDate/body/height), not the intake wizard —
-      // present whenever the profile has them, regardless of task or intake answers.
+      // From the registration basics (state.birthDate/body/height/priorityMuscles), not the
+      // intake wizard — present whenever the profile has them, regardless of task or intake
+      // answers. priorityMuscles/secondaryMuscles are slugs from frontend/src/lib/
+      // muscle-priority.js (quads, glutes, hamstrings, calves, chest, back, shoulders,
+      // biceps, triceps, abs) — see prompts/create.md for how the model should use them.
       age: ageFrom(S.birthDate),
       sex: S.body === 'female' ? 'female' : (S.body === 'male' ? 'male' : null),
-      heightCm: Number.isFinite(S.height) && S.height > 0 ? S.height : null
+      heightCm: Number.isFinite(S.height) && S.height > 0 ? S.height : null,
+      priorityMuscles: Array.isArray(S.priorityMuscles) ? S.priorityMuscles : [],
+      secondaryMuscles: Array.isArray(S.secondaryMuscles) ? S.secondaryMuscles : []
     } : null,
     plan: cleanPlan(S)
   };

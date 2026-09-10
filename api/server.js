@@ -519,6 +519,10 @@ const routes = {
       birthDate: S.birthDate || null,
       body: S.body === 'female' ? 'female' : 'male',
       height: Number.isFinite(S.height) && S.height > 0 ? S.height : null,
+      // Muscle priorities (frontend/src/lib/muscle-priority.js slugs) — feed both the quick PPL plan
+      // (starter.js's buildPlan, mirrored below) and the AI Coach's exercise selection.
+      priorityMuscles: Array.isArray(S.priorityMuscles) ? S.priorityMuscles : [],
+      secondaryMuscles: Array.isArray(S.secondaryMuscles) ? S.secondaryMuscles : [],
       latestWeight: bw.length ? bw[bw.length - 1] : null,
       routines: (S.routines || []).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: (r.ex || []).length })),
       bodyweight: bw,
@@ -551,6 +555,15 @@ const routes = {
       const h = Math.round(Number(body.height));
       S.height = h > 0 && h <= 250 ? h : null;
     }
+    // Same 10-slug list as frontend/src/lib/muscle-priority.js's MUSCLES — silently drop anything else
+    // rather than reject the whole save, same tolerance the rest of this endpoint gives bad input.
+    const MUSCLES = ['quads', 'glutes', 'hamstrings', 'calves', 'chest', 'back', 'shoulders', 'biceps', 'triceps', 'abs'];
+    if (body.priorityMuscles !== undefined) {
+      S.priorityMuscles = Array.isArray(body.priorityMuscles) ? body.priorityMuscles.filter(m => MUSCLES.includes(m)) : [];
+    }
+    if (body.secondaryMuscles !== undefined) {
+      S.secondaryMuscles = Array.isArray(body.secondaryMuscles) ? body.secondaryMuscles.filter(m => MUSCLES.includes(m)) : [];
+    }
     S._ts = Date.now();
     atomicWrite(stateFile(u.id), JSON.stringify(S));
     json(res, 200, { ok: true });
@@ -558,10 +571,12 @@ const routes = {
 
   // Applies the same Push/Pull/Legs starter plan "Load starter plan" offers a member, straight
   // onto a member's profile from the admin side — mirrors frontend/src/lib/starter.js's
-  // buildPlan() exactly (exercise ids, SPEC_B, GOAL_RULES, DAY_SPREAD); kept in sync by hand,
-  // same trade-off payload.js already makes for logic shared with the frontend but not
-  // build-step-shared with it. body: { id, goal?, days? } — goal defaults to 'longevity',
-  // days (2-6) to 3, same defaults the member-facing intake sheet starts on.
+  // buildPlan() exactly (exercise ids, SPEC_B, GOAL_RULES, DAY_SPREAD, routineOrder); kept in
+  // sync by hand, same trade-off payload.js already makes for logic shared with the frontend
+  // but not build-step-shared with it. body: { id, goal?, days? } — goal defaults to
+  // 'longevity', days (2-6) to 3, same defaults the member-facing intake sheet starts on.
+  // Muscle priorities aren't a body param — they come from the member's own saved profile
+  // (S.priorityMuscles/secondaryMuscles), same as age/sex/height already do here.
   'POST /api/admin/user/apply-starter-plan': async (req, res) => {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
@@ -604,7 +619,26 @@ const routes = {
       }
       return { id: crypto.randomBytes(9).toString('base64url'), name, emoji, ex };
     };
-    const routines = days.map((d, i) => makeRoutine(Math.floor(i / 3) % 2 === 0 ? SPEC : SPEC_B, i % 3));
+    // Which of the 3 SPEC slots each muscle priority trains — see starter.js's MUSCLE_ROUTINE
+    // for the full rationale. Ranks the slots so, under 3 days, the routine(s) that train the
+    // prioritized muscles are the ones kept, and over 3 days they're the ones repeated first.
+    const MUSCLE_ROUTINE = { chest: 0, shoulders: 0, triceps: 0, back: 1, biceps: 1, quads: 2, glutes: 2, hamstrings: 2, calves: 2 };
+    const score = [0, 0, 0];
+    (S.priorityMuscles || []).forEach(m => { const s = MUSCLE_ROUTINE[m]; if (s !== undefined) score[s] += 2; });
+    (S.secondaryMuscles || []).forEach(m => { const s = MUSCLE_ROUTINE[m]; if (s !== undefined) score[s] += 1; });
+    const order = [0, 1, 2].sort((a, b) => score[b] - score[a] || a - b);
+    let slots;
+    if (days.length <= 3) {
+      const chosen = new Set(order.slice(0, days.length));
+      slots = [0, 1, 2].filter(s => chosen.has(s));
+    } else {
+      slots = [0, 1, 2];
+      for (let extra = 0; slots.length < days.length; extra++) slots.push(order[extra % 3]);
+    }
+    const routines = slots.map((slot, i) => {
+      const lap = slots.slice(0, i).filter(s => s === slot).length;
+      return makeRoutine(lap === 0 ? SPEC : SPEC_B, slot);
+    });
     S.routines = [...(S.routines || []), ...routines];
     S.week = { ...(S.week || {}) };
     days.forEach((d, i) => { S.week[d] = routines[i].id; });

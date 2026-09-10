@@ -8,6 +8,7 @@ import { todayISO } from '../lib/format.js'
 import { useState, useRef, useEffect } from 'react'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
+import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 
 function RegisterSheet({ close }) {
   const { setUser, pushState, pullState, update } = useStore()
@@ -22,6 +23,20 @@ function RegisterSheet({ close }) {
   const [sex, setSex] = useState(S.body === 'female' ? 'female' : 'male')
   const [height, setHeight] = useState('')
   const [weight, setWeight] = useState('')
+  // What to prioritize — feeds the quick PPL plan (which routine gets the extra day) and the
+  // AI Coach (which gets more volume). A muscle can only be in one list at a time; picking it
+  // in the other removes it from here. Capped so "priority" stays meaningful rather than
+  // turning into "everything".
+  const [primary, setPrimary] = useState([])
+  const [secondary, setSecondary] = useState([])
+  const togglePrimary = m => {
+    setPrimary(v => v.includes(m) ? v.filter(x => x !== m) : v.length < 2 ? [...v, m] : v)
+    setSecondary(v => v.filter(x => x !== m))
+  }
+  const toggleSecondary = m => {
+    setSecondary(v => v.includes(m) ? v.filter(x => x !== m) : v.length < 3 ? [...v, m] : v)
+    setPrimary(v => v.filter(x => x !== m))
+  }
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
   useEffect(() => { api('/api/config').then(c => setInviteOnly(!!c.invite_only)).catch(() => {}) }, [])
@@ -34,7 +49,7 @@ function RegisterSheet({ close }) {
       setUser(u)
       const h = Math.round(Number(height))
       const w = Math.round((Number(weight) || 0) * 10) / 10
-      if (birthDate || sex !== S.body || h > 0 || w > 0) {
+      if (birthDate || sex !== S.body || h > 0 || w > 0 || primary.length || secondary.length) {
         update(s => {
           s.body = sex
           if (birthDate) s.birthDate = birthDate
@@ -45,6 +60,8 @@ function RegisterSheet({ close }) {
             if (ex) { ex.w = w; ex.t = Date.now() } else s.bodyweight.push({ d: iso, w, t: Date.now() })
             s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
           }
+          if (primary.length) s.priorityMuscles = primary
+          if (secondary.length) s.secondaryMuscles = secondary
         })
       }
       close()
@@ -80,6 +97,17 @@ function RegisterSheet({ close }) {
         <div className="dim small" style={{ marginBottom: 4 }}>{t('Starting weight ({0})', S.unit)}</div>
         <input type="number" inputMode="decimal" className="input" placeholder="78" min="0" max="400" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} />
       </div>
+    </div>
+
+    <div style={{ height: 14 }} />
+    <div className="dim small" style={{ marginBottom: 4 }}>{t('What do you want to prioritize? (up to 2)')}</div>
+    <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
+      {MUSCLES.map(m => <button key={m} className={'chip' + (primary.includes(m) ? ' on' : '')} onClick={() => togglePrimary(m)}>{t(MUSCLE_LABEL[m])}</button>)}
+    </div>
+    <div style={{ height: 10 }} />
+    <div className="dim small" style={{ marginBottom: 4 }}>{t('Anything else? (up to 3)')}</div>
+    <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
+      {MUSCLES.map(m => <button key={m} className={'chip' + (secondary.includes(m) ? ' on' : '')} disabled={primary.includes(m)} onClick={() => toggleSecondary(m)} style={primary.includes(m) ? { opacity: .35 } : undefined}>{t(MUSCLE_LABEL[m])}</button>)}
     </div>
 
     <div style={{ height: 12 }} />

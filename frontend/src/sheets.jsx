@@ -55,8 +55,8 @@ function StarterPlanIntake({ close }) {
   const [goal, setGoal] = useState('longevity')
   const [days, setDays] = useState(3)
   const apply = () => {
-    const { routines, week } = buildPlan(goal, DAY_SPREAD[days])
     update(st => {
+      const { routines, week } = buildPlan(goal, DAY_SPREAD[days], st.priorityMuscles, st.secondaryMuscles)
       st.routines.push(...routines)
       Object.entries(week).forEach(([d, id]) => { st.week[d] = id })
     })

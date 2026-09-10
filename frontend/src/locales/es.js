@@ -875,6 +875,13 @@ export default {
   'power': 'Potencia',
   'plyometrics': 'Pliometría',
   'longevity': 'Salud y longevidad',
+  // Muscle-priority picker (Login.jsx registration, Settings.jsx, Admin.jsx ProfileEditForm) —
+  // the individual muscle names reuse existing keys (Quads/Glutes/Chest/etc. and the lowercase
+  // 'back'), these are just the new picker copy.
+  'What do you want to prioritize? (up to 2)': '¿Qué quieres priorizar? (hasta 2)',
+  'Anything else? (up to 3)': '¿Algo más? (hasta 3)',
+  'Training priorities': 'Prioridades de entrenamiento',
+  'Optional. The quick plan and the AI Coach give these a little more work than the rest.': 'Opcional. Tanto el plan rápido como el AI Coach le dan algo más de trabajo a esto que al resto.',
   // Coach consent screen (Coach.jsx CATEGORY_TEXT) — also t(variable), also leaking English
   'Routines, exercises, sets and reps, your weekly schedule and progression settings.': 'Rutinas, ejercicios, series y repeticiones, tu horario semanal y los ajustes de progresión.',
   'Your logged training': 'Tu entrenamiento registrado',

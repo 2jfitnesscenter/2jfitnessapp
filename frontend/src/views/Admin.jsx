@@ -13,6 +13,7 @@ import AdminCoach from './AdminCoach.jsx'
 import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
+import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 
 // Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "hypertrophy" means the
 // same rep range whether a member or an admin set it up.
@@ -49,14 +50,27 @@ function ProfileEditForm({ d, onSaved, close }) {
   const [birthDate, setBirthDate] = useState(d.birthDate || '')
   const [body, setBody] = useState(d.body || 'male')
   const [height, setHeight] = useState(d.height ?? '')
+  const [primary, setPrimary] = useState(d.priorityMuscles || [])
+  const [secondary, setSecondary] = useState(d.secondaryMuscles || [])
   const [busy, setBusy] = useState(false)
+  const togglePrimary = m => {
+    setPrimary(v => v.includes(m) ? v.filter(x => x !== m) : v.length < 2 ? [...v, m] : v)
+    setSecondary(v => v.filter(x => x !== m))
+  }
+  const toggleSecondary = m => {
+    setSecondary(v => v.includes(m) ? v.filter(x => x !== m) : v.length < 3 ? [...v, m] : v)
+    setPrimary(v => v.filter(x => x !== m))
+  }
   const save = () => {
     const n = name.trim()
     if (!n) { toast(t('Name required')); return }
     setBusy(true)
     api('/api/admin/user/profile', {
       method: 'POST',
-      body: JSON.stringify({ id: d.user.id, name: n, birthDate: birthDate || null, body, height: height === '' ? null : Number(height) })
+      body: JSON.stringify({
+        id: d.user.id, name: n, birthDate: birthDate || null, body, height: height === '' ? null : Number(height),
+        priorityMuscles: primary, secondaryMuscles: secondary
+      })
     }).then(() => { toast(t('Profile saved')); onSaved(); close() }).catch(e => { toast(e.message); setBusy(false) })
   }
   return <>
@@ -69,6 +83,15 @@ function ProfileEditForm({ d, onSaved, close }) {
     <Segmented options={[{ value: 'male', label: t('Male') }, { value: 'female', label: t('Female') }]} value={body} onChange={setBody} />
     <div className="dim small" style={{ margin: '10px 0 4px' }}>{t('Height (cm)')}</div>
     <input type="number" inputMode="decimal" className="input" min="0" max="250" value={height} onChange={e => setHeight(e.target.value)} />
+    <div className="dim small" style={{ margin: '10px 0 4px' }}>{t('What do you want to prioritize? (up to 2)')}</div>
+    <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
+      {MUSCLES.map(m => <button key={m} className={'chip' + (primary.includes(m) ? ' on' : '')} onClick={() => togglePrimary(m)}>{t(MUSCLE_LABEL[m])}</button>)}
+    </div>
+    <div className="dim small" style={{ margin: '10px 0 4px' }}>{t('Anything else? (up to 3)')}</div>
+    <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
+      {MUSCLES.map(m => <button key={m} className={'chip' + (secondary.includes(m) ? ' on' : '')} disabled={primary.includes(m)}
+        style={primary.includes(m) ? { opacity: .35 } : undefined} onClick={() => toggleSecondary(m)}>{t(MUSCLE_LABEL[m])}</button>)}
+    </div>
     <div style={{ height: 14 }} />
     <Button variant="primary" disabled={busy} onClick={save}>{t('Save')}</Button>
   </>
@@ -135,6 +158,10 @@ function UserDetail({ id, onChanged, close }) {
       <div className="tile"><div className="l">{t('Routines')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.routines.length}</div></div>
       <div className="tile"><div className="l">{t('Last sync')}</div><div className="v" style={{ fontSize: '.95rem' }}>{rel(d.lastSync)}</div></div>
     </div>
+    {!!(d.priorityMuscles?.length || d.secondaryMuscles?.length) && <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '10px 0 0' }}>
+      {(d.priorityMuscles || []).map(m => <span key={m} className="tag acc">{t(MUSCLE_LABEL[m])}</span>)}
+      {(d.secondaryMuscles || []).map(m => <span key={m} className="tag">{t(MUSCLE_LABEL[m])}</span>)}
+    </div>}
     <div className="row" style={{ gap: 8, margin: '12px 0 4px' }}>
       <Button style={{ flex: 1 }} icon="pencil" onClick={() => openSheet(close2 => <ProfileEditForm d={d} onSaved={load} close={close2} />)}>{t('Edit profile')}</Button>
       {!d.routines.length && <Button style={{ flex: 1 }} icon="sparkles" onClick={applyStarterPlan}>{t('Load PPL plan')}</Button>}

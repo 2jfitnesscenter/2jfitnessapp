@@ -71,21 +71,58 @@ function makeRoutine(spec, slot, rules) {
   return { id: uid(), name, emoji, ex }
 }
 
+// Which of the 3 SPEC slots (0=Push, 1=Pull, 2=Legs) each muscle-priority pick (see
+// frontend/src/lib/muscle-priority.js) actually trains here. `abs` isn't covered by any of the 3
+// PPL days, so it can't move which day gets picked — it only ever matters to the AI Coach,
+// which builds exercise-by-exercise instead of picking between 3 fixed templates.
+const MUSCLE_ROUTINE = {
+  chest: 0, shoulders: 0, triceps: 0,
+  back: 1, biceps: 1,
+  quads: 2, glutes: 2, hamstrings: 2, calves: 2
+}
+
+// Ranks the 3 routine slots by how much the member's priorities point at them — primary picks
+// count double a secondary one. Ties keep the natural Push→Pull→Legs order, so with no
+// priorities set this is just [0, 1, 2] and every plan behaves exactly as before.
+function routineOrder(primary, secondary) {
+  const score = [0, 0, 0]
+  ;(primary || []).forEach(m => { const s = MUSCLE_ROUTINE[m]; if (s !== undefined) score[s] += 2 })
+  ;(secondary || []).forEach(m => { const s = MUSCLE_ROUTINE[m]; if (s !== undefined) score[s] += 1 })
+  return [0, 1, 2].sort((a, b) => score[b] - score[a] || a - b)
+}
+
 /**
  * @param {string} goal one of GOALS — falls back to 'longevity' if unrecognised
  * @param {number[]} days weekday numbers (0=Sunday..6=Saturday) to schedule, in order.
- *   The 3 routines cycle across them — 3 days is once each, 6 is twice each. 2 or 4 days
- *   means the cycle doesn't divide evenly and continues where it left off; whenever a day
- *   would repeat a routine from earlier in the week, it gets SPEC_B's exercises for the
- *   same body parts instead of literally the same routine again.
+ * @param {string[]} [primary] muscle slugs (muscles.js) the member most wants to prioritize.
+ * @param {string[]} [secondary] muscle slugs they want a smaller bump to.
+ *
+ * With no priorities, the 3 routines run in the natural Push→Pull→Legs order: 2 or 3 days
+ * picks that many of the 3, 4-6 days cycles back through them (see SPEC_B above for how a
+ * repeat day avoids literally reusing the same routine). With priorities set, the routine(s)
+ * that train the prioritized muscles are the ones kept when the day count is under 3, and the
+ * ones repeated first when it's over 3 — so "quads/glutes" at 4 days a week gets Push, Pull,
+ * Legs, Legs(B) instead of a second Push day, and at 2 days a week gets Push+Legs instead of
+ * dropping Legs entirely.
  */
-export function buildPlan(goal, days) {
+export function buildPlan(goal, days, primary, secondary) {
   const rules = GOAL_RULES[goal] || GOAL_RULES.longevity
+  const order = routineOrder(primary, secondary)
+  const n = (days || []).length
+  let slots
+  if (n <= 3) {
+    const chosen = new Set(order.slice(0, n))
+    slots = [0, 1, 2].filter(s => chosen.has(s))
+  } else {
+    slots = [0, 1, 2]
+    for (let extra = 0; slots.length < n; extra++) slots.push(order[extra % 3])
+  }
   const routines = []
   const week = {}
   ;(days || []).forEach((d, i) => {
-    const lap = Math.floor(i / 3) % 2
-    const r = makeRoutine(lap === 0 ? SPEC : SPEC_B, i % 3, rules)
+    const slot = slots[i]
+    const lap = slots.slice(0, i).filter(s => s === slot).length
+    const r = makeRoutine(lap === 0 ? SPEC : SPEC_B, slot, rules)
     routines.push(r)
     week[d] = r.id
   })
