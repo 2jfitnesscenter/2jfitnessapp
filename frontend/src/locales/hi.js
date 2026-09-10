@@ -733,4 +733,8 @@ export default {
   "fatloss": "वसा कम होना",
   "endurance": "सहनशक्ति",
   "general": "सामान्य",
+
+  // Gym-wide exercise blacklist — hidden means unavailable everywhere
+  "Not currently offered — skipped when you start this workout": "फ़िलहाल उपलब्ध नहीं — यह वर्कआउट शुरू करते समय छोड़ दिया जाएगा",
+  "{0} exercise(s) skipped — not currently available": "{0} व्यायाम छोड़े गए — फ़िलहाल उपलब्ध नहीं",
 }

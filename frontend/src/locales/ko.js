@@ -733,4 +733,8 @@ export default {
   "fatloss": "체지방 감량",
   "endurance": "지구력",
   "general": "일반",
+
+  // Gym-wide exercise blacklist — hidden means unavailable everywhere
+  "Not currently offered — skipped when you start this workout": "현재 제공되지 않음 — 이 운동을 시작하면 건너뜁니다",
+  "{0} exercise(s) skipped — not currently available": "{0}개 운동 건너뜀 — 현재 이용 불가",
 }

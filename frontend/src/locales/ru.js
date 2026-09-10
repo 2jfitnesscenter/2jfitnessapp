@@ -733,4 +733,8 @@ export default {
   "fatloss": "Похудение",
   "endurance": "Выносливость",
   "general": "Общее",
+
+  // Gym-wide exercise blacklist — hidden means unavailable everywhere
+  "Not currently offered — skipped when you start this workout": "Сейчас недоступно — будет пропущено при начале этой тренировки",
+  "{0} exercise(s) skipped — not currently available": "{0} упражнение(й) пропущено — сейчас недоступно",
 }

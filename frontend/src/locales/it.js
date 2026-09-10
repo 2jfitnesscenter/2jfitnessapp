@@ -733,4 +733,8 @@ export default {
   "fatloss": "Perdita di grasso",
   "endurance": "Resistenza",
   "general": "Generale",
+
+  // Gym-wide exercise blacklist — hidden means unavailable everywhere
+  "Not currently offered — skipped when you start this workout": "Non disponibile al momento — saltato all'avvio di questo allenamento",
+  "{0} exercise(s) skipped — not currently available": "{0} esercizio/i saltato/i — non disponibile/i al momento",
 }

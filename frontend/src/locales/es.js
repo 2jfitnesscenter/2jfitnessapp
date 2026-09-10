@@ -711,6 +711,10 @@ export default {
   // Theme picker's third option — follows the device's light/dark setting
   'Auto': 'Auto',
 
+  // Gym-wide exercise blacklist — hidden means unavailable everywhere, not just unpickable
+  'Not currently offered — skipped when you start this workout': 'No disponible ahora mismo — se omite al empezar este entrenamiento',
+  '{0} exercise(s) skipped — not currently available': '{0} ejercicio(s) omitido(s) — no disponible(s) ahora mismo',
+
   // AI Coach intake (CoachIntake.jsx GOALS/EXPERIENCE — passed to t() as a variable, not a
   // literal, so these were invisible to earlier audits and were leaking English)
   'Get stronger': 'Ganar fuerza',

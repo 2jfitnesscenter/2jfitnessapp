@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
-import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf } from './lib/exercises.js'
+import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
 import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
@@ -774,10 +774,17 @@ export function startFlow(routineId) {
 export function beginWorkout(routineId, bw) {
   const st = S()
   const r = routineId ? st.routines.find(x => x.id === routineId) : null
+  // Exercises the gym has since hidden (out of equipment, retired from the floor) are left
+  // out of the session entirely — this is what makes "hide" actually mean "not available",
+  // not just "not offered for new picks". Cloned before cleanupSg (which mutates in place)
+  // so dropping an orphaned superset pairing here never touches the routine's own saved ex[].
+  const usable = (r ? r.ex : []).filter(cfg => !isHidden(cfg.id)).map(cfg => ({ ...cfg }))
+  cleanupSg(usable)
+  const skipped = (r ? r.ex.length : 0) - usable.length
   // The prescription is applied as the session is built, so you walk up to the bar with the
   // right weight already on the screen instead of being told about it afterwards. `plan` is
   // kept on the entry purely so the workout can explain the number it chose.
-  const entries = (r ? r.ex : []).map(cfg => {
+  const entries = usable.map(cfg => {
     const plan = nextPrescription(st, cfg, r)
     return { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: applyPrescription(buildSets(st, cfg), plan) }
   })
@@ -786,6 +793,7 @@ export function beginWorkout(routineId, bw) {
   })
   useUI.getState().stopRest()
   nav('/workout')
+  if (skipped) toast(t('{0} exercise(s) skipped — not currently available', skipped))
 }
 function TopWeight({ entryIdx, close }) {
   const st = useStore(s => s.S)

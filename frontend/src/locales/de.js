@@ -751,4 +751,8 @@ export default {
   "fatloss": "Fettabbau",
   "endurance": "Ausdauer",
   "general": "Allgemein",
+
+  // Gym-wide exercise blacklist — hidden means unavailable everywhere
+  "Not currently offered — skipped when you start this workout": "Derzeit nicht verfügbar – wird beim Start dieses Trainings übersprungen",
+  "{0} exercise(s) skipped — not currently available": "{0} Übung(en) übersprungen – derzeit nicht verfügbar",
 }

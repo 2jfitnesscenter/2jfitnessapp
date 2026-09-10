@@ -733,4 +733,8 @@ export default {
   "fatloss": "Redukcja tkanki tłuszczowej",
   "endurance": "Wytrzymałość",
   "general": "Ogólne",
+
+  // Gym-wide exercise blacklist — hidden means unavailable everywhere
+  "Not currently offered — skipped when you start this workout": "Obecnie niedostępne — pomijane przy rozpoczęciu tego treningu",
+  "{0} exercise(s) skipped — not currently available": "{0} ćwiczenie(a) pominięto — obecnie niedostępne",
 }

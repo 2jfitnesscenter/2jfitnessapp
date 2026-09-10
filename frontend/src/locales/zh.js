@@ -733,4 +733,8 @@ export default {
   "fatloss": "减脂",
   "endurance": "耐力",
   "general": "综合",
+
+  // Gym-wide exercise blacklist — hidden means unavailable everywhere
+  "Not currently offered — skipped when you start this workout": "当前不可用——开始本次训练时会跳过",
+  "{0} exercise(s) skipped — not currently available": "已跳过 {0} 个动作——当前不可用",
 }

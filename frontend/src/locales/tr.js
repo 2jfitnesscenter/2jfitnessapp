@@ -733,4 +733,8 @@ export default {
   "fatloss": "Yağ kaybı",
   "endurance": "Dayanıklılık",
   "general": "Genel",
+
+  // Gym-wide exercise blacklist — hidden means unavailable everywhere
+  "Not currently offered — skipped when you start this workout": "Şu anda sunulmuyor — bu antrenmanı başlatırken atlanır",
+  "{0} exercise(s) skipped — not currently available": "{0} egzersiz atlandı — şu anda kullanılamıyor",
 }
