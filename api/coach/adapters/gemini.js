@@ -12,7 +12,7 @@
  * covers it with no UI changes). The free tier is exactly that: no card on file, request-per-
  * minute and per-day caps instead — see the Coach's own per-user/instance daily caps in the
  * admin panel for a second layer of that same protection. */
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.6-flash';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const SYSTEM_PROMPT = [
   'You are the openGym Coach.',
