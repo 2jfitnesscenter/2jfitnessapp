@@ -8,6 +8,17 @@ const SPEC = [
   ['Leg Day', 'legs', [['0043', 4, 8], ['0085', 3, 10], ['0739', 3, 12], ['0585', 3, 12], ['0586', 3, 12], ['0605', 4, 15]]]
 ]
 
+// A second pass through the same 3 days, same body parts and slot order as SPEC (so
+// GOAL_RULES' compound/accessory-by-index logic still applies identically), but different
+// specific exercises — for 4-6 day plans, where the 3-routine pool has to run more than once
+// a week. Reusing SPEC verbatim on a repeat day looked like a bug (same routine, same id,
+// same exercises on two different weekdays) rather than a deliberate higher-frequency week.
+const SPEC_B = [
+  ['Push Day B', 'barbell', [['0289', 4, 8], ['0314', 3, 10], ['0405', 3, 10], ['0178', 3, 12], ['0060', 3, 12], ['0308', 3, 10]]],
+  ['Pull Day B', 'pullup', [['0818', 4, 10], ['3017', 4, 8], ['0861', 3, 10], ['0070', 3, 10], ['0165', 3, 12]]],
+  ['Leg Day B', 'legs', [['0046', 4, 8], ['1459', 3, 10], ['0760', 3, 12], ['0585', 3, 12], ['0599', 3, 12], ['0594', 4, 15]]]
+]
+
 // Fresh routine objects (new ids) — [push, pull, legs]. Used as-is by the demo build's seeded
 // history (frontend/src/lib/demoSeed.js) — keep this zero-arg and general-purpose; goal/day
 // customization lives in buildPlan below instead of changing this signature.
@@ -46,27 +57,37 @@ export const GOAL_RULES = {
   longevity: { compound: [10, 3], accessory: [12, 2], superset: false }
 }
 
+function makeRoutine(spec, slot, rules) {
+  const [name, emoji, list] = spec[slot]
+  const ex = list.map(([id], i) => {
+    const [reps, sets] = i === 0 ? rules.compound : rules.accessory
+    return { id, sets, reps, weight: 0 }
+  })
+  // Density over rest for fat loss: pair up consecutive accessories (skipping the
+  // compound at index 0) as supersets, two at a time.
+  if (rules.superset) {
+    for (let i = 1; i + 1 < ex.length; i += 2) { const tag = 'a' + i; ex[i].sg = tag; ex[i + 1].sg = tag }
+  }
+  return { id: uid(), name, emoji, ex }
+}
+
 /**
  * @param {string} goal one of GOALS — falls back to 'longevity' if unrecognised
  * @param {number[]} days weekday numbers (0=Sunday..6=Saturday) to schedule, in order.
- *   The 3 routines cycle across them — 3 days is once each, 6 is twice each, 2 or 4 means
- *   the cycle doesn't divide evenly and simply continues where it left off.
+ *   The 3 routines cycle across them — 3 days is once each, 6 is twice each. 2 or 4 days
+ *   means the cycle doesn't divide evenly and continues where it left off; whenever a day
+ *   would repeat a routine from earlier in the week, it gets SPEC_B's exercises for the
+ *   same body parts instead of literally the same routine again.
  */
 export function buildPlan(goal, days) {
   const rules = GOAL_RULES[goal] || GOAL_RULES.longevity
-  const routines = SPEC.map(([name, emoji, list]) => {
-    const ex = list.map(([id], i) => {
-      const [reps, sets] = i === 0 ? rules.compound : rules.accessory
-      return { id, sets, reps, weight: 0 }
-    })
-    // Density over rest for fat loss: pair up consecutive accessories (skipping the
-    // compound at index 0) as supersets, two at a time.
-    if (rules.superset) {
-      for (let i = 1; i + 1 < ex.length; i += 2) { const tag = 'a' + i; ex[i].sg = tag; ex[i + 1].sg = tag }
-    }
-    return { id: uid(), name, emoji, ex }
-  })
+  const routines = []
   const week = {}
-  ;(days || []).forEach((d, i) => { week[d] = routines[i % routines.length].id })
+  ;(days || []).forEach((d, i) => {
+    const lap = Math.floor(i / 3) % 2
+    const r = makeRoutine(lap === 0 ? SPEC : SPEC_B, i % 3, rules)
+    routines.push(r)
+    week[d] = r.id
+  })
   return { routines, week }
 }

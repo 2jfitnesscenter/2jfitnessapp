@@ -558,8 +558,8 @@ const routes = {
 
   // Applies the same Push/Pull/Legs starter plan "Load starter plan" offers a member, straight
   // onto a member's profile from the admin side — mirrors frontend/src/lib/starter.js's
-  // buildPlan() exactly (exercise ids, GOAL_RULES, DAY_SPREAD); kept in sync by hand, same
-  // trade-off payload.js already makes for logic shared with the frontend but not
+  // buildPlan() exactly (exercise ids, SPEC_B, GOAL_RULES, DAY_SPREAD); kept in sync by hand,
+  // same trade-off payload.js already makes for logic shared with the frontend but not
   // build-step-shared with it. body: { id, goal?, days? } — goal defaults to 'longevity',
   // days (2-6) to 3, same defaults the member-facing intake sheet starts on.
   'POST /api/admin/user/apply-starter-plan': async (req, res) => {
@@ -574,6 +574,14 @@ const routes = {
       ['Pull Day', 'pullup', ['2330', '0027', '1323', '0031', '0313']],
       ['Leg Day', 'legs', ['0043', '0085', '0739', '0585', '0586', '0605']]
     ];
+    // Second pass through the same 3 days for 4-6 day plans, same slot order as SPEC but
+    // different exercises — so a repeat day (e.g. the 2nd Push day of the week) isn't
+    // literally the same routine as the 1st.
+    const SPEC_B = [
+      ['Push Day B', 'barbell', ['0289', '0314', '0405', '0178', '0060', '0308']],
+      ['Pull Day B', 'pullup', ['0818', '3017', '0861', '0070', '0165']],
+      ['Leg Day B', 'legs', ['0046', '1459', '0760', '0585', '0599', '0594']]
+    ];
     const GOAL_RULES = {
       hypertrophy: { compound: [8, 4], accessory: [12, 3], superset: false },
       toning: { compound: [10, 4], accessory: [15, 3], superset: false },
@@ -585,7 +593,8 @@ const routes = {
     const DAY_SPREAD = { 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5], 6: [1, 2, 3, 4, 5, 6] };
     const rules = GOAL_RULES[body.goal] || GOAL_RULES.longevity;
     const days = DAY_SPREAD[body.days] || DAY_SPREAD[3];
-    const routines = SPEC.map(([name, emoji, ids]) => {
+    const makeRoutine = (spec, slot) => {
+      const [name, emoji, ids] = spec[slot];
       const ex = ids.map((id, i) => {
         const [reps, sets] = i === 0 ? rules.compound : rules.accessory;
         return { id, sets, reps, weight: 0 };
@@ -594,10 +603,11 @@ const routes = {
         for (let i = 1; i + 1 < ex.length; i += 2) { const tag = 'a' + i; ex[i].sg = tag; ex[i + 1].sg = tag; }
       }
       return { id: crypto.randomBytes(9).toString('base64url'), name, emoji, ex };
-    });
+    };
+    const routines = days.map((d, i) => makeRoutine(Math.floor(i / 3) % 2 === 0 ? SPEC : SPEC_B, i % 3));
     S.routines = [...(S.routines || []), ...routines];
     S.week = { ...(S.week || {}) };
-    days.forEach((d, i) => { S.week[d] = routines[i % routines.length].id; });
+    days.forEach((d, i) => { S.week[d] = routines[i].id; });
     S._ts = Date.now();
     atomicWrite(stateFile(u.id), JSON.stringify(S));
     json(res, 200, { ok: true });
