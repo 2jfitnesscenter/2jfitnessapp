@@ -556,10 +556,12 @@ const routes = {
     json(res, 200, { ok: true });
   },
 
-  // Applies the same Push/Pull/Legs starter plan "Load starter plan" offers a member,
-  // straight onto a member's profile from the admin side (Mon/Wed/Fri) — mirrors
-  // frontend/src/lib/starter.js exactly; kept in sync by hand, same trade-off payload.js
-  // already makes for logic shared with the frontend but not build-step-shared with it.
+  // Applies the same Push/Pull/Legs starter plan "Load starter plan" offers a member, straight
+  // onto a member's profile from the admin side — mirrors frontend/src/lib/starter.js's
+  // buildPlan() exactly (exercise ids, GOAL_RULES, DAY_SPREAD); kept in sync by hand, same
+  // trade-off payload.js already makes for logic shared with the frontend but not
+  // build-step-shared with it. body: { id, goal?, days? } — goal defaults to 'general',
+  // days (2-6) to 3, same defaults the member-facing intake sheet starts on.
   'POST /api/admin/user/apply-starter-plan': async (req, res) => {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
@@ -568,16 +570,33 @@ const routes = {
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'member has never synced — nothing to add a plan to yet' });
     const SPEC = [
-      ['Push Day', 'barbell', [['0025', 4, 8], ['0047', 3, 10], ['0426', 3, 10], ['0334', 3, 12], ['0241', 3, 12], ['0251', 3, 10]]],
-      ['Pull Day', 'pullup', [['2330', 4, 10], ['0027', 4, 8], ['1323', 3, 10], ['0031', 3, 10], ['0313', 3, 12]]],
-      ['Leg Day', 'legs', [['0043', 4, 8], ['0085', 3, 10], ['0739', 3, 12], ['0585', 3, 12], ['0586', 3, 12], ['0605', 4, 15]]]
+      ['Push Day', 'barbell', ['0025', '0047', '0426', '0334', '0241', '0251']],
+      ['Pull Day', 'pullup', ['2330', '0027', '1323', '0031', '0313']],
+      ['Leg Day', 'legs', ['0043', '0085', '0739', '0585', '0586', '0605']]
     ];
-    const routines = SPEC.map(([name, emoji, list]) => ({
-      id: crypto.randomBytes(9).toString('base64url'), name, emoji,
-      ex: list.map(([id, sets, reps]) => ({ id, sets, reps, weight: 0 }))
-    }));
+    const GOAL_RULES = {
+      strength: { compound: [5, 5], accessory: [6, 3], superset: false },
+      muscle: { compound: [8, 4], accessory: [10, 4], superset: false },
+      general: { compound: [10, 3], accessory: [12, 3], superset: false },
+      fatloss: { compound: [10, 3], accessory: [12, 3], superset: true },
+      endurance: { compound: [15, 2], accessory: [15, 2], superset: false }
+    };
+    const DAY_SPREAD = { 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5], 6: [1, 2, 3, 4, 5, 6] };
+    const rules = GOAL_RULES[body.goal] || GOAL_RULES.general;
+    const days = DAY_SPREAD[body.days] || DAY_SPREAD[3];
+    const routines = SPEC.map(([name, emoji, ids]) => {
+      const ex = ids.map((id, i) => {
+        const [reps, sets] = i === 0 ? rules.compound : rules.accessory;
+        return { id, sets, reps, weight: 0 };
+      });
+      if (rules.superset) {
+        for (let i = 1; i + 1 < ex.length; i += 2) { const tag = 'a' + i; ex[i].sg = tag; ex[i + 1].sg = tag; }
+      }
+      return { id: crypto.randomBytes(9).toString('base64url'), name, emoji, ex };
+    });
     S.routines = [...(S.routines || []), ...routines];
-    S.week = { ...(S.week || {}), 1: routines[0].id, 3: routines[1].id, 5: routines[2].id };
+    S.week = { ...(S.week || {}) };
+    days.forEach((d, i) => { S.week[d] = routines[i % routines.length].id; });
     S._ts = Date.now();
     atomicWrite(stateFile(u.id), JSON.stringify(S));
     json(res, 200, { ok: true });

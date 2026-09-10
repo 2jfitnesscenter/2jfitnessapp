@@ -711,6 +711,11 @@ export default {
   // Theme picker's third option — follows the device's light/dark setting
   'Auto': 'Auto',
 
+  // Goal/day-aware quick-plan intake (replaces the old fixed 3-day starter plan)
+  'Set up your plan': 'Configura tu plan',
+  'Adds Push/Pull/Legs routines on top of whatever they already have.': 'Añade las rutinas Push/Pull/Legs encima de lo que ya tenga.',
+  'Plan loaded — {0} days a week': 'Plan cargado — {0} días a la semana',
+
   // Admin dashboard (Admin.jsx + AdminCoach.jsx) — previously deliberately English-only,
   // now on the same t()/locale system as the rest of the app.
   '(the provider default)': '(el valor por defecto del proveedor)',

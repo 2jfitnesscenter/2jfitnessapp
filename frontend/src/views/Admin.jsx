@@ -12,6 +12,11 @@ import { Button, Segmented } from '../components/ui.jsx'
 import AdminCoach from './AdminCoach.jsx'
 import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
 import { Thumb } from '../components/Media.jsx'
+import { GOALS } from '../lib/starter.js'
+
+// Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "strength" means the
+// same rep range whether a member or an admin set it up.
+const GOAL_LABEL = { strength: 'Get stronger', muscle: 'Build muscle', general: 'General fitness', fatloss: 'Lose fat', endurance: 'Endurance' }
 
 // Admin-only operator dashboard (owner passkey + admin flag; guarded again server-side).
 // Uses the same t()/locale packs as the rest of the app — an owner running this in Spanish
@@ -69,6 +74,34 @@ function ProfileEditForm({ d, onSaved, close }) {
   </>
 }
 
+function StarterPlanSheet({ u, onApplied, close }) {
+  const toast = useUI(s => s.toast)
+  const [goal, setGoal] = useState('general')
+  const [days, setDays] = useState(3)
+  const [busy, setBusy] = useState(false)
+  const apply = () => {
+    setBusy(true)
+    api('/api/admin/user/apply-starter-plan', { method: 'POST', body: JSON.stringify({ id: u.id, goal, days }) })
+      .then(() => { toast(t('Starter plan added')); onApplied(); close() })
+      .catch(e => { toast(e.message); setBusy(false) })
+  }
+  return <>
+    <h3>{t('Load the PPL starter plan for {0}?', u.name)}</h3>
+    <div className="muted small" style={{ margin: '6px 0 10px' }}>{t('Adds Push/Pull/Legs routines on top of whatever they already have.')}</div>
+    <div className="dim small" style={{ marginBottom: 6 }}>{t('What are you training for?')}</div>
+    <div className="sect-b">
+      {GOALS.map(g => <button key={g} className="lrow tap" onClick={() => setGoal(g)}>
+        <span className="lrow-m"><span className="lrow-t">{t(GOAL_LABEL[g])}</span></span>
+        {goal === g && <Icon name="check" className="lrow-k" />}
+      </button>)}
+    </div>
+    <div className="dim small" style={{ margin: '14px 0 6px' }}>{t('How many days a week?')}</div>
+    <Segmented options={[2, 3, 4, 5, 6].map(n => ({ value: n, label: String(n) }))} value={days} onChange={setDays} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" icon="sparkles" disabled={busy} onClick={apply}>{t('Load plan')}</Button>
+  </>
+}
+
 function UserDetail({ id, onChanged, close }) {
   const [d, setD] = useState(null)
   const toast = useUI(s => s.toast)
@@ -82,13 +115,7 @@ function UserDetail({ id, onChanged, close }) {
       .then(() => { toast(disabled ? t('User disabled') : t('User enabled')); onChanged(); close() })
       .catch(e => toast(e.message))
   }
-  const applyStarterPlan = () => confirmSheet({
-    title: t('Load the PPL starter plan for {0}?', u.name),
-    message: t('Adds Push/Pull/Legs routines (Mon/Wed/Fri) on top of whatever they already have.'),
-    confirmText: t('Load plan'),
-    onConfirm: () => api('/api/admin/user/apply-starter-plan', { method: 'POST', body: JSON.stringify({ id: u.id }) })
-      .then(() => { toast(t('Starter plan added')); load() }).catch(e => toast(e.message))
-  })
+  const applyStarterPlan = () => openSheet(close2 => <StarterPlanSheet u={u} onApplied={load} close={close2} />)
   const age = ageFrom(d.birthDate)
   return <>
     <h3 className="capitalize">{u.name}</h3>
