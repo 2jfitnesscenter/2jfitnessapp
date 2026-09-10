@@ -560,7 +560,7 @@ const routes = {
   // onto a member's profile from the admin side — mirrors frontend/src/lib/starter.js's
   // buildPlan() exactly (exercise ids, GOAL_RULES, DAY_SPREAD); kept in sync by hand, same
   // trade-off payload.js already makes for logic shared with the frontend but not
-  // build-step-shared with it. body: { id, goal?, days? } — goal defaults to 'general',
+  // build-step-shared with it. body: { id, goal?, days? } — goal defaults to 'longevity',
   // days (2-6) to 3, same defaults the member-facing intake sheet starts on.
   'POST /api/admin/user/apply-starter-plan': async (req, res) => {
     if (!requireAdmin(req, res)) return;
@@ -575,14 +575,15 @@ const routes = {
       ['Leg Day', 'legs', ['0043', '0085', '0739', '0585', '0586', '0605']]
     ];
     const GOAL_RULES = {
-      strength: { compound: [5, 5], accessory: [6, 3], superset: false },
-      muscle: { compound: [8, 4], accessory: [10, 4], superset: false },
-      general: { compound: [10, 3], accessory: [12, 3], superset: false },
-      fatloss: { compound: [10, 3], accessory: [12, 3], superset: true },
-      endurance: { compound: [15, 2], accessory: [15, 2], superset: false }
+      hypertrophy: { compound: [8, 4], accessory: [12, 3], superset: false },
+      toning: { compound: [10, 4], accessory: [15, 3], superset: false },
+      fatloss: { compound: [8, 4], accessory: [12, 3], superset: true },
+      power: { compound: [3, 5], accessory: [5, 3], superset: false },
+      plyometrics: { compound: [5, 4], accessory: [5, 3], superset: false },
+      longevity: { compound: [10, 3], accessory: [12, 2], superset: false }
     };
     const DAY_SPREAD = { 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5], 6: [1, 2, 3, 4, 5, 6] };
-    const rules = GOAL_RULES[body.goal] || GOAL_RULES.general;
+    const rules = GOAL_RULES[body.goal] || GOAL_RULES.longevity;
     const days = DAY_SPREAD[body.days] || DAY_SPREAD[3];
     const routines = SPEC.map(([name, emoji, ids]) => {
       const ex = ids.map((id, i) => {

@@ -14,9 +14,9 @@ import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
 
-// Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "strength" means the
+// Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "hypertrophy" means the
 // same rep range whether a member or an admin set it up.
-const GOAL_LABEL = { strength: 'Get stronger', muscle: 'Build muscle', general: 'General fitness', fatloss: 'Lose fat', endurance: 'Endurance' }
+const GOAL_LABEL = { hypertrophy: 'Build muscle', toning: 'Tone up', fatloss: 'Lose fat', power: 'Power', plyometrics: 'Plyometrics', longevity: 'Health & longevity' }
 
 // Admin-only operator dashboard (owner passkey + admin flag; guarded again server-side).
 // Uses the same t()/locale packs as the rest of the app — an owner running this in Spanish
@@ -76,7 +76,7 @@ function ProfileEditForm({ d, onSaved, close }) {
 
 function StarterPlanSheet({ u, onApplied, close }) {
   const toast = useUI(s => s.toast)
-  const [goal, setGoal] = useState('general')
+  const [goal, setGoal] = useState('longevity')
   const [days, setDays] = useState(3)
   const [busy, setBusy] = useState(false)
   const apply = () => {

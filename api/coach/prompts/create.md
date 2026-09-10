@@ -7,14 +7,15 @@ This instance is a strength-training gym (2J Fitness Center) — every plan is b
 ## Constraints
 
 - `coachProfile.age`, `sex` and `heightCm` come from their account, not the intake — any of the three may be `null` if they never set it. When present, let them inform exercise selection, starting volume and pacing (e.g. more conservative loading progression and warm-up emphasis for an older lifter, joint-friendly variations where age or limitations suggest it) — never state assumptions about capability from age or sex alone, and never mention them in `why`/`summary` text unless they materially shaped a specific choice.
-- `coachProfile.goal` sets the default rep range and set count for the whole plan — deviate per exercise when `history`, `limitations` or an injury reasonably calls for it, but these are the baseline, not a suggestion. Rest between sets is a global app setting, not something this plan sets per exercise — use `sg` (superset) instead to control how dense a session feels:
-  | goal | reps | sets (compound / accessory) | notes |
-  |---|---|---|---|
-  | `strength` | 3–6 | 4–5 / 3 | `prog: "linear"` on the main lift of each session; fewer total exercises, more sets on them |
-  | `muscle` | 6–12 | 3–4 / 3–4 | more exercise variety per muscle group; `double` or `greyskull` progression suits accessories well |
-  | `general` | 8–15 | 3 / 2–3 | balanced full-body coverage across the week, nothing maximal |
-  | `fatloss` | 10–15 | 3 / 3 | keep it resistance training, not cardio circuits — pair accessories with `sg` for density, not lighter loads |
-  | `endurance` | 15–20+ | 2–3 / 2–3 | still straight sets of reps, just light and high-rep — not a timed circuit |
+- `coachProfile.goal` sets the default rep range, set count and effort target for the whole plan — deviate per exercise when `history`, `limitations` or an injury reasonably calls for it, but these are the baseline, not a suggestion. There is no schema field for RIR/RPE (sets/reps/weight/time only) — carry the target effort in each exercise's `why` instead (e.g. "3 sets of 6, leave 2 reps in the tank"), so the member sees it even though the app cannot enforce it. Rest between sets is a global app setting, not something this plan sets per exercise — use `sg` (superset) instead to control how dense a session feels:
+  | goal | reps | sets (compound / accessory) | RIR (≈RPE) | notes |
+  |---|---|---|---|---|
+  | `hypertrophy` | 6–12 | 3–4 / 3–4 | 1–3 (7–9) | more exercise variety per muscle group, close to failure on the last set; `double` or `greyskull` progression suits accessories well |
+  | `toning` | 12–20 | 2–3 / 2–3 | 2–4 (6–8) | moderate load, higher reps, shorter rest — visible definition and work capacity over maximal loading |
+  | `fatloss` | 8–15 | 3–4 / 3 | 1–3 (7–9) | keep it resistance training, not cardio circuits — pair accessories with `sg` for density, not lighter loads |
+  | `power` | 1–5 | 4–5 / 3 | 3–5 (5–7) | bar speed is the point, not the burn — stop a set the moment it slows down; longer rest (2–3 min) between sets; favour Olympic-lift variants, jump squats, med-ball throws and other explosive compounds where the library has them |
+  | `plyometrics` | 3–6 | 3–4 / 3 | 3–5 (5–7) | per this gym: plyometrics here means loaded strength moved explosively, not bodyweight jump-contact drills — same barbell/dumbbell compounds as `power`, executed for maximal bar/limb speed on the concentric; generous rest between sets, never taken near failure |
+  | `longevity` | 10–15 | 2–3 / 2–3 | 2–4 (6–8) | joint-friendly variations, balanced full-body coverage across the week, nothing maximal or high-impact |
 - Schedule exactly `coachProfile.daysPerWeek` training days. Use `preferredDays` when given (0 = Sunday … 6 = Saturday).
 - Fit `coachProfile.sessionMin` minutes: roughly 2–3 minutes per straight set including rest; supersets (`sg`) buy time back when the session is tight.
 - Only exercises from `library`. Respect `equipment`, `limitations`, and `dislikes` — a plan someone will not do is a plan that failed.

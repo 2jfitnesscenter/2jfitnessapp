@@ -856,21 +856,25 @@ export default {
   '{0} exercise(s) skipped — not currently available': '{0} ejercicio(s) omitido(s) — no disponible(s) ahora mismo',
 
   // AI Coach intake (CoachIntake.jsx GOALS/EXPERIENCE — passed to t() as a variable, not a
-  // literal, so these were invisible to earlier audits and were leaking English)
-  'Get stronger': 'Ganar fuerza',
+  // literal, so these were invisible to earlier audits and were leaking English). The 6 goal
+  // labels match Juanjo's exercise-science taxonomy (Hipertrofia/Tonificación/Pérdida de
+  // grasa/Potencia/Pliometría/Salud y longevidad) — same set used by the quick-plan picker.
   'Build muscle': 'Ganar músculo',
+  'Tone up': 'Tonificar',
   'Lose fat': 'Perder grasa',
-  'Endurance': 'Resistencia',
-  'General fitness': 'Forma física general',
+  'Power': 'Potencia',
+  'Plyometrics': 'Pliometría',
+  'Health & longevity': 'Salud y longevidad',
   'New to lifting': 'Nuevo en esto',
   'Coming back after a break': 'Retomando tras un parón',
   'Training regularly': 'Entreno con regularidad',
   // Coach.jsx summarise() — the bare goal slug, same t(variable) issue
-  'strength': 'Fuerza',
-  'muscle': 'Músculo',
+  'hypertrophy': 'Hipertrofia',
+  'toning': 'Tonificación',
   'fatloss': 'Pérdida de grasa',
-  'endurance': 'Resistencia',
-  'general': 'General',
+  'power': 'Potencia',
+  'plyometrics': 'Pliometría',
+  'longevity': 'Salud y longevidad',
   // Coach consent screen (Coach.jsx CATEGORY_TEXT) — also t(variable), also leaking English
   'Routines, exercises, sets and reps, your weekly schedule and progression settings.': 'Rutinas, ejercicios, series y repeticiones, tu horario semanal y los ajustes de progresión.',
   'Your logged training': 'Tu entrenamiento registrado',

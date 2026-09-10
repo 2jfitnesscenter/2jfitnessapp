@@ -46,13 +46,13 @@ export function confirmSheet(opts) {
 // A quick, non-AI alternative to the Coach intake: same Push/Pull/Legs exercise selection as
 // starterRoutines(), but the rep range/set count (from goal) and which weekdays it lands on
 // (from day count) come from what was actually asked for instead of one fixed 3-day default.
-const GOAL_LABEL = { strength: 'Get stronger', muscle: 'Build muscle', general: 'General fitness', fatloss: 'Lose fat', endurance: 'Endurance' }
+const GOAL_LABEL = { hypertrophy: 'Build muscle', toning: 'Tone up', fatloss: 'Lose fat', power: 'Power', plyometrics: 'Plyometrics', longevity: 'Health & longevity' }
 // Common, evenly-spread weekday patterns per day count — simpler and less fiddly than asking
 // someone to hand-pick exact weekdays for a plan they can already reschedule day by day later.
 const DAY_SPREAD = { 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5], 6: [1, 2, 3, 4, 5, 6] }
 
 function StarterPlanIntake({ close }) {
-  const [goal, setGoal] = useState('general')
+  const [goal, setGoal] = useState('longevity')
   const [days, setDays] = useState(3)
   const apply = () => {
     const { routines, week } = buildPlan(goal, DAY_SPREAD[days])

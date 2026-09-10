@@ -19,29 +19,41 @@ export const starterRoutines = () =>
  * set count and how many days a week it runs are chosen from what was actually asked for
  * instead of the fixed 3-days/general-fitness defaults above.
  *
- * Deliberately mirrors the rep/set table in api/coach/prompts/create.md — a quick plan and
- * an AI Coach plan should mean the same thing by "strength" or "hypertrophy". The api/
- * server.js admin endpoint (apply-starter-plan) duplicates this table too, for the same
- * reason payload.js duplicates other frontend logic: the two runtimes share no build step.
+ * The 6 goals and their rep/set/RIR ranges come from Juanjo's own reference table (exact
+ * source, not an approximation) and are deliberately mirrored in api/coach/prompts/create.md
+ * — a quick plan and an AI Coach plan should mean the same thing by "hypertrophy" or "power".
+ * The api/server.js admin endpoint (apply-starter-plan) duplicates this table too, for the
+ * same reason payload.js duplicates other frontend logic: the two runtimes share no build step.
+ *
+ * The table gives one series/rep/RIR range per exercise, not a compound-vs-accessory split —
+ * this app's routines put the main lift first and accessories after, so the compound side
+ * below uses the lower-reps/higher-sets end of each range (more work on the exercise that
+ * matters most) and accessory uses the higher-reps/lower-sets end. RIR/RPE has no field in the
+ * plan schema (sets/reps/weight only) — it's carried in create.md as guidance for the AI Coach
+ * to write into its own `why` text and pacing, not something this deterministic tool can set.
  * ------------------------------------------------------------------------------------- */
-export const GOALS = ['strength', 'muscle', 'general', 'fatloss', 'endurance']
+export const GOALS = ['hypertrophy', 'toning', 'fatloss', 'power', 'plyometrics', 'longevity']
 // [reps, sets] for the routine's first (compound) exercise vs the rest (accessories).
 export const GOAL_RULES = {
-  strength: { compound: [5, 5], accessory: [6, 3], superset: false },
-  muscle: { compound: [8, 4], accessory: [10, 4], superset: false },
-  general: { compound: [10, 3], accessory: [12, 3], superset: false },
-  fatloss: { compound: [10, 3], accessory: [12, 3], superset: true },
-  endurance: { compound: [15, 2], accessory: [15, 2], superset: false }
+  hypertrophy: { compound: [8, 4], accessory: [12, 3], superset: false },
+  toning: { compound: [10, 4], accessory: [15, 3], superset: false },
+  fatloss: { compound: [8, 4], accessory: [12, 3], superset: true },
+  power: { compound: [3, 5], accessory: [5, 3], superset: false },
+  // Juanjo's framing: plyometrics here means loaded strength patterns done explosively,
+  // combining strength with power — not bodyweight jump-contact training — so it uses the
+  // same barbell/dumbbell pool as every other goal rather than needing its own exercise set.
+  plyometrics: { compound: [5, 4], accessory: [5, 3], superset: false },
+  longevity: { compound: [10, 3], accessory: [12, 2], superset: false }
 }
 
 /**
- * @param {string} goal one of GOALS — falls back to 'general' if unrecognised
+ * @param {string} goal one of GOALS — falls back to 'longevity' if unrecognised
  * @param {number[]} days weekday numbers (0=Sunday..6=Saturday) to schedule, in order.
  *   The 3 routines cycle across them — 3 days is once each, 6 is twice each, 2 or 4 means
  *   the cycle doesn't divide evenly and simply continues where it left off.
  */
 export function buildPlan(goal, days) {
-  const rules = GOAL_RULES[goal] || GOAL_RULES.general
+  const rules = GOAL_RULES[goal] || GOAL_RULES.longevity
   const routines = SPEC.map(([name, emoji, list]) => {
     const ex = list.map(([id], i) => {
       const [reps, sets] = i === 0 ? rules.compound : rules.accessory

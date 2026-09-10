@@ -16,15 +16,16 @@ import { Button, TextArea, Segmented } from '../components/ui.jsx'
    abandon. Only the first two questions are required — everything after them improves the
    plan without gating it, and someone who wants to just get training should be able to. */
 
-// 2J Fitness Center is a strength gym — strength/muscle lead the list since that is what most
-// members are here for, but the other goals stay available rather than removed (see project
-// notes): someone training here can still tell the Coach their goal is fat loss or endurance.
+// The 6 goals match Juanjo's own exercise-science reference table (rep/set/RIR ranges per
+// goal), mirrored in frontend/src/lib/starter.js's GOAL_RULES and api/coach/prompts/create.md
+// so a quick plan and an AI Coach plan mean the same thing by each label.
 const GOALS = [
-  ['strength', 'Get stronger'],
-  ['muscle', 'Build muscle'],
+  ['hypertrophy', 'Build muscle'],
+  ['toning', 'Tone up'],
   ['fatloss', 'Lose fat'],
-  ['endurance', 'Endurance'],
-  ['general', 'General fitness']
+  ['power', 'Power'],
+  ['plyometrics', 'Plyometrics'],
+  ['longevity', 'Health & longevity']
 ]
 const EXPERIENCE = [
   ['new', 'New to lifting'],
