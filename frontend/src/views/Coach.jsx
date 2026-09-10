@@ -231,10 +231,10 @@ function StatusCard({ job, pending, nav }) {
 
 function CadenceCard({ coach, update }) {
   const cadence = coach.cadence && coach.cadence !== 'off' ? coach.cadence : null
-  const mode = !cadence ? 'off' : cadence.weekly ? 'weekly' : 'every'
+  const mode = !cadence ? 'off' : cadence.monthly ? 'monthly' : 'every'
   const setMode = m => update(s => {
     const c = (s.coach = s.coach || emptyCoach())
-    c.cadence = m === 'off' ? 'off' : m === 'weekly' ? { weekly: { day: 0, time: '18:00' } } : { everyWorkouts: 4 }
+    c.cadence = m === 'off' ? 'off' : m === 'monthly' ? { monthly: { day: 1, time: '18:00' } } : { everyWorkouts: 4 }
   })
   const patch = fn => update(s => { const c = (s.coach = s.coach || emptyCoach()); fn(c) })
 
@@ -246,17 +246,17 @@ function CadenceCard({ coach, update }) {
       value={mode} onChange={setMode}
       options={[
         { value: 'off', label: t('Off') },
-        { value: 'weekly', label: t('Weekly'), subtitle: t('On a day and time you choose') },
+        { value: 'monthly', label: t('Monthly'), subtitle: t('On a day and time you choose') },
         { value: 'every', label: t('After every few workouts'), subtitle: t('As soon as you have logged enough') }
       ]} />
-    {mode === 'weekly' && <>
+    {mode === 'monthly' && <>
       <SelectRow icon="calendar" iconTint="var(--orange)" title={t('Day')}
-        value={cadence.weekly.day}
-        onChange={v => patch(c => { c.cadence = { weekly: { ...c.cadence.weekly, day: v } } })}
-        options={['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, i) => ({ value: i, label: t(d) }))} />
+        value={cadence.monthly.day}
+        onChange={v => patch(c => { c.cadence = { monthly: { ...c.cadence.monthly, day: v } } })}
+        options={Array.from({ length: 28 }, (_, i) => i + 1).map(d => ({ value: d, label: t('Day {0}', d) }))} />
       <Row icon="clock" iconTint="var(--purple)" title={t('Time')}>
-        <input type="time" className="timef" value={cadence.weekly.time || '18:00'}
-          onChange={e => patch(c => { c.cadence = { weekly: { ...c.cadence.weekly, time: e.target.value } } })} />
+        <input type="time" className="timef" value={cadence.monthly.time || '18:00'}
+          onChange={e => patch(c => { c.cadence = { monthly: { ...c.cadence.monthly, time: e.target.value } } })} />
       </Row>
     </>}
     {mode === 'every' && <SelectRow icon="dumbbell" iconTint="var(--teal)" title={t('After how many workouts')}

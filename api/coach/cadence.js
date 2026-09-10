@@ -14,7 +14,7 @@ import * as cfgStore from './config.js';
 
 const TICK_MS = 60000;
 
-/** Weekly cadence fires within the minute; everyWorkouts fires as soon as the count is met. */
+/** Monthly cadence fires within the minute; everyWorkouts fires as soon as the count is met. */
 export function isDue(coach, S, now) {
   const cadence = coach.cadence;
   if (!cadence || cadence === 'off') return false;
@@ -28,13 +28,15 @@ export function isDue(coach, S, now) {
   if (cadence.everyWorkouts) {
     return since.length >= Math.max(1, Math.min(20, cadence.everyWorkouts));
   }
-  if (cadence.weekly) {
+  if (cadence.monthly) {
     if (!now) return false;
-    const wantDay = cadence.weekly.day ?? 0;
-    const wantTime = cadence.weekly.time || '18:00';
-    if (now.weekday !== wantDay || now.hhmm !== wantTime) return false;
-    // One per day, even if the tick sees the same minute twice.
-    return new Date(lastAt).toISOString().slice(0, 10) !== now.date;
+    // Capped at 28 in the UI (every month has that day), so there is no "day does not exist
+    // this month" case to special-case here.
+    const wantDay = cadence.monthly.day ?? 1;
+    const wantTime = cadence.monthly.time || '18:00';
+    if (Number(now.date.slice(8, 10)) !== wantDay || now.hhmm !== wantTime) return false;
+    // One per calendar month, even if the tick sees the same minute twice.
+    return new Date(lastAt).toISOString().slice(0, 7) !== now.date.slice(0, 7);
   }
   return false;
 }
@@ -50,7 +52,7 @@ export function startCadence(deps) {
         const S = jobs.readState(user.id);
         const coach = S?.coach;
         if (!coach?.consent?.agreedAt) continue;         // consent revoked ⇒ cadence stops
-        const tz = coach.cadence?.weekly ? (S.reminder?.tz || 'UTC') : null;
+        const tz = coach.cadence?.monthly ? (S.reminder?.tz || 'UTC') : null;
         const now = tz ? deps.userNow(tz) : null;
         if (!isDue(coach, S, now)) continue;
         jobs.enqueue(user.id, { kind: 'review', trigger: 'scheduled' });

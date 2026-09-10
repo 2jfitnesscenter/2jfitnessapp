@@ -57,20 +57,32 @@ test('a Claude Code setup token is encrypted and reaches only the Agent SDK envi
   assert.deepEqual(Object.keys(env).sort(), ['CLAUDE_CODE_DISABLE_AUTO_MEMORY', 'CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CONFIG_DIR', 'HOME', 'PATH', 'TMPDIR']);
 });
 
-test('retired Gemini and Custom command configurations reset to unconfigured Claude', () => {
+test('a retired Custom command configuration resets to unconfigured Claude', () => {
   cfg.save({
     enabled: true,
-    provider: 'gemini',
+    provider: 'custom',   // never re-added after "Remove retired Coach providers" — still not in PROVIDERS
     customCommand: '/usr/local/bin/my-coach',
-    auth: { type: 'apikey', data: cfg.encrypt({ token: 'gemini-key' }) }
+    auth: { type: 'apikey', data: cfg.encrypt({ token: 'some-key' }) }
   });
   cfg.reset();
   const current = cfg.load();
-  assert.deepEqual(Object.keys(cfg.PROVIDERS).sort(), ['claude', 'codex', 'fixture']);
+  assert.deepEqual(Object.keys(cfg.PROVIDERS).sort(), ['claude', 'codex', 'fixture', 'gemini']);
   assert.equal(current.provider, 'claude');
   assert.equal(current.auth, null);
   assert.equal(Object.hasOwn(current, 'customCommand'), false);
   assert.equal(cfg.isConnected(), false);
+});
+
+// Gemini was removed in "Remove retired Coach providers" (a CLI-spawn adapter, same family as
+// the also-removed Custom command) and later re-added as a plain HTTPS API adapter (gemini.js)
+// with no local command-execution surface — a config saved against that provider must round-trip
+// normally rather than being treated as a leftover from the retired one.
+test('Gemini is a live provider, not a retired one — its config round-trips normally', () => {
+  cfg.save({ enabled: true, provider: 'gemini', auth: { type: 'apikey', data: cfg.encrypt({ token: 'gemini-key' }) } });
+  cfg.reset();
+  const current = cfg.load();
+  assert.equal(current.provider, 'gemini');
+  assert.equal(cfg.isConnected(), true);
 });
 
 test('Codex uses its own ChatGPT CLI cache and never receives an API key', () => {
@@ -137,21 +149,21 @@ test('every-N-workouts fires once the count is met', () => {
   assert.equal(cadence.isDue(coachWith({ cadence: { everyWorkouts: 3 } }), S, null), true);
 });
 
-test('weekly fires on the chosen weekday and minute, in the user\'s own timezone', () => {
+test('monthly fires on the chosen day-of-month and minute, in the user\'s own timezone', () => {
   const S = sampleState();
-  S.workouts = [{ id: 'w1', d: '2026-07-25', end: Date.now(), entries: [] }];
-  const coach = coachWith({ cadence: { weekly: { day: 0, time: '18:00' } } });
-  assert.equal(cadence.isDue(coach, S, { date: '2026-07-26', hhmm: '18:00', weekday: 0 }), true);
-  assert.equal(cadence.isDue(coach, S, { date: '2026-07-26', hhmm: '17:59', weekday: 0 }), false);
-  assert.equal(cadence.isDue(coach, S, { date: '2026-07-27', hhmm: '18:00', weekday: 1 }), false);
+  S.workouts = [{ id: 'w1', d: '2026-07-05', end: Date.now(), entries: [] }];
+  const coach = coachWith({ cadence: { monthly: { day: 15, time: '18:00' } } });
+  assert.equal(cadence.isDue(coach, S, { date: '2026-07-15', hhmm: '18:00', weekday: 3 }), true);
+  assert.equal(cadence.isDue(coach, S, { date: '2026-07-15', hhmm: '17:59', weekday: 3 }), false);
+  assert.equal(cadence.isDue(coach, S, { date: '2026-07-16', hhmm: '18:00', weekday: 4 }), false);
 });
 
-test('weekly does not fire twice on the same day', () => {
+test('monthly does not fire twice in the same calendar month', () => {
   const S = sampleState();
-  S.workouts = [{ id: 'w1', d: '2026-07-25', end: Date.now(), entries: [] }];
+  S.workouts = [{ id: 'w1', d: '2026-07-05', end: Date.now(), entries: [] }];
   const coach = coachWith({
-    cadence: { weekly: { day: 0, time: '18:00' } },
-    lastReview: { at: new Date('2026-07-26T18:00:00Z').getTime() }
+    cadence: { monthly: { day: 15, time: '18:00' } },
+    lastReview: { at: new Date('2026-07-15T18:00:00Z').getTime() }
   });
-  assert.equal(cadence.isDue(coach, S, { date: '2026-07-26', hhmm: '18:00', weekday: 0 }), false);
+  assert.equal(cadence.isDue(coach, S, { date: '2026-07-15', hhmm: '18:00', weekday: 3 }), false);
 });
