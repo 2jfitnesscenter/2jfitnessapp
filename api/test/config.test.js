@@ -142,11 +142,31 @@ test('no new training since the last review means nothing to review', () => {
   assert.equal(cadence.isDue(coach, S, null), false);
 });
 
-test('every-N-workouts fires once the count is met', () => {
+test('every-N-workouts fires once every routine in the plan has that many', () => {
+  // sampleState()'s plan has a single routine, r1.
   const S = sampleState();
-  S.workouts = [1, 2, 3].map(i => ({ id: 'w' + i, d: '2026-07-2' + i, end: Date.now(), entries: [] }));
+  S.workouts = [1, 2, 3].map(i => ({ id: 'w' + i, d: '2026-07-2' + i, end: Date.now(), routineId: 'r1', entries: [] }));
   assert.equal(cadence.isDue(coachWith({ cadence: { everyWorkouts: 4 } }), S, null), false);
   assert.equal(cadence.isDue(coachWith({ cadence: { everyWorkouts: 3 } }), S, null), true);
+});
+
+test('every-N-workouts does not fire on a flat total — every routine needs its own N', () => {
+  const S = sampleState({ routines: [{ id: 'r1', name: 'Push', ex: [] }, { id: 'r2', name: 'Legs', ex: [] }] });
+  // 5 Push sessions, zero Legs — a real total of 5 is not "enough training to review" when a
+  // third of the split has gone completely untouched.
+  S.workouts = [1, 2, 3, 4, 5].map(i => ({ id: 'w' + i, d: '2026-07-0' + i, end: Date.now(), routineId: 'r1', entries: [] }));
+  assert.equal(cadence.isDue(coachWith({ cadence: { everyWorkouts: 3 } }), S, null), false);
+  S.workouts.push({ id: 'w6', d: '2026-07-10', end: Date.now(), routineId: 'r2', entries: [] });
+  S.workouts.push({ id: 'w7', d: '2026-07-11', end: Date.now(), routineId: 'r2', entries: [] });
+  assert.equal(cadence.isDue(coachWith({ cadence: { everyWorkouts: 3 } }), S, null), false, 'r2 still only has 2');
+  S.workouts.push({ id: 'w8', d: '2026-07-12', end: Date.now(), routineId: 'r2', entries: [] });
+  assert.equal(cadence.isDue(coachWith({ cadence: { everyWorkouts: 3 } }), S, null), true, 'both routines now have 3');
+});
+
+test('every-N-workouts never fires with no plan, and freestyle sessions do not count toward any routine', () => {
+  const S = sampleState({ routines: [] });
+  S.workouts = [1, 2, 3].map(i => ({ id: 'w' + i, d: '2026-07-2' + i, end: Date.now(), entries: [] })); // no routineId
+  assert.equal(cadence.isDue(coachWith({ cadence: { everyWorkouts: 1 } }), S, null), false, 'nothing in the plan to review against');
 });
 
 test('monthly fires on the chosen day-of-month and minute, in the user\'s own timezone', () => {

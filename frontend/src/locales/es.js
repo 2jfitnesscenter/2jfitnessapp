@@ -544,7 +544,7 @@ export default {
   'Add routine “{0}”': 'Añadir rutina «{0}»',
   'Add {0}': 'Añadir {0}',
   'After every few workouts': 'Cada varios entrenamientos',
-  'After how many workouts': 'Cada cuántos entrenamientos',
+  'After how many workouts of each routine': 'Cada cuántos entrenamientos de cada rutina',
   'An AI coach that can build your plan and adjust it from what you log. Off until you turn it on.': 'Un entrenador con IA que puede crear tu plan y ajustarlo según lo que registras. Apagado hasta que lo actives.',
   'An AI coach that can design your plan and adjust it from what you actually log. It runs on this server, it never changes anything without your say-so, and it is off until you turn it on.': 'Un entrenador con IA que puede diseñar tu plan y ajustarlo según lo que registras. Se ejecuta en este servidor, nunca cambia nada sin tu permiso y está apagado hasta que lo actives.',
   'Any pending suggestion is discarded and scheduled reviews stop. Your Coach history stays, and you can turn it back on anytime.': 'Se descarta cualquier sugerencia pendiente y se detienen las revisiones programadas. Tu historial se conserva y puedes reactivarlo cuando quieras.',

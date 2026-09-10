@@ -14,7 +14,8 @@ import * as cfgStore from './config.js';
 
 const TICK_MS = 60000;
 
-/** Monthly cadence fires within the minute; everyWorkouts fires as soon as the count is met. */
+/** Monthly cadence fires within the minute; everyWorkouts fires once every routine in the plan
+ *  has that many logged workouts since the last review. */
 export function isDue(coach, S, now) {
   const cadence = coach.cadence;
   if (!cadence || cadence === 'off') return false;
@@ -26,7 +27,15 @@ export function isDue(coach, S, now) {
   if (!since.length) return false;
 
   if (cadence.everyWorkouts) {
-    return since.length >= Math.max(1, Math.min(20, cadence.everyWorkouts));
+    // Per routine, not a flat total: 3 Push days and zero Legs days is not "enough training to
+    // review" for a 3-day split, it is a third of the plan going untouched. A freestyle session
+    // (no routineId) does not count toward any routine's total.
+    const routines = S.routines || [];
+    if (!routines.length) return false;
+    const n = Math.max(1, Math.min(20, cadence.everyWorkouts));
+    const counts = {};
+    since.forEach(w => { if (w.routineId) counts[w.routineId] = (counts[w.routineId] || 0) + 1; });
+    return routines.every(r => (counts[r.id] || 0) >= n);
   }
   if (cadence.monthly) {
     if (!now) return false;

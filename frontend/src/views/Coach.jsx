@@ -259,7 +259,7 @@ function CadenceCard({ coach, update }) {
           onChange={e => patch(c => { c.cadence = { monthly: { ...c.cadence.monthly, time: e.target.value } } })} />
       </Row>
     </>}
-    {mode === 'every' && <SelectRow icon="dumbbell" iconTint="var(--teal)" title={t('After how many workouts')}
+    {mode === 'every' && <SelectRow icon="dumbbell" iconTint="var(--teal)" title={t('After how many workouts of each routine')}
       value={cadence.everyWorkouts || 4}
       onChange={v => patch(c => { c.cadence = { everyWorkouts: v } })}
       options={[3, 4, 5, 6, 8, 10].map(n => ({ value: n, label: t('{0} workouts', n) }))} />}
