@@ -20,6 +20,15 @@ const require_ = createRequire(import.meta.url);
 const LIBRARY = require_('./library.json').exercises;
 const LIB_BY_ID = new Map(LIBRARY.map(e => [e.id, e]));
 
+// The owner's gym-wide exercise blacklist (server.js writes this file) — read fresh each call
+// rather than cached at import time, since an admin can change it while jobs are in flight.
+function hiddenIds() {
+  try {
+    const arr = JSON.parse(fs.readFileSync(path.join(DATA, 'hidden-exercises.json'), 'utf8'));
+    return Array.isArray(arr) ? new Set(arr) : new Set();
+  } catch { return new Set(); }
+}
+
 export const CONTRACT = 1;
 // Bounds from FR-22. A review reads a training block, not a training career: more history
 // makes the payload bigger and the reading vaguer, not better.
@@ -133,12 +142,13 @@ export function cleanPlan(S) {
 /* ---------- the library slice the model gets to choose from ---------- */
 export function librarySlice(S, equipment) {
   const wanted = (equipment || []).map(x => String(x).toLowerCase());
+  const hidden = hiddenIds();
   const customs = (S.customEx || []).map(c => ({ id: c.id, n: c.n, bp: c.bp, tg: null, eq: 'custom', custom: true }));
-  // No equipment stated (or "everything") ⇒ the whole catalogue. Filtering to nothing would
-  // leave the Coach unable to propose anything at all, which is a worse failure than a
-  // slightly larger payload.
-  const base = wanted.length ? LIBRARY.filter(e => wanted.includes((e.eq || '').toLowerCase())) : LIBRARY;
-  return [...customs, ...(base.length ? base : LIBRARY)];
+  const visible = hidden.size ? LIBRARY.filter(e => !hidden.has(e.id)) : LIBRARY;
+  // No equipment stated (or "everything") ⇒ the whole (visible) catalogue. Filtering to nothing
+  // would leave the Coach unable to propose anything at all, which is worse than a bigger payload.
+  const base = wanted.length ? visible.filter(e => wanted.includes((e.eq || '').toLowerCase())) : visible;
+  return [...customs, ...(base.length ? base : visible)];
 }
 export const libraryHas = id => LIB_BY_ID.has(id);
 export const libraryName = id => LIB_BY_ID.get(id)?.n || null;

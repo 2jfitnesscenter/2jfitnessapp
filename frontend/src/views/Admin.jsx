@@ -9,6 +9,8 @@ import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
 import AdminCoach from './AdminCoach.jsx'
+import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
+import { Thumb } from '../components/Media.jsx'
 
 // Admin-only operator dashboard (owner passkey + admin flag; guarded again server-side).
 // Deliberately English-only — it isn't part of the translated end-user surface, so it stays
@@ -149,6 +151,63 @@ function InvitesCard({ invites, reload }) {
   </div>
 }
 
+/* ============================ exercise blacklist ============================ */
+// Gym-wide: equipment this location doesn't have, or movements the owner would rather not
+// offer, hidden from every member's search/picker everywhere in the app. Not a deletion — the
+// 1324-exercise catalogue itself never changes, and a hidden id still resolves fine for
+// anyone who already has it logged or in a routine (see lib/exercises.js).
+function ExerciseLibrarySheet({ initialHidden, close }) {
+  const toast = useUI(s => s.toast)
+  const [hidden, setHidden] = useState(initialHidden)   // owns its own copy so toggles repaint immediately
+  const [q, setQ] = useState('')
+  const [bp, setBp] = useState('')
+  const [shown, setShown] = useState(60)
+  const ql = q.toLowerCase().trim()
+  const base = EXDB.filter(e => (!bp || e.bp === bp) && (!ql || e.n.toLowerCase().includes(ql)))
+  const toggle = (id, hide) => {
+    const next = new Set(hidden); hide ? next.add(id) : next.delete(id); setHidden(next)   // optimistic
+    api('/api/admin/exercises/hidden', { method: 'POST', body: JSON.stringify({ id, hidden: hide }) })
+      .catch(e => { toast(e.message); setHidden(hidden) })   // roll back on failure
+  }
+  return <>
+    <h3>Exercise library</h3>
+    <div className="dim small" style={{ marginBottom: 10 }}>{hidden.size} of {EXDB.length} hidden from members. Hiding one doesn't delete it — anyone who already has it stays unaffected.</div>
+    <div className="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+      <input className="input" placeholder={'Search ' + EXDB.length + ' exercises…'} value={q} onChange={e => { setQ(e.target.value); setShown(60) }} />
+    </div>
+    <div className="chips" style={{ margin: '10px 0' }}>
+      <button className={'chip nocap' + (!bp ? ' on' : '')} onClick={() => { setBp(''); setShown(60) }}>All</button>
+      {BODYPARTS.map(b => <button key={b} className={'chip' + (bp === b ? ' on' : '')} onClick={() => { setBp(b); setShown(60) }} style={{ textTransform: 'capitalize' }}>{b}</button>)}
+    </div>
+    <div className="list">
+      {base.slice(0, shown).map(e => {
+        const isHidden = hidden.has(e.id)
+        return <div key={e.id} className="item" onClick={() => toggle(e.id, !isHidden)} style={isHidden ? { opacity: .5 } : null}>
+          <Thumb ex={e} />
+          <div className="grow"><div className="tt capitalize">{e.n}</div><div className="ss capitalize">{e.bp} · {e.eq}</div></div>
+          <span className={'tag' + (isHidden ? '' : ' acc')}>{isHidden ? 'Hidden' : 'Visible'}</span>
+        </div>
+      })}
+    </div>
+    {base.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(s => s + 60)}>Show more</Button></>}
+    <div style={{ height: 12 }} />
+    <Button variant="primary" onClick={() => close(hidden)}>Done</Button>
+  </>
+}
+
+function ExerciseLibraryCard() {
+  const openSheet = useUI(s => s.openSheet)
+  const [hidden, setHidden] = useState(null)   // Set of ids, once loaded
+  useEffect(() => { api('/api/admin/exercises/hidden').then(d => setHidden(new Set(d.hidden))).catch(() => setHidden(new Set())) }, [])
+  if (hidden === null) return null
+  return <div className="card">
+    <div className="row between"><h2 style={{ margin: 0 }}>Exercise library</h2>
+      <Button size="sm" onClick={() => openSheet(closeFn => <ExerciseLibrarySheet initialHidden={hidden} close={h => { setHidden(h); closeFn() }} />)}>Manage</Button></div>
+    <div className="small muted" style={{ marginTop: 6 }}>{hidden.size} of {EXDB.length} hidden from members{hidden.size ? '' : ' — full catalogue is visible'}.</div>
+  </div>
+}
+
 export default function Admin() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
@@ -204,6 +263,8 @@ export default function Admin() {
     </div>}
 
     <AdminCoach />
+
+    <ExerciseLibraryCard />
 
     <InvitesCard invites={invites} reload={loadInvites} />
 

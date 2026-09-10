@@ -56,6 +56,14 @@ function atomicWrite(file, content) {
   fs.writeFileSync(tmp, content);
   fs.renameSync(tmp, file);
 }
+// Gym-wide exercise blacklist — ids the owner has hidden from every member's search/picker
+// (equipment this gym doesn't have, movements they'd rather not offer). Not a deletion: a
+// hidden id still resolves fine for anyone who already has it logged or in a routine.
+const hiddenExFile = path.join(DATA, 'hidden-exercises.json');
+let hiddenEx = [];
+try { hiddenEx = JSON.parse(fs.readFileSync(hiddenExFile, 'utf8')); if (!Array.isArray(hiddenEx)) hiddenEx = []; } catch {}
+function saveHiddenEx() { atomicWrite(hiddenExFile, JSON.stringify(hiddenEx)); }
+
 const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
 function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
@@ -273,7 +281,7 @@ const routes = {
   // the app it was before the feature existed.
   'GET /api/config': async (req, res) => {
     const coach = coachConfig.publicConfig();
-    json(res, 200, { invite_only: INVITE_ONLY, ...(coach ? { coach } : {}) });
+    json(res, 200, { invite_only: INVITE_ONLY, hiddenExercises: hiddenEx, ...(coach ? { coach } : {}) });
   },
 
   'GET /api/me': async (req, res) => {
@@ -573,6 +581,26 @@ const routes = {
     S._ts = Date.now();
     atomicWrite(stateFile(u.id), JSON.stringify(S));
     json(res, 200, { ok: true });
+  },
+
+  // The exercise blacklist itself — ids only. The 1324-exercise catalogue (names, body parts,
+  // equipment) already ships inside the frontend bundle, so the admin page browses that
+  // directly rather than this server sending it again; this just says which ids are off.
+  'GET /api/admin/exercises/hidden': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    json(res, 200, { hidden: hiddenEx });
+  },
+
+  'POST /api/admin/exercises/hidden': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const id = String(body.id || '');
+    if (!id) return json(res, 400, { error: 'id required' });
+    const on = hiddenEx.includes(id);
+    if (body.hidden && !on) hiddenEx.push(id);
+    else if (!body.hidden && on) hiddenEx = hiddenEx.filter(x => x !== id);
+    saveHiddenEx();
+    json(res, 200, { ok: true, hidden: hiddenEx });
   },
 
   'POST /api/admin/user/disable': async (req, res) => {

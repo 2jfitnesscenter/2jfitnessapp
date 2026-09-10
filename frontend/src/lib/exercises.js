@@ -23,8 +23,18 @@ export function registerCustom(list) {
   customIds = (list || []).map(e => e.id)
   ;(list || []).forEach(e => { EXIDX[e.id] = e })
 }
-// Full searchable catalogue — customs first so your own exercises are easy to find.
-export const allExercises = st => [...(st.customEx || []), ...EXDB]
+
+// The owner's gym-wide exercise blacklist, from GET /api/config's hiddenExercises (set once
+// at boot — see useStore.js). EXIDX keeps every id resolvable (a workout logged against a
+// since-hidden exercise, or a plan built before it was hidden, must still render); only the
+// *pickers* — allExercises — stop offering a hidden id for new selection.
+let hidden = new Set()
+export function setHiddenExercises(ids) { hidden = new Set(ids || []) }
+export const isHidden = id => hidden.has(id)
+
+// Full searchable catalogue — customs first so your own exercises are easy to find. Customs
+// are the member's own and are never affected by the gym's blacklist.
+export const allExercises = st => [...(st.customEx || []), ...EXDB.filter(e => !hidden.has(e.id))]
 
 // Media normally sits next to the app (img/ and gif/, mounted into the web container).
 // A build can point them somewhere else — the demo build pulls them off a CDN instead of
