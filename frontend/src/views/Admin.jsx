@@ -7,7 +7,7 @@ import { fmtDate, fmtNum, fmtVol, fmtDur } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
 import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button } from '../components/ui.jsx'
+import { Button, Segmented } from '../components/ui.jsx'
 import AdminCoach from './AdminCoach.jsx'
 
 // Admin-only operator dashboard (owner passkey + admin flag; guarded again server-side).
@@ -23,11 +23,55 @@ const rel = ts => {
   return Math.floor(s / 86400) + 'd ago'
 }
 const dur = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60) + 'm' }
+// Same computation as api/coach/payload.js's ageFrom — duplicated for the same reason payload.js
+// duplicates other frontend logic: this admin page and the api server share no build step.
+const ageFrom = birthDate => {
+  if (!birthDate) return null
+  const b = new Date(birthDate)
+  if (Number.isNaN(b.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - b.getFullYear()
+  if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--
+  return age >= 0 && age < 130 ? age : null
+}
+
+function ProfileEditForm({ d, onSaved, close }) {
+  const toast = useUI(s => s.toast)
+  const [name, setName] = useState(d.user.name)
+  const [birthDate, setBirthDate] = useState(d.birthDate || '')
+  const [body, setBody] = useState(d.body || 'male')
+  const [height, setHeight] = useState(d.height ?? '')
+  const [busy, setBusy] = useState(false)
+  const save = () => {
+    const n = name.trim()
+    if (!n) { toast('Name required'); return }
+    setBusy(true)
+    api('/api/admin/user/profile', {
+      method: 'POST',
+      body: JSON.stringify({ id: d.user.id, name: n, birthDate: birthDate || null, body, height: height === '' ? null : Number(height) })
+    }).then(() => { toast('Profile saved'); onSaved(); close() }).catch(e => { toast(e.message); setBusy(false) })
+  }
+  return <>
+    <h3>Edit profile — {d.user.name}</h3>
+    <div className="dim small" style={{ margin: '6px 0 4px' }}>Name</div>
+    <input className="input" maxLength={40} value={name} onChange={e => setName(e.target.value)} />
+    <div className="dim small" style={{ margin: '10px 0 4px' }}>Date of birth</div>
+    <input type="date" className="input" value={birthDate} max={new Date().toISOString().slice(0, 10)} onChange={e => setBirthDate(e.target.value)} />
+    <div className="dim small" style={{ margin: '10px 0 4px' }}>Sex</div>
+    <Segmented options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} value={body} onChange={setBody} />
+    <div className="dim small" style={{ margin: '10px 0 4px' }}>Height (cm)</div>
+    <input type="number" inputMode="decimal" className="input" min="0" max="250" value={height} onChange={e => setHeight(e.target.value)} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" disabled={busy} onClick={save}>Save</Button>
+  </>
+}
 
 function UserDetail({ id, onChanged, close }) {
   const [d, setD] = useState(null)
   const toast = useUI(s => s.toast)
-  useEffect(() => { api('/api/admin/user?id=' + encodeURIComponent(id)).then(setD).catch(e => toast(e.message)) }, [id])
+  const openSheet = useUI(s => s.openSheet)
+  const load = () => api('/api/admin/user?id=' + encodeURIComponent(id)).then(setD).catch(e => toast(e.message))
+  useEffect(() => { load() }, [id])
   if (!d) return <div className="muted small">Loading…</div>
   const u = d.user
   const setDisabled = disabled => {
@@ -35,6 +79,14 @@ function UserDetail({ id, onChanged, close }) {
       .then(() => { toast(disabled ? 'User disabled' : 'User enabled'); onChanged(); close() })
       .catch(e => toast(e.message))
   }
+  const applyStarterPlan = () => confirmSheet({
+    title: 'Load the PPL starter plan for ' + u.name + '?',
+    message: 'Adds Push/Pull/Legs routines (Mon/Wed/Fri) on top of whatever they already have.',
+    confirmText: 'Load plan',
+    onConfirm: () => api('/api/admin/user/apply-starter-plan', { method: 'POST', body: JSON.stringify({ id: u.id }) })
+      .then(() => { toast('Starter plan added'); load() }).catch(e => toast(e.message))
+  })
+  const age = ageFrom(d.birthDate)
   return <>
     <h3 className="capitalize">{u.name}</h3>
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '8px 0 12px' }}>
@@ -44,12 +96,20 @@ function UserDetail({ id, onChanged, close }) {
       <span className="tag">joined {u.created ? fmtDate(u.created.slice(0, 10)) : '—'}</span>
     </div>
     <div className="tiles" style={{ textAlign: 'left' }}>
+      <div className="tile"><div className="l">Age</div><div className="v" style={{ fontSize: '1.1rem' }}>{age ?? '—'}</div></div>
+      <div className="tile"><div className="l">Sex</div><div className="v capitalize" style={{ fontSize: '1.1rem' }}>{d.body}</div></div>
+      <div className="tile"><div className="l">Height</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.height ? d.height + ' cm' : '—'}</div></div>
+      <div className="tile"><div className="l">Weight</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.latestWeight ? fmtNum(d.latestWeight.w) + ' ' + d.unit : '—'}</div></div>
       <div className="tile"><div className="l">Workouts</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.workouts.length}</div></div>
       <div className="tile"><div className="l">Weigh-ins</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.bodyweight.length}</div></div>
       <div className="tile"><div className="l">Routines</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.routines.length}</div></div>
       <div className="tile"><div className="l">Last sync</div><div className="v" style={{ fontSize: '.95rem' }}>{rel(d.lastSync)}</div></div>
     </div>
-    {!u.admin && <button className={'btn ' + (u.disabled ? 'primary' : 'danger')} style={{ margin: '12px 0 4px' }}
+    <div className="row" style={{ gap: 8, margin: '12px 0 4px' }}>
+      <Button style={{ flex: 1 }} icon="pencil" onClick={() => openSheet(close2 => <ProfileEditForm d={d} onSaved={load} close={close2} />)}>Edit profile</Button>
+      {!d.routines.length && <Button style={{ flex: 1 }} icon="sparkles" onClick={applyStarterPlan}>Load PPL plan</Button>}
+    </div>
+    {!u.admin && <button className={'btn ' + (u.disabled ? 'primary' : 'danger')} style={{ margin: '4px 0 4px' }}
       onClick={() => u.disabled ? setDisabled(false)
         : confirmSheet({ title: 'Disable ' + u.name + '?', message: 'They are signed out everywhere and can no longer sync or log in until re-enabled.', confirmText: 'Disable', danger: true, onConfirm: () => setDisabled(true) })}>
       {u.disabled ? 'Enable account' : 'Disable account'}</button>}
@@ -97,6 +157,8 @@ export default function Admin() {
   const [users, setUsers] = useState(null)
   const [invites, setInvites] = useState(null)
   const [inviteOnly, setInviteOnly] = useState(false)
+  const [q, setQ] = useState('')
+  const [filter, setFilter] = useState('all')   // all | active | inactive | disabled
 
   const loadUsers = () => api('/api/admin/users').then(d => { setUsers(d.users); setInviteOnly(d.invite_only) }).catch(e => toast(e.message || 'Failed to load'))
   const loadInvites = () => api('/api/admin/invites').then(d => setInvites(d.invites)).catch(() => {})
@@ -108,6 +170,14 @@ export default function Admin() {
   const liveUsers = (users || []).filter(u => u.live)
   const activeCount = (users || []).filter(u => u.lastSync && Date.now() - u.lastSync < 7 * 86400000).length
   const disabledCount = (users || []).filter(u => u.disabled).length
+  const ql = q.toLowerCase().trim()
+  const shown = (users || []).filter(u => {
+    if (ql && !u.name.toLowerCase().includes(ql)) return false
+    if (filter === 'active') return u.lastSync && Date.now() - u.lastSync < 7 * 86400000
+    if (filter === 'inactive') return !u.disabled && (!u.lastSync || Date.now() - u.lastSync >= 7 * 86400000)
+    if (filter === 'disabled') return u.disabled
+    return true
+  })
 
   return <div className="narrow">
     <div className="hdr">
@@ -138,13 +208,22 @@ export default function Admin() {
     <InvitesCard invites={invites} reload={loadInvites} />
 
     <h4 className="sec">Users</h4>
+    <div className="search" style={{ marginBottom: 10 }}>
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+      <input className="input" placeholder={'Search ' + (users ? users.length : '') + ' users…'} value={q} onChange={e => setQ(e.target.value)} />
+    </div>
+    <div className="chips" style={{ marginBottom: 10 }}>
+      {[['all', 'All'], ['active', 'Active 7d'], ['inactive', 'Inactive'], ['disabled', 'Disabled']].map(([v, label]) =>
+        <button key={v} className={'chip' + (filter === v ? ' on' : '')} onClick={() => setFilter(v)}>{label}</button>)}
+    </div>
     <div className="list">
-      {(users || []).map(u => <div key={u.id} className="item" onClick={() => openUser(u.id)} style={u.disabled ? { opacity: .55 } : null}>
+      {shown.map(u => <div key={u.id} className="item" onClick={() => openUser(u.id)} style={u.disabled ? { opacity: .55 } : null}>
         <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{u.name} {u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>admin</span>}{u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>off</span>}</div>
           <div className="ss">{u.live ? 'training now · ' + u.live.name : u.workouts + ' workouts' + (u.lastWorkout ? ' · last ' + fmtDate(u.lastWorkout) : '') + ' · synced ' + rel(u.lastSync)}</div></div>
         {u.hasPush && <Icon name="bell" title="push enabled" style={{ fontSize: 15, color: 'var(--label-3)' }} />}<Icon name="chevronRight" className="chev" />
       </div>)}
       {users && !users.length && <div className="empty">No users yet.</div>}
+      {users && users.length > 0 && !shown.length && <div className="empty">No users match.</div>}
     </div>
   </div>
 }

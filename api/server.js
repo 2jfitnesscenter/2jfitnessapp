@@ -501,14 +501,78 @@ const routes = {
     const u = db.users.find(x => x.id === id);
     if (!u) return json(res, 404, { error: 'no such user' });
     const S = readState(u.id) || {};
+    const bw = S.bodyweight || [];
     json(res, 200, {
       user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), invitedBy: u.invitedBy || null },
       unit: S.unit || 'kg',
       lastSync: S._ts || null,
+      // Basic profile — set at registration or edited here, read by the AI Coach too
+      // (api/coach/payload.js). birthDate stays a date, never a stored age.
+      birthDate: S.birthDate || null,
+      body: S.body === 'female' ? 'female' : 'male',
+      height: Number.isFinite(S.height) && S.height > 0 ? S.height : null,
+      latestWeight: bw.length ? bw[bw.length - 1] : null,
       routines: (S.routines || []).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: (r.ex || []).length })),
-      bodyweight: S.bodyweight || [],
+      bodyweight: bw,
       workouts: (S.workouts || []).slice().reverse()   // newest first for display
     });
+  },
+
+  // Staff edit of a member's own basic info — same fields the registration screen and
+  // Settings' "Basic info" section collect, just editable by an admin on someone else's
+  // profile. Bumping _ts means the member's own device picks this up on next sync exactly
+  // like any other change (see pullState's _ts comparison in useStore.js).
+  'POST /api/admin/user/profile': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'no such user' });
+    if (body.name !== undefined) {
+      const name = String(body.name).trim().slice(0, 40);
+      if (!name) return json(res, 400, { error: 'name required' });
+      u.name = name;
+      saveDb();
+    }
+    const S = readState(u.id);
+    if (!S) return json(res, 200, { ok: true }); // never synced yet — nothing to merge the rest into
+    if (body.birthDate !== undefined) {
+      S.birthDate = body.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(body.birthDate) ? body.birthDate : null;
+    }
+    if (body.body !== undefined) S.body = body.body === 'female' ? 'female' : 'male';
+    if (body.height !== undefined) {
+      const h = Math.round(Number(body.height));
+      S.height = h > 0 && h <= 250 ? h : null;
+    }
+    S._ts = Date.now();
+    atomicWrite(stateFile(u.id), JSON.stringify(S));
+    json(res, 200, { ok: true });
+  },
+
+  // Applies the same Push/Pull/Legs starter plan "Load starter plan" offers a member,
+  // straight onto a member's profile from the admin side (Mon/Wed/Fri) — mirrors
+  // frontend/src/lib/starter.js exactly; kept in sync by hand, same trade-off payload.js
+  // already makes for logic shared with the frontend but not build-step-shared with it.
+  'POST /api/admin/user/apply-starter-plan': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'no such user' });
+    const S = readState(u.id);
+    if (!S) return json(res, 400, { error: 'member has never synced — nothing to add a plan to yet' });
+    const SPEC = [
+      ['Push Day', 'barbell', [['0025', 4, 8], ['0047', 3, 10], ['0426', 3, 10], ['0334', 3, 12], ['0241', 3, 12], ['0251', 3, 10]]],
+      ['Pull Day', 'pullup', [['2330', 4, 10], ['0027', 4, 8], ['1323', 3, 10], ['0031', 3, 10], ['0313', 3, 12]]],
+      ['Leg Day', 'legs', [['0043', 4, 8], ['0085', 3, 10], ['0739', 3, 12], ['0585', 3, 12], ['0586', 3, 12], ['0605', 4, 15]]]
+    ];
+    const routines = SPEC.map(([name, emoji, list]) => ({
+      id: crypto.randomBytes(9).toString('base64url'), name, emoji,
+      ex: list.map(([id, sets, reps]) => ({ id, sets, reps, weight: 0 }))
+    }));
+    S.routines = [...(S.routines || []), ...routines];
+    S.week = { ...(S.week || {}), 1: routines[0].id, 3: routines[1].id, 5: routines[2].id };
+    S._ts = Date.now();
+    atomicWrite(stateFile(u.id), JSON.stringify(S));
+    json(res, 200, { ok: true });
   },
 
   'POST /api/admin/user/disable': async (req, res) => {
