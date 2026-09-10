@@ -10,7 +10,7 @@
 
 import { EXIDX } from './exercises.js'
 import { modeOf, fmtSec } from './history.js'
-import { uid, todayISO, DAYN, fmtNum, exCount } from './format.js'
+import { uid, todayISO, DAYN, fmtNum } from './format.js'
 import { t, nameFor } from './i18n.js'
 
 const PLAN_FMT = 1
@@ -160,96 +160,114 @@ function units(ex) {
   return out
 }
 
-function routineHTML(r, unit) {
-  const rows = units(r.ex).map(u => {
-    const items = u.map(e => {
-      const ex = EXIDX[e.id]
-      const name = ex ? nameFor(ex) : t('Unknown exercise')
-      const part = ex && ex.bp && ex.bp !== 'cardio' ? `<span class="part">${esc(ex.bp)}</span>` : ''
-      return `<div class="ex"><div class="ex-n">${esc(name)}${part}</div><div class="ex-s">${esc(scheme(e, unit))}</div></div>`
-    }).join('')
-    return u.length > 1
-      ? `<div class="ss"><div class="ss-tag">${esc(t('Superset'))}</div><div class="ss-items">${items}</div></div>`
-      : items
-  }).join('')
-  const count = exCount(r.ex.length)
-  return `<section class="routine">
-    <div class="r-head"><h2>${esc(r.name)}</h2><span class="r-count">${esc(count)}</span></div>
-    <div class="ex-list">${rows || `<div class="ex empty">${esc(t('No exercises yet.'))}</div>`}</div>
+// Gym-floor sheet: one log table per scheduled day (not per routine — a routine repeated on
+// two days gets a table each, matching a physical sheet used on that specific day), with a
+// blank box per set so it can be printed and filled in by hand on the gym floor.
+function dayLogHTML(num, weekday, r, unit) {
+  const maxSets = Math.max(1, ...r.ex.map(e => e.sets || 1))
+  const setHeads = Array.from({ length: maxSets }, (_, i) => `<th class="set">${esc(t('Set {0}', i + 1))}</th>`).join('')
+  const rows = units(r.ex).flatMap(u => u.map(e => {
+    const ex = EXIDX[e.id]
+    const name = ex ? nameFor(ex) : t('Unknown exercise')
+    const part = ex && ex.bp && ex.bp !== 'cardio' ? `<span class="ex-part">${esc(t(ex.bp))}</span>` : ''
+    const ssTag = u.length > 1 ? `<span class="ss-tag">${esc(t('Superset'))}</span>` : ''
+    const boxes = Array.from({ length: maxSets }, (_, i) => `<td>${i < (e.sets || 1) ? '<span class="box"></span>' : ''}</td>`).join('')
+    return `<tr${u.length > 1 ? ' class="ss-row"' : ''}>
+      <td><div class="ex-name">${ssTag}${esc(name)}${part}</div></td>
+      <td class="target">${esc(scheme(e, unit))}</td>
+      ${boxes}
+    </tr>`
+  })).join('')
+  return `<section class="day">
+    <div class="day-head"><span class="num">${esc(String(num).padStart(2, '0'))}</span><h2>${esc(r.name)}</h2><span class="wd">${esc(weekday)}</span></div>
+    <table class="log">
+      <thead><tr><th>${esc(t('Exercise'))}</th><th>${esc(t('Target'))}</th>${setHeads}</tr></thead>
+      <tbody>${rows || `<tr><td colspan="${maxSets + 2}" class="empty">${esc(t('No exercises yet.'))}</td></tr>`}</tbody>
+    </table>
   </section>`
 }
 
-function weekHTML(S) {
-  const rows = WEEK_ORDER.map(d => {
+function weekStripHTML(S) {
+  const cells = WEEK_ORDER.map(d => {
     const r = S.routines.find(x => x.id === S.week?.[d])
-    const val = r ? esc(r.name) : `<span class="rest">${esc(t('Rest'))}</span>`
-    return `<div class="w-row"><div class="w-day">${esc(t(DAYN[d]))}</div><div class="w-r">${val}</div></div>`
+    const short = t(DAYN[d]).slice(0, 3).toUpperCase()
+    const label = r ? esc(r.name) : `<span class="off">${esc(t('Rest'))}</span>`
+    return `<div class="d${r ? ' on' : ''}"><div class="dn">${esc(short)}</div><div class="dr">${label}</div></div>`
   }).join('')
-  return `<div class="week">${rows}</div>`
+  return `<div class="week-strip">${cells}</div>`
 }
 
-/** Full self-contained HTML for the print/PDF view. */
+/** Full self-contained HTML for the print/PDF view — a gym-floor sheet, one table per
+ *  scheduled day, with blank boxes to log each set by hand. */
 export function planPrintHTML(S, owner) {
   const unit = S.unit || 'kg'
-  const routines = (S.routines || []).filter(r => r.ex && r.ex.length)
-  const body = routines.length
-    ? routines.map(r => routineHTML(r, unit)).join('')
+  const days = WEEK_ORDER
+    .map(d => ({ d, r: S.routines?.find(x => x.id === S.week?.[d]) }))
+    .filter(x => x.r && x.r.ex && x.r.ex.length)
+  const body = days.length
+    ? days.map((x, i) => dayLogHTML(i + 1, t(DAYN[x.d]), x.r, unit)).join('')
     : `<p class="none">${esc(t('No routines yet.'))}</p>`
-  const sub = [owner, todayISO()].filter(Boolean).map(esc).join(' · ')
+  const dayCount = days.length ? t('{0} days a week', days.length) : ''
+  const metaLines = [owner ? `<div><b>${esc(owner)}</b></div>` : '', `<div>${esc([dayCount, todayISO()].filter(Boolean).join(' · '))}</div>`].join('')
   return `<!doctype html><html><head><meta charset="utf-8">
 <title>${esc(t('Weekly Training Plan'))}</title>
 <style>
-  @page { margin: 16mm 15mm; }
+  @page { margin: 14mm 12mm; }
   * { box-sizing: border-box; }
   html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body {
-    margin: 0; color: #16181d; background: #fff;
+    margin: 0; color: #1c1d17; background: #f6f4ec;
     font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-variant-numeric: tabular-nums;
   }
-  .doc { max-width: 720px; margin: 0 auto; }
-  header { border-bottom: 2px solid #16181d; padding-bottom: 12px; margin-bottom: 20px; }
-  header .kicker { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #6a7a3a; font-weight: 700; }
-  header h1 { font-size: 27px; letter-spacing: -.02em; margin: 3px 0 0; }
-  header .sub { color: #6b7180; font-size: 13px; margin-top: 4px; }
+  .doc { max-width: 760px; margin: 0 auto; }
 
-  h3.block { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #8a90a0; margin: 0 0 8px; font-weight: 700; }
+  .masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; border-bottom: 3px solid #1c1d17; padding-bottom: 14px; margin-bottom: 6px; }
+  .masthead .brand { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #3e6626; font-weight: 700; }
+  .masthead h1 { font-size: 30px; letter-spacing: -.01em; margin: 5px 0 0; }
+  .masthead .meta { text-align: right; font-size: 12px; color: #5e6263; line-height: 1.6; white-space: nowrap; }
+  .masthead .meta b { color: #1c1d17; font-weight: 600; }
 
-  .week { border: 1px solid #e4e6ec; border-radius: 10px; overflow: hidden; margin-bottom: 26px; break-inside: avoid; page-break-inside: avoid; }
-  .w-row { display: flex; align-items: baseline; padding: 8px 14px; border-top: 1px solid #eef0f4; }
-  .w-row:first-child { border-top: 0; }
-  .w-day { width: 116px; font-weight: 600; color: #16181d; flex: none; }
-  .w-r { text-transform: capitalize; }
-  .rest, .w-r .rest { color: #a2a8b6; text-transform: none; }
+  .week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #c7c0a9; border: 1px solid #c7c0a9; margin: 18px 0 30px; break-inside: avoid; page-break-inside: avoid; }
+  .week-strip .d { background: #efebdf; padding: 8px 5px 10px; text-align: center; }
+  .week-strip .d.on { background: #e4efdb; }
+  .week-strip .dn { font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: #5e6263; font-weight: 600; }
+  .week-strip .d.on .dn { color: #3e6626; }
+  .week-strip .dr { font-size: 10.5px; margin-top: 6px; color: #1c1d17; text-transform: capitalize; }
+  .week-strip .dr .off { color: #a79f89; text-transform: none; }
 
-  .routine { break-inside: avoid; page-break-inside: avoid; margin-bottom: 20px; padding: 14px 16px; border: 1px solid #e4e6ec; border-radius: 12px; }
-  .r-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; border-bottom: 1px solid #eef0f4; padding-bottom: 8px; margin-bottom: 8px; break-after: avoid; page-break-after: avoid; }
-  .r-head h2 { font-size: 18px; letter-spacing: -.01em; margin: 0; text-transform: capitalize; }
-  .r-count { font-size: 12px; color: #8a90a0; white-space: nowrap; }
+  .day { break-inside: avoid; page-break-inside: avoid; margin-bottom: 26px; }
+  .day-head { display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid #1c1d17; padding-bottom: 6px; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }
+  .day-head .num { font-size: 22px; font-weight: 700; color: #5a9438; flex: none; }
+  .day-head h2 { font-size: 18px; letter-spacing: -.005em; margin: 0; flex: 1; text-transform: capitalize; }
+  .day-head .wd { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #5e6263; font-weight: 600; white-space: nowrap; }
 
-  .ex-list { display: flex; flex-direction: column; }
-  .ex { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 6px 0; break-inside: avoid; page-break-inside: avoid; }
-  .ex + .ex, .ss + .ex, .ex + .ss { border-top: 1px solid #f2f3f6; }
-  .ex-n { text-transform: capitalize; font-weight: 500; }
-  .ex-n .part { text-transform: capitalize; color: #9aa0ae; font-weight: 400; font-size: 12px; margin-left: 8px; }
-  .ex-s { color: #3d424e; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .ex.empty, .none { color: #a2a8b6; }
+  table.log { width: 100%; border-collapse: collapse; }
+  table.log th { text-align: left; font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: #5e6263; font-weight: 600; padding: 0 7px 6px; border-bottom: 1px solid #c7c0a9; }
+  table.log th.set { text-align: center; width: 58px; }
+  table.log td { padding: 7px 7px; border-bottom: 1px solid #dbd5c3; vertical-align: top; break-inside: avoid; page-break-inside: avoid; }
+  table.log tbody tr:last-child td { border-bottom: 2px solid #1c1d17; }
+  .ex-name { font-weight: 500; text-transform: capitalize; }
+  .ex-part { display: block; font-size: 10px; letter-spacing: .03em; text-transform: uppercase; color: #5e6263; margin-top: 2px; }
+  .target { color: #5e6263; white-space: nowrap; }
+  .box { display: inline-block; width: 40px; height: 17px; border-bottom: 1.5px solid #c7c0a9; }
+  .ss-row td:first-child { position: relative; padding-left: 15px; }
+  .ss-row td:first-child::before { content: ''; position: absolute; left: 0; top: 5px; bottom: 5px; width: 3px; background: #5a9438; border-radius: 2px; }
+  .ss-tag { display: block; font-size: 8.5px; letter-spacing: .07em; text-transform: uppercase; color: #3e6626; font-weight: 700; margin-bottom: 3px; }
+  .empty { color: #a79f89; }
 
-  .ss { break-inside: avoid; page-break-inside: avoid; border-left: 3px solid #cfe08a; padding-left: 12px; margin: 4px 0; }
-  .ss-tag { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #6a7a3a; font-weight: 700; padding-top: 4px; }
-  .ss .ex:first-of-type { padding-top: 2px; }
-
-  footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #eef0f4; color: #a2a8b6; font-size: 11px; text-align: center; }
+  .none { color: #a79f89; }
+  footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #dbd5c3; color: #a79f89; font-size: 11px; text-align: center; }
 </style></head>
 <body><div class="doc">
-  <header>
-    <div class="kicker">2J Fitness Center</div>
-    <h1>${esc(t('Weekly Training Plan'))}</h1>
-    ${sub ? `<div class="sub">${sub}</div>` : ''}
-  </header>
-  <h3 class="block">${esc(t('Week schedule'))}</h3>
-  ${weekHTML(S)}
-  <h3 class="block">${esc(t('Routines'))}</h3>
+  <div class="masthead">
+    <div>
+      <div class="brand">2J Fitness Center</div>
+      <h1>${esc(t('Weekly Training Plan'))}</h1>
+    </div>
+    <div class="meta">${metaLines}</div>
+  </div>
+  ${weekStripHTML(S)}
   ${body}
   <footer>${esc(t('Made with 2J Fitness Center'))} · 2jfitnesscenter.com</footer>
 </div></body></html>`

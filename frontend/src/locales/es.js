@@ -447,6 +447,9 @@ export default {
   'Unknown exercise': 'Ejercicio desconocido',
   'Weekly Training Plan': 'Plan de entrenamiento semanal',
   'Made with 2J Fitness Center': 'Hecho con 2J Fitness Center',
+  // Gym-floor sheet export (plan-share.js planPrintHTML) — a blank box per set to log by hand
+  'Target': 'Objetivo',
+  'Set {0}': 'Serie {0}',
   'Something went wrong': 'Algo ha salido mal',
   'This screen could not be drawn. Your data is safe on this device.': 'Esta pantalla no se ha podido dibujar. Tus datos siguen a salvo en este dispositivo.',
   'Reload 2J Fitness Center': 'Recargar 2J Fitness Center',
