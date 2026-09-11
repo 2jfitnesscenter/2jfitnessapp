@@ -390,7 +390,17 @@ function ExerciseDetail({ ex, close }) {
       {(ex.sm || []).slice(0, 3).map((s, i) => <span key={i} className="tag">{t(s)}</span>)}
     </div>
     {ex.desc && <div className="exnote">{ex.desc}</div>}
-    {best > 0 && <div className="small row" style={{ marginBottom: 6, gap: 5 }}><Icon name="trophy" style={{ fontSize: 14, color: 'var(--yellow)' }} />{t('Best:')} <b className="accent">{fmtNum(best)} {st.unit}</b>{last ? ` · ${t('last')} ${fmtDate(last.d)}: ${last.sets.map(s => setLabel(ex.id, s, last.target)).join(', ')}` : ''}</div>}
+    <div className="card" style={{ margin: '10px 0' }}>
+      <div className="row" style={{ gap: 6, marginBottom: last ? 4 : 0 }}>
+        <Icon name="sparkles" className="accent" style={{ fontSize: 15 }} />
+        <b className="small">{t('Last session')}</b>
+      </div>
+      {last
+        ? <div className="small">{last.sets.map(s => setLabel(ex.id, s, last.target)).join(', ')} <span className="dim">· {fmtDate(last.d)}</span></div>
+        : <div className="muted small">{t('No sessions logged yet.')}</div>}
+    </div>
+    {best > 0 && <div className="small row" style={{ marginBottom: 6, gap: 5 }}><Icon name="trophy" style={{ fontSize: 14, color: 'var(--yellow)' }} />{t('Best:')} <b className="accent">{fmtNum(best)} {st.unit}</b></div>}
+    <Button icon="history" style={{ marginBottom: 4 }} trailingIcon="chevronRight" onClick={() => { close(); nav('/stats?ex=' + ex.id) }}>{t('See full history')}</Button>
     <Button variant="primary" icon="plus" style={{ margin: '10px 0 4px' }} onClick={() => addToRoutineSheet(ex)}>{t('Add to my plan')}</Button>
     {ex.custom && <div className="row" style={{ gap: 8, marginTop: 8 }}>
       <Button icon="pencil" style={{ flex: 1 }} onClick={() => { close(); customExSheet(ex) }}>{t('Edit')}</Button>
