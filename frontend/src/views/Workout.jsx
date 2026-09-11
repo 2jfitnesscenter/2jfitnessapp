@@ -159,6 +159,13 @@ function ActiveWorkout() {
   // what was actually logged — in the session, in history and in a backup.
   const setField = (idx, i, field, v) => mutEntry(idx, e => {
     if (v == null) delete e.sets[i][field]; else e.sets[i][field] = v
+    // Typing a weight before checking a set off carries it forward to the later sets of the
+    // same exercise that also aren't done yet — straight sets are usually all the same weight,
+    // so this saves re-typing it two or three more times. A set already ticked off, or one
+    // whose weight was typed in afterwards, is left exactly as it was.
+    if (field === 'w' && v != null && !e.sets[i].done) {
+      for (let j = i + 1; j < e.sets.length; j++) { if (!e.sets[j].done) e.sets[j].w = v }
+    }
   })
   const modeAt = idx => modeOf({ ...(A.entries[idx].target || {}), id: A.entries[idx].id })
   const addSet = idx => mutEntry(idx, e => {
