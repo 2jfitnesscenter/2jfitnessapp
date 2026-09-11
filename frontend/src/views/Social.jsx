@@ -87,7 +87,10 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
 
   const rate = stars => {
     rateSocialRoutine(post.id, stars)
-      .then(res => setPost(p => ({ ...p, avgStars: res.avgStars, ratingCount: res.ratingCount, myStars: res.myStars })))
+      .then(res => {
+        setPost(p => ({ ...p, avgStars: res.avgStars, ratingCount: res.ratingCount, myStars: res.myStars }))
+        onChanged()   // background refresh so the card behind this sheet shows the new average too
+      })
       .catch(e => toast(e.message))
   }
   const copy = () => {
