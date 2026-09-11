@@ -275,15 +275,15 @@ function readSession(req) {
 // Guard for /api/admin/* — resolves the caller and 401/403s if they aren't an admin.
 function requireAdmin(req, res) {
   const user = readSession(req);
-  if (!user) { json(res, 401, { error: 'not signed in' }); return null; }
-  if (!isAdmin(user)) { json(res, 403, { error: 'forbidden' }); return null; }
+  if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
+  if (!isAdmin(user)) { json(res, 403, { error: 'prohibido' }); return null; }
   return user;
 }
 // Guard for /api/trainer/* — resolves the caller and 401/403s if they aren't a trainer (or admin).
 function requireTrainer(req, res) {
   const user = readSession(req);
-  if (!user) { json(res, 401, { error: 'not signed in' }); return null; }
-  if (!isTrainer(user)) { json(res, 403, { error: 'forbidden' }); return null; }
+  if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
+  if (!isTrainer(user)) { json(res, 403, { error: 'prohibido' }); return null; }
   return user;
 }
 function sessionCookie(user) {
@@ -357,17 +357,17 @@ const routes = {
 
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } });
   },
 
   'POST /api/register/options': async (req, res) => {
     const body = await readBody(req);
     const name = String(body.name || '').trim().slice(0, 40);
-    if (!name) return json(res, 400, { error: 'name required' });
+    if (!name) return json(res, 400, { error: 'se requiere un nombre' });
     const code = String(body.code || '').trim().toUpperCase();
     if (INVITE_ONLY && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked))
-      return json(res, 403, { error: 'a valid invite code is required' });
+      return json(res, 403, { error: 'se necesita un código de invitación válido' });
     const uid = crypto.randomBytes(12).toString('base64url');
     const options = await generateRegistrationOptions({
       rpName: RP_NAME, rpID: RP_ID,
@@ -383,7 +383,7 @@ const routes = {
   'POST /api/register/verify': async (req, res) => {
     const body = await readBody(req);
     const c = takeChallenge(body.cid);
-    if (!c || !c.uid) return json(res, 400, { error: 'challenge expired — try again' });
+    if (!c || !c.uid) return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
     let verification;
     try {
       verification = await verifyRegistrationResponse({
@@ -393,15 +393,15 @@ const routes = {
         expectedRPID: RP_ID,
         requireUserVerification: false
       });
-    } catch (e) { return json(res, 400, { error: 'verification failed: ' + e.message }); }
-    if (!verification.verified) return json(res, 400, { error: 'not verified' });
+    } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
+    if (!verification.verified) return json(res, 400, { error: 'no verificado' });
     const { credential } = verification.registrationInfo;
-    if (db.creds.find(x => x.id === credential.id)) return json(res, 409, { error: 'credential already registered' });
+    if (db.creds.find(x => x.id === credential.id)) return json(res, 409, { error: 'esta credencial ya está registrada' });
     // Re-check the invite at the last moment (it may have been used/revoked since options), then burn it.
     let invite = null;
     if (INVITE_ONLY) {
       invite = db.invites.find(i => i.code === c.code && !i.usedBy && !i.revoked);
-      if (!invite) return json(res, 403, { error: 'invite code is no longer valid — ask for a new one' });
+      if (!invite) return json(res, 403, { error: 'el código de invitación ya no es válido — pide uno nuevo' });
     }
     const user = { id: c.uid, name: c.name, created: new Date().toISOString() };
     if (invite) { user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created; }
@@ -427,9 +427,9 @@ const routes = {
   'POST /api/login/verify': async (req, res) => {
     const body = await readBody(req);
     const c = takeChallenge(body.cid);
-    if (!c) return json(res, 400, { error: 'challenge expired — try again' });
+    if (!c) return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
     const cred = db.creds.find(x => x.id === body.credential?.id);
-    if (!cred) return json(res, 404, { error: 'unknown passkey — create a profile first' });
+    if (!cred) return json(res, 404, { error: 'passkey desconocida — crea un perfil primero' });
     let verification;
     try {
       verification = await verifyAuthenticationResponse({
@@ -445,13 +445,13 @@ const routes = {
           transports: cred.transports
         }
       });
-    } catch (e) { return json(res, 400, { error: 'verification failed: ' + e.message }); }
-    if (!verification.verified) return json(res, 400, { error: 'not verified' });
+    } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
+    if (!verification.verified) return json(res, 400, { error: 'no verificado' });
     cred.counter = verification.authenticationInfo.newCounter;
     saveDb();
     const user = db.users.find(u => u.id === cred.userId);
-    if (!user) return json(res, 500, { error: 'user missing' });
-    if (user.disabled) return json(res, 403, { error: 'this account has been disabled' });
+    if (!user) return json(res, 500, { error: 'falta el usuario' });
+    if (user.disabled) return json(res, 403, { error: 'esta cuenta ha sido desactivada' });
     json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
@@ -467,10 +467,10 @@ const routes = {
     const body = await readBody(req);
     const token = String(body.token || '').trim().toUpperCase();
     const rec = db.recoveries.find(r => r.token === token && !r.usedAt && !r.revoked);
-    if (!rec || rec.expiresAt < Date.now()) return json(res, 400, { error: 'this recovery link is no longer valid — ask staff for a new one' });
+    if (!rec || rec.expiresAt < Date.now()) return json(res, 400, { error: 'este enlace de recuperación ya no es válido — pide uno nuevo al personal' });
     const user = db.users.find(u => u.id === rec.userId);
-    if (!user) return json(res, 404, { error: 'account no longer exists' });
-    if (user.disabled) return json(res, 403, { error: 'this account has been disabled' });
+    if (!user) return json(res, 404, { error: 'la cuenta ya no existe' });
+    if (user.disabled) return json(res, 403, { error: 'esta cuenta ha sido desactivada' });
     const existing = db.creds.filter(c => c.userId === user.id);
     const options = await generateRegistrationOptions({
       rpName: RP_NAME, rpID: RP_ID,
@@ -488,13 +488,13 @@ const routes = {
   'POST /api/recover/verify': async (req, res) => {
     const body = await readBody(req);
     const c = takeChallenge(body.cid);
-    if (!c || !c.uid || !c.recoveryToken) return json(res, 400, { error: 'challenge expired — try again' });
+    if (!c || !c.uid || !c.recoveryToken) return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
     // Re-checked at the last moment — same reasoning as the invite-code re-check: it may have
     // been used or have expired in the seconds since the options were issued.
     const rec = db.recoveries.find(r => r.token === c.recoveryToken && !r.usedAt && !r.revoked);
-    if (!rec || rec.expiresAt < Date.now()) return json(res, 400, { error: 'this recovery link is no longer valid — ask staff for a new one' });
+    if (!rec || rec.expiresAt < Date.now()) return json(res, 400, { error: 'este enlace de recuperación ya no es válido — pide uno nuevo al personal' });
     const user = db.users.find(u => u.id === c.uid);
-    if (!user) return json(res, 404, { error: 'account no longer exists' });
+    if (!user) return json(res, 404, { error: 'la cuenta ya no existe' });
     let verification;
     try {
       verification = await verifyRegistrationResponse({
@@ -504,10 +504,10 @@ const routes = {
         expectedRPID: RP_ID,
         requireUserVerification: false
       });
-    } catch (e) { return json(res, 400, { error: 'verification failed: ' + e.message }); }
-    if (!verification.verified) return json(res, 400, { error: 'not verified' });
+    } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
+    if (!verification.verified) return json(res, 400, { error: 'no verificado' });
     const { credential } = verification.registrationInfo;
-    if (db.creds.find(x => x.id === credential.id)) return json(res, 409, { error: 'credential already registered' });
+    if (db.creds.find(x => x.id === credential.id)) return json(res, 409, { error: 'esta credencial ya está registrada' });
     db.creds.push({
       id: credential.id, userId: user.id,
       publicKey: Buffer.from(credential.publicKey).toString('base64url'),
@@ -527,7 +527,7 @@ const routes = {
   // it no longer accepts. Passkeys are untouched: signing back in works immediately.
   'POST /api/logout/all': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     user.sv = sessionVersion(user) + 1;
     saveDb();
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
@@ -535,7 +535,7 @@ const routes = {
 
   'GET /api/data': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     try {
       const state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
       json(res, 200, { state });
@@ -544,9 +544,9 @@ const routes = {
 
   'PUT /api/data': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
-    if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'state required' });
+    if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'se requiere el estado' });
     delete body.state.active;              // in-progress workouts stay device-local
     atomicWrite(stateFile(user.id), JSON.stringify(body.state));
     json(res, 200, { ok: true, ts: body.state._ts || null });
@@ -556,10 +556,10 @@ const routes = {
 
   'POST /api/push/subscribe': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const sub = body.subscription;
-    if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) return json(res, 400, { error: 'invalid subscription' });
+    if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) return json(res, 400, { error: 'suscripción no válida' });
     db.subs = db.subs.filter(s => s.endpoint !== sub.endpoint);
     db.subs.push({ userId: user.id, endpoint: sub.endpoint, keys: sub.keys, created: new Date().toISOString() });
     saveDb();
@@ -568,7 +568,7 @@ const routes = {
 
   'POST /api/push/unsubscribe': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     db.subs = db.subs.filter(s => !(s.userId === user.id && s.endpoint === body.endpoint));
     saveDb();
@@ -577,17 +577,17 @@ const routes = {
 
   'POST /api/push/test': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     await sendPush(user.id, { title: '2J Fitness Center', body: 'Notificación de prueba ✅ — así se ven las alertas.', tag: 'test' });
     json(res, 200, { ok: true });
   },
 
   'POST /api/push/rest-timer': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const sec = Math.max(1, Math.min(3600, Math.round(+body.seconds || 0)));
-    if (!sec) return json(res, 400, { error: 'seconds required' });
+    if (!sec) return json(res, 400, { error: 'se requieren los segundos' });
     const exercise = String(body.exercise || '').slice(0, 60).trim() || null;
     scheduleRestTimer(user.id, sec, exercise);
     json(res, 200, { ok: true });
@@ -595,7 +595,7 @@ const routes = {
 
   'POST /api/push/rest-timer/cancel': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     cancelRestTimer(user.id);
     json(res, 200, { ok: true });
   },
@@ -603,7 +603,7 @@ const routes = {
   // Live-workout heartbeat: client pings while a workout is on screen; { active:false } drops it.
   'POST /api/activity': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     if (body.active) {
       presence.set(user.id, {
@@ -643,7 +643,7 @@ const routes = {
     if (!requireAdmin(req, res)) return;
     const id = new URL(req.url, 'http://x').searchParams.get('id');
     const u = db.users.find(x => x.id === id);
-    if (!u) return json(res, 404, { error: 'no such user' });
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     const S = readState(u.id) || {};
     const bw = S.bodyweight || [];
     json(res, 200, {
@@ -679,10 +679,10 @@ const routes = {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'no such user' });
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     if (body.name !== undefined) {
       const name = String(body.name).trim().slice(0, 40);
-      if (!name) return json(res, 400, { error: 'name required' });
+      if (!name) return json(res, 400, { error: 'se requiere un nombre' });
       u.name = name;
       saveDb();
     }
@@ -720,9 +720,9 @@ const routes = {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'no such user' });
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     const S = readState(u.id);
-    if (!S) return json(res, 400, { error: 'member has never synced — nothing to add measurements to yet' });
+    if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde añadir medidas' });
     const KEYS = ['neck', 'shoulders', 'chest', 'bicepsL', 'bicepsR', 'forearmL', 'forearmR', 'waist', 'hips',
       'thighL', 'thighR', 'calfL', 'calfR', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass',
       'skinTriceps', 'skinSubscapular', 'skinSuprailiac', 'skinAbdominal'];
@@ -741,7 +741,7 @@ const routes = {
       list.sort((a, b) => (a.d < b.d ? -1 : 1));
       n++;
     }
-    if (!n) return json(res, 400, { error: 'no valid values given' });
+    if (!n) return json(res, 400, { error: 'no se han dado valores válidos' });
     S._ts = Date.now();
     atomicWrite(stateFile(u.id), JSON.stringify(S));
     json(res, 200, { ok: true, saved: n });
@@ -759,9 +759,9 @@ const routes = {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'no such user' });
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     const S = readState(u.id);
-    if (!S) return json(res, 400, { error: 'member has never synced — nothing to add a plan to yet' });
+    if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde añadir un plan' });
     // Names hardcoded in Spanish — this admin endpoint has no i18n layer (the frontend's
     // equivalent, frontend/src/lib/starter.js, runs the same English keys through t()).
     const SPEC = [
@@ -884,7 +884,7 @@ const routes = {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const id = String(body.id || '');
-    if (!id) return json(res, 400, { error: 'id required' });
+    if (!id) return json(res, 400, { error: 'se requiere un id' });
     const on = hiddenEx.includes(id);
     if (body.hidden && !on) hiddenEx.push(id);
     else if (!body.hidden && on) hiddenEx = hiddenEx.filter(x => x !== id);
@@ -896,8 +896,8 @@ const routes = {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'no such user' });
-    if (isAdmin(u)) return json(res, 400, { error: 'cannot disable an admin' });
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    if (isAdmin(u)) return json(res, 400, { error: 'no se puede desactivar a un administrador' });
     u.disabled = !!body.disabled;
     if (u.disabled) presence.delete(u.id);   // drop them off "training now" at once
     saveDb();
@@ -911,7 +911,7 @@ const routes = {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'no such user' });
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     u.trainer = !!body.trainer;
     saveDb();
     json(res, 200, { ok: true, id: u.id, trainer: u.trainer });
@@ -926,7 +926,7 @@ const routes = {
     const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'no such user' });
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     // Only one live link per member — generating a new one retires any still-unused one, so a
     // link an admin forgot about can't be found and used later.
     db.recoveries.forEach(r => { if (r.userId === u.id && !r.usedAt) r.revoked = true; });
@@ -966,8 +966,8 @@ const routes = {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const inv = db.invites.find(i => i.code === String(body.code || '').toUpperCase());
-    if (!inv) return json(res, 404, { error: 'no such code' });
-    if (inv.usedBy) return json(res, 400, { error: 'already used — cannot revoke' });
+    if (!inv) return json(res, 404, { error: 'ese código no existe' });
+    if (inv.usedBy) return json(res, 400, { error: 'ya se ha usado — no se puede revocar' });
     db.invites = db.invites.filter(i => i.code !== inv.code);
     saveDb();
     json(res, 200, { ok: true });
@@ -979,7 +979,7 @@ const routes = {
   // live immediately); the escape hatch is that the author or an admin can always delete a post.
   'GET /api/social/routines': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const routines = social.routines.map(r => {
       const ratings = r.ratings || [];
       const avgStars = ratings.length ? Math.round((ratings.reduce((s, x) => s + x.stars, 0) / ratings.length) * 10) / 10 : null;
@@ -997,11 +997,11 @@ const routes = {
   // doesn't retroactively move their past posts out of "Entrenadores".
   'POST /api/social/routines': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const name = String(body.name || '').trim().slice(0, 60);
     const ex = Array.isArray(body.ex) ? body.ex : null;
-    if (!name || !ex || !ex.length) return json(res, 400, { error: 'a routine needs a name and at least one exercise' });
+    if (!name || !ex || !ex.length) return json(res, 400, { error: 'una rutina necesita un nombre y al menos un ejercicio' });
     const customExDefs = Array.isArray(body.customExDefs)
       ? body.customExDefs.filter(d => d && typeof d.id === 'string' && typeof d.n === 'string') : [];
     const customIds = new Set(customExDefs.map(d => d.id));
@@ -1009,7 +1009,7 @@ const routes = {
     // EXIDX is per-browser-tab and rebuilt from whichever user's customEx last loaded, so a
     // custom exercise id alone would resolve to "Unknown exercise" for anyone else.
     if (ex.some(e => typeof e.id === 'string' && e.id.startsWith('c') && !customIds.has(e.id)))
-      return json(res, 400, { error: 'missing definitions for one or more custom exercises in this routine' });
+      return json(res, 400, { error: 'faltan definiciones de uno o más ejercicios personalizados en esta rutina' });
     let image = null;
     if (body.image) { try { image = saveUploadedImage(body.image); } catch (e) { return json(res, 400, { error: e.message }); } }
     const post = {
@@ -1030,12 +1030,12 @@ const routes = {
 
   'POST /api/social/routines/rate': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const stars = Math.round(Number(body.stars));
-    if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'stars must be 1-5' });
+    if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'las estrellas deben ser de 1 a 5' });
     const post = social.routines.find(r => r.id === body.id);
-    if (!post) return json(res, 404, { error: 'no such routine' });
+    if (!post) return json(res, 404, { error: 'esa rutina no existe' });
     post.ratings = post.ratings || [];
     const existing = post.ratings.find(x => x.uid === user.id);
     if (existing) { existing.stars = stars; existing.at = Date.now(); }
@@ -1047,11 +1047,11 @@ const routes = {
 
   'POST /api/social/routines/delete': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const post = social.routines.find(r => r.id === body.id);
-    if (!post) return json(res, 404, { error: 'no such routine' });
-    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'forbidden' });
+    if (!post) return json(res, 404, { error: 'esa rutina no existe' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
     deleteUploadedImage(post.image);
     social.routines = social.routines.filter(r => r.id !== body.id);
     saveSocial();
@@ -1062,14 +1062,14 @@ const routes = {
   // nginx never sees, so this is the one place an uploaded file gets served back.
   'GET /api/social/media': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const id = String(new URL(req.url, 'http://x').searchParams.get('id') || '').replace(/[^a-zA-Z0-9_.-]/g, '');
-    if (!id) return json(res, 400, { error: 'id required' });
+    if (!id) return json(res, 400, { error: 'se requiere un id' });
     try {
       const buf = fs.readFileSync(path.join(uploadsDir, id));
       res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
       res.end(buf);
-    } catch { json(res, 404, { error: 'no such image' }); }
+    } catch { json(res, 404, { error: 'esa imagen no existe' }); }
   },
 
   // A routine's or program's own cover photo, set from Plan (not tied to publishing it to
@@ -1080,7 +1080,7 @@ const routes = {
   // for a small single-gym instance rather than building real reference-counted GC for it.
   'POST /api/media/upload': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     try { json(res, 200, { id: saveUploadedImage(body.image) }); }
     catch (e) { json(res, 400, { error: e.message }); }
@@ -1089,7 +1089,7 @@ const routes = {
   /* ---------- Social: Programs (a named group of routines, published as one unit) ---------- */
   'GET /api/social/programs': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const programs = social.programs.map(p => {
       const ratings = p.ratings || [];
       const avgStars = ratings.length ? Math.round((ratings.reduce((s, x) => s + x.stars, 0) / ratings.length) * 10) / 10 : null;
@@ -1105,21 +1105,21 @@ const routes = {
   // the publishing member's own device), one customExDefs check per embedded routine.
   'POST /api/social/programs': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const name = String(body.name || '').trim().slice(0, 60);
     const routinesIn = Array.isArray(body.routines) ? body.routines : null;
-    if (!name || !routinesIn || !routinesIn.length) return json(res, 400, { error: 'a program needs a name and at least one routine' });
+    if (!name || !routinesIn || !routinesIn.length) return json(res, 400, { error: 'un programa necesita un nombre y al menos una rutina' });
     const routines = [];
     for (const r of routinesIn) {
       const rname = String(r?.name || '').trim().slice(0, 60);
       const ex = Array.isArray(r?.ex) ? r.ex : null;
-      if (!rname || !ex || !ex.length) return json(res, 400, { error: 'every routine needs a name and at least one exercise' });
+      if (!rname || !ex || !ex.length) return json(res, 400, { error: 'cada rutina necesita un nombre y al menos un ejercicio' });
       const customExDefs = Array.isArray(r.customExDefs)
         ? r.customExDefs.filter(d => d && typeof d.id === 'string' && typeof d.n === 'string') : [];
       const customIds = new Set(customExDefs.map(d => d.id));
       if (ex.some(e => typeof e.id === 'string' && e.id.startsWith('c') && !customIds.has(e.id)))
-        return json(res, 400, { error: 'missing definitions for one or more custom exercises in this program' });
+        return json(res, 400, { error: 'faltan definiciones de uno o más ejercicios personalizados en este programa' });
       const routine = { name: rname, emoji: String(r.emoji || 'dumbbell').slice(0, 20), ex, customExDefs };
       if (r.prog) routine.prog = String(r.prog).slice(0, 20);
       routines.push(routine);
@@ -1143,12 +1143,12 @@ const routes = {
 
   'POST /api/social/programs/rate': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const stars = Math.round(Number(body.stars));
-    if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'stars must be 1-5' });
+    if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'las estrellas deben ser de 1 a 5' });
     const post = social.programs.find(p => p.id === body.id);
-    if (!post) return json(res, 404, { error: 'no such program' });
+    if (!post) return json(res, 404, { error: 'ese programa no existe' });
     post.ratings = post.ratings || [];
     const existing = post.ratings.find(x => x.uid === user.id);
     if (existing) { existing.stars = stars; existing.at = Date.now(); }
@@ -1160,11 +1160,11 @@ const routes = {
 
   'POST /api/social/programs/delete': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const post = social.programs.find(p => p.id === body.id);
-    if (!post) return json(res, 404, { error: 'no such program' });
-    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'forbidden' });
+    if (!post) return json(res, 404, { error: 'ese programa no existe' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
     deleteUploadedImage(post.image);
     social.programs = social.programs.filter(p => p.id !== body.id);
     saveSocial();
@@ -1173,7 +1173,7 @@ const routes = {
 
   'GET /api/social/wall': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     json(res, 200, { wall: [...social.wall].sort((a, b) => b.createdAt - a.createdAt) });
   },
 
@@ -1182,16 +1182,16 @@ const routes = {
   // convenience, this check is the actual guarantee.
   'POST /api/social/wall': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const exId = String(body.exId || '');
     const mode = ['reps', 'time', 'cardio'].includes(body.mode) ? body.mode : null;
     const sourceDate = String(body.sourceDate || '');
     const value = body.value && typeof body.value === 'object' ? body.value : null;
     if (!exId || !mode || !value || !/^\d{4}-\d{2}-\d{2}$/.test(sourceDate))
-      return json(res, 400, { error: 'a valid exercise, mode, value and date are required' });
+      return json(res, 400, { error: 'se necesitan un ejercicio, modo, valor y fecha válidos' });
     const S = readState(user.id);
-    if (!S) return json(res, 400, { error: 'nothing synced yet' });
+    if (!S) return json(res, 400, { error: 'todavía no hay nada sincronizado' });
     const workout = (S.workouts || []).find(w => w.d === sourceDate);
     const entry = workout && workout.entries.find(e => e.id === exId);
     const matches = s => {
@@ -1200,7 +1200,7 @@ const routes = {
       if (mode === 'time') return Number(s.sec) === Number(value.sec) && Number(s.w || 0) === Number(value.w || 0);
       return Number(s.w) === Number(value.w) && Number(s.r) === Number(value.r);
     };
-    if (!entry || !entry.sets.some(matches)) return json(res, 400, { error: 'this does not match a set from your own logged history' });
+    if (!entry || !entry.sets.some(matches)) return json(res, 400, { error: 'esto no coincide con ninguna serie de tu propio historial registrado' });
     const post = {
       id: crypto.randomBytes(9).toString('base64url'),
       authorId: user.id, authorName: user.name,
@@ -1219,12 +1219,12 @@ const routes = {
   // forum.
   'POST /api/social/wall/comment': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const text = String(body.text || '').trim().slice(0, 300);
-    if (!text) return json(res, 400, { error: 'comment cannot be empty' });
+    if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
     const post = social.wall.find(w => w.id === body.id);
-    if (!post) return json(res, 404, { error: 'no such post' });
+    if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     post.comments = post.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, text, createdAt: Date.now() };
     post.comments.push(comment);
@@ -1234,13 +1234,13 @@ const routes = {
 
   'POST /api/social/wall/comment/delete': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const post = social.wall.find(w => w.id === body.postId);
-    if (!post) return json(res, 404, { error: 'no such post' });
+    if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     const comment = (post.comments || []).find(c => c.id === body.commentId);
-    if (!comment) return json(res, 404, { error: 'no such comment' });
-    if (comment.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'forbidden' });
+    if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
+    if (comment.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
     post.comments = post.comments.filter(c => c.id !== body.commentId);
     saveSocial();
     json(res, 200, { ok: true });
@@ -1248,11 +1248,11 @@ const routes = {
 
   'POST /api/social/wall/delete': async (req, res) => {
     const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'not signed in' });
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const post = social.wall.find(w => w.id === body.id);
-    if (!post) return json(res, 404, { error: 'no such post' });
-    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'forbidden' });
+    if (!post) return json(res, 404, { error: 'esa publicación no existe' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
     social.wall = social.wall.filter(w => w.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
@@ -1275,12 +1275,12 @@ const routes = {
     const trainer = requireTrainer(req, res); if (!trainer) return;
     const body = await readBody(req);
     const post = social.routines.find(r => r.id === body.routineId);
-    if (!post) return json(res, 404, { error: 'no such routine' });
-    if (post.authorId !== trainer.id) return json(res, 403, { error: 'you can only assign routines you published yourself' });
+    if (!post) return json(res, 404, { error: 'esa rutina no existe' });
+    if (post.authorId !== trainer.id) return json(res, 403, { error: 'solo puedes asignar rutinas que hayas publicado tú mismo' });
     const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'no such member' });
+    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const S = readState(member.id);
-    if (!S) return json(res, 400, { error: 'member has never synced — nothing to assign to yet' });
+    if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
     S.customEx = S.customEx || [];
     (post.customExDefs || []).forEach(def => { if (!S.customEx.some(x => x.id === def.id)) S.customEx.push(def); });
     const routine = { id: crypto.randomBytes(9).toString('base64url'), name: post.name, emoji: post.emoji, ex: JSON.parse(JSON.stringify(post.ex)) };
@@ -1298,12 +1298,12 @@ const routes = {
     const trainer = requireTrainer(req, res); if (!trainer) return;
     const body = await readBody(req);
     const post = social.programs.find(p => p.id === body.programId);
-    if (!post) return json(res, 404, { error: 'no such program' });
-    if (post.authorId !== trainer.id) return json(res, 403, { error: 'you can only assign programs you published yourself' });
+    if (!post) return json(res, 404, { error: 'ese programa no existe' });
+    if (post.authorId !== trainer.id) return json(res, 403, { error: 'solo puedes asignar programas que hayas publicado tú mismo' });
     const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'no such member' });
+    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const S = readState(member.id);
-    if (!S) return json(res, 400, { error: 'member has never synced — nothing to assign to yet' });
+    if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
     S.customEx = S.customEx || [];
     const routineIds = [];
     for (const r of post.routines) {
@@ -1347,10 +1347,10 @@ http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const key = req.method + ' ' + url.pathname;
   const handler = routes[key];
-  if (!handler) return json(res, 404, { error: 'not found' });
+  if (!handler) return json(res, 404, { error: 'no encontrado' });
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);
-    if (!res.headersSent) json(res, 500, { error: 'server error' });
+    if (!res.headersSent) json(res, 500, { error: 'error del servidor' });
   }
 }).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));

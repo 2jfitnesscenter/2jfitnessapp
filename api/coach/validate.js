@@ -38,7 +38,7 @@ const MAX_EX_PER_ROUTINE = 20;
  */
 export function extractJSON(text) {
   const raw = String(text || '').trim();
-  if (!raw) return { error: 'the provider returned nothing' };
+  if (!raw) return { error: 'el proveedor no devolvió nada' };
   try { return { value: JSON.parse(raw) }; } catch { /* keep looking */ }
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) {
@@ -48,7 +48,7 @@ export function extractJSON(text) {
   if (first >= 0 && last > first) {
     try { return { value: JSON.parse(raw.slice(first, last + 1)) }; } catch { /* give up */ }
   }
-  return { error: 'the answer was not JSON' };
+  return { error: 'la respuesta no era JSON' };
 }
 
 const isStr = v => typeof v === 'string' && v.trim().length > 0;

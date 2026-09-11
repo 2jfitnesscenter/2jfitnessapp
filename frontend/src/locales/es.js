@@ -487,6 +487,7 @@ export default {
   '{0} weigh-ins imported': '{0} pesajes importados',
   'Could not read that file': 'No se pudo leer ese archivo',
   'That file is empty': 'Ese archivo está vacío',
+  "That file's columns aren't recognised — see the docs for supported apps.": 'No se reconocen las columnas de ese archivo — consulta la documentación para ver las apps compatibles.',
   'That file\'s columns aren\'t recognised — see the docs for supported apps.': 'No se reconocen las columnas del archivo — consulta la documentación.',
   'Nothing to import from that file': 'No hay nada que importar de ese archivo',
   // --- mobile build ---
@@ -1055,6 +1056,7 @@ export default {
   'Copy to my routines': 'Copiar a mis rutinas',
   'Added to your routines': 'Añadida a tus rutinas',
   'Delete this routine?': '¿Eliminar esta rutina?',
+  'Deleted': 'Eliminado',
   'This removes it from Social for everyone.': 'Se elimina de Social para todos.',
   'Assign to a member': 'Asignar a un socio',
   'Search {0} members…': 'Buscar entre {0} socios…',

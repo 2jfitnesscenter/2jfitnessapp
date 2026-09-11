@@ -24,7 +24,7 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
   /** Every user route starts the same way: signed in, feature on, feature reachable. */
   const guard = (req, res) => {
     const user = readSession(req);
-    if (!user) { json(res, 401, { error: 'not signed in' }); return null; }
+    if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
     if (!cfgStore.isEnabled() || !cfgStore.isConnected()) { json(res, 503, { error: USER_ERROR.off }); return null; }
     return user;
   };
@@ -89,7 +89,7 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
     // for them at once, without waiting for a sync to carry the news (D5).
     'POST /api/coach/forget': async (req, res) => {
       const user = readSession(req);
-      if (!user) return json(res, 401, { error: 'not signed in' });
+      if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
       jobs.clearUser(user.id);
       json(res, 200, { ok: true });
     },
@@ -100,7 +100,7 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       if (!requireAdmin(req, res)) return;
       const cfg = cfgStore.load();
       const adapter = adapterFor(cfg.provider);
-      const check = adapter ? await adapter.check(cfg, cfgStore.jobEnv(process.env.TMPDIR || '/tmp')) : { ok: false, error: 'unknown provider' };
+      const check = adapter ? await adapter.check(cfg, cfgStore.jobEnv(process.env.TMPDIR || '/tmp')) : { ok: false, error: 'proveedor desconocido' };
       const log = cfg.log || [];
       const today = new Date().toISOString().slice(0, 10);
       json(res, 200, {
@@ -126,7 +126,7 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       const patch = {};
       if (body.enabled !== undefined) patch.enabled = !!body.enabled;
       if (body.provider !== undefined) {
-        if (!cfgStore.PROVIDERS[body.provider]) return json(res, 400, { error: 'unknown provider' });
+        if (!cfgStore.PROVIDERS[body.provider]) return json(res, 400, { error: 'proveedor desconocido' });
         // Credentials belong to the provider that issued them.
         if (body.provider !== cfgStore.load().provider) patch.auth = null;
         patch.provider = body.provider;

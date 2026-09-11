@@ -338,7 +338,7 @@ export function resolvePending(uid, { accepted = [], rejected = [], dismissed = 
 export async function testRun() {
   const cfg = cfgStore.load();
   const adapter = adapterFor(cfg.provider);
-  if (!adapter) return { ok: false, error: 'no provider configured' };
+  if (!adapter) return { ok: false, error: 'no hay ningún proveedor configurado' };
   const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coach-test-'));
   const env = cfgStore.jobEnv(jobDir);
   try {
@@ -350,14 +350,14 @@ export async function testRun() {
       cfg, jobDir, env, model: cfg.model || null, timeoutMs: 90000,
       prompt: 'Reply with exactly this JSON object and nothing else: {"coach_contract":1,"ok":true}'
     });
-    if (r.timedOut) return { ok: false, version: check.version, error: 'the provider did not answer in time' };
+    if (r.timedOut) return { ok: false, version: check.version, error: 'el proveedor no respondió a tiempo' };
     if (r.code !== 0) {
       const err = (r.stderr || r.text || '').trim();
       return { ok: false, version: check.version, error: err.slice(0, 300) || 'the provider runtime exited with an error' };
     }
     const parsed = extractJSON(r.text);
     if (parsed.error || !parsed.value?.ok) {
-      return { ok: false, version: check.version, error: 'the provider answered, but not in the expected shape' };
+      return { ok: false, version: check.version, error: 'el proveedor respondió, pero no con el formato esperado' };
     }
     return { ok: true, version: check.version };
   } finally {
