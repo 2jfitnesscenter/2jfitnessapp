@@ -12,9 +12,8 @@ export const publishSocialProgram = post => api('/api/social/programs', { method
 export const rateSocialProgram = (id, stars) => api('/api/social/programs/rate', { method: 'POST', body: JSON.stringify({ id, stars }) })
 export const deleteSocialProgram = id => api('/api/social/programs/delete', { method: 'POST', body: JSON.stringify({ id }) })
 
-// An uploaded routine/program cover — server-side filename in `post.image`, this is what an
-// <img src> actually points at (GET /api/social/media needs a session, same as every route).
-export const mediaUrl = id => id ? '/api/social/media?id=' + encodeURIComponent(id) : null
+// A routine's/program's cover photo — Social's own (post.image) or one set directly on it in
+// Plan — is served through GET /api/social/media either way; see lib/media.js's mediaUrl.
 
 export const fetchWall = () => api('/api/social/wall').then(r => r.wall)
 export const publishWallPost = post => api('/api/social/wall', { method: 'POST', body: JSON.stringify(post) })

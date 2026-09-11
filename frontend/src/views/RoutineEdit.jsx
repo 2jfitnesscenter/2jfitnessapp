@@ -13,6 +13,7 @@ import { Button, SelectRow } from '../components/ui.jsx'
 import { POLICIES_FOR, POLICY_NAME, POLICY_DESC } from '../lib/progression.js'
 import BodyMap from '../components/BodyMap.jsx'
 import { loadOfRoutine, rankOf, MUSCLE_NAME } from '../lib/muscles.js'
+import { mediaUrl } from '../lib/media.js'
 
 export default function RoutineEdit() {
   const nav = useNavigate()
@@ -44,7 +45,11 @@ export default function RoutineEdit() {
         <input className="input" defaultValue={r.name} style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-.021em' }}
           onChange={e => update(s => { s.routines.find(x => x.id === id).name = e.target.value.trim() || t('Routine') })} />
       </div>
-      <button className="iconbtn" aria-label={t('Pick an icon')} onClick={() => glyphPicker(r.emoji, g => update(s => { s.routines.find(x => x.id === id).emoji = g }))}><Icon name={glyphOf(r.emoji)} /></button>
+      <button className="iconbtn" aria-label={t('Pick an icon')} style={r.image ? { overflow: 'hidden', padding: 0 } : undefined}
+        onClick={() => glyphPicker(r.emoji, g => update(s => { s.routines.find(x => x.id === id).emoji = g }),
+          { image: r.image, onImage: imgId => update(s => { s.routines.find(x => x.id === id).image = imgId }) })}>
+        {r.image ? <img src={mediaUrl(r.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={glyphOf(r.emoji)} />}
+      </button>
     </div>
 
     <div className="sect-b" style={{ marginBottom: 16 }}>

@@ -1097,4 +1097,9 @@ export default {
   'Duration (optional)': 'Duración (opcional)',
   'e.g. “4 months”': 'p. ej. «4 meses»',
   'Workouts in this program': 'Entrenamientos en el programa',
+
+  // ---- routine/program cover photo, set directly from Plan (sheets.jsx's glyphPicker) ----
+  'Use a photo instead': 'Usar una foto en su lugar',
+  'Change photo': 'Cambiar foto',
+  'Remove': 'Quitar',
 }

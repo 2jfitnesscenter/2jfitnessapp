@@ -21,6 +21,7 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
+import { resizeImageFile, uploadImage, mediaUrl } from './lib/media.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -637,17 +638,39 @@ export const exConfigSheet = (ex, existing, onSave, onDelete, routine) => ui().o
 /* ============================ glyph picker ============================ */
 // Grouped by what the glyph means for a training day, so picking one is a scan
 // of four short rows rather than a hunt through twenty loose icons.
-export const glyphPicker = (current, onPick) => {
-  const cur = glyphOf(current)
-  return ui().openSheet(close => <>
+// A routine/program can carry a real cover photo instead of a glyph (opts: { image, onImage } —
+// current stored filename or null, and a callback for a new filename or null on removal). Only
+// offered when the caller passes onImage — this sheet is reused elsewhere for glyph-only picks.
+function GlyphPickerSheet({ cur, onPick, image, onImage }) {
+  const toast = useUI(s => s.toast)
+  const inputRef = useRef(null)
+  const [busy, setBusy] = useState(false)
+  const onFile = e => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    resizeImageFile(file).then(uploadImage).then(id => { setBusy(false); onImage(id) })
+      .catch(err => { setBusy(false); toast(err.message) })
+  }
+  return <>
     <h3>{t('Pick an icon')}</h3>
+    {onImage && <>
+      <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
+      {image && <img src={mediaUrl(image)} alt="" style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 12, marginBottom: 10 }} />}
+      <div className="row" style={{ gap: 8, marginBottom: 16 }}>
+        <Button icon="upload" disabled={busy} onClick={() => inputRef.current?.click()} style={{ flex: 1 }}>
+          {image ? t('Change photo') : t('Use a photo instead')}</Button>
+        {image && <Button variant="danger" disabled={busy} onClick={() => onImage(null)}>{t('Remove')}</Button>}
+      </div>
+    </>}
     {GLYPH_GROUPS.map(g => (
       <div key={g.key} style={{ marginBottom: 14 }}>
         <div className="sect-t" style={{ padding: '0 2px 7px' }}>{t(g.key)}</div>
         <div className="glyph-grid">
           {g.items.map(n => (
             <button key={n} className={'glyph-cell' + (n === cur ? ' on' : '')}
-              onClick={() => { close(); onPick(n) }} aria-label={n}>
+              onClick={() => onPick(n)} aria-label={n}>
               <Icon name={n} />
             </button>
           ))}
@@ -655,7 +678,13 @@ export const glyphPicker = (current, onPick) => {
       </div>
     ))}
     <div style={{ height: 4 }} />
-  </>)
+  </>
+}
+export const glyphPicker = (current, onPick, opts = {}) => {
+  const cur = glyphOf(current)
+  const { image, onImage } = opts
+  return ui().openSheet(close => <GlyphPickerSheet cur={cur} onPick={g => { close(); onPick(g) }}
+    image={image} onImage={onImage ? (id => { close(); onImage(id) }) : null} />)
 }
 
 /* ============================ routine picker (for a program) ============================ */

@@ -7,6 +7,7 @@ import { glyphPicker, confirmSheet, routinePickerSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
 import { Button } from '../components/ui.jsx'
+import { mediaUrl } from '../lib/media.js'
 
 // A program is a named folder of routine ids — see useStore.js's DEF.programs comment. This
 // screen is the folder's contents: add an existing loose routine to it, build a new one
@@ -55,14 +56,19 @@ export default function ProgramEdit() {
     </div>
 
     <div className="row" style={{ gap: 10, marginBottom: 16 }}>
-      <button className="lrow-i" style={{ width: 52, height: 52, borderRadius: 14, fontSize: 26, flex: 'none' }}
-        onClick={() => glyphPicker(p.emoji, g => patch(pr => { pr.emoji = g }))}><Icon name={glyphOf(p.emoji)} /></button>
+      <button style={{ width: 52, height: 52, borderRadius: 14, fontSize: 26, flex: 'none', overflow: 'hidden', border: 'none', padding: 0 }}
+        className={p.image ? '' : 'lrow-i'}
+        onClick={() => glyphPicker(p.emoji, g => patch(pr => { pr.emoji = g }), { image: p.image, onImage: id => patch(pr => { pr.image = id }) })}>
+        {p.image ? <img src={mediaUrl(p.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={glyphOf(p.emoji)} />}
+      </button>
       <input className="input" style={{ flex: 1 }} value={p.name} maxLength={40} onChange={e => rename(e.target.value)} placeholder={t('Program name')} />
     </div>
 
     {routines.length ? <div className="list" style={{ marginBottom: 14 }}>
       {routines.map(r => <div key={r.id} className="item">
-        <span className="lrow-i" onClick={() => nav('/plan/r/' + r.id)}><Icon name={glyphOf(r.emoji)} /></span>
+        {r.image
+          ? <img src={mediaUrl(r.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} onClick={() => nav('/plan/r/' + r.id)} />
+          : <span className="lrow-i" onClick={() => nav('/plan/r/' + r.id)}><Icon name={glyphOf(r.emoji)} /></span>}
         <div className="grow" onClick={() => nav('/plan/r/' + r.id)}><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
         <button className="iconbtn" aria-label={t('Remove from program')} onClick={() => removeFromProgram(r.id)}><Icon name="xmark" /></button>
       </div>)}

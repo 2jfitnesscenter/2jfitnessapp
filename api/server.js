@@ -88,10 +88,11 @@ try {
 } catch {}
 function saveSocial() { atomicWrite(socialFile, JSON.stringify(social, null, 2)); }
 
-// Uploaded images (Social routine/program covers) — the one place this app stores a
-// user-provided file. DATA is a private volume nginx never sees (docker-compose.yml), so these
-// have to be served back through the api itself (see GET /api/social/media below) rather than
-// through the static img/ and gif/ dirs the exercise media already uses.
+// Uploaded images — a routine/program's own cover (set from Plan, see POST /api/media/upload)
+// or a Social routine/program post's cover (POST /api/social/routines|programs). Either way,
+// the one place this app stores a user-provided file. DATA is a private volume nginx never sees
+// (docker-compose.yml), so these have to be served back through the api itself (see GET
+// /api/social/media below) rather than through the static img/ and gif/ dirs exercise media uses.
 const uploadsDir = path.join(DATA, 'uploads');
 try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch {}
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -1017,6 +1018,20 @@ const routes = {
       res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
       res.end(buf);
     } catch { json(res, 404, { error: 'no such image' }); }
+  },
+
+  // A routine's or program's own cover photo, set from Plan (not tied to publishing it to
+  // Social — see frontend/src/sheets.jsx's glyphPicker) — any signed-in member, body: { image }
+  // a data URL. Nothing here tracks which routine/program a file belongs to (the client stores
+  // just the returned id on the routine/program itself, same as every other opaque S field), so
+  // an orphaned cover from a since-deleted routine is never cleaned up — an accepted trade-off
+  // for a small single-gym instance rather than building real reference-counted GC for it.
+  'POST /api/media/upload': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    try { json(res, 200, { id: saveUploadedImage(body.image) }); }
+    catch (e) { json(res, 400, { error: e.message }); }
   },
 
   /* ---------- Social: Programs (a named group of routines, published as one unit) ---------- */

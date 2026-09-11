@@ -12,10 +12,11 @@ import { Button, Segmented, TextArea, SelectRow } from '../components/ui.jsx'
 import { confirmSheet } from '../sheets.jsx'
 import {
   fetchSocialRoutines, publishSocialRoutine, rateSocialRoutine, deleteSocialRoutine,
-  fetchSocialPrograms, publishSocialProgram, rateSocialProgram, deleteSocialProgram, mediaUrl,
+  fetchSocialPrograms, publishSocialProgram, rateSocialProgram, deleteSocialProgram,
   fetchWall, publishWallPost, deleteWallPost, postWallComment, deleteWallComment,
   fetchTrainerMembers, assignRoutineToMember, assignProgramToMember
 } from '../lib/social-api.js'
+import { resizeImageFile, uploadImage, mediaUrl, refetchAsDataUrl } from '../lib/media.js'
 
 // Same "spec sheet" fields api/server.js's readSpecFields accepts — level/goal are fixed
 // choices (goal reuses lib/starter.js's own GOALS, same labels the quick-plan intake uses, so
@@ -40,30 +41,18 @@ function Stars({ value, onRate }) {
   </div>
 }
 
-// A file input that reads the chosen photo, downsizes it onto an offscreen canvas (long edge
-// capped at 960px) and hands back a JPEG data URL — this is what keeps an upload small without
-// a bigger request-body cap or any server-side image library.
+// A file input that reads the chosen photo and hands back a resized JPEG data URL (see
+// lib/media.js's resizeImageFile) — this is what keeps an upload small without a bigger
+// request-body cap or any server-side image library. `value` may start pre-filled with the
+// routine/program's own already-uploaded cover (see PublishDetailsSheet).
 function ImagePicker({ value, onChange }) {
   const inputRef = useRef(null)
+  const toast = useUI(s => s.toast)
   const onFile = e => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const img = new Image()
-      img.onload = () => {
-        const MAX = 960
-        const scale = Math.min(1, MAX / Math.max(img.width, img.height))
-        const canvas = document.createElement('canvas')
-        canvas.width = Math.round(img.width * scale)
-        canvas.height = Math.round(img.height * scale)
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-        onChange(canvas.toDataURL('image/jpeg', 0.75))
-      }
-      img.src = reader.result
-    }
-    reader.readAsDataURL(file)
+    resizeImageFile(file).then(onChange).catch(err => toast(err.message))
   }
   return <div>
     <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
@@ -194,6 +183,13 @@ function PublishDetailsSheet({ kind, source, S, onPublished, close }) {
   const [duration, setDuration] = useState('')
   const [daysPerWeek, setDaysPerWeek] = useState(3)
   const [busy, setBusy] = useState(false)
+
+  // Already set a cover on this routine/program from Plan? Pre-fill it here (still replaceable/
+  // removable) — refetched as its own data URL rather than reusing the stored filename, so the
+  // Social post gets an independent copy neither side's later delete can break for the other.
+  useEffect(() => {
+    if (source.image) refetchAsDataUrl(source.image).then(setImage).catch(() => {})
+  }, [])
 
   const publish = () => {
     setBusy(true)
@@ -464,9 +460,9 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
       {!(post.comments || []).length && <div className="muted small" style={{ padding: '6px 2px' }}>{t('No comments yet.')}</div>}
     </div>
     <div className="row" style={{ gap: 8 }}>
-      <input className="input" style={{ flex: 1 }} value={text} maxLength={300} placeholder={t('Add a comment…')}
+      <input className="input" style={{ flex: '1 1 auto', minWidth: 0 }} value={text} maxLength={300} placeholder={t('Add a comment…')}
         onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') send() }} />
-      <Button variant="primary" disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>
+      <Button variant="primary" style={{ flex: 'none' }} disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>
     </div>
     {(post.authorId === user.id || user.admin) && <>
       <div style={{ height: 10 }} />

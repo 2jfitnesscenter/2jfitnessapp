@@ -11,6 +11,7 @@ import { coachAvailable } from '../lib/coach.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import Library from './Library.jsx'
+import { mediaUrl } from '../lib/media.js'
 
 export default function Plan() {
   const nav = useNavigate()
@@ -51,7 +52,9 @@ export default function Plan() {
         <Button size="sm" variant="tinted" icon="plus" onClick={addProgram}>{t('New')}</Button>
       </div>
       {(S.programs || []).length ? <div className="list">{S.programs.map(p => <div key={p.id} className="item" onClick={() => nav('/plan/p/' + p.id)}>
-        <span className="lrow-i"><Icon name={glyphOf(p.emoji)} /></span>
+        {p.image
+          ? <img src={mediaUrl(p.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
+          : <span className="lrow-i"><Icon name={glyphOf(p.emoji)} /></span>}
         <div className="grow"><div className="tt">{p.name}</div><div className="ss">{routineCount((p.routineIds || []).length)}</div></div>
         <Icon name="chevronRight" className="chev" /></div>)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="folder" /></div>{t('No programs yet.')}<br />{t('Group a few routines together — a whole split, a block, a phase.')}</div>
@@ -63,7 +66,9 @@ export default function Plan() {
         <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>
       </div>
       {loose.length ? <div className="list">{loose.map(r => <div key={r.id} className="item" onClick={() => nav('/plan/r/' + r.id)}>
-        <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
+        {r.image
+          ? <img src={mediaUrl(r.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
+          : <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>}
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
         <Icon name="chevronRight" className="chev" /></div>)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>
