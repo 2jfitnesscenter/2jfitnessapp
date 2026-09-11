@@ -757,18 +757,20 @@ const routes = {
     if (!u) return json(res, 404, { error: 'no such user' });
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'member has never synced — nothing to add a plan to yet' });
+    // Names hardcoded in Spanish — this admin endpoint has no i18n layer (the frontend's
+    // equivalent, frontend/src/lib/starter.js, runs the same English keys through t()).
     const SPEC = [
-      ['Push Day', 'barbell', ['0025', '0047', '0426', '0334', '0241', '0251']],
-      ['Pull Day', 'pullup', ['2330', '0027', '1323', '0031', '0313']],
-      ['Leg Day', 'legs', ['0043', '0085', '0739', '0585', '0586', '0605']]
+      ['Día de empuje', 'barbell', ['0025', '0047', '0426', '0334', '0241', '0251']],
+      ['Día de tirón', 'pullup', ['2330', '0027', '1323', '0031', '0313']],
+      ['Día de piernas', 'legs', ['0043', '0085', '0739', '0585', '0586', '0605']]
     ];
     // Second pass through the same 3 days for 4-6 day plans, same slot order as SPEC but
     // different exercises — so a repeat day (e.g. the 2nd Push day of the week) isn't
     // literally the same routine as the 1st.
     const SPEC_B = [
-      ['Push Day B', 'barbell', ['0289', '0314', '0405', '0178', '0060', '0308']],
-      ['Pull Day B', 'pullup', ['0818', '3017', '0861', '0070', '0165']],
-      ['Leg Day B', 'legs', ['0046', '1459', '0760', '0585', '0599', '0594']]
+      ['Día de empuje B', 'barbell', ['0289', '0314', '0405', '0178', '0060', '0308']],
+      ['Día de tirón B', 'pullup', ['0818', '3017', '0861', '0070', '0165']],
+      ['Día de piernas B', 'legs', ['0046', '1459', '0760', '0585', '0599', '0594']]
     ];
     const GOAL_RULES = {
       hypertrophy: { compound: [8, 4], accessory: [12, 3], superset: false },

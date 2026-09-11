@@ -1,6 +1,7 @@
 // The Push/Pull/Legs starter plan. Shared by the "Load starter plan" action in Settings
 // and by the demo build, which seeds a history on top of exactly these routines.
 import { uid } from './format.js'
+import { t } from './i18n.js'
 
 const SPEC = [
   ['Push Day', 'barbell', [['0025', 4, 8], ['0047', 3, 10], ['0426', 3, 10], ['0334', 3, 12], ['0241', 3, 12], ['0251', 3, 10]]],
@@ -23,7 +24,7 @@ const SPEC_B = [
 // history (frontend/src/lib/demoSeed.js) — keep this zero-arg and general-purpose; goal/day
 // customization lives in buildPlan below instead of changing this signature.
 export const starterRoutines = () =>
-  SPEC.map(([name, emoji, list]) => ({ id: uid(), name, emoji, ex: list.map(([id, sets, reps]) => ({ id, sets, reps, weight: 0 })) }))
+  SPEC.map(([name, emoji, list]) => ({ id: uid(), name: t(name), emoji, ex: list.map(([id, sets, reps]) => ({ id, sets, reps, weight: 0 })) }))
 
 /* ---------------------------------------------------------------------------------------
  * Goal-aware plan builder — the same Push/Pull/Legs exercise selection, but the rep range,
@@ -78,7 +79,7 @@ function makeRoutine(spec, slot, rules, sessionMin) {
   if (rules.superset || (sessionMin && sessionMin <= 45)) {
     for (let i = 1; i + 1 < ex.length; i += 2) { const tag = 'a' + i; ex[i].sg = tag; ex[i + 1].sg = tag }
   }
-  return { id: uid(), name, emoji, ex }
+  return { id: uid(), name: t(name), emoji, ex }
 }
 
 // Which of the 3 SPEC slots (0=Push, 1=Pull, 2=Legs) each muscle-priority pick (see

@@ -69,6 +69,8 @@ export default {
   'How to': 'Cómo hacerlo',
   'instructions in English': 'instrucciones en inglés',
   'New routine': 'Nueva rutina',
+  'Push Day': 'Día de empuje', 'Pull Day': 'Día de tirón', 'Leg Day': 'Día de piernas',
+  'Push Day B': 'Día de empuje B', 'Pull Day B': 'Día de tirón B', 'Leg Day B': 'Día de piernas B',
   'Add “{0}”': 'Añadir «{0}»',
   '“{0}” added to {1}': '«{0}» añadido a {1}',
   'Pick a routine — sets, reps & weight come next.': 'Elige una rutina — series, repeticiones y peso vienen después.',
