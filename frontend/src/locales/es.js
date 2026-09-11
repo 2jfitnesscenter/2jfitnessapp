@@ -1029,6 +1029,7 @@ export default {
   'No ratings yet': 'Sin valoraciones',
   '{0} ratings': '{0} valoraciones',
   'Your rating': 'Tu valoración',
+  "You can't rate your own routine.": 'No puedes valorar tu propia rutina.',
   'Publish': 'Publicar',
   'Published': 'Publicada',
   'Publish a routine': 'Publicar una rutina',

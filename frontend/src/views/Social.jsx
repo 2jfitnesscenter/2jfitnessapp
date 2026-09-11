@@ -125,10 +125,12 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
       <Stars value={post.avgStars || 0} />
       <span className="small muted">{post.ratingCount ? t('{0} ratings', post.ratingCount) : t('No ratings yet')}</span>
     </div>
-    {!isOwn && <>
-      <div className="dim small" style={{ margin: '8px 0 4px' }}>{t('Your rating')}</div>
-      <Stars value={post.myStars || 0} onRate={rate} />
-    </>}
+    {isOwn
+      ? <div className="dim small" style={{ margin: '8px 0 4px' }}>{t("You can't rate your own routine.")}</div>
+      : <>
+        <div className="dim small" style={{ margin: '8px 0 4px' }}>{t('Your rating')}</div>
+        <Stars value={post.myStars || 0} onRate={rate} />
+      </>}
     <h4 className="sec" style={{ marginTop: 14 }}>{t('Exercises')}</h4>
     <div className="list" style={{ marginBottom: 12 }}>
       {post.ex.map((e, i) => {
