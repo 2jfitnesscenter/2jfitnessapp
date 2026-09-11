@@ -105,15 +105,23 @@ function ProfileEditForm({ d, onSaved, close }) {
 function RecoveryLinkSheet({ u, close }) {
   const toast = useUI(s => s.toast)
   const [link, setLink] = useState(null)
+  const [qr, setQr] = useState(null)
   const [busy, setBusy] = useState(false)
   const gen = () => {
     setBusy(true)
+    setQr(null)
     api('/api/admin/user/recovery-link', { method: 'POST', body: JSON.stringify({ id: u.id }) })
-      .then(({ token }) => {
+      .then(async ({ token }) => {
         const url = `${location.origin}/#/recover?token=${token}`
         setLink(url)
         navigator.clipboard?.writeText(url).catch(() => {})
         toast(t('Link created & copied'))
+        // Loaded on demand — this is the only screen in the app that draws a QR code, so it
+        // isn't worth adding to everyone else's initial download.
+        try {
+          const { default: QRCode } = await import('qrcode')
+          setQr(await QRCode.toDataURL(url, { margin: 1, width: 240 }))
+        } catch { /* link + copy still work without it */ }
       })
       .catch(e => toast(e.message))
       .finally(() => setBusy(false))
@@ -123,6 +131,10 @@ function RecoveryLinkSheet({ u, close }) {
     <div className="muted small" style={{ marginBottom: 14, lineHeight: 1.5 }}>
       {t('Hand this to them in person — it lets them add a new passkey to this exact account, nothing is lost. Works once, expires in 15 minutes.')}
     </div>
+    {qr && <div style={{ textAlign: 'center', marginBottom: 14 }}>
+      <img src={qr} alt={t('QR code for the recovery link')} width={200} height={200} style={{ borderRadius: 10, background: '#fff', padding: 8 }} />
+      <div className="dim small" style={{ marginTop: 6 }}>{t('Let them scan it with their own phone')}</div>
+    </div>}
     {link && <>
       <div className="input" style={{ wordBreak: 'break-all', fontSize: '.82rem', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', cursor: 'pointer' }}
         onClick={() => { navigator.clipboard?.writeText(link).catch(() => {}); toast(t('Copied')) }}>{link}</div>
