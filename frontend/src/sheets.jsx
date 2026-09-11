@@ -600,6 +600,19 @@ export const glyphPicker = (current, onPick) => {
   </>)
 }
 
+/* ============================ routine picker (for a program) ============================ */
+// A short list, not a search — this only ever offers routines not already in some program, so
+// it's picking a specific existing thing, not browsing.
+export const routinePickerSheet = (routines, onPick) => ui().openSheet(close => <>
+  <h3>{t('Add a routine')}</h3>
+  <div className="list">
+    {routines.map(r => <div key={r.id} className="item" onClick={() => { close(); onPick(r.id) }}>
+      <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
+      <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
+    </div>)}
+  </div>
+</>)
+
 /* ============================ share / print / import a plan ============================ */
 export const planToolsSheet = () => ui().openSheet(close => <PlanTools close={close} />)
 

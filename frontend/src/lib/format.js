@@ -31,6 +31,7 @@ export const fmtNum = n => (Math.round(n * 10) / 10).toLocaleString(dateLocale()
 export const fmtVol = (v, unit) => fmtNum(v) + ' ' + unit
 // Plural forms are not automatic when the English string is the key.
 export const exCount = n => t(n === 1 ? '{0} exercise' : '{0} exercises', n)
+export const routineCount = n => t(n === 1 ? '{0} routine' : '{0} routines', n)
 
 export function weekKey(d) {
   const dt = new Date(d + 'T12:00:00')

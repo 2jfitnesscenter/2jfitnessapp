@@ -14,7 +14,12 @@ export const DEF = {
   // Basic profile, collected (optionally) at registration and editable later in Settings.
   // birthDate is the ISO date, not a stored age — age is derived from it wherever it is needed.
   birthDate: null, height: null,
-  bodyweight: [], routines: [], week: {}, dayPlan: {},
+  // Programs are an optional, purely organisational layer on top of routines — a named folder
+  // of routine ids (e.g. a whole "Project Kakarrot" split), never a copy of the routine data
+  // itself. A routine not listed in any program's `routineIds` is just shown loose, exactly as
+  // every routine was before this existed — nothing here changes what a routine or a week
+  // actually IS, only how the Plan screen groups them for browsing.
+  bodyweight: [], routines: [], programs: [], week: {}, dayPlan: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // effort: which per-set effort scale is logged — 'none' | 'rir' | 'rpe'. null, not 'none', so
   // that a profile which never chose (loaded state is overlaid on DEF, on every path: local,
