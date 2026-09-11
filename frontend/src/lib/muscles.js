@@ -101,14 +101,14 @@ export function loadOf(items) {
 }
 
 /**
- * Load for finished workouts (only sets actually ticked off count). `pick` narrows that
- * further — the map can then answer "where did the *hard* sets go", which is a different
- * question from where the sets went: a muscle can lead on volume and still never be trained
- * near failure.
+ * Load for finished workouts (only sets actually ticked off count, and a warmup never did count
+ * as training load). `pick` narrows that further — the map can then answer "where did the
+ * *hard* sets go", which is a different question from where the sets went: a muscle can lead on
+ * volume and still never be trained near failure.
  */
 export const loadOfWorkouts = (workouts, pick) =>
   loadOf((workouts || []).flatMap(w =>
-    (w.entries || []).map(e => ({ id: e.id, sets: (e.sets || []).filter(s => s.done && (!pick || pick(s))).length }))))
+    (w.entries || []).map(e => ({ id: e.id, sets: (e.sets || []).filter(s => s.done && s.type !== 'warmup' && (!pick || pick(s))).length }))))
 
 /** Load a routine *would* produce, from its planned set counts. */
 export const loadOfRoutine = routine =>

@@ -16,7 +16,7 @@
 //   · fewer sets than prescribed                       → miss
 // So a session that fell apart can never advance the load as though it had succeeded.
 
-import { modeOf } from './history.js'
+import { modeOf, workingSets } from './history.js'
 import { EXIDX } from './exercises.js'
 
 export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'time']
@@ -98,7 +98,9 @@ function deloadTo(cur, step) {
 export function readSession(entry, fallback) {
   const target = (entry && entry.target) || fallback || {}
   const mode = modeOf({ ...target, id: entry && entry.id })
-  const sets = (entry && entry.sets) || []
+  // Warmup/drop sets don't represent the straight-set prescription — excluded so they can't
+  // make a session read as a miss (or a false hit) against a target they were never trying to hit.
+  const sets = workingSets((entry && entry.sets) || [])
   const planned = target.sets || sets.length
   const enough = sets.length >= planned
 

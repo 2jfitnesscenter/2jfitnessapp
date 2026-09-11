@@ -9,7 +9,7 @@ import { beep, vibrate } from '../lib/sound.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
-import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
+import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
@@ -53,8 +53,20 @@ function Elapsed({ start }) {
   return <span>{t}</span>
 }
 
+// A set's badge: its type letter if tagged, else the count of untyped sets up to and including
+// it — so a warmup/failure/drop set never consumes a working-set number (matches how every
+// reference strength app numbers a session: 1, W, F, D, 2, not 1, 2, 3, 4, 5).
+const TYPE_LETTER = { warmup: 'W', failure: 'F', drop: 'D' }
+const TYPE_COLOR = { warmup: 'var(--orange)', failure: 'var(--red)', drop: 'var(--blue)' }
+const setBadge = (sets, i) => {
+  if (TYPE_LETTER[sets[i].type]) return TYPE_LETTER[sets[i].type]
+  let n = 0
+  for (let j = 0; j <= i; j++) if (!TYPE_LETTER[sets[j].type]) n++
+  return n
+}
+
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
-function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemoveSet, onStartTimed }) {
+function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType }) {
   const S = useStore(s => s.S)
   const working = useUI(s => s.work)
   const entry = S.active.entries[entryIdx]
@@ -119,7 +131,8 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
       {/* the header carries the same eff3 sizing as the rows, or the labels drift off their columns */}
       <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{col3 && <span className="eff-sp">{col3.hd}</span>}{timed && <span className="ck-sp" />}<span className="ck-sp" /></div>
       {entry.sets.map((s, i) => <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '')}>
-        <div className="n">{i + 1}</div>
+        <button className="n" aria-label={t('Set type')} style={s.type ? { background: TYPE_COLOR[s.type], color: '#fff' } : undefined}
+          onClick={() => onSetType(i)}>{setBadge(entry.sets, i)}</button>
         {cell(s, i, col1, 'w')}
         {cell(s, i, col2, 'r')}
         {col3 && cell(s, i, col3, 'eff')}
@@ -157,14 +170,19 @@ function ActiveWorkout() {
   const mutEntry = (idx, fn) => update(s => { fn(s.active.entries[idx]) }, true)
   // Clearing an optional field drops the key rather than storing null, so a set only carries
   // what was actually logged — in the session, in history and in a backup.
+  const effKind = effortOf(S)
+  // A warmup/drop set's weight (or effort) is deliberately different from the straight sets
+  // around it, so it neither hands its own value forward nor accepts one carried into it.
+  const carriable = s => s.type !== 'warmup' && s.type !== 'drop'
   const setField = (idx, i, field, v) => mutEntry(idx, e => {
     if (v == null) delete e.sets[i][field]; else e.sets[i][field] = v
-    // Typing a weight before checking a set off carries it forward to the later sets of the
-    // same exercise that also aren't done yet — straight sets are usually all the same weight,
-    // so this saves re-typing it two or three more times. A set already ticked off, or one
-    // whose weight was typed in afterwards, is left exactly as it was.
-    if (field === 'w' && v != null && !e.sets[i].done) {
-      for (let j = i + 1; j < e.sets.length; j++) { if (!e.sets[j].done) e.sets[j].w = v }
+    // Typing a weight (or an RIR/RPE) before checking a set off carries it forward to the later
+    // sets of the same exercise that also aren't done yet — straight sets are usually all the
+    // same weight/effort, so this saves re-typing it two or three more times. A set already
+    // ticked off, one whose value was typed in afterwards, or a warmup/drop on either end is
+    // left exactly as it was.
+    if ((field === 'w' || (effKind !== 'none' && field === effKind)) && v != null && !e.sets[i].done && carriable(e.sets[i])) {
+      for (let j = i + 1; j < e.sets.length; j++) { if (!e.sets[j].done && carriable(e.sets[j])) e.sets[j][field] = v }
     }
   })
   const modeAt = idx => modeOf({ ...(A.entries[idx].target || {}), id: A.entries[idx].id })
@@ -176,6 +194,18 @@ function ActiveWorkout() {
     else e.sets.push({ w: l ? l.w : 0, r: l ? l.r : e.target.reps, done: false })
   })
   const removeSet = idx => mutEntry(idx, e => { if (e.sets.length > 1) e.sets.pop() })
+  const removeSetAt = (idx, i) => mutEntry(idx, e => { if (e.sets.length > 1) e.sets.splice(i, 1) })
+  // Failure is the one type with a real side effect: it means "taken to failure", so if the
+  // profile rates effort and this set hasn't been rated yet, fill in the failure-equivalent
+  // value — RIR 0 or RPE 10 — without touching a value already typed. Goes through mutEntry
+  // directly (not setField) so it can never itself carry forward onto later sets.
+  const setType = (idx, i, type) => mutEntry(idx, e => {
+    if (type) e.sets[i].type = type; else delete e.sets[i].type
+    if (type === 'failure' && effKind !== 'none' && e.sets[i][effKind] == null) {
+      e.sets[i][effKind] = effKind === 'rpe' ? 10 : 0
+    }
+  })
+  const openSetType = (idx, i) => setTypeSheet(A.entries[idx].sets[i].type, type => setType(idx, i, type), () => removeSetAt(idx, i))
 
   // A timed set is held, not typed. The work timer records what was actually held — an early
   // finish logs 0:38 of a 0:45 target rather than crediting the full prescription — and then
@@ -259,11 +289,11 @@ function ActiveWorkout() {
           {unit.map((idx, k) => <div key={idx} className="ss-ex">
             {k > 0 && <div className="ss-amp">+</div>}
             <ExerciseBlock entryIdx={idx} compact
-              onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} />
+              onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} onSetType={i => openSetType(idx, i)} />
           </div>)}
         </div>
       ) : (
-        <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} />
+        <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} onSetType={i => openSetType(cur, i)} />
       )}
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 

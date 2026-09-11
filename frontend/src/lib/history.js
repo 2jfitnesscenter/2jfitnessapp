@@ -99,13 +99,21 @@ export function cleanupSg(ex) {
   })
 }
 
+// A set's optional `type` — 'warmup' | 'failure' | 'drop' | undefined (undefined = normal). Only
+// warmup and drop are excluded here: a warmup isn't real work, and a drop set's reps/weight are
+// a deliberate continuation at reduced load, not comparable to the straight-set prescription.
+// Failure sets are still full working sets and stay in.
+export const workingSets = sets => (sets || []).filter(s => s.type !== 'warmup' && s.type !== 'drop')
+
 export function lastEntryFor(S, exId) {
   for (let i = S.workouts.length - 1; i >= 0; i--) {
     const en = S.workouts[i].entries.find(e => e.id === exId)
+    if (!en) continue
     // `target` is what the session prescribed; finished workouts carry it so labels and the
     // progression engine can read a session back the way it was logged. Older workouts have
     // none — modeOf() falls back to the body part for them, which is what they were.
-    if (en && en.sets.some(s => s.done)) return { d: S.workouts[i].d, sets: en.sets.filter(s => s.done), target: en.target || null }
+    const sets = workingSets(en.sets).filter(s => s.done)
+    if (sets.length) return { d: S.workouts[i].d, sets, target: en.target || null }
   }
   return null
 }
@@ -166,7 +174,7 @@ export function buildSets(S, cfg) {
 }
 export function workoutVolume(w) {
   let v = 0
-  w.entries.forEach(e => e.sets.forEach(s => { if (s.done) v += (s.w || 0) * (s.r || 0) }))
+  w.entries.forEach(e => e.sets.forEach(s => { if (s.done && s.type !== 'warmup') v += (s.w || 0) * (s.r || 0) }))
   return v
 }
 export function setsDone(w) {

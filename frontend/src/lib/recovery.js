@@ -11,9 +11,9 @@
 // already deliberately ignores weight for the same reason (100kg leg press vs 12kg lateral
 // raise says nothing about which muscle worked harder). Each set's contribution is then scaled
 // by an exponential recency weight so recent sessions dominate: HALF_LIFE_DAYS old counts half.
-// There's no per-set "to failure" or drop-set marker anywhere in this app's data model (only
-// optional RIR/RPE on a set, and supersets link whole exercises, not individual sets) — so
-// unlike some apps, this doesn't attempt to detect either.
+// A warmup set (see history.js's `type`) is excluded — it was never meant to be real fatiguing
+// work. A failure or drop set still counts fully; both are genuine work, not a data point about
+// "to failure" or drop-set intensity that this estimate tries to weigh any differently.
 import { EXIDX } from './exercises.js'
 import { musclesOf, MUSCLES, MUSCLE_NAME } from './muscles.js'
 import { modeOf } from './history.js'
@@ -46,7 +46,7 @@ export function recoveryOf(S) {
       if (mode !== 'reps') return   // time/cardio work isn't counted, same as the reference
       const m = musclesOf(ex)
       ;(e.sets || []).forEach(s => {
-        if (!s.done || !s.r) return
+        if (!s.done || !s.r || s.type === 'warmup') return
         const contribution = (s.r / STANDARD_REPS) * weight
         for (const slug in m) fatigue[slug] = (fatigue[slug] || 0) + m[slug] * contribution
       })

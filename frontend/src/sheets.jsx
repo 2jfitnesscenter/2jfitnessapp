@@ -932,6 +932,33 @@ export function beginWorkout(routineId, bw) {
   nav('/workout')
   if (skipped) toast(t('{0} exercise(s) skipped — not currently available', skipped))
 }
+// A set's type — see history.js's `workingSets` for what each one actually changes about how
+// the set counts (progression, volume, recovery, carry-forward). 'normal' is stored as no
+// `type` at all, matching every optional set field's "absent = default" convention.
+export const SET_TYPES = ['normal', 'warmup', 'failure', 'drop']
+export const SET_TYPE_LABEL = { normal: 'Normal set', warmup: 'Warmup set', failure: 'Failure set', drop: 'Drop set' }
+export const SET_TYPE_DESC = {
+  normal: 'A straight working set — counts everywhere.',
+  warmup: 'Doesn’t count toward volume, recovery or your next prescription.',
+  failure: 'A working set taken to failure — fills in RIR 0 / RPE 10 if you haven’t rated it yet.',
+  drop: 'A continuation at a lower weight, right after the set before it — doesn’t carry weight forward either way.'
+}
+function SetTypeSheet({ current, close, onPick, onDelete }) {
+  const cur = current || 'normal'
+  return <>
+    <h3>{t('Set type')}</h3>
+    <div className="sect-b">
+      {SET_TYPES.map(k => <button key={k} className="lrow tap" onClick={() => { onPick(k === 'normal' ? null : k); close() }}>
+        <span className="lrow-m"><span className="lrow-t">{t(SET_TYPE_LABEL[k])}</span><span className="lrow-s">{t(SET_TYPE_DESC[k])}</span></span>
+        {cur === k && <Icon name="check" className="lrow-k" />}
+      </button>)}
+    </div>
+    <div style={{ height: 10 }} />
+    <Button variant="danger" icon="trash" onClick={() => { onDelete(); close() }}>{t('Delete this set')}</Button>
+  </>
+}
+export const setTypeSheet = (current, onPick, onDelete) => ui().openSheet(close => <SetTypeSheet current={current} onPick={onPick} onDelete={onDelete} close={close} />)
+
 function TopWeight({ entryIdx, close }) {
   const st = useStore(s => s.S)
   const A = st.active
