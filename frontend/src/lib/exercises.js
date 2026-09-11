@@ -53,3 +53,25 @@ export const isCardio = idOrEx => (typeof idOrEx === 'string' ? EXIDX[idOrEx] : 
 // down on the first `ex.n`.
 export const exOr = id => EXIDX[id] ||
   { id, n: t('Unknown exercise'), bp: '', tg: '', eq: '', sm: [], st: [], missing: true }
+
+// Custom-exercise ids start with 'c' (see sheets.jsx's CustomExForm) — used by Social publishing
+// to know which ids in a routine need their full definition attached, since EXIDX only knows
+// about the exercises registered from whichever user's own customEx last loaded in this tab.
+export const isCustomId = id => typeof id === 'string' && id.startsWith('c')
+
+// Every custom-exercise definition a routine's ex[] references, for embedding alongside a
+// Social publish so another member's client can resolve them.
+export function extractCustomDefs(routine, S) {
+  const ids = new Set((routine.ex || []).map(e => e.id).filter(isCustomId))
+  return (S.customEx || []).filter(e => ids.has(e.id))
+}
+
+// Adds any custom-exercise defs a copied/assigned routine needs that this profile doesn't
+// already have, matched by id (not name) — the routine's ex[] references these exact ids, so a
+// name-based dedup could silently leave one unresolved ("Unknown exercise") if this profile
+// already has a differently-named-but-similar custom exercise under a different id.
+export function mergeCustomDefs(defs, customEx) {
+  const have = new Set((customEx || []).map(e => e.id))
+  const missing = (defs || []).filter(d => !have.has(d.id))
+  return missing.length ? [...(customEx || []), ...missing] : (customEx || [])
+}
