@@ -97,6 +97,44 @@ function ProfileEditForm({ d, onSaved, close }) {
   </>
 }
 
+// Admin-assisted recovery: a member who lost their only device gets a short-lived, single-use
+// link that registers a new passkey onto their EXISTING account instead of a password reset —
+// see api/server.js's /api/admin/user/recovery-link and /api/recover/* for the full rationale.
+// Meant to be generated with the member standing there (AirDrop it, show the screen, read out
+// the code) — 15 minutes is deliberately too tight to send ahead of time.
+function RecoveryLinkSheet({ u, close }) {
+  const toast = useUI(s => s.toast)
+  const [link, setLink] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const gen = () => {
+    setBusy(true)
+    api('/api/admin/user/recovery-link', { method: 'POST', body: JSON.stringify({ id: u.id }) })
+      .then(({ token }) => {
+        const url = `${location.origin}/#/recover?token=${token}`
+        setLink(url)
+        navigator.clipboard?.writeText(url).catch(() => {})
+        toast(t('Link created & copied'))
+      })
+      .catch(e => toast(e.message))
+      .finally(() => setBusy(false))
+  }
+  return <>
+    <h3>{t('Recovery link for {0}', u.name)}</h3>
+    <div className="muted small" style={{ marginBottom: 14, lineHeight: 1.5 }}>
+      {t('Hand this to them in person — it lets them add a new passkey to this exact account, nothing is lost. Works once, expires in 15 minutes.')}
+    </div>
+    {link && <>
+      <div className="input" style={{ wordBreak: 'break-all', fontSize: '.82rem', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', cursor: 'pointer' }}
+        onClick={() => { navigator.clipboard?.writeText(link).catch(() => {}); toast(t('Copied')) }}>{link}</div>
+      <div style={{ height: 12 }} />
+    </>}
+    <Button variant="primary" icon="key" disabled={busy} onClick={gen}>{t(link ? 'Generate a new link' : 'Generate link')}</Button>
+    {link && <div className="dim small" style={{ marginTop: 10 }}>{t('Generating a new link retires this one.')}</div>}
+    <div style={{ height: 8 }} />
+    <Button onClick={close}>{t('Done')}</Button>
+  </>
+}
+
 function StarterPlanSheet({ u, onApplied, close }) {
   const toast = useUI(s => s.toast)
   const [goal, setGoal] = useState('longevity')
@@ -166,6 +204,8 @@ function UserDetail({ id, onChanged, close }) {
       <Button style={{ flex: 1 }} icon="pencil" onClick={() => openSheet(close2 => <ProfileEditForm d={d} onSaved={load} close={close2} />)}>{t('Edit profile')}</Button>
       {!d.routines.length && <Button style={{ flex: 1 }} icon="sparkles" onClick={applyStarterPlan}>{t('Load PPL plan')}</Button>}
     </div>
+    <Button style={{ width: '100%', margin: '0 0 4px' }} icon="key"
+      onClick={() => openSheet(close2 => <RecoveryLinkSheet u={u} close={close2} />)}>{t('Recover access (lost device)')}</Button>
     {!u.admin && <button className={'btn ' + (u.disabled ? 'primary' : 'danger')} style={{ margin: '4px 0 4px' }}
       onClick={() => u.disabled ? setDisabled(false)
         : confirmSheet({ title: t('Disable {0}?', u.name), message: t('They are signed out everywhere and can no longer sync or log in until re-enabled.'), confirmText: t('Disable'), danger: true, onConfirm: () => setDisabled(true) })}>

@@ -45,10 +45,11 @@ if (!fs.existsSync(secretFile)) fs.writeFileSync(secretFile, crypto.randomBytes(
 const SECRET = fs.readFileSync(secretFile, 'utf8').trim();
 
 const dbFile = path.join(DATA, 'db.json');
-let db = { users: [], creds: [], subs: [], invites: [] };
+let db = { users: [], creds: [], subs: [], invites: [], recoveries: [] };
 try { db = JSON.parse(fs.readFileSync(dbFile, 'utf8')); } catch {}
 db.subs = db.subs || [];
 db.invites = db.invites || [];
+db.recoveries = db.recoveries || [];
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
 function atomicWrite(file, content) {
@@ -384,6 +385,70 @@ const routes = {
     json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
+  // ---------- admin-assisted account recovery ----------
+  // Passkeys have no "forgotten password" — the one gap that leaves is a member who loses
+  // their only device with no synced backup (iCloud Keychain / Google Password Manager cover
+  // every other case on their own). This is the deliberate alternative to adding real
+  // passwords + email back into the app: a short-lived, single-use, admin-issued token that
+  // lets that member register a brand-new passkey onto their EXISTING account in person at the
+  // gym, instead of creating a second, empty one. Same shape as an invite code, but it grants
+  // access to an existing profile rather than creating a fresh one, hence the short expiry.
+  'POST /api/recover/options': async (req, res) => {
+    const body = await readBody(req);
+    const token = String(body.token || '').trim().toUpperCase();
+    const rec = db.recoveries.find(r => r.token === token && !r.usedAt && !r.revoked);
+    if (!rec || rec.expiresAt < Date.now()) return json(res, 400, { error: 'this recovery link is no longer valid — ask staff for a new one' });
+    const user = db.users.find(u => u.id === rec.userId);
+    if (!user) return json(res, 404, { error: 'account no longer exists' });
+    if (user.disabled) return json(res, 403, { error: 'this account has been disabled' });
+    const existing = db.creds.filter(c => c.userId === user.id);
+    const options = await generateRegistrationOptions({
+      rpName: RP_NAME, rpID: RP_ID,
+      userID: Buffer.from(user.id), userName: user.name, userDisplayName: user.name,
+      attestationType: 'none',
+      authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' },
+      // Same device the member lost isn't in this list — this only stops re-registering one
+      // they still have (a phone that's fine, a saved passkey on another browser, etc).
+      excludeCredentials: existing.map(c => ({ id: c.id, transports: c.transports || [] }))
+    });
+    const cid = putChallenge({ challenge: options.challenge, uid: user.id, recoveryToken: token });
+    json(res, 200, { cid, options, name: user.name });
+  },
+
+  'POST /api/recover/verify': async (req, res) => {
+    const body = await readBody(req);
+    const c = takeChallenge(body.cid);
+    if (!c || !c.uid || !c.recoveryToken) return json(res, 400, { error: 'challenge expired — try again' });
+    // Re-checked at the last moment — same reasoning as the invite-code re-check: it may have
+    // been used or have expired in the seconds since the options were issued.
+    const rec = db.recoveries.find(r => r.token === c.recoveryToken && !r.usedAt && !r.revoked);
+    if (!rec || rec.expiresAt < Date.now()) return json(res, 400, { error: 'this recovery link is no longer valid — ask staff for a new one' });
+    const user = db.users.find(u => u.id === c.uid);
+    if (!user) return json(res, 404, { error: 'account no longer exists' });
+    let verification;
+    try {
+      verification = await verifyRegistrationResponse({
+        response: body.credential,
+        expectedChallenge: c.challenge,
+        expectedOrigin: ORIGIN,
+        expectedRPID: RP_ID,
+        requireUserVerification: false
+      });
+    } catch (e) { return json(res, 400, { error: 'verification failed: ' + e.message }); }
+    if (!verification.verified) return json(res, 400, { error: 'not verified' });
+    const { credential } = verification.registrationInfo;
+    if (db.creds.find(x => x.id === credential.id)) return json(res, 409, { error: 'credential already registered' });
+    db.creds.push({
+      id: credential.id, userId: user.id,
+      publicKey: Buffer.from(credential.publicKey).toString('base64url'),
+      counter: credential.counter || 0,
+      transports: body.credential?.response?.transports || []
+    });
+    rec.usedAt = new Date().toISOString();
+    saveDb();
+    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+  },
+
   'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
 
   // "Sign out everywhere" — bumps this user's session version, which invalidates every cookie
@@ -677,6 +742,27 @@ const routes = {
     if (u.disabled) presence.delete(u.id);   // drop them off "training now" at once
     saveDb();
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
+  },
+
+  // Admin-assisted recovery: a short-lived, single-use link that lets a member who lost their
+  // only device register a new passkey onto their EXISTING account — see /api/recover/options
+  // for the full rationale. Meant to be handed over in person (shown on screen, AirDropped,
+  // read out as a code), not sent unattended, so 15 minutes is deliberately tight: an admin
+  // generates it right when the member is standing there, not ahead of time.
+  'POST /api/admin/user/recovery-link': async (req, res) => {
+    const admin = requireAdmin(req, res); if (!admin) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'no such user' });
+    // Only one live link per member — generating a new one retires any still-unused one, so a
+    // link an admin forgot about can't be found and used later.
+    db.recoveries.forEach(r => { if (r.userId === u.id && !r.usedAt) r.revoked = true; });
+    let token;
+    do { token = crypto.randomBytes(8).toString('hex').toUpperCase(); } while (db.recoveries.some(r => r.token === token));
+    const expiresAt = Date.now() + 15 * 60000;
+    db.recoveries.push({ token, userId: u.id, createdBy: admin.id, created: new Date().toISOString(), expiresAt });
+    saveDb();
+    json(res, 200, { token, expiresAt });
   },
 
   'GET /api/admin/invites': async (req, res) => {

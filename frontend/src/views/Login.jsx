@@ -1,14 +1,44 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { webauthnOK, passkeyLogin, passkeyRegister, api, BIO } from '../lib/api.js'
+import { webauthnOK, passkeyLogin, passkeyRegister, passkeyRecover, api, BIO } from '../lib/api.js'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { todayISO } from '../lib/format.js'
 import { useState, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
+
+/* An admin-issued recovery link (?token=...) lands here instead of the normal sign-in/register
+   choice — a member who lost their only device gets one screen with one job: register a new
+   passkey onto their existing account. See api/server.js's /api/recover/* for the full picture. */
+function RecoverCard({ token }) {
+  const { setUser, pullState } = useStore()
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const go = async () => {
+    setBusy(true)
+    try {
+      const u = await passkeyRecover(token)
+      setUser(u)
+      await pullState()
+      useUI.getState().toast(t('Welcome back, {0}', u.name))
+    } catch (e) {
+      if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') { setFailed(true); useUI.getState().toast(e.message || t('Could not recover this account')) }
+      setBusy(false)
+    }
+  }
+  return <>
+    <div className="muted" style={{ marginBottom: 10 }}>{t('Recover your account')}</div>
+    <div className="card small muted" style={{ textAlign: 'left', marginBottom: 20, lineHeight: 1.5 }}>
+      {t('Staff gave you this link because your old device is gone. Confirming below adds a brand-new passkey to your existing profile — your plan, history and body weight all stay exactly as they were.')}
+    </div>
+    <Button variant="primary" icon="sparkles" disabled={busy} onClick={go}>{t('Create new passkey')}</Button>
+    {failed && <div className="dim small" style={{ marginTop: 16 }}>{t('This link may have expired — ask staff to generate a new one.')}</div>}
+  </>
+}
 
 function RegisterSheet({ close }) {
   const { setUser, pushState, pullState, update } = useStore()
@@ -117,6 +147,8 @@ function RegisterSheet({ close }) {
 
 export default function Login() {
   const { setUser, pullState, setGuest } = useStore()
+  const [params] = useSearchParams()
+  const recoveryToken = params.get('token')
   const signIn = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
@@ -140,6 +172,13 @@ export default function Login() {
       <div className="dim small" style={{ marginTop: 22, lineHeight: 1.6 }}>
         <a href={REPO} target="_blank" rel="noopener">{t('Self-host it in a minute →')}</a>
       </div>
+    </div>
+  )
+
+  if (recoveryToken) return (
+    <div className="narrow" style={wrap}>
+      {head}
+      <RecoverCard token={recoveryToken} />
     </div>
   )
 

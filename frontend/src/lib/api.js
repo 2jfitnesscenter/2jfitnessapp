@@ -57,3 +57,12 @@ export async function passkeyLogin() {
   const res = await api('/api/login/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
   return res.user
 }
+// Admin-assisted recovery: registers a brand-new passkey onto an existing account via a
+// short-lived token an admin generated in person — see api/server.js's /api/recover/* for why
+// this exists instead of a password reset.
+export async function passkeyRecover(token) {
+  const { cid, options } = await api('/api/recover/options', { method: 'POST', body: JSON.stringify({ token }) })
+  const cred = await navigator.credentials.create({ publicKey: toCreationOptions(options) })
+  const res = await api('/api/recover/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
+  return res.user
+}
