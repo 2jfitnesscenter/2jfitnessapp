@@ -41,6 +41,9 @@ export default function Plan() {
       {coachOn && <button className="iconbtn" onClick={() => nav('/coach')} aria-label={t('Coach')} title={t('Coach')}><Icon name="sparkles" /></button>}
       <button className="iconbtn" onClick={planToolsSheet} aria-label={t('Share your plan')} title={t('Share your plan')}><Icon name="upload" /></button>
     </div>
+    <Segmented options={[{ value: 'programs', label: t('Programs') }, { value: 'routines', label: t('Routines') }]} value={tab} onChange={setTab} />
+    <div style={{ height: 14 }} />
+
     <h4 className="sec">{t('Week schedule')}</h4>
     <div className="list" style={{ display: 'flex', flexDirection: 'column', marginBottom: 22 }}>
       {[1, 2, 3, 4, 5, 6, 0].map(d => {
@@ -51,9 +54,6 @@ export default function Plan() {
           <Icon name="chevronRight" className="chev" /></div>
       })}
     </div>
-
-    <Segmented options={[{ value: 'programs', label: t('Programs') }, { value: 'routines', label: t('Routines') }]} value={tab} onChange={setTab} />
-    <div style={{ height: 14 }} />
 
     {tab === 'programs' ? <>
       <div className="row between" style={{ marginBottom: 10 }}>
