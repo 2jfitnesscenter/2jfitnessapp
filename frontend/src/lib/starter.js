@@ -2,6 +2,7 @@
 // and by the demo build, which seeds a history on top of exactly these routines.
 import { uid } from './format.js'
 import { t } from './i18n.js'
+import { EXIDX } from './exercises.js'
 
 const SPEC = [
   ['Push Day', 'barbell', [['0025', 4, 8], ['0047', 3, 10], ['0426', 3, 10], ['0334', 3, 12], ['0241', 3, 12], ['0251', 3, 10]]],
@@ -67,19 +68,61 @@ const exerciseCountFor = (sessionMin, poolSize) => {
   return Math.max(3, Math.min(poolSize, target))
 }
 
-function makeRoutine(spec, slot, rules, sessionMin) {
-  const [name, emoji, fullList] = spec[slot]
-  const list = fullList.slice(0, exerciseCountFor(sessionMin, fullList.length))
-  const ex = list.map(([id], i) => {
+/* ---------------------------------------------------------------------------------------
+ * Exercise-variant picking — SPEC and SPEC_B are two full, hand-curated exercise sets with the
+ * same shape (same slot, same position, same body part/target muscle at each position), so a
+ * routine no longer has to commit to "all A" or "all B": each position independently picks its
+ * SPEC id or its SPEC_B id, which is what actually makes two plans for the same goal/day count
+ * look different from each other, and what makes a regenerate ("Crear mi plan" again) worth
+ * doing. See starter.js's own module comment above GOAL_RULES for why goal-driven bias only
+ * applies to positions where the two picks genuinely differ in character.
+ * ------------------------------------------------------------------------------------- */
+const FREE_EQ = new Set(['barbell', 'dumbbell', 'ez barbell', 'olympic barbell', 'kettlebell', 'trap bar'])
+const MACHINE_EQ = new Set(['cable', 'leverage machine', 'sled machine', 'smith machine'])
+const styleOf = id => { const eq = EXIDX[id]?.eq; return FREE_EQ.has(eq) ? 'free' : MACHINE_EQ.has(eq) ? 'machine' : null }
+// Mirrors create.md's own wording for each goal's equipment character (explosive free-weight
+// compounds for power/plyometrics; controlled, joint-friendly machine work for toning/fatloss/
+// longevity). hypertrophy has no entry — its own goal note calls for exercise variety instead of
+// a specific equipment feel, so it's a coin flip like every position with no style difference.
+const GOAL_STYLE = { power: 'free', plyometrics: 'free', toning: 'machine', fatloss: 'machine', longevity: 'machine' }
+
+// Picks 'A' (SPEC) or 'B' (SPEC_B) for one position. `exclude` forces the other letter — used
+// when this slot already ran once this week and can't repeat the same exercise.
+function pickVariant(idA, idB, goal, exclude) {
+  if (exclude === 'A') return 'B'
+  if (exclude === 'B') return 'A'
+  const style = GOAL_STYLE[goal]
+  if (style) {
+    const aFits = styleOf(idA) === style, bFits = styleOf(idB) === style
+    if (aFits && !bFits) return 'A'
+    if (bFits && !aFits) return 'B'
+  }
+  return Math.random() < 0.5 ? 'A' : 'B'
+}
+
+// Builds one routine, blending SPEC and SPEC_B position by position (see above). Returns the
+// letters actually used alongside the routine, so buildPlan can forbid reusing them if this same
+// slot comes around again later in the week.
+function makeRoutine(slot, rules, sessionMin, goal, excludeLetters) {
+  const [name, emoji, fullListA] = SPEC[slot]
+  const [, , fullListB] = SPEC_B[slot]
+  const count = exerciseCountFor(sessionMin, fullListA.length)
+  const letters = []
+  const ex = []
+  for (let i = 0; i < count; i++) {
+    const [idA] = fullListA[i]
+    const [idB] = fullListB[i]
+    const letter = pickVariant(idA, idB, goal, excludeLetters && excludeLetters[i])
+    letters.push(letter)
     const [reps, sets] = i === 0 ? rules.compound : rules.accessory
-    return { id, sets, reps, weight: 0 }
-  })
+    ex.push({ id: letter === 'A' ? idA : idB, sets, reps, weight: 0 })
+  }
   // Density over rest for fat loss, or whenever the session itself is short — pair up
   // consecutive accessories (skipping the compound at index 0) as supersets, two at a time.
   if (rules.superset || (sessionMin && sessionMin <= 45)) {
     for (let i = 1; i + 1 < ex.length; i += 2) { const tag = 'a' + i; ex[i].sg = tag; ex[i + 1].sg = tag }
   }
-  return { id: uid(), name: t(name), emoji, ex }
+  return { routine: { id: uid(), name: t(name), emoji, ex }, letters }
 }
 
 // Which of the 3 SPEC slots (0=Push, 1=Pull, 2=Legs) each muscle-priority pick (see
@@ -112,12 +155,17 @@ function routineOrder(primary, secondary) {
  *   exerciseCountFor) and turns supersets on for sessions of 45 minutes or less.
  *
  * With no priorities, the 3 routines run in the natural Push→Pull→Legs order: 2 or 3 days
- * picks that many of the 3, 4-6 days cycles back through them (see SPEC_B above for how a
- * repeat day avoids literally reusing the same routine). With priorities set, the routine(s)
+ * picks that many of the 3, 4-6 days cycles back through them (see makeRoutine above for how a
+ * repeat day avoids literally reusing the same exercises). With priorities set, the routine(s)
  * that train the prioritized muscles are the ones kept when the day count is under 3, and the
  * ones repeated first when it's over 3 — so "quads/glutes" at 4 days a week gets Push, Pull,
- * Legs, Legs(B) instead of a second Push day, and at 2 days a week gets Push+Legs instead of
+ * Legs, Legs again instead of a second Push day, and at 2 days a week gets Push+Legs instead of
  * dropping Legs entirely.
+ *
+ * Every call reshuffles which SPEC/SPEC_B exercise wins at each position (goal-biased where the
+ * two differ in equipment character, a coin flip otherwise — see makeRoutine/pickVariant), so
+ * generating a plan for the same goal and day count twice in a row won't produce an identical
+ * result. Reopening "Cargar plan inicial" and building again is the reroll.
  */
 export function buildPlan(goal, days, primary, secondary, sessionMin) {
   const rules = GOAL_RULES[goal] || GOAL_RULES.longevity
@@ -133,12 +181,14 @@ export function buildPlan(goal, days, primary, secondary, sessionMin) {
   }
   const routines = []
   const week = {}
+  const usedByLap0 = {}   // slot -> letters[] picked on that slot's first occurrence this week
   ;(days || []).forEach((d, i) => {
     const slot = slots[i]
     const lap = slots.slice(0, i).filter(s => s === slot).length
-    const r = makeRoutine(lap === 0 ? SPEC : SPEC_B, slot, rules, sessionMin)
-    routines.push(r)
-    week[d] = r.id
+    const { routine, letters } = makeRoutine(slot, rules, sessionMin, goal, lap === 0 ? null : usedByLap0[slot])
+    if (lap === 0) usedByLap0[slot] = letters
+    routines.push(routine)
+    week[d] = routine.id
   })
   return { routines, week }
 }

@@ -764,14 +764,27 @@ const routes = {
       ['Día de tirón', 'pullup', ['2330', '0027', '1323', '0031', '0313']],
       ['Día de piernas', 'legs', ['0043', '0085', '0739', '0585', '0586', '0605']]
     ];
-    // Second pass through the same 3 days for 4-6 day plans, same slot order as SPEC but
-    // different exercises — so a repeat day (e.g. the 2nd Push day of the week) isn't
-    // literally the same routine as the 1st.
+    // A second, equally-curated exercise choice per slot/position — no longer "the whole
+    // repeat-day routine" (see makeRoutine below, which blends SPEC/SPEC_B position by position
+    // instead of picking one array wholesale), so its own names are never read anymore.
     const SPEC_B = [
-      ['Día de empuje B', 'barbell', ['0289', '0314', '0405', '0178', '0060', '0308']],
-      ['Día de tirón B', 'pullup', ['0818', '3017', '0861', '0070', '0165']],
-      ['Día de piernas B', 'legs', ['0046', '1459', '0760', '0585', '0599', '0594']]
+      [null, 'barbell', ['0289', '0314', '0405', '0178', '0060', '0308']],
+      [null, 'pullup', ['0818', '3017', '0861', '0070', '0165']],
+      [null, 'legs', ['0046', '1459', '0760', '0585', '0599', '0594']]
     ];
+    // [styleA, styleB] per position — 'free' (barbell/dumbbell-family) vs 'machine'
+    // (cable/leverage/sled/smith) vs null (bodyweight/other) — precomputed from the live
+    // exercise dataset's `eq` field, which this backend has no access to at runtime. Mirrors
+    // frontend/src/lib/starter.js's styleOf(); regenerate by hand if SPEC/SPEC_B ever change.
+    const STYLE = {
+      0: [['free', 'free'], ['free', 'free'], ['free', 'free'], ['free', 'machine'], ['machine', 'free'], [null, 'free']],
+      1: [['machine', 'machine'], ['free', 'free'], ['machine', 'machine'], ['free', 'free'], ['free', 'machine']],
+      2: [['free', 'free'], ['free', 'free'], ['machine', 'machine'], ['machine', 'machine'], ['machine', 'machine'], ['machine', 'machine']]
+    };
+    // Same character-per-goal mapping as starter.js's GOAL_STYLE — power/plyometrics lean free-
+    // weight, toning/fatloss/longevity lean machine; hypertrophy has no preference (its own goal
+    // note calls for variety instead).
+    const GOAL_STYLE = { power: 'free', plyometrics: 'free', toning: 'machine', fatloss: 'machine', longevity: 'machine' };
     const GOAL_RULES = {
       hypertrophy: { compound: [8, 4], accessory: [12, 3], superset: false },
       toning: { compound: [10, 4], accessory: [15, 3], superset: false },
@@ -792,17 +805,36 @@ const routes = {
       const target = Math.round(5 + (sessionMin - 30) * 7 / 90);
       return Math.max(3, Math.min(poolSize, target));
     };
-    const makeRoutine = (spec, slot) => {
-      const [name, emoji, fullIds] = spec[slot];
-      const ids = fullIds.slice(0, exerciseCountFor(fullIds.length));
-      const ex = ids.map((id, i) => {
+    // Picks 'A' (SPEC) or 'B' (SPEC_B) for one position — goal-biased where the two differ in
+    // equipment style, a coin flip otherwise, forced to the other letter on a within-week repeat.
+    const pickVariant = (styleA, styleB, exclude) => {
+      if (exclude === 'A') return 'B';
+      if (exclude === 'B') return 'A';
+      const style = GOAL_STYLE[body.goal];
+      if (style) {
+        const aFits = styleA === style, bFits = styleB === style;
+        if (aFits && !bFits) return 'A';
+        if (bFits && !aFits) return 'B';
+      }
+      return Math.random() < 0.5 ? 'A' : 'B';
+    };
+    const makeRoutine = (slot, excludeLetters) => {
+      const [name, emoji, idsA] = SPEC[slot];
+      const [, , idsB] = SPEC_B[slot];
+      const count = exerciseCountFor(idsA.length);
+      const letters = [];
+      const ex = [];
+      for (let i = 0; i < count; i++) {
+        const [styleA, styleB] = STYLE[slot][i];
+        const letter = pickVariant(styleA, styleB, excludeLetters && excludeLetters[i]);
+        letters.push(letter);
         const [reps, sets] = i === 0 ? rules.compound : rules.accessory;
-        return { id, sets, reps, weight: 0 };
-      });
+        ex.push({ id: letter === 'A' ? idsA[i] : idsB[i], sets, reps, weight: 0 });
+      }
       if (rules.superset || (sessionMin && sessionMin <= 45)) {
         for (let i = 1; i + 1 < ex.length; i += 2) { const tag = 'a' + i; ex[i].sg = tag; ex[i + 1].sg = tag; }
       }
-      return { id: crypto.randomBytes(9).toString('base64url'), name, emoji, ex };
+      return { routine: { id: crypto.randomBytes(9).toString('base64url'), name, emoji, ex }, letters };
     };
     // Which of the 3 SPEC slots each muscle priority trains — see starter.js's MUSCLE_ROUTINE
     // for the full rationale. Ranks the slots so, under 3 days, the routine(s) that train the
@@ -820,9 +852,12 @@ const routes = {
       slots = [0, 1, 2];
       for (let extra = 0; slots.length < days.length; extra++) slots.push(order[extra % 3]);
     }
+    const usedByLap0 = {};   // slot -> letters[] picked on that slot's first occurrence this week
     const routines = slots.map((slot, i) => {
       const lap = slots.slice(0, i).filter(s => s === slot).length;
-      return makeRoutine(lap === 0 ? SPEC : SPEC_B, slot);
+      const { routine, letters } = makeRoutine(slot, lap === 0 ? null : usedByLap0[slot]);
+      if (lap === 0) usedByLap0[slot] = letters;
+      return routine;
     });
     S.routines = [...(S.routines || []), ...routines];
     S.week = { ...(S.week || {}) };
