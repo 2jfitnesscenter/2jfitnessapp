@@ -20,6 +20,7 @@ import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-sha
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
+import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -159,6 +160,63 @@ export function bwSheet(opts = {}) {
   const h = ui().openSheet(close => <BwSheet {...opts} close={close} />, { locked: !!opts.required })
   return h
 }
+
+/* ============================ body measurements ============================ */
+// One generic entry sheet for every type in lib/measurements.js — same upsert-by-date shape as
+// bodyweight (BwSheet above), just parameterised by which measurement it is instead of there
+// being only one. A gym admin entering a full bioimpedance scan uses BioimpedanceSheet in
+// Admin.jsx instead — that one's several fields from a single Tanita reading, not one of these.
+function MeasurementInput({ m, value, setValue }) {
+  const clamp = x => Math.max(m.min, Math.min(m.max, m.dec ? Math.round((x || 0) * 10) / 10 : Math.round(x || 0)))
+  const step = m.dec ? 0.5 : 1
+  const onSlide = v => setValue(clamp(v))
+  return <>
+    <div className="bwstep">
+      <button className="bw-pm" onClick={() => onSlide(value - step)} aria-label="minus"><Icon name="minus" /></button>
+      <div className="bw-read">{fmtNum(value)}{m.unit && <span className="u"> {m.unit}</span>}</div>
+      <button className="bw-pm" onClick={() => onSlide(value + step)} aria-label="plus"><Icon name="plus" /></button>
+    </div>
+    <Slider value={clamp(value)} min={m.min} max={m.max} step={m.step} onChange={onSlide} />
+  </>
+}
+function MeasurementSheet({ mkey, close }) {
+  const st = useStore(s => s.S)
+  const m = MEASUREMENT[mkey]
+  const last = lastMeasurement(st, mkey)
+  const [v, setV] = useState(last ? last.v : (m.min + m.max) / 2)
+  const save = () => {
+    update(s => {
+      s.measurements = s.measurements || {}
+      const list = s.measurements[mkey] = s.measurements[mkey] || []
+      const iso = todayISO()
+      const ex = list.find(x => x.d === iso)
+      if (ex) { ex.v = v; ex.t = Date.now() } else list.push({ d: iso, v, t: Date.now() })
+      list.sort((a, b) => (a.d < b.d ? -1 : 1))
+    })
+    close()
+    toast(t('Saved'))
+  }
+  const recent = [...(st.measurements?.[mkey] || [])].reverse().slice(0, 5)
+  const delEntry = d => update(s => { s.measurements[mkey] = (s.measurements[mkey] || []).filter(x => x.d !== d) })
+  return <>
+    <h3>{t(m.label)}</h3>
+    <div className="muted small">{fmtDate(todayISO(), true)}</div>
+    <MeasurementInput m={m} value={v} setValue={setV} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+    {recent.length > 0 && <>
+      <h4 className="sec">{t('Recent entries')}</h4>
+      <div className="list" style={{ gap: 0 }}>
+        {recent.map(x => <div key={x.d} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <span className="small muted">{fmtDate(x.d, true)}</span>
+          <span className="row" style={{ gap: 12 }}><b>{fmtNum(x.v)} {m.unit}</b>
+            <button className="iconbtn" style={{ width: 32, height: 30, borderRadius: 8, fontSize: 15, color: 'var(--red)' }} onClick={() => delEntry(x.d)} aria-label="delete"><Icon name="trash" /></button></span>
+        </div>)}
+      </div>
+    </>}
+  </>
+}
+export const measurementSheet = mkey => ui().openSheet(close => <MeasurementSheet mkey={mkey} close={close} />)
 
 /* ============================ import from another app ============================ */
 // Shows what a parsed export would actually do before anything is written. An import is

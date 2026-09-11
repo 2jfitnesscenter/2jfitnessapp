@@ -19,6 +19,10 @@ export const DEF = {
   // itself. A routine not listed in any program's `routineIds` is just shown loose, exactly as
   // every routine was before this existed — nothing here changes what a routine or a week
   // actually IS, only how the Plan screen groups them for browsing.
+  // Body measurements & composition — keyed by lib/measurements.js's MEASUREMENTS[].key, each
+  // an array of {d, v, t} exactly like bodyweight's own shape, just generalised to more than
+  // one series. Absent keys are just "never logged", not zero.
+  measurements: {},
   bodyweight: [], routines: [], programs: [], week: {}, dayPlan: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // effort: which per-set effort scale is logged — 'none' | 'rir' | 'rpe'. null, not 'none', so

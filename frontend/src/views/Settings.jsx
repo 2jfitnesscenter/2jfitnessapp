@@ -113,6 +113,7 @@ export default function Settings() {
           value={S.height ?? ''} onChange={e => update(s => { const n = Math.round(Number(e.target.value)); s.height = n > 0 ? n : null })} />
         <span className="muted small" style={{ marginLeft: 6 }}>cm</span>
       </Row>
+      <Row icon="figureStrength" iconTint="var(--acc)" title={t('Measurements')} subtitle={t('Body composition & tape measurements over time')} accessory="chevron" onClick={() => nav('/measurements')} />
     </Section>
 
     {/* ---------- muscle priorities — asked at registration, editable here, read by the quick

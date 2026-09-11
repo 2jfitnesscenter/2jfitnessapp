@@ -14,6 +14,7 @@ import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
+import { MEASUREMENTS } from '../lib/measurements.js'
 
 // Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "hypertrophy" means the
 // same rep range whether a member or an admin set it up.
@@ -147,6 +148,40 @@ function RecoveryLinkSheet({ u, close }) {
   </>
 }
 
+// One bioimpedance scan (this gym's Tanita, typically) gives several readings at once — body
+// fat, muscle mass, water, visceral fat, bone mass — so this is one form for all five rather
+// than the member-facing measurementSheet's one-value-at-a-time (sheets.jsx), which fits a
+// tape-measure reading taken whenever, not a single scan session. Leaving a field blank keeps
+// whatever that member already had for it — a scan that dropped one reading shouldn't force
+// staff to guess the others.
+function BioimpedanceSheet({ u, current, onSaved, close }) {
+  const toast = useUI(s => s.toast)
+  const composition = MEASUREMENTS.filter(m => m.group === 'composition')
+  const [vals, setVals] = useState(() => Object.fromEntries(composition.map(m => [m.key, current?.[m.key]?.v ?? ''])))
+  const [busy, setBusy] = useState(false)
+  const set = (k, v) => setVals(s => ({ ...s, [k]: v }))
+  const save = () => {
+    const values = {}
+    for (const m of composition) { if (vals[m.key] !== '' && vals[m.key] != null) values[m.key] = Number(vals[m.key]) }
+    if (!Object.keys(values).length) { toast(t('Enter at least one value')); return }
+    setBusy(true)
+    api('/api/admin/user/measurements', { method: 'POST', body: JSON.stringify({ id: u.id, values }) })
+      .then(() => { toast(t('Measurements saved')); onSaved(); close() })
+      .catch(e => { toast(e.message); setBusy(false) })
+  }
+  return <>
+    <h3>{t('Bioimpedance scan — {0}', u.name)}</h3>
+    <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.5 }}>{t('Leave a field blank to leave that reading as it was.')}</div>
+    {composition.map(m => <div key={m.key} style={{ marginBottom: 10 }}>
+      <div className="dim small" style={{ marginBottom: 4 }}>{t(m.label)}</div>
+      <input type="number" inputMode="decimal" className="input" step={m.step} min={m.min} max={m.max}
+        placeholder={m.unit ? `— ${m.unit}` : '—'} value={vals[m.key]} onChange={e => set(m.key, e.target.value)} />
+    </div>)}
+    <div style={{ height: 6 }} />
+    <Button variant="primary" disabled={busy} onClick={save}>{t('Save')}</Button>
+  </>
+}
+
 function StarterPlanSheet({ u, onApplied, close }) {
   const toast = useUI(s => s.toast)
   const [goal, setGoal] = useState('longevity')
@@ -212,10 +247,15 @@ function UserDetail({ id, onChanged, close }) {
       {(d.priorityMuscles || []).map(m => <span key={m} className="tag acc">{t(MUSCLE_LABEL[m])}</span>)}
       {(d.secondaryMuscles || []).map(m => <span key={m} className="tag">{t(MUSCLE_LABEL[m])}</span>)}
     </div>}
+    {!!Object.keys(d.measurements || {}).length && <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '10px 0 0' }}>
+      {MEASUREMENTS.filter(m => d.measurements?.[m.key]).map(m => <span key={m.key} className="tag">{t(m.label)}: {fmtNum(d.measurements[m.key].v)} {m.unit}</span>)}
+    </div>}
     <div className="row" style={{ gap: 8, margin: '12px 0 4px' }}>
       <Button style={{ flex: 1 }} icon="pencil" onClick={() => openSheet(close2 => <ProfileEditForm d={d} onSaved={load} close={close2} />)}>{t('Edit profile')}</Button>
       {!d.routines.length && <Button style={{ flex: 1 }} icon="sparkles" onClick={applyStarterPlan}>{t('Load PPL plan')}</Button>}
     </div>
+    <Button style={{ width: '100%', margin: '0 0 4px' }} icon="chart"
+      onClick={() => openSheet(close2 => <BioimpedanceSheet u={u} current={d.measurements} onSaved={load} close={close2} />)}>{t('Log bioimpedance scan')}</Button>
     <Button style={{ width: '100%', margin: '0 0 4px' }} icon="key"
       onClick={() => openSheet(close2 => <RecoveryLinkSheet u={u} close={close2} />)}>{t('Recover access (lost device)')}</Button>
     {!u.admin && <button className={'btn ' + (u.disabled ? 'primary' : 'danger')} style={{ margin: '4px 0 4px' }}

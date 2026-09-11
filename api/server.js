@@ -589,6 +589,11 @@ const routes = {
       priorityMuscles: Array.isArray(S.priorityMuscles) ? S.priorityMuscles : [],
       secondaryMuscles: Array.isArray(S.secondaryMuscles) ? S.secondaryMuscles : [],
       latestWeight: bw.length ? bw[bw.length - 1] : null,
+      // Latest reading per measurement key — see /api/admin/user/measurements. Full history
+      // stays on the member's own device; the admin card only needs "what's the number now".
+      measurements: Object.fromEntries(
+        Object.entries(S.measurements || {}).map(([k, list]) => [k, list.length ? list[list.length - 1] : null])
+      ),
       routines: (S.routines || []).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: (r.ex || []).length })),
       bodyweight: bw,
       workouts: (S.workouts || []).slice().reverse()   // newest first for display
@@ -632,6 +637,42 @@ const routes = {
     S._ts = Date.now();
     atomicWrite(stateFile(u.id), JSON.stringify(S));
     json(res, 200, { ok: true });
+  },
+
+  // Staff entering a bioimpedance scan (this gym's Tanita, typically) straight onto a member's
+  // profile — the same S.measurements[key] time series frontend/src/lib/measurements.js reads,
+  // just written from the admin side instead of the member's own device. body: { id, values:
+  // {key: number, ...}, d? }. `values` may carry any subset of MEASUREMENTS' keys — a scan that
+  // only gave a body-fat reading shouldn't force every other field. `d` defaults to today so a
+  // same-day re-entry (a mis-typed number, say) overwrites rather than duplicating.
+  'POST /api/admin/user/measurements': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'no such user' });
+    const S = readState(u.id);
+    if (!S) return json(res, 400, { error: 'member has never synced — nothing to add measurements to yet' });
+    const KEYS = ['neck', 'shoulders', 'chest', 'bicepsL', 'bicepsR', 'forearmL', 'forearmR', 'waist', 'hips',
+      'thighL', 'thighR', 'calfL', 'calfR', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass'];
+    const iso = /^\d{4}-\d{2}-\d{2}$/.test(body.d || '') ? body.d : new Date().toISOString().slice(0, 10);
+    const values = body.values && typeof body.values === 'object' ? body.values : {};
+    S.measurements = S.measurements || {};
+    let n = 0;
+    for (const key of KEYS) {
+      const v = values[key];
+      if (v === undefined || v === null || v === '') continue;
+      const num = Math.round(Number(v) * 10) / 10;
+      if (!Number.isFinite(num) || num <= 0) continue;
+      const list = S.measurements[key] = S.measurements[key] || [];
+      const ex = list.find(x => x.d === iso);
+      if (ex) { ex.v = num; ex.t = Date.now(); } else list.push({ d: iso, v: num, t: Date.now() });
+      list.sort((a, b) => (a.d < b.d ? -1 : 1));
+      n++;
+    }
+    if (!n) return json(res, 400, { error: 'no valid values given' });
+    S._ts = Date.now();
+    atomicWrite(stateFile(u.id), JSON.stringify(S));
+    json(res, 200, { ok: true, saved: n });
   },
 
   // Applies the same Push/Pull/Legs starter plan "Load starter plan" offers a member, straight
