@@ -219,8 +219,8 @@ setInterval(() => {
     user.lastReminder = now.date;
     saveDb();
     sendPush(user.id, {
-      title: routine ? `${routine.emoji || '🏋️'} ${routine.name} today` : 'Workout planned today',
-      body: "It's on your plan — let's go 💪",
+      title: routine ? `${routine.emoji || '🏋️'} ${routine.name} hoy` : 'Entreno planeado hoy',
+      body: 'Está en tu plan — vamos 💪',
       tag: 'day-reminder'
     });
   }
@@ -578,7 +578,7 @@ const routes = {
   'POST /api/push/test': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    await sendPush(user.id, { title: 'openGym', body: 'Test notification ✅ — this is what alerts look like.', tag: 'test' });
+    await sendPush(user.id, { title: '2J Fitness Center', body: 'Notificación de prueba ✅ — así se ven las alertas.', tag: 'test' });
     json(res, 200, { ok: true });
   },
 
@@ -1336,8 +1336,8 @@ coachJobs.setProposalHook((uid, pending) => {
   const n = (pending?.changes || []).length;
   if (!n) return;
   sendPush(uid, {
-    title: 'Your Coach has been reading',
-    body: n === 1 ? '1 suggestion after this week' : `${n} suggestions after this week`,
+    title: 'Tu Coach ha estado leyendo',
+    body: n === 1 ? '1 sugerencia tras esta semana' : `${n} sugerencias tras esta semana`,
     tag: 'coach-proposal', url: '#/coach'
   });
 });
