@@ -51,6 +51,10 @@ db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.recoveries = db.recoveries || [];
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
+// Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
+// the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
+// has to grant themselves a separate flag to use the trainer-only endpoints below.
+const isTrainer = user => !!user && (user.trainer === true || isAdmin(user));
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
 function atomicWrite(file, content) {
   const tmp = file + '.tmp';
@@ -69,6 +73,19 @@ const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/
 function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
 }
+
+// Social: routines members publish for each other (and trainers publish separately), plus the
+// Wall of real logged PRs. Shared across every user, unlike state-<uid>.json — same module-level
+// cache + atomicWrite-the-whole-object shape as hiddenEx above, just with content many different
+// users contribute to instead of only the admin.
+const socialFile = path.join(DATA, 'social.json');
+let social = { routines: [], wall: [] };
+try {
+  const parsed = JSON.parse(fs.readFileSync(socialFile, 'utf8'));
+  social.routines = Array.isArray(parsed.routines) ? parsed.routines : [];
+  social.wall = Array.isArray(parsed.wall) ? parsed.wall : [];
+} catch {}
+function saveSocial() { atomicWrite(socialFile, JSON.stringify(social, null, 2)); }
 
 /* ---------- push notifications (Web Push / VAPID) ---------- */
 const vapidFile = path.join(DATA, 'vapid.json');
@@ -216,6 +233,13 @@ function requireAdmin(req, res) {
   if (!isAdmin(user)) { json(res, 403, { error: 'forbidden' }); return null; }
   return user;
 }
+// Guard for /api/trainer/* — resolves the caller and 401/403s if they aren't a trainer (or admin).
+function requireTrainer(req, res) {
+  const user = readSession(req);
+  if (!user) { json(res, 401, { error: 'not signed in' }); return null; }
+  if (!isTrainer(user)) { json(res, 403, { error: 'forbidden' }); return null; }
+  return user;
+}
 function sessionCookie(user) {
   return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly;${SECURE} SameSite=Lax`;
 }
@@ -288,7 +312,7 @@ const routes = {
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } });
+    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } });
   },
 
   'POST /api/register/options': async (req, res) => {
@@ -343,7 +367,7 @@ const routes = {
       transports: body.credential?.response?.transports || []
     });
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/login/options': async (req, res) => {
@@ -382,7 +406,7 @@ const routes = {
     const user = db.users.find(u => u.id === cred.userId);
     if (!user) return json(res, 500, { error: 'user missing' });
     if (user.disabled) return json(res, 403, { error: 'this account has been disabled' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   // ---------- admin-assisted account recovery ----------
@@ -446,7 +470,7 @@ const routes = {
     });
     rec.usedAt = new Date().toISOString();
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
@@ -556,7 +580,7 @@ const routes = {
       const last = workouts[workouts.length - 1];
       return {
         id: u.id, name: u.name, created: u.created || null,
-        disabled: !!u.disabled, admin: isAdmin(u), invitedBy: u.invitedBy || null,
+        disabled: !!u.disabled, admin: isAdmin(u), trainer: isTrainer(u), invitedBy: u.invitedBy || null,
         workouts: workouts.length,
         lastWorkout: last ? last.d : null,
         lastSync: S._ts || null,
@@ -576,7 +600,7 @@ const routes = {
     const S = readState(u.id) || {};
     const bw = S.bodyweight || [];
     json(res, 200, {
-      user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), invitedBy: u.invitedBy || null },
+      user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), trainer: isTrainer(u), invitedBy: u.invitedBy || null },
       unit: S.unit || 'kg',
       lastSync: S._ts || null,
       // Basic profile — set at registration or edited here, read by the AI Coach too
@@ -786,6 +810,19 @@ const routes = {
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
   },
 
+  // Grants/revokes the Trainer role — gym staff who can publish routines to Social's
+  // "Entrenadores" section and assign one directly onto a member's plan. Admins are always
+  // trainers too (isTrainer), so this flag only matters for non-admin staff accounts.
+  'POST /api/admin/user/trainer': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'no such user' });
+    u.trainer = !!body.trainer;
+    saveDb();
+    json(res, 200, { ok: true, id: u.id, trainer: u.trainer });
+  },
+
   // Admin-assisted recovery: a short-lived, single-use link that lets a member who lost their
   // only device register a new passkey onto their EXISTING account — see /api/recover/options
   // for the full rationale. Meant to be handed over in person (shown on screen, AirDropped,
@@ -840,6 +877,173 @@ const routes = {
     db.invites = db.invites.filter(i => i.code !== inv.code);
     saveDb();
     json(res, 200, { ok: true });
+  },
+
+  /* ---------- Social: member/trainer routines + the Wall of real PRs ---------- */
+  // Every route here requires a signed-in session — this is a private single-gym app, nothing
+  // is reachable by someone who hasn't registered a profile. Publishing is unmoderated (goes
+  // live immediately); the escape hatch is that the author or an admin can always delete a post.
+  'GET /api/social/routines': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const routines = social.routines.map(r => {
+      const ratings = r.ratings || [];
+      const avgStars = ratings.length ? Math.round((ratings.reduce((s, x) => s + x.stars, 0) / ratings.length) * 10) / 10 : null;
+      const mine = ratings.find(x => x.uid === user.id);
+      const { ratings: _drop, ...rest } = r;
+      return { ...rest, avgStars, ratingCount: ratings.length, myStars: mine ? mine.stars : null };
+    });
+    json(res, 200, { routines });
+  },
+
+  // body: { name, emoji, prog?, ex, customExDefs? } — a deep-cloned member routine, exactly the
+  // shape frontend/src/views/RoutineEdit.jsx produces. `authorKind` is computed here from the
+  // caller's OWN trainer status at the moment of publishing, never trusted from the client and
+  // never recomputed later — a trainer role revoked afterwards doesn't retroactively move their
+  // past posts out of "Entrenadores".
+  'POST /api/social/routines': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const name = String(body.name || '').trim().slice(0, 60);
+    const ex = Array.isArray(body.ex) ? body.ex : null;
+    if (!name || !ex || !ex.length) return json(res, 400, { error: 'a routine needs a name and at least one exercise' });
+    const customExDefs = Array.isArray(body.customExDefs)
+      ? body.customExDefs.filter(d => d && typeof d.id === 'string' && typeof d.n === 'string') : [];
+    const customIds = new Set(customExDefs.map(d => d.id));
+    // Every custom-exercise id the routine references has to travel with its full definition —
+    // EXIDX is per-browser-tab and rebuilt from whichever user's customEx last loaded, so a
+    // custom exercise id alone would resolve to "Unknown exercise" for anyone else.
+    if (ex.some(e => typeof e.id === 'string' && e.id.startsWith('c') && !customIds.has(e.id)))
+      return json(res, 400, { error: 'missing definitions for one or more custom exercises in this routine' });
+    const post = {
+      id: crypto.randomBytes(9).toString('base64url'),
+      authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
+      name, emoji: String(body.emoji || 'dumbbell').slice(0, 20),
+      ex, customExDefs,
+      createdAt: Date.now(),
+      ratings: []
+    };
+    if (body.prog) post.prog = String(body.prog).slice(0, 20);
+    social.routines.push(post);
+    saveSocial();
+    json(res, 200, { ok: true, id: post.id });
+  },
+
+  'POST /api/social/routines/rate': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const stars = Math.round(Number(body.stars));
+    if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'stars must be 1-5' });
+    const post = social.routines.find(r => r.id === body.id);
+    if (!post) return json(res, 404, { error: 'no such routine' });
+    post.ratings = post.ratings || [];
+    const existing = post.ratings.find(x => x.uid === user.id);
+    if (existing) { existing.stars = stars; existing.at = Date.now(); }
+    else post.ratings.push({ uid: user.id, stars, at: Date.now() });
+    saveSocial();
+    const avgStars = Math.round((post.ratings.reduce((s, x) => s + x.stars, 0) / post.ratings.length) * 10) / 10;
+    json(res, 200, { ok: true, avgStars, ratingCount: post.ratings.length, myStars: stars });
+  },
+
+  'POST /api/social/routines/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const post = social.routines.find(r => r.id === body.id);
+    if (!post) return json(res, 404, { error: 'no such routine' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'forbidden' });
+    social.routines = social.routines.filter(r => r.id !== body.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  'GET /api/social/wall': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    json(res, 200, { wall: [...social.wall].sort((a, b) => b.createdAt - a.createdAt) });
+  },
+
+  // body: { exId, exName, mode, value, sourceDate, note? } — re-checked against the CALLER's own
+  // logged history below, so this can never be a made-up number: the picker in the app is a
+  // convenience, this check is the actual guarantee.
+  'POST /api/social/wall': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const exId = String(body.exId || '');
+    const mode = ['reps', 'time', 'cardio'].includes(body.mode) ? body.mode : null;
+    const sourceDate = String(body.sourceDate || '');
+    const value = body.value && typeof body.value === 'object' ? body.value : null;
+    if (!exId || !mode || !value || !/^\d{4}-\d{2}-\d{2}$/.test(sourceDate))
+      return json(res, 400, { error: 'a valid exercise, mode, value and date are required' });
+    const S = readState(user.id);
+    if (!S) return json(res, 400, { error: 'nothing synced yet' });
+    const workout = (S.workouts || []).find(w => w.d === sourceDate);
+    const entry = workout && workout.entries.find(e => e.id === exId);
+    const matches = s => {
+      if (!s.done) return false;
+      if (mode === 'cardio') return Number(s.min) === Number(value.min) && Number(s.speed) === Number(value.speed);
+      if (mode === 'time') return Number(s.sec) === Number(value.sec) && Number(s.w || 0) === Number(value.w || 0);
+      return Number(s.w) === Number(value.w) && Number(s.r) === Number(value.r);
+    };
+    if (!entry || !entry.sets.some(matches)) return json(res, 400, { error: 'this does not match a set from your own logged history' });
+    const post = {
+      id: crypto.randomBytes(9).toString('base64url'),
+      authorId: user.id, authorName: user.name,
+      exId, exName: String(body.exName || '').trim().slice(0, 60) || exId, mode, value, sourceDate,
+      note: String(body.note || '').trim().slice(0, 140) || null,
+      createdAt: Date.now()
+    };
+    social.wall.push(post);
+    saveSocial();
+    json(res, 200, { ok: true, id: post.id });
+  },
+
+  'POST /api/social/wall/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const post = social.wall.find(w => w.id === body.id);
+    if (!post) return json(res, 404, { error: 'no such post' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'forbidden' });
+    social.wall = social.wall.filter(w => w.id !== body.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  // Trimmed member list for a trainer's "assign to..." picker — just enough to search/identify
+  // someone, not the full admin detail view.
+  'GET /api/trainer/members': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const members = db.users.filter(u => !u.disabled).map(u => ({ id: u.id, name: u.name }));
+    json(res, 200, { members });
+  },
+
+  // Pushes one of the TRAINER'S OWN published routines straight onto a member's plan — same
+  // mechanism as apply-starter-plan below: mutate the member's state file directly, bump _ts, let
+  // their own device pick it up on next pullState(). Deliberately restricted to routines the
+  // trainer authored themselves (not any routine in Social) to keep the blast radius of the
+  // trainer role obvious and small.
+  'POST /api/trainer/assign-routine': async (req, res) => {
+    const trainer = requireTrainer(req, res); if (!trainer) return;
+    const body = await readBody(req);
+    const post = social.routines.find(r => r.id === body.routineId);
+    if (!post) return json(res, 404, { error: 'no such routine' });
+    if (post.authorId !== trainer.id) return json(res, 403, { error: 'you can only assign routines you published yourself' });
+    const member = db.users.find(x => x.id === body.memberId);
+    if (!member) return json(res, 404, { error: 'no such member' });
+    const S = readState(member.id);
+    if (!S) return json(res, 400, { error: 'member has never synced — nothing to assign to yet' });
+    S.customEx = S.customEx || [];
+    (post.customExDefs || []).forEach(def => { if (!S.customEx.some(x => x.id === def.id)) S.customEx.push(def); });
+    const routine = { id: crypto.randomBytes(9).toString('base64url'), name: post.name, emoji: post.emoji, ex: JSON.parse(JSON.stringify(post.ex)) };
+    if (post.prog) routine.prog = post.prog;
+    S.routines = [...(S.routines || []), routine];
+    S._ts = Date.now();
+    atomicWrite(stateFile(member.id), JSON.stringify(S));
+    json(res, 200, { ok: true, routineId: routine.id });
   },
 
   /* ---------- AI Coach ---------- */
