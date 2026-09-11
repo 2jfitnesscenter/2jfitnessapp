@@ -22,7 +22,7 @@ import RoutineEdit from './views/RoutineEdit.jsx'
 import Workout from './views/Workout.jsx'
 import Stats from './views/Stats.jsx'
 import History from './views/History.jsx'
-import Library from './views/Library.jsx'
+import Social from './views/Social.jsx'
 import Settings from './views/Settings.jsx'
 import Measurements from './views/Measurements.jsx'
 import Admin from './views/Admin.jsx'
@@ -92,7 +92,7 @@ function Shell() {
               <Route path="/workout" element={<Workout />} />
               <Route path="/stats" element={<Stats />} />
               <Route path="/history" element={<History />} />
-              <Route path="/library" element={<Library />} />
+              <Route path="/social" element={<Social />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/measurements" element={<Measurements />} />
               {/* The Coach screens gate themselves on the instance config; the routes exist
