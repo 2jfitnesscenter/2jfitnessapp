@@ -74,18 +74,43 @@ function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
 }
 
-// Social: routines members publish for each other (and trainers publish separately), plus the
-// Wall of real logged PRs. Shared across every user, unlike state-<uid>.json — same module-level
-// cache + atomicWrite-the-whole-object shape as hiddenEx above, just with content many different
-// users contribute to instead of only the admin.
+// Social: routines and programs members publish for each other (and trainers publish
+// separately), plus the Wall of real logged PRs. Shared across every user, unlike
+// state-<uid>.json — same module-level cache + atomicWrite-the-whole-object shape as hiddenEx
+// above, just with content many different users contribute to instead of only the admin.
 const socialFile = path.join(DATA, 'social.json');
-let social = { routines: [], wall: [] };
+let social = { routines: [], programs: [], wall: [] };
 try {
   const parsed = JSON.parse(fs.readFileSync(socialFile, 'utf8'));
   social.routines = Array.isArray(parsed.routines) ? parsed.routines : [];
+  social.programs = Array.isArray(parsed.programs) ? parsed.programs : [];
   social.wall = Array.isArray(parsed.wall) ? parsed.wall : [];
 } catch {}
 function saveSocial() { atomicWrite(socialFile, JSON.stringify(social, null, 2)); }
+
+// Uploaded images (Social routine/program covers) — the one place this app stores a
+// user-provided file. DATA is a private volume nginx never sees (docker-compose.yml), so these
+// have to be served back through the api itself (see GET /api/social/media below) rather than
+// through the static img/ and gif/ dirs the exercise media already uses.
+const uploadsDir = path.join(DATA, 'uploads');
+try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch {}
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+// dataUrl -> stored filename, or throws. The client resizes/compresses before sending (see
+// Social.jsx's ImagePicker) — this cap is a safety net, not the primary size control.
+function saveUploadedImage(dataUrl) {
+  if (typeof dataUrl !== 'string' || !/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(dataUrl))
+    throw new Error('not a valid image');
+  const b64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  const buf = Buffer.from(b64, 'base64');
+  if (!buf.length || buf.length > MAX_IMAGE_BYTES) throw new Error('image too large');
+  const name = crypto.randomBytes(9).toString('base64url').replace(/[^a-zA-Z0-9_-]/g, '') + '.jpg';
+  fs.writeFileSync(path.join(uploadsDir, name), buf);
+  return name;
+}
+function deleteUploadedImage(name) {
+  if (!name) return;
+  try { fs.unlinkSync(path.join(uploadsDir, String(name).replace(/[^a-zA-Z0-9_.-]/g, ''))); } catch {}
+}
 
 /* ---------- push notifications (Web Push / VAPID) ---------- */
 const vapidFile = path.join(DATA, 'vapid.json');
@@ -896,11 +921,11 @@ const routes = {
     json(res, 200, { routines });
   },
 
-  // body: { name, emoji, prog?, ex, customExDefs? } — a deep-cloned member routine, exactly the
-  // shape frontend/src/views/RoutineEdit.jsx produces. `authorKind` is computed here from the
-  // caller's OWN trainer status at the moment of publishing, never trusted from the client and
-  // never recomputed later — a trainer role revoked afterwards doesn't retroactively move their
-  // past posts out of "Entrenadores".
+  // body: { name, emoji, prog?, ex, customExDefs?, image?, description? } — a deep-cloned member
+  // routine, exactly the shape frontend/src/views/RoutineEdit.jsx produces. `authorKind` is
+  // computed here from the caller's OWN trainer status at the moment of publishing, never
+  // trusted from the client and never recomputed later — a trainer role revoked afterwards
+  // doesn't retroactively move their past posts out of "Entrenadores".
   'POST /api/social/routines': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
@@ -916,10 +941,13 @@ const routes = {
     // custom exercise id alone would resolve to "Unknown exercise" for anyone else.
     if (ex.some(e => typeof e.id === 'string' && e.id.startsWith('c') && !customIds.has(e.id)))
       return json(res, 400, { error: 'missing definitions for one or more custom exercises in this routine' });
+    let image = null;
+    if (body.image) { try { image = saveUploadedImage(body.image); } catch (e) { return json(res, 400, { error: e.message }); } }
     const post = {
       id: crypto.randomBytes(9).toString('base64url'),
       authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
       name, emoji: String(body.emoji || 'dumbbell').slice(0, 20),
+      image, description: String(body.description || '').trim().slice(0, 300) || null,
       ex, customExDefs,
       createdAt: Date.now(),
       ratings: []
@@ -954,7 +982,106 @@ const routes = {
     const post = social.routines.find(r => r.id === body.id);
     if (!post) return json(res, 404, { error: 'no such routine' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'forbidden' });
+    deleteUploadedImage(post.image);
     social.routines = social.routines.filter(r => r.id !== body.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  // A routine's/program's image lives on disk, not in social.json — DATA is a private volume
+  // nginx never sees, so this is the one place an uploaded file gets served back.
+  'GET /api/social/media': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const id = String(new URL(req.url, 'http://x').searchParams.get('id') || '').replace(/[^a-zA-Z0-9_.-]/g, '');
+    if (!id) return json(res, 400, { error: 'id required' });
+    try {
+      const buf = fs.readFileSync(path.join(uploadsDir, id));
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
+      res.end(buf);
+    } catch { json(res, 404, { error: 'no such image' }); }
+  },
+
+  /* ---------- Social: Programs (a named group of routines, published as one unit) ---------- */
+  'GET /api/social/programs': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const programs = social.programs.map(p => {
+      const ratings = p.ratings || [];
+      const avgStars = ratings.length ? Math.round((ratings.reduce((s, x) => s + x.stars, 0) / ratings.length) * 10) / 10 : null;
+      const mine = ratings.find(x => x.uid === user.id);
+      const { ratings: _drop, ...rest } = p;
+      return { ...rest, avgStars, ratingCount: ratings.length, myStars: mine ? mine.stars : null };
+    });
+    json(res, 200, { programs });
+  },
+
+  // body: { name, emoji, image?, description?, routines: [{name, emoji, prog?, ex, customExDefs?}, ...] }
+  // — the full embedded routine objects (not ids: S.programs[].routineIds only mean something on
+  // the publishing member's own device), one customExDefs check per embedded routine.
+  'POST /api/social/programs': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const name = String(body.name || '').trim().slice(0, 60);
+    const routinesIn = Array.isArray(body.routines) ? body.routines : null;
+    if (!name || !routinesIn || !routinesIn.length) return json(res, 400, { error: 'a program needs a name and at least one routine' });
+    const routines = [];
+    for (const r of routinesIn) {
+      const rname = String(r?.name || '').trim().slice(0, 60);
+      const ex = Array.isArray(r?.ex) ? r.ex : null;
+      if (!rname || !ex || !ex.length) return json(res, 400, { error: 'every routine needs a name and at least one exercise' });
+      const customExDefs = Array.isArray(r.customExDefs)
+        ? r.customExDefs.filter(d => d && typeof d.id === 'string' && typeof d.n === 'string') : [];
+      const customIds = new Set(customExDefs.map(d => d.id));
+      if (ex.some(e => typeof e.id === 'string' && e.id.startsWith('c') && !customIds.has(e.id)))
+        return json(res, 400, { error: 'missing definitions for one or more custom exercises in this program' });
+      const routine = { name: rname, emoji: String(r.emoji || 'dumbbell').slice(0, 20), ex, customExDefs };
+      if (r.prog) routine.prog = String(r.prog).slice(0, 20);
+      routines.push(routine);
+    }
+    let image = null;
+    if (body.image) { try { image = saveUploadedImage(body.image); } catch (e) { return json(res, 400, { error: e.message }); } }
+    const post = {
+      id: crypto.randomBytes(9).toString('base64url'),
+      authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
+      name, emoji: String(body.emoji || 'folder').slice(0, 20),
+      image, description: String(body.description || '').trim().slice(0, 300) || null,
+      routines,
+      createdAt: Date.now(),
+      ratings: []
+    };
+    social.programs.push(post);
+    saveSocial();
+    json(res, 200, { ok: true, id: post.id });
+  },
+
+  'POST /api/social/programs/rate': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const stars = Math.round(Number(body.stars));
+    if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'stars must be 1-5' });
+    const post = social.programs.find(p => p.id === body.id);
+    if (!post) return json(res, 404, { error: 'no such program' });
+    post.ratings = post.ratings || [];
+    const existing = post.ratings.find(x => x.uid === user.id);
+    if (existing) { existing.stars = stars; existing.at = Date.now(); }
+    else post.ratings.push({ uid: user.id, stars, at: Date.now() });
+    saveSocial();
+    const avgStars = Math.round((post.ratings.reduce((s, x) => s + x.stars, 0) / post.ratings.length) * 10) / 10;
+    json(res, 200, { ok: true, avgStars, ratingCount: post.ratings.length, myStars: stars });
+  },
+
+  'POST /api/social/programs/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const post = social.programs.find(p => p.id === body.id);
+    if (!post) return json(res, 404, { error: 'no such program' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'forbidden' });
+    deleteUploadedImage(post.image);
+    social.programs = social.programs.filter(p => p.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
   },
@@ -994,11 +1121,44 @@ const routes = {
       authorId: user.id, authorName: user.name,
       exId, exName: String(body.exName || '').trim().slice(0, 60) || exId, mode, value, sourceDate,
       note: String(body.note || '').trim().slice(0, 140) || null,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      comments: []
     };
     social.wall.push(post);
     saveSocial();
     json(res, 200, { ok: true, id: post.id });
+  },
+
+  // body: { id, text } — id is the Wall post, not a comment id. A flat list, no replies/likes:
+  // this is meant to be a quick "nice work" / "how many reps did that leave you" thread, not a
+  // forum.
+  'POST /api/social/wall/comment': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const text = String(body.text || '').trim().slice(0, 300);
+    if (!text) return json(res, 400, { error: 'comment cannot be empty' });
+    const post = social.wall.find(w => w.id === body.id);
+    if (!post) return json(res, 404, { error: 'no such post' });
+    post.comments = post.comments || [];
+    const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, text, createdAt: Date.now() };
+    post.comments.push(comment);
+    saveSocial();
+    json(res, 200, { ok: true, comment });
+  },
+
+  'POST /api/social/wall/comment/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const post = social.wall.find(w => w.id === body.postId);
+    if (!post) return json(res, 404, { error: 'no such post' });
+    const comment = (post.comments || []).find(c => c.id === body.commentId);
+    if (!comment) return json(res, 404, { error: 'no such comment' });
+    if (comment.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'forbidden' });
+    post.comments = post.comments.filter(c => c.id !== body.commentId);
+    saveSocial();
+    json(res, 200, { ok: true });
   },
 
   'POST /api/social/wall/delete': async (req, res) => {
@@ -1044,6 +1204,34 @@ const routes = {
     S._ts = Date.now();
     atomicWrite(stateFile(member.id), JSON.stringify(S));
     json(res, 200, { ok: true, routineId: routine.id });
+  },
+
+  // Same as assign-routine, but for a whole Program: every embedded routine lands in the
+  // member's S.routines with a fresh id, then one new S.programs entry groups them — so the
+  // member gets the whole plan, not loose routines they'd have to group themselves.
+  'POST /api/trainer/assign-program': async (req, res) => {
+    const trainer = requireTrainer(req, res); if (!trainer) return;
+    const body = await readBody(req);
+    const post = social.programs.find(p => p.id === body.programId);
+    if (!post) return json(res, 404, { error: 'no such program' });
+    if (post.authorId !== trainer.id) return json(res, 403, { error: 'you can only assign programs you published yourself' });
+    const member = db.users.find(x => x.id === body.memberId);
+    if (!member) return json(res, 404, { error: 'no such member' });
+    const S = readState(member.id);
+    if (!S) return json(res, 400, { error: 'member has never synced — nothing to assign to yet' });
+    S.customEx = S.customEx || [];
+    const routineIds = [];
+    for (const r of post.routines) {
+      (r.customExDefs || []).forEach(def => { if (!S.customEx.some(x => x.id === def.id)) S.customEx.push(def); });
+      const routine = { id: crypto.randomBytes(9).toString('base64url'), name: r.name, emoji: r.emoji, ex: JSON.parse(JSON.stringify(r.ex)) };
+      if (r.prog) routine.prog = r.prog;
+      routineIds.push(routine.id);
+      S.routines = [...(S.routines || []), routine];
+    }
+    S.programs = [...(S.programs || []), { id: crypto.randomBytes(9).toString('base64url'), name: post.name, emoji: post.emoji, routineIds }];
+    S._ts = Date.now();
+    atomicWrite(stateFile(member.id), JSON.stringify(S));
+    json(res, 200, { ok: true });
   },
 
   /* ---------- AI Coach ---------- */
