@@ -1,23 +1,27 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { fmtDate, fmtNum } from '../lib/format.js'
+import { fmtDate, fmtNum, ageFrom } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { measurementSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { SelectRow } from '../components/ui.jsx'
 import LineChart from '../components/LineChart.jsx'
-import { MEASUREMENTS, lastMeasurement } from '../lib/measurements.js'
+import { MEASUREMENTS, lastMeasurement, bodyFatBand } from '../lib/measurements.js'
 
 // Each row is one time series (see lib/measurements.js) — tapping it opens the same generic
 // log-a-value-and-see-recent-entries sheet bodyweight already used, just for that measurement.
+// Body fat is the one value here with an established healthy range (Gallagher et al. 2000,
+// by sex and age — see bodyFatBand), so its pill is colour-coded instead of the plain accent
+// every other measurement gets; it falls back to the plain colour when sex/birth date aren't set.
 function Row({ m, S }) {
   const last = lastMeasurement(S, m.key)
+  const band = m.key === 'bodyFat' && last ? bodyFatBand(last.v, S.body, ageFrom(S.birthDate)) : null
   return <div className="item" onClick={() => measurementSheet(m.key)}>
     <div className="grow"><div className="tt">{t(m.label)}</div>
       {last && <div className="ss">{fmtDate(last.d)}</div>}
     </div>
-    {last ? <span className="tag acc">{fmtNum(last.v)} {m.unit}</span> : <span className="tag">{t('Not logged')}</span>}
+    {last ? <span className={'tag ' + (band || 'acc')}>{fmtNum(last.v)} {m.unit}</span> : <span className="tag">{t('Not logged')}</span>}
     <Icon name="chevronRight" className="chev" />
   </div>
 }
@@ -51,6 +55,7 @@ export default function Measurements() {
   const body = MEASUREMENTS.filter(m => m.group === 'body')
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
   const folds = MEASUREMENTS.filter(m => m.group === 'folds')
+  const needsProfile = lastMeasurement(S, 'bodyFat') && !bodyFatBand(lastMeasurement(S, 'bodyFat').v, S.body, ageFrom(S.birthDate))
 
   return <div className="narrow">
     <div className="hdr">
@@ -60,6 +65,7 @@ export default function Measurements() {
 
     <h4 className="sec">{t('Body composition')}</h4>
     <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('From a bioimpedance scan — ask staff if this gym has one.')}</div>
+    {needsProfile && <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('Add your date of birth and sex in Settings to see whether your body fat is in a healthy range.')}</div>}
     <div className="list" style={{ marginBottom: 22 }}>{composition.map(m => <Row key={m.key} m={m} S={S} />)}</div>
 
     <h4 className="sec">{t('Skinfolds')}</h4>

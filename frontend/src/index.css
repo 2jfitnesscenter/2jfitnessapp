@@ -355,6 +355,9 @@ h4.sec{
   font-weight:500;text-transform:capitalize;
 }
 .tag.acc{background:var(--acc-soft);color:var(--acc)}
+.tag.good{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green)}
+.tag.warn{background:color-mix(in srgb,var(--orange) 16%,transparent);color:var(--orange)}
+.tag.bad{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red)}
 
 /* ---------------------------------------------------------------- chips -- */
 .chips{

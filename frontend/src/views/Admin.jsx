@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
-import { fmtDate, fmtNum, fmtVol, fmtDur } from '../lib/format.js'
+import { fmtDate, fmtNum, fmtVol, fmtDur, ageFrom } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
 import { t } from '../lib/i18n.js'
 import { confirmSheet } from '../sheets.jsx'
@@ -14,7 +14,7 @@ import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
-import { MEASUREMENTS } from '../lib/measurements.js'
+import { MEASUREMENTS, bodyFatBand } from '../lib/measurements.js'
 
 // Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "hypertrophy" means the
 // same rep range whether a member or an admin set it up.
@@ -33,17 +33,6 @@ const rel = ts => {
   return t('{0}d ago', Math.floor(s / 86400))
 }
 const dur = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60) + 'm' }
-// Same computation as api/coach/payload.js's ageFrom — duplicated for the same reason payload.js
-// duplicates other frontend logic: this admin page and the api server share no build step.
-const ageFrom = birthDate => {
-  if (!birthDate) return null
-  const b = new Date(birthDate)
-  if (Number.isNaN(b.getTime())) return null
-  const now = new Date()
-  let age = now.getFullYear() - b.getFullYear()
-  if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--
-  return age >= 0 && age < 130 ? age : null
-}
 
 function ProfileEditForm({ d, onSaved, close }) {
   const toast = useUI(s => s.toast)
@@ -253,7 +242,10 @@ function UserDetail({ id, onChanged, close }) {
       {(d.secondaryMuscles || []).map(m => <span key={m} className="tag">{t(MUSCLE_LABEL[m])}</span>)}
     </div>}
     {!!Object.keys(d.measurements || {}).length && <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '10px 0 0' }}>
-      {MEASUREMENTS.filter(m => d.measurements?.[m.key]).map(m => <span key={m.key} className="tag">{t(m.label)}: {fmtNum(d.measurements[m.key].v)} {m.unit}</span>)}
+      {MEASUREMENTS.filter(m => d.measurements?.[m.key]).map(m => {
+        const band = m.key === 'bodyFat' ? bodyFatBand(d.measurements[m.key].v, d.body, age) : null
+        return <span key={m.key} className={'tag' + (band ? ' ' + band : '')}>{t(m.label)}: {fmtNum(d.measurements[m.key].v)} {m.unit}</span>
+      })}
     </div>}
     <div className="row" style={{ gap: 8, margin: '12px 0 4px' }}>
       <Button style={{ flex: 1 }} icon="pencil" onClick={() => openSheet(close2 => <ProfileEditForm d={d} onSaved={load} close={close2} />)}>{t('Edit profile')}</Button>

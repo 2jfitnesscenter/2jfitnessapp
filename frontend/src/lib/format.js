@@ -33,6 +33,18 @@ export const fmtVol = (v, unit) => fmtNum(v) + ' ' + unit
 export const exCount = n => t(n === 1 ? '{0} exercise' : '{0} exercises', n)
 export const routineCount = n => t(n === 1 ? '{0} routine' : '{0} routines', n)
 
+// Same computation as api/coach/payload.js's ageFrom — duplicated there for the same reason as
+// every other admin/api overlap: the admin page and the api server share no build step.
+export function ageFrom(birthDate) {
+  if (!birthDate) return null
+  const b = new Date(birthDate)
+  if (Number.isNaN(b.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - b.getFullYear()
+  if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--
+  return age >= 0 && age < 130 ? age : null
+}
+
 export function weekKey(d) {
   const dt = new Date(d + 'T12:00:00')
   const day = (dt.getDay() + 6) % 7

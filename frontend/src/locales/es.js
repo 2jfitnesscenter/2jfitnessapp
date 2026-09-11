@@ -439,6 +439,7 @@ export default {
   'Caliper readings — ask staff if this gym takes these.': 'Medidas con plicómetro — pregunta al personal si el gimnasio las toma.',
   'Evolution': 'Evolución',
   'Measurement': 'Medición',
+  'Add your date of birth and sex in Settings to see whether your body fat is in a healthy range.': 'Añade tu fecha de nacimiento y sexo en Ajustes para ver si tu grasa corporal está en un rango saludable.',
   'Upper back': 'Espalda alta',
   'Serratus': 'Serrato',
   'Biceps': 'Bíceps',
