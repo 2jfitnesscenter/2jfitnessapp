@@ -148,35 +148,40 @@ function RecoveryLinkSheet({ u, close }) {
   </>
 }
 
-// One bioimpedance scan (this gym's Tanita, typically) gives several readings at once — body
-// fat, muscle mass, water, visceral fat, bone mass — so this is one form for all five rather
-// than the member-facing measurementSheet's one-value-at-a-time (sheets.jsx), which fits a
-// tape-measure reading taken whenever, not a single scan session. Leaving a field blank keeps
-// whatever that member already had for it — a scan that dropped one reading shouldn't force
-// staff to guess the others.
+// One staff-run assessment (this gym's Tanita scan, plus a caliper pass) gives several readings
+// at once — body fat, muscle mass, water, visceral fat, bone mass, and the four skinfolds — so
+// this is one form for all of them rather than the member-facing measurementSheet's
+// one-value-at-a-time (sheets.jsx), which fits a tape-measure reading taken whenever, not a
+// single assessment session. Leaving a field blank keeps whatever that member already had for
+// it — a scan that dropped one reading shouldn't force staff to guess the others.
 function BioimpedanceSheet({ u, current, onSaved, close }) {
   const toast = useUI(s => s.toast)
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
-  const [vals, setVals] = useState(() => Object.fromEntries(composition.map(m => [m.key, current?.[m.key]?.v ?? ''])))
+  const folds = MEASUREMENTS.filter(m => m.group === 'folds')
+  const all = [...composition, ...folds]
+  const [vals, setVals] = useState(() => Object.fromEntries(all.map(m => [m.key, current?.[m.key]?.v ?? ''])))
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setVals(s => ({ ...s, [k]: v }))
   const save = () => {
     const values = {}
-    for (const m of composition) { if (vals[m.key] !== '' && vals[m.key] != null) values[m.key] = Number(vals[m.key]) }
+    for (const m of all) { if (vals[m.key] !== '' && vals[m.key] != null) values[m.key] = Number(vals[m.key]) }
     if (!Object.keys(values).length) { toast(t('Enter at least one value')); return }
     setBusy(true)
     api('/api/admin/user/measurements', { method: 'POST', body: JSON.stringify({ id: u.id, values }) })
       .then(() => { toast(t('Measurements saved')); onSaved(); close() })
       .catch(e => { toast(e.message); setBusy(false) })
   }
+  const Field = m => <div key={m.key} style={{ marginBottom: 10 }}>
+    <div className="dim small" style={{ marginBottom: 4 }}>{t(m.label)}</div>
+    <input type="number" inputMode="decimal" className="input" step={m.step} min={m.min} max={m.max}
+      placeholder={m.unit ? `— ${m.unit}` : '—'} value={vals[m.key]} onChange={e => set(m.key, e.target.value)} />
+  </div>
   return <>
     <h3>{t('Bioimpedance scan — {0}', u.name)}</h3>
     <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.5 }}>{t('Leave a field blank to leave that reading as it was.')}</div>
-    {composition.map(m => <div key={m.key} style={{ marginBottom: 10 }}>
-      <div className="dim small" style={{ marginBottom: 4 }}>{t(m.label)}</div>
-      <input type="number" inputMode="decimal" className="input" step={m.step} min={m.min} max={m.max}
-        placeholder={m.unit ? `— ${m.unit}` : '—'} value={vals[m.key]} onChange={e => set(m.key, e.target.value)} />
-    </div>)}
+    {composition.map(Field)}
+    <div className="sec" style={{ margin: '14px 0 8px' }}>{t('Skinfolds (calipers)')}</div>
+    {folds.map(Field)}
     <div style={{ height: 6 }} />
     <Button variant="primary" disabled={busy} onClick={save}>{t('Save')}</Button>
   </>

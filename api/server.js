@@ -653,7 +653,8 @@ const routes = {
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'member has never synced — nothing to add measurements to yet' });
     const KEYS = ['neck', 'shoulders', 'chest', 'bicepsL', 'bicepsR', 'forearmL', 'forearmR', 'waist', 'hips',
-      'thighL', 'thighR', 'calfL', 'calfR', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass'];
+      'thighL', 'thighR', 'calfL', 'calfR', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass',
+      'skinTriceps', 'skinSubscapular', 'skinSuprailiac', 'skinAbdominal'];
     const iso = /^\d{4}-\d{2}-\d{2}$/.test(body.d || '') ? body.d : new Date().toISOString().slice(0, 10);
     const values = body.values && typeof body.values === 'object' ? body.values : {};
     S.measurements = S.measurements || {};

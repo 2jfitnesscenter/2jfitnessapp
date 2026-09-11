@@ -2,9 +2,10 @@
 // (S.bodyweight) that already existed: S.measurements[key] is the same {d, v, t} shape, just
 // keyed by which measurement it is instead of there being exactly one. Two real workflows drive
 // this: a member logging their own tape-measure numbers whenever, and a gym admin entering a
-// full bioimpedance scan (body fat/muscle/water/visceral fat/bone mass) from a Tanita reading
-// in one sitting — see sheets.jsx's measurementSheet and Admin.jsx's BioimpedanceSheet.
-export const GROUPS = ['body', 'composition']
+// full body assessment (bioimpedance scan + skinfold calipers) from one staff-run session — see
+// sheets.jsx's measurementSheet and Admin.jsx's BioimpedanceSheet (which covers both the
+// 'composition' and 'folds' groups, since they're typically taken in the same sitting).
+export const GROUPS = ['body', 'composition', 'folds']
 
 export const MEASUREMENTS = [
   // ---- circumference, cm — a member's own tape measure ----
@@ -26,7 +27,12 @@ export const MEASUREMENTS = [
   { key: 'muscleMass', label: 'Muscle mass', group: 'composition', unit: 'kg', min: 10, max: 70, step: 0.1, dec: true },
   { key: 'waterPct', label: 'Body water', group: 'composition', unit: '%', min: 25, max: 75, step: 0.1, dec: true },
   { key: 'visceralFat', label: 'Visceral fat', group: 'composition', unit: '', min: 1, max: 30, step: 1, dec: false },
-  { key: 'boneMass', label: 'Bone mass', group: 'composition', unit: 'kg', min: 0.5, max: 6, step: 0.1, dec: true }
+  { key: 'boneMass', label: 'Bone mass', group: 'composition', unit: 'kg', min: 0.5, max: 6, step: 0.1, dec: true },
+  // ---- skinfolds, mm — calipers (a staff assessment, taken alongside the bioimpedance scan) ----
+  { key: 'skinTriceps', label: 'Triceps skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true },
+  { key: 'skinSubscapular', label: 'Subscapular skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true },
+  { key: 'skinSuprailiac', label: 'Suprailiac skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true },
+  { key: 'skinAbdominal', label: 'Abdominal skinfold', group: 'folds', unit: 'mm', min: 2, max: 50, step: 0.5, dec: true }
 ]
 export const MEASUREMENT = Object.fromEntries(MEASUREMENTS.map(m => [m.key, m]))
 
