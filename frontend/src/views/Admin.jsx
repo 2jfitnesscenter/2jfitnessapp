@@ -217,12 +217,18 @@ function UserDetail({ id, onChanged, close }) {
       .then(() => { toast(disabled ? t('User disabled') : t('User enabled')); onChanged(); close() })
       .catch(e => toast(e.message))
   }
+  const setTrainer = trainer => {
+    api('/api/admin/user/trainer', { method: 'POST', body: JSON.stringify({ id: u.id, trainer }) })
+      .then(() => { toast(trainer ? t('Now a trainer') : t('No longer a trainer')); load() })
+      .catch(e => toast(e.message))
+  }
   const applyStarterPlan = () => openSheet(close2 => <StarterPlanSheet u={u} onApplied={load} close={close2} />)
   const age = ageFrom(d.birthDate)
   return <>
     <h3 className="capitalize">{u.name}</h3>
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '8px 0 12px' }}>
       {u.admin && <span className="tag acc">{t('admin')}</span>}
+      {!u.admin && u.trainer && <span className="tag acc">{t('trainer')}</span>}
       {u.disabled && <span className="tag" style={{ color: 'var(--red)' }}>{t('disabled')}</span>}
       {u.invitedBy && <span className="tag">{t('invite {0}', u.invitedBy)}</span>}
       <span className="tag">{t('joined {0}', u.created ? fmtDate(u.created.slice(0, 10)) : '—')}</span>
@@ -257,6 +263,8 @@ function UserDetail({ id, onChanged, close }) {
       onClick={() => openSheet(close2 => <BioimpedanceSheet u={u} current={d.measurements} onSaved={load} close={close2} />)}>{t('Log bioimpedance scan')}</Button>
     <Button style={{ width: '100%', margin: '0 0 4px' }} icon="key"
       onClick={() => openSheet(close2 => <RecoveryLinkSheet u={u} close={close2} />)}>{t('Recover access (lost device)')}</Button>
+    {!u.admin && <Button style={{ width: '100%', margin: '0 0 4px' }} icon="person" variant={u.trainer ? 'tinted' : 'plain'}
+      onClick={() => setTrainer(!u.trainer)}>{u.trainer ? t('Remove trainer role') : t('Make trainer')}</Button>}
     {!u.admin && <button className={'btn ' + (u.disabled ? 'primary' : 'danger')} style={{ margin: '4px 0 4px' }}
       onClick={() => u.disabled ? setDisabled(false)
         : confirmSheet({ title: t('Disable {0}?', u.name), message: t('They are signed out everywhere and can no longer sync or log in until re-enabled.'), confirmText: t('Disable'), danger: true, onConfirm: () => setDisabled(true) })}>
