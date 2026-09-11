@@ -17,6 +17,8 @@ export default {
   'Log': 'Registrar',
   'Goal': 'Meta',
   'Plan': 'Plan',
+  'Library': 'Biblioteca',
+  'Train': 'Entrenar',
   'Today': 'Hoy',
   'Home': 'Inicio',
   'Start': 'Empezar',
