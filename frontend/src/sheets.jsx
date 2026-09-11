@@ -53,12 +53,17 @@ const GOAL_LABEL = { hypertrophy: 'Build muscle', toning: 'Tone up', fatloss: 'L
 // someone to hand-pick exact weekdays for a plan they can already reschedule day by day later.
 const DAY_SPREAD = { 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5], 6: [1, 2, 3, 4, 5, 6] }
 
+// Same options CoachIntake's own session-length step offers — a quick plan and an AI Coach plan
+// should size a session the same way.
+const SESSION_MIN = [30, 45, 60, 75, 90]
+
 function StarterPlanIntake({ close }) {
   const [goal, setGoal] = useState('longevity')
   const [days, setDays] = useState(3)
+  const [sessionMin, setSessionMin] = useState(60)
   const apply = () => {
     update(st => {
-      const { routines, week } = buildPlan(goal, DAY_SPREAD[days], st.priorityMuscles, st.secondaryMuscles)
+      const { routines, week } = buildPlan(goal, DAY_SPREAD[days], st.priorityMuscles, st.secondaryMuscles, sessionMin)
       st.routines.push(...routines)
       Object.entries(week).forEach(([d, id]) => { st.week[d] = id })
     })
@@ -76,6 +81,8 @@ function StarterPlanIntake({ close }) {
     </div>
     <div className="muted small" style={{ margin: '14px 0 8px' }}>{t('How many days a week?')}</div>
     <Segmented options={[2, 3, 4, 5, 6].map(n => ({ value: n, label: String(n) }))} value={days} onChange={setDays} />
+    <div className="muted small" style={{ margin: '14px 0 8px' }}>{t('How long is a session?')}</div>
+    <Segmented options={SESSION_MIN.map(n => ({ value: n, label: n + ' ' + t('min') }))} value={sessionMin} onChange={setSessionMin} />
     <div style={{ height: 14 }} />
     <Button variant="primary" icon="sparkles" onClick={apply}>{t('Build my plan')}</Button>
   </>

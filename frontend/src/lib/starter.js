@@ -57,15 +57,25 @@ export const GOAL_RULES = {
   longevity: { compound: [10, 3], accessory: [12, 2], superset: false }
 }
 
-function makeRoutine(spec, slot, rules) {
-  const [name, emoji, list] = spec[slot]
+// How many exercises a session length keeps, anchored at ~5 for a 30-min session up to the
+// slot's own full curated count by ~90 min (never padded past what's actually curated for that
+// slot — see buildPlan's own doc comment on why this doesn't try to reach further than that).
+const exerciseCountFor = (sessionMin, poolSize) => {
+  if (!sessionMin) return poolSize
+  const target = Math.round(5 + (sessionMin - 30) * 7 / 90)
+  return Math.max(3, Math.min(poolSize, target))
+}
+
+function makeRoutine(spec, slot, rules, sessionMin) {
+  const [name, emoji, fullList] = spec[slot]
+  const list = fullList.slice(0, exerciseCountFor(sessionMin, fullList.length))
   const ex = list.map(([id], i) => {
     const [reps, sets] = i === 0 ? rules.compound : rules.accessory
     return { id, sets, reps, weight: 0 }
   })
-  // Density over rest for fat loss: pair up consecutive accessories (skipping the
-  // compound at index 0) as supersets, two at a time.
-  if (rules.superset) {
+  // Density over rest for fat loss, or whenever the session itself is short — pair up
+  // consecutive accessories (skipping the compound at index 0) as supersets, two at a time.
+  if (rules.superset || (sessionMin && sessionMin <= 45)) {
     for (let i = 1; i + 1 < ex.length; i += 2) { const tag = 'a' + i; ex[i].sg = tag; ex[i + 1].sg = tag }
   }
   return { id: uid(), name, emoji, ex }
@@ -96,6 +106,9 @@ function routineOrder(primary, secondary) {
  * @param {number[]} days weekday numbers (0=Sunday..6=Saturday) to schedule, in order.
  * @param {string[]} [primary] muscle slugs (muscles.js) the member most wants to prioritize.
  * @param {string[]} [secondary] muscle slugs they want a smaller bump to.
+ * @param {number} [sessionMin] minutes per session — trims each routine's exercise count down
+ *   from its full curated list for a shorter session (never grows past it — see makeRoutine's
+ *   exerciseCountFor) and turns supersets on for sessions of 45 minutes or less.
  *
  * With no priorities, the 3 routines run in the natural Push→Pull→Legs order: 2 or 3 days
  * picks that many of the 3, 4-6 days cycles back through them (see SPEC_B above for how a
@@ -105,7 +118,7 @@ function routineOrder(primary, secondary) {
  * Legs, Legs(B) instead of a second Push day, and at 2 days a week gets Push+Legs instead of
  * dropping Legs entirely.
  */
-export function buildPlan(goal, days, primary, secondary) {
+export function buildPlan(goal, days, primary, secondary, sessionMin) {
   const rules = GOAL_RULES[goal] || GOAL_RULES.longevity
   const order = routineOrder(primary, secondary)
   const n = (days || []).length
@@ -122,7 +135,7 @@ export function buildPlan(goal, days, primary, secondary) {
   ;(days || []).forEach((d, i) => {
     const slot = slots[i]
     const lap = slots.slice(0, i).filter(s => s === slot).length
-    const r = makeRoutine(lap === 0 ? SPEC : SPEC_B, slot, rules)
+    const r = makeRoutine(lap === 0 ? SPEC : SPEC_B, slot, rules, sessionMin)
     routines.push(r)
     week[d] = r.id
   })

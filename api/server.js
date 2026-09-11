@@ -781,13 +781,23 @@ const routes = {
     const DAY_SPREAD = { 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5], 6: [1, 2, 3, 4, 5, 6] };
     const rules = GOAL_RULES[body.goal] || GOAL_RULES.longevity;
     const days = DAY_SPREAD[body.days] || DAY_SPREAD[3];
+    // Optional — mirrors frontend/src/lib/starter.js's exerciseCountFor: trims a routine's
+    // exercise count down for a shorter session (never grows past the curated list) and turns
+    // supersets on for short sessions, kept in sync by hand like every other duplication here.
+    const sessionMin = Number(body.sessionMin) || null;
+    const exerciseCountFor = poolSize => {
+      if (!sessionMin) return poolSize;
+      const target = Math.round(5 + (sessionMin - 30) * 7 / 90);
+      return Math.max(3, Math.min(poolSize, target));
+    };
     const makeRoutine = (spec, slot) => {
-      const [name, emoji, ids] = spec[slot];
+      const [name, emoji, fullIds] = spec[slot];
+      const ids = fullIds.slice(0, exerciseCountFor(fullIds.length));
       const ex = ids.map((id, i) => {
         const [reps, sets] = i === 0 ? rules.compound : rules.accessory;
         return { id, sets, reps, weight: 0 };
       });
-      if (rules.superset) {
+      if (rules.superset || (sessionMin && sessionMin <= 45)) {
         for (let i = 1; i + 1 < ex.length; i += 2) { const tag = 'a' + i; ex[i].sg = tag; ex[i + 1].sg = tag; }
       }
       return { id: crypto.randomBytes(9).toString('base64url'), name, emoji, ex };

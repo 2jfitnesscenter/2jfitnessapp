@@ -13,6 +13,36 @@ import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
+import { recoveryOf, overallRecovery, GROUPS, GROUP_LABEL, GROUP_MUSCLES } from '../lib/recovery.js'
+import RecoveryRing from '../components/RecoveryRing.jsx'
+
+// Muscle recovery — an estimate of how ready each muscle group is, from the last 7 days of
+// logged sets (see lib/recovery.js). One ring for the overall average, a pill per movement
+// group (push/pull/legs/core) so the number that matters ("can I train chest today") doesn't
+// need a trip to the detail screen — that's reserved for the full 18-muscle breakdown.
+function RecoveryCard({ nav, S }) {
+  const recovery = recoveryOf(S)
+  const overall = overallRecovery(recovery)
+  const groupAvg = g => Math.round(GROUP_MUSCLES[g].reduce((s, m) => s + recovery[m], 0) / GROUP_MUSCLES[g].length)
+  const pillColor = v => v >= 70 ? 'var(--green)' : v >= 40 ? 'var(--orange)' : 'var(--red)'
+  return <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => nav('/recovery')}>
+    <div className="row between">
+      <div style={{ minWidth: 0 }}>
+        <h2 style={{ margin: '0 0 2px' }}>{t('Muscle recovery')}</h2>
+        <div className="muted small">{t('See which muscles are ready to train')}</div>
+      </div>
+      <RecoveryRing value={overall} size={58} stroke={6} />
+    </div>
+    <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+      {GROUPS.map(g => {
+        const v = groupAvg(g)
+        return <span key={g} className="tag" style={{ color: pillColor(v), background: `color-mix(in srgb, ${pillColor(v)} 16%, transparent)` }}>
+          {t(GROUP_LABEL[g])} {v}%
+        </span>
+      })}
+    </div>
+  </div>
+}
 
 // A job in flight or a proposal waiting is the only reason the Coach interrupts Home. When it
 // has nothing to say it renders nothing at all — and it only polls while Home is on screen.
@@ -165,5 +195,7 @@ export default function Home() {
         <Icon name="calendar" className="chev" style={{ fontSize: 20 }} />
       </div>
     </div>
+
+    <RecoveryCard nav={nav} S={S} />
   </div>
 }

@@ -18,10 +18,10 @@ This instance is a strength-training gym (2J Fitness Center) — every plan is b
   | `plyometrics` | 3–6 | 3–4 / 3 | 3–5 (5–7) | per this gym: plyometrics here means loaded strength moved explosively, not bodyweight jump-contact drills — same barbell/dumbbell compounds as `power`, executed for maximal bar/limb speed on the concentric; generous rest between sets, never taken near failure |
   | `longevity` | 10–15 | 2–3 / 2–3 | 2–4 (6–8) | joint-friendly variations, balanced full-body coverage across the week, nothing maximal or high-impact |
 - Schedule exactly `coachProfile.daysPerWeek` training days. Use `preferredDays` when given (0 = Sunday … 6 = Saturday).
-- Fit `coachProfile.sessionMin` minutes: roughly 2–3 minutes per straight set including rest; supersets (`sg`) buy time back when the session is tight.
+- Fit `coachProfile.sessionMin` minutes: roughly 2–3 minutes per straight set including rest. Size *how many exercises* a routine gets from the same number, not just set/rest pacing — as a starting anchor, ~5 exercises for a 30-minute session, ~8 for 60, ~10 for 90, ~12 for 120 (scale linearly between these, adjust down for a lower-volume goal like `power`/`plyometrics` where each set takes longer to execute and rest properly). Reach for supersets (`sg`) whenever the session is on the shorter end (≲45 min) so the exercise count doesn't have to shrink as much to fit — density instead of dropping work, the same lever this app's own quick-plan generator uses for a short session.
 - Only exercises from `library`. Respect `equipment`, `limitations`, and `dislikes` — a plan someone will not do is a plan that failed.
 - If `history.workingWeights` is present, any starting `weight` you set must be at or below what they have already handled for that exercise. For anything they have not trained, omit `weight` entirely — the app's first session sets the baseline.
-- 1–7 routines, each 3–12 exercises, compound work before accessories.
+- 1–7 routines, each 3–12 exercises (see the `sessionMin` anchor above for how many), compound work before accessories.
 
 ## Output
 

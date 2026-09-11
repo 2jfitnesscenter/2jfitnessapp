@@ -1103,4 +1103,21 @@ export default {
   'Change photo': 'Cambiar foto',
   'Remove': 'Quitar',
   'Add a routine to a program before publishing it.': 'Añade una rutina al plan antes de publicarlo.',
+
+  // ---- Muscle recovery (Home card + /recovery detail screen) ----
+  'Muscle recovery': 'Recuperación muscular',
+  'See which muscles are ready to train': 'Mira qué músculos están listos para entrenar',
+  'Push muscles': 'Músculos de empuje',
+  'Pull muscles': 'Músculos de tirón',
+  'Leg muscles': 'Músculos de piernas',
+  'Core': 'Core',
+  'How recovery works': 'Cómo funciona la recuperación',
+  'About': 'Acerca de',
+  'Muscle recovery estimates how ready each muscle group is to train again, based on the sets you logged in the last 7 days.': 'La recuperación muscular estima qué tan listo está cada grupo muscular para entrenar de nuevo, según las series que registraste en los últimos 7 días.',
+  'How it’s calculated': 'Cómo se calcula',
+  'We look at your last 7 days of training and give more weight to recent sessions. Each set counts for the muscle it targets — full for the main muscle, half for supporting ones — and more reps in a set count for more. Time-based work (holds, cardio) isn’t included.': 'Miramos tus últimos 7 días de entrenamiento y damos más peso a las sesiones recientes. Cada serie cuenta para el músculo al que va dirigida — completa para el músculo principal, la mitad para los que ayudan — y las series con más repeticiones cuentan más. El trabajo por tiempo (isométricos, cardio) no se incluye.',
+  'Keep in mind': 'Ten en cuenta',
+  'This is only an estimate. It doesn’t account for sleep, stress, nutrition or how hard a set actually felt (RIR/RPE). Custom exercises need a muscle tag to be included.': 'Esto es solo una estimación. No tiene en cuenta el sueño, el estrés, la nutrición ni lo duro que se sintió una serie (RIR/RPE). Los ejercicios personalizados necesitan una etiqueta de músculo para incluirse.',
+  'Overall recovery': 'Recuperación general',
+  'Average recovery across every muscle group, based on the last 7 days of training.': 'Recuperación media de todos los grupos musculares, según el entrenamiento de los últimos 7 días.',
 }
