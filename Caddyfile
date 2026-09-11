@@ -1,0 +1,7 @@
+# Caddy gets a real Let's Encrypt certificate for this domain automatically — no manual
+# certbot, no renewal cron. The only requirement is that app.2jfitnesscenter.com's DNS A record
+# points at this server's IP and ports 80/443 are reachable from the internet (80 is needed
+# for the Let's Encrypt challenge even though everything ends up served over HTTPS).
+app.2jfitnesscenter.com {
+	reverse_proxy web:80
+}

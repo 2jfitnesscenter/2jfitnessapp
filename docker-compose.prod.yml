@@ -1,0 +1,30 @@
+# Production overlay — adds automatic HTTPS via Caddy in front of the existing `web` service.
+# Use together with the base file, never alone:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Caddy terminates TLS for the domain in ./Caddyfile and reverse-proxies to `web` over the
+# compose network — nothing else changes about how the app itself runs. `web` stops publishing
+# itself on the public interface (only Caddy is internet-facing on 80/443); it still listens on
+# 127.0.0.1 so `curl http://localhost:8080` on the server itself keeps working for debugging.
+services:
+  web:
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
