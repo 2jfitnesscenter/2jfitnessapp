@@ -112,6 +112,22 @@ function deleteUploadedImage(name) {
   try { fs.unlinkSync(path.join(uploadsDir, String(name).replace(/[^a-zA-Z0-9_.-]/g, ''))); } catch {}
 }
 
+// Optional "spec sheet" fields on a Social routine/program post — level and goal are fixed
+// choices (mirrors frontend/src/lib/starter.js's GOALS), duration and days/week are free-ish so
+// publishing never blocks on filling in every field. All four are entirely optional.
+const LEVELS = ['beginner', 'intermediate', 'advanced'];
+const GOALS = ['hypertrophy', 'toning', 'fatloss', 'power', 'plyometrics', 'longevity'];
+function readSpecFields(body) {
+  const out = {};
+  if (LEVELS.includes(body.level)) out.level = body.level;
+  if (GOALS.includes(body.goal)) out.goal = body.goal;
+  const duration = String(body.duration || '').trim().slice(0, 30);
+  if (duration) out.duration = duration;
+  const daysPerWeek = Math.round(Number(body.daysPerWeek));
+  if (Number.isInteger(daysPerWeek) && daysPerWeek >= 1 && daysPerWeek <= 7) out.daysPerWeek = daysPerWeek;
+  return out;
+}
+
 /* ---------- push notifications (Web Push / VAPID) ---------- */
 const vapidFile = path.join(DATA, 'vapid.json');
 let vapid;
@@ -948,6 +964,7 @@ const routes = {
       authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
       name, emoji: String(body.emoji || 'dumbbell').slice(0, 20),
       image, description: String(body.description || '').trim().slice(0, 300) || null,
+      ...readSpecFields(body),
       ex, customExDefs,
       createdAt: Date.now(),
       ratings: []
@@ -1047,6 +1064,7 @@ const routes = {
       authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
       name, emoji: String(body.emoji || 'folder').slice(0, 20),
       image, description: String(body.description || '').trim().slice(0, 300) || null,
+      ...readSpecFields(body),
       routines,
       createdAt: Date.now(),
       ratings: []

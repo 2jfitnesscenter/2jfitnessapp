@@ -1081,4 +1081,20 @@ export default {
   'Send': 'Enviar',
   'No comments yet.': 'Todavía no hay comentarios.',
   'Delete post': 'Eliminar publicación',
+
+  // ---- Social v3: ficha completa (nivel, objetivo, duración, autor) + ejercicios con foto ----
+  'Popular': 'Popular',
+  'By {0}': 'Por {0}',
+  'Level (optional)': 'Nivel (opcional)',
+  'Any': 'Cualquiera',
+  'Beginner': 'Principiante',
+  'Intermediate': 'Intermedio',
+  'Advanced': 'Avanzado',
+  'Goal (optional)': 'Objetivo (opcional)',
+  'None': 'Ninguno',
+  'Days per week (optional)': 'Días por semana (opcional)',
+  '{0} days/week': '{0} días/semana',
+  'Duration (optional)': 'Duración (opcional)',
+  'e.g. “4 months”': 'p. ej. «4 meses»',
+  'Workouts in this program': 'Entrenamientos en el programa',
 }

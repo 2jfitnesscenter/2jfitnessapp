@@ -8,7 +8,7 @@ import { exOr, extractCustomDefs, mergeCustomDefs } from '../lib/exercises.js'
 import { glyphOf } from '../lib/glyphs.js'
 import Icon from '../components/Icon.jsx'
 import { Thumb } from '../components/Media.jsx'
-import { Button, Segmented, TextArea } from '../components/ui.jsx'
+import { Button, Segmented, TextArea, SelectRow } from '../components/ui.jsx'
 import { confirmSheet } from '../sheets.jsx'
 import {
   fetchSocialRoutines, publishSocialRoutine, rateSocialRoutine, deleteSocialRoutine,
@@ -16,6 +16,14 @@ import {
   fetchWall, publishWallPost, deleteWallPost, postWallComment, deleteWallComment,
   fetchTrainerMembers, assignRoutineToMember, assignProgramToMember
 } from '../lib/social-api.js'
+
+// Same "spec sheet" fields api/server.js's readSpecFields accepts — level/goal are fixed
+// choices (goal reuses lib/starter.js's own GOALS, same labels the quick-plan intake uses, so
+// "Build muscle" means the same thing whether it came from there or a Social publish).
+const LEVELS = ['beginner', 'intermediate', 'advanced']
+const LEVEL_LABEL = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' }
+const GOALS_LIST = ['hypertrophy', 'toning', 'fatloss', 'power', 'plyometrics', 'longevity']
+const GOAL_LABEL = { hypertrophy: 'Build muscle', toning: 'Tone up', fatloss: 'Lose fat', power: 'Power', plyometrics: 'Plyometrics', longevity: 'Health & longevity' }
 
 // Tap-to-rate when `onRate` is given, a plain readout otherwise (e.g. showing someone else's
 // average). Rounds to the nearest whole star for the fill — half-stars would need a second
@@ -65,6 +73,42 @@ function ImagePicker({ value, onChange }) {
         onClick={() => onChange(null)} aria-label={t('Remove image')}><Icon name="xmark" /></button>
     </div> : <Button icon="upload" onClick={() => inputRef.current?.click()}>{t('Add a photo (optional)')}</Button>}
   </div>
+}
+
+// Hero image bleeding to the sheet's own edges (the sheet has 18px of horizontal padding —
+// negative-margined out here) + a centered "spec sheet" (level · goal, days/week · duration —
+// whichever of those four were actually filled in) + rating + author, shared by both the
+// routine and the program detail sheets so a plan reads the same whichever kind it is.
+function DetailHeader({ post, isProgram, isOwn, onRate }) {
+  const img = mediaUrl(post.image)
+  const line1 = [post.level && t(LEVEL_LABEL[post.level]), post.goal && t(GOAL_LABEL[post.goal])].filter(Boolean).join(' · ')
+  const line2 = [isProgram && post.daysPerWeek && t('{0} days/week', post.daysPerWeek), post.duration].filter(Boolean).join(' · ')
+  return <>
+    {img && <img src={img} alt="" style={{ width: 'calc(100% + 36px)', margin: '0 -18px 14px', height: 200, objectFit: 'cover', display: 'block' }} />}
+    <h3 style={{ textAlign: 'center' }}>{post.name}</h3>
+    {!!(line1 || line2) && <div style={{ textAlign: 'center', marginTop: -8, marginBottom: 10 }}>
+      {line1 && <div className="small dim">{line1}</div>}
+      {line2 && <div className="small dim">{line2}</div>}
+    </div>}
+    <div className="row" style={{ justifyContent: 'center', gap: 8, margin: '0 0 4px' }}>
+      <Stars value={post.avgStars || 0} />
+      {post.ratingCount >= 5 && <span className="tag acc">{t('Popular')}</span>}
+    </div>
+    <div style={{ textAlign: 'center', marginBottom: 10 }} className="small muted">
+      {post.ratingCount ? t('{0} ratings', post.ratingCount) : t('No ratings yet')}
+    </div>
+    <div className="row" style={{ justifyContent: 'center', gap: 6, marginBottom: 10 }}>
+      <span className="lrow-i" style={{ width: 26, height: 26, fontSize: 13 }}><Icon name="person" /></span>
+      <span className="small capitalize">{t('By {0}', post.authorName)}</span>
+      <span className="tag" style={{ marginLeft: 2 }}>{post.authorKind === 'trainer' ? t('Trainer') : t('Member')}</span>
+    </div>
+    {post.description && <div className="small" style={{ margin: '10px 0', lineHeight: 1.5 }}>{post.description}</div>}
+    {!isOwn && <div style={{ margin: '10px 0' }}>
+      <div className="dim small" style={{ marginBottom: 4, textAlign: 'center' }}>{t('Your rating')}</div>
+      <div className="row" style={{ justifyContent: 'center' }}><Stars value={post.myStars || 0} onRate={onRate} /></div>
+    </div>}
+    {isOwn && <div className="dim small" style={{ margin: '10px 0', textAlign: 'center' }}>{isProgram ? t("You can't rate your own program.") : t("You can't rate your own routine.")}</div>}
+  </>
 }
 
 function RoutineCard({ post, onOpen }) {
@@ -145,12 +189,20 @@ function PublishDetailsSheet({ kind, source, S, onPublished, close }) {
   const toast = useUI(s => s.toast)
   const [image, setImage] = useState(null)
   const [description, setDescription] = useState('')
+  const [level, setLevel] = useState('')
+  const [goal, setGoal] = useState('')
+  const [duration, setDuration] = useState('')
+  const [daysPerWeek, setDaysPerWeek] = useState(3)
   const [busy, setBusy] = useState(false)
 
   const publish = () => {
     setBusy(true)
     const extra = { description: description.trim() }
     if (image) extra.image = image
+    if (level) extra.level = level
+    if (goal) extra.goal = goal
+    if (duration.trim()) extra.duration = duration.trim()
+    if (kind === 'program' && daysPerWeek) extra.daysPerWeek = daysPerWeek
     const req = kind === 'routine'
       ? publishSocialRoutine({ name: source.name, emoji: source.emoji, prog: source.prog, ex: source.ex, customExDefs: extractCustomDefs(source, S), ...extra })
       : publishSocialProgram({
@@ -166,7 +218,27 @@ function PublishDetailsSheet({ kind, source, S, onPublished, close }) {
     <h3>{source.name}</h3>
     <div className="dim small" style={{ margin: '4px 0 14px' }}>{kind === 'program' ? t('Full program') : t('Routine')}</div>
     <ImagePicker value={image} onChange={setImage} />
+    <div style={{ height: 14 }} />
+
+    <div className="dim small" style={{ marginBottom: 6 }}>{t('Level (optional)')}</div>
+    <Segmented options={[{ value: '', label: t('Any') }, ...LEVELS.map(l => ({ value: l, label: t(LEVEL_LABEL[l]) }))]} value={level} onChange={setLevel} />
     <div style={{ height: 12 }} />
+
+    <SelectRow title={t('Goal (optional)')} sheetTitle={t('Goal')} value={goal}
+      options={[{ value: '', label: t('None') }, ...GOALS_LIST.map(g => ({ value: g, label: t(GOAL_LABEL[g]) }))]}
+      onChange={setGoal} />
+    <div style={{ height: 12 }} />
+
+    {kind === 'program' && <>
+      <div className="dim small" style={{ marginBottom: 6 }}>{t('Days per week (optional)')}</div>
+      <Segmented options={[2, 3, 4, 5, 6].map(n => ({ value: n, label: String(n) }))} value={daysPerWeek} onChange={setDaysPerWeek} />
+      <div style={{ height: 12 }} />
+    </>}
+
+    <div className="dim small" style={{ marginBottom: 4 }}>{t('Duration (optional)')}</div>
+    <input className="input" value={duration} onChange={e => setDuration(e.target.value)} maxLength={30} placeholder={t('e.g. “4 months”')} />
+    <div style={{ height: 12 }} />
+
     <div className="dim small" style={{ marginBottom: 4 }}>{t('Description (optional)')}</div>
     <TextArea value={description} onChange={e => setDescription(e.target.value)} maxLength={300} rows={3} placeholder={t('Why this one, who it’s for…')} />
     <div style={{ height: 12 }} />
@@ -203,7 +275,6 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
   const resolveEx = id => customMap[id] || exOr(id)
   const isOwn = post.authorId === user.id
   const canManage = isOwn || user.admin
-  const img = mediaUrl(post.image)
 
   const rate = stars => {
     rateSocialRoutine(post.id, stars)
@@ -237,27 +308,13 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
   }
 
   return <>
-    {img && <img src={img} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 12, marginBottom: 10 }} />}
-    <h3>{post.name}</h3>
-    <div className="muted small capitalize" style={{ margin: '4px 0 10px' }}>
-      {post.authorName} · {post.authorKind === 'trainer' ? t('Trainer') : t('Member')}
-    </div>
-    {post.description && <div className="small" style={{ marginBottom: 10, lineHeight: 1.5 }}>{post.description}</div>}
-    <div className="row between" style={{ margin: '0 0 4px' }}>
-      <Stars value={post.avgStars || 0} />
-      <span className="small muted">{post.ratingCount ? t('{0} ratings', post.ratingCount) : t('No ratings yet')}</span>
-    </div>
-    {isOwn
-      ? <div className="dim small" style={{ margin: '8px 0 4px' }}>{t("You can't rate your own routine.")}</div>
-      : <>
-        <div className="dim small" style={{ margin: '8px 0 4px' }}>{t('Your rating')}</div>
-        <Stars value={post.myStars || 0} onRate={rate} />
-      </>}
-    <h4 className="sec" style={{ marginTop: 14 }}>{t('Exercises')}</h4>
+    <DetailHeader post={post} isProgram={false} isOwn={isOwn} onRate={rate} />
+    <h4 className="sec">{t('Exercises')}</h4>
     <div className="list" style={{ marginBottom: 12 }}>
       {post.ex.map((e, i) => {
         const ex = resolveEx(e.id)
         return <div key={i} className="item">
+          <Thumb ex={ex} />
           <div className="grow"><div className="tt capitalize">{nameFor(ex)}</div>
             <div className="ss">{exLine(e, S.unit)}</div></div>
         </div>
@@ -272,6 +329,7 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
 
 function ProgramDetailSheet({ post: initial, onChanged, close }) {
   const user = useStore(s => s.user)
+  const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
@@ -279,7 +337,6 @@ function ProgramDetailSheet({ post: initial, onChanged, close }) {
   const [busy, setBusy] = useState(false)
   const isOwn = post.authorId === user.id
   const canManage = isOwn || user.admin
-  const img = mediaUrl(post.image)
 
   const rate = stars => {
     rateSocialProgram(post.id, stars)
@@ -322,33 +379,39 @@ function ProgramDetailSheet({ post: initial, onChanged, close }) {
   }
 
   return <>
-    {img && <img src={img} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 12, marginBottom: 10 }} />}
-    <h3>{post.name}</h3>
-    <div className="muted small capitalize" style={{ margin: '4px 0 10px' }}>
-      {post.authorName} · {post.authorKind === 'trainer' ? t('Trainer') : t('Member')}
-    </div>
-    {post.description && <div className="small" style={{ marginBottom: 10, lineHeight: 1.5 }}>{post.description}</div>}
-    <div className="row between" style={{ margin: '0 0 4px' }}>
-      <Stars value={post.avgStars || 0} />
-      <span className="small muted">{post.ratingCount ? t('{0} ratings', post.ratingCount) : t('No ratings yet')}</span>
-    </div>
-    {isOwn
-      ? <div className="dim small" style={{ margin: '8px 0 4px' }}>{t("You can't rate your own program.")}</div>
-      : <>
-        <div className="dim small" style={{ margin: '8px 0 4px' }}>{t('Your rating')}</div>
-        <Stars value={post.myStars || 0} onRate={rate} />
-      </>}
-    <h4 className="sec" style={{ marginTop: 14 }}>{t('Routines')}</h4>
+    <DetailHeader post={post} isProgram={true} isOwn={isOwn} onRate={rate} />
+    <h4 className="sec">{t('Workouts in this program')}</h4>
     <div className="list" style={{ marginBottom: 12 }}>
-      {post.routines.map((r, i) => <div key={i} className="item">
+      {post.routines.map((r, i) => <div key={i} className="item"
+        onClick={() => openSheet(close2 => <RoutineExercisesSheet routine={r} unit={S.unit} close={close2} />)}>
         <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
+        <Icon name="chevronRight" className="chev" />
       </div>)}
     </div>
     <Button variant="primary" style={{ width: '100%', marginBottom: 8 }} onClick={copy}>{t('Copy to my programs')}</Button>
     {user.trainer && isOwn && post.authorKind === 'trainer' &&
       <Button style={{ width: '100%', marginBottom: 8 }} disabled={busy} onClick={assign}>{t('Assign to a member')}</Button>}
     {canManage && <button className="btn danger" style={{ width: '100%' }} onClick={del}>{t('Delete')}</button>}
+  </>
+}
+
+// Read-only drill-down from a program into one of its routines — the exercise photos are what
+// make this worth a tap rather than just showing the exercise count on the row above.
+function RoutineExercisesSheet({ routine, unit }) {
+  const customMap = Object.fromEntries((routine.customExDefs || []).map(d => [d.id, d]))
+  const resolveEx = id => customMap[id] || exOr(id)
+  return <>
+    <h3>{routine.name}</h3>
+    <div className="list">
+      {routine.ex.map((e, i) => {
+        const ex = resolveEx(e.id)
+        return <div key={i} className="item">
+          <Thumb ex={ex} />
+          <div className="grow"><div className="tt capitalize">{nameFor(ex)}</div><div className="ss">{exLine(e, unit)}</div></div>
+        </div>
+      })}
+    </div>
   </>
 }
 
