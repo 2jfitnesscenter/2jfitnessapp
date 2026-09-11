@@ -1102,4 +1102,5 @@ export default {
   'Use a photo instead': 'Usar una foto en su lugar',
   'Change photo': 'Cambiar foto',
   'Remove': 'Quitar',
+  'Add a routine to a program before publishing it.': 'Añade una rutina al plan antes de publicarlo.',
 }

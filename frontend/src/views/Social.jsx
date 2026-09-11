@@ -192,6 +192,9 @@ function PublishDetailsSheet({ kind, source, S, onPublished, close }) {
   }, [])
 
   const publish = () => {
+    const programRoutines = kind === 'program'
+      ? (source.routineIds || []).map(rid => S.routines.find(r => r.id === rid)).filter(Boolean) : null
+    if (kind === 'program' && !programRoutines.length) { toast(t('Add a routine to a program before publishing it.')); return }
     setBusy(true)
     const extra = { description: description.trim() }
     if (image) extra.image = image
@@ -203,8 +206,7 @@ function PublishDetailsSheet({ kind, source, S, onPublished, close }) {
       ? publishSocialRoutine({ name: source.name, emoji: source.emoji, prog: source.prog, ex: source.ex, customExDefs: extractCustomDefs(source, S), ...extra })
       : publishSocialProgram({
         name: source.name, emoji: source.emoji,
-        routines: (source.routineIds || []).map(rid => S.routines.find(r => r.id === rid)).filter(Boolean)
-          .map(r => ({ name: r.name, emoji: r.emoji, prog: r.prog, ex: r.ex, customExDefs: extractCustomDefs(r, S) })),
+        routines: programRoutines.map(r => ({ name: r.name, emoji: r.emoji, prog: r.prog, ex: r.ex, customExDefs: extractCustomDefs(r, S) })),
         ...extra
       })
     req.then(() => { toast(t('Published')); onPublished(); close() }).catch(e => { setBusy(false); toast(e.message) })
@@ -497,8 +499,9 @@ export default function Social() {
       openSheet(close2 => <PickRoutineSheet routines={S.routines} close={close2} onPick={r => openPublishDetails('routine', r)} />)
     }}
     onProgram={() => {
-      if (!(S.programs || []).length) { toast(t('You have no programs yet.')); return }
-      openSheet(close2 => <PickProgramSheet programs={S.programs} close={close2} onPick={p => openPublishDetails('program', p)} />)
+      const withRoutines = (S.programs || []).filter(p => (p.routineIds || []).length > 0)
+      if (!withRoutines.length) { toast(t('Add a routine to a program before publishing it.')); return }
+      openSheet(close2 => <PickProgramSheet programs={withRoutines} close={close2} onPick={p => openPublishDetails('program', p)} />)
     }} />)
 
   const openDetail = post => openSheet(close => post.kind === 'program'
