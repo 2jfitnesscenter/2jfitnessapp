@@ -7,7 +7,7 @@ import { useStore } from './useStore.js'
 
 // Fire-and-forget: lets the server push a "rest over" alert if this tab gets suspended
 // before the local timer completes. No-ops for guests / offline.
-const pushRestTimer = sec => { if (useStore.getState().user) api('/api/push/rest-timer', { method: 'POST', body: JSON.stringify({ seconds: sec }) }).catch(() => {}) }
+const pushRestTimer = (sec, exercise) => { if (useStore.getState().user) api('/api/push/rest-timer', { method: 'POST', body: JSON.stringify({ seconds: sec, exercise }) }).catch(() => {}) }
 const cancelPushRestTimer = () => { if (useStore.getState().user) api('/api/push/rest-timer/cancel', { method: 'POST', body: '{}' }).catch(() => {}) }
 
 let toastTm = null
@@ -38,11 +38,11 @@ export const useUI = create((set, get) => ({
     toastTm = setTimeout(() => set({ toastMsg: '' }), 2200)
   },
 
-  startRest(sec) {
+  startRest(sec, exercise) {
     get().stopRest()
     const endsAt = Date.now() + sec * 1000
-    set({ timer: { left: sec, total: sec, endsAt } })
-    pushRestTimer(sec)
+    set({ timer: { left: sec, total: sec, endsAt, exercise } })
+    pushRestTimer(sec, exercise)
     timerTick = () => {
       const tm = get().timer
       if (!tm) return
@@ -67,7 +67,7 @@ export const useUI = create((set, get) => ({
     // negative duration out of both the progress bar and the server-side push schedule
     if (left <= 0) { get().stopRest(); return }
     set({ timer: { ...tm, left, total: tm.total + sec, endsAt: tm.endsAt + sec * 1000 } })
-    pushRestTimer(left)
+    pushRestTimer(left, tm.exercise)
   },
   stopRest() {
     if (timerInt) clearInterval(timerInt); timerInt = null

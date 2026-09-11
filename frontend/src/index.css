@@ -631,6 +631,11 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 #timer.rest .acts{display:flex;align-items:center;gap:8px}
 #timer.rest .acts .btn{padding-top:11px;padding-bottom:11px}   /* sweaty hands, mid-set */
 #timer.rest .acts .skip{margin-left:auto;min-width:84px}
+#timer.rest .head .grow{flex:1;min-width:0}
+#timer.rest .head .lbl{
+  font-size:12px;color:var(--label-2);margin-bottom:5px;text-transform:capitalize;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
 /* work timer (issue #16): the same bar doing the opposite job — outlined and tinted so a
    glance tells "you are holding this" apart from "you are recovering". */
 #timer.working{border:var(--hair) solid var(--acc)}

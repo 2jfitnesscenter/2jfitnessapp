@@ -162,12 +162,16 @@ async function sendPush(userId, payload) {
 // Rest-timer alerts: client schedules on start/extend, cancels on skip or on-screen completion —
 // this only fires when the tab was backgrounded/suspended and never got to cancel it itself.
 const restTimers = new Map(); // userId -> Timeout
-function scheduleRestTimer(userId, sec) {
+function scheduleRestTimer(userId, sec, exercise) {
   const t = restTimers.get(userId);
   if (t) clearTimeout(t);
   restTimers.set(userId, setTimeout(() => {
     restTimers.delete(userId);
-    sendPush(userId, { title: 'Rest over 💪', body: 'Time for your next set.', tag: 'rest-timer' });
+    sendPush(userId, {
+      title: 'Descanso terminado 💪',
+      body: exercise ? `Tu próxima serie: ${exercise}` : 'Es hora de tu siguiente serie.',
+      tag: 'rest-timer'
+    });
   }, sec * 1000));
 }
 function cancelRestTimer(userId) {
@@ -584,7 +588,8 @@ const routes = {
     const body = await readBody(req);
     const sec = Math.max(1, Math.min(3600, Math.round(+body.seconds || 0)));
     if (!sec) return json(res, 400, { error: 'seconds required' });
-    scheduleRestTimer(user.id, sec);
+    const exercise = String(body.exercise || '').slice(0, 60).trim() || null;
+    scheduleRestTimer(user.id, sec, exercise);
     json(res, 200, { ok: true });
   },
 
