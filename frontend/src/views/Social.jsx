@@ -1,18 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t, nameFor } from '../lib/i18n.js'
-import { fmtDate, fmtNum, uid, exCount } from '../lib/format.js'
+import { fmtDate, fmtNum, uid, exCount, routineCount } from '../lib/format.js'
 import { setLabel, modeOf, exLine } from '../lib/history.js'
 import { exOr, extractCustomDefs, mergeCustomDefs } from '../lib/exercises.js'
 import { glyphOf } from '../lib/glyphs.js'
 import Icon from '../components/Icon.jsx'
+import { Thumb } from '../components/Media.jsx'
 import { Button, Segmented, TextArea } from '../components/ui.jsx'
 import { confirmSheet } from '../sheets.jsx'
 import {
   fetchSocialRoutines, publishSocialRoutine, rateSocialRoutine, deleteSocialRoutine,
-  fetchWall, publishWallPost, deleteWallPost,
-  fetchTrainerMembers, assignRoutineToMember
+  fetchSocialPrograms, publishSocialProgram, rateSocialProgram, deleteSocialProgram, mediaUrl,
+  fetchWall, publishWallPost, deleteWallPost, postWallComment, deleteWallComment,
+  fetchTrainerMembers, assignRoutineToMember, assignProgramToMember
 } from '../lib/social-api.js'
 
 // Tap-to-rate when `onRate` is given, a plain readout otherwise (e.g. showing someone else's
@@ -30,6 +32,41 @@ function Stars({ value, onRate }) {
   </div>
 }
 
+// A file input that reads the chosen photo, downsizes it onto an offscreen canvas (long edge
+// capped at 960px) and hands back a JPEG data URL — this is what keeps an upload small without
+// a bigger request-body cap or any server-side image library.
+function ImagePicker({ value, onChange }) {
+  const inputRef = useRef(null)
+  const onFile = e => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 960
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        onChange(canvas.toDataURL('image/jpeg', 0.75))
+      }
+      img.src = reader.result
+    }
+    reader.readAsDataURL(file)
+  }
+  return <div>
+    <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
+    {value ? <div style={{ position: 'relative' }}>
+      <img src={value} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 12, display: 'block' }} />
+      <button className="iconbtn" style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,.55)', color: '#fff' }}
+        onClick={() => onChange(null)} aria-label={t('Remove image')}><Icon name="xmark" /></button>
+    </div> : <Button icon="upload" onClick={() => inputRef.current?.click()}>{t('Add a photo (optional)')}</Button>}
+  </div>
+}
+
 function RoutineCard({ post, onOpen }) {
   return <div className="item" onClick={() => onOpen(post)}>
     <span className="lrow-i"><Icon name={glyphOf(post.emoji)} /></span>
@@ -42,16 +79,98 @@ function RoutineCard({ post, onOpen }) {
   </div>
 }
 
-function PublishRoutineSheet({ routines, onPublish, close }) {
+// Image-led when one was uploaded — bigger than a routine card on purpose, the same way the
+// Lyfta-style reference cards Juanjo shared stand out from a plain list row.
+function ProgramCard({ post, onOpen }) {
+  const img = mediaUrl(post.image)
+  return <div className="item" style={{ flexDirection: 'column', alignItems: 'stretch', padding: img ? 0 : undefined, overflow: 'hidden' }} onClick={() => onOpen(post)}>
+    {img && <img src={img} alt="" style={{ width: '100%', height: 130, objectFit: 'cover' }} />}
+    <div className="row" style={{ padding: img ? '10px 14px 12px' : 0, width: '100%' }}>
+      {!img && <span className="lrow-i"><Icon name={glyphOf(post.emoji)} /></span>}
+      <div className="grow">
+        <div className="tt">{post.name}</div>
+        <div className="ss capitalize">{post.authorName} · {routineCount(post.routines.length)}</div>
+      </div>
+      {post.ratingCount ? <span className="tag acc"><Icon name="starFill" />{fmtNum(post.avgStars)} ({post.ratingCount})</span> : <span className="tag">{t('No ratings yet')}</span>}
+      <Icon name="chevronRight" className="chev" />
+    </div>
+  </div>
+}
+
+function PickTypeSheet({ onRoutine, onProgram, close }) {
   return <>
-    <h3>{t('Publish a routine')}</h3>
-    <div className="muted small" style={{ margin: '6px 0 10px' }}>{t('Choose one of your own routines to share.')}</div>
+    <h3>{t('What do you want to publish?')}</h3>
+    <div className="list">
+      <div className="item" onClick={() => { close(); onRoutine() }}>
+        <span className="lrow-i"><Icon name="dumbbell" /></span>
+        <div className="grow"><div className="tt">{t('A routine')}</div><div className="ss">{t("One session — a single day's training.")}</div></div>
+        <Icon name="chevronRight" className="chev" />
+      </div>
+      <div className="item" onClick={() => { close(); onProgram() }}>
+        <span className="lrow-i"><Icon name="folder" /></span>
+        <div className="grow"><div className="tt">{t('A full program')}</div><div className="ss">{t('Several routines grouped together.')}</div></div>
+        <Icon name="chevronRight" className="chev" />
+      </div>
+    </div>
+  </>
+}
+
+function PickRoutineSheet({ routines, onPick, close }) {
+  return <>
+    <h3>{t('Choose a routine')}</h3>
     {routines.length ? <div className="list">
-      {routines.map(r => <div key={r.id} className="item" onClick={() => { close(); onPublish(r) }}>
+      {routines.map(r => <div key={r.id} className="item" onClick={() => { close(); onPick(r) }}>
         <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
       </div>)}
     </div> : <div className="empty">{t('You have no routines yet.')}</div>}
+  </>
+}
+
+function PickProgramSheet({ programs, onPick, close }) {
+  return <>
+    <h3>{t('Choose a program')}</h3>
+    {programs.length ? <div className="list">
+      {programs.map(p => <div key={p.id} className="item" onClick={() => { close(); onPick(p) }}>
+        <span className="lrow-i"><Icon name={glyphOf(p.emoji)} /></span>
+        <div className="grow"><div className="tt">{p.name}</div><div className="ss">{routineCount((p.routineIds || []).length)}</div></div>
+      </div>)}
+    </div> : <div className="empty">{t('You have no programs yet.')}</div>}
+  </>
+}
+
+// Last step of publishing, for both kinds — an optional cover photo and a short explanation
+// (why this one, who it's for) before the actual publish call.
+function PublishDetailsSheet({ kind, source, S, onPublished, close }) {
+  const toast = useUI(s => s.toast)
+  const [image, setImage] = useState(null)
+  const [description, setDescription] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const publish = () => {
+    setBusy(true)
+    const extra = { description: description.trim() }
+    if (image) extra.image = image
+    const req = kind === 'routine'
+      ? publishSocialRoutine({ name: source.name, emoji: source.emoji, prog: source.prog, ex: source.ex, customExDefs: extractCustomDefs(source, S), ...extra })
+      : publishSocialProgram({
+        name: source.name, emoji: source.emoji,
+        routines: (source.routineIds || []).map(rid => S.routines.find(r => r.id === rid)).filter(Boolean)
+          .map(r => ({ name: r.name, emoji: r.emoji, prog: r.prog, ex: r.ex, customExDefs: extractCustomDefs(r, S) })),
+        ...extra
+      })
+    req.then(() => { toast(t('Published')); onPublished(); close() }).catch(e => { setBusy(false); toast(e.message) })
+  }
+
+  return <>
+    <h3>{source.name}</h3>
+    <div className="dim small" style={{ margin: '4px 0 14px' }}>{kind === 'program' ? t('Full program') : t('Routine')}</div>
+    <ImagePicker value={image} onChange={setImage} />
+    <div style={{ height: 12 }} />
+    <div className="dim small" style={{ marginBottom: 4 }}>{t('Description (optional)')}</div>
+    <TextArea value={description} onChange={e => setDescription(e.target.value)} maxLength={300} rows={3} placeholder={t('Why this one, who it’s for…')} />
+    <div style={{ height: 12 }} />
+    <Button variant="primary" disabled={busy} onClick={publish}>{t('Publish')}</Button>
   </>
 }
 
@@ -84,6 +203,7 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
   const resolveEx = id => customMap[id] || exOr(id)
   const isOwn = post.authorId === user.id
   const canManage = isOwn || user.admin
+  const img = mediaUrl(post.image)
 
   const rate = stars => {
     rateSocialRoutine(post.id, stars)
@@ -117,10 +237,12 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
   }
 
   return <>
+    {img && <img src={img} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 12, marginBottom: 10 }} />}
     <h3>{post.name}</h3>
     <div className="muted small capitalize" style={{ margin: '4px 0 10px' }}>
       {post.authorName} · {post.authorKind === 'trainer' ? t('Trainer') : t('Member')}
     </div>
+    {post.description && <div className="small" style={{ marginBottom: 10, lineHeight: 1.5 }}>{post.description}</div>}
     <div className="row between" style={{ margin: '0 0 4px' }}>
       <Stars value={post.avgStars || 0} />
       <span className="small muted">{post.ratingCount ? t('{0} ratings', post.ratingCount) : t('No ratings yet')}</span>
@@ -146,6 +268,243 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
       <Button style={{ width: '100%', marginBottom: 8 }} disabled={busy} onClick={assign}>{t('Assign to a member')}</Button>}
     {canManage && <button className="btn danger" style={{ width: '100%' }} onClick={del}>{t('Delete')}</button>}
   </>
+}
+
+function ProgramDetailSheet({ post: initial, onChanged, close }) {
+  const user = useStore(s => s.user)
+  const update = useStore(s => s.update)
+  const toast = useUI(s => s.toast)
+  const openSheet = useUI(s => s.openSheet)
+  const [post, setPost] = useState(initial)
+  const [busy, setBusy] = useState(false)
+  const isOwn = post.authorId === user.id
+  const canManage = isOwn || user.admin
+  const img = mediaUrl(post.image)
+
+  const rate = stars => {
+    rateSocialProgram(post.id, stars)
+      .then(res => {
+        setPost(p => ({ ...p, avgStars: res.avgStars, ratingCount: res.ratingCount, myStars: res.myStars }))
+        onChanged()
+      })
+      .catch(e => toast(e.message))
+  }
+  const copy = () => {
+    const newIds = []
+    update(s => {
+      post.routines.forEach(r => {
+        const nr = { id: uid(), name: r.name, emoji: r.emoji, ex: JSON.parse(JSON.stringify(r.ex)) }
+        if (r.prog) nr.prog = r.prog
+        s.routines.push(nr)
+        newIds.push(nr.id)
+        s.customEx = mergeCustomDefs(r.customExDefs, s.customEx)
+      })
+      s.programs = s.programs || []
+      s.programs.push({ id: uid(), name: post.name, emoji: post.emoji, routineIds: newIds })
+    })
+    toast(t('Added to your programs'))
+    close()
+  }
+  const del = () => confirmSheet({
+    title: t('Delete this program?'), message: t('This removes it from Social for everyone.'),
+    confirmText: t('Delete'), danger: true,
+    onConfirm: () => deleteSocialProgram(post.id).then(() => { toast(t('Deleted')); onChanged(); close() }).catch(e => toast(e.message))
+  })
+  const assign = () => {
+    setBusy(true)
+    fetchTrainerMembers().then(members => {
+      setBusy(false)
+      openSheet(close2 => <MemberPickerSheet members={members} close={close2} onPick={memberId => {
+        assignProgramToMember(post.id, memberId).then(() => toast(t('Assigned to {0}', members.find(m => m.id === memberId)?.name || '')))
+          .catch(e => toast(e.message))
+      }} />)
+    }).catch(e => { setBusy(false); toast(e.message) })
+  }
+
+  return <>
+    {img && <img src={img} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 12, marginBottom: 10 }} />}
+    <h3>{post.name}</h3>
+    <div className="muted small capitalize" style={{ margin: '4px 0 10px' }}>
+      {post.authorName} · {post.authorKind === 'trainer' ? t('Trainer') : t('Member')}
+    </div>
+    {post.description && <div className="small" style={{ marginBottom: 10, lineHeight: 1.5 }}>{post.description}</div>}
+    <div className="row between" style={{ margin: '0 0 4px' }}>
+      <Stars value={post.avgStars || 0} />
+      <span className="small muted">{post.ratingCount ? t('{0} ratings', post.ratingCount) : t('No ratings yet')}</span>
+    </div>
+    {isOwn
+      ? <div className="dim small" style={{ margin: '8px 0 4px' }}>{t("You can't rate your own program.")}</div>
+      : <>
+        <div className="dim small" style={{ margin: '8px 0 4px' }}>{t('Your rating')}</div>
+        <Stars value={post.myStars || 0} onRate={rate} />
+      </>}
+    <h4 className="sec" style={{ marginTop: 14 }}>{t('Routines')}</h4>
+    <div className="list" style={{ marginBottom: 12 }}>
+      {post.routines.map((r, i) => <div key={i} className="item">
+        <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
+        <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
+      </div>)}
+    </div>
+    <Button variant="primary" style={{ width: '100%', marginBottom: 8 }} onClick={copy}>{t('Copy to my programs')}</Button>
+    {user.trainer && isOwn && post.authorKind === 'trainer' &&
+      <Button style={{ width: '100%', marginBottom: 8 }} disabled={busy} onClick={assign}>{t('Assign to a member')}</Button>}
+    {canManage && <button className="btn danger" style={{ width: '100%' }} onClick={del}>{t('Delete')}</button>}
+  </>
+}
+
+function WallDetailSheet({ post: initial, onChanged, close }) {
+  const user = useStore(s => s.user)
+  const toast = useUI(s => s.toast)
+  const [post, setPost] = useState(initial)
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const send = () => {
+    const v = text.trim()
+    if (!v) return
+    setBusy(true)
+    postWallComment(post.id, v).then(res => {
+      setPost(p => ({ ...p, comments: [...(p.comments || []), res.comment] }))
+      setText('')
+      setBusy(false)
+    }).catch(e => { setBusy(false); toast(e.message) })
+  }
+  const removeComment = c => {
+    deleteWallComment(post.id, c.id)
+      .then(() => setPost(p => ({ ...p, comments: (p.comments || []).filter(x => x.id !== c.id) })))
+      .catch(e => toast(e.message))
+  }
+  const delPost = () => confirmSheet({
+    title: t('Delete this post?'), confirmText: t('Delete'), danger: true,
+    onConfirm: () => deleteWallPost(post.id).then(() => { toast(t('Deleted')); onChanged(); close() }).catch(e => toast(e.message))
+  })
+
+  return <>
+    <div className="row" style={{ gap: 10, marginBottom: 10 }}>
+      <Thumb ex={exOr(post.exId)} />
+      <div className="grow">
+        <div className="tt capitalize">{post.exName}</div>
+        <div className="ss capitalize">{post.authorName} · {setLabel(post.exId, post.value, { mode: post.mode })} · {fmtDate(post.sourceDate, true)}</div>
+      </div>
+    </div>
+    {post.note && <div className="small" style={{ margin: '0 0 14px', lineHeight: 1.5 }}>“{post.note}”</div>}
+    <h4 className="sec">{t('Comments')}</h4>
+    <div className="list" style={{ gap: 0, marginBottom: 10 }}>
+      {(post.comments || []).map(c => <div key={c.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="small capitalize" style={{ fontWeight: 600 }}>{c.authorName}</div>
+          <div className="small">{c.text}</div>
+        </div>
+        {(c.authorId === user.id || user.admin) &&
+          <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
+      </div>)}
+      {!(post.comments || []).length && <div className="muted small" style={{ padding: '6px 2px' }}>{t('No comments yet.')}</div>}
+    </div>
+    <div className="row" style={{ gap: 8 }}>
+      <input className="input" style={{ flex: 1 }} value={text} maxLength={300} placeholder={t('Add a comment…')}
+        onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') send() }} />
+      <Button variant="primary" disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>
+    </div>
+    {(post.authorId === user.id || user.admin) && <>
+      <div style={{ height: 10 }} />
+      <button className="btn danger" style={{ width: '100%' }} onClick={delPost}>{t('Delete post')}</button>
+    </>}
+  </>
+}
+
+export default function Social() {
+  const user = useStore(s => s.user)
+  const S = useStore(s => s.S)
+  const toast = useUI(s => s.toast)
+  const openSheet = useUI(s => s.openSheet)
+  const [tab, setTab] = useState('routines')
+  const [routines, setRoutines] = useState(null)
+  const [programs, setPrograms] = useState(null)
+  const [wall, setWall] = useState(null)
+
+  const loadRoutines = () => fetchSocialRoutines().then(setRoutines).catch(e => toast(e.message))
+  const loadPrograms = () => fetchSocialPrograms().then(setPrograms).catch(e => toast(e.message))
+  const loadFeed = () => { loadRoutines(); loadPrograms() }
+  const loadWall = () => fetchWall().then(setWall).catch(e => toast(e.message))
+
+  useEffect(() => { loadFeed() }, [])
+  useEffect(() => { if (tab === 'wall' && wall === null) loadWall() }, [tab])
+
+  const openPublishDetails = (kind, source) =>
+    openSheet(close => <PublishDetailsSheet kind={kind} source={source} S={S} close={close} onPublished={loadFeed} />)
+  const publish = () => openSheet(close => <PickTypeSheet close={close}
+    onRoutine={() => {
+      if (!S.routines.length) { toast(t('You have no routines yet.')); return }
+      openSheet(close2 => <PickRoutineSheet routines={S.routines} close={close2} onPick={r => openPublishDetails('routine', r)} />)
+    }}
+    onProgram={() => {
+      if (!(S.programs || []).length) { toast(t('You have no programs yet.')); return }
+      openSheet(close2 => <PickProgramSheet programs={S.programs} close={close2} onPick={p => openPublishDetails('program', p)} />)
+    }} />)
+
+  const openDetail = post => openSheet(close => post.kind === 'program'
+    ? <ProgramDetailSheet post={post} onChanged={loadFeed} close={close} />
+    : <RoutineDetailSheet post={post} onChanged={loadFeed} close={close} />)
+
+  const publishWall = () => openSheet(close => <WallPublishSheet S={S} close={close} onPublished={loadWall} />)
+  const openWallDetail = post => openSheet(close => <WallDetailSheet post={post} onChanged={loadWall} close={close} />)
+
+  const feed = routines === null || programs === null ? null :
+    [...routines.map(r => ({ ...r, kind: 'routine' })), ...programs.map(p => ({ ...p, kind: 'program' }))]
+      .sort((a, b) => b.createdAt - a.createdAt)
+  const memberFeed = feed ? feed.filter(p => p.authorKind !== 'trainer') : null
+  const trainerFeed = feed ? feed.filter(p => p.authorKind === 'trainer') : null
+
+  return <div className="narrow">
+    <div className="hdr">
+      <div><h1>{t('Social')}</h1><div className="sub">{t('Share and discover, gym-wide')}</div></div>
+    </div>
+    <Segmented options={[{ value: 'routines', label: t('Routines') }, { value: 'wall', label: t('Wall') }, { value: 'trainers', label: t('Trainers') }]} value={tab} onChange={setTab} />
+    <div style={{ height: 14 }} />
+
+    {tab === 'routines' && <>
+      <div className="row between" style={{ marginBottom: 10 }}>
+        <h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
+        <Button size="sm" variant="tinted" icon="upload" onClick={publish}>{t('Publish')}</Button>
+      </div>
+      {memberFeed === null ? <div className="muted small">{t('Loading…')}</div> :
+        memberFeed.length ? <div className="list">{memberFeed.map(p => p.kind === 'program'
+          ? <ProgramCard key={p.id} post={p} onOpen={openDetail} />
+          : <RoutineCard key={p.id} post={p} onOpen={openDetail} />)}</div> :
+          <div className="empty"><div className="ico"><Icon name="users" /></div>{t('No routines published yet.')}<br />{t('Be the first to share one.')}</div>}
+    </>}
+
+    {tab === 'wall' && <>
+      <div className="row between" style={{ marginBottom: 10 }}>
+        <h4 className="sec" style={{ margin: 0 }}>{t('Wall')}</h4>
+        <Button size="sm" variant="tinted" icon="upload" onClick={publishWall}>{t('Post a record')}</Button>
+      </div>
+      {wall === null ? <div className="muted small">{t('Loading…')}</div> :
+        wall.length ? <div className="list">{wall.map(p => <div key={p.id} className="item" onClick={() => openWallDetail(p)}>
+          <Thumb ex={exOr(p.exId)} />
+          <div className="grow">
+            <div className="tt capitalize">{p.exName}</div>
+            <div className="ss capitalize">{p.authorName} · {setLabel(p.exId, p.value, { mode: p.mode })} · {fmtDate(p.sourceDate, true)}</div>
+            {p.note && <div className="ss dim">“{p.note}”</div>}
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>)}</div> :
+          <div className="empty"><div className="ico"><Icon name="trophy" /></div>{t('No records posted yet.')}<br />{t('Post one from a workout you already logged.')}</div>}
+    </>}
+
+    {tab === 'trainers' && <>
+      <div className="row between" style={{ marginBottom: 10 }}>
+        <h4 className="sec" style={{ margin: 0 }}>{t('Trainers')}</h4>
+        {user.trainer && <Button size="sm" variant="tinted" icon="upload" onClick={publish}>{t('Publish')}</Button>}
+      </div>
+      {trainerFeed === null ? <div className="muted small">{t('Loading…')}</div> :
+        trainerFeed.length ? <div className="list">{trainerFeed.map(p => p.kind === 'program'
+          ? <ProgramCard key={p.id} post={p} onOpen={openDetail} />
+          : <RoutineCard key={p.id} post={p} onOpen={openDetail} />)}</div> :
+          <div className="empty"><div className="ico"><Icon name="medal" /></div>{t('No trainer routines yet.')}</div>}
+    </>}
+    <div style={{ height: 20 }} />
+  </div>
 }
 
 // Publishing a Wall post is a 3-step pick, never free text for the record itself: an exercise
@@ -219,84 +578,4 @@ function WallPublishSheet({ S, onPublished, close }) {
     <div style={{ height: 10 }} />
     <Button variant="primary" disabled={busy} onClick={publish}>{t('Post to the Wall')}</Button>
   </>
-}
-
-export default function Social() {
-  const user = useStore(s => s.user)
-  const S = useStore(s => s.S)
-  const toast = useUI(s => s.toast)
-  const openSheet = useUI(s => s.openSheet)
-  const [tab, setTab] = useState('routines')
-  const [routines, setRoutines] = useState(null)
-  const [wall, setWall] = useState(null)
-
-  const loadRoutines = () => fetchSocialRoutines().then(setRoutines).catch(e => toast(e.message))
-  const loadWall = () => fetchWall().then(setWall).catch(e => toast(e.message))
-
-  useEffect(() => { loadRoutines() }, [])
-  useEffect(() => { if (tab === 'wall' && wall === null) loadWall() }, [tab])
-
-  const publish = () => {
-    if (!S.routines.length) { toast(t('You have no routines yet.')); return }
-    openSheet(close => <PublishRoutineSheet routines={S.routines} close={close} onPublish={r => {
-      publishSocialRoutine({ name: r.name, emoji: r.emoji, prog: r.prog, ex: r.ex, customExDefs: extractCustomDefs(r, S) })
-        .then(() => { toast(t('Published')); loadRoutines() }).catch(e => toast(e.message))
-    }} />)
-  }
-  const openDetail = post => openSheet(close => <RoutineDetailSheet post={post} onChanged={loadRoutines} close={close} />)
-  const publishWall = () => openSheet(close => <WallPublishSheet S={S} close={close} onPublished={loadWall} />)
-  const delWall = post => confirmSheet({
-    title: t('Delete this post?'), confirmText: t('Delete'), danger: true,
-    onConfirm: () => deleteWallPost(post.id).then(loadWall).catch(e => toast(e.message))
-  })
-
-  const memberRoutines = (routines || []).filter(r => r.authorKind !== 'trainer')
-  const trainerRoutines = (routines || []).filter(r => r.authorKind === 'trainer')
-
-  return <div className="narrow">
-    <div className="hdr">
-      <div><h1>{t('Social')}</h1><div className="sub">{t('Share and discover, gym-wide')}</div></div>
-    </div>
-    <Segmented options={[{ value: 'routines', label: t('Routines') }, { value: 'wall', label: t('Wall') }, { value: 'trainers', label: t('Trainers') }]} value={tab} onChange={setTab} />
-    <div style={{ height: 14 }} />
-
-    {tab === 'routines' && <>
-      <div className="row between" style={{ marginBottom: 10 }}>
-        <h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
-        <Button size="sm" variant="tinted" icon="upload" onClick={publish}>{t('Publish')}</Button>
-      </div>
-      {routines === null ? <div className="muted small">{t('Loading…')}</div> :
-        memberRoutines.length ? <div className="list">{memberRoutines.map(p => <RoutineCard key={p.id} post={p} onOpen={openDetail} />)}</div> :
-          <div className="empty"><div className="ico"><Icon name="users" /></div>{t('No routines published yet.')}<br />{t('Be the first to share one.')}</div>}
-    </>}
-
-    {tab === 'wall' && <>
-      <div className="row between" style={{ marginBottom: 10 }}>
-        <h4 className="sec" style={{ margin: 0 }}>{t('Wall')}</h4>
-        <Button size="sm" variant="tinted" icon="upload" onClick={publishWall}>{t('Post a record')}</Button>
-      </div>
-      {wall === null ? <div className="muted small">{t('Loading…')}</div> :
-        wall.length ? <div className="list">{wall.map(p => <div key={p.id} className="item">
-          <span className="lrow-i"><Icon name="trophy" /></span>
-          <div className="grow">
-            <div className="tt capitalize">{p.exName}</div>
-            <div className="ss capitalize">{p.authorName} · {setLabel(p.exId, p.value, { mode: p.mode })} · {fmtDate(p.sourceDate, true)}</div>
-            {p.note && <div className="ss dim">“{p.note}”</div>}
-          </div>
-          {(p.authorId === user.id || user.admin) && <button className="iconbtn" onClick={() => delWall(p)} aria-label={t('Delete')}><Icon name="trash" /></button>}
-        </div>)}</div> :
-          <div className="empty"><div className="ico"><Icon name="trophy" /></div>{t('No records posted yet.')}<br />{t('Post one from a workout you already logged.')}</div>}
-    </>}
-
-    {tab === 'trainers' && <>
-      <div className="row between" style={{ marginBottom: 10 }}>
-        <h4 className="sec" style={{ margin: 0 }}>{t('Trainers')}</h4>
-        {user.trainer && <Button size="sm" variant="tinted" icon="upload" onClick={publish}>{t('Publish')}</Button>}
-      </div>
-      {routines === null ? <div className="muted small">{t('Loading…')}</div> :
-        trainerRoutines.length ? <div className="list">{trainerRoutines.map(p => <RoutineCard key={p.id} post={p} onOpen={openDetail} />)}</div> :
-          <div className="empty"><div className="ico"><Icon name="medal" /></div>{t('No trainer routines yet.')}</div>}
-    </>}
-    <div style={{ height: 20 }} />
-  </div>
 }
