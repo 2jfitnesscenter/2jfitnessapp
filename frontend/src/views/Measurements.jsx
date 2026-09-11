@@ -7,16 +7,19 @@ import { measurementSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { SelectRow } from '../components/ui.jsx'
 import LineChart from '../components/LineChart.jsx'
-import { MEASUREMENTS, lastMeasurement, bodyFatBand } from '../lib/measurements.js'
+import { MEASUREMENTS, lastMeasurement, bodyFatBand, visceralFatBand } from '../lib/measurements.js'
 
 // Each row is one time series (see lib/measurements.js) — tapping it opens the same generic
 // log-a-value-and-see-recent-entries sheet bodyweight already used, just for that measurement.
-// Body fat is the one value here with an established healthy range (Gallagher et al. 2000,
-// by sex and age — see bodyFatBand), so its pill is colour-coded instead of the plain accent
-// every other measurement gets; it falls back to the plain colour when sex/birth date aren't set.
+// Body fat and visceral fat are the two values here with an established healthy range (body fat:
+// Gallagher et al. 2000, by sex and age; visceral fat: Tanita's own 1-59 rating, the same for
+// everyone), so their pills are colour-coded instead of the plain accent every other measurement
+// gets — body fat falls back to the plain colour when sex/birth date aren't set.
 function Row({ m, S }) {
   const last = lastMeasurement(S, m.key)
-  const band = m.key === 'bodyFat' && last ? bodyFatBand(last.v, S.body, ageFrom(S.birthDate)) : null
+  const band = m.key === 'bodyFat' && last ? bodyFatBand(last.v, S.body, ageFrom(S.birthDate))
+    : m.key === 'visceralFat' && last ? visceralFatBand(last.v)
+    : null
   return <div className="item" onClick={() => measurementSheet(m.key)}>
     <div className="grow"><div className="tt">{t(m.label)}</div>
       {last && <div className="ss">{fmtDate(last.d)}</div>}

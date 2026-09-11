@@ -14,7 +14,7 @@ import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
-import { MEASUREMENTS, bodyFatBand } from '../lib/measurements.js'
+import { MEASUREMENTS, bodyFatBand, visceralFatBand } from '../lib/measurements.js'
 
 // Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "hypertrophy" means the
 // same rep range whether a member or an admin set it up.
@@ -243,7 +243,9 @@ function UserDetail({ id, onChanged, close }) {
     </div>}
     {!!Object.keys(d.measurements || {}).length && <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '10px 0 0' }}>
       {MEASUREMENTS.filter(m => d.measurements?.[m.key]).map(m => {
-        const band = m.key === 'bodyFat' ? bodyFatBand(d.measurements[m.key].v, d.body, age) : null
+        const band = m.key === 'bodyFat' ? bodyFatBand(d.measurements[m.key].v, d.body, age)
+          : m.key === 'visceralFat' ? visceralFatBand(d.measurements[m.key].v)
+          : null
         return <span key={m.key} className={'tag' + (band ? ' ' + band : '')}>{t(m.label)}: {fmtNum(d.measurements[m.key].v)} {m.unit}</span>
       })}
     </div>}

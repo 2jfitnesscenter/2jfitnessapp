@@ -26,7 +26,7 @@ export const MEASUREMENTS = [
   { key: 'bodyFat', label: 'Body fat', group: 'composition', unit: '%', min: 2, max: 55, step: 0.1, dec: true },
   { key: 'muscleMass', label: 'Muscle mass', group: 'composition', unit: 'kg', min: 10, max: 70, step: 0.1, dec: true },
   { key: 'waterPct', label: 'Body water', group: 'composition', unit: '%', min: 25, max: 75, step: 0.1, dec: true },
-  { key: 'visceralFat', label: 'Visceral fat', group: 'composition', unit: '', min: 1, max: 30, step: 1, dec: false },
+  { key: 'visceralFat', label: 'Visceral fat', group: 'composition', unit: '', min: 1, max: 59, step: 1, dec: false },
   { key: 'boneMass', label: 'Bone mass', group: 'composition', unit: 'kg', min: 0.5, max: 6, step: 0.1, dec: true },
   // ---- skinfolds, mm — calipers (a staff assessment, taken alongside the bioimpedance scan) ----
   { key: 'skinTriceps', label: 'Triceps skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true },
@@ -67,5 +67,17 @@ export function bodyFatBand(pct, sex, age) {
   const band = table.find(b => age <= b.maxAge)
   if (pct >= band.obese) return 'bad'
   if (pct < band.lo || pct > band.hi) return 'warn'
+  return 'good'
+}
+
+// Tanita's own visceral-fat rating (the scale this gym's scan actually reports, 1-59, same for
+// everyone — it isn't split by sex or age the way body fat is): 1-12 is "healthy", 13-59 is
+// "excessive". Tanita doesn't subdivide "excessive" any further, but a flat orange-to-25-red
+// jump reads as one big warning band rather than a gradient, so the split at 15 follows the
+// same intermediate cutoff several secondary sources use for this same 1-59 scale.
+export function visceralFatBand(v) {
+  if (!Number.isFinite(v)) return null
+  if (v >= 15) return 'bad'
+  if (v >= 13) return 'warn'
   return 'good'
 }
