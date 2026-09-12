@@ -10,10 +10,10 @@
    (the same file that already signs session cookies, generated 0600 on first boot). ChatGPT
    sign-in is the exception: Codex owns its refreshable CLI credential in a separate private
    cache, rather than OpenGym importing or duplicating an OAuth token. */
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { unprivilegedIds } from './adapters/spawn.js';
+import { encrypt as encryptWith, decrypt as decryptWith, resetKeyCache } from '../lib/crypto.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = path.join(DATA, 'coach.json');
@@ -49,29 +49,11 @@ const DEFAULTS = {
 const LOG_MAX = 100;
 
 /* ---------- at-rest encryption ---------- */
-
-let keyCache = null;
-function key() {
-  if (keyCache) return keyCache;
-  // Read the secret lazily: server.js creates it at boot, and this module may be imported first.
-  const secret = fs.readFileSync(path.join(DATA, 'secret'), 'utf8').trim();
-  keyCache = Buffer.from(crypto.hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.alloc(0), Buffer.from('opengym-coach-v1'), 32));
-  return keyCache;
-}
-export function encrypt(obj) {
-  const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv('aes-256-gcm', key(), iv);
-  const enc = Buffer.concat([c.update(JSON.stringify(obj), 'utf8'), c.final()]);
-  return Buffer.concat([iv, c.getAuthTag(), enc]).toString('base64');
-}
-export function decrypt(blob) {
-  try {
-    const buf = Buffer.from(String(blob || ''), 'base64');
-    const d = crypto.createDecipheriv('aes-256-gcm', key(), buf.subarray(0, 12));
-    d.setAuthTag(buf.subarray(12, 28));
-    return JSON.parse(Buffer.concat([d.update(buf.subarray(28)), d.final()]).toString('utf8'));
-  } catch { return null; }   // wrong key (restored ./data without the secret), or tampered file
-}
+// Delegates to the shared api/lib/crypto.js, keeping this feature's own HKDF namespace so
+// existing coach.json data keeps decrypting exactly as before the extraction.
+const CRYPTO_INFO = 'opengym-coach-v1';
+export const encrypt = obj => encryptWith(obj, CRYPTO_INFO);
+export const decrypt = blob => decryptWith(blob, CRYPTO_INFO);
 
 /* ---------- load / save ---------- */
 
@@ -102,7 +84,7 @@ export function save(patch) {
   return next;
 }
 // Test seam: forget the in-memory copy so the next load() re-reads from disk.
-export function reset() { cache = null; keyCache = null; }
+export function reset() { cache = null; resetKeyCache(); }
 
 /* ---------- Codex's isolated ChatGPT credential cache ---------- */
 

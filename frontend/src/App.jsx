@@ -28,6 +28,7 @@ import Profile from './views/Profile.jsx'
 import Friends from './views/Friends.jsx'
 import Chat from './views/Chat.jsx'
 import ChatThread from './views/ChatThread.jsx'
+import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements from './views/Measurements.jsx'
 import Recovery from './views/Recovery.jsx'
 import Admin from './views/Admin.jsx'
@@ -103,6 +104,7 @@ function Shell() {
               <Route path="/friends" element={<Friends />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/:id" element={<ChatThread />} />
+              <Route path="/connected-apps" element={<ConnectedApps />} />
               <Route path="/measurements" element={<Measurements />} />
               <Route path="/recovery" element={<Recovery />} />
               {/* The Coach screens gate themselves on the instance config; the routes exist

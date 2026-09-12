@@ -10,6 +10,7 @@ import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
 import AdminCoach from './AdminCoach.jsx'
+import AdminIntegrations from './AdminIntegrations.jsx'
 import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
@@ -420,6 +421,8 @@ export default function Admin() {
     </div>}
 
     <AdminCoach />
+
+    <AdminIntegrations />
 
     <ExerciseLibraryCard />
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
@@ -15,6 +15,7 @@ import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { recoveryOf, overallRecovery, GROUPS, GROUP_LABEL, GROUP_MUSCLES } from '../lib/recovery.js'
 import RecoveryRing from '../components/RecoveryRing.jsx'
+import { fetchWhoopRecovery } from '../lib/whoop-api.js'
 
 // Muscle recovery — an estimate of how ready each muscle group is, from the last 7 days of
 // logged sets (see lib/recovery.js). One ring for the overall average, a pill per movement
@@ -65,6 +66,29 @@ function CoachCard({ nav }) {
         </div>
       </div>
       {ready ? <span className="tag acc">{t('Review')}</span> : <Icon name="chevronRight" className="chev" />}
+    </div>
+  </div>
+}
+
+// A separate signal from `RecoveryCard` above — that one is a training-load estimate derived
+// purely from logged sets (see lib/recovery.js); this is Whoop's own biometric recovery score
+// (HRV/resting-HR based), pulled live once Whoop is connected (Settings → Connected apps). The
+// two numbers can legitimately disagree, so they stay two clearly-labeled cards, never merged.
+function WhoopCard({ nav, connected }) {
+  const [data, setData] = useState(null)
+  useEffect(() => {
+    if (!connected) return
+    fetchWhoopRecovery().then(setData).catch(() => {})
+  }, [connected])
+  if (!connected || !data?.connected || !data.recovery) return null
+  const { score } = data.recovery
+  return <div className="card">
+    <div className="row between">
+      <div style={{ minWidth: 0 }}>
+        <h2 style={{ margin: '0 0 2px' }}>{t('Whoop recovery')}</h2>
+        <div className="muted small">{t('From your connected Whoop account')}</div>
+      </div>
+      {score != null && <div className="big" style={{ fontSize: 28 }}>{score}%</div>}
     </div>
   </div>
 }
@@ -194,6 +218,8 @@ export default function Home() {
         <Icon name="calendar" className="chev" style={{ fontSize: 20 }} />
       </div>
     </div>
+
+    <WhoopCard nav={nav} connected={!!user?.whoop} />
 
     <RecoveryCard nav={nav} S={S} />
   </div>

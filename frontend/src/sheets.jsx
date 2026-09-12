@@ -24,6 +24,7 @@ import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.j
 import { resizeImageFile, uploadImage, mediaUrl } from './lib/media.js'
 import { fetchFriendCode, resetFriendCode, sendFriendRequest } from './lib/friends-api.js'
 import { startThread } from './lib/chat-api.js'
+import { sendWorkoutToStrava } from './lib/strava-api.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -1150,6 +1151,8 @@ function doFinishWorkout() {
     s.workouts.push(w)
     s.active = null
   })
+  // No-ops server-side if Strava isn't connected — never surface a failure into this flow.
+  sendWorkoutToStrava(w).catch(() => {})
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
   ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })

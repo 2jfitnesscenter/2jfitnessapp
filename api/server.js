@@ -15,6 +15,10 @@ import { coachRoutes } from './coach/routes.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
 import { chatRoutes } from './chat/routes.js';
+import * as stravaConfig from './strava/config.js';
+import { stravaRoutes } from './strava/routes.js';
+import * as whoopConfig from './whoop/config.js';
+import { whoopRoutes } from './whoop/routes.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
@@ -377,13 +381,20 @@ const routes = {
   // the app it was before the feature existed.
   'GET /api/config': async (req, res) => {
     const coach = coachConfig.publicConfig();
-    json(res, 200, { invite_only: INVITE_ONLY, hiddenExercises: hiddenEx, ...(coach ? { coach } : {}) });
+    json(res, 200, {
+      invite_only: INVITE_ONLY, hiddenExercises: hiddenEx, ...(coach ? { coach } : {}),
+      strava: stravaConfig.isConfigured(), whoop: whoopConfig.isConfigured()
+    });
   },
 
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    json(res, 200, { user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } });
+    json(res, 200, { user: {
+      id: user.id, name: user.name, username: user.username || null, created: user.created || null,
+      admin: isAdmin(user), trainer: isTrainer(user),
+      strava: !!user.stravaAuth, whoop: !!user.whoopAuth
+    } });
   },
 
   // Lets someone pick a nicer handle than the auto-generated one — the only thing "Nombre de
@@ -452,7 +463,11 @@ const routes = {
       transports: body.credential?.response?.transports || []
     });
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: {
+      id: user.id, name: user.name, username: user.username || null, created: user.created || null,
+      admin: isAdmin(user), trainer: isTrainer(user),
+      strava: !!user.stravaAuth, whoop: !!user.whoopAuth
+    } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/login/options': async (req, res) => {
@@ -491,7 +506,11 @@ const routes = {
     const user = db.users.find(u => u.id === cred.userId);
     if (!user) return json(res, 500, { error: 'falta el usuario' });
     if (user.disabled) return json(res, 403, { error: 'esta cuenta ha sido desactivada' });
-    json(res, 200, { user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: {
+      id: user.id, name: user.name, username: user.username || null, created: user.created || null,
+      admin: isAdmin(user), trainer: isTrainer(user),
+      strava: !!user.stravaAuth, whoop: !!user.whoopAuth
+    } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   // ---------- admin-assisted account recovery ----------
@@ -555,7 +574,11 @@ const routes = {
     });
     rec.usedAt = new Date().toISOString();
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: {
+      id: user.id, name: user.name, username: user.username || null, created: user.created || null,
+      admin: isAdmin(user), trainer: isTrainer(user),
+      strava: !!user.stravaAuth, whoop: !!user.whoopAuth
+    } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
@@ -1381,7 +1404,11 @@ const routes = {
   // per-member/per-trainer assignment concept to hook into (trainer status is global, see
   // isTrainer above), so chat is one shared inbox every trainer/admin can see and reply to.
   ...friendsRoutes({ json, readBody, readSession, sendPush, users: () => db.users }),
-  ...chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users: () => db.users })
+  ...chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users: () => db.users }),
+
+  /* ---------- connected apps: Strava (push workouts), Whoop (pull recovery) ---------- */
+  ...stravaRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN }),
+  ...whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN })
 };
 
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */

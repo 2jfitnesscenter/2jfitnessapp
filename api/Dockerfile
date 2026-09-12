@@ -20,9 +20,12 @@ RUN npm ci --omit=dev --include=optional \
  && node -e "import('@anthropic-ai/claude-agent-sdk').then(() => console.log('Claude Agent SDK ready'))" \
  && ./node_modules/.bin/codex --version
 COPY server.js ./
+COPY lib/ ./lib/
 COPY coach/ ./coach/
 COPY friends/ ./friends/
 COPY chat/ ./chat/
+COPY strava/ ./strava/
+COPY whoop/ ./whoop/
 ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["node", "server.js"]
