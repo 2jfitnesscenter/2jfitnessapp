@@ -33,6 +33,10 @@ export const DEF = {
   measurements: {},
   bodyweight: [], routines: [], programs: [], week: {}, dayPlan: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
+  // Exercise ids the member asked not to be offered again (RoutineEdit's "..." menu — Replace/
+  // Remove "and don't recommend"). Per-profile, unlike the gym-wide admin blacklist in
+  // lib/exercises.js — see allExercises() for where this is actually enforced.
+  excludedEx: [],
   // effort: which per-set effort scale is logged — 'none' | 'rir' | 'rpe'. null, not 'none', so
   // that a profile which never chose (loaded state is overlaid on DEF, on every path: local,
   // server pull, backup import) still falls back to the `showRir` boolean this replaced and

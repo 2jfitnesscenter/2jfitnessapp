@@ -7,7 +7,8 @@ import { effortOf } from '../lib/history.js'
 import { IS_ANDROID } from '../lib/api.js'
 import { pushSupported, enablePush, disablePush, sendTestPush } from '../lib/push.js'
 import { wakeLockSupported } from '../lib/wakelock.js'
-import { t, LANGS, INSTR_LANGS } from '../lib/i18n.js'
+import { t, nameFor, LANGS, INSTR_LANGS } from '../lib/i18n.js'
+import { exOr } from '../lib/exercises.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE, shareExport, syncReminder } from '../lib/mobile.js'
 import { loadStarterPlan, confirmSheet, importFromApp } from '../sheets.jsx'
@@ -133,6 +134,19 @@ export default function Settings() {
           value={effortOf(S)} onChange={v => update(s => { s.effort = v; delete s.showRir })} />
       </Row>
     </Section>
+
+    {/* ---------- exercises excluded from your own picker (RoutineEdit's "…" menu) ---------- */}
+    {S.excludedEx?.length > 0 && (
+      <Section title={t('Not recommended to you')} footer={t('These won’t be offered when picking an exercise. Remove one here to see it again.')}>
+        {S.excludedEx.map(exId => {
+          const ex = exOr(exId)
+          return <Row key={exId} title={nameFor(ex)} className="capitalize">
+            <button className="iconbtn" aria-label={t('Show again')} style={{ width: 32, height: 32, borderRadius: 8, fontSize: 14 }}
+              onClick={() => update(s => { s.excludedEx = (s.excludedEx || []).filter(id => id !== exId) })}><Icon name="xmark" /></button>
+          </Row>
+        })}
+      </Section>
+    )}
 
     {coachAvailable(config, user, { demo: DEMO, mobile: MOBILE }) && (
       <Section title={t('Coach')} footer={hasConsent(S)

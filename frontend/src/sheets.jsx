@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
-import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden } from './lib/exercises.js'
+import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden, exOr } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
 import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
@@ -12,7 +12,7 @@ import Media, { Thumb } from './components/Media.jsx'
 import BarbellPlates, { plateBreakdown } from './components/BarbellPlates.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
-import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar } from './components/ui.jsx'
+import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts } from './lib/muscles.js'
@@ -1015,6 +1015,71 @@ function PlatesSheet({ weight, unit }) {
   </>
 }
 export const platesSheet = (weight, unit) => ui().openSheet(() => <PlatesSheet weight={weight} unit={unit} />)
+
+/* ============================ per-exercise "…" menu (routine editor) ============================ */
+// Every action beyond what tapping the row itself already does (open exConfigSheet for
+// sets/reps/weight/progression). Video/history need nothing but `ex`, so they're handled right
+// here; everything that actually mutates the routine (`replace`, `superset`, `dropset`, `notes`,
+// `remove`, the two "and don't recommend" variants) is a plain callback RoutineEdit.jsx injects —
+// same shape as exConfigSheet's onSave/onDelete — so this sheet carries no routine-editing logic
+// of its own, only the menu chrome.
+function ExerciseMenu({ ex, entry, close, actions }) {
+  const act = fn => () => { close(); fn() }
+  return <>
+    <h3 className="capitalize">{nameFor(ex)}</h3>
+    <div className="sect-b" style={{ marginTop: 10 }}>
+      <Row icon="shuffle" iconTint="var(--indigo)" title={t('Replace')} onClick={act(actions.onReplace)} />
+      <Row icon="chartLine" iconTint="var(--purple)" title={t('Change rep progression')} onClick={act(actions.onProgression)} />
+      <Row icon="link" iconTint="var(--teal)" title={entry.sg ? t('Leave superset') : t('Add to superset')} onClick={act(actions.onSuperset)} />
+      <Row icon="arrowDown" iconTint="var(--blue)" title={entry.dropset ? t('Remove dropset') : t('Add dropset')} onClick={act(actions.onDropsetToggle)} />
+      <Row icon="play" iconTint="var(--pink)" title={t('Video and instructions')} onClick={act(() => exerciseDetailSheet(ex))} />
+      <Row icon="history" iconTint="var(--green)" title={t('Exercise history')} onClick={act(() => nav('/stats?ex=' + ex.id))} />
+      <Row icon="clipboard" iconTint="var(--yellow)" title={t('Notes')} onClick={act(actions.onNotes)} />
+    </div>
+    <div className="sect-b" style={{ marginTop: 14 }}>
+      <Row icon="shuffle" iconTint="var(--red)" title={t('Replace and don’t recommend')} danger onClick={act(actions.onReplaceExclude)} />
+      <Row icon="trash" iconTint="var(--red)" title={t('Remove from workout')} danger onClick={act(actions.onRemove)} />
+      <Row icon="ban" iconTint="var(--red)" title={t('Remove and don’t recommend')} danger onClick={act(actions.onRemoveExclude)} />
+    </div>
+  </>
+}
+export const exerciseMenuSheet = (ex, entry, actions) => ui().openSheet(close => <ExerciseMenu ex={ex} entry={entry} actions={actions} close={close} />)
+
+// Free-text note on one routine entry — "setup, cues, anything you want to remember" for THIS
+// slot in THIS routine, same idea as a custom exercise's own description but per placement
+// rather than per exercise, since the same exercise can want a different reminder in different
+// routines (e.g. "go lighter, this is the fatigue day" vs "this is the PR attempt day").
+function ExerciseNotes({ ex, entry, close, onSave }) {
+  const [note, setNote] = useState(entry.note || '')
+  return <>
+    <h3 className="capitalize">{t('Notes')} — {nameFor(ex)}</h3>
+    <TextArea rows={4} maxLength={500} placeholder={t('Setup, cues, anything you want to remember for this exercise')}
+      value={note} onChange={e => setNote(e.target.value)} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={() => { close(); onSave(note.trim()) }}>{t('Save')}</Button>
+  </>
+}
+export const exerciseNotesSheet = (ex, entry, onSave) => ui().openSheet(close => <ExerciseNotes ex={ex} entry={entry} onSave={onSave} close={close} />)
+
+// Pick any OTHER exercise already in this routine to superset with — the quick link-icon on
+// each row only pairs with the one directly above; this is the flexible version reached from
+// the "…" menu. Picking one hands its index back; RoutineEdit.jsx does the actual reordering.
+function SupersetPicker({ routine, excludeIndex, close, onPick }) {
+  const others = routine.ex.map((e, i) => ({ e, i })).filter(x => x.i !== excludeIndex)
+  return <>
+    <h3>{t('Add to superset')}</h3>
+    <div className="muted small" style={{ marginBottom: 10 }}>{t('Pick the exercise to do it back-to-back with.')}</div>
+    <div className="sect-b">
+      {others.map(({ e, i }) => {
+        const ex2 = exOr(e.id)
+        return <button key={i} className="lrow tap" onClick={() => { close(); onPick(i) }}>
+          <span className="lrow-m"><span className="lrow-t capitalize">{nameFor(ex2)}</span></span>
+        </button>
+      })}
+    </div>
+  </>
+}
+export const supersetPickerSheet = (routine, excludeIndex, onPick) => ui().openSheet(close => <SupersetPicker routine={routine} excludeIndex={excludeIndex} onPick={onPick} close={close} />)
 
 function TopWeight({ entryIdx, close }) {
   const st = useStore(s => s.S)

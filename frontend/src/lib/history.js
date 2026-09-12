@@ -178,18 +178,27 @@ export function buildSets(S, cfg) {
     const w = conf && conf.w > 0 ? conf.w : (usable ? usable.w : cfg.weight)
     sets.push({ w, r: usable ? usable.r : cfg.reps, done: false })
   }
+  // A routine-level dropset (RoutineEdit's exercise menu) always lands after the last working
+  // set, at the same reps and a fixed 20% lighter — same rounding as the warmup ramp below, so
+  // it's a number you can actually load. No working weight yet means nothing to drop from.
+  const lastSet = sets[sets.length - 1]
+  if (cfg.dropset && lastSet && lastSet.w > 0) {
+    sets.push({ w: roundToPlate(lastSet.w * 0.8, S.unit), r: lastSet.r, done: false, type: 'drop' })
+  }
   return S.warmupEnabled !== false ? [...warmupSets(sets[0].w, S.unit), ...sets] : sets
 }
-// Two ramp-up sets ahead of the working weight — 50%×8 then 75%×5, each rounded to the nearest
-// half-plate (2.5kg or 5lb) so the number is actually loadable. No working weight yet (a
+// Nearest half-plate (2.5kg or 5lb), so a generated weight is always actually loadable.
+const roundToPlate = (w, unit) => {
+  const step = unit === 'lb' ? 5 : 2.5
+  return Math.round(w / step) * step
+}
+// Two ramp-up sets ahead of the working weight — 50%×8 then 75%×5. No working weight yet (a
 // brand-new exercise) means nothing to ramp up to, so no warmups are suggested.
 function warmupSets(workingWeight, unit) {
   if (!(workingWeight > 0)) return []
-  const step = unit === 'lb' ? 5 : 2.5
-  const round = w => Math.round(w / step) * step
   return [
-    { w: round(workingWeight * 0.5), r: 8, done: false, type: 'warmup' },
-    { w: round(workingWeight * 0.75), r: 5, done: false, type: 'warmup' },
+    { w: roundToPlate(workingWeight * 0.5, unit), r: 8, done: false, type: 'warmup' },
+    { w: roundToPlate(workingWeight * 0.75, unit), r: 5, done: false, type: 'warmup' },
   ]
 }
 export function workoutVolume(w) {

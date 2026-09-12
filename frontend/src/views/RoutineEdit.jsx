@@ -1,12 +1,13 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
+import { useUI } from '../store/useUI.js'
 import { exOr, isHidden } from '../lib/exercises.js'
 import { uid } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../lib/history.js'
 import { Thumb } from '../components/Media.jsx'
-import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet } from '../sheets.jsx'
+import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { Button, SelectRow } from '../components/ui.jsx'
@@ -20,6 +21,7 @@ export default function RoutineEdit() {
   const { id } = useParams()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
+  const toast = useUI(s => s.toast)
   const r = S.routines.find(x => x.id === id)
   useEffect(() => { if (!r) nav('/plan') }, [!!r])
   if (!r) return null
@@ -32,6 +34,43 @@ export default function RoutineEdit() {
     if (cur.sg && prev.sg && cur.sg === prev.sg) delete cur.sg
     else { const gid = prev.sg || ('sg' + uid()); prev.sg = gid; cur.sg = gid }
     cleanupSg(ex)
+  })
+  const removeAt = i => edit(ex => { ex.splice(i, 1); cleanupSg(ex) })
+  // The member's own "don't offer me this again" list (RoutineEdit's "…" menu) — gym-wide
+  // admin hiding is a separate, global mechanism (isHidden/setHiddenExercises); this one is
+  // per-profile and only ever affects what a picker offers from here on, see allExercises().
+  const excludeEx = exId => update(s => { if (!(s.excludedEx || []).includes(exId)) (s.excludedEx = s.excludedEx || []).push(exId) })
+  // Leaving a superset just drops this entry's own sg (cleanupSg then strips it from whatever
+  // partner is left without a match) — joining one reuses the current entry's sg if it's already
+  // in a group, so a third exercise can chain onto an existing pair instead of always making
+  // a brand-new pair.
+  const leaveSuperset = i => edit(ex => { delete ex[i].sg; cleanupSg(ex) })
+  const joinSuperset = (i, j) => edit(ex => {
+    const cur = ex[i]
+    const target = ex.splice(j, 1)[0]
+    const newI = j < i ? i - 1 : i
+    ex.splice(newI + 1, 0, target)
+    const gid = cur.sg || ('sg' + uid())
+    ex[newI].sg = gid; target.sg = gid
+    cleanupSg(ex)
+  })
+
+  const menuActions = (ex, e, i) => ({
+    onReplace: () => exercisePicker(newEx => edit(x => { x[i] = { ...x[i], id: newEx.id } })),
+    onReplaceExclude: () => exercisePicker(newEx => {
+      edit(x => { x[i] = { ...x[i], id: newEx.id } })
+      excludeEx(ex.id)
+      toast(t('{0} won’t be suggested again', nameFor(ex)))
+    }),
+    onProgression: () => exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...cfg } }), () => removeAt(i), r),
+    onSuperset: () => e.sg ? leaveSuperset(i) : supersetPickerSheet(r, i, j => joinSuperset(i, j)),
+    onDropsetToggle: () => edit(x => { x[i].dropset = !x[i].dropset }),
+    onNotes: () => exerciseNotesSheet(ex, e, note => edit(x => { if (note) x[i].note = note; else delete x[i].note })),
+    onRemove: () => removeAt(i),
+    onRemoveExclude: () => confirmSheet({
+      title: t('Remove and don’t recommend?'), message: t('“{0}” leaves this routine and won’t be suggested to you again.', nameFor(ex)),
+      confirmText: t('Remove'), danger: true, onConfirm: () => { removeAt(i); excludeEx(ex.id) }
+    }),
   })
 
   const units = supersetUnits(r.ex)
@@ -69,12 +108,18 @@ export default function RoutineEdit() {
       return <div key={i}>
         {unitFirst.has(i) && <div className="ss-label"><Icon name="link" />{t('Superset')}</div>}
         <div className={'item' + (inSS.has(i) ? ' in-ss' : '')} onClick={() => {
-          exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...cfg } }), () => edit(x => { x.splice(i, 1); cleanupSg(x) }), r)
+          exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...cfg } }), () => removeAt(i), r)
         }}>
           <Thumb ex={ex} />
-          <div className="grow"><div className="tt capitalize">{nameFor(ex)}</div>
-            <div className="ss">{isHidden(e.id) ? <span style={{ color: 'var(--orange)' }}>{t('Not currently offered — skipped when you start this workout')}</span> : exLine(e, S.unit)}</div></div>
+          <div className="grow">
+            <div className="tt capitalize">{nameFor(ex)}</div>
+            <div className="ss">{isHidden(e.id) ? <span style={{ color: 'var(--orange)' }}>{t('Not currently offered — skipped when you start this workout')}</span> : exLine(e, S.unit)}
+              {e.dropset && <span className="tag acc" style={{ marginLeft: 6 }}>{t('Dropset')}</span>}</div>
+            {e.note && <div className="ss">{e.note}</div>}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 'none', alignItems: 'center' }}>
+            <button className="iconbtn" aria-label={t('More options')} style={{ width: 32, height: 28, borderRadius: 8, fontSize: 15 }}
+              onClick={ev => { ev.stopPropagation(); exerciseMenuSheet(ex, e, menuActions(ex, e, i)) }}><Icon name="moreH" /></button>
             {i > 0 && <button className={'iconbtn' + (linkedPrev ? ' on-ss' : '')} title={t('Superset with exercise above')} style={{ width: 32, height: 28, borderRadius: 8, fontSize: 15 }} onClick={ev => { ev.stopPropagation(); toggleLink(i) }}><Icon name="link" /></button>}
             <div style={{ display: 'flex', gap: 2 }}>
               <button className="iconbtn" aria-label={t('Move up')} style={{ width: 28, height: 24, borderRadius: 7, fontSize: 12 }} onClick={ev => { ev.stopPropagation(); move(i, -1) }}><Icon name="chevronUp" /></button>

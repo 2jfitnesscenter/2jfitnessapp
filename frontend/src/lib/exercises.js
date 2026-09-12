@@ -33,8 +33,14 @@ export function setHiddenExercises(ids) { hidden = new Set(ids || []) }
 export const isHidden = id => hidden.has(id)
 
 // Full searchable catalogue — customs first so your own exercises are easy to find. Customs
-// are the member's own and are never affected by the gym's blacklist.
-export const allExercises = st => [...(st.customEx || []), ...EXDB.filter(e => !hidden.has(e.id))]
+// are the member's own and are never affected by the gym's blacklist. `excludedEx` is the
+// member's own "don't recommend me this" list (RoutineEdit's exercise menu) — unlike `hidden`
+// it's per-profile, not gym-wide, and only ever affects this same offer-for-new-selection path;
+// an existing routine/workout entry still resolves fine through EXIDX.
+export const allExercises = st => {
+  const excluded = new Set(st.excludedEx || [])
+  return [...(st.customEx || []), ...EXDB.filter(e => !hidden.has(e.id) && !excluded.has(e.id))]
+}
 
 // Media normally sits next to the app (img/ and gif/, mounted into the web container).
 // A build can point them somewhere else — the demo build pulls them off a CDN instead of

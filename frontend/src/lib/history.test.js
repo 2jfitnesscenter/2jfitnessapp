@@ -349,6 +349,44 @@ describe('buildSets warmup generation', () => {
   })
 })
 
+describe('buildSets dropset generation', () => {
+  it('appends one lighter set after the last working set when the routine entry asks for it', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: false, unit: 'kg' }
+    expect(buildSets(S, { id: LIFT, sets: 2, reps: 8, weight: 60, dropset: true })).toEqual([
+      { w: 60, r: 8, done: false }, { w: 60, r: 8, done: false },
+      { w: 47.5, r: 8, done: false, type: 'drop' },
+    ])
+  })
+
+  it('rounds the dropset to the nearest 5lb in pounds', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: false, unit: 'lb' }
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 10, weight: 100, dropset: true })).toEqual([
+      { w: 100, r: 10, done: false },
+      { w: 80, r: 10, done: false, type: 'drop' },
+    ])
+  })
+
+  it('adds no dropset for a brand-new exercise with no working weight yet', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: false, unit: 'kg' }
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 0, dropset: true })).toEqual([{ w: 0, r: 8, done: false }])
+  })
+
+  it('does nothing when the entry does not ask for a dropset', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: false, unit: 'kg' }
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 60 })).toEqual([{ w: 60, r: 8, done: false }])
+  })
+
+  it('combines with warmups — ramp-up sets first, dropset last', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: true, unit: 'kg' }
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 60, dropset: true })).toEqual([
+      { w: 30, r: 8, done: false, type: 'warmup' },
+      { w: 45, r: 5, done: false, type: 'warmup' },
+      { w: 60, r: 8, done: false },
+      { w: 47.5, r: 8, done: false, type: 'drop' },
+    ])
+  })
+})
+
 describe('workoutVolume', () => {
   it('counts reps work and leaves timed/cardio sets out — there is no weight × reps for a hold', () => {
     const w = { entries: [
