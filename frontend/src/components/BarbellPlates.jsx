@@ -1,5 +1,7 @@
-// A compact plate-loading diagram for a straight barbell: given a set's total weight, works out
-// what actually goes on each side of a standard 20kg/45lb bar and draws it. Hand-drawn SVG, same
+// A plate-loading breakdown for a straight barbell: given a set's total weight, works out what
+// actually goes on each side of a standard 20kg/45lb bar. Shown only on tap (Workout.jsx's plate
+// button opens sheets.jsx's platesSheet with this at `size="lg"`) rather than as an inline row
+// icon — at row size the drawing read as noise more than information. Hand-drawn SVG, same
 // convention as RecoveryRing/LineChart — no charting library. Only meaningful for a real barbell
 // (see Workout.jsx's BARBELL_EQ) — an EZ bar, Smith machine or trap bar all load plates too, but
 // none of them has an unambiguous standard bar weight, so this stays out of scope for those.
@@ -29,16 +31,20 @@ function plateStack(perSide, unit) {
   return stack
 }
 
-export default function BarbellPlates({ weight, unit }) {
+// The pure calculation, shared by the drawing and the plain-text summary next to it.
+export function plateBreakdown(weight, unit) {
   const barW = BAR_WEIGHT[unit === 'lb' ? 'lb' : 'kg']
   const perSide = (weight - barW) / 2
-  if (!(perSide > 0)) return null
-  const stack = plateStack(perSide, unit)
-  if (!stack.length) return null
+  return { barW, perSide, plates: perSide > 0 ? plateStack(perSide, unit) : [] }
+}
 
-  // A very heavy load would otherwise blow out the row's width — clip the drawing rather than
-  // squeeze it unreadable; the number in the stepper next to it is still the source of truth.
-  const shown = stack.slice(0, 5)
+export default function BarbellPlates({ weight, unit, size = 'sm' }) {
+  const { plates } = plateBreakdown(weight, unit)
+  if (!plates.length) return null
+
+  // A very heavy load would otherwise blow out the drawing's width — clip it rather than
+  // squeeze it unreadable; the per-side text next to it is still the source of truth.
+  const shown = plates.slice(0, 5)
   const biggest = unit === 'lb' ? 45 : 25
   const cx = 48, barY = 16, plateW = 4, gap = 1.5
 
@@ -49,8 +55,9 @@ export default function BarbellPlates({ weight, unit }) {
       fill={p.color} stroke="var(--sep)" strokeWidth="0.5" />
   })
 
+  const big = size === 'lg'
   return (
-    <svg viewBox="0 0 96 32" width="44" height="15" aria-hidden="true" style={{ flex: 'none' }}>
+    <svg viewBox="0 0 96 32" width={big ? 220 : 44} height={big ? 73 : 15} aria-hidden="true" style={{ flex: 'none' }}>
       <line x1="4" y1={barY} x2="92" y2={barY} stroke="var(--label-3)" strokeWidth="2" />
       {side(-1)}
       {side(1)}

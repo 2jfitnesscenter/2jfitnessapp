@@ -631,6 +631,15 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .setrow .setgo:disabled{opacity:.3;cursor:default}
 .setrow .setgo:not(:disabled):active{background:var(--surface-3)}
+/* opens the plate breakdown (issue: barbell plate calculator) — informational, not a state
+   toggle, so it stays neutral rather than borrowing setgo's accent colour */
+.setrow .platesbtn{
+  width:28px;height:28px;border-radius:50%;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-2);color:var(--label-2);font-size:13px;
+  transition:background var(--fast);
+}
+.setrow .platesbtn:active{background:var(--surface-3)}
 /* exercise-config sheet: three steppers side by side on narrow phones */
 .cfgrow{gap:8px}
 .cfgrow>div{flex:1;min-width:0}

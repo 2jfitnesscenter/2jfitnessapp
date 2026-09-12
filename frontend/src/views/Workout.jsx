@@ -9,9 +9,8 @@ import { beep, vibrate } from '../lib/sound.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
-import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet } from '../sheets.jsx'
+import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import BarbellPlates from '../components/BarbellPlates.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
@@ -149,7 +148,8 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
           {cell(s, i, col1, 'w')}
           {cell(s, i, col2, 'r')}
           {col3 && cell(s, i, col3, 'eff')}
-          {showPlates(s) && <BarbellPlates weight={s.w} unit={S.unit} />}
+          {showPlates(s) && <button className="platesbtn" aria-label={t('Plate breakdown')}
+            onClick={() => platesSheet(s.w, S.unit)}><Icon name="barbell" /></button>}
           {/* A timed set is started, not typed: the timer counts the hold down and checks the
               set off itself. The checkbox stays for anyone who timed it on their own watch. */}
           {timed && <button className="setgo" aria-label={t('Start set')} disabled={s.done || !!working}

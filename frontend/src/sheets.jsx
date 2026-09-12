@@ -9,6 +9,7 @@ import { t, instrFor, nameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
 import { starterRoutines, buildPlan, GOALS } from './lib/starter.js'
 import Media, { Thumb } from './components/Media.jsx'
+import BarbellPlates, { plateBreakdown } from './components/BarbellPlates.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar } from './components/ui.jsx'
@@ -994,6 +995,26 @@ function SetTypeSheet({ current, close, onPick, onDelete }) {
   </>
 }
 export const setTypeSheet = (current, onPick, onDelete) => ui().openSheet(close => <SetTypeSheet current={current} onPick={onPick} onDelete={onDelete} close={close} />)
+
+// What to actually load on the bar for one working set — shown on tap rather than as a row icon
+// (see BarbellPlates.jsx), so the drawing gets room to be legible instead of squeezed into a
+// stepper row.
+function PlatesSheet({ weight, unit }) {
+  const { barW, plates } = plateBreakdown(weight, unit)
+  return <>
+    <h3>{t('Plate breakdown')}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>
+      {t('A {0} {1} bar plus plates on each side, for {2} {1} total.', fmtNum(barW), unit, fmtNum(weight))}
+    </div>
+    <div className="row" style={{ justifyContent: 'center', margin: '4px 0 18px' }}>
+      <BarbellPlates weight={weight} unit={unit} size="lg" />
+    </div>
+    {plates.length
+      ? <div className="big" style={{ textAlign: 'center' }}>{t('Each side: {0} {1}', plates.map(p => fmtNum(p.w)).join(' + '), unit)}</div>
+      : <div className="dim small" style={{ textAlign: 'center' }}>{t('Bar only — no plates needed.')}</div>}
+  </>
+}
+export const platesSheet = (weight, unit) => ui().openSheet(() => <PlatesSheet weight={weight} unit={unit} />)
 
 function TopWeight({ entryIdx, close }) {
   const st = useStore(s => s.S)
