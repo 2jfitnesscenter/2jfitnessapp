@@ -15,7 +15,14 @@ import { loadStarterPlan, confirmSheet, importFromApp } from '../sheets.jsx'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import Icon from '../components/Icon.jsx'
-import { Section, Row, SelectRow, Switch, Segmented, Button } from '../components/ui.jsx'
+import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button } from '../components/ui.jsx'
+
+// One-screen design trial (see the owner's ask for a less "colorful template" look): every row
+// here gets Row's muted `softIcon` badge instead of the solid-fill one the rest of the app still
+// uses, so the two styles can be compared side by side before deciding whether to roll it out
+// everywhere. Revert by changing these back to `= RowBase` / `= SelectRowBase`.
+const Row = props => <RowBase {...props} softIcon />
+const SelectRow = props => <SelectRowBase {...props} softIcon />
 
 export default function Settings() {
   const nav = useNavigate()

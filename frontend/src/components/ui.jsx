@@ -320,11 +320,14 @@ export function Section({ title, footer, children, className = '' }) {
   )
 }
 
-export function Row({ icon, iconTint, title, subtitle, value, accessory = 'none', onClick, danger, children, className = '' }) {
+// `softIcon` is a one-screen design trial (see Settings.jsx) — a muted tinted-background badge
+// instead of the solid-fill one every other screen still uses, so the two styles can sit side
+// by side for a look/feel comparison before deciding whether to roll it out everywhere.
+export function Row({ icon, iconTint, title, subtitle, value, accessory = 'none', onClick, danger, children, className = '', softIcon }) {
   const Tag = onClick ? 'button' : 'div'
   return (
     <Tag className={'lrow' + (onClick ? ' tap' : '') + (danger ? ' danger' : '') + ' ' + className} onClick={onClick}>
-      {icon && <span className="lrow-i" style={iconTint ? { '--tint': iconTint } : null}><Icon name={icon} /></span>}
+      {icon && <span className={'lrow-i' + (softIcon ? ' soft' : '')} style={iconTint ? { '--tint': iconTint } : null}><Icon name={icon} /></span>}
       <span className="lrow-m">
         <span className="lrow-t">{title}</span>
         {subtitle && <span className="lrow-s">{subtitle}</span>}
@@ -361,10 +364,10 @@ function optionsSheet(sheetTitle, options, value, onChange) {
     </>
   ))
 }
-export function SelectRow({ icon, iconTint, title, value, options, onChange, sheetTitle }) {
+export function SelectRow({ icon, iconTint, title, value, options, onChange, sheetTitle, softIcon }) {
   const cur = options.find(o => o.value === value)
   return (
-    <Row icon={icon} iconTint={iconTint} title={title} value={cur ? cur.label : value} accessory="chevron"
+    <Row icon={icon} iconTint={iconTint} title={title} value={cur ? cur.label : value} accessory="chevron" softIcon={softIcon}
       onClick={() => optionsSheet(sheetTitle || title, options, value, onChange)} />
   )
 }
