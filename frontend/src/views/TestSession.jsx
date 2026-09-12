@@ -8,6 +8,7 @@ import { exOr } from '../lib/exercises.js'
 import { exercisePicker } from '../sheets.jsx'
 import { useCountdown, useStopwatch, fmtClock } from '../lib/clock.js'
 import Icon from '../components/Icon.jsx'
+import ClockCard from '../components/ClockCard.jsx'
 import { Thumb } from '../components/Media.jsx'
 import { Button, ChipSelect, Stepper } from '../components/ui.jsx'
 
@@ -98,24 +99,6 @@ function OneRMForm({ S, onSave }) {
     {est != null && <div className="progline" style={{ marginTop: 10 }}><Icon name="trophy" /><span>{t('Estimated 1RM: {0} {1}', fmtNum(est), S.unit)}</span></div>}
     <div style={{ height: 12 }} />
     <Button variant="primary" disabled={!ex || !(w > 0)} onClick={save}>{t('Save 1RM')}</Button>
-  </div>
-}
-
-/* ---------- shared little countdown/stopwatch display ---------- */
-function ClockCard({ icon, title, subtitle, big, running, onStart, onPauseResume, onReset, resumable }) {
-  return <div className="card" style={{ marginBottom: 14, textAlign: 'center' }}>
-    <div className="row" style={{ justifyContent: 'flex-start', textAlign: 'left', marginBottom: 10 }}>
-      <span className="lrow-i"><Icon name={icon} /></span>
-      <div className="grow"><div className="tt">{title}</div><div className="ss">{subtitle}</div></div>
-    </div>
-    <div style={{ fontSize: 44, fontWeight: 700, letterSpacing: '-.02em', margin: '6px 0 14px' }}>{big}</div>
-    <div className="row" style={{ justifyContent: 'center', gap: 8 }}>
-      {!running && !resumable && <Button variant="primary" icon="play" onClick={onStart}>{t('Start')}</Button>}
-      {!running && resumable && <><Button variant="primary" icon="play" onClick={onPauseResume}>{t('Resume')}</Button>
-        <Button icon="reset" onClick={onReset}>{t('Reset')}</Button></>}
-      {running && <><Button icon="pause" onClick={onPauseResume}>{t('Pause')}</Button>
-        <Button icon="reset" onClick={onReset}>{t('Reset')}</Button></>}
-    </div>
   </div>
 }
 

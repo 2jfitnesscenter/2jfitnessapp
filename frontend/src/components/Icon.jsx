@@ -116,6 +116,13 @@ const P = {
   info: <><circle cx="12" cy="12" r="8.2" /><path d="M12 11v5.4" /><circle cx="12" cy="7.9" r=".9" fill="currentColor" stroke="none" /></>,
   moreH: <><circle cx="5.5" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="18.5" cy="12" r="1.7" fill="currentColor" stroke="none" /></>,
   ban: <><circle cx="12" cy="12" r="8.2" /><path d="m6.3 6.3 11.4 11.4" /></>,
+  // interval bars (Tabata) — alternating heights read as a work/rest cycle at a glance
+  intervals: <path d="M5.6 16.8V9.4M10.6 18.6V5.4M15.4 16.8V9.4M20.4 18.6V5.4" />,
+  // infinity (AMRAP) — two loops sharing a crossing, not two separate circles
+  infinity: <path d="M7.4 9.2a3.3 3.3 0 1 0 0 6.6c2.9 0 4.1-6.6 9-6.6a3.3 3.3 0 1 1 0 6.6c-4.9 0-6.1-6.6-9-6.6Z" />,
+  // three round-pips, the middle one filled — same visual language as EMOM's own row of round
+  // indicators, so the icon reads as "rounds" before you ever open it
+  emom: <><circle cx="5.8" cy="12" r="2.4" /><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" /><circle cx="18.2" cy="12" r="2.4" /></>,
 }
 
 // A few keys are aliases so call sites can say what they mean.

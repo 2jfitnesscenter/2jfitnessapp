@@ -20,6 +20,8 @@ import ProgramEdit from './views/ProgramEdit.jsx'
 import RoutineEdit from './views/RoutineEdit.jsx'
 import Workout from './views/Workout.jsx'
 import TestSession from './views/TestSession.jsx'
+import ClockPicker from './views/Clock.jsx'
+import ClockRun from './views/ClockRun.jsx'
 import Stats from './views/Stats.jsx'
 import History from './views/History.jsx'
 import Social from './views/Social.jsx'
@@ -104,6 +106,8 @@ function Shell() {
               <Route path="/plan/r/:id" element={<RoutineEdit />} />
               <Route path="/workout" element={<Workout />} />
               <Route path="/tests" element={<TestSession />} />
+              <Route path="/clock" element={<ClockPicker />} />
+              <Route path="/clock/:mode" element={<ClockRun />} />
               <Route path="/stats" element={<Stats />} />
               <Route path="/history" element={<History />} />
               <Route path="/social" element={<Social />} />
