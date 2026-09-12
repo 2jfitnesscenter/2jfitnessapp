@@ -26,20 +26,23 @@ function useBodyPaths() {
   return paths
 }
 
-function View({ view, levels, onMuscle, selected }) {
+function View({ view, levels, onMuscle, selected, colorOf }) {
   return (
     <svg className="bm-v" viewBox={view.vb} role="img">
       {INERT.map(slug => (view.p[slug] || []).map((d, i) =>
         <path key={slug + i} className="bm-sil" d={d} />))}
-      {MUSCLES.map(slug => (view.p[slug] || []).map((d, i) =>
-        <path
+      {MUSCLES.map(slug => (view.p[slug] || []).map((d, i) => {
+        const color = colorOf ? colorOf(slug) : null
+        return <path
           key={slug + i}
-          className={'bm-m l' + (levels[slug] || 0) + (selected === slug ? ' sel' : '')}
+          className={'bm-m' + (color ? '' : ' l' + (levels[slug] || 0)) + (selected === slug ? ' sel' : '')}
+          style={color ? { fill: color } : undefined}
           d={d}
           onClick={onMuscle ? () => onMuscle(slug) : undefined}
         >
           <title>{t(MUSCLE_NAME[slug])}</title>
-        </path>))}
+        </path>
+      }))}
     </svg>
   )
 }
@@ -48,16 +51,21 @@ function View({ view, levels, onMuscle, selected }) {
  * <BodyMap load={{ chest: 12, … }} body="male" />
  * `load` is effective sets per muscle (see lib/muscles.js); shading is relative to
  * the hardest-worked muscle in that same load, so it always reads as a balance.
+ *
+ * <BodyMap colorOf={slug => 'var(--green)'} body="male" />
+ * `colorOf`, when given, paints each muscle that exact colour instead of the relative
+ * load shading — for a map where the colour already means something absolute (like
+ * Recovery's red/orange/green), not "worked harder than its neighbour".
  */
-export default function BodyMap({ load = {}, body = 'male', onMuscle, selected, className = '', highlightSelected = false }) {
+export default function BodyMap({ load = {}, body = 'male', onMuscle, selected, className = '', highlightSelected = false, colorOf }) {
   const paths = useBodyPaths()
   const levels = levelsOf(load)
   const g = paths && (paths[body] || paths.male)
   return (
     <div className={'bodymap ' + className + (highlightSelected ? ' bm-lit' : '')}>
       {g ? <>
-        <View view={g.front} levels={levels} onMuscle={onMuscle} selected={selected} />
-        <View view={g.back} levels={levels} onMuscle={onMuscle} selected={selected} />
+        <View view={g.front} levels={levels} onMuscle={onMuscle} selected={selected} colorOf={colorOf} />
+        <View view={g.back} levels={levels} onMuscle={onMuscle} selected={selected} colorOf={colorOf} />
       </> : <div className="bm-ph" aria-hidden="true" />}
     </div>
   )

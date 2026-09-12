@@ -1346,4 +1346,7 @@ export default {
   'This is only an estimate. It doesn’t account for sleep, stress, nutrition or how hard a set actually felt (RIR/RPE). Custom exercises need a muscle tag to be included.': 'Esto es solo una estimación. No tiene en cuenta el sueño, el estrés, la nutrición ni lo duro que se sintió una serie (RIR/RPE). Los ejercicios personalizados necesitan una etiqueta de músculo para incluirse.',
   'Overall recovery': 'Recuperación general',
   'Average recovery across every muscle group, based on the last 7 days of training.': 'Recuperación media de todos los grupos musculares, según el entrenamiento de los últimos 7 días.',
+  'Fatigued': 'Fatigado',
+  'Recovering': 'Recuperando',
+  'Ready': 'Listo',
 }

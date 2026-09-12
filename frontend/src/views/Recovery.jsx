@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -8,6 +9,14 @@ import BodyMap from '../components/BodyMap.jsx'
 import { recoveryOf, overallRecovery, GROUPS, GROUP_LABEL, GROUP_MUSCLES, MUSCLE_NAME } from '../lib/recovery.js'
 
 const pillColor = v => v >= 70 ? 'var(--green)' : v >= 40 ? 'var(--orange)' : 'var(--red)'
+
+function RecoveryLegend() {
+  return <div className="hm-legend" style={{ justifyContent: 'center', gap: 16 }}>
+    <span className="row" style={{ gap: 4 }}><i className="hm-c" style={{ background: 'var(--red)' }} />{t('Fatigued')}</span>
+    <span className="row" style={{ gap: 4 }}><i className="hm-c" style={{ background: 'var(--orange)' }} />{t('Recovering')}</span>
+    <span className="row" style={{ gap: 4 }}><i className="hm-c" style={{ background: 'var(--green)' }} />{t('Ready')}</span>
+  </div>
+}
 
 function MuscleRow({ slug, value }) {
   return <div className="item">
@@ -47,12 +56,12 @@ export default function Recovery() {
   const openSheet = useUI(s => s.openSheet)
   const recovery = recoveryOf(S)
   const overall = overallRecovery(recovery)
+  const [sel, setSel] = useState(null)
   const groupAvg = g => Math.round(GROUP_MUSCLES[g].reduce((s, m) => s + recovery[m], 0) / GROUP_MUSCLES[g].length)
-  // BodyMap shades relative to the hardest-worked muscle in the map handed to it (see
-  // components/BodyMap.jsx) — useful here as "what have I hit hardest/most recently", not a
-  // second absolute reading. The % ring and list below are the actual recovery numbers.
-  const fatigueMap = {}
-  Object.keys(recovery).forEach(slug => { fatigueMap[slug] = 100 - recovery[slug] })
+  // Traffic-light colours, not a single-accent intensity ramp — the diagram should read at a
+  // glance the same way the ring and the list below it already do, not need its own legend to
+  // decode a different scale.
+  const colorOf = slug => pillColor(recovery[slug] ?? 100)
 
   return <div className="narrow">
     <div className="hdr">
@@ -67,7 +76,13 @@ export default function Recovery() {
       <div className="muted small" style={{ marginTop: 2 }}>{t('Average recovery across every muscle group, based on the last 7 days of training.')}</div>
     </div>
 
-    <div className="bodymap" style={{ marginBottom: 14 }}><BodyMap load={fatigueMap} body={S.body} /></div>
+    <BodyMap className="tappable" colorOf={colorOf} selected={sel} onMuscle={m => setSel(s => (s === m ? null : m))} body={S.body} />
+    <RecoveryLegend />
+    {sel && <div className="mrow" style={{ borderTop: 'var(--hair) solid var(--sep)', marginTop: 8, paddingTop: 10 }}>
+      <span className="nm"><b>{t(MUSCLE_NAME[sel])}</b></span>
+      <span className="v" style={{ color: pillColor(recovery[sel]), fontWeight: 600 }}>{recovery[sel]}%</span>
+    </div>}
+    <div style={{ height: 14 }} />
 
     {GROUPS.map(g => <div key={g} style={{ marginBottom: 18 }}>
       <h4 className="sec">{t(GROUP_LABEL[g])}</h4>
