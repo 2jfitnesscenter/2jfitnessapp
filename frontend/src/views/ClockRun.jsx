@@ -208,11 +208,12 @@ function ModeEmom() {
         <Stepper label={t('Minutes per round')} value={roundMin} step={1} decimal={false} onChange={setRoundMin} />
         <Stepper label={t('Rounds')} value={rounds} step={1} decimal={false} onChange={setRounds} />
       </div>
-      <div className="small dim" style={{ marginBottom: 6 }}>{t('Round colors (optional)')}</div>
-      <div className="row" style={{ gap: 14 }}>
-        <ColorPicker value={colorA} onChange={setColorA} />
-        <ColorPicker value={colorB} onChange={setColorB} />
-      </div>
+      <div className="small dim" style={{ marginBottom: 8 }}>{t('Round colors (optional)')}</div>
+      <div className="small dim" style={{ marginBottom: 4 }}>{t('Odd rounds')}</div>
+      <ColorPicker value={colorA} onChange={setColorA} />
+      <div style={{ height: 10 }} />
+      <div className="small dim" style={{ marginBottom: 4 }}>{t('Even rounds')}</div>
+      <ColorPicker value={colorB} onChange={setColorB} />
       <div style={{ height: 12 }} />
       <Button variant="primary" icon="play" onClick={start}>{t('Start')}</Button>
     </div>}
@@ -231,9 +232,9 @@ function ModeEmom() {
   </>
 }
 function ColorPicker({ value, onChange }) {
-  return <div className="row" style={{ gap: 6 }}>
+  return <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
     {Object.keys(PIP_COLORS).map(k => <button key={k} aria-label={k} onClick={() => onChange(k)} style={{
-      width: 22, height: 22, borderRadius: '50%', background: PIP_COLORS[k], flex: 'none',
+      width: 24, height: 24, borderRadius: '50%', background: PIP_COLORS[k], flex: 'none',
       boxShadow: value === k ? '0 0 0 2.5px var(--label)' : 'none',
     }} />)}
   </div>
