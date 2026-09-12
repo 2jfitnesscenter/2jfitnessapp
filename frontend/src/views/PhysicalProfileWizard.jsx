@@ -73,18 +73,17 @@ export default function PhysicalProfileWizard() {
   })
 
   return <div className="narrow" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-    <div className="hdr">
+    <div className="row between" style={{ marginBottom: 18 }}>
       {step > 0
         ? <button className="iconbtn" onClick={() => setStep(step - 1)} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
         : <div style={{ width: 36 }} />}
-      <div style={{ flex: 1, marginLeft: 10 }}>
-        <h1 style={{ fontSize: 20 }}>{t('Physical profile')}</h1>
-        <div className="sub">{t('Step {0} of {1}', step + 1, STEPS.length)}</div>
-      </div>
-      <Button variant="ghost" className="dim" onClick={skip}>{t('Skip for now')}</Button>
+      <Button size="sm" variant="tinted" onClick={skip}>{t('Skip for now')}</Button>
     </div>
 
-    <div className="row" style={{ gap: 5, margin: '4px 0 24px' }}>
+    <h1 style={{ fontSize: 26, lineHeight: 1.15, marginBottom: 2 }}>{t('Physical profile')}</h1>
+    <div className="sub" style={{ marginBottom: 16 }}>{t('Step {0} of {1}', step + 1, STEPS.length)}</div>
+
+    <div className="row" style={{ gap: 5, marginBottom: 28 }}>
       {STEPS.map((s, i) => <div key={s} style={{ height: 3, flex: 1, borderRadius: 2, background: i <= step ? 'var(--acc)' : 'var(--surface-3)' }} />)}
     </div>
 
@@ -120,17 +119,21 @@ export default function PhysicalProfileWizard() {
 
       {key === 'muscles' && <>
         <h2 style={{ marginTop: 0 }}>{t('Training priorities')}</h2>
-        <div className="dim small" style={{ marginBottom: 6 }}>{t('What do you want to prioritize? (up to 2)')}</div>
-        <div className="row" style={{ flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>
-          {MUSCLES.map(m => <button key={m} className={'chip' + (p.primary.includes(m) ? ' on' : '')} onClick={() => togglePrimary(m)}>{t(MUSCLE_LABEL[m])}</button>)}
-        </div>
-        <div className="dim small" style={{ marginBottom: 6 }}>{t('Anything else? (up to 3)')}</div>
-        <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
-          {MUSCLES.map(m => {
-            const isPrimary = p.primary.includes(m)
-            return <button key={m} className={'chip' + (p.secondary.includes(m) ? ' on' : '')} disabled={isPrimary}
-              style={isPrimary ? { opacity: .35 } : undefined} onClick={() => toggleSecondary(m)}>{t(MUSCLE_LABEL[m])}</button>
-          })}
+        <div className="muted small" style={{ marginBottom: 18 }}>{t('Optional. The quick plan and the AI Coach give these a little more work than the rest.')}</div>
+        <div className="card">
+          <h4 className="sec" style={{ marginTop: 0 }}>{t('What do you want to prioritize? (up to 2)')}</h4>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+            {MUSCLES.map(m => <button key={m} className={'chip lg' + (p.primary.includes(m) ? ' on' : '')} onClick={() => togglePrimary(m)}>{t(MUSCLE_LABEL[m])}</button>)}
+          </div>
+          <div className="divider" />
+          <h4 className="sec" style={{ marginTop: 0 }}>{t('Anything else? (up to 3)')}</h4>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+            {MUSCLES.map(m => {
+              const isPrimary = p.primary.includes(m)
+              return <button key={m} className={'chip lg' + (p.secondary.includes(m) ? ' on' : '')} disabled={isPrimary}
+                style={isPrimary ? { opacity: .35 } : undefined} onClick={() => toggleSecondary(m)}>{t(MUSCLE_LABEL[m])}</button>
+            })}
+          </div>
         </div>
       </>}
     </div>
