@@ -855,6 +855,11 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .bm-m.l3{fill:color-mix(in srgb,var(--acc) 78%,var(--bm-base))}
 .bm-m.l4{fill:var(--acc)}
 .bm-m.sel{stroke:var(--label);stroke-width:7}
+/* Filter pickers (no real load behind them) light the tapped muscle up solid instead of
+   just outlining it — Stats' map keeps the plain outline since there the fill already
+   means something (how hard that muscle was trained) and forcing it to full accent would
+   misrepresent a lightly-trained muscle as maxed out. */
+.bodymap.bm-lit .bm-m.sel{fill:var(--acc);stroke:var(--acc-2);stroke-width:3}
 .bodymap.tappable .bm-m{cursor:pointer}
 /* A hairline in the surface colour separates neighbouring muscles; the artwork has no
    outline path of its own, so without this the body reads as one flat blob. */

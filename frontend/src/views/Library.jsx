@@ -7,7 +7,7 @@ import { t, nameFor } from '../lib/i18n.js'
 import { Thumb } from '../components/Media.jsx'
 import { exerciseDetailSheet, addToRoutineSheet, customExSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button } from '../components/ui.jsx'
+import { Button, ChipSelect } from '../components/ui.jsx'
 import BodyMap from '../components/BodyMap.jsx'
 import { MUSCLES, MUSCLE_NAME, musclesOf } from '../lib/muscles.js'
 
@@ -36,11 +36,13 @@ export default function Library() {
       <input className="input" placeholder={t('Search…')} value={q} onChange={e => { setQ(e.target.value); setShown(40) }} /></div>
 
     <h4 className="sec">{t('By muscle')}</h4>
-    <BodyMap className="tappable" selected={muscle === CARDIO ? null : muscle} onMuscle={pick} />
+    <BodyMap className="tappable" highlightSelected selected={muscle === CARDIO ? null : muscle} onMuscle={pick} />
     <div className="chips" style={{ margin: '10px 0 12px' }}>
       <button className={'chip nocap' + (!muscle ? ' on' : '')} onClick={() => { setMuscle(''); setShown(40) }}>{t('All')}</button>
       <button className={'chip' + (muscle === CARDIO ? ' on' : '')} onClick={() => pick(CARDIO)}>{t('Cardio')}</button>
-      {MUSCLES.map(m => <button key={m} className={'chip' + (muscle === m ? ' on' : '')} onClick={() => pick(m)}>{t(MUSCLE_NAME[m])}</button>)}
+      <ChipSelect value={muscle === CARDIO ? '' : muscle} onChange={m => { setMuscle(m); setShown(40) }}
+        sheetTitle={t('By muscle')} placeholder={t('Body part')}
+        options={MUSCLES.map(m => ({ value: m, label: t(MUSCLE_NAME[m]) }))} />
     </div>
 
     {eqOpts.length > 1 && <div className="chips" style={{ marginBottom: 12 }}>

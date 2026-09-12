@@ -49,12 +49,12 @@ function View({ view, levels, onMuscle, selected }) {
  * `load` is effective sets per muscle (see lib/muscles.js); shading is relative to
  * the hardest-worked muscle in that same load, so it always reads as a balance.
  */
-export default function BodyMap({ load = {}, body = 'male', onMuscle, selected, className = '' }) {
+export default function BodyMap({ load = {}, body = 'male', onMuscle, selected, className = '', highlightSelected = false }) {
   const paths = useBodyPaths()
   const levels = levelsOf(load)
   const g = paths && (paths[body] || paths.male)
   return (
-    <div className={'bodymap ' + className}>
+    <div className={'bodymap ' + className + (highlightSelected ? ' bm-lit' : '')}>
       {g ? <>
         <View view={g.front} levels={levels} onMuscle={onMuscle} selected={selected} />
         <View view={g.back} levels={levels} onMuscle={onMuscle} selected={selected} />
