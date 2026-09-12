@@ -65,7 +65,16 @@ function StarterPlanIntake({ close }) {
     update(st => {
       const { routines, week } = buildPlan(goal, DAY_SPREAD[days], st.priorityMuscles, st.secondaryMuscles, sessionMin)
       st.routines.push(...routines)
-      Object.entries(week).forEach(([d, id]) => { st.week[d] = id })
+      // The whole point of the quick generator is to set up the week for you — wrap the result
+      // into a program (routines + their own schedule) and make it active, same as a hand-built
+      // one. Non-destructive like before: this adds a new program each time rather than
+      // replacing whatever's already there, and simply switches which one is active.
+      st.programs = st.programs || []
+      st.programs.push({
+        id: uid(), name: t('Quick plan ({0})', t(GOAL_LABEL[goal])), emoji: 'sparkles',
+        routineIds: routines.map(r => r.id), week
+      })
+      st.activeProgramId = st.programs[st.programs.length - 1].id
     })
     close()
     toast(t('Plan loaded — {0} days a week', days))

@@ -104,8 +104,8 @@ function CreatedPlan({ p, S, update, toast, nav, refresh }) {
     <div className="card">
       <div className="row between">
         <div style={{ minWidth: 0 }}>
-          <div className="lrow-t">{t('Use this weekly schedule')}</div>
-          <div className="lrow-s">{t('Replaces your current week. Days this plan leaves empty become rest days.')}</div>
+          <div className="lrow-t">{t('Make this my active program')}</div>
+          <div className="lrow-s">{t('Builds a program from these routines and makes it the one driving your week. Days it leaves empty become rest days.')}</div>
         </div>
         <Switch checked={schedule} onChange={setSchedule} />
       </div>

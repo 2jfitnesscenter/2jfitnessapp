@@ -166,7 +166,8 @@ export function pushSnapshot(s, proposalId, label) {
   const c = coachOf(s)
   c.snapshots = [...(c.snapshots || []), {
     at: Date.now(), proposalId: proposalId || null, label: label || '',
-    routines: clone(s.routines || []), week: clone(s.week || {})
+    routines: clone(s.routines || []), week: clone(s.week || {}),
+    programs: clone(s.programs || []), activeProgramId: s.activeProgramId ?? null
   }].slice(-SNAPSHOT_MAX)
   trim(s)
 }
@@ -184,6 +185,10 @@ export function revertLast(s) {
   if (!snap) return false
   s.routines = clone(snap.routines)
   s.week = clone(snap.week)
+  // Snapshots taken before programs existed have neither field — leave them alone rather than
+  // wiping to empty, since "the snapshot doesn't know" isn't the same as "delete everything".
+  if (snap.programs !== undefined) s.programs = clone(snap.programs)
+  if (snap.activeProgramId !== undefined) s.activeProgramId = snap.activeProgramId
   appendLog(s, { kind: 'revert', at: Date.now(), proposalId: snap.proposalId, summary: t('Reverted the last Coach changes.') })
   return true
 }
@@ -228,7 +233,7 @@ export function applyCreatedPlan(s, proposal, { schedule } = {}) {
     ...bundle,
     routines: bundle.routines.map(r => ({ ...r, why: undefined, ex: r.ex.map(e => ({ ...e, why: undefined, name: undefined })) }))
   }
-  const res = mergePlan(s, stripped, { schedule })
+  const res = mergePlan(s, stripped, { asProgram: schedule, programName: bundle.name, programEmoji: 'sparkles' })
   appendLog(s, {
     kind: 'create', at: Date.now(), proposalId: proposal.id,
     summary: proposal.summary || '', routines: res.routines, iteration: proposal.iteration || 1

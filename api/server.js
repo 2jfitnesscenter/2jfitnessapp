@@ -803,6 +803,11 @@ const routes = {
       longevity: { compound: [10, 3], accessory: [12, 2], superset: false }
     };
     const DAY_SPREAD = { 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5], 6: [1, 2, 3, 4, 5, 6] };
+    // Mirrors frontend/src/locales/es.js's goal labels, for the auto-created program's name.
+    const GOAL_LABEL_ES = {
+      hypertrophy: 'Ganar músculo', toning: 'Tonificar', fatloss: 'Perder grasa',
+      power: 'Potencia', plyometrics: 'Pliometría', longevity: 'Salud y longevidad'
+    };
     const rules = GOAL_RULES[body.goal] || GOAL_RULES.longevity;
     const days = DAY_SPREAD[body.days] || DAY_SPREAD[3];
     // Optional — mirrors frontend/src/lib/starter.js's exerciseCountFor: trims a routine's
@@ -869,8 +874,15 @@ const routes = {
       return routine;
     });
     S.routines = [...(S.routines || []), ...routines];
-    S.week = { ...(S.week || {}) };
-    days.forEach((d, i) => { S.week[d] = routines[i].id; });
+    const week = {};
+    days.forEach((d, i) => { week[d] = routines[i].id; });
+    const program = {
+      id: crypto.randomBytes(9).toString('base64url'),
+      name: `Plan rápido (${GOAL_LABEL_ES[body.goal] || GOAL_LABEL_ES.longevity})`,
+      emoji: 'sparkles', routineIds: routines.map(r => r.id), week
+    };
+    S.programs = [...(S.programs || []), program];
+    S.activeProgramId = program.id;
     S._ts = Date.now();
     atomicWrite(stateFile(u.id), JSON.stringify(S));
     json(res, 200, { ok: true });

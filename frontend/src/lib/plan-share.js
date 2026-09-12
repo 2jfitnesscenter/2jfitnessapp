@@ -97,10 +97,14 @@ export function parsePlan(raw) {
  * Merge a parsed bundle into a draft state `s` (call inside store.update).
  *  - customs: reuse one you already have with the same name + body part, else add it fresh
  *  - routines: always added as NEW routines (fresh ids) — never overwrites yours
- *  - schedule: optional; when on, the shared week REPLACES yours (days the shared plan
+ *  - schedule: optional; when on, the shared week REPLACES the flat one (days the shared plan
  *    leaves empty become rest days — a half-overwritten week would silently mix two plans)
+ *  - asProgram: optional, and takes over from `schedule` entirely when set — instead of writing
+ *    the flat week, bundles the merged routines + their remapped week into a new Program and
+ *    makes it the active one (see lib/history.js's activeWeek). Used by the AI Coach's
+ *    create-a-plan flow, not by importing a plan file from a friend — the two never both need it.
  */
-export function mergePlan(s, bundle, { schedule } = {}) {
+export function mergePlan(s, bundle, { schedule, asProgram, programName, programEmoji } = {}) {
   s.customEx = s.customEx || []
   const exIdMap = {}
   bundle.customEx.forEach(c => {
@@ -122,13 +126,25 @@ export function mergePlan(s, bundle, { schedule } = {}) {
       ex: (r.ex || []).map(e => ({ ...e, id: exIdMap[e.id] || e.id }))
     })
   })
-  if (schedule) {
+  let programId
+  if (asProgram) {
+    const week = {}
+    Object.entries(bundle.week || {}).forEach(([d, oldId]) => { if (ridMap[oldId]) week[d] = ridMap[oldId] })
+    const program = {
+      id: uid(), name: programName || bundle.name || t('New program'), emoji: programEmoji || 'sparkles',
+      routineIds: bundle.routines.map(r => ridMap[r.id]).filter(Boolean), week
+    }
+    s.programs = s.programs || []
+    s.programs.push(program)
+    s.activeProgramId = program.id
+    programId = program.id
+  } else if (schedule) {
     WEEK_ORDER.forEach(d => { delete s.week[d] })
     Object.entries(bundle.week || {}).forEach(([d, oldId]) => {
       if (ridMap[oldId]) s.week[d] = ridMap[oldId]
     })
   }
-  return { routines: bundle.routines.length }
+  return { routines: bundle.routines.length, programId }
 }
 
 /* ------------------------------- printable PDF ------------------------------- */

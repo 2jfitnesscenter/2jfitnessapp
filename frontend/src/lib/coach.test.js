@@ -326,12 +326,16 @@ describe('created plans', () => {
     expect(s.week[1]).toBe('r1')                            // schedule left alone
   })
 
-  it('replaces the week only when asked, and remaps to the new ids', () => {
+  it('builds and activates a program only when asked, remapped to the new ids', () => {
     const s = JSON.parse(JSON.stringify(state()))
     applyCreatedPlan(s, { id: 'p1', kind: 'create', bundle }, { schedule: true })
-    expect(s.week[1]).toBe(s.routines[2].id)
-    expect(s.week[3]).toBe(s.routines[3].id)
-    expect(s.week[5]).toBeUndefined()                       // a day the new plan leaves empty is rest
+    const program = s.programs.find(p => p.id === s.activeProgramId)
+    expect(program).toBeDefined()
+    expect(program.name).toBe('Coach plan')
+    expect(program.week[1]).toBe(s.routines[2].id)
+    expect(program.week[3]).toBe(s.routines[3].id)
+    expect(program.week[5]).toBeUndefined()                 // a day the new plan leaves empty is rest
+    expect(s.week[1]).toBe('r1')                            // the flat/fallback week is untouched
   })
 
   it('keeps the Coach\'s prose out of the routine data', () => {
@@ -342,12 +346,14 @@ describe('created plans', () => {
     expect(s.routines[2].ex[0].name).toBeUndefined()
   })
 
-  it('is revertible like any other change', () => {
+  it('is revertible like any other change, including the program it created', () => {
     const s = JSON.parse(JSON.stringify(state()))
     applyCreatedPlan(s, { id: 'p1', kind: 'create', bundle }, { schedule: true })
     revertLast(s)
     expect(s.routines).toHaveLength(2)
     expect(s.week[1]).toBe('r1')
+    expect(s.programs).toEqual([])
+    expect(s.activeProgramId).toBeNull()
   })
 
   it('brings custom exercises along and registers them', () => {
