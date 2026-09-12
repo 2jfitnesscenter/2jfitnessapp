@@ -32,6 +32,7 @@ import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements from './views/Measurements.jsx'
 import Recovery from './views/Recovery.jsx'
 import Admin from './views/Admin.jsx'
+import PhysicalProfileWizard from './views/PhysicalProfileWizard.jsx'
 import Coach from './views/Coach.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachProposal from './views/CoachProposal.jsx'
@@ -75,6 +76,12 @@ function Shell() {
   useWakeLock(!!S.active && S.keepAwake !== false)
 
   const authed = user || isGuest
+  // A genuinely brand-new profile only — one with no real data at all yet — sees the Physical
+  // Profile wizard once, right after registering, instead of Login.jsx's old single-sheet form.
+  // A profile that already has data (existing accounts from before this existed, or one restored
+  // from a backup) is never gated on it, even if `onboarded` itself was never set.
+  const hasPhysicalData = S.height || S.birthDate || S.workouts.length > 0
+  const needsOnboarding = !!user && !S.onboarded && !hasPhysicalData
   if (!ready && !authed) return (
     <div id="app">
       <div style={{ paddingTop: '44vh', display: 'flex', justifyContent: 'center', fontSize: 34, color: 'var(--label-3)' }}>
@@ -89,7 +96,7 @@ function Shell() {
           re-mounts the boundary, so the tab bar is always a way out */}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
-          {!authed ? <Login /> : (
+          {!authed ? <Login /> : needsOnboarding ? <PhysicalProfileWizard /> : (
             <Routes>
               <Route path="/home" element={<Home />} />
               <Route path="/plan" element={<Plan />} />
@@ -119,7 +126,10 @@ function Shell() {
           )}
         </ErrorBoundary>
       </div>
-      <TabBar onStart={startFlow} />
+      {/* Hidden during the Physical Profile wizard — a tab bar would just be a way to skip past
+          it without using its own "Skip for now" (which, unlike navigating away, marks
+          onboarded so the wizard doesn't reappear). */}
+      {!needsOnboarding && <TabBar onStart={startFlow} />}
       <RestTimer />
       <Modals />
       <Toast />

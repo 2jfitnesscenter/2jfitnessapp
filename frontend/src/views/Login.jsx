@@ -4,12 +4,10 @@ import { webauthnOK, passkeyLogin, passkeyRegister, passkeyRecover, api, BIO } f
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
-import { todayISO } from '../lib/format.js'
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon.jsx'
-import { Button, Segmented } from '../components/ui.jsx'
-import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
+import { Button } from '../components/ui.jsx'
 
 /* An admin-issued recovery link (?token=...) lands here instead of the normal sign-in/register
    choice — a member who lost their only device gets one screen with one job: register a new
@@ -41,32 +39,10 @@ function RecoverCard({ token }) {
 }
 
 function RegisterSheet({ close }) {
-  const { setUser, pushState, pullState, update } = useStore()
-  const S = useStore(s => s.S)
+  const { setUser, pushState, pullState } = useStore()
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
   const [inviteOnly, setInviteOnly] = useState(false)
-  // Basic profile — all optional, none of this can block account creation. Feeds the AI Coach
-  // (age/sex/height) and, for weight, becomes the first entry of the existing weigh-in history
-  // rather than a separate field (see go() below).
-  const [birthDate, setBirthDate] = useState('')
-  const [sex, setSex] = useState(S.body === 'female' ? 'female' : 'male')
-  const [height, setHeight] = useState('')
-  const [weight, setWeight] = useState('')
-  // What to prioritize — feeds the quick PPL plan (which routine gets the extra day) and the
-  // AI Coach (which gets more volume). A muscle can only be in one list at a time; picking it
-  // in the other removes it from here. Capped so "priority" stays meaningful rather than
-  // turning into "everything".
-  const [primary, setPrimary] = useState([])
-  const [secondary, setSecondary] = useState([])
-  const togglePrimary = m => {
-    setPrimary(v => v.includes(m) ? v.filter(x => x !== m) : v.length < 2 ? [...v, m] : v)
-    setSecondary(v => v.filter(x => x !== m))
-  }
-  const toggleSecondary = m => {
-    setSecondary(v => v.includes(m) ? v.filter(x => x !== m) : v.length < 3 ? [...v, m] : v)
-    setPrimary(v => v.filter(x => x !== m))
-  }
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
   useEffect(() => { api('/api/config').then(c => setInviteOnly(!!c.invite_only)).catch(() => {}) }, [])
@@ -77,24 +53,10 @@ function RegisterSheet({ close }) {
     try {
       const u = await passkeyRegister(n, code.trim())
       setUser(u)
-      const h = Math.round(Number(height))
-      const w = Math.round((Number(weight) || 0) * 10) / 10
-      if (birthDate || sex !== S.body || h > 0 || w > 0 || primary.length || secondary.length) {
-        update(s => {
-          s.body = sex
-          if (birthDate) s.birthDate = birthDate
-          if (h > 0) s.height = h
-          if (w > 0) {
-            const iso = todayISO()
-            const ex = s.bodyweight.find(b => b.d === iso)
-            if (ex) { ex.w = w; ex.t = Date.now() } else s.bodyweight.push({ d: iso, w, t: Date.now() })
-            s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
-          }
-          if (primary.length) s.priorityMuscles = primary
-          if (secondary.length) s.secondaryMuscles = secondary
-        })
-      }
       close()
+      // Basic profile (sex/age/height/starting weight/priorities) is asked right after this, in
+      // App.jsx's Shell — the "Physical Profile" wizard — rather than crammed into this same
+      // sheet before the passkey even exists.
       if (hasData(useStore.getState().S)) { await pushState(); useUI.getState().toast(t('Profile created — data from this device moved into it')) }
       else { await pullState(); useUI.getState().toast(t('Welcome, {0}', u.name)) }
     } catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Registration failed')) }
@@ -109,37 +71,6 @@ function RegisterSheet({ close }) {
         onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
       <div className="dim small" style={{ marginTop: 6 }}>{t('This app is invite-only — enter the code you were given.')}</div>
     </>}
-
-    <div className="divider" />
-    <div className="dim small" style={{ marginBottom: 10 }}>{t('Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.')}</div>
-    <div className="dim small" style={{ marginBottom: 4 }}>{t('Date of birth')}</div>
-    <input type="date" className="input" value={birthDate} max={todayISO()} onChange={e => setBirthDate(e.target.value)} />
-    <div style={{ height: 10 }} />
-    <div className="dim small" style={{ marginBottom: 4 }}>{t('Sex')}</div>
-    <Segmented options={[{ value: 'male', label: t('Male') }, { value: 'female', label: t('Female') }]} value={sex} onChange={setSex} />
-    <div style={{ height: 10 }} />
-    <div className="grid2">
-      <div>
-        <div className="dim small" style={{ marginBottom: 4 }}>{t('Height (cm)')}</div>
-        <input type="number" inputMode="decimal" className="input" placeholder="175" min="0" max="250" value={height} onChange={e => setHeight(e.target.value)} />
-      </div>
-      <div>
-        <div className="dim small" style={{ marginBottom: 4 }}>{t('Starting weight ({0})', S.unit)}</div>
-        <input type="number" inputMode="decimal" className="input" placeholder="78" min="0" max="400" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} />
-      </div>
-    </div>
-
-    <div style={{ height: 14 }} />
-    <div className="dim small" style={{ marginBottom: 4 }}>{t('What do you want to prioritize? (up to 2)')}</div>
-    <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
-      {MUSCLES.map(m => <button key={m} className={'chip' + (primary.includes(m) ? ' on' : '')} onClick={() => togglePrimary(m)}>{t(MUSCLE_LABEL[m])}</button>)}
-    </div>
-    <div style={{ height: 10 }} />
-    <div className="dim small" style={{ marginBottom: 4 }}>{t('Anything else? (up to 3)')}</div>
-    <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
-      {MUSCLES.map(m => <button key={m} className={'chip' + (secondary.includes(m) ? ' on' : '')} disabled={primary.includes(m)} onClick={() => toggleSecondary(m)} style={primary.includes(m) ? { opacity: .35 } : undefined}>{t(MUSCLE_LABEL[m])}</button>)}
-    </div>
-
     <div style={{ height: 12 }} />
     <Button variant="primary" onClick={go}>{t('Create passkey')}</Button>
   </>

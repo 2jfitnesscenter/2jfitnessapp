@@ -14,6 +14,11 @@ export const DEF = {
   // Basic profile, collected (optionally) at registration and editable later in Settings.
   // birthDate is the ISO date, not a stored age — age is derived from it wherever it is needed.
   birthDate: null, height: null,
+  // Has this profile been through the post-registration "Physical Profile" wizard (App.jsx's
+  // Shell)? A profile that already has real data (from before the wizard existed, or restored
+  // from a backup) is treated as onboarded too — see hasPhysicalData in App.jsx — so this only
+  // ever gates a genuinely brand-new profile.
+  onboarded: false,
   // Programs are a named folder of routine ids (e.g. a whole "Project Kakarrot" split), never a
   // copy of the routine data itself. A routine not listed in any program's `routineIds` is just
   // shown loose. A program can also carry its own weekday->routineId map (`week`, same shape as

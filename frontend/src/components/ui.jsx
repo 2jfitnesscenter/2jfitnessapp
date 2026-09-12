@@ -211,6 +211,84 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, classNam
   )
 }
 
+/* ============================ ruler slider ============================ */
+
+// A horizontal tape that scrolls under a fixed center mark, instead of a fixed-width track with
+// a moving knob — the "Physical Profile" wizard's weight/height picker. Opposite math from
+// Slider above: value = value_at_drag_start - dx_dragged / pxPerUnit, not "position within a
+// fixed rect". The tape renders the whole min..max range at once (a few hundred ticks at most
+// for the ranges this is used for — height/weight — so no windowing needed) anchored at the
+// viewport's own center via `left: 50%`, then shifted by exactly enough that the tick at `value`
+// lands on that center — no DOM measurement required.
+export function RulerSlider({ value, min, max, step = 1, minorEvery = 1, majorEvery = 10, pxPerUnit = 10, unit, decimals = 0, onChange, className = '' }) {
+  const [drag, setDrag] = useState(false)
+  const startRef = useRef({ x: 0, value })
+
+  const clamp = v => Math.min(max, Math.max(min, v))
+  const round = v => Math.round(v / step) * step
+
+  useEffect(() => {
+    if (!drag) return
+    const move = e => {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX
+      const dx = clientX - startRef.current.x
+      onChange(clamp(round(startRef.current.value - dx / pxPerUnit)))
+    }
+    const up = () => setDrag(false)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [drag, pxPerUnit, step, min, max, onChange])
+
+  const key = e => {
+    const d = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? step
+      : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -step : 0
+    if (!d) return
+    e.preventDefault()
+    onChange(clamp(round(value + d)))
+  }
+
+  const ticks = []
+  for (let v = min; v <= max + 1e-6; v += minorEvery) ticks.push(Math.round(v * 1000) / 1000)
+
+  return (
+    <div className={'ruler ' + className}>
+      <div className="ruler-read">
+        {value.toFixed(decimals)}{unit && <span className="ruler-unit"> {unit}</span>}
+      </div>
+      <div
+        className="ruler-viewport"
+        role="slider" tabIndex={0}
+        aria-valuenow={value} aria-valuemin={min} aria-valuemax={max}
+        data-nodrag
+        onKeyDown={key}
+        style={{ touchAction: 'none' }}
+        onPointerDown={e => { e.currentTarget.setPointerCapture?.(e.pointerId); startRef.current = { x: e.clientX, value }; setDrag(true) }}
+      >
+        <div className="ruler-tape" style={{
+          transform: `translateX(${-(value - min) * pxPerUnit}px)`,
+          transition: drag ? 'none' : 'transform .15s ease'
+        }}>
+          {ticks.map(v => {
+            const isMajor = Math.abs(Math.round(v / majorEvery) * majorEvery - v) < 1e-6
+            return (
+              <div key={v} className={'ruler-tick' + (isMajor ? ' major' : '')} style={{ left: (v - min) * pxPerUnit }}>
+                {isMajor && <span className="ruler-tick-num">{Math.round(v)}</span>}
+              </div>
+            )
+          })}
+        </div>
+        <div className="ruler-center" />
+      </div>
+    </div>
+  )
+}
+
 /* ============================ checkbox ============================ */
 
 export function Check({ checked, onChange, className = '', size }) {
