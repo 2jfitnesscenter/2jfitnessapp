@@ -6,12 +6,12 @@
 // (see Workout.jsx's BARBELL_EQ) — an EZ bar, Smith machine or trap bar all load plates too, but
 // none of them has an unambiguous standard bar weight, so this stays out of scope for those.
 const BAR_WEIGHT = { kg: 20, lb: 45 }
-// Colours follow the common competition plate code (25 red / 20 blue / 15 yellow / 10 green /
-// 5 white / 2.5 black / 1.25 chrome) so a lifter recognises a plate by colour, not just size.
+// Matches the actual plate set at the gym — 2.5/5/10/15/20/25kg, no 1.25s. Colours follow the
+// common competition plate code (25 red / 20 blue / 15 yellow / 10 green / 5 white / 2.5 black)
+// so a lifter recognises a plate by colour, not just size.
 const KG_PLATES = [
   { w: 25, color: '#e5484d' }, { w: 20, color: '#3b82f6' }, { w: 15, color: '#eab308' },
   { w: 10, color: '#22c55e' }, { w: 5, color: '#f4f4f5' }, { w: 2.5, color: '#18181b' },
-  { w: 1.25, color: '#a1a1aa' },
 ]
 const LB_PLATES = [
   { w: 45, color: '#3b82f6' }, { w: 35, color: '#eab308' }, { w: 25, color: '#22c55e' },
