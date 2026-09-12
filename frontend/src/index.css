@@ -605,13 +605,17 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
    (.cfgrow below) — RIR's own value is short ("1.5") so its buttons shrink the most, weight/reps
    just enough to make room since their values ("82.5", "12") need more of what's left.
    The header shares the numbers so its labels stay centred over the steppers they name. */
-.setrow.eff3,.sethead.eff3{gap:6px}
+.setrow.eff3,.sethead.eff3{gap:5px}
 .setrow.eff3 .stp.w,.sethead.eff3 .w-sp{flex:1.2}
 .setrow.eff3 .stp.r,.sethead.eff3 .r-sp{flex:1}
 .setrow.eff3 .stp.eff,.sethead.eff3 .eff-sp{flex:.85}
 .setrow.eff3 .stp button{width:23px}
 .setrow.eff3 .stp.eff button{width:20px}
 .setrow.eff3 .stp .num{font-size:14px}
+/* the plate button is a 4th thing competing for the same row once effort tracking is also on —
+   shrink it the same way the RIR/RPE stepper already shrinks, or its value clips (issue: barbell
+   plate calculator felt cramped next to RPE) */
+.setrow.eff3 .platesbtn{width:22px;height:22px;font-size:11px}
 .setrow.done .n{background:var(--acc);color:var(--on-acc)}
 .setrow.done{opacity:.45}
 /* why the next target is what it is (issue #17) */
