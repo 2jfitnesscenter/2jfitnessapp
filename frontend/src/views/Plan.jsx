@@ -5,7 +5,7 @@ import { uid, exCount, routineCount } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { loadStarterPlan, planToolsSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button, Segmented } from '../components/ui.jsx'
+import { Button } from '../components/ui.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
 import { coachAvailable } from '../lib/coach.js'
 import { DEMO } from '../lib/demo.js'
@@ -43,7 +43,15 @@ export default function Plan() {
       {coachOn && <button className="iconbtn" onClick={() => nav('/coach')} aria-label={t('Coach')} title={t('Coach')}><Icon name="sparkles" /></button>}
       <button className="iconbtn" onClick={planToolsSheet} aria-label={t('Share your plan')} title={t('Share your plan')}><Icon name="upload" /></button>
     </div>
-    <Segmented options={[{ value: 'programs', label: t('Programs') }, { value: 'routines', label: t('Routines') }, { value: 'library', label: t('Exercises') }]} value={tab} onChange={setTab} />
+    <div className="ptabs">
+      {[{ value: 'programs', icon: 'calendar', label: t('Programs') },
+        { value: 'routines', icon: 'clipboard', label: t('Routines') },
+        { value: 'library', icon: 'exercises', label: t('Exercises') }].map(o => (
+        <button key={o.value} className={'ptab' + (tab === o.value ? ' on' : '')} onClick={() => setTab(o.value)}>
+          <span className="ptab-i"><Icon name={o.icon} /></span>{o.label}
+        </button>
+      ))}
+    </div>
     <div style={{ height: 14 }} />
 
     {tab === 'programs' ? <>
