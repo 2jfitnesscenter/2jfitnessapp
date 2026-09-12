@@ -37,6 +37,11 @@ export const DEF = {
   // Remove "and don't recommend"). Per-profile, unlike the gym-wide admin blacklist in
   // lib/exercises.js — see allExercises() for where this is actually enforced.
   excludedEx: [],
+  // Standalone tests logged outside a workout (Actions → "Start a test session"): 1RM attempts,
+  // VAM 6' runs, ergometer time trials. One flat array covers all three types — see lib/onerm.js
+  // for the shape and the helpers that read a 1RM back out per exercise (also what a routine's
+  // 'pct1rm' progression policy reads from).
+  tests: [],
   // effort: which per-set effort scale is logged — 'none' | 'rir' | 'rpe'. null, not 'none', so
   // that a profile which never chose (loaded state is overlaid on DEF, on every path: local,
   // server pull, backup import) still falls back to the `showRir` boolean this replaced and

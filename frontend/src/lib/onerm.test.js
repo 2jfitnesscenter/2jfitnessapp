@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { estimate1RM, bestSetOf, e1rmSeries, best1RM, is1RMRecord, REP_CAP, FORMULAS } from './onerm.js'
+import { estimate1RM, bestSetOf, e1rmSeries, best1RM, is1RMRecord, REP_CAP, FORMULAS, oneRMTests, bestTestedOneRM, pctForReps } from './onerm.js'
 
 describe('estimate1RM', () => {
   it('returns the load unchanged for a single rep', () => {
@@ -144,5 +144,50 @@ describe('is1RMRecord', () => {
   it('says nothing for a timed or unfinished entry', () => {
     expect(is1RMRecord(S, 'plank', { id: 'plank', sets: [{ sec: 90, done: true }] })).toBeNull()
     expect(is1RMRecord(S, 'bench', { id: 'bench', sets: [{ w: 200, r: 5, done: false }] })).toBeNull()
+  })
+})
+
+describe('oneRMTests / bestTestedOneRM', () => {
+  const St = { tests: [
+    { id: 't1', type: '1rm', exId: 'bench', d: '2026-01-01', w: 100, r: 1, est1RM: 100 },
+    { id: 't2', type: '1rm', exId: 'bench', d: '2026-01-15', w: 90, r: 5, est1RM: 105 },
+    { id: 't3', type: '1rm', exId: 'squat', d: '2026-01-10', w: 140, r: 1, est1RM: 140 },
+    { id: 't4', type: 'vam', exId: null, d: '2026-01-05', avgSpeed: 14 },
+  ] }
+
+  it('lists only the 1RM tests for that exercise, most recent first', () => {
+    expect(oneRMTests(St, 'bench').map(t => t.id)).toEqual(['t2', 't1'])
+    expect(oneRMTests(St, 'squat').map(t => t.id)).toEqual(['t3'])
+    expect(oneRMTests(St, 'deadlift')).toEqual([])
+  })
+
+  it('picks the highest estimate on record, not the most recent', () => {
+    expect(bestTestedOneRM(St, 'bench').id).toBe('t2')
+  })
+
+  it('is null with no test on file for that exercise', () => {
+    expect(bestTestedOneRM(St, 'deadlift')).toBeNull()
+    expect(bestTestedOneRM({ tests: [] }, 'bench')).toBeNull()
+  })
+})
+
+describe('pctForReps', () => {
+  it('matches the table exactly at its known points', () => {
+    expect(pctForReps(1, 0)).toBe(1)
+    expect(pctForReps(5, 0)).toBe(.87)
+    expect(pctForReps(12, 0)).toBe(.7)
+  })
+
+  it('interpolates between two known points', () => {
+    expect(pctForReps(2.5, 0)).toBeCloseTo(.935, 5)   // halfway between 2=95% and 3=92%
+  })
+
+  it('folds RIR in as extra effective reps — the same weight prescribed easier reads as fewer reps', () => {
+    expect(pctForReps(5, 2)).toBe(pctForReps(7, 0))
+    expect(pctForReps(3, 0)).toBeGreaterThan(pctForReps(3, 2))
+  })
+
+  it('never goes below the table\'s floor for very high effective reps', () => {
+    expect(pctForReps(20, 5)).toBe(.7)
   })
 })

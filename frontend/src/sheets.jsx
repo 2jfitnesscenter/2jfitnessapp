@@ -18,7 +18,7 @@ import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts } from './lib/muscles.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
-import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
+import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
@@ -363,6 +363,26 @@ export const goalSheet = () => ui().openSheet(close => <GoalSheet close={close} 
 /* ============================ exercise detail ============================ */
 // Estimated 1RM for one exercise (issue #18): what the log already implies, plus a calculator
 // for a set you have not done — so the number is reachable before there is any history.
+// The 1RM from a deliberate test (Actions → "Start a test session"), not an estimate off
+// whatever happened to come up in a logged set — see lib/onerm.js's oneRMTests/bestTestedOneRM,
+// and lib/progression.js's 'pct1rm' policy, which reads this same number to prescribe weight.
+function TestedOneRM({ ex }) {
+  const st = useStore(s => s.S)
+  const tests = oneRMTests(st, ex.id)
+  if (!tests.length) return null
+  const best = bestTestedOneRM(st, ex.id)
+  return <>
+    <h4 className="sec">{t('Your tested 1RM')}</h4>
+    <div className="small" style={{ marginBottom: 8 }}>
+      <b className="accent">{fmtNum(best.est1RM)} {st.unit}</b>
+      <span className="dim"> · {t('{0} × {1} on {2}', fmtNum(best.w) + ' ' + st.unit, best.r, fmtDate(best.d, true))}</span>
+    </div>
+    {tests.length > 1 && <div className="small dim" style={{ marginBottom: 10 }}>
+      {tests.slice(0, 5).map(x => `${fmtNum(x.est1RM)} ${st.unit} (${fmtDate(x.d, true)})`).join(' · ')}
+    </div>}
+  </>
+}
+
 function OneRM({ ex }) {
   const st = useStore(s => s.S)
   const best = best1RM(st, ex.id)
@@ -419,6 +439,7 @@ function ExerciseDetail({ ex, close }) {
       <Button icon="pencil" style={{ flex: 1 }} onClick={() => { close(); customExSheet(ex) }}>{t('Edit')}</Button>
       <Button variant="danger" icon="trash" style={{ flex: 1 }} onClick={() => deleteCustomEx(ex, close)}>{t('Delete')}</Button>
     </div>}
+    {!isCardio(ex) && <TestedOneRM ex={ex} />}
     {!isCardio(ex) && <OneRM ex={ex} />}
     {instrFor(ex).length > 0 &&<><h4 className="sec">{t('How to')}{!INSTR_LANGS.includes(getLang()) && <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}> · {t('instructions in English')}</span>}</h4><ol className="steps-list">{instrFor(ex).map((s, i) => <li key={i}>{s}</li>)}</ol></>}
   </>
