@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
-import { DAYN, uid, exCount, routineCount } from '../lib/format.js'
+import { uid, exCount, routineCount } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { dayAssignSheet, loadStarterPlan, planToolsSheet } from '../sheets.jsx'
+import { loadStarterPlan, planToolsSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
@@ -75,16 +75,5 @@ export default function Plan() {
         <Button icon="sparkles" onClick={loadStarterPlan}>{t('Load starter plan (Push / Pull / Legs)')}</Button>
       </>}
     </> : <Library />}
-
-    <h4 className="sec" style={{ marginTop: 22 }}>{t('Week schedule')}</h4>
-    <div className="list" style={{ display: 'flex', flexDirection: 'column' }}>
-      {[1, 2, 3, 4, 5, 6, 0].map(d => {
-        const r = S.routines.find(x => x.id === S.week[d])
-        return <div key={d} className="item" onClick={() => dayAssignSheet(d)}>
-          <div className="grow"><div className="tt">{t(DAYN[d])}</div></div>
-          {r ? <span className="tag acc"><Icon name={glyphOf(r.emoji)} />{r.name}</span> : <span className="tag">{t('Rest')}</span>}
-          <Icon name="chevronRight" className="chev" /></div>
-      })}
-    </div>
   </>
 }

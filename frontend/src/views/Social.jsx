@@ -271,8 +271,8 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
   const [busy, setBusy] = useState(false)
   const customMap = Object.fromEntries((post.customExDefs || []).map(d => [d.id, d]))
   const resolveEx = id => customMap[id] || exOr(id)
-  const isOwn = post.authorId === user.id
-  const canManage = isOwn || user.admin
+  const isOwn = post.authorId === user?.id
+  const canManage = isOwn || user?.admin
 
   const rate = stars => {
     rateSocialRoutine(post.id, stars)
@@ -319,7 +319,7 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
       })}
     </div>
     <Button variant="primary" style={{ width: '100%', marginBottom: 8 }} onClick={copy}>{t('Copy to my routines')}</Button>
-    {user.trainer && isOwn && post.authorKind === 'trainer' &&
+    {user?.trainer && isOwn && post.authorKind === 'trainer' &&
       <Button style={{ width: '100%', marginBottom: 8 }} disabled={busy} onClick={assign}>{t('Assign to a member')}</Button>}
     {canManage && <button className="btn danger" style={{ width: '100%' }} onClick={del}>{t('Delete')}</button>}
   </>
@@ -333,8 +333,8 @@ function ProgramDetailSheet({ post: initial, onChanged, close }) {
   const openSheet = useUI(s => s.openSheet)
   const [post, setPost] = useState(initial)
   const [busy, setBusy] = useState(false)
-  const isOwn = post.authorId === user.id
-  const canManage = isOwn || user.admin
+  const isOwn = post.authorId === user?.id
+  const canManage = isOwn || user?.admin
 
   const rate = stars => {
     rateSocialProgram(post.id, stars)
@@ -388,7 +388,7 @@ function ProgramDetailSheet({ post: initial, onChanged, close }) {
       </div>)}
     </div>
     <Button variant="primary" style={{ width: '100%', marginBottom: 8 }} onClick={copy}>{t('Copy to my programs')}</Button>
-    {user.trainer && isOwn && post.authorKind === 'trainer' &&
+    {user?.trainer && isOwn && post.authorKind === 'trainer' &&
       <Button style={{ width: '100%', marginBottom: 8 }} disabled={busy} onClick={assign}>{t('Assign to a member')}</Button>}
     {canManage && <button className="btn danger" style={{ width: '100%' }} onClick={del}>{t('Delete')}</button>}
   </>
@@ -456,7 +456,7 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
           <div className="small capitalize" style={{ fontWeight: 600 }}>{c.authorName}</div>
           <div className="small">{c.text}</div>
         </div>
-        {(c.authorId === user.id || user.admin) &&
+        {(c.authorId === user?.id || user?.admin) &&
           <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
       </div>)}
       {!(post.comments || []).length && <div className="muted small" style={{ padding: '6px 2px' }}>{t('No comments yet.')}</div>}
@@ -466,7 +466,7 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
         onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') send() }} />
       <Button variant="primary" style={{ flex: 'none' }} disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>
     </div>
-    {(post.authorId === user.id || user.admin) && <>
+    {(post.authorId === user?.id || user?.admin) && <>
       <div style={{ height: 10 }} />
       <button className="btn danger" style={{ width: '100%' }} onClick={delPost}>{t('Delete post')}</button>
     </>}
@@ -557,7 +557,7 @@ export default function Social() {
     {tab === 'trainers' && <>
       <div className="row between" style={{ marginBottom: 10 }}>
         <h4 className="sec" style={{ margin: 0 }}>{t('Trainers')}</h4>
-        {user.trainer && <Button size="sm" variant="tinted" icon="upload" onClick={publish}>{t('Publish')}</Button>}
+        {user?.trainer && <Button size="sm" variant="tinted" icon="upload" onClick={publish}>{t('Publish')}</Button>}
       </div>
       {trainerFeed === null ? <div className="muted small">{t('Loading…')}</div> :
         trainerFeed.length ? <div className="list">{trainerFeed.map(p => p.kind === 'program'
