@@ -3,9 +3,10 @@
  * once by the instance owner; each member who connects authorizes that same app to their own
  * individual Whoop account.
  *
- * NOTE: Whoop's exact endpoint paths/scopes below are per their documentation at the time this
- * was written — verify against https://developer.whoop.com/docs before relying on this in
- * production, since third-party API surfaces do move (Whoop has revised its API version before).
+ * URLs/scopes verified 2026-09-12 against Whoop's own OAuth docs. `offline` is required to
+ * receive a refresh token — without it Whoop only issues a short-lived access token. The
+ * redirect_uri (built from ORIGIN in routes.js) must be registered byte-for-byte in the Whoop
+ * Developer Dashboard for the app, or the authorize step will fail.
  */
 import * as cfg from './config.js';
 
