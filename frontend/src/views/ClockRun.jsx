@@ -191,13 +191,14 @@ function ModeAmrap() {
 const PIP_COLORS = { gray: '#8e8e93', ...ACCENTS }
 function ModeEmom() {
   const [roundMin, setRoundMin] = useState(1)
+  const [roundSecPart, setRoundSecPart] = useState(0)
   const [rounds, setRounds] = useState(10)
   const [colorA, setColorA] = useState('gray')
   const [colorB, setColorB] = useState('lime')
   const [started, setStarted] = useState(false)
   const [finished, setFinished] = useState(false)
   const [round, setRound] = useState(1)
-  const roundSec = roundMin * 60
+  const roundSec = Math.max(1, roundMin * 60 + roundSecPart)
   const c = useCountdown(roundSec, { onDone: () => { if (round >= rounds) setFinished(true); else setRound(r => r + 1) } })
   useEffect(() => { if (started && !finished) c.start() }, [round])
   const start = () => { setFinished(false); setRound(1); setStarted(true); c.start() }
@@ -206,6 +207,7 @@ function ModeEmom() {
     {!started && <div className="card" style={{ marginBottom: 14 }}>
       <div className="row cfgrow" style={{ marginBottom: 14 }}>
         <Stepper label={t('Minutes per round')} value={roundMin} step={1} decimal={false} onChange={setRoundMin} />
+        <Stepper label={t('Seconds')} value={roundSecPart} step={5} decimal={false} onChange={v => setRoundSecPart(Math.max(0, Math.min(59, v)))} />
         <Stepper label={t('Rounds')} value={rounds} step={1} decimal={false} onChange={setRounds} />
       </div>
       <div className="small dim" style={{ marginBottom: 8 }}>{t('Round colors (optional)')}</div>
