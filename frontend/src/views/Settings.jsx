@@ -120,6 +120,10 @@ export default function Settings() {
       <Row icon="bell" iconTint="var(--pink)" title={t('Sounds')}>
         <Switch checked={!!S.sound} onChange={v => update(s => { s.sound = v })} />
       </Row>
+      <Row icon="flame" iconTint="var(--orange)" title={t('Warmup sets')}
+        subtitle={t('Suggest warmup sets before your working sets.')}>
+        <Switch checked={S.warmupEnabled !== false} onChange={v => update(s => { s.warmupEnabled = v })} />
+      </Row>
       {/* Two names for the same judgement, so the column asks in the scale you already think in.
           The (i) sits before the control — you read it on the way to the choice, not after it. */}
       <Row icon="target" iconTint="var(--purple)" title={t('Effort per set')}>

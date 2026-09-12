@@ -267,7 +267,9 @@ describe('exLine', () => {
   })
 })
 
-const emptyS = { workouts: [], exWeights: {} }
+// warmupEnabled: false throughout — these cases are about the working-set shape itself,
+// not the ramp-up; warmup generation gets its own describe block below.
+const emptyS = { workouts: [], exWeights: {}, warmupEnabled: false }
 
 describe('buildSets', () => {
   it('builds reps sets from the plan when there is no history', () => {
@@ -286,26 +288,64 @@ describe('buildSets', () => {
   })
 
   it('carries last time\'s numbers forward within the same mode', () => {
-    const S = { exWeights: {}, workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, target: { mode: 'time' }, sets: [{ sec: 70, w: 10, done: true }] }] }] }
+    const S = { exWeights: {}, warmupEnabled: false, workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, target: { mode: 'time' }, sets: [{ sec: 70, w: 10, done: true }] }] }] }
     expect(buildSets(S, { id: LIFT, mode: 'time', sets: 2, sec: 45, weight: 0 }))
       .toEqual([{ sec: 70, w: 10, done: false }, { sec: 70, w: 10, done: false }])
   })
 
   it('does not seed a duration from a rep count when an exercise switches to time', () => {
-    const S = { exWeights: {}, workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, sets: [{ w: 60, r: 10, done: true }] }] }] }
+    const S = { exWeights: {}, warmupEnabled: false, workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, sets: [{ w: 60, r: 10, done: true }] }] }] }
     expect(buildSets(S, { id: LIFT, mode: 'time', sets: 1, sec: 45, weight: 0 }))
       .toEqual([{ sec: 45, w: 0, done: false }])
   })
 
   it('does not seed reps from a timed set when an exercise switches back', () => {
-    const S = { exWeights: {}, workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, target: { mode: 'time' }, sets: [{ sec: 70, w: 10, done: true }] }] }] }
+    const S = { exWeights: {}, warmupEnabled: false, workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, target: { mode: 'time' }, sets: [{ sec: 70, w: 10, done: true }] }] }] }
     expect(buildSets(S, { id: LIFT, mode: 'reps', sets: 1, reps: 8, weight: 40 }))
       .toEqual([{ w: 40, r: 8, done: false }])
   })
 
   it('still prefers the confirmed working weight for reps sets', () => {
-    const S = { exWeights: { [LIFT]: { w: 75 } }, workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, sets: [{ w: 60, r: 10, done: true }] }] }] }
+    const S = { exWeights: { [LIFT]: { w: 75 } }, warmupEnabled: false, workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, sets: [{ w: 60, r: 10, done: true }] }] }] }
     expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 50 })).toEqual([{ w: 75, r: 10, done: false }])
+  })
+})
+
+describe('buildSets warmup generation', () => {
+  it('prepends two ramp-up sets ahead of a real working weight, rounded to the nearest half-plate', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: true, unit: 'kg' }
+    expect(buildSets(S, { id: LIFT, sets: 2, reps: 8, weight: 61 })).toEqual([
+      { w: 30, r: 8, done: false, type: 'warmup' },
+      { w: 45, r: 5, done: false, type: 'warmup' },
+      { w: 61, r: 8, done: false }, { w: 61, r: 8, done: false },
+    ])
+  })
+
+  it('rounds to the nearest 5lb when the profile logs in pounds', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: true, unit: 'lb' }
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 100 })).toEqual([
+      { w: 50, r: 8, done: false, type: 'warmup' },
+      { w: 75, r: 5, done: false, type: 'warmup' },
+      { w: 100, r: 8, done: false },
+    ])
+  })
+
+  it('suggests no warmups for a brand-new exercise with no working weight yet', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: true, unit: 'kg' }
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 0 })).toEqual([{ w: 0, r: 8, done: false }])
+  })
+
+  it('is off entirely once the profile turns warmups off in settings', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: false, unit: 'kg' }
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 60 })).toEqual([{ w: 60, r: 8, done: false }])
+  })
+
+  it('never warms up a timed or cardio exercise', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: true, unit: 'kg' }
+    expect(buildSets(S, { id: LIFT, mode: 'time', sets: 1, sec: 45, weight: 60 }))
+      .toEqual([{ sec: 45, w: 60, done: false }])
+    expect(buildSets(S, { id: CARDIO, sets: 1, min: 20, speed: 8 }))
+      .toEqual([{ min: 20, speed: 8, done: false }])
   })
 })
 

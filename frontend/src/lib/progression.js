@@ -234,7 +234,9 @@ export function nextPrescription(S, cfg, routine) {
 export function applyPrescription(sets, p) {
   if (!p || p.kind === 'off' || p.kind === 'first') return sets
   return sets.map(s => {
-    if (s.done) return s
+    // A warmup's weight is deliberately lighter than the working prescription — it must not
+    // get overwritten with the same number the policy chose for the straight sets around it.
+    if (s.done || s.type === 'warmup') return s
     const out = { ...s }
     if (p.weight != null) out.w = p.weight
     if (p.reps != null) out.r = p.reps

@@ -11,6 +11,7 @@ import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
 import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
+import BarbellPlates from '../components/BarbellPlates.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
@@ -58,6 +59,9 @@ function Elapsed({ start }) {
 // reference strength app numbers a session: 1, W, F, D, 2, not 1, 2, 3, 4, 5).
 const TYPE_LETTER = { warmup: 'W', failure: 'F', drop: 'D' }
 const TYPE_COLOR = { warmup: 'var(--orange)', failure: 'var(--red)', drop: 'var(--blue)' }
+// The only equipment values with an unambiguous standard bar weight (20kg/45lb) to calculate
+// plates against — see BarbellPlates.jsx for why an EZ bar, Smith machine or trap bar don't count.
+const BARBELL_EQ = ['barbell', 'olympic barbell']
 const setBadge = (sets, i) => {
   if (TYPE_LETTER[sets[i].type]) return TYPE_LETTER[sets[i].type]
   let n = 0
@@ -93,6 +97,14 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
   const kind = effortOf(S)
   const eff = EFFORT[kind]
   const col3 = mode === 'reps' && eff ? { ...eff, eff: kind, dec: true, opt: true, hd: t(eff.hd) } : null
+  // A plate diagram only means anything on a real straight bar with a real load — never on a
+  // warmup set (asked for by name: only the effective sets get one) and never on a cardio hold.
+  const barbellEq = BARBELL_EQ.includes(ex.eq)
+  const showPlates = s => !cardio && barbellEq && s.type !== 'warmup' && s.w > 0
+  // Collapsible per exercise, not global — reset whenever the visible exercise changes so a
+  // hidden warmup block from the last one doesn't silently carry over to this one.
+  const [hideWarmup, setHideWarmup] = useState(false)
+  useEffect(() => { setHideWarmup(false) }, [entryIdx])
   // The effort column walks its own scale — see stepEffort. Weight and reps step up from 0
   // with no ceiling, as they always did.
   const bump = (s, i, col, dir) => {
@@ -129,19 +141,41 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
     </div>}
     <div className="card" style={{ marginTop: 10, marginBottom: 0 }}>
       {/* the header carries the same eff3 sizing as the rows, or the labels drift off their columns */}
-      <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{col3 && <span className="eff-sp">{col3.hd}</span>}{timed && <span className="ck-sp" />}<span className="ck-sp" /></div>
-      {entry.sets.map((s, i) => <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '')}>
-        <button className="n" aria-label={t('Set type')} style={s.type ? { background: TYPE_COLOR[s.type], color: '#fff' } : undefined}
-          onClick={() => onSetType(i)}>{setBadge(entry.sets, i)}</button>
-        {cell(s, i, col1, 'w')}
-        {cell(s, i, col2, 'r')}
-        {col3 && cell(s, i, col3, 'eff')}
-        {/* A timed set is started, not typed: the timer counts the hold down and checks the
-            set off itself. The checkbox stays for anyone who timed it on their own watch. */}
-        {timed && <button className="setgo" aria-label={t('Start set')} disabled={s.done || !!working}
-          onClick={() => onStartTimed(i)}><Icon name="play" /></button>}
-        <Check checked={s.done} onChange={() => onToggle(i)} />
-      </div>)}
+      {(() => {
+        const sethead = <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{col3 && <span className="eff-sp">{col3.hd}</span>}{timed && <span className="ck-sp" />}<span className="ck-sp" /></div>
+        const row = (s, i) => <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '')}>
+          <button className="n" aria-label={t('Set type')} style={s.type ? { background: TYPE_COLOR[s.type], color: '#fff' } : undefined}
+            onClick={() => onSetType(i)}>{setBadge(entry.sets, i)}</button>
+          {cell(s, i, col1, 'w')}
+          {cell(s, i, col2, 'r')}
+          {col3 && cell(s, i, col3, 'eff')}
+          {showPlates(s) && <BarbellPlates weight={s.w} unit={S.unit} />}
+          {/* A timed set is started, not typed: the timer counts the hold down and checks the
+              set off itself. The checkbox stays for anyone who timed it on their own watch. */}
+          {timed && <button className="setgo" aria-label={t('Start set')} disabled={s.done || !!working}
+            onClick={() => onStartTimed(i)}><Icon name="play" /></button>}
+          <Check checked={s.done} onChange={() => onToggle(i)} />
+        </div>
+        // Only split into two labelled blocks when there's actually a warmup to separate out —
+        // an exercise with none (warmups off, or no working weight to ramp up to yet) keeps the
+        // single plain list it always had, so nothing changes for the common case.
+        const warmupIdx = []
+        const workIdx = []
+        entry.sets.forEach((s, i) => (s.type === 'warmup' ? warmupIdx : workIdx).push(i))
+        if (!warmupIdx.length) return <>{sethead}{entry.sets.map((s, i) => row(s, i))}</>
+        return <>
+          <div className="setgroup-hd">
+            <span className="setgroup-title">{t('Warmup sets')}</span>
+            <button className="setgroup-toggle" onClick={() => setHideWarmup(h => !h)}>
+              {hideWarmup ? t('Show') : t('Hide')}<Icon name={hideWarmup ? 'chevronDown' : 'chevronUp'} />
+            </button>
+          </div>
+          {!hideWarmup && <>{sethead}{warmupIdx.map(i => row(entry.sets[i], i))}</>}
+          <div className="setgroup-hd" style={{ marginTop: 10 }}><span className="setgroup-title">{t('Working sets')}</span></div>
+          {sethead}
+          {workIdx.map(i => row(entry.sets[i], i))}
+        </>
+      })()}
       <div style={{ height: 8 }} />
       <div className="row">
         <Button size="sm" icon="minus" disabled={entry.sets.length <= 1} onClick={onRemoveSet}>{t('Remove set')}</Button>

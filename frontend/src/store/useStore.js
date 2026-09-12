@@ -7,7 +7,7 @@ import { MOBILE, nativeLoad, nativeSave, syncReminder } from '../lib/mobile.js'
 
 const KEY = 'gym_state_v1'
 export const DEF = {
-  unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'es',
+  unit: 'kg', restSec: 90, sound: true, keepAwake: true, warmupEnabled: true, lang: 'es',
   // 'system' follows the device's own light/dark setting until the user picks one explicitly
   // in Settings — see App.jsx's applyPrefs().
   theme: 'system', accent: 'lime', body: 'male', targetW: null,
