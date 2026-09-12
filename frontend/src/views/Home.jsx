@@ -1,21 +1,47 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
-import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
+import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks, setsDoneActive, setsDone } from '../lib/history.js'
+import { fmtDate, fmtDur, fmtVol, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor } from '../sheets.jsx'
-import LineChart from '../components/LineChart.jsx'
+import { dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, workoutDetailSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+import BodyMap from '../components/BodyMap.jsx'
+import BodyWeightCard from '../components/BodyWeightCard.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { recoveryOf, overallRecovery, GROUPS, GROUP_LABEL, GROUP_MUSCLES } from '../lib/recovery.js'
+import { loadOfWorkouts } from '../lib/muscles.js'
 import RecoveryRing from '../components/RecoveryRing.jsx'
 import { fetchWhoopRecovery } from '../lib/whoop-api.js'
+
+// A tap-through summary of the most recently finished workout — duration, sets, volume, and
+// which muscles it hit (the same body map FinishSummary shows right after finishing one).
+function LastWorkoutCard({ S }) {
+  const w = S.workouts.length ? S.workouts[S.workouts.length - 1] : null
+  if (!w) return null
+  const glyph = glyphOf((S.routines.find(r => r.id === w.routineId) || {}).emoji)
+  return <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => workoutDetailSheet(w)}>
+    <div className="row" style={{ gap: 9, marginBottom: 10 }}>
+      <span className="lrow-i" style={{ width: 34, height: 34, borderRadius: 8, fontSize: 19 }}><Icon name={glyph} /></span>
+      <div style={{ minWidth: 0 }}>
+        <div className="lbl2">{t('Last workout')}</div>
+        <div className="ttl">{w.name}</div>
+      </div>
+      <span className="dim small" style={{ marginLeft: 'auto' }}>{fmtDate(w.d, true)}</span>
+    </div>
+    <div className="tiles">
+      <div className="tile"><div className="l">{t('Duration')}</div><div className="v">{fmtDur(w.end - w.start)}</div></div>
+      <div className="tile"><div className="l">{t('Sets')}</div><div className="v">{setsDone(w)}</div></div>
+      <div className="tile"><div className="l">{t('Volume')}</div><div className="v">{fmtVol(w.vol, S.unit)}</div></div>
+    </div>
+    <BodyMap load={loadOfWorkouts([w])} body={S.body} />
+  </div>
+}
 
 // Muscle recovery — an estimate of how ready each muscle group is, from the last 7 days of
 // logged sets (see lib/recovery.js). One ring for the overall average, a pill per movement
@@ -105,9 +131,6 @@ export default function Home() {
   const today = new Date()
   const routine = effectiveRoutine(S, todayISO())
   const todayOvr = S.dayPlan[todayISO()] !== undefined
-  const bw = lastBW(S)
-  const prevBW = S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null
-  const delta = bw && prevBW ? bw.w - prevBW.w : null
 
   const monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay() + 6) % 7) + weekOffset * 7)
   const doneDays = new Set(S.workouts.map(w => w.d))
@@ -125,7 +148,6 @@ export default function Home() {
 
   const wThisWeek = S.workouts.filter(w => weekKey(w.d) === weekKey(todayISO())).length
   const plannedPerWeek = Object.values(activeWeek(S)).filter(Boolean).length
-  const bwPoints = S.bodyweight.slice(-30).map(b => ({ t: b.t || new Date(b.d).getTime(), y: b.w, d: b.d }))
 
   // today's session shown right under the week strip
   const onToday = () => { if (S.active) nav('/workout'); else if (routine) startFlow(routine.id); else dayOverrideSheet(todayISO()) }
@@ -158,6 +180,19 @@ export default function Home() {
       </div>
     </div>
 
+    <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => calendarSheet()}>
+      <div className="row between">
+        <div>
+          <div className="row" style={{ gap: 7, fontSize: 22, fontWeight: 600, letterSpacing: '-.021em' }}>
+            <Icon name="flame" style={{ color: 'var(--orange)' }} />
+            {t('{0} week streak', streakWeeks(S))}
+          </div>
+          <div className="muted small" style={{ marginTop: 2 }}>{wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}</div>
+        </div>
+        <Icon name="calendar" className="chev" style={{ fontSize: 20 }} />
+      </div>
+    </div>
+
     {coachOn && <CoachCard nav={nav} />}
 
     {!S.routines.length && !S.active && (
@@ -176,51 +211,12 @@ export default function Home() {
       </div>
     )}
 
-    <div className="card">
-      <div className="row between" style={{ marginBottom: 6 }}>
-        <h2 style={{ margin: 0 }}>{t('Body weight')}</h2>
-        <div className="row" style={{ gap: 8 }}>
-          <Button size="sm" icon="target" style={S.targetW ? { color: 'var(--yellow)' } : undefined} onClick={goalSheet}>{S.targetW ? fmtNum(S.targetW) : t('Goal')}</Button>
-          <Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button>
-        </div>
-      </div>
-      {bw ? <>
-        <div className="row" style={{ gap: 8, alignItems: 'baseline' }}>
-          <div className="big">{fmtNum(bw.w)} <span className="muted" style={{ fontSize: '1rem' }}>{S.unit}</span></div>
-          {/* only when it actually moved — an unchanged weight used to read as "− 0" */}
-          {!!delta && (
-            <span className="small row" style={{ gap: 2, fontWeight: 500, color: bwDeltaColor(delta, bw.w) }}>
-              <Icon name={delta > 0 ? 'arrowUp' : 'arrowDown'} style={{ fontSize: 12 }} />
-              {fmtNum(Math.abs(delta))}
-            </span>
-          )}
-          <span className="dim small" style={{ marginLeft: 'auto' }}>{fmtDate(bw.d, true)}</span>
-        </div>
-        {S.targetW && (
-          <div className="small row" style={{ color: 'var(--yellow)', marginTop: 4, gap: 5 }}>
-            <Icon name="target" style={{ fontSize: 13 }} />
-            <span>{t('Goal')} {fmtNum(S.targetW)} {S.unit} · {Math.abs(S.targetW - bw.w) < 0.05 ? t('reached!') : t(S.targetW > bw.w ? '{0} to gain' : '{0} to lose', fmtNum(Math.abs(S.targetW - bw.w)) + ' ' + S.unit)}</span>
-          </div>
-        )}
-        <div className="chart" style={{ marginTop: 8 }}><LineChart points={bwPoints} h={130} unit={S.unit} goal={S.targetW} /></div>
-      </> : <div className="muted small">{t("No entries yet — log your weight to start the curve. It's also asked before every workout.")}</div>}
-    </div>
+    <LastWorkoutCard S={S} />
 
-    <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => calendarSheet()}>
-      <div className="row between">
-        <div>
-          <div className="row" style={{ gap: 7, fontSize: 22, fontWeight: 600, letterSpacing: '-.021em' }}>
-            <Icon name="flame" style={{ color: 'var(--orange)' }} />
-            {t('{0} week streak', streakWeeks(S))}
-          </div>
-          <div className="muted small" style={{ marginTop: 2 }}>{wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}</div>
-        </div>
-        <Icon name="calendar" className="chev" style={{ fontSize: 20 }} />
-      </div>
-    </div>
+    <RecoveryCard nav={nav} S={S} />
 
     <WhoopCard nav={nav} connected={!!user?.whoop} />
 
-    <RecoveryCard nav={nav} S={S} />
+    <BodyWeightCard S={S} showChart={false} />
   </div>
 }

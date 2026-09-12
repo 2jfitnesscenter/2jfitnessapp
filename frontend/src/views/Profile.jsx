@@ -12,6 +12,7 @@ import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, Button, TextField, Avatar } from '../components/ui.jsx'
+import BodyWeightCard from '../components/BodyWeightCard.jsx'
 
 export default function Profile() {
   const nav = useNavigate()
@@ -82,6 +83,8 @@ export default function Profile() {
       </Row>
       <Row icon="figureStrength" iconTint="var(--acc)" title={t('Measurements')} subtitle={t('Body composition & tape measurements over time')} accessory="chevron" onClick={() => nav('/measurements')} />
     </Section>
+
+    <BodyWeightCard S={S} />
 
     {/* ---------- muscle priorities — asked at registration, editable here, read by the quick
          PPL plan and the AI Coach ---------- */}

@@ -159,6 +159,7 @@ export default {
   'Goal removed': 'Meta eliminada',
   'Remove goal': 'Eliminar meta',
   'Body weight': 'Peso corporal',
+  'Last workout': 'Último entrenamiento',
   'reached!': '¡conseguido!',
   '{0} to gain': '{0} por ganar',
   '{0} to lose': '{0} por perder',
