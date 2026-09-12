@@ -12,6 +12,13 @@ export const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 export const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
+// First letter of up to the first two words of a name — the initials shown in an avatar circle
+// (Profile's identity card, friend rows, the invite sheet).
+export function initials(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return '?'
+  return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
+}
 export function fmtDate(iso, long) {
   const d = new Date(iso + 'T12:00:00')
   return d.toLocaleDateString(dateLocale(), long ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short' })

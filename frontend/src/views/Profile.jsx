@@ -1,22 +1,17 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, hasData } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { streakWeeks } from '../lib/history.js'
 import { fmtDate, todayISO } from '../lib/format.js'
 import { webauthnOK, passkeyLogin, passkeyRegister } from '../lib/api.js'
+import { updateUsername } from '../lib/friends-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
-import { Section, Row, Button, TextField } from '../components/ui.jsx'
-
-function initials(name) {
-  const parts = (name || '').trim().split(/\s+/).filter(Boolean)
-  if (!parts.length) return '?'
-  return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
-}
+import { Section, Row, Button, TextField, Avatar } from '../components/ui.jsx'
 
 export default function Profile() {
   const nav = useNavigate()
@@ -30,22 +25,30 @@ export default function Profile() {
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') toast(e.message || t('Sign-in failed')) }
   }
   const registerHere = () => useUI.getState().openSheet(close => <RegisterInline close={close} setUser={setUser} pushState={pushState} pullState={pullState} toast={toast} />)
+  const editUsername = () => useUI.getState().openSheet(close => (
+    <EditUsername close={close} current={user?.username} onSaved={u => setUser({ ...user, username: u })} />
+  ))
 
   return <div className="narrow">
     <div className="hdr"><div><h1>{t('Profile')}</h1></div></div>
 
     <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-      <div style={{
-        width: 56, height: 56, borderRadius: '50%', flex: 'none',
-        background: 'var(--acc)', color: 'var(--on-acc)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 22, fontWeight: 600,
-      }}>{initials(user?.name)}</div>
+      <Avatar name={user?.name} size={56} />
       <div style={{ minWidth: 0 }}>
         <div className="capitalize" style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-.012em' }}>{user?.name || t('Guest')}</div>
         {user?.created && <div className="dim small">{t('joined {0}', fmtDate(user.created.slice(0, 10)))}</div>}
+        {user?.username && <button className="dim small" style={{ marginTop: 2 }} onClick={editUsername}>@{user.username}</button>}
       </div>
     </div>
+
+    {/* ---------- friends + trainer chat — need a real (non-guest) account, same reasoning as
+         the Account section right above needing one ---------- */}
+    {user && (
+      <Section title={t('Social')}>
+        <Row icon="users" iconTint="var(--blue)" title={t('Friends')} accessory="chevron" onClick={() => nav('/friends')} />
+        <Row icon="personCircle" iconTint="var(--acc)" title={t('Chat with trainers')} accessory="chevron" onClick={() => nav('/chat')} />
+      </Section>
+    )}
 
     {/* ---------- create/sign in — nothing to show once there's an account, or on the
          demo/mobile builds, which don't have passkey accounts at all ---------- */}
@@ -129,5 +132,26 @@ function RegisterInline({ close, setUser, pushState, pullState, toast }) {
     <div className="muted small" style={{ marginBottom: 14 }}>{t('Pick a name, then confirm with your device.')}</div>
     <TextField ref={nameRef} placeholder={t('Your name')} maxLength={40} />
     <div style={{ height: 12 }} /><Button variant="primary" onClick={go}>{t('Create passkey')}</Button>
+  </>
+}
+
+// Auto-generated at registration (slugified name + a numeric suffix on collision) — this is
+// just letting someone pick a nicer one, for the "Nombre de usuario" friend-add flow.
+function EditUsername({ close, current, onSaved }) {
+  const toast = useUI(s => s.toast)
+  const [value, setValue] = useState(current || '')
+  const [busy, setBusy] = useState(false)
+  const save = () => {
+    const u = value.trim().toLowerCase()
+    if (!/^[a-z0-9_]{3,20}$/.test(u)) { toast(t('Use 3–20 lowercase letters, numbers or underscores')); return }
+    setBusy(true)
+    updateUsername(u).then(({ username }) => { onSaved(username); close(); toast(t('Username updated')) })
+      .catch(e => toast(e.message)).finally(() => setBusy(false))
+  }
+  return <>
+    <h3>{t('Username')}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>{t('This is how friends can find and add you.')}</div>
+    <TextField value={value} onChange={e => setValue(e.target.value)} maxLength={20} autoCapitalize="none" placeholder={t('Username')} />
+    <div style={{ height: 12 }} /><Button variant="primary" disabled={busy} onClick={save}>{t('Save')}</Button>
   </>
 }

@@ -11,7 +11,7 @@ import { starterRoutines, buildPlan, GOALS } from './lib/starter.js'
 import Media, { Thumb } from './components/Media.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
-import { Button, Slider, Switch, Segmented, SelectRow, TextArea } from './components/ui.jsx'
+import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts } from './lib/muscles.js'
@@ -22,6 +22,8 @@ import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLIC
 import { MOBILE, shareExport } from './lib/mobile.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
 import { resizeImageFile, uploadImage, mediaUrl } from './lib/media.js'
+import { fetchFriendCode, resetFriendCode, sendFriendRequest } from './lib/friends-api.js'
+import { startThread } from './lib/chat-api.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -1152,3 +1154,92 @@ function doFinishWorkout() {
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
   ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
 }
+
+/* ============================ add a friend ============================ */
+// Two ways in, one destination: whichever tab someone uses, the result is the same pending
+// friend request the other side has to accept — see api/friends/routes.js's POST /request.
+function AddFriend({ close, onDone }) {
+  const user = useStore(s => s.user)
+  const [tab, setTab] = useState('qr')
+  const [code, setCode] = useState(null)
+  const [qr, setQr] = useState(null)
+  const [username, setUsername] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const drawQr = async c => {
+    setQr(null)
+    const url = `${location.origin}/#/friends?code=${c}`
+    // Loaded on demand, same as Admin.jsx's recovery-link QR — not worth adding to everyone's
+    // initial download for a code most people will never regenerate.
+    try { const { default: QRCode } = await import('qrcode'); setQr(await QRCode.toDataURL(url, { margin: 1, width: 220 })) } catch { /* link still works without it */ }
+  }
+  useEffect(() => { fetchFriendCode().then(c => { setCode(c); drawQr(c) }).catch(e => toast(e.message)) }, [])
+
+  const regenerate = () => confirmSheet({
+    title: t('Reset your code?'),
+    message: t('Anyone with the old QR or link will no longer be able to add you with it.'),
+    confirmText: t('Reset'),
+    onConfirm: () => resetFriendCode().then(c => { setCode(c); drawQr(c) }).catch(e => toast(e.message))
+  })
+  const share = async () => {
+    const url = `${location.origin}/#/friends?code=${code}`
+    if (navigator.share) { try { await navigator.share({ url }) } catch { /* share sheet dismissed */ } }
+    else { navigator.clipboard?.writeText(url).catch(() => {}); toast(t('Link copied')) }
+  }
+  const addByUsername = () => {
+    const u = username.trim().toLowerCase()
+    if (!u) return
+    setBusy(true)
+    sendFriendRequest({ username: u }).then(() => { toast(t('Friend request sent')); close(); onDone && onDone() })
+      .catch(e => toast(e.message)).finally(() => setBusy(false))
+  }
+
+  return <>
+    <h3>{t('Add a friend')}</h3>
+    <div style={{ marginBottom: 16 }}>
+      <Segmented value={tab} onChange={setTab} options={[{ value: 'qr', label: 'QR' }, { value: 'username', label: t('Username') }]} />
+    </div>
+    {tab === 'qr' ? <div style={{ textAlign: 'center' }}>
+      <div className="row" style={{ justifyContent: 'center', gap: 10, marginBottom: 14 }}>
+        <Avatar name={user?.name} size={40} />
+        <div style={{ textAlign: 'left' }}>
+          <div className="capitalize" style={{ fontWeight: 600 }}>{user?.name}</div>
+          {user?.username && <div className="dim small">@{user.username}</div>}
+        </div>
+      </div>
+      {qr ? <img src={qr} alt={t('Your QR code')} width={220} height={220} style={{ borderRadius: 12, background: '#fff', padding: 10 }} />
+        : <div style={{ height: 240 }} />}
+      <div className="row" style={{ justifyContent: 'center', gap: 10, marginTop: 16 }}>
+        <button className="iconbtn" aria-label={t('Reset code')} onClick={regenerate}><Icon name="gear" /></button>
+        <Button variant="primary" icon="send" onClick={share}>{t('Share your link')}</Button>
+      </div>
+    </div> : <>
+      <TextField placeholder={t('Username')} value={username} autoCapitalize="none" autoCorrect="off"
+        onChange={e => setUsername(e.target.value)} />
+      <div style={{ height: 12 }} />
+      <Button variant="primary" disabled={busy || !username.trim()} onClick={addByUsername}>{t('Add')}</Button>
+    </>}
+  </>
+}
+export const addFriendSheet = onDone => ui().openSheet(close => <AddFriend close={close} onDone={onDone} />)
+
+/* ============================ new conversation ============================ */
+function NewConversation({ close, onDone }) {
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const send = () => {
+    const msg = text.trim()
+    if (!msg) return
+    setBusy(true)
+    startThread(msg).then(thread => { close(); onDone && onDone(thread) })
+      .catch(e => { toast(e.message); setBusy(false) })
+  }
+  return <>
+    <h3>{t('New conversation')}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>{t('Write your message — a trainer will get back to you here.')}</div>
+    <TextArea rows={4} placeholder={t('Type your message…')} value={text} onChange={e => setText(e.target.value)} />
+    <div style={{ height: 12 }} />
+    <Button variant="primary" icon="send" disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>
+  </>
+}
+export const newConversationSheet = onDone => ui().openSheet(close => <NewConversation close={close} onDone={onDone} />)

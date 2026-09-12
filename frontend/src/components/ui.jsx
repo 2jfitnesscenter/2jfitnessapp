@@ -16,6 +16,7 @@
 import { useRef, useState, useEffect, useCallback, forwardRef } from 'react'
 import Icon from './Icon.jsx'
 import { t } from '../lib/i18n.js'
+import { initials } from '../lib/format.js'
 
 /* ============================ text ============================ */
 
@@ -72,6 +73,21 @@ export function SearchField({ value, onChange, onClear, ...rest }) {
         </button>
       )}
     </div>
+  )
+}
+
+/* ============================ avatar ============================ */
+
+// A colored initials circle — no photo uploads anywhere in this app, so this is the only
+// "who is this" visual: Profile's identity card, friend rows, the invite sheet.
+export function Avatar({ name, size = 40 }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flex: 'none',
+      background: 'var(--acc)', color: 'var(--on-acc)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: Math.round(size * 0.39), fontWeight: 600,
+    }}>{initials(name)}</div>
   )
 }
 

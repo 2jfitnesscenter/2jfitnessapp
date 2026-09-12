@@ -13,6 +13,8 @@ import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { startCadence } from './coach/cadence.js';
+import { friendsRoutes } from './friends/routes.js';
+import { chatRoutes } from './chat/routes.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
@@ -60,6 +62,25 @@ function atomicWrite(file, content) {
   const tmp = file + '.tmp';
   fs.writeFileSync(tmp, content);
   fs.renameSync(tmp, file);
+}
+// Amigos add-by-username needs a short, unique handle — display names aren't unique and never
+// were. Derived from the name (accents stripped, lowercased, non-alphanumerics dropped) with a
+// numeric suffix on collision; editable later from Perfil (POST /api/me/username) for anyone who
+// wants a nicer one.
+function slugifyUsername(name) {
+  return String(name || 'user').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'user';
+}
+function generateUsername(name) {
+  const base = slugifyUsername(name);
+  let candidate = base, i = 0;
+  while (db.users.some(u => u.username === candidate)) { i++; candidate = base + i; }
+  return candidate;
+}
+// One-time backfill for accounts created before usernames existed.
+if (db.users.some(u => !u.username)) {
+  db.users.forEach(u => { if (!u.username) u.username = generateUsername(u.name); });
+  saveDb();
 }
 // Gym-wide exercise blacklist — ids the owner has hidden from every member's search/picker
 // (equipment this gym doesn't have, movements they'd rather not offer). Not a deletion: a
@@ -362,7 +383,21 @@ const routes = {
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    json(res, 200, { user: { id: user.id, name: user.name, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } });
+    json(res, 200, { user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } });
+  },
+
+  // Lets someone pick a nicer handle than the auto-generated one — the only thing "Nombre de
+  // usuario" friend-adding actually needs from them.
+  'POST /api/me/username': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const username = String(body.username || '').trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) return json(res, 400, { error: 'usa 3–20 letras minúsculas, números o guiones bajos' });
+    if (db.users.some(u => u.id !== user.id && u.username === username)) return json(res, 409, { error: 'ese nombre de usuario ya está en uso' });
+    user.username = username;
+    saveDb();
+    json(res, 200, { username });
   },
 
   'POST /api/register/options': async (req, res) => {
@@ -407,7 +442,7 @@ const routes = {
       invite = db.invites.find(i => i.code === c.code && !i.usedBy && !i.revoked);
       if (!invite) return json(res, 403, { error: 'el código de invitación ya no es válido — pide uno nuevo' });
     }
-    const user = { id: c.uid, name: c.name, created: new Date().toISOString() };
+    const user = { id: c.uid, name: c.name, created: new Date().toISOString(), username: generateUsername(c.name) };
     if (invite) { user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created; }
     db.users.push(user);
     db.creds.push({
@@ -417,7 +452,7 @@ const routes = {
       transports: body.credential?.response?.transports || []
     });
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/login/options': async (req, res) => {
@@ -456,7 +491,7 @@ const routes = {
     const user = db.users.find(u => u.id === cred.userId);
     if (!user) return json(res, 500, { error: 'falta el usuario' });
     if (user.disabled) return json(res, 403, { error: 'esta cuenta ha sido desactivada' });
-    json(res, 200, { user: { id: user.id, name: user.name, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   // ---------- admin-assisted account recovery ----------
@@ -520,7 +555,7 @@ const routes = {
     });
     rec.usedAt = new Date().toISOString();
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
@@ -1339,7 +1374,14 @@ const routes = {
   // Routes live in coach/routes.js and are handed the helpers above rather than importing
   // them: they are closures over db and SECRET, and passing them in keeps that module free of
   // a cycle. Every one of them is inert while the feature is unconfigured.
-  ...coachRoutes({ json, readBody, readSession, requireAdmin })
+  ...coachRoutes({ json, readBody, readSession, requireAdmin }),
+
+  /* ---------- Amigos + chat con entrenadores ---------- */
+  // Same factory shape as coachRoutes — their own data/friends.json and data/chat.json, no
+  // per-member/per-trainer assignment concept to hook into (trainer status is global, see
+  // isTrainer above), so chat is one shared inbox every trainer/admin can see and reply to.
+  ...friendsRoutes({ json, readBody, readSession, sendPush, users: () => db.users }),
+  ...chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users: () => db.users })
 };
 
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */

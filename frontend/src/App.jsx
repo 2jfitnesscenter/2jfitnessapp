@@ -25,6 +25,9 @@ import History from './views/History.jsx'
 import Social from './views/Social.jsx'
 import Settings from './views/Settings.jsx'
 import Profile from './views/Profile.jsx'
+import Friends from './views/Friends.jsx'
+import Chat from './views/Chat.jsx'
+import ChatThread from './views/ChatThread.jsx'
 import Measurements from './views/Measurements.jsx'
 import Recovery from './views/Recovery.jsx'
 import Admin from './views/Admin.jsx'
@@ -97,6 +100,9 @@ function Shell() {
               <Route path="/social" element={<Social />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/friends" element={<Friends />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/chat/:id" element={<ChatThread />} />
               <Route path="/measurements" element={<Measurements />} />
               <Route path="/recovery" element={<Recovery />} />
               {/* The Coach screens gate themselves on the instance config; the routes exist
