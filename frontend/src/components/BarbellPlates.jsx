@@ -50,7 +50,7 @@ export default function BarbellPlates({ weight, unit }) {
   })
 
   return (
-    <svg viewBox="0 0 96 32" width="44" height="15" aria-hidden="true">
+    <svg viewBox="0 0 96 32" width="44" height="15" aria-hidden="true" style={{ flex: 'none' }}>
       <line x1="4" y1={barY} x2="92" y2={barY} stroke="var(--label-3)" strokeWidth="2" />
       {side(-1)}
       {side(1)}
