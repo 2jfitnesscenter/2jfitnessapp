@@ -168,8 +168,10 @@ button,.chip,.tile,.item,.wday,.cal-d,.swatch,.hm-c,.lrow,.seg button,.stp butto
 /* while the rest timer floats above the tab bar, keep its height scrollable-past
    (the rest variant is two rows tall — ~44px more than the single-row work timer) */
 body.resting #app{padding-bottom:calc(250px + var(--sab))}
-@keyframes viewfade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-#app.vfade{animation:viewfade var(--med) var(--ease)}
+/* A dedicated duration (not --med, which other controls share) so this can read as a
+   deliberate screen change without retuning switches/sliders elsewhere. */
+@keyframes viewfade{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+#app.vfade{animation:viewfade 320ms var(--ease)}
 
 /* large title, the way a nav bar does it */
 .hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:8px 0 18px}
