@@ -4,6 +4,7 @@ import {
   policyFor, defaultIncrement, POLICIES_FOR, DELOAD_AFTER
 } from './progression.js'
 import { EXDB } from './exercises.js'
+import { pctForReps } from './onerm.js'
 
 const LIFT = EXDB.find(e => e.bp !== 'cardio' && !['upper legs', 'lower legs', 'back', 'hips', 'glutes'].includes(e.bp)).id
 const HEAVY = EXDB.find(e => e.bp === 'upper legs').id
@@ -310,6 +311,40 @@ describe('policy "off"', () => {
   })
   it('is what cardio always gets', () => {
     expect(nextPrescription({ unit: 'kg', workouts: [] }, { id: CARDIO, sets: 1, min: 20 }).kind).toBe('off')
+  })
+})
+
+describe('pct1rm progression', () => {
+  const withTest = (est1RM, extra) => ({ unit: 'kg', workouts: [], tests: [{ id: 't1', type: '1rm', exId: LIFT, d: '2026-01-01', w: est1RM, r: 1, est1RM }], ...extra })
+
+  it('computes weight straight from the tested 1RM, at the default target RIR of 2', () => {
+    const p = nextPrescription(withTest(100), { id: LIFT, sets: 3, reps: 5, prog: 'pct1rm' })
+    expect(p.kind).toBe('hold')
+    expect(p.policy).toBe('pct1rm')
+    expect(p.reps).toBe(5)
+    // pctForReps(5, 2) -> effective 7 reps -> 83%, snapped to the nearest 2.5kg plate step
+    expect(p.weight).toBeCloseTo(Math.round(100 * pctForReps(5, 2) / 2.5) * 2.5, 5)
+  })
+
+  it('respects a custom target RIR', () => {
+    const p = nextPrescription(withTest(100), { id: LIFT, sets: 3, reps: 5, prog: 'pct1rm', targetRIR: 0 })
+    const expected = Math.round(100 * pctForReps(5, 0) / 2.5) * 2.5
+    expect(p.weight).toBe(expected)
+    expect(p.weight).toBeGreaterThan(Math.round(100 * pctForReps(5, 2) / 2.5) * 2.5)   // less RIR -> harder -> more weight
+  })
+
+  it('refuses to guess with no tested 1RM on file for that exercise', () => {
+    const p = nextPrescription({ unit: 'kg', workouts: [], tests: [] }, { id: LIFT, sets: 3, reps: 5, prog: 'pct1rm' })
+    expect(p.kind).toBe('off')
+    expect(p.weight).toBeUndefined()
+  })
+
+  it('is unaffected by session history — a string of misses does not deload it', () => {
+    const S = hist(LIFT, [[60, 4, 4, 4], [60, 3, 3, 3], [60, 4, 4, 4]])
+    S.tests = [{ id: 't1', type: '1rm', exId: LIFT, d: '2026-01-01', w: 100, r: 1, est1RM: 100 }]
+    const p = nextPrescription(S, { id: LIFT, sets: 3, reps: 5, prog: 'pct1rm' })
+    expect(p.kind).toBe('hold')
+    expect(p.weight).toBe(Math.round(100 * pctForReps(5, 2) / 2.5) * 2.5)
   })
 })
 

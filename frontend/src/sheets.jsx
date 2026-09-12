@@ -619,6 +619,8 @@ function ProgressionFields({ ex, mode, c, setC, routine, unit }) {
         step={mode === 'time' ? 5 : 1.25} decimal={mode !== 'time'} onChange={v => setC(x => ({ ...x, inc: v }))} />
       {active === 'double' && <Stepper label={t('Reps from')} value={c.repsMin || Math.max(1, (c.reps || 10) - 2)}
         step={1} decimal={false} onChange={v => setC(x => ({ ...x, repsMin: v }))} />}
+      {active === 'pct1rm' && <Stepper label={t('Target RIR')} value={c.targetRIR != null ? c.targetRIR : 2}
+        step={0.5} onChange={v => setC(x => ({ ...x, targetRIR: v }))} />}
     </div>}
   </>
 }

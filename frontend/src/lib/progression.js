@@ -18,12 +18,13 @@
 
 import { modeOf, workingSets } from './history.js'
 import { EXIDX } from './exercises.js'
+import { bestTestedOneRM, pctForReps } from './onerm.js'
 
-export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'time']
+export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'pct1rm', 'time']
 
 // Which policies can sensibly drive which logging mode.
 export const POLICIES_FOR = {
-  reps: ['off', 'linear', 'greyskull', 'double'],
+  reps: ['off', 'linear', 'greyskull', 'double', 'pct1rm'],
   time: ['off', 'time'],
   cardio: ['off']
 }
@@ -33,6 +34,7 @@ export const POLICY_NAME = {
   linear: 'Linear progression',
   greyskull: 'Greyskull LP',
   double: 'Double progression',
+  pct1rm: '% of your tested 1RM',
   time: 'Add time'
 }
 export const POLICY_DESC = {
@@ -40,6 +42,7 @@ export const POLICY_DESC = {
   linear: 'Hit every rep in every set and the weight goes up. Repeated misses trigger a deload.',
   greyskull: 'Two straight sets plus a final set taken to failure. Beat the target on that set and the weight goes up — double if you double the reps. One failure resets 10 %.',
   double: 'Work up through a rep range at the same weight. Reach the top of the range in every set and the weight goes up, reps back to the bottom.',
+  pct1rm: 'Weight is calculated straight from a 1RM test you logged (Actions → Start a test session) — not from how past sessions went.',
   time: 'Hold every set for the full duration and the target goes up.'
 }
 
@@ -159,6 +162,19 @@ export function nextPrescription(S, cfg, routine) {
   const unit = S.unit || 'kg'
   const inc = cfg.inc > 0 ? cfg.inc : (mode === 'time' ? DEFAULT_SEC_INCREMENT : defaultIncrement(cfg.id, unit))
   if (policy === 'off') return { policy, kind: 'off' }
+
+  // Open-loop, unlike every other policy here: the weight comes straight from a tested 1RM plus
+  // a target rep count and RIR, not from judging what happened last session — so it's computed
+  // before any of the session-history machinery below even runs.
+  if (policy === 'pct1rm') {
+    const best = bestTestedOneRM(S, cfg.id)
+    if (!best) return { policy, kind: 'off', why: ['No tested 1RM on file for this exercise yet — run one first (Actions → Start a test session).'] }
+    const reps = cfg.reps || 5
+    const rir = cfg.targetRIR != null ? cfg.targetRIR : 2
+    const pct = pctForReps(reps, rir)
+    const weight = snap(best.est1RM * pct, inc)
+    return { policy, kind: 'hold', weight, reps, why: ['{0}% of your tested 1RM ({1} {2}) for {3} reps at RIR {4}.', Math.round(pct * 100), best.est1RM, unit, reps, rir] }
+  }
 
   const sessions = sessionsFor(S, cfg.id, cfg).filter(s => s.mode === mode)
   const last = sessions[sessions.length - 1]
