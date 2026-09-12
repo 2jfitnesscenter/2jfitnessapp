@@ -7,7 +7,6 @@ import { ACCENTS } from './lib/format.js'
 import { setLang, useLang } from './lib/i18n.js'
 import { setNav } from './lib/nav.js'
 import { useWakeLock } from './lib/wakelock.js'
-import { startFlow } from './sheets.jsx'
 import Icon from './components/Icon.jsx'
 import TabBar from './components/TabBar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -129,7 +128,7 @@ function Shell() {
       {/* Hidden during the Physical Profile wizard — a tab bar would just be a way to skip past
           it without using its own "Skip for now" (which, unlike navigating away, marks
           onboarded so the wizard doesn't reappear). */}
-      {!needsOnboarding && <TabBar onStart={startFlow} />}
+      {!needsOnboarding && <TabBar />}
       <RestTimer />
       <Modals />
       <Toast />

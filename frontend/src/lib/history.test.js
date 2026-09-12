@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, workoutVolume, effortOf, stepEffort, capEffort } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -395,5 +395,30 @@ describe('workoutVolume', () => {
       { id: CARDIO, sets: [{ min: 20, speed: 9, done: true }] }
     ] }
     expect(workoutVolume(w)).toBe(600)
+  })
+})
+
+describe('hasRecentWeighIn', () => {
+  // todayISO() only ever reads the real clock, so past dates are built by hand the same way
+  // (Y-M-D, zero-padded).
+  const isoOfDate = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+  const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return isoOfDate(d) }
+
+  it('is false with no weigh-ins at all', () => {
+    expect(hasRecentWeighIn({ bodyweight: [] })).toBe(false)
+  })
+
+  it('is true within the 15-day default window, including exactly on the boundary', () => {
+    expect(hasRecentWeighIn({ bodyweight: [{ d: daysAgo(0), w: 80 }] })).toBe(true)
+    expect(hasRecentWeighIn({ bodyweight: [{ d: daysAgo(15), w: 80 }] })).toBe(true)
+  })
+
+  it('is false just past the window', () => {
+    expect(hasRecentWeighIn({ bodyweight: [{ d: daysAgo(16), w: 80 }] })).toBe(false)
+  })
+
+  it('respects a custom window', () => {
+    expect(hasRecentWeighIn({ bodyweight: [{ d: daysAgo(10), w: 80 }] }, 7)).toBe(false)
+    expect(hasRecentWeighIn({ bodyweight: [{ d: daysAgo(5), w: 80 }] }, 7)).toBe(true)
   })
 })

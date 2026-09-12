@@ -217,6 +217,16 @@ export function setsDoneActive(A) {
   return n
 }
 export const lastBW = S => (S.bodyweight.length ? S.bodyweight[S.bodyweight.length - 1] : null)
+// Has the profile weighed in recently enough that the "quick check-in" before a workout would
+// just be nagging? Noon-anchored dates (matching effectiveRoutineId's own convention) so a day
+// count is never off by one across a DST transition.
+export function hasRecentWeighIn(S, days = 15) {
+  const bw = lastBW(S)
+  if (!bw) return false
+  const today = new Date(todayISO() + 'T12:00:00')
+  const last = new Date(bw.d + 'T12:00:00')
+  return Math.round((today - last) / 86400000) <= days
+}
 
 // Group consecutive items sharing a superset id (sg) into "units" of indices.
 // items may be routine exercises ({sg}) or active-workout entries ({sg}).

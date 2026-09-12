@@ -3,7 +3,7 @@ import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden, exOr } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf } from './lib/history.js'
+import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, nameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -942,8 +942,31 @@ export function WorkoutRow({ w, onClick }) {
   </div>
 }
 
+/* ============================ actions sheet (Train tab entry point) ============================ */
+// What tapping "Train" opens when nothing is already in progress — a resume in progress skips
+// this entirely (TabBar.jsx goes straight to /workout instead). Each destination handles its own
+// flow from here (the scheduled-workout chooser, freestyle straight in, or a dedicated screen).
+function ActionsSheet({ close }) {
+  const act = fn => () => { close(); fn() }
+  return <>
+    <h3>{t('Actions')}</h3>
+    <div className="muted small" style={{ marginBottom: 10 }}>{t('Choose an action')}</div>
+    <div className="sect-b">
+      <Row icon="play" iconTint="var(--acc)" title={t('Start scheduled workout')} onClick={act(() => nav('/workout'))} />
+      <Row icon="shuffle" iconTint="var(--indigo)" title={t('Start a freestyle workout')} onClick={act(() => startFlow(null))} />
+      <Row icon="clipboard" iconTint="var(--teal)" title={t('Start a test session')} onClick={act(() => nav('/tests'))} />
+      <Row icon="timer" iconTint="var(--orange)" title={t('Clock')} onClick={act(() => nav('/clock'))} />
+    </div>
+  </>
+}
+export const actionsSheet = () => ui().openSheet(close => <ActionsSheet close={close} />)
+
 /* ============================ workout lifecycle ============================ */
 export function startFlow(routineId) {
+  // The check-in is worth interrupting for when the weight curve is going stale, not every
+  // single time — once there's a weigh-in within the last 15 days, walk straight into the
+  // workout with whatever weight is already on file.
+  if (hasRecentWeighIn(S())) { beginWorkout(routineId, null); return }
   bwSheet({ required: true, onDone: bw => beginWorkout(routineId, bw) })
 }
 export function beginWorkout(routineId, bw) {
