@@ -43,6 +43,8 @@ export default {
   'Exercises': 'Ejercicios',
   'History': 'Historial',
   'Settings': 'Ajustes',
+  'Profile': 'Perfil',
+  'Guest': 'Invitado',
   'Freestyle': 'Libre',
   'Routine': 'Rutina',
   'routine': 'rutina',
@@ -1014,6 +1016,7 @@ export default {
   'Optional, and you can change it later in Settings — helps the AI Coach tailor your plan.': 'Opcional, y puedes cambiarlo después en Ajustes — ayuda al Coach de IA a ajustar tu plan.',
   'Sex': 'Sexo',
   'Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.': 'El sexo usa la opción de Diagrama corporal de abajo. El peso inicial es tu primer registro de peso — añádelo o edítalo desde Inicio.',
+  'Sex uses the Body diagram choice in Settings. Starting weight is your first body-weight log — add or edit it from Home.': 'El sexo usa la opción de Diagrama corporal en Ajustes. El peso inicial es tu primer registro de peso — añádelo o edítalo desde Inicio.',
   'Starting weight ({0})': 'Peso inicial ({0})',
 
   // Biometric label (lib/api.js BIO) — passed as a t() arg, not translated by the call site itself

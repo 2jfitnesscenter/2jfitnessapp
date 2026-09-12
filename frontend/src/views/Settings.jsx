@@ -13,7 +13,6 @@ import { MOBILE, shareExport, syncReminder } from '../lib/mobile.js'
 import { loadStarterPlan, confirmSheet, importFromApp } from '../sheets.jsx'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
-import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
 
@@ -100,49 +99,6 @@ export default function Settings() {
       )}
     </Section>
     {!user && !DEMO && !MOBILE && <p className="sect-f" style={{ marginTop: -18, marginBottom: 22 }}>{t('Guest mode — data lives only in this browser.')}</p>}
-
-    {/* ---------- basic info — asked at registration, editable here, read by the AI Coach ---------- */}
-    <Section title={t('Basic info')} footer={t('Sex uses the Body diagram choice below. Starting weight is your first body-weight log — add or edit it from Home.')}>
-      <Row icon="calendar" iconTint="var(--pink)" title={t('Date of birth')}>
-        <input type="date" className="timef" value={S.birthDate || ''} max={todayISO()}
-          onChange={e => update(s => { s.birthDate = e.target.value || null })} />
-      </Row>
-      <Row icon="expand" iconTint="var(--mint)" title={t('Height')}>
-        <input type="number" inputMode="decimal" className="timef" style={{ width: 56, textAlign: 'right' }} min="0" max="250"
-          value={S.height ?? ''} onChange={e => update(s => { const n = Math.round(Number(e.target.value)); s.height = n > 0 ? n : null })} />
-        <span className="muted small" style={{ marginLeft: 6 }}>cm</span>
-      </Row>
-      <Row icon="figureStrength" iconTint="var(--acc)" title={t('Measurements')} subtitle={t('Body composition & tape measurements over time')} accessory="chevron" onClick={() => nav('/measurements')} />
-    </Section>
-
-    {/* ---------- muscle priorities — asked at registration, editable here, read by the quick
-         PPL plan and the AI Coach ---------- */}
-    <Section title={t('Training priorities')} footer={t('Optional. The quick plan and the AI Coach give these a little more work than the rest.')}>
-      <div style={{ padding: '2px 16px 4px' }}>
-        <div className="dim small" style={{ marginBottom: 6 }}>{t('What do you want to prioritize? (up to 2)')}</div>
-        <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
-          {MUSCLES.map(m => <button key={m} className={'chip' + ((S.priorityMuscles || []).includes(m) ? ' on' : '')}
-            onClick={() => update(s => {
-              const v = s.priorityMuscles || []
-              s.priorityMuscles = v.includes(m) ? v.filter(x => x !== m) : v.length < 2 ? [...v, m] : v
-              s.secondaryMuscles = (s.secondaryMuscles || []).filter(x => x !== m)
-            })}>{t(MUSCLE_LABEL[m])}</button>)}
-        </div>
-        <div className="dim small" style={{ margin: '12px 0 6px' }}>{t('Anything else? (up to 3)')}</div>
-        <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
-          {MUSCLES.map(m => {
-            const isPrimary = (S.priorityMuscles || []).includes(m)
-            return <button key={m} className={'chip' + ((S.secondaryMuscles || []).includes(m) ? ' on' : '')}
-              disabled={isPrimary} style={isPrimary ? { opacity: .35 } : undefined}
-              onClick={() => update(s => {
-                const v = s.secondaryMuscles || []
-                s.secondaryMuscles = v.includes(m) ? v.filter(x => x !== m) : v.length < 3 ? [...v, m] : v
-                s.priorityMuscles = (s.priorityMuscles || []).filter(x => x !== m)
-              })}>{t(MUSCLE_LABEL[m])}</button>
-          })}
-        </div>
-      </div>
-    </Section>
 
     {/* ---------- general ---------- */}
     <Section title={t('General')} footer={t('Note: switching units only changes the label — logged numbers are not converted.')}>

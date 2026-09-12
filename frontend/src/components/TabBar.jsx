@@ -31,13 +31,14 @@ export default function TabBar({ onStart }) {
   return (
     <nav id="tabbar">
       <Tab k="home" icon="house" to="/home" label={t('Home')} />
-      <Tab k="plan" icon="calendar" to="/plan" label={t('Library')} />
+      <Tab k="plan" icon="calendar" to="/plan" label={t('Plan')} />
+      <Tab k="stats" icon="chart" to="/stats" label={t('Stats')} />
       <button className={'start' + (S.active ? ' rec' : '')} onClick={startWorkout}>
         <span className="cir"><Icon name={S.active ? 'play' : 'dumbbell'} /></span>
         <span>{S.active ? t('Resume') : t('Train')}</span>
       </button>
-      <Tab k="stats" icon="chart" to="/stats" label={t('Stats')} />
       <Tab k="social" icon="users" to="/social" label={t('Social')} />
+      <Tab k="profile" icon="personCircle" to="/profile" label={t('Profile')} />
       <Tab k="settings" icon="gear" to="/settings" label={t('Settings')} />
     </nav>
   )

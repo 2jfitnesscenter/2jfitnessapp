@@ -362,7 +362,7 @@ const routes = {
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } });
+    json(res, 200, { user: { id: user.id, name: user.name, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } });
   },
 
   'POST /api/register/options': async (req, res) => {
@@ -417,7 +417,7 @@ const routes = {
       transports: body.credential?.response?.transports || []
     });
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: { id: user.id, name: user.name, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/login/options': async (req, res) => {
@@ -456,7 +456,7 @@ const routes = {
     const user = db.users.find(u => u.id === cred.userId);
     if (!user) return json(res, 500, { error: 'falta el usuario' });
     if (user.disabled) return json(res, 403, { error: 'esta cuenta ha sido desactivada' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: { id: user.id, name: user.name, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   // ---------- admin-assisted account recovery ----------
@@ -520,7 +520,7 @@ const routes = {
     });
     rec.usedAt = new Date().toISOString();
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: { id: user.id, name: user.name, created: user.created || null, admin: isAdmin(user), trainer: isTrainer(user) } }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
