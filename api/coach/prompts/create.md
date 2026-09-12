@@ -28,7 +28,7 @@ This instance is a strength-training gym (2J Fitness Center) — every plan is b
 ```
 {
   "coach_contract": 1,
-  "opengym_plan": 1,
+  "2jfitness_plan": 1,
   "name": "<short plan name>",
   "summary": "<2-4 sentences: the shape of the plan and why it fits what they asked for>",
   "basedOn": "<what you used — e.g. 'your last 12 weeks' or 'no history yet'>",

@@ -1,7 +1,7 @@
 // Share a weekly plan.
 //
 // Two jobs:
-//  1. A small, self-contained file a friend can import into THEIR openGym — just the
+//  1. A small, self-contained file a friend can import into THEIR 2J Fitness Center — just the
 //     routines + the week schedule + the custom exercises those routines use. It never
 //     carries workouts, weigh-ins or settings, and importing MERGES (adds routines with
 //     fresh ids) so nothing the friend already has is touched.
@@ -53,7 +53,7 @@ export function buildPlanBundle(S, name) {
     .map(c => ({ id: c.id, n: c.n, bp: c.bp, ...(c.desc ? { desc: c.desc } : {}) }))
   const week = {}
   WEEK_ORDER.forEach(d => { if (S.week?.[d]) week[d] = S.week[d] })
-  return { opengym_plan: PLAN_FMT, exported: todayISO(), name: name || '', week, routines, customEx }
+  return { '2jfitness_plan': PLAN_FMT, exported: todayISO(), name: name || '', week, routines, customEx }
 }
 
 /**
@@ -67,7 +67,9 @@ export function buildPlanBundle(S, name) {
  */
 export function parsePlan(raw) {
   const data = typeof raw === 'string' ? JSON.parse(raw) : raw
-  if (!data || !data.opengym_plan || !Array.isArray(data.routines)) {
+  // Accepts both the old and new format-marker key so plan files already exported (or created
+  // by an older Coach bundle) keep importing correctly.
+  if (!data || (!data.opengym_plan && !data['2jfitness_plan']) || !Array.isArray(data.routines)) {
     throw new Error(t('this isn’t a 2J Fitness Center plan file'))
   }
   const customEx = (Array.isArray(data.customEx) ? data.customEx : []).filter(c => c && c.id)

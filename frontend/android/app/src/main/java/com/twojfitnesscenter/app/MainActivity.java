@@ -1,4 +1,4 @@
-package ch.duartesantos.opengym;
+package com.twojfitnesscenter.app;
 
 import com.getcapacitor.BridgeActivity;
 

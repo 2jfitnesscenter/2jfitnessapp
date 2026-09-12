@@ -1,6 +1,6 @@
 # The AI Coach
 
-The feature this fork adds to [openGym](https://github.com/DuarteSantos8/openGym): an optional AI
+The optional feature 2J Fitness Center adds on top of the core tracker: an AI
 that **designs** your training plan and **revises it from what you actually log** — running as a
 CLI on your own server, under your own provider account, off until an admin turns it on.
 
@@ -10,7 +10,7 @@ CLI on your own server, under your own provider account, off until an admin turn
 
 ## Why it exists
 
-Upstream openGym progresses a plan flawlessly and cannot write one. The engine adjusts weights
+2J Fitness Center progresses a plan flawlessly and cannot write one. The engine adjusts weights
 inside whatever structure you built, and the effort ratings you log — RIR, RPE — were, by the
 app's own admission, read by nothing. Adherence, stalls and muscle gaps were all *displayed* and
 never synthesised into a decision.
@@ -36,7 +36,7 @@ provider dies, the engine carries on offline without skipping a beat.
 
 ## Principles
 
-- **Your box, your data.** The provider runs locally; openGym ships no bundled API keys.
+- **Your box, your data.** The provider runs locally; 2J Fitness Center ships no bundled API keys.
 - **Opt in twice.** An admin enables the feature; each profile consents separately before any of
   its data is used.
 - **Approval required.** Proposals are inert until you tap Apply, one change at a time.
@@ -57,7 +57,7 @@ provider dies, the engine carries on offline without skipping a beat.
 | **Fixture** | in-repo fake | nothing — no AI account at all | walks the whole loop for demos and CI |
 
 Both runtimes are built into the `api` image, so a self-hoster installs nothing. Neither path
-needs an API key. openGym never handles a browser OAuth callback and never asks your users for
+needs an API key. 2J Fitness Center never handles a browser OAuth callback and never asks your users for
 credentials.
 
 > **Note.** The design deck describes a provider-agnostic surface including Gemini and an
@@ -167,7 +167,7 @@ frontend/src/views/AdminCoach.jsx  provider, sign-in, caps, health
 
 ## Design documents
 
-- **[openGym_AI_Strategy.pdf](../openGym_AI_Strategy.pdf)** — the functional description and
+- **[2JFitnessCenter_AI_Strategy.pdf](../2JFitnessCenter_AI_Strategy.pdf)** — the functional description and
   design rationale for the feature (Implementation Plan v1.3.0), as a slide deck: the problem,
   the Coach/Engine boundary, persona boundaries, both user journeys, the trust model and the
   delivery phasing. Read this first for the *why*; read this file for what shipped.

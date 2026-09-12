@@ -4,7 +4,7 @@
 
 ### The AI Coach
 
-openGym could always progress a plan. It could never *write* one, and it never looked at the
+2J Fitness Center could always progress a plan. It could never *write* one, and it never looked at the
 plan itself — the engine adjusted your weights inside whatever structure you had built, and the
 effort ratings you logged were, by the app's own admission, read by nothing.
 
@@ -66,7 +66,7 @@ separately from app data and never copied into `coach.json`.
 
 Documented in **[docs/AI_COACH.md](docs/AI_COACH.md)**, with setup walkthroughs for
 [Claude](Claude-setup-instructions.md) and [ChatGPT/Codex](ChatGPT-setup-instructions.md) and
-the design rationale in [openGym_AI_Strategy.pdf](openGym_AI_Strategy.pdf).
+the design rationale in [2JFitnessCenter_AI_Strategy.pdf](2JFitnessCenter_AI_Strategy.pdf).
 
 ### The effort ratings, read back as statistics
 
@@ -260,11 +260,11 @@ importer for your history from other apps.
 
 ### One codebase, two flavors
 
-openGym is also a standalone mobile app — and it ships as a direct APK download, not
+2J Fitness Center is also a standalone mobile app — and it ships as a direct APK download, not
 through app stores.
 
 - 📱 **Standalone mobile app.** The same frontend now also builds as a native iPhone /
-  Android app (Capacitor) — the install-and-done flavor of openGym: no account, no server,
+  Android app (Capacitor) — the install-and-done flavor of 2J Fitness Center: no account, no server,
   no sync. Everything stays on the phone.
   - State is mirrored into a file in the app's private storage on every change, so your
     log survives even when the OS evicts WebView storage (iOS does).
@@ -275,8 +275,8 @@ through app stores.
   - `npm run build:mobile`, then open `android/` in Android Studio or `ios/` in Xcode —
     see **docs/MOBILE.md**. `NOTICE.md` now carries an AGPL §7 app-store exception.
 - 🤖 **Android APK, no Play Store.** The official build is a signed, sideloadable APK
-  (~4.5 MB) from [opengym.duarte-santos.ch](https://opengym.duarte-santos.ch) — deliberately
-  store-free. docs/MOBILE.md covers building and signing your own.
+  (~4.5 MB), built and distributed deliberately store-free. docs/MOBILE.md covers building
+  and signing your own.
 - 🍎 **iOS reality check.** Apple permits no installs outside the App Store, so there is no
   iOS download; the docs explain the free options (self-hosted PWA on the home screen, or
   running the native app onto your own iPhone from Xcode).
@@ -324,8 +324,8 @@ A muscle map across the app, and a live demo you can try without installing anyt
 - 🐛 **Fixed: finishing a workout from its last exercise could blank the whole app.** The
   per-exercise weight sheet read the running workout without checking it was still there, and
   finishing clears it while that sheet is still on screen.
-- ▶️ **Live demo** at [duartesantos8.github.io/openGym](https://duartesantos8.github.io/openGym/) —
-  a browser-only build (`VITE_DEMO=1`) published to GitHub Pages on every push to `main`. It boots
+- ▶️ **Live demo** — a browser-only build (`VITE_DEMO=1`) published to GitHub Pages on every
+  push to `main`. It boots
   into guest mode with a seeded example profile (12 weeks of Push/Pull/Legs, weigh-ins, PRs) so
   every screen has something to show, and it never talks to a server. Passkeys, sync and the admin
   dashboard stay exclusive to self-hosted instances, which is where the backend lives.
@@ -475,7 +475,7 @@ Reliability fixes for the push notifications shipped in v1.1.0, found through li
 
 ## v1.1.0 — 2026-07-21
 
-- 🐳 Prebuilt Docker images published to `ghcr.io/duartesantos8/opengym-{api,web}` (amd64 + arm64)
+- 🐳 Prebuilt Docker images published to `2jfitness-{api,web}` (amd64 + arm64)
   via GitHub Actions, so self-hosting no longer requires building from source. `docker compose pull`
   grabs them; `docker compose up -d --build` still builds locally if you'd rather.
 - 🔔 Push notifications: rest-timer-over alert (fires even if the app is closed) and an optional

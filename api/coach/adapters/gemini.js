@@ -15,7 +15,7 @@
 const DEFAULT_MODEL = 'gemini-3.6-flash';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const SYSTEM_PROMPT = [
-  'You are the openGym Coach.',
+  'You are the 2J Fitness Center Coach.',
   'Answer only the supplied task and return exactly the requested JSON.',
   'You have no tools, filesystem access, external services, or persistent memory.'
 ].join(' ');

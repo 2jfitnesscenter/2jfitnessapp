@@ -234,7 +234,7 @@ function ChatGPTLoginSheet({ close, onDone, label }) {
   return <>
     <h3>{t('Connect {0}', label)}</h3>
     <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 12 }}>
-      {t('This starts Codex’s official ChatGPT device-code sign-in inside the private Coach runtime. On your iPad or another trusted browser, open the link and enter the one-time code it shows. No API key is used or stored by OpenGym.')}
+      {t('This starts Codex’s official ChatGPT device-code sign-in inside the private Coach runtime. On your iPad or another trusted browser, open the link and enter the one-time code it shows. No API key is used or stored by 2J Fitness Center.')}
     </div>
     {!waiting && login?.state !== 'connected' && <Button variant="primary" disabled={busy} onClick={start}>{t('Start device sign-in')}</Button>}
     {waiting && <div className="small muted" style={{ marginBottom: 8 }}>{t('Waiting for ChatGPT sign-in…')}</div>}

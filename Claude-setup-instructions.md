@@ -1,8 +1,8 @@
 # Claude AI Coach: setup and user guide
 
-This guide explains how to configure the AI Coach on this openGym instance and how each profile can use it safely.
+This guide explains how to configure the AI Coach on this 2J Fitness Center instance and how each profile can use it safely.
 
-Instance URL: <https://opengym.cc-software.com>
+Instance URL: <https://2jfitness.cc-software.com>
 
 There are two distinct roles:
 
@@ -16,7 +16,7 @@ The Claude setup-token flow is an official Claude Code mechanism for scripts and
 Treat that token like a password:
 
 - Generate it only on a trusted computer.
-- Paste it only into the openGym admin sheet.
+- Paste it only into the 2J Fitness Center admin sheet.
 - Do not send it in chat, email, screenshots, issue trackers, or notes.
 - Disconnect it and create a replacement immediately if you suspect exposure.
 
@@ -24,7 +24,7 @@ Important: Anthropic's current legal guidance says that developers building prod
 
 ## What is installed here
 
-openGym uses the **Claude Agent SDK**, not a manually scripted `claude --print` command and not an Anthropic API key. The application:
+2J Fitness Center uses the **Claude Agent SDK**, not a manually scripted `claude --print` command and not an Anthropic API key. The application:
 
 - stores the setup token encrypted at rest;
 - passes it only to the short-lived Coach job that needs it;
@@ -40,16 +40,16 @@ The Coach only becomes visible to normal profiles after it is both enabled and s
 
 You need all of the following:
 
-- An openGym profile with administrator access.
+- A 2J Fitness Center profile with administrator access.
 - A trusted laptop or desktop with Claude Code installed.
 - A Claude account that can use Claude Code and is allowed for your intended deployment.
 - Access to the browser used to sign in to that Claude account.
 
-You do **not** need to put an API key in `.env`, change Docker configuration, or restart openGym for normal credential changes.
+You do **not** need to put an API key in `.env`, change Docker configuration, or restart 2J Fitness Center for normal credential changes.
 
 ### 1. Open the Coach administration card
 
-1. Sign in to openGym at <https://opengym.cc-software.com>.
+1. Sign in to 2J Fitness Center at <https://2jfitness.cc-software.com>.
 2. Open **Settings**.
 3. Open **Admin dashboard**.
 4. Open **AI Coach**.
@@ -63,7 +63,7 @@ The card should show:
 
 ### 2. Create a Claude Code setup token
 
-On the trusted computer—not in openGym—open a terminal and run:
+On the trusted computer—not in 2J Fitness Center—open a terminal and run:
 
 ```bash
 claude setup-token
@@ -71,9 +71,9 @@ claude setup-token
 
 Claude Code opens its normal browser authorization page. Sign in with the Claude account that will own and pay for Coach usage, approve the request, then copy the token printed in the terminal.
 
-If a browser does not open, Claude Code can provide a URL to copy into a browser. Complete the sign-in in that browser and return to the terminal until it prints the token. Do not use the old openGym browser redirect or paste a browser authorization code into openGym; this deployment intentionally does not use that flow.
+If a browser does not open, Claude Code can provide a URL to copy into a browser. Complete the sign-in in that browser and return to the terminal until it prints the token. Do not use the old 2J Fitness Center browser redirect or paste a browser authorization code into 2J Fitness Center; this deployment intentionally does not use that flow.
 
-### 3. Save and test the token in openGym
+### 3. Save and test the token in 2J Fitness Center
 
 1. Return to **Settings → Admin dashboard → AI Coach**.
 2. Under **Credential**, choose **Add CLI token**.
@@ -110,7 +110,7 @@ The Coach is optional for every profile. One person's consent never enables it f
 
 ### 1. Find the Coach
 
-Sign in to your openGym profile and open the **Coach** area from the plan-related screens. If the Coach does not appear, ask the instance owner to confirm that Claude Code is connected and the Coach is enabled.
+Sign in to your 2J Fitness Center profile and open the **Coach** area from the plan-related screens. If the Coach does not appear, ask the instance owner to confirm that Claude Code is connected and the Coach is enabled.
 
 ### 2. Review the disclosure and consent
 
@@ -124,7 +124,7 @@ The disclosure explains that the Coach may receive:
 - the answers you give in the Coach intake, including limitations or injuries; and
 - your unit, language, and effort-scale preferences.
 
-Your name, passkey/sign-in data, push subscriptions, and other profiles' data stay in openGym. The Coach does not apply changes by itself. If you agree, choose **I understand — turn the Coach on**.
+Your name, passkey/sign-in data, push subscriptions, and other profiles' data stay in 2J Fitness Center. The Coach does not apply changes by itself. If you agree, choose **I understand — turn the Coach on**.
 
 The Coach is not a doctor or physiotherapist. Do not use it to diagnose pain or replace professional medical advice.
 
@@ -188,7 +188,7 @@ Under **Automatic reviews**, choose one of:
 - **Weekly** — choose a day and time.
 - **After every few workouts** — choose 3, 4, 5, 6, 8, or 10 workouts.
 
-Automatic review timing controls when openGym asks Claude to look. It does not automatically change your plan. You are notified only when there is a suggestion to review, subject to your notification settings.
+Automatic review timing controls when 2J Fitness Center asks Claude to look. It does not automatically change your plan. You are notified only when there is a suggestion to review, subject to your notification settings.
 
 Use **Coach profile → Your answers** whenever your goal, schedule, equipment, limitations, or preferences change.
 
@@ -274,4 +274,4 @@ Back up the entire `data/` directory, including `data/secret`. The Coach credent
 
 - [Anthropic: Claude Code authentication and setup tokens](https://code.claude.com/docs/en/authentication)
 - [Anthropic: Claude Code legal and credential-use guidance](https://code.claude.com/docs/en/legal-and-compliance)
-- [openGym self-hosting guide](docs/SELF_HOSTING.md#8-the-ai-coach-optional)
+- [2J Fitness Center self-hosting guide](docs/SELF_HOSTING.md#8-the-ai-coach-optional)

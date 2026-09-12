@@ -1,6 +1,6 @@
 # AI Coach — implementation report
 
-**Branch:** `ai-enablement` on `alexpcosta/openGym` · **Commit:** `10a24f0`
+**Branch:** `ai-enablement` on the project's original base repository · **Commit:** `10a24f0`
 **Companion documents:** [`functional-plan.md`](./functional-plan.md) · [`implementation-plan.md`](./implementation-plan.md)
 **Status:** Phases 1–3 implemented, tested and pushed. Two items need a human before release (§5).
 

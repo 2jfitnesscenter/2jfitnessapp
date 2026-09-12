@@ -987,7 +987,7 @@ export default {
   'The stored credential can’t be decrypted — this usually means ./data was restored without its': 'La credencial guardada no se puede descifrar — normalmente significa que se restauró ./data sin su archivo',
   'The stored credential expired — connect again.': 'La credencial guardada ha caducado — vuelve a conectar.',
   'They are signed out everywhere and can no longer sync or log in until re-enabled.': 'Se cierra su sesión en todos los dispositivos y no podrá sincronizar ni iniciar sesión hasta que se reactive.',
-  'This starts Codex’s official ChatGPT device-code sign-in inside the private Coach runtime. On your iPad or another trusted browser, open the link and enter the one-time code it shows. No API key is used or stored by OpenGym.': 'Esto inicia el proceso oficial de Codex de inicio de sesión por código de dispositivo de ChatGPT dentro del entorno privado del Entrenador. Desde tu iPad u otro navegador de confianza, abre el enlace e introduce el código de un solo uso que aparece. La app no usa ni guarda ninguna clave de API.',
+  'This starts Codex’s official ChatGPT device-code sign-in inside the private Coach runtime. On your iPad or another trusted browser, open the link and enter the one-time code it shows. No API key is used or stored by 2J Fitness Center.': 'Esto inicia el proceso oficial de Codex de inicio de sesión por código de dispositivo de ChatGPT dentro del entorno privado del Entrenador. Desde tu iPad u otro navegador de confianza, abre el enlace e introduce el código de un solo uso que aparece. La app no usa ni guarda ninguna clave de API.',
   'Training now': 'Entrenando ahora',
   'Use an API key': 'Usar una clave de API',
   'User disabled': 'Usuario desactivado',
