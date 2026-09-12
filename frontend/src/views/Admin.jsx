@@ -8,7 +8,7 @@ import { workoutVolume, setsDone } from '../lib/history.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button, Segmented } from '../components/ui.jsx'
+import { Button, Segmented, ChipSelect } from '../components/ui.jsx'
 import AdminCoach from './AdminCoach.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
 import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
@@ -333,7 +333,8 @@ function ExerciseLibrarySheet({ initialHidden, close }) {
     </div>
     <div className="chips" style={{ margin: '10px 0' }}>
       <button className={'chip nocap' + (!bp ? ' on' : '')} onClick={() => { setBp(''); setShown(60) }}>{t('All')}</button>
-      {BODYPARTS.map(b => <button key={b} className={'chip' + (bp === b ? ' on' : '')} onClick={() => { setBp(b); setShown(60) }} style={{ textTransform: 'capitalize' }}>{t(b)}</button>)}
+      <ChipSelect value={bp} onChange={b => { setBp(b); setShown(60) }} sheetTitle={t('Body part')} placeholder={t('Body part')}
+        options={BODYPARTS.map(b => ({ value: b, label: t(b) }))} />
     </div>
     <div className="list">
       {base.slice(0, shown).map(e => {

@@ -343,29 +343,45 @@ export function Row({ icon, iconTint, title, subtitle, value, accessory = 'none'
 // theme entirely — on dark mode it flashes a white sheet — and can't show more
 // than a bare label per option. This opens our own sheet with a checkmark on the
 // current value, which is also how iOS itself handles a long option list.
+function optionsSheet(sheetTitle, options, value, onChange) {
+  const { openSheet } = require_ui()
+  return openSheet(close => (
+    <>
+      <h3>{sheetTitle}</h3>
+      <div className="sect-b">
+        {options.map(o => (
+          <button key={o.value} className="lrow tap" onClick={() => { close(); onChange(o.value) }}>
+            <span className="lrow-m"><span className="lrow-t">{o.label}</span>
+              {o.subtitle && <span className="lrow-s">{o.subtitle}</span>}</span>
+            {o.value === value && <Icon name="check" className="lrow-k" />}
+          </button>
+        ))}
+      </div>
+      <div style={{ height: 8 }} />
+    </>
+  ))
+}
 export function SelectRow({ icon, iconTint, title, value, options, onChange, sheetTitle }) {
   const cur = options.find(o => o.value === value)
-  const open = () => {
-    const { openSheet } = require_ui()
-    const h = openSheet(close => (
-      <>
-        <h3>{sheetTitle || title}</h3>
-        <div className="sect-b">
-          {options.map(o => (
-            <button key={o.value} className="lrow tap" onClick={() => { close(); onChange(o.value) }}>
-              <span className="lrow-m"><span className="lrow-t">{o.label}</span>
-                {o.subtitle && <span className="lrow-s">{o.subtitle}</span>}</span>
-              {o.value === value && <Icon name="check" className="lrow-k" />}
-            </button>
-          ))}
-        </div>
-        <div style={{ height: 8 }} />
-      </>
-    ))
-    return h
-  }
   return (
-    <Row icon={icon} iconTint={iconTint} title={title} value={cur ? cur.label : value} accessory="chevron" onClick={open} />
+    <Row icon={icon} iconTint={iconTint} title={title} value={cur ? cur.label : value} accessory="chevron"
+      onClick={() => optionsSheet(sheetTitle || title, options, value, onChange)} />
+  )
+}
+
+// A compact, tap-to-open alternative to a row of chips you'd otherwise have to scroll through
+// sideways to scan — same sheet-list picker SelectRow uses, just triggered from a small pill
+// instead of a full settings row. Meant to sit inline with a couple of quick-access chips (e.g.
+// "All") above a list, for a filter with too many options to lay out sideways (body part,
+// equipment…) — swiping through a dozen+ chips on a phone to find one is the exact complaint
+// this replaces.
+export function ChipSelect({ value, options, placeholder, onChange, sheetTitle }) {
+  const cur = options.find(o => o.value === value)
+  return (
+    <button className={'chip chip-select' + (cur ? ' on' : '')}
+      onClick={() => optionsSheet(sheetTitle, options, value, onChange)}>
+      {cur ? cur.label : placeholder}<Icon name="chevronDown" />
+    </button>
   )
 }
 

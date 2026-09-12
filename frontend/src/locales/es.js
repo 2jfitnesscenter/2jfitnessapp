@@ -7,6 +7,7 @@ export default {
   'Import': 'Importar',
   'Discard': 'Descartar',
   'All': 'Todo',
+  'Body part': 'Grupo muscular',
   'Rest': 'Descanso',
   'On': 'Sí',
   'Off': 'No',

@@ -374,6 +374,8 @@ h4.sec{
 .chip:active{background:var(--surface-2)}
 .chip.on{background:var(--acc);color:var(--on-acc);font-weight:500}
 .chip.lg{padding:11px 20px;font-size:15.5px}
+.chip.chip-select{display:inline-flex;align-items:center;gap:5px}
+.chip.chip-select svg{font-size:11px}
 
 /* =========================== CONTROLS ==================================== */
 
