@@ -5,7 +5,7 @@ import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, ageFrom } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
-import { t } from '../lib/i18n.js'
+import { t, nameFor } from '../lib/i18n.js'
 import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
@@ -318,7 +318,7 @@ function ExerciseLibrarySheet({ initialHidden, close }) {
   const [bp, setBp] = useState('')
   const [shown, setShown] = useState(60)
   const ql = q.toLowerCase().trim()
-  const base = EXDB.filter(e => (!bp || e.bp === bp) && (!ql || e.n.toLowerCase().includes(ql)))
+  const base = EXDB.filter(e => (!bp || e.bp === bp) && (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql)))
   const toggle = (id, hide) => {
     const next = new Set(hidden); hide ? next.add(id) : next.delete(id); setHidden(next)   // optimistic
     api('/api/admin/exercises/hidden', { method: 'POST', body: JSON.stringify({ id, hidden: hide }) })
@@ -340,7 +340,7 @@ function ExerciseLibrarySheet({ initialHidden, close }) {
         const isHidden = hidden.has(e.id)
         return <div key={e.id} className="item" onClick={() => toggle(e.id, !isHidden)} style={isHidden ? { opacity: .5 } : null}>
           <Thumb ex={e} />
-          <div className="grow"><div className="tt capitalize">{e.n}</div><div className="ss capitalize">{t(e.bp)} · {t(e.eq)}</div></div>
+          <div className="grow"><div className="tt capitalize">{nameFor(e)}</div><div className="ss capitalize">{t(e.bp)} · {t(e.eq)}</div></div>
           <span className={'tag' + (isHidden ? '' : ' acc')}>{isHidden ? t('Hidden') : t('Visible')}</span>
         </div>
       })}
