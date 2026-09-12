@@ -1,12 +1,12 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
-import { uid, exCount, routineCount } from '../lib/format.js'
+import { uid, exCount, routineCount, DAYN } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { glyphPicker, confirmSheet, routinePickerSheet } from '../sheets.jsx'
+import { glyphPicker, confirmSheet, routinePickerSheet, dayAssignSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
-import { Button } from '../components/ui.jsx'
+import { Button, Switch } from '../components/ui.jsx'
 import { mediaUrl } from '../lib/media.js'
 
 // A program is a named folder of routine ids — see useStore.js's DEF.programs comment. This
@@ -46,7 +46,13 @@ export default function ProgramEdit() {
     title: t('Delete program?'),
     message: t('“{0}” will be removed — its routines stay, just no longer grouped together.', p.name),
     confirmText: t('Delete'), danger: true,
-    onConfirm: () => { update(s => { s.programs = s.programs.filter(x => x.id !== id) }); nav('/plan') }
+    onConfirm: () => {
+      update(s => {
+        s.programs = s.programs.filter(x => x.id !== id)
+        if (s.activeProgramId === id) s.activeProgramId = null
+      })
+      nav('/plan')
+    }
   })
 
   return <>
@@ -64,6 +70,11 @@ export default function ProgramEdit() {
       <input className="input" style={{ flex: 1 }} value={p.name} maxLength={40} onChange={e => rename(e.target.value)} placeholder={t('Program name')} />
     </div>
 
+    <div className="item" style={{ marginBottom: 16 }}>
+      <div className="grow"><div className="tt">{t('Active program this week')}</div><div className="ss">{t('Its own schedule below drives Home — only one program can be active at a time.')}</div></div>
+      <Switch checked={S.activeProgramId === id} onChange={v => update(s => { s.activeProgramId = v ? id : null })} />
+    </div>
+
     {routines.length ? <div className="list" style={{ marginBottom: 14 }}>
       {routines.map(r => <div key={r.id} className="item">
         {r.image
@@ -73,6 +84,19 @@ export default function ProgramEdit() {
         <button className="iconbtn" aria-label={t('Remove from program')} onClick={() => removeFromProgram(r.id)}><Icon name="xmark" /></button>
       </div>)}
     </div> : <div className="empty" style={{ marginBottom: 14 }}><div className="ico"><Icon name="folder" /></div>{t('No routines in this program yet.')}</div>}
+
+    {routines.length > 0 && <>
+      <h4 className="sec">{t('Program schedule')}</h4>
+      <div className="list" style={{ display: 'flex', flexDirection: 'column', marginBottom: 14 }}>
+        {[1, 2, 3, 4, 5, 6, 0].map(d => {
+          const r = routines.find(x => x.id === (p.week || {})[d])
+          return <div key={d} className="item" onClick={() => dayAssignSheet(d, id)}>
+            <div className="grow"><div className="tt">{t(DAYN[d])}</div></div>
+            {r ? <span className="tag acc"><Icon name={glyphOf(r.emoji)} />{r.name}</span> : <span className="tag">{t('Rest')}</span>}
+            <Icon name="chevronRight" className="chev" /></div>
+        })}
+      </div>
+    </>}
 
     <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
       <Button icon="plus" onClick={addNew}>{t('New routine')}</Button>

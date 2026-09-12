@@ -127,12 +127,20 @@ export function bestWeightFor(S, exId) {
   }))
   return best
 }
+// The week currently in effect. An active program is the whole picture for the week it drives —
+// a day it doesn't list is a rest day, not a peek at whatever the flat week has for that day —
+// so this never merges the two. Falls back to the classic flat S.week (still written directly by
+// the quick-plan generator and the AI Coach, unchanged) whenever no program is active.
+export function activeWeek(S) {
+  const p = S.activeProgramId && (S.programs || []).find(x => x.id === S.activeProgramId)
+  return p ? (p.week || {}) : (S.week || {})
+}
 export function effectiveRoutineId(S, iso) {
   const ov = S.dayPlan[iso]
   if (ov === 'rest') return null
   if (ov && S.routines.some(r => r.id === ov)) return ov
   const wd = new Date(iso + 'T12:00:00').getDay()
-  return S.week[wd] || null
+  return activeWeek(S)[wd] || null
 }
 export function effectiveRoutine(S, iso) {
   const id = effectiveRoutineId(S, iso)

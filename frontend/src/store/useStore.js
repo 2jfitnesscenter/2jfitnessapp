@@ -14,11 +14,14 @@ export const DEF = {
   // Basic profile, collected (optionally) at registration and editable later in Settings.
   // birthDate is the ISO date, not a stored age — age is derived from it wherever it is needed.
   birthDate: null, height: null,
-  // Programs are an optional, purely organisational layer on top of routines — a named folder
-  // of routine ids (e.g. a whole "Project Kakarrot" split), never a copy of the routine data
-  // itself. A routine not listed in any program's `routineIds` is just shown loose, exactly as
-  // every routine was before this existed — nothing here changes what a routine or a week
-  // actually IS, only how the Plan screen groups them for browsing.
+  // Programs are a named folder of routine ids (e.g. a whole "Project Kakarrot" split), never a
+  // copy of the routine data itself. A routine not listed in any program's `routineIds` is just
+  // shown loose. A program can also carry its own weekday->routineId map (`week`, same shape as
+  // the classic flat one below) — see lib/history.js's activeWeek().
+  // activeProgramId: which program (if any) currently drives the week — null means "use the
+  // classic flat week below," which is also what the quick-plan generator and AI Coach still
+  // write directly, unchanged.
+  activeProgramId: null,
   // Body measurements & composition — keyed by lib/measurements.js's MEASUREMENTS[].key, each
   // an array of {d, v, t} exactly like bodyweight's own shape, just generalised to more than
   // one series. Absent keys are just "never logged", not zero.

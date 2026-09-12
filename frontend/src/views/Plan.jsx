@@ -56,6 +56,7 @@ export default function Plan() {
           ? <img src={mediaUrl(p.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
           : <span className="lrow-i"><Icon name={glyphOf(p.emoji)} /></span>}
         <div className="grow"><div className="tt">{p.name}</div><div className="ss">{routineCount((p.routineIds || []).length)}</div></div>
+        {S.activeProgramId === p.id && <span className="tag acc">{t('Active')}</span>}
         <Icon name="chevronRight" className="chev" /></div>)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="folder" /></div>{t('No programs yet.')}<br />{t('Group a few routines together — a whole split, a block, a phase.')}</div>
         <Button icon="plus" onClick={addProgram}>{t('New program')}</Button>

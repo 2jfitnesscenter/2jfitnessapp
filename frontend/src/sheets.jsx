@@ -3,7 +3,7 @@ import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf } from './lib/history.js'
+import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, nameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -801,7 +801,7 @@ function PlanImport({ bundle, close }) {
 function DayOverride({ iso, close }) {
   const st = useStore(s => s.S)
   const wd = new Date(iso + 'T12:00:00').getDay()
-  const weeklyR = st.routines.find(r => r.id === st.week[wd])
+  const weeklyR = st.routines.find(r => r.id === activeWeek(st)[wd])
   const hasOvr = st.dayPlan[iso] !== undefined
   const effId = effectiveRoutineId(st, iso)
   const set = v => {
@@ -824,21 +824,35 @@ function DayOverride({ iso, close }) {
 }
 export const dayOverrideSheet = iso => ui().openSheet(close => <DayOverride iso={iso} close={close} />)
 
-function DayAssign({ day, close }) {
+// Assigns one weekday within one program's own schedule (program.week) — the only routines
+// offered are that program's own, since this is building that program's split, not the flat
+// week (see lib/history.js's activeWeek for how a program's week ends up driving Home).
+function DayAssign({ day, programId, close }) {
   const st = useStore(s => s.S)
-  const set = v => { update(s => { if (v) s.week[day] = v; else delete s.week[day] }); close() }
+  const program = (st.programs || []).find(p => p.id === programId)
+  const routines = (program?.routineIds || []).map(rid => st.routines.find(r => r.id === rid)).filter(Boolean)
+  const current = (program?.week || {})[day]
+  const set = v => {
+    update(s => {
+      const p = (s.programs || []).find(x => x.id === programId)
+      if (!p) return
+      p.week = p.week || {}
+      if (v) p.week[day] = v; else delete p.week[day]
+    })
+    close()
+  }
   return <>
     <h3>{t(DAYN[day])}</h3>
     <div className="list">
-      <div className="item" onClick={() => set('')}><span className="lrow-i" style={{ background: 'var(--surface-3)' }}><Icon name="moon" /></span><div className="grow"><div className="tt">{t('Rest day')}</div></div>{!st.week[day] && <Icon name="check" className="accent" />}</div>
-      {st.routines.map(r => <div key={r.id} className="item" onClick={() => set(r.id)}>
+      <div className="item" onClick={() => set('')}><span className="lrow-i" style={{ background: 'var(--surface-3)' }}><Icon name="moon" /></span><div className="grow"><div className="tt">{t('Rest day')}</div></div>{!current && <Icon name="check" className="accent" />}</div>
+      {routines.map(r => <div key={r.id} className="item" onClick={() => set(r.id)}>
         <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
-        {st.week[day] === r.id && <Icon name="check" className="accent" />}</div>)}
+        {current === r.id && <Icon name="check" className="accent" />}</div>)}
     </div>
   </>
 }
-export const dayAssignSheet = day => ui().openSheet(close => <DayAssign day={day} close={close} />)
+export const dayAssignSheet = (day, programId) => ui().openSheet(close => <DayAssign day={day} programId={programId} close={close} />)
 
 /* ============================ workout detail ============================ */
 function WorkoutDetail({ w, close }) {

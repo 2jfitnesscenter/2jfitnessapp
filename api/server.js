@@ -180,13 +180,17 @@ function cancelRestTimer(userId) {
 }
 
 // "Workout planned today" reminder — one per user per day, at their chosen time.
-// Duplicated (not imported) from frontend/src/lib/history.js effectiveRoutineId — tiny pure helper, not worth sharing across the two runtimes.
+// Duplicated (not imported) from frontend/src/lib/history.js activeWeek/effectiveRoutineId — tiny pure helpers, not worth sharing across the two runtimes.
+function activeWeek(S) {
+  const p = S.activeProgramId && (S.programs || []).find(x => x.id === S.activeProgramId);
+  return p ? (p.week || {}) : (S.week || {});
+}
 function effectiveRoutineId(S, iso) {
   const ov = S.dayPlan?.[iso];
   if (ov === 'rest') return null;
   if (ov && S.routines?.some(r => r.id === ov)) return ov;
   const wd = new Date(iso + 'T12:00:00').getDay();
-  return S.week?.[wd] || null;
+  return activeWeek(S)[wd] || null;
 }
 // Computes "now" in an arbitrary IANA zone (e.g. "Europe/Lisbon") instead of the server's own —
 // each user's reminder fires by their own clock, wherever they and their phone actually are.
