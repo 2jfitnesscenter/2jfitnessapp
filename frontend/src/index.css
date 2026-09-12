@@ -85,25 +85,22 @@
 }
 
 /* accents — Apple's system colours, so a recolour never looks off-system */
-:root[data-accent="lime"]  { --acc:var(--green);  --acc-2:#578923; --on-acc:#000 }
-:root[data-accent="sky"]   { --acc:var(--blue);   --acc-2:#0060df; --on-acc:#fff }
-:root[data-accent="orange"]{ --acc:var(--orange); --acc-2:#c76b00; --on-acc:#000 }
-:root[data-accent="violet"]{ --acc:var(--purple); --acc-2:#8944ab; --on-acc:#fff }
-:root[data-accent="pink"]  { --acc:var(--pink);   --acc-2:#d70036; --on-acc:#fff }
-:root[data-accent="red"]   { --acc:var(--red);    --acc-2:#d70015; --on-acc:#fff }
-:root[data-accent="teal"]  { --acc:var(--teal);   --acc-2:#0071a4; --on-acc:#000 }
-:root[data-accent="gold"]  { --acc:var(--yellow); --acc-2:#b25000; --on-acc:#000 }
+:root[data-accent="lime"]  { --acc:var(--green); --acc-2:#578923; --on-acc:#000 }
+:root[data-accent="grey"]  { --acc:var(--grey);  --acc-2:#4a4d4e; --on-acc:#fff }
+:root[data-accent="black"] { --acc:#3a3a3c;      --acc-2:#242426; --on-acc:#fff }
+:root[data-accent="sky"]   { --acc:var(--blue);  --acc-2:#0060df; --on-acc:#fff }
+:root[data-accent="red"]   { --acc:var(--red);   --acc-2:#d70015; --on-acc:#fff }
+:root[data-accent="violet"]{ --acc:var(--purple);--acc-2:#8944ab; --on-acc:#fff }
 /* Label colour on a filled accent button is picked per accent by measured contrast,
    not by taste. Button text is 17px/600, so the AA bar is 3:1 (large text). White on
-   the light-theme green is 2.22:1 and on teal 2.57:1 — both fail, and green is the
-   DEFAULT accent, so every primary button in light mode was failing. Black scores
-   9.46 / 8.16 there. Blue, purple, pink and red keep white (3.5–4.1:1), which both
-   passes and matches the platform convention. */
-:root[data-theme="light"][data-accent="lime"],
-:root[data-theme="light"][data-accent="teal"]  { --on-acc:#000 }
+   the light-theme green is 2.22:1 — fails, and green is the DEFAULT accent, so every
+   primary button in light mode was failing. Black scores 9.46:1 there. Grey and black
+   are dark enough that white passes in both themes (6.2:1 / 11.3:1) without needing a
+   light-mode override. Blue, purple and red keep white (3.5–4.1:1) too, matching the
+   platform convention. */
+:root[data-theme="light"][data-accent="lime"] { --on-acc:#000 }
 :root[data-theme="light"][data-accent="sky"],
 :root[data-theme="light"][data-accent="violet"],
-:root[data-theme="light"][data-accent="pink"],
 :root[data-theme="light"][data-accent="red"]   { --on-acc:#fff }
 
 /* ---------------------------------------------------------------- reset -- */
@@ -936,7 +933,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 
 /* --- accent swatches --- */
 .swatches{display:flex;gap:12px;flex-wrap:wrap}
-.swatch{width:32px;height:32px;border-radius:50%;flex:none;position:relative;transition:transform var(--fast)}
+.swatch{width:32px;height:32px;border-radius:50%;flex:none;position:relative;transition:transform var(--fast);box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)}
 .swatch:active{transform:scale(.9)}
 .swatch.on::after{content:'';position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 2px var(--label)}
 
