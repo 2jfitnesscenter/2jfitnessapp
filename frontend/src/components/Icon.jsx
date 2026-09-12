@@ -123,6 +123,15 @@ const P = {
   // three round-pips, the middle one filled — same visual language as EMOM's own row of round
   // indicators, so the icon reads as "rounds" before you ever open it
   emom: <><circle cx="5.8" cy="12" r="2.4" /><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" /><circle cx="18.2" cy="12" r="2.4" /></>,
+
+  /* ---- body measurements ---- */
+  // A teardrop, not a wave — body water is one figure, not a body of water.
+  drop: <path d="M12 3.6c3.2 4.1 5.4 7.6 5.4 10.4a5.4 5.4 0 1 1-10.8 0c0-2.8 2.2-6.3 5.4-10.4Z" />,
+  // Two knobby ends (paired circles, same language as kettlebell's circle+path build)
+  // joined by a diagonal shaft — reads as a bone at 16px without needing a filled shape.
+  bone: <><circle cx="6.7" cy="6.3" r="1.7" /><circle cx="8.9" cy="4.1" r="1.7" /><circle cx="17.3" cy="17.7" r="1.7" /><circle cx="15.1" cy="19.9" r="1.7" /><path d="M8.1 8.1 15.9 15.9" /></>,
+  // A skinfold caliper: hinge at top, two legs splaying to pinch pads at the tips.
+  caliper: <><circle cx="12" cy="5.6" r="1.6" /><path d="M12 7.2 6.3 18.6M12 7.2l5.7 11.4" /><path d="M4.6 19.4l2.6-2.3M19.4 19.4l-2.6-2.3" /></>,
 }
 
 // A few keys are aliases so call sites can say what they mean.

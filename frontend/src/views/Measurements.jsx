@@ -21,6 +21,7 @@ function Row({ m, S }) {
     : m.key === 'visceralFat' && last ? visceralFatBand(last.v)
     : null
   return <div className="item" onClick={() => measurementSheet(m.key)}>
+    <span className="lrow-i" style={{ '--tint': m.iconTint }}><Icon name={m.icon} /></span>
     <div className="grow"><div className="tt">{t(m.label)}</div>
       {last && <div className="ss">{fmtDate(last.d)}</div>}
     </div>

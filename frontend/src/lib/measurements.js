@@ -7,32 +7,39 @@
 // 'composition' and 'folds' groups, since they're typically taken in the same sitting).
 export const GROUPS = ['body', 'composition', 'folds']
 
+// Icon + tint follow the measurement technique, not the individual spot: every tape-measure
+// circumference shares one icon/colour (they're all "wrap a tape around it"), same for the four
+// caliper skinfolds — only the five bioimpedance readings are visually distinct enough from each
+// other to earn their own icon.
+const TAPE = { icon: 'expand', iconTint: 'var(--mint)' }
+const CALIPER = { icon: 'caliper', iconTint: 'var(--teal)' }
+
 export const MEASUREMENTS = [
   // ---- circumference, cm — a member's own tape measure ----
-  { key: 'neck', label: 'Neck', group: 'body', unit: 'cm', min: 20, max: 60, step: 0.5, dec: true },
-  { key: 'shoulders', label: 'Shoulders', group: 'body', unit: 'cm', min: 70, max: 170, step: 0.5, dec: true },
-  { key: 'chest', label: 'Chest', group: 'body', unit: 'cm', min: 60, max: 170, step: 0.5, dec: true },
-  { key: 'bicepsL', label: 'Left biceps', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true },
-  { key: 'bicepsR', label: 'Right biceps', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true },
-  { key: 'forearmL', label: 'Left forearm', group: 'body', unit: 'cm', min: 15, max: 50, step: 0.5, dec: true },
-  { key: 'forearmR', label: 'Right forearm', group: 'body', unit: 'cm', min: 15, max: 50, step: 0.5, dec: true },
-  { key: 'waist', label: 'Waist', group: 'body', unit: 'cm', min: 40, max: 160, step: 0.5, dec: true },
-  { key: 'hips', label: 'Hips', group: 'body', unit: 'cm', min: 50, max: 170, step: 0.5, dec: true },
-  { key: 'thighL', label: 'Left thigh', group: 'body', unit: 'cm', min: 25, max: 100, step: 0.5, dec: true },
-  { key: 'thighR', label: 'Right thigh', group: 'body', unit: 'cm', min: 25, max: 100, step: 0.5, dec: true },
-  { key: 'calfL', label: 'Left calf', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true },
-  { key: 'calfR', label: 'Right calf', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true },
+  { key: 'neck', label: 'Neck', group: 'body', unit: 'cm', min: 20, max: 60, step: 0.5, dec: true, ...TAPE },
+  { key: 'shoulders', label: 'Shoulders', group: 'body', unit: 'cm', min: 70, max: 170, step: 0.5, dec: true, ...TAPE },
+  { key: 'chest', label: 'Chest', group: 'body', unit: 'cm', min: 60, max: 170, step: 0.5, dec: true, ...TAPE },
+  { key: 'bicepsL', label: 'Left biceps', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true, ...TAPE },
+  { key: 'bicepsR', label: 'Right biceps', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true, ...TAPE },
+  { key: 'forearmL', label: 'Left forearm', group: 'body', unit: 'cm', min: 15, max: 50, step: 0.5, dec: true, ...TAPE },
+  { key: 'forearmR', label: 'Right forearm', group: 'body', unit: 'cm', min: 15, max: 50, step: 0.5, dec: true, ...TAPE },
+  { key: 'waist', label: 'Waist', group: 'body', unit: 'cm', min: 40, max: 160, step: 0.5, dec: true, ...TAPE },
+  { key: 'hips', label: 'Hips', group: 'body', unit: 'cm', min: 50, max: 170, step: 0.5, dec: true, ...TAPE },
+  { key: 'thighL', label: 'Left thigh', group: 'body', unit: 'cm', min: 25, max: 100, step: 0.5, dec: true, ...TAPE },
+  { key: 'thighR', label: 'Right thigh', group: 'body', unit: 'cm', min: 25, max: 100, step: 0.5, dec: true, ...TAPE },
+  { key: 'calfL', label: 'Left calf', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true, ...TAPE },
+  { key: 'calfR', label: 'Right calf', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true, ...TAPE },
   // ---- body composition — a bioimpedance scan (e.g. this gym's Tanita) ----
-  { key: 'bodyFat', label: 'Body fat', group: 'composition', unit: '%', min: 2, max: 55, step: 0.1, dec: true },
-  { key: 'muscleMass', label: 'Muscle mass', group: 'composition', unit: 'kg', min: 10, max: 70, step: 0.1, dec: true },
-  { key: 'waterPct', label: 'Body water', group: 'composition', unit: '%', min: 25, max: 75, step: 0.1, dec: true },
-  { key: 'visceralFat', label: 'Visceral fat', group: 'composition', unit: '', min: 1, max: 59, step: 1, dec: false },
-  { key: 'boneMass', label: 'Bone mass', group: 'composition', unit: 'kg', min: 0.5, max: 6, step: 0.1, dec: true },
+  { key: 'bodyFat', label: 'Body fat', group: 'composition', unit: '%', min: 2, max: 55, step: 0.1, dec: true, icon: 'flame', iconTint: 'var(--orange)' },
+  { key: 'muscleMass', label: 'Muscle mass', group: 'composition', unit: 'kg', min: 10, max: 70, step: 0.1, dec: true, icon: 'figureStrength', iconTint: 'var(--indigo)' },
+  { key: 'waterPct', label: 'Body water', group: 'composition', unit: '%', min: 25, max: 75, step: 0.1, dec: true, icon: 'drop', iconTint: 'var(--blue)' },
+  { key: 'visceralFat', label: 'Visceral fat', group: 'composition', unit: '', min: 1, max: 59, step: 1, dec: false, icon: 'target', iconTint: 'var(--purple)' },
+  { key: 'boneMass', label: 'Bone mass', group: 'composition', unit: 'kg', min: 0.5, max: 6, step: 0.1, dec: true, icon: 'bone', iconTint: 'var(--grey)' },
   // ---- skinfolds, mm — calipers (a staff assessment, taken alongside the bioimpedance scan) ----
-  { key: 'skinTriceps', label: 'Triceps skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true },
-  { key: 'skinSubscapular', label: 'Subscapular skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true },
-  { key: 'skinSuprailiac', label: 'Suprailiac skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true },
-  { key: 'skinAbdominal', label: 'Abdominal skinfold', group: 'folds', unit: 'mm', min: 2, max: 50, step: 0.5, dec: true }
+  { key: 'skinTriceps', label: 'Triceps skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true, ...CALIPER },
+  { key: 'skinSubscapular', label: 'Subscapular skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true, ...CALIPER },
+  { key: 'skinSuprailiac', label: 'Suprailiac skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true, ...CALIPER },
+  { key: 'skinAbdominal', label: 'Abdominal skinfold', group: 'folds', unit: 'mm', min: 2, max: 50, step: 0.5, dec: true, ...CALIPER }
 ]
 export const MEASUREMENT = Object.fromEntries(MEASUREMENTS.map(m => [m.key, m]))
 
