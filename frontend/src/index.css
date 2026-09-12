@@ -587,7 +587,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   position:absolute;bottom:9px;display:inline-flex;align-items:center;gap:4px;
   background:rgba(0,0,0,.45);color:#fff;border-radius:99px;padding:5px 11px;
   font-size:12px;font-weight:500;
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(12px);
 }
 .exmedia .gifhint{right:9px}
 .exmedia .giftoggle{left:9px}
@@ -683,7 +683,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   /* nearly opaque: the set rows underneath were reading through the old 82% and made the
      clock hard to pick out mid-set. The blur stays, so it still sits above the page. */
   background:color-mix(in srgb,var(--surface) 97%,transparent);
-  backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);
+  backdrop-filter:saturate(180%) blur(24px);
   border-radius:var(--r-lg);padding:12px 14px;
   display:flex;align-items:center;gap:12px;
   box-shadow:0 12px 34px -8px rgba(0,0,0,.55);
@@ -721,7 +721,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 #modal-root.open{display:block}
 .mback{
   position:absolute;inset:0;background:rgba(0,0,0,.35);
-  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(32px);
   touch-action:none;overscroll-behavior:none;
 }
 .sheet{
@@ -741,6 +741,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   width:min(84vw,300px);background:var(--bg-el);border-radius:var(--r-lg);padding:20px;
   box-shadow:0 20px 60px -12px rgba(0,0,0,.5);
   animation:pop .28s var(--ease);
+  max-height:86vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
 }
 :root[data-theme="light"] .center{background:#fff}
 @keyframes pop{from{transform:translate(-50%,-50%) scale(.94);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
@@ -901,7 +902,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   position:fixed;left:50%;transform:translateX(-50%) translateY(6px);
   bottom:calc(96px + var(--sab));z-index:200;
   background:color-mix(in srgb,var(--surface-2) 88%,transparent);
-  backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
+  backdrop-filter:saturate(180%) blur(20px);
   border-radius:99px;padding:11px 20px;font-size:15px;font-weight:500;
   box-shadow:0 10px 30px -6px rgba(0,0,0,.5);
   opacity:0;pointer-events:none;transition:opacity var(--med),transform var(--med) var(--ease);
