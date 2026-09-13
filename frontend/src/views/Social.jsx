@@ -57,7 +57,7 @@ function ImagePicker({ value, onChange }) {
   return <div>
     <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
     {value ? <div style={{ position: 'relative' }}>
-      <img src={value} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 12, display: 'block' }} />
+      <img src={value} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: 12, display: 'block' }} />
       <button className="iconbtn" style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,.55)', color: '#fff' }}
         onClick={() => onChange(null)} aria-label={t('Remove image')}><Icon name="xmark" /></button>
     </div> : <Button icon="upload" onClick={() => inputRef.current?.click()}>{t('Add a photo (optional)')}</Button>}
@@ -73,7 +73,7 @@ function DetailHeader({ post, isProgram, isOwn, onRate }) {
   const line1 = [post.level && t(LEVEL_LABEL[post.level]), post.goal && t(GOAL_LABEL[post.goal])].filter(Boolean).join(' · ')
   const line2 = [isProgram && post.daysPerWeek && t('{0} days/week', post.daysPerWeek), post.duration].filter(Boolean).join(' · ')
   return <>
-    {img && <img src={img} alt="" style={{ width: 'calc(100% + 36px)', margin: '0 -18px 14px', height: 200, objectFit: 'cover', display: 'block' }} />}
+    {img && <img src={img} alt="" style={{ width: 'calc(100% + 36px)', margin: '0 -18px 14px', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />}
     <h3 style={{ textAlign: 'center' }}>{post.name}</h3>
     {!!(line1 || line2) && <div style={{ textAlign: 'center', marginTop: -8, marginBottom: 10 }}>
       {line1 && <div className="small dim">{line1}</div>}
@@ -117,7 +117,7 @@ function RoutineCard({ post, onOpen }) {
 function ProgramCard({ post, onOpen }) {
   const img = mediaUrl(post.image)
   return <div className="item" style={{ flexDirection: 'column', alignItems: 'stretch', padding: img ? 0 : undefined, overflow: 'hidden' }} onClick={() => onOpen(post)}>
-    {img && <img src={img} alt="" style={{ width: '100%', height: 130, objectFit: 'cover' }} />}
+    {img && <img src={img} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} />}
     <div className="row" style={{ padding: img ? '10px 14px 12px' : 0, width: '100%' }}>
       {!img && <span className="lrow-i"><Icon name={glyphOf(post.emoji)} /></span>}
       <div className="grow">
@@ -461,15 +461,13 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
       </div>)}
       {!(post.comments || []).length && <div className="muted small" style={{ padding: '6px 2px' }}>{t('No comments yet.')}</div>}
     </div>
+    <TextArea rows={3} maxLength={300} value={text} placeholder={t('Add a comment…')} onChange={e => setText(e.target.value)} />
+    <div style={{ height: 10 }} />
     <div className="row" style={{ gap: 8 }}>
-      <input className="input" style={{ flex: '1 1 auto', minWidth: 0 }} value={text} maxLength={300} placeholder={t('Add a comment…')}
-        onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') send() }} />
-      <Button variant="primary" style={{ flex: 'none' }} disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>
+      <Button variant="primary" style={{ flex: 1 }} disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>
+      {(post.authorId === user?.id || user?.admin) &&
+        <Button variant="danger" style={{ flex: 1 }} onClick={delPost}>{t('Delete post')}</Button>}
     </div>
-    {(post.authorId === user?.id || user?.admin) && <>
-      <div style={{ height: 10 }} />
-      <button className="btn danger" style={{ width: '100%' }} onClick={delPost}>{t('Delete post')}</button>
-    </>}
   </>
 }
 
