@@ -49,6 +49,19 @@
   --acc-soft: color-mix(in srgb, var(--acc) 16%, transparent);
   --acc-line: color-mix(in srgb, var(--acc) 38%, transparent);
 
+  /* strength-rank tiers (feature: Rango de fuerza) — flat, absolute colours like
+     Recovery's red/orange/green, not an intensity ramp: a tier means one specific thing,
+     never "more/less" of the same thing. */
+  --tier-iron:      #8e8e93;
+  --tier-bronze:    #b5651d;
+  --tier-silver:    #b0b3b8;
+  --tier-gold:      #d4af37;
+  --tier-ruby:      #d21f4b;
+  --tier-emerald:   #1fa15c;
+  --tier-diamond:   #4fc3d9;
+  --tier-champion:  #7b5ce6;
+  --tier-symmetric: #f3c94a;
+
   /* geometry */
   --r-sm:8px; --r:12px; --r-lg:16px; --r-xl:22px; --r-card:14px;
   --pad:16px;

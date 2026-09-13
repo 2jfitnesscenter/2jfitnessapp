@@ -33,6 +33,7 @@ import ChatThread from './views/ChatThread.jsx'
 import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements from './views/Measurements.jsx'
 import Recovery from './views/Recovery.jsx'
+import Rank from './views/Rank.jsx'
 import Admin from './views/Admin.jsx'
 import PhysicalProfileWizard from './views/PhysicalProfileWizard.jsx'
 import Coach from './views/Coach.jsx'
@@ -119,6 +120,7 @@ function Shell() {
               <Route path="/connected-apps" element={<ConnectedApps />} />
               <Route path="/measurements" element={<Measurements />} />
               <Route path="/recovery" element={<Recovery />} />
+              <Route path="/rank" element={<Rank />} />
               {/* The Coach screens gate themselves on the instance config; the routes exist
                   unconditionally so a deep link from a notification lands somewhere sane
                   rather than on the catch-all. */}

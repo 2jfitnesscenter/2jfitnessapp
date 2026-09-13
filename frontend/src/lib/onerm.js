@@ -99,6 +99,19 @@ export function bestTestedOneRM(S, exId) {
   return tests.length ? tests.reduce((a, b) => (b.est1RM > a.est1RM ? b : a)) : null
 }
 
+// Either kind of known best represents a genuine ability — a workout set is real
+// performance, a dedicated test is a deliberate attempt — so a consumer that just wants
+// "the best this person has ever shown for this exercise" (lib/rank.js) wants whichever
+// is higher, not one source picked over the other.
+export function bestKnownOneRM(S, exId, formula = DEFAULT_FORMULA) {
+  const a = best1RM(S, exId, formula)
+  const b = bestTestedOneRM(S, exId)
+  const av = a ? a.est : -Infinity
+  const bv = b ? b.est1RM : -Infinity
+  if (av === -Infinity && bv === -Infinity) return null
+  return av >= bv ? a.est : b.est1RM
+}
+
 // %1RM by effective rep count — the standard submaximal-load table (1 rep=100% down to 12=70%),
 // linearly interpolated between the known points. RIR folds in as extra effective reps (each RIR
 // is roughly one more rep of room, the same logic the RIR/RPE scale itself is built on — see
