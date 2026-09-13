@@ -692,11 +692,15 @@ function ExerciseBrowser({ initial }) {
   const [eq, setEq] = useState('')
   const [shown, setShown] = useState(40)
   const ql = q.toLowerCase().trim()
+  // Primary target only (weight 1), not "any secondary mention" (weight .4) — a basic
+  // crunch lists hip flexors and lower back as stabilizers, which would otherwise put it
+  // under both Glutes and Back. BodyMap wants that nuance (it shades by how hard a
+  // muscle worked); browsing by muscle wants "is this actually a glute exercise".
   const byMuscle = e => {
     if (!muscle) return true
     if (muscle === CARDIO) return e.bp === CARDIO
     const m = musclesOf(e)
-    return GROUP_BY_KEY[muscle].slugs.some(s => (m[s] || 0) > 0)
+    return GROUP_BY_KEY[muscle].slugs.some(s => (m[s] || 0) >= 1)
   }
   const base = allExercises(st).filter(e => byMuscle(e) && (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql) || e.tg.includes(ql) || e.eq.includes(ql) || (e.desc || '').toLowerCase().includes(ql)))
   const eqOpts = equipmentOf(base)
