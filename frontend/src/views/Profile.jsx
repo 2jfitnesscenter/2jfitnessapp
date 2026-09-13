@@ -7,7 +7,7 @@ import { fmtDate, todayISO } from '../lib/format.js'
 import { webauthnOK, passkeyLogin, passkeyRegister } from '../lib/api.js'
 import { updateUsername, updateAvatar } from '../lib/friends-api.js'
 import { resizeImageFile, mediaUrl } from '../lib/media.js'
-import { globalRank, TIER_COLOR, rankLabel } from '../lib/rank.js'
+import { globalRank, TIER_COLOR, rankLabel, rankEmblemUrl } from '../lib/rank.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
@@ -68,8 +68,8 @@ export default function Profile() {
         <div className="capitalize" style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-.012em' }}>{user?.name || t('Guest')}</div>
         {user?.created && <div className="dim small">{t('joined {0}', fmtDate(user.created.slice(0, 10)))}</div>}
         {user?.username && <button className="dim small" style={{ marginTop: 2 }} onClick={editUsername}>@{user.username}</button>}
-        {rank && !rank.locked && <div className="row" style={{ gap: 4, marginTop: 4, color: TIER_COLOR[rank.tier] }}>
-          <Icon name="shield" style={{ fontSize: 13 }} />
+        {rank && !rank.locked && <div className="row" style={{ gap: 5, marginTop: 4, color: TIER_COLOR[rank.tier] }}>
+          <img src={rankEmblemUrl(rank.tier, rank.division)} alt="" style={{ width: 18, height: 18, objectFit: 'contain', flex: 'none' }} />
           <span className="small" style={{ fontWeight: 600 }}>{rankLabel(rank)}</span>
         </div>}
       </div>

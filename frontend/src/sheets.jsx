@@ -16,7 +16,7 @@ import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avat
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf } from './lib/muscles.js'
-import { rankUpsFor } from './lib/rank.js'
+import { rankUpsFor, rankEmblemUrl } from './lib/rank.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
@@ -1382,7 +1382,7 @@ function FinishSummary({ w, prs, e1prs = [], rankUps = [], close }) {
     {(prs.length > 0 || e1prs.length > 0 || rankUps.length > 0) && <div style={{ textAlign: 'left', marginBottom: 12 }}>
       {prs.map(id => <div key={id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="trophy" style={{ fontSize: 13 }} />{t('New PR:')} {EXIDX[id] ? nameFor(EXIDX[id]) : id}</div>)}
       {e1prs.map(p => <div key={p.id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="chartLine" style={{ fontSize: 13 }} />{t('Best estimated 1RM:')} {EXIDX[p.id] ? nameFor(EXIDX[p.id]) : p.id} · {fmtNum(p.est)} {st.unit}</div>)}
-      {rankUps.map(u => <div key={u.id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="shield" style={{ fontSize: 13 }} />{t('New rank:')} {EXIDX[u.id] ? nameFor(EXIDX[u.id]) : u.id} · {t(u.newRank.tier)}{u.newRank.division ? ' ' + u.newRank.division : ''}</div>)}
+      {rankUps.map(u => <div key={u.id} className="small accent capitalize row" style={{ gap: 5 }}><img src={rankEmblemUrl(u.newRank.tier, u.newRank.division)} alt="" style={{ width: 15, height: 15, objectFit: 'contain', flex: 'none' }} />{t('New rank:')} {EXIDX[u.id] ? nameFor(EXIDX[u.id]) : u.id} · {t(u.newRank.tier)}{u.newRank.division ? ' ' + u.newRank.division : ''}</div>)}
     </div>}
     <h4 className="sec" style={{ textAlign: 'left' }}>{t('What you just trained')}</h4>
     <BodyMap load={loadOfWorkouts([w])} body={st.body} />

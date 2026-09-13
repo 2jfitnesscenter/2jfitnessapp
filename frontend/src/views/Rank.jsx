@@ -8,7 +8,7 @@ import { musclesOf, MUSCLE_NAME } from '../lib/muscles.js'
 import { EXIDX } from '../lib/exercises.js'
 import {
   TIERS, RANK_LIFTS, RANK_GROUPS, RANK_GROUP_KEYS, RANK_GROUP_NAME,
-  liftRatio, rankOfLift, muscleRank, groupRank, globalRank, TIER_COLOR, rankLabel,
+  liftRatio, rankOfLift, muscleRank, groupRank, globalRank, TIER_COLOR, rankLabel, rankEmblemUrl,
 } from '../lib/rank.js'
 import Icon from '../components/Icon.jsx'
 import BodyMap from '../components/BodyMap.jsx'
@@ -16,8 +16,9 @@ import { Button } from '../components/ui.jsx'
 
 function RankBadge({ rank, small }) {
   if (!rank) return <span className="dim small">{t('No data yet')}</span>
-  return <span className="row" style={{ gap: 4, color: TIER_COLOR[rank.tier], flex: 'none' }}>
-    <Icon name="shield" style={{ fontSize: small ? 13 : 16 }} />
+  const size = small ? 22 : 28
+  return <span className="row" style={{ gap: 6, color: TIER_COLOR[rank.tier], flex: 'none' }}>
+    <img src={rankEmblemUrl(rank.tier, rank.division)} alt="" style={{ width: size, height: size, objectFit: 'contain', flex: 'none' }} />
     <span className="small" style={{ fontWeight: 600 }}>{rankLabel(rank)}</span>
   </span>
 }
@@ -39,8 +40,11 @@ export function RankGuideSheet() {
     <div className="small dim" style={{ lineHeight: 1.5, marginBottom: 10 }}>
       {t('From {0} to {1}, each with three divisions — I, II and III. You move up a division, then the next one, before moving into the next tier. {2} is the top, for the very strongest lifts, and has no divisions.', t('Iron'), t('Champion'), t('Symmetric'))}
     </div>
-    <div className="chips" style={{ marginBottom: 14 }}>
-      {TIERS.map(tier => <span key={tier} className="chip nocap" style={{ color: TIER_COLOR[tier] }}>{t(tier)}</span>)}
+    <div className="mstrip" style={{ marginBottom: 4 }}>
+      {TIERS.map(tier => <div key={tier} className="mstrip-i">
+        <img src={rankEmblemUrl(tier, tier === 'Symmetric' ? null : 'I')} alt="" style={{ width: 44, height: 44, objectFit: 'contain' }} />
+        <span className="mstrip-name" style={{ color: TIER_COLOR[tier] }}>{t(tier)}</span>
+      </div>)}
     </div>
     <h4 className="sec">{t('What you need')}</h4>
     <div className="small dim" style={{ lineHeight: 1.5, marginBottom: 14 }}>
@@ -86,7 +90,7 @@ export default function Rank() {
         <div className="tt" style={{ fontWeight: 600, marginTop: 8 }}>{t('Ranked {0} of {1} exercises', global.rankedCount, RANK_LIFTS.length)}</div>
         <div className="muted small" style={{ marginTop: 2 }}>{t('Log {0} more to unlock your overall rank', global.needed - global.rankedCount)}</div>
       </> : <>
-        <div style={{ fontSize: 52, display: 'flex', justifyContent: 'center', color: TIER_COLOR[global.tier] }}><Icon name="shield" /></div>
+        <img src={rankEmblemUrl(global.tier, global.division)} alt="" style={{ width: 96, height: 96, objectFit: 'contain', margin: '0 auto' }} />
         <div style={{ fontWeight: 700, fontSize: 22, marginTop: 6, color: TIER_COLOR[global.tier] }}>{rankLabel(global)}</div>
         <div className="muted small" style={{ marginTop: 2 }}>{t('Overall rank')}</div>
       </>}

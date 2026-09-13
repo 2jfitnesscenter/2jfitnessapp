@@ -33,6 +33,18 @@ export const TIER_COLOR = {
 // "Gold II", "Simétrico" (no division) — the one place a {tier, division} pair becomes text.
 export const rankLabel = r => t(r.tier) + (r.division ? ' ' + r.division : '')
 
+// public/ranks/rank_<tier>_<1|2|3>.webp — 25 illustrated emblems (Juanjo's own renders, with
+// his gym's dumbbell motif), one per division except Symmetric, which has none. Filenames use
+// plain digits instead of roman numerals to keep the URL free of case-sensitivity surprises.
+const TIER_FILE = {
+  Iron: 'iron', Bronze: 'bronze', Silver: 'silver', Gold: 'gold', Ruby: 'ruby',
+  Emerald: 'emerald', Diamond: 'diamond', Champion: 'champion', Symmetric: 'symmetric',
+}
+const DIVISION_NUM = { I: 1, II: 2, III: 3 }
+export const rankEmblemUrl = (tier, division) => division
+  ? `/ranks/rank_${TIER_FILE[tier]}_${DIVISION_NUM[division]}.webp`
+  : `/ranks/rank_${TIER_FILE[tier]}.webp`
+
 // The curated lifts a rank can be computed for — not the whole exercise library. Each
 // needs a published-style standard (STANDARDS below) to compare against, and most of the
 // 1324-exercise dataset has no such standard to lean on.
