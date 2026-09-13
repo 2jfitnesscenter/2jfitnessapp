@@ -7,8 +7,8 @@ import { t, nameFor } from '../lib/i18n.js'
 import { Thumb } from '../components/Media.jsx'
 import { exerciseDetailSheet, addToRoutineSheet, customExSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button, ChipSelect } from '../components/ui.jsx'
-import BodyMap from '../components/BodyMap.jsx'
+import { Button } from '../components/ui.jsx'
+import { MuscleIcon } from '../components/BodyMap.jsx'
 import { MUSCLES, MUSCLE_NAME, musclesOf } from '../lib/muscles.js'
 
 // 'cardio' isn't a muscle — the map and the muscle taxonomy have nothing to shade for a
@@ -35,15 +35,21 @@ export default function Library() {
     <div className="search" style={{ marginBottom: 10 }}><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
       <input className="input" placeholder={t('Search…')} value={q} onChange={e => { setQ(e.target.value); setShown(40) }} /></div>
 
-    <h4 className="sec">{t('By muscle')}</h4>
-    <BodyMap className="tappable" highlightSelected selected={muscle === CARDIO ? null : muscle} onMuscle={pick} />
-    <div className="chips" style={{ margin: '10px 0 12px' }}>
-      <button className={'chip nocap' + (!muscle ? ' on' : '')} onClick={() => { setMuscle(''); setShown(40) }}>{t('All')}</button>
-      <button className={'chip' + (muscle === CARDIO ? ' on' : '')} onClick={() => pick(CARDIO)}>{t('Cardio')}</button>
-      <ChipSelect value={muscle === CARDIO ? '' : muscle} onChange={m => { setMuscle(m); setShown(40) }}
-        sheetTitle={t('By muscle')} placeholder={t('Body part')}
-        options={MUSCLES.map(m => ({ value: m, label: t(MUSCLE_NAME[m]) }))} />
+    <div className="row between">
+      <h4 className="sec" style={{ margin: 0 }}>{t('By muscle')}</h4>
+      {muscle && <button className="small accent" onClick={() => { setMuscle(''); setShown(40) }}>{t('Show all')}</button>}
     </div>
+    <div className="mtiles">
+      {MUSCLES.map(m => <button key={m} className={'mtile' + (muscle === m ? ' on' : '')} onClick={() => pick(m)}>
+        <span className="mtile-icon"><MuscleIcon slug={m} body={S.body} /></span>
+        <span className="mtile-name">{t(MUSCLE_NAME[m])}</span>
+      </button>)}
+      <button className={'mtile' + (muscle === CARDIO ? ' on' : '')} onClick={() => pick(CARDIO)}>
+        <span className="mtile-icon mtile-icon-plain"><Icon name="figureRun" /></span>
+        <span className="mtile-name">{t('Cardio')}</span>
+      </button>
+    </div>
+    <div style={{ height: 14 }} />
 
     {eqOpts.length > 1 && <div className="chips" style={{ marginBottom: 12 }}>
       <button className={'chip nocap' + (!eqOn ? ' on' : '')} onClick={() => { setEq(''); setShown(40) }}>{t('Any equipment')}</button>
