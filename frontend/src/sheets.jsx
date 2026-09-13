@@ -15,7 +15,7 @@ import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row, ChipSelect } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
-import { loadOfWorkouts } from './lib/muscles.js'
+import { loadOfWorkouts, MUSCLES, MUSCLE_NAME, MUSCLE_PHOTO, musclesOf } from './lib/muscles.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
@@ -662,6 +662,74 @@ function ExercisePicker({ onPick, close }) {
   </>
 }
 export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker onPick={onPick} close={close} />)
+
+/* ============================ exercise browser (by muscle, photo grid) ============================ */
+// Plan > Exercises opens this as its own sheet per muscle (or unfiltered) instead of filtering
+// a list in place — closer to a real "different window" you can dismiss, and it puts the same
+// photo strip at the top so switching muscle mid-browse never means going back first.
+const CARDIO = 'cardio'
+function MuscleStrip({ value, onChange }) {
+  return <div className="mstrip">
+    <button className={'mstrip-i' + (value === null ? ' on' : '')} onClick={() => onChange(null)}>
+      <span className="mstrip-photo mstrip-photo-plain"><Icon name="exercises" /></span>
+      <span className="mstrip-name">{t('All')}</span>
+    </button>
+    {MUSCLES.map(m => <button key={m} className={'mstrip-i' + (value === m ? ' on' : '')} onClick={() => onChange(m)}>
+      <span className="mstrip-photo" style={{ backgroundImage: `url(/muscles/${MUSCLE_PHOTO[m]}.jpg)` }} />
+      <span className="mstrip-name">{t(MUSCLE_NAME[m])}</span>
+    </button>)}
+    <button className={'mstrip-i' + (value === CARDIO ? ' on' : '')} onClick={() => onChange(CARDIO)}>
+      <span className="mstrip-photo" style={{ backgroundImage: 'url(/muscles/cardio.jpg)' }} />
+      <span className="mstrip-name">{t('Cardio')}</span>
+    </button>
+  </div>
+}
+function ExerciseBrowser({ initial }) {
+  const st = useStore(s => s.S)
+  const [muscle, setMuscle] = useState(initial)
+  const [q, setQ] = useState('')
+  const [eq, setEq] = useState('')
+  const [shown, setShown] = useState(40)
+  const ql = q.toLowerCase().trim()
+  const byMuscle = e => !muscle || (muscle === CARDIO ? e.bp === CARDIO : (musclesOf(e)[muscle] || 0) > 0)
+  const base = allExercises(st).filter(e => byMuscle(e) && (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql) || e.tg.includes(ql) || e.eq.includes(ql) || (e.desc || '').toLowerCase().includes(ql)))
+  const eqOpts = equipmentOf(base)
+  // Drop the equipment filter if switching muscle (or searching) narrowed it away.
+  const eqOn = eqOpts.includes(eq) ? eq : ''
+  const f = eqOn ? base.filter(e => e.eq === eqOn) : base
+  const title = muscle === null ? t('All exercises') : muscle === CARDIO ? t('Cardio') : t(MUSCLE_NAME[muscle])
+
+  return <>
+    <h3>{title}</h3>
+    <MuscleStrip value={muscle} onChange={m => { setMuscle(m); setEq(''); setShown(40) }} />
+    <div className="search" style={{ margin: '2px 0 10px' }}><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+      <input className="input" placeholder={t('Search {0} exercises…', allExercises(st).length)} value={q} onChange={e => { setQ(e.target.value); setShown(40) }} /></div>
+    {eqOpts.length > 1 && <div className="chips" style={{ marginBottom: 12 }}>
+      <button className={'chip nocap' + (!eqOn ? ' on' : '')} onClick={() => { setEq(''); setShown(40) }}>{t('Any equipment')}</button>
+      {eqOpts.map(x => <button key={x} className={'chip' + (eqOn === x ? ' on' : '')} onClick={() => { setEq(x); setShown(40) }}>{t(x)}</button>)}
+    </div>}
+    <div className="exgrid">
+      <div className="excard" onClick={() => customExSheet(null, ex => exerciseDetailSheet(ex), q.trim())}>
+        <div className="excard-media excard-media-x"><Icon name="sparkles" /></div>
+        <div className="excard-b"><div className="excard-t">{t('Create your own exercise')}</div></div>
+      </div>
+      {f.slice(0, shown).map(e => {
+        const best = bestWeightFor(st, e.id)
+        return <div key={e.id} className="excard" onClick={() => exerciseDetailSheet(e)}>
+          <div className="excard-media">
+            <Thumb ex={e} />
+            <button className="excard-plan" aria-label={t('Plan')} onClick={ev => { ev.stopPropagation(); addToRoutineSheet(e) }}><Icon name="plus" /></button>
+            {best > 0 && <span className="excard-best">{fmtNum(best)}</span>}
+          </div>
+          <div className="excard-b"><div className="excard-t capitalize">{nameFor(e)}</div><div className="excard-s capitalize">{t(e.tg || e.bp)}</div></div>
+        </div>
+      })}
+    </div>
+    {f.length === 0 && <div className="empty"><div className="ico"><Icon name="magnifier" /></div>{t('No match')}</div>}
+    {f.length > shown && <><div style={{ height: 10 }} /><Button onClick={() => setShown(s => s + 40)}>{t('Show more')}</Button></>}
+  </>
+}
+export const exerciseBrowserSheet = muscle => ui().openSheet(close => <ExerciseBrowser initial={muscle} />)
 
 /* ============================ exercise config ============================ */
 // Progression settings for one exercise (issue #17). Shown inside the config sheet because

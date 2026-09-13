@@ -429,7 +429,7 @@ export default {
   'Delete program': 'Eliminar programa',
   '{0} exercises with animations': '{0} ejercicios con animaciones',
   'By muscle': 'Por músculo',
-  'Show all': 'Ver todos',
+  'All exercises': 'Todos los ejercicios',
   'Search…': 'Buscar…',
   'No workouts yet.': 'Aún no hay entrenamientos.',
   'Starter plan loaded — Mon Push · Wed Pull · Fri Legs': 'Plan inicial cargado — Lun Push · Mié Pull · Vie Piernas',

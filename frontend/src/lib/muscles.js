@@ -22,6 +22,19 @@ export const MUSCLES = [
 // Drawn as the silhouette, never shaded: they carry no training load.
 export const INERT = ['head', 'hair', 'neck', 'hands', 'feet', 'knees', 'ankles']
 
+// Real gym photos (public/muscles/<file>.jpg — Juanjo's own, not stock) for the exercise
+// library's "by muscle" browser. Several of the 18 map slugs are the same muscle from a
+// photo's point of view (upper vs lower back, adductors vs hip flexors, calves vs
+// tibialis) — nobody can tell those apart in a training photo, so they share a file
+// rather than demanding a distinct shot of something a camera can't actually show.
+export const MUSCLE_PHOTO = {
+  trapezius: 'traps', deltoids: 'shoulders', chest: 'chest', 'upper-back': 'back',
+  serratus: 'abs', biceps: 'biceps', triceps: 'triceps', forearm: 'forearms',
+  abs: 'abs', obliques: 'abs', 'lower-back': 'back', gluteal: 'glutes',
+  quadriceps: 'quads', hamstring: 'hamstrings', adductors: 'hips',
+  'hip-flexors': 'hips', calves: 'calves', tibialis: 'calves',
+}
+
 // English display names; these strings are the i18n keys (see lib/i18n.js).
 export const MUSCLE_NAME = {
   trapezius: 'Traps', deltoids: 'Shoulders', chest: 'Chest', 'upper-back': 'Upper back',
