@@ -974,6 +974,27 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   letter-spacing:-.012em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;
 }
 
+/* --- clock picker: one big photo card per mode, not a compact row list — the picker is a
+   one-time-per-session choice worth a full-bleed look, and a real photo of the gym reads as
+   "this mode, happening here" in a way an icon-only row never could. The gradient is a computed
+   layer (never fails to load), so a mode whose photo hasn't been dropped into public/clock/ yet
+   still shows its own solid colour instead of a blank/broken card. --- */
+.clock-list{display:flex;flex-direction:column;gap:14px}
+.clock-card{
+  position:relative;min-height:230px;border-radius:var(--r-xl);overflow:hidden;
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding:16px;cursor:pointer;transition:transform var(--fast);width:100%;text-align:left;
+}
+.clock-card:active{transform:scale(.98)}
+.clock-card-i{
+  width:44px;height:44px;border-radius:12px;flex:none;font-size:22px;color:#fff;
+  background:rgba(0,0,0,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;
+}
+.clock-card-t{color:#fff;font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+.clock-card-d{color:rgba(255,255,255,.88);font-size:14.5px;line-height:1.35;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+
 /* --------------------------------------------------- desktop (≥1000px) --- */
 .cols{display:block}
 @media (min-width:1000px){

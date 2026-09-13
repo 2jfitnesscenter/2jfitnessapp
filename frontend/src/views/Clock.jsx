@@ -5,13 +5,15 @@ import Icon from '../components/Icon.jsx'
 // Six fixed formats rather than a configurable "build your own clock" — matches every reference
 // timer app, and each mode's own screen (ClockRun.jsx) is genuinely different enough (phases,
 // rounds, a manual result form) that a single generic config screen would just be a worse UI.
+// `tint` is a fallback background colour, shown under the gradient for any mode whose photo
+// (public/clock/<id>.jpg — real photos from the gym, not stock) hasn't been added yet.
 export const CLOCK_MODES = [
-  { id: 'stopwatch', icon: 'timer', title: 'Clock', desc: 'Free stopwatch for timing any block.' },
-  { id: 'countdown', icon: 'clock', title: 'Countdown', desc: 'Count down from a set duration.' },
-  { id: 'tabata', icon: 'intervals', title: 'Tabata', desc: '20 seconds of work, 10 of rest, 8 rounds.' },
-  { id: 'fortime', icon: 'flag', title: 'For time', desc: 'Count up until you finish or hit the cap.' },
-  { id: 'amrap', icon: 'infinity', title: 'AMRAP', desc: 'Count down to complete as many rounds as you can.' },
-  { id: 'emom', icon: 'emom', title: 'EMOM', desc: 'Every round starts at the top of the interval.' },
+  { id: 'stopwatch', icon: 'timer', title: 'Clock', desc: 'Free stopwatch for timing any block.', tint: 'var(--blue)' },
+  { id: 'countdown', icon: 'clock', title: 'Countdown', desc: 'Count down from a set duration.', tint: 'var(--indigo)' },
+  { id: 'tabata', icon: 'intervals', title: 'Tabata', desc: '20 seconds of work, 10 of rest, 8 rounds.', tint: 'var(--orange)' },
+  { id: 'fortime', icon: 'flag', title: 'For time', desc: 'Count up until you finish or hit the cap.', tint: 'var(--red)' },
+  { id: 'amrap', icon: 'infinity', title: 'AMRAP', desc: 'Count down to complete as many rounds as you can.', tint: 'var(--purple)' },
+  { id: 'emom', icon: 'emom', title: 'EMOM', desc: 'Every round starts at the top of the interval.', tint: 'var(--teal)' },
 ]
 
 export default function ClockPicker() {
@@ -24,12 +26,15 @@ export default function ClockPicker() {
         <div className="sub">{t('Pick the format to start now.')}</div>
       </div>
     </div>
-    <div className="list">
-      {CLOCK_MODES.map(m => <div key={m.id} className="item" onClick={() => nav('/clock/' + m.id)}>
-        <span className="lrow-i"><Icon name={m.icon} /></span>
-        <div className="grow"><div className="tt">{t(m.title)}</div><div className="ss">{t(m.desc)}</div></div>
-        <Icon name="chevronRight" className="chev" />
-      </div>)}
+    <div className="clock-list">
+      {CLOCK_MODES.map(m => <button key={m.id} className="clock-card" onClick={() => nav('/clock/' + m.id)}
+        style={{ backgroundColor: m.tint, backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.1) 0%, rgba(0,0,0,.75) 82%), url(/clock/${m.id}.jpg)` }}>
+        <span className="clock-card-i"><Icon name={m.icon} /></span>
+        <div>
+          <div className="clock-card-t">{t(m.title)}</div>
+          <div className="clock-card-d">{t(m.desc)}</div>
+        </div>
+      </button>)}
     </div>
   </div>
 }
