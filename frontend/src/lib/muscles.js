@@ -139,3 +139,15 @@ export function rankOf(load) {
   const missed = MUSCLES.filter(m => !(load[m] > 0))
   return { worked, missed }
 }
+
+/**
+ * Each worked muscle's share of the total load, rounded to a whole percent — "44% of
+ * this routine is triceps". Rounded independently per muscle rather than forced to sum
+ * to 100, so one routine's numbers stay stable as you add exercises elsewhere.
+ */
+export function pctOf(load) {
+  const total = MUSCLES.reduce((s, m) => s + (load[m] || 0), 0)
+  const pct = {}
+  MUSCLES.forEach(m => { if (load[m] > 0) pct[m] = Math.round(load[m] / total * 100) })
+  return pct
+}

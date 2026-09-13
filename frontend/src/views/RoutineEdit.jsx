@@ -12,8 +12,8 @@ import Icon from '../components/Icon.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { Button, SelectRow } from '../components/ui.jsx'
 import { POLICIES_FOR, POLICY_NAME, POLICY_DESC } from '../lib/progression.js'
-import BodyMap from '../components/BodyMap.jsx'
-import { loadOfRoutine, rankOf, MUSCLE_NAME } from '../lib/muscles.js'
+import BodyMap, { MuscleIcon } from '../components/BodyMap.jsx'
+import { loadOfRoutine, rankOf, pctOf, MUSCLE_NAME } from '../lib/muscles.js'
 import { mediaUrl } from '../lib/media.js'
 
 export default function RoutineEdit() {
@@ -90,6 +90,24 @@ export default function RoutineEdit() {
         {r.image ? <img src={mediaUrl(r.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={glyphOf(r.emoji)} />}
       </button>
     </div>
+
+    {r.ex.length > 0 && (() => {
+      const load = loadOfRoutine(r)
+      const { worked } = rankOf(load)
+      const pct = pctOf(load)
+      return <>
+        <h4 className="sec">{t('Muscle distribution')}</h4>
+        <div className="mgrid" style={{ marginBottom: 16 }}>
+          {worked.map(m => <div key={m} className="mitem">
+            <div className="mitem-icon"><MuscleIcon slug={m} body={S.body} /></div>
+            <div className="mitem-t">
+              <div className="mitem-name">{t(MUSCLE_NAME[m])}</div>
+              <div className="mitem-pct">{pct[m]}%</div>
+            </div>
+          </div>)}
+        </div>
+      </>
+    })()}
 
     <div className="sect-b" style={{ marginBottom: 16 }}>
       <SelectRow icon="chartLine" title={t('Progression')} sheetTitle={t('Progression')}

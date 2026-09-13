@@ -608,6 +608,7 @@ export default {
   'Every muscle group got some work in this period.': 'Todos los grupos musculares recibieron algo de trabajo en este periodo.',
   'No workouts in this period yet.': 'Aún no hay entrenamientos en este periodo.',
   'What this session hits': 'Qué trabaja esta sesión',
+  'Muscle distribution': 'Distribución muscular',
   'What you just trained': 'Lo que acabas de entrenar',
   'Body diagram': 'Diagrama corporal',
   'Male': 'Masculino',

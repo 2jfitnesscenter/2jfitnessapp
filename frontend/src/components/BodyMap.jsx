@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MUSCLES, INERT, MUSCLE_NAME, levelsOf } from '../lib/muscles.js'
 import { t } from '../lib/i18n.js'
 
@@ -24,6 +24,19 @@ function useBodyPaths() {
     return () => { alive = false }
   }, [])
   return paths
+}
+
+// Which single view best shows each muscle on its own — used only by MuscleIcon below.
+// A handful of muscles (triceps, deltoids, calves, adductors, trapezius, forearm) are
+// drawn in both views; the map picks whichever side reads most like "that muscle" at a
+// glance, matching how the full BodyMap above already draws them isn't relevant since
+// MuscleIcon shows one muscle in isolation, not a shaded whole body.
+const VIEW_FOR = {
+  trapezius: 'back', deltoids: 'front', chest: 'front', 'upper-back': 'back',
+  serratus: 'front', biceps: 'front', triceps: 'back', forearm: 'front',
+  abs: 'front', obliques: 'front', 'lower-back': 'back', gluteal: 'back',
+  quadriceps: 'front', hamstring: 'back', adductors: 'front', 'hip-flexors': 'front',
+  calves: 'back', tibialis: 'front',
 }
 
 function View({ view, levels, onMuscle, selected, colorOf }) {
@@ -68,6 +81,46 @@ export default function BodyMap({ load = {}, body = 'male', onMuscle, selected, 
         <View view={g.back} levels={levels} onMuscle={onMuscle} selected={selected} colorOf={colorOf} />
       </> : <div className="bm-ph" aria-hidden="true" />}
     </div>
+  )
+}
+
+/**
+ * <MuscleIcon slug="triceps" body="male" />
+ * A single small silhouette with just that one muscle lit up and everything else left
+ * at the plain untrained shade — for a "this routine hits: triceps 44%" chip, where a
+ * full two-view shaded BodyMap would be both too much detail and too big to fit.
+ */
+export function MuscleIcon({ slug, body = 'male', className = '' }) {
+  const paths = useBodyPaths()
+  const g = paths && (paths[body] || paths.male)
+  const view = g && g[VIEW_FOR[slug] || 'front']
+  const svgRef = useRef(null)
+  const [crop, setCrop] = useState(null)
+  // The full body-part view (head to toe) leaves the target muscle a tiny fraction of a
+  // 64px icon — cropping to just its own bounding box (padded a bit) is what makes a
+  // chest or triceps actually readable at that size. getBBox() ignores viewBox, so this
+  // only zooms the same paths in rather than re-laying anything out.
+  useLayoutEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    const els = svg.querySelectorAll('.bm-mini-hi')
+    if (!els.length) { setCrop(null); return }
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+    els.forEach(p => {
+      const b = p.getBBox()
+      x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y)
+      x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height)
+    })
+    const pad = Math.max(x1 - x0, y1 - y0) * 0.4 || 10
+    setCrop(`${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}`)
+  }, [view, slug])
+  if (!view) return <div className={'bm-mini-ph ' + className} aria-hidden="true" />
+  return (
+    <svg ref={svgRef} className={'bm-mini ' + className} viewBox={crop || view.vb} role="img" aria-label={t(MUSCLE_NAME[slug])}>
+      {INERT.map(s => (view.p[s] || []).map((d, i) => <path key={s + i} className="bm-sil" d={d} />))}
+      {MUSCLES.map(s => (view.p[s] || []).map((d, i) =>
+        <path key={s + i} className={'bm-m' + (s === slug ? ' bm-mini-hi' : '')} d={d} />))}
+    </svg>
   )
 }
 
