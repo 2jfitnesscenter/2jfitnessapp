@@ -1,23 +1,25 @@
+import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { exerciseBrowserSheet } from '../sheets.jsx'
 import { Button } from '../components/ui.jsx'
-import { MUSCLES, MUSCLE_NAME, MUSCLE_PHOTO } from '../lib/muscles.js'
+import { MUSCLES, MUSCLE_NAME, musclePhotoUrl } from '../lib/muscles.js'
 
-// The landing screen for Plan > Exercises: a photo per muscle group (Juanjo's own gym
-// photos, see public/muscles/) rather than the little body-map mannequin — tapping one
-// opens the full browser (exerciseBrowserSheet) as its own sheet, already filtered to
-// that muscle. "All exercises" is its own button rather than a tile, since it isn't a
-// muscle photo can represent.
+// The landing screen for Plan > Exercises: an illustrated chip per muscle group (male or
+// female artwork per S.body, see public/muscles/) rather than the little body-map
+// mannequin — tapping one opens the full browser (exerciseBrowserSheet) as its own sheet,
+// already filtered to that muscle. "All exercises" is its own button rather than a tile,
+// since "everything" isn't a muscle a chip can depict.
 export default function Library() {
+  const body = useStore(s => s.S.body)
   return <>
     <h4 className="sec" style={{ margin: '0 0 10px' }}>{t('By muscle')}</h4>
     <div className="mtiles">
       {MUSCLES.map(m => <button key={m} className="mtile" onClick={() => exerciseBrowserSheet(m)}>
-        <span className="mtile-photo" style={{ backgroundImage: `url(/muscles/${MUSCLE_PHOTO[m]}.jpg)` }} />
+        <span className="mtile-photo" style={{ backgroundImage: `url(${musclePhotoUrl(m, body)})` }} />
         <span className="mtile-name">{t(MUSCLE_NAME[m])}</span>
       </button>)}
       <button className="mtile" onClick={() => exerciseBrowserSheet('cardio')}>
-        <span className="mtile-photo" style={{ backgroundImage: 'url(/muscles/cardio.jpg)' }} />
+        <span className="mtile-photo" style={{ backgroundImage: `url(${musclePhotoUrl('cardio', body)})` }} />
         <span className="mtile-name">{t('Cardio')}</span>
       </button>
     </div>

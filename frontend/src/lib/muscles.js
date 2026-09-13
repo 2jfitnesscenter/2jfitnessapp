@@ -22,18 +22,21 @@ export const MUSCLES = [
 // Drawn as the silhouette, never shaded: they carry no training load.
 export const INERT = ['head', 'hair', 'neck', 'hands', 'feet', 'knees', 'ankles']
 
-// Real gym photos (public/muscles/<file>.jpg — Juanjo's own, not stock) for the exercise
-// library's "by muscle" browser. Several of the 18 map slugs are the same muscle from a
-// photo's point of view (upper vs lower back, adductors vs hip flexors, calves vs
-// tibialis) — nobody can tell those apart in a training photo, so they share a file
-// rather than demanding a distinct shot of something a camera can't actually show.
+// Illustrated muscle chips (public/muscles/chip_img_<file>[_female].webp) for the
+// exercise library's "by muscle" browser — one image per key, in a male and a female
+// variant, picked at render time from S.body via musclePhotoUrl() below. Several of the
+// 18 map slugs are the same region on the actual artwork (upper vs lower back, adductors
+// vs hip flexors, calves vs tibialis, chest/serratus/obliques all on the one torso chip)
+// so they share a file rather than needing an image that doesn't exist.
 export const MUSCLE_PHOTO = {
-  trapezius: 'traps', deltoids: 'shoulders', chest: 'chest', 'upper-back': 'back',
+  trapezius: 'neck', deltoids: 'shoulders', chest: 'chest', 'upper-back': 'back',
   serratus: 'abs', biceps: 'biceps', triceps: 'triceps', forearm: 'forearms',
-  abs: 'abs', obliques: 'abs', 'lower-back': 'back', gluteal: 'glutes',
-  quadriceps: 'quads', hamstring: 'hamstrings', adductors: 'hips',
-  'hip-flexors': 'hips', calves: 'calves', tibialis: 'calves',
+  abs: 'abs', obliques: 'abs', 'lower-back': 'back', gluteal: 'hips',
+  quadriceps: 'quadriceps', hamstring: 'hamstrings', adductors: 'hips',
+  'hip-flexors': 'hips', calves: 'calves', tibialis: 'calves', cardio: 'cardio',
 }
+export const musclePhotoUrl = (slug, body) =>
+  `/muscles/chip_img_${MUSCLE_PHOTO[slug]}${body === 'female' ? '_female' : ''}.webp`
 
 // English display names; these strings are the i18n keys (see lib/i18n.js).
 export const MUSCLE_NAME = {
