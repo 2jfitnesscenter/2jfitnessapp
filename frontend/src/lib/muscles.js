@@ -22,21 +22,29 @@ export const MUSCLES = [
 // Drawn as the silhouette, never shaded: they carry no training load.
 export const INERT = ['head', 'hair', 'neck', 'hands', 'feet', 'knees', 'ankles']
 
-// Illustrated muscle chips (public/muscles/chip_img_<file>[_female].webp) for the
-// exercise library's "by muscle" browser — one image per key, in a male and a female
-// variant, picked at render time from S.body via musclePhotoUrl() below. Several of the
-// 18 map slugs are the same region on the actual artwork (upper vs lower back, adductors
-// vs hip flexors, calves vs tibialis, chest/serratus/obliques all on the one torso chip)
-// so they share a file rather than needing an image that doesn't exist.
-export const MUSCLE_PHOTO = {
-  trapezius: 'neck', deltoids: 'shoulders', chest: 'chest', 'upper-back': 'back',
-  serratus: 'abs', biceps: 'biceps', triceps: 'triceps', forearm: 'forearms',
-  abs: 'abs', obliques: 'abs', 'lower-back': 'back', gluteal: 'hips',
-  quadriceps: 'quadriceps', hamstring: 'hamstrings', adductors: 'hips',
-  'hip-flexors': 'hips', calves: 'calves', tibialis: 'calves', cardio: 'cardio',
-}
-export const musclePhotoUrl = (slug, body) =>
-  `/muscles/chip_img_${MUSCLE_PHOTO[slug]}${body === 'female' ? '_female' : ''}.webp`
+// Browsing categories for the exercise library's "by muscle" screen — coarser than the
+// 18 map slugs above on purpose. Several of those slugs are the same region on the
+// illustrated chips (public/muscles/chip_img_<photo>[_female].webp — upper vs lower
+// back, adductors vs hip flexors vs glutes, calves vs tibialis, serratus/obliques vs
+// abs) and nobody browses "serratus exercises" as its own category anyway, so each
+// group here covers every slug its one photo actually shows. Filtering an exercise
+// checks all of a group's slugs, so this only merges *tiles*, not what matches.
+export const MUSCLE_GROUPS = [
+  { key: 'trapezius', name: 'Traps', photo: 'neck', slugs: ['trapezius'] },
+  { key: 'deltoids', name: 'Shoulders', photo: 'shoulders', slugs: ['deltoids'] },
+  { key: 'chest', name: 'Chest', photo: 'chest', slugs: ['chest'] },
+  { key: 'back', name: 'Back muscles', photo: 'back', slugs: ['upper-back', 'lower-back'] },
+  { key: 'biceps', name: 'Biceps', photo: 'biceps', slugs: ['biceps'] },
+  { key: 'triceps', name: 'Triceps', photo: 'triceps', slugs: ['triceps'] },
+  { key: 'forearm', name: 'Forearms', photo: 'forearms', slugs: ['forearm'] },
+  { key: 'abs', name: 'Abs', photo: 'abs', slugs: ['abs', 'obliques', 'serratus'] },
+  { key: 'gluteal', name: 'Glutes', photo: 'hips', slugs: ['gluteal', 'adductors', 'hip-flexors'] },
+  { key: 'quadriceps', name: 'Quads', photo: 'quadriceps', slugs: ['quadriceps'] },
+  { key: 'hamstring', name: 'Hamstrings', photo: 'hamstrings', slugs: ['hamstring'] },
+  { key: 'calves', name: 'Calves', photo: 'calves', slugs: ['calves', 'tibialis'] },
+]
+export const musclePhotoUrl = (photo, body) =>
+  `/muscles/chip_img_${photo}${body === 'female' ? '_female' : ''}.webp`
 
 // English display names; these strings are the i18n keys (see lib/i18n.js).
 export const MUSCLE_NAME = {

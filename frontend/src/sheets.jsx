@@ -15,7 +15,7 @@ import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row, ChipSelect } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
-import { loadOfWorkouts, MUSCLES, MUSCLE_NAME, musclePhotoUrl, musclesOf } from './lib/muscles.js'
+import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf } from './lib/muscles.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
@@ -668,15 +668,16 @@ export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker 
 // a list in place — closer to a real "different window" you can dismiss, and it puts the same
 // photo strip at the top so switching muscle mid-browse never means going back first.
 const CARDIO = 'cardio'
+const GROUP_BY_KEY = Object.fromEntries(MUSCLE_GROUPS.map(g => [g.key, g]))
 function MuscleStrip({ value, onChange, body }) {
   return <div className="mstrip">
     <button className={'mstrip-i' + (value === null ? ' on' : '')} onClick={() => onChange(null)}>
       <span className="mstrip-photo mstrip-photo-plain"><Icon name="exercises" /></span>
       <span className="mstrip-name">{t('All')}</span>
     </button>
-    {MUSCLES.map(m => <button key={m} className={'mstrip-i' + (value === m ? ' on' : '')} onClick={() => onChange(m)}>
-      <span className="mstrip-photo" style={{ backgroundImage: `url(${musclePhotoUrl(m, body)})` }} />
-      <span className="mstrip-name">{t(MUSCLE_NAME[m])}</span>
+    {MUSCLE_GROUPS.map(g => <button key={g.key} className={'mstrip-i' + (value === g.key ? ' on' : '')} onClick={() => onChange(g.key)}>
+      <span className="mstrip-photo" style={{ backgroundImage: `url(${musclePhotoUrl(g.photo, body)})` }} />
+      <span className="mstrip-name">{t(g.name)}</span>
     </button>)}
     <button className={'mstrip-i' + (value === CARDIO ? ' on' : '')} onClick={() => onChange(CARDIO)}>
       <span className="mstrip-photo" style={{ backgroundImage: `url(${musclePhotoUrl(CARDIO, body)})` }} />
@@ -691,13 +692,18 @@ function ExerciseBrowser({ initial }) {
   const [eq, setEq] = useState('')
   const [shown, setShown] = useState(40)
   const ql = q.toLowerCase().trim()
-  const byMuscle = e => !muscle || (muscle === CARDIO ? e.bp === CARDIO : (musclesOf(e)[muscle] || 0) > 0)
+  const byMuscle = e => {
+    if (!muscle) return true
+    if (muscle === CARDIO) return e.bp === CARDIO
+    const m = musclesOf(e)
+    return GROUP_BY_KEY[muscle].slugs.some(s => (m[s] || 0) > 0)
+  }
   const base = allExercises(st).filter(e => byMuscle(e) && (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql) || e.tg.includes(ql) || e.eq.includes(ql) || (e.desc || '').toLowerCase().includes(ql)))
   const eqOpts = equipmentOf(base)
   // Drop the equipment filter if switching muscle (or searching) narrowed it away.
   const eqOn = eqOpts.includes(eq) ? eq : ''
   const f = eqOn ? base.filter(e => e.eq === eqOn) : base
-  const title = muscle === null ? t('All exercises') : muscle === CARDIO ? t('Cardio') : t(MUSCLE_NAME[muscle])
+  const title = muscle === null ? t('All exercises') : muscle === CARDIO ? t('Cardio') : t(GROUP_BY_KEY[muscle].name)
 
   return <>
     <h3>{title}</h3>

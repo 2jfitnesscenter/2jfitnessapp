@@ -430,6 +430,7 @@ export default {
   '{0} exercises with animations': '{0} ejercicios con animaciones',
   'By muscle': 'Por músculo',
   'All exercises': 'Todos los ejercicios',
+  'Back muscles': 'Espalda',
   'Search…': 'Buscar…',
   'No workouts yet.': 'Aún no hay entrenamientos.',
   'Starter plan loaded — Mon Push · Wed Pull · Fri Legs': 'Plan inicial cargado — Lun Push · Mié Pull · Vie Piernas',
