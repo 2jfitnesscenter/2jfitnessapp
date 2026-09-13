@@ -20,10 +20,15 @@ const SYSTEM_PROMPT = [
   'You have no tools, filesystem access, external services, or persistent memory.'
 ].join(' ');
 
-async function callGemini({ apiKey, model, prompt, timeoutMs }) {
+async function callGemini({ apiKey, model, prompt, image, timeoutMs }) {
   const url = `${API_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // A scan request attaches the report as a second part alongside the text prompt — Gemini
+  // reads a PDF the same way it reads an image (each page becomes a frame internally), so the
+  // caller never has to rasterize one first.
+  const parts = [{ text: prompt }];
+  if (image?.data && image?.mimeType) parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -31,7 +36,7 @@ async function callGemini({ apiKey, model, prompt, timeoutMs }) {
       signal: controller.signal,
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts }],
         generationConfig: { temperature: 0.4, responseMimeType: 'application/json' }
       })
     });
@@ -68,10 +73,10 @@ export default {
     return { ok: true, version: cfg?.model || DEFAULT_MODEL };
   },
 
-  async invoke({ prompt, env, model, timeoutMs }) {
+  async invoke({ prompt, image, env, model, timeoutMs }) {
     const apiKey = env.GEMINI_API_KEY;
     if (!apiKey) return { code: -1, text: '', stderr: 'no Gemini API key connected', timedOut: false, spawnError: true };
-    const r = await callGemini({ apiKey, model: model || DEFAULT_MODEL, prompt, timeoutMs });
+    const r = await callGemini({ apiKey, model: model || DEFAULT_MODEL, prompt, image, timeoutMs });
     if (!r.ok) {
       return { code: r.status === 401 || r.status === 403 ? 2 : 1, text: '', stderr: r.error, timedOut: !!r.timedOut, spawnError: false };
     }

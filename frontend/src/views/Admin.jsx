@@ -9,6 +9,7 @@ import { t, nameFor } from '../lib/i18n.js'
 import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented, ChipSelect } from '../components/ui.jsx'
+import ScanUpload from '../components/ScanUpload.jsx'
 import AdminCoach from './AdminCoach.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
 import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
@@ -144,20 +145,29 @@ function RecoveryLinkSheet({ u, close }) {
 // one-value-at-a-time (sheets.jsx), which fits a tape-measure reading taken whenever, not a
 // single assessment session. Leaving a field blank keeps whatever that member already had for
 // it — a scan that dropped one reading shouldn't force staff to guess the others.
-function BioimpedanceSheet({ u, current, onSaved, close }) {
+function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
   const toast = useUI(s => s.toast)
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
   const folds = MEASUREMENTS.filter(m => m.group === 'folds')
   const all = [...composition, ...folds]
   const [vals, setVals] = useState(() => Object.fromEntries(all.map(m => [m.key, current?.[m.key]?.v ?? ''])))
+  const [weight, setWeight] = useState(latestWeight ?? '')
+  const [scanned, setScanned] = useState(false)
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setVals(s => ({ ...s, [k]: v }))
+  const applyScan = values => {
+    setVals(s => ({ ...s, ...Object.fromEntries(all.filter(m => values[m.key] != null).map(m => [m.key, values[m.key]])) }))
+    if (values.weight != null) setWeight(values.weight)
+    setScanned(true)
+    toast(t('Report read — check the values below'))
+  }
   const save = () => {
     const values = {}
     for (const m of all) { if (vals[m.key] !== '' && vals[m.key] != null) values[m.key] = Number(vals[m.key]) }
-    if (!Object.keys(values).length) { toast(t('Enter at least one value')); return }
+    const w = weight !== '' && weight != null ? Number(weight) : undefined
+    if (!Object.keys(values).length && w === undefined) { toast(t('Enter at least one value')); return }
     setBusy(true)
-    api('/api/admin/user/measurements', { method: 'POST', body: JSON.stringify({ id: u.id, values }) })
+    api('/api/admin/user/measurements', { method: 'POST', body: JSON.stringify({ id: u.id, values, weight: w }) })
       .then(() => { toast(t('Measurements saved')); onSaved(); close() })
       .catch(e => { toast(e.message); setBusy(false) })
   }
@@ -168,7 +178,16 @@ function BioimpedanceSheet({ u, current, onSaved, close }) {
   </div>
   return <>
     <h3>{t('Bioimpedance scan — {0}', u.name)}</h3>
-    <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.5 }}>{t('Leave a field blank to leave that reading as it was.')}</div>
+    <div className="row between" style={{ marginBottom: 12 }}>
+      <div className="muted small" style={{ lineHeight: 1.5, flex: 1 }}>{t('Leave a field blank to leave that reading as it was.')}</div>
+      <ScanUpload onResult={applyScan} />
+    </div>
+    {scanned && <div className="small" style={{ color: 'var(--acc)', marginBottom: 10 }}>{t('Estimated by AI — review before saving.')}</div>}
+    <div style={{ marginBottom: 10 }}>
+      <div className="dim small" style={{ marginBottom: 4 }}>{t('Weight')}</div>
+      <input type="number" inputMode="decimal" className="input" step={0.1} min={20} max={400}
+        placeholder="— kg" value={weight} onChange={e => setWeight(e.target.value)} />
+    </div>
     {composition.map(Field)}
     <div className="sec" style={{ margin: '14px 0 8px' }}>{t('Skinfolds (calipers)')}</div>
     {folds.map(Field)}
@@ -261,7 +280,7 @@ function UserDetail({ id, onChanged, close }) {
       {!d.routines.length && <Button style={{ flex: 1 }} icon="sparkles" onClick={applyStarterPlan}>{t('Load PPL plan')}</Button>}
     </div>
     <Button style={{ width: '100%', margin: '0 0 4px' }} icon="chart"
-      onClick={() => openSheet(close2 => <BioimpedanceSheet u={u} current={d.measurements} onSaved={load} close={close2} />)}>{t('Log bioimpedance scan')}</Button>
+      onClick={() => openSheet(close2 => <BioimpedanceSheet u={u} current={d.measurements} latestWeight={d.latestWeight?.w} onSaved={load} close={close2} />)}>{t('Log bioimpedance scan')}</Button>
     <Button style={{ width: '100%', margin: '0 0 4px' }} icon="key"
       onClick={() => openSheet(close2 => <RecoveryLinkSheet u={u} close={close2} />)}>{t('Recover access (lost device)')}</Button>
     {!u.admin && <Button style={{ width: '100%', margin: '0 0 4px' }} icon="person" variant={u.trainer ? 'tinted' : 'plain'}

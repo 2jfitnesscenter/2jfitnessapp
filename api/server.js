@@ -12,6 +12,7 @@ import webpush from 'web-push';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
+import { scanBioimpedanceImage } from './lib/measurements-scan.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
 import { chatRoutes } from './chat/routes.js';
@@ -34,7 +35,12 @@ const INVITE_ONLY = /^(1|true|yes|on)$/i.test(process.env.INVITE_ONLY || '');
 // internet don't want the same number. Only affects cookies minted from now on — the expiry is
 // baked into each cookie when it's issued, so lowering this never cuts an existing session short.
 const SESSION_DAYS = Math.max(1, +(process.env.SESSION_DAYS || 90) || 90);
-const MAX_BODY = 5 * 1024 * 1024;
+// A phone photo of a printed report comfortably clears the old 5MB ceiling once base64-encoded
+// (~33% larger than the raw file) — raised for every route rather than adding a per-route
+// override, matching this app's existing "single household's gym" trust level (see jobs.js's own
+// framing) rather than treating a self-hosted single-tenant instance like public-internet SaaS.
+const MAX_BODY = 12 * 1024 * 1024;
+const MAX_SCAN_BYTES = 8 * 1024 * 1024;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 
@@ -803,6 +809,20 @@ const routes = {
       list.sort((a, b) => (a.d < b.d ? -1 : 1));
       n++;
     }
+    // Same upsert-by-date, but onto S.bodyweight (shape {d, w, t}) rather than S.measurements —
+    // a bioimpedance scan prints the member's weight too, and BwSheet already writes exactly this
+    // shape from the client side.
+    const weight = body.weight;
+    if (weight !== undefined && weight !== null && weight !== '') {
+      const w = Math.round(Number(weight) * 10) / 10;
+      if (Number.isFinite(w) && w > 0) {
+        S.bodyweight = S.bodyweight || [];
+        const ex = S.bodyweight.find(x => x.d === iso);
+        if (ex) { ex.w = w; ex.t = Date.now(); } else S.bodyweight.push({ d: iso, w, t: Date.now() });
+        S.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1));
+        n++;
+      }
+    }
     if (!n) return json(res, 400, { error: 'no se han dado valores válidos' });
     S._ts = Date.now();
     atomicWrite(stateFile(u.id), JSON.stringify(S));
@@ -1158,6 +1178,29 @@ const routes = {
     const body = await readBody(req);
     try { json(res, 200, { id: saveUploadedImage(body.image) }); }
     catch (e) { json(res, 400, { error: e.message }); }
+  },
+
+  // Bioimpedance-report scan (photo or PDF) → structured values, for Admin's BioimpedanceSheet
+  // and Measurements' own "scan a report" sheet. Any signed-in user, member or admin — this only
+  // reads the file and hands back numbers, it never writes anyone's data itself. Saving still
+  // goes through the existing paths (POST /api/admin/user/measurements, or the client's own
+  // update() for a member's own profile) once the caller has reviewed the extracted values.
+  // body: { file: '<dataURL>' }.
+  'POST /api/measurements/scan': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const dataUrl = typeof body.file === 'string' ? body.file : '';
+    const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
+    if (!m) return json(res, 400, { error: 'archivo no válido' });
+    const [, mimeType, b64] = m;
+    if (!/^image\//.test(mimeType) && mimeType !== 'application/pdf') {
+      return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
+    }
+    if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
+    const r = await scanBioimpedanceImage({ data: b64, mimeType });
+    if (!r.ok) return json(res, 400, { error: r.error });
+    json(res, 200, { values: r.values });
   },
 
   /* ---------- Social: Programs (a named group of routines, published as one unit) ---------- */

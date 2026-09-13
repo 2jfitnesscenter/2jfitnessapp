@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { fmtDate, fmtNum, ageFrom } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { measurementSheet } from '../sheets.jsx'
+import { measurementSheet, bioimpedanceScanSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { SelectRow } from '../components/ui.jsx'
+import { SelectRow, Button } from '../components/ui.jsx'
 import LineChart from '../components/LineChart.jsx'
 import { MEASUREMENTS, lastMeasurement, bodyFatBand, visceralFatBand } from '../lib/measurements.js'
 
@@ -67,7 +67,10 @@ export default function Measurements() {
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Measurements')}</h1><div className="sub">{t('Track your body over time')}</div></div>
     </div>
 
-    <h4 className="sec">{t('Body composition')}</h4>
+    <div className="row between" style={{ margin: '22px 0 8px' }}>
+      <h4 className="sec" style={{ margin: 0 }}>{t('Body composition')}</h4>
+      <Button size="sm" variant="tinted" icon="scan" onClick={bioimpedanceScanSheet}>{t('Scan report')}</Button>
+    </div>
     <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('From a bioimpedance scan — ask staff if this gym has one.')}</div>
     {needsProfile && <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('Add your date of birth and sex in Settings to see whether your body fat is in a healthy range.')}</div>}
     <div className="list" style={{ marginBottom: 22 }}>{composition.map(m => <Row key={m.key} m={m} S={S} />)}</div>

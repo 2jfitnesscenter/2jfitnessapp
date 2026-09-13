@@ -132,6 +132,9 @@ const P = {
   bone: <><circle cx="6.7" cy="6.3" r="1.7" /><circle cx="8.9" cy="4.1" r="1.7" /><circle cx="17.3" cy="17.7" r="1.7" /><circle cx="15.1" cy="19.9" r="1.7" /><path d="M8.1 8.1 15.9 15.9" /></>,
   // A skinfold caliper: hinge at top, two legs splaying to pinch pads at the tips.
   caliper: <><circle cx="12" cy="5.6" r="1.6" /><path d="M12 7.2 6.3 18.6M12 7.2l5.7 11.4" /><path d="M4.6 19.4l2.6-2.3M19.4 19.4l-2.6-2.3" /></>,
+  // A viewfinder frame — four open corners, the universal "point this at something to read it"
+  // mark, for scanning a printed report instead of typing it in.
+  scan: <path d="M5 8.5V6a1.5 1.5 0 0 1 1.5-1.5H9M15 4.5h2.5A1.5 1.5 0 0 1 19 6v2.5M19 15.5V18a1.5 1.5 0 0 1-1.5 1.5H15M9 19.5H6.5A1.5 1.5 0 0 1 5 18v-2.5" />,
 }
 
 // A few keys are aliases so call sites can say what they mean.

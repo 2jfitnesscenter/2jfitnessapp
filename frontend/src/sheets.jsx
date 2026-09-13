@@ -23,6 +23,7 @@ import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLIC
 import { MOBILE, shareExport } from './lib/mobile.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
 import { resizeImageFile, uploadImage, mediaUrl } from './lib/media.js'
+import ScanUpload from './components/ScanUpload.jsx'
 import { fetchFriendCode, resetFriendCode, sendFriendRequest } from './lib/friends-api.js'
 import { startThread } from './lib/chat-api.js'
 import { sendWorkoutToStrava } from './lib/strava-api.js'
@@ -238,6 +239,72 @@ function MeasurementSheet({ mkey, close }) {
   </>
 }
 export const measurementSheet = mkey => ui().openSheet(close => <MeasurementSheet mkey={mkey} close={close} />)
+
+// The member-facing counterpart to Admin's BioimpedanceSheet — same 5 composition fields (the
+// skinfolds stay admin-only, they're a staff-caliper reading) plus weight, filled in one go
+// either by hand or by scanning a report, saved as one update() instead of one measurementSheet
+// per field.
+function BioimpedanceScanSheet({ close }) {
+  const st = useStore(s => s.S)
+  const composition = MEASUREMENTS.filter(m => m.group === 'composition')
+  const [vals, setVals] = useState(() => Object.fromEntries(composition.map(m => [m.key, lastMeasurement(st, m.key)?.v ?? ''])))
+  const [weight, setWeight] = useState(() => lastBW(st)?.w ?? '')
+  const [scanned, setScanned] = useState(false)
+  const set = (k, v) => setVals(s => ({ ...s, [k]: v }))
+  const applyScan = values => {
+    setVals(s => ({ ...s, ...Object.fromEntries(composition.filter(m => values[m.key] != null).map(m => [m.key, values[m.key]])) }))
+    if (values.weight != null) setWeight(values.weight)
+    setScanned(true)
+    toast(t('Report read — check the values below'))
+  }
+  const save = () => {
+    const iso = todayISO()
+    let n = 0
+    update(s => {
+      s.measurements = s.measurements || {}
+      for (const m of composition) {
+        if (vals[m.key] === '' || vals[m.key] == null) continue
+        const v = Number(vals[m.key])
+        const list = s.measurements[m.key] = s.measurements[m.key] || []
+        const ex = list.find(x => x.d === iso)
+        if (ex) { ex.v = v; ex.t = Date.now() } else list.push({ d: iso, v, t: Date.now() })
+        list.sort((a, b) => (a.d < b.d ? -1 : 1))
+        n++
+      }
+      if (weight !== '' && weight != null) {
+        const w = Number(weight)
+        const ex = s.bodyweight.find(x => x.d === iso)
+        if (ex) { ex.w = w; ex.t = Date.now() } else s.bodyweight.push({ d: iso, w, t: Date.now() })
+        s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
+        n++
+      }
+    })
+    if (!n) { toast(t('Enter at least one value')); return }
+    close()
+    toast(t('Saved'))
+  }
+  return <>
+    <h3>{t('Scan a report')}</h3>
+    <div className="row between" style={{ marginBottom: 12 }}>
+      <div className="muted small" style={{ lineHeight: 1.5, flex: 1 }}>{t('Leave a field blank to leave that reading as it was.')}</div>
+      <ScanUpload onResult={applyScan} />
+    </div>
+    {scanned && <div className="small" style={{ color: 'var(--acc)', marginBottom: 10 }}>{t('Estimated by AI — review before saving.')}</div>}
+    <div style={{ marginBottom: 10 }}>
+      <div className="dim small" style={{ marginBottom: 4 }}>{t('Weight')}</div>
+      <input type="number" inputMode="decimal" className="input" step={0.1} min={20} max={400}
+        placeholder="— kg" value={weight} onChange={e => setWeight(e.target.value)} />
+    </div>
+    {composition.map(m => <div key={m.key} style={{ marginBottom: 10 }}>
+      <div className="dim small" style={{ marginBottom: 4 }}>{t(m.label)}</div>
+      <input type="number" inputMode="decimal" className="input" step={m.step} min={m.min} max={m.max}
+        placeholder={m.unit ? `— ${m.unit}` : '—'} value={vals[m.key]} onChange={e => set(m.key, e.target.value)} />
+    </div>)}
+    <div style={{ height: 6 }} />
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+  </>
+}
+export const bioimpedanceScanSheet = () => ui().openSheet(close => <BioimpedanceScanSheet close={close} />)
 
 /* ============================ import from another app ============================ */
 // Shows what a parsed export would actually do before anything is written. An import is

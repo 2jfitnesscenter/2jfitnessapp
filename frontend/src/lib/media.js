@@ -35,6 +35,12 @@ export const uploadImage = dataUrl => api('/api/media/upload', { method: 'POST',
 
 export const mediaUrl = id => id ? '/api/social/media?id=' + encodeURIComponent(id) : null
 
+// A bioimpedance report (photo or PDF, as a data URL) -> extracted {weight, bodyFat, muscleMass,
+// waterPct, visceralFat, boneMass}, each a number or null. Read-only — this never saves anything
+// itself, see components/ScanUpload.jsx.
+export const scanMeasurements = dataUrl =>
+  api('/api/measurements/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl }) }).then(r => r.values)
+
 // Re-encodes an already-uploaded image as a fresh data URL — used when publishing a routine/
 // program that already has its own cover set, so Social gets its own independent copy of the
 // file rather than sharing one two different deletes could race on.
