@@ -64,15 +64,15 @@ export default function Profile() {
         }}><Icon name="pencil" /></span>}
       </button>
       {user && <input ref={avatarInput} type="file" accept="image/*" hidden onChange={onAvatarFile} />}
-      <div style={{ minWidth: 0 }}>
-        <div className="capitalize" style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-.012em' }}>{user?.name || t('Guest')}</div>
+      <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+        <div className="capitalize" style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-.012em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name || t('Guest')}</div>
         {user?.created && <div className="dim small">{t('joined {0}', fmtDate(user.created.slice(0, 10)))}</div>}
-        {user?.username && <button className="dim small" style={{ marginTop: 2 }} onClick={editUsername}>@{user.username}</button>}
-        {rank && !rank.locked && <div className="row" style={{ gap: 5, marginTop: 4, color: TIER_COLOR[rank.tier] }}>
-          <img src={rankEmblemUrl(rank.tier, rank.division)} alt="" style={{ width: 18, height: 18, objectFit: 'contain', flex: 'none' }} />
-          <span className="small" style={{ fontWeight: 600 }}>{rankLabel(rank)}</span>
-        </div>}
+        {user?.username && <button className="dim small" style={{ marginTop: 2, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={editUsername}>@{user.username}</button>}
       </div>
+      {rank && !rank.locked && <button onClick={() => nav('/rank')} style={{ flex: 'none', textAlign: 'center', border: 'none', background: 'none', padding: 0 }}>
+        <img src={rankEmblemUrl(rank.tier, rank.division)} alt="" style={{ width: 56, height: 56, objectFit: 'contain', display: 'block' }} />
+        <div className="small" style={{ fontWeight: 600, color: TIER_COLOR[rank.tier], marginTop: 2, whiteSpace: 'nowrap' }}>{rankLabel(rank)}</div>
+      </button>}
     </div>
 
     {/* ---------- friends + trainer chat — need a real (non-guest) account, same reasoning as
