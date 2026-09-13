@@ -80,7 +80,10 @@ export function SearchField({ value, onChange, onClear, ...rest }) {
 
 // A colored initials circle — no photo uploads anywhere in this app, so this is the only
 // "who is this" visual: Profile's identity card, friend rows, the invite sheet.
-export function Avatar({ name, size = 40 }) {
+export function Avatar({ name, size = 40, image }) {
+  if (image) return <img src={image} alt="" style={{
+    width: size, height: size, borderRadius: '50%', flex: 'none', objectFit: 'cover',
+  }} />
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flex: 'none',

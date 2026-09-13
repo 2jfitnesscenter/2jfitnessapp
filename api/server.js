@@ -398,6 +398,7 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     json(res, 200, { user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
+      avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth
     } });
@@ -415,6 +416,31 @@ const routes = {
     user.username = username;
     saveDb();
     json(res, 200, { username });
+  },
+
+  // Profile photo. body: { avatar: '<dataURL>' } to set one, or { avatar: null } to remove it.
+  // Reuses the exact same private-upload storage as a routine/program cover
+  // (saveUploadedImage/GET /api/social/media) — an avatar is just another opaque file id, this
+  // time stored on the user record instead of on a routine, so it survives in `user` on every
+  // login/GET /api/me rather than needing its own sync path.
+  'POST /api/me/avatar': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    if (body.avatar === null) {
+      deleteUploadedImage(user.avatar);
+      user.avatar = null;
+      saveDb();
+      return json(res, 200, { avatar: null });
+    }
+    try {
+      const id = saveUploadedImage(body.avatar);
+      const old = user.avatar;
+      user.avatar = id;
+      saveDb();
+      deleteUploadedImage(old);
+      json(res, 200, { avatar: id });
+    } catch (e) { json(res, 400, { error: e.message }); }
   },
 
   'POST /api/register/options': async (req, res) => {
@@ -471,6 +497,7 @@ const routes = {
     saveDb();
     json(res, 200, { user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
+      avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth
     } }, { 'Set-Cookie': sessionCookie(user) });
@@ -514,6 +541,7 @@ const routes = {
     if (user.disabled) return json(res, 403, { error: 'esta cuenta ha sido desactivada' });
     json(res, 200, { user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
+      avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth
     } }, { 'Set-Cookie': sessionCookie(user) });
@@ -582,6 +610,7 @@ const routes = {
     saveDb();
     json(res, 200, { user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
+      avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth
     } }, { 'Set-Cookie': sessionCookie(user) });

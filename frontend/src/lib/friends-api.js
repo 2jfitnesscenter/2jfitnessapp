@@ -1,5 +1,5 @@
-// Talking to /api/friends/* (and the one account-identity route it needs, /api/me/username) —
-// thin wrappers over api(), same shape as lib/social-api.js.
+// Talking to /api/friends/* (and the account-identity routes it needs, /api/me/username and
+// /api/me/avatar) — thin wrappers over api(), same shape as lib/social-api.js.
 import { api } from './api.js'
 
 export const fetchFriends = () => api('/api/friends')
@@ -13,3 +13,5 @@ export const cancelFriendRequest = requestId => api('/api/friends/cancel', { met
 export const removeFriend = friendId => api('/api/friends/remove', { method: 'POST', body: JSON.stringify({ friendId }) })
 
 export const updateUsername = username => api('/api/me/username', { method: 'POST', body: JSON.stringify({ username }) }).then(r => r.username)
+// `dataUrl` (from resizeImageFile) to set a profile photo, or `null` to remove it.
+export const updateAvatar = dataUrl => api('/api/me/avatar', { method: 'POST', body: JSON.stringify({ avatar: dataUrl }) }).then(r => r.avatar)

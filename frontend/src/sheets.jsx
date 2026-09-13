@@ -1485,7 +1485,7 @@ function AddFriend({ close, onDone }) {
     </div>
     {tab === 'qr' ? <div style={{ textAlign: 'center' }}>
       <div className="row" style={{ justifyContent: 'center', gap: 10, marginBottom: 14 }}>
-        <Avatar name={user?.name} size={40} />
+        <Avatar name={user?.name} size={40} image={user?.avatar ? mediaUrl(user.avatar) : null} />
         <div style={{ textAlign: 'left' }}>
           <div className="capitalize" style={{ fontWeight: 600 }}>{user?.name}</div>
           {user?.username && <div className="dim small">@{user.username}</div>}

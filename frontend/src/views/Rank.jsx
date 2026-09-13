@@ -7,19 +7,12 @@ import { lastBW } from '../lib/history.js'
 import { musclesOf, MUSCLE_NAME } from '../lib/muscles.js'
 import { EXIDX } from '../lib/exercises.js'
 import {
-  RANK_LIFTS, RANK_GROUPS, RANK_GROUP_KEYS, RANK_GROUP_NAME,
-  liftRatio, rankOfLift, muscleRank, groupRank, globalRank,
+  TIERS, RANK_LIFTS, RANK_GROUPS, RANK_GROUP_KEYS, RANK_GROUP_NAME,
+  liftRatio, rankOfLift, muscleRank, groupRank, globalRank, TIER_COLOR, rankLabel,
 } from '../lib/rank.js'
 import Icon from '../components/Icon.jsx'
 import BodyMap from '../components/BodyMap.jsx'
 import { Button } from '../components/ui.jsx'
-
-const TIER_COLOR = {
-  Iron: 'var(--tier-iron)', Bronze: 'var(--tier-bronze)', Silver: 'var(--tier-silver)',
-  Gold: 'var(--tier-gold)', Ruby: 'var(--tier-ruby)', Emerald: 'var(--tier-emerald)',
-  Diamond: 'var(--tier-diamond)', Champion: 'var(--tier-champion)', Symmetric: 'var(--tier-symmetric)',
-}
-const rankLabel = r => t(r.tier) + (r.division ? ' ' + r.division : '')
 
 function RankBadge({ rank, small }) {
   if (!rank) return <span className="dim small">{t('No data yet')}</span>
@@ -29,7 +22,9 @@ function RankBadge({ rank, small }) {
   </span>
 }
 
-function InfoSheet() {
+// Also opened straight from Settings ("Rangos") for anyone who wants to read how the system
+// works without having logged a single set yet — so this never assumes S/bodyweight exist.
+export function RankGuideSheet() {
   return <>
     <h3>{t('How strength rank works')}</h3>
     <h4 className="sec" style={{ marginTop: 0 }}>{t('About')}</h4>
@@ -39,6 +34,17 @@ function InfoSheet() {
     <h4 className="sec">{t('How it’s calculated')}</h4>
     <div className="small dim" style={{ lineHeight: 1.5, marginBottom: 14 }}>
       {t('Exercise ranks that train a muscle combine into that muscle\'s rank, weighing exercises with more sets more heavily. Muscles combine into a group rank (chest, back, shoulders, arms, legs, core), and every group combines into one overall rank — a complete physique outweighs a single strong lift.')}
+    </div>
+    <h4 className="sec">{t('The 9 tiers')}</h4>
+    <div className="small dim" style={{ lineHeight: 1.5, marginBottom: 10 }}>
+      {t('From {0} to {1}, each with three divisions — I, II and III. You move up a division, then the next one, before moving into the next tier. {2} is the top, for the very strongest lifts, and has no divisions.', t('Iron'), t('Champion'), t('Symmetric'))}
+    </div>
+    <div className="chips" style={{ marginBottom: 14 }}>
+      {TIERS.map(tier => <span key={tier} className="chip nocap" style={{ color: TIER_COLOR[tier] }}>{t(tier)}</span>)}
+    </div>
+    <h4 className="sec">{t('What you need')}</h4>
+    <div className="small dim" style={{ lineHeight: 1.5, marginBottom: 14 }}>
+      {t('Log your bodyweight, then log sets for any of {0} curated lifts (bench press, squat, deadlift, overhead press, pull-up, chin-up, dip, row, romanian deadlift, curl, calf raise) — each ranks on its own as soon as it has one. The overall rank needs at least {1} of them.', RANK_LIFTS.length, 6)}
     </div>
     <h4 className="sec">{t('Keep in mind')}</h4>
     <div className="small dim" style={{ lineHeight: 1.5 }}>
@@ -59,7 +65,7 @@ export default function Rank() {
   const header = <div className="hdr">
     <button className="iconbtn" onClick={() => nav('/profile')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
     <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Strength rank')}</h1></div>
-    <button className="iconbtn" onClick={() => openSheet(() => <InfoSheet />)} aria-label={t('How strength rank works')}><Icon name="info" /></button>
+    <button className="iconbtn" onClick={() => openSheet(() => <RankGuideSheet />)} aria-label={t('How strength rank works')}><Icon name="info" /></button>
   </div>
 
   if (!bw) return <div className="narrow">

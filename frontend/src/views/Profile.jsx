@@ -5,7 +5,9 @@ import { useUI } from '../store/useUI.js'
 import { streakWeeks } from '../lib/history.js'
 import { fmtDate, todayISO } from '../lib/format.js'
 import { webauthnOK, passkeyLogin, passkeyRegister } from '../lib/api.js'
-import { updateUsername } from '../lib/friends-api.js'
+import { updateUsername, updateAvatar } from '../lib/friends-api.js'
+import { resizeImageFile, mediaUrl } from '../lib/media.js'
+import { globalRank, TIER_COLOR, rankLabel } from '../lib/rank.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
@@ -20,6 +22,9 @@ export default function Profile() {
   const user = useStore(s => s.user)
   const { update, setUser, pullState, pushState } = useStore()
   const toast = useUI(s => s.toast)
+  const avatarInput = useRef(null)
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const rank = user ? globalRank(S) : null
 
   const signInHere = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); toast(t('Welcome back, {0}', u.name)) }
@@ -29,16 +34,44 @@ export default function Profile() {
   const editUsername = () => useUI.getState().openSheet(close => (
     <EditUsername close={close} current={user?.username} onSaved={u => setUser({ ...user, username: u })} />
   ))
+  // Guest mode has no account for a photo to attach to — the avatar lives on the server
+  // user record (POST /api/me/avatar), same as the username, not in the per-device S state.
+  const pickAvatar = () => { if (user && !avatarBusy) avatarInput.current?.click() }
+  const onAvatarFile = async e => {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    setAvatarBusy(true)
+    try {
+      const dataUrl = await resizeImageFile(file)
+      const avatar = await updateAvatar(dataUrl)
+      setUser({ ...user, avatar })
+    } catch (err) { toast(err.message || t('Could not read that file')) }
+    finally { setAvatarBusy(false) }
+  }
 
   return <div className="narrow">
     <div className="hdr"><div><h1>{t('Profile')}</h1></div></div>
 
     <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-      <Avatar name={user?.name} size={56} />
+      <button onClick={pickAvatar} aria-label={t('Change photo')} disabled={!user}
+        style={{ position: 'relative', flex: 'none', border: 'none', background: 'none', padding: 0, borderRadius: '50%', opacity: avatarBusy ? .6 : 1 }}>
+        <Avatar name={user?.name} size={56} image={user?.avatar ? mediaUrl(user.avatar) : null} />
+        {user && <span style={{
+          position: 'absolute', right: -2, bottom: -2, width: 20, height: 20, borderRadius: '50%',
+          background: 'var(--acc)', color: 'var(--on-acc)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, border: '2px solid var(--surface)',
+        }}><Icon name="pencil" /></span>}
+      </button>
+      {user && <input ref={avatarInput} type="file" accept="image/*" hidden onChange={onAvatarFile} />}
       <div style={{ minWidth: 0 }}>
         <div className="capitalize" style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-.012em' }}>{user?.name || t('Guest')}</div>
         {user?.created && <div className="dim small">{t('joined {0}', fmtDate(user.created.slice(0, 10)))}</div>}
         {user?.username && <button className="dim small" style={{ marginTop: 2 }} onClick={editUsername}>@{user.username}</button>}
+        {rank && !rank.locked && <div className="row" style={{ gap: 4, marginTop: 4, color: TIER_COLOR[rank.tier] }}>
+          <Icon name="shield" style={{ fontSize: 13 }} />
+          <span className="small" style={{ fontWeight: 600 }}>{rankLabel(rank)}</span>
+        </div>}
       </div>
     </div>
 

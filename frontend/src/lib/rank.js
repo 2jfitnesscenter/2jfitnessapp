@@ -16,10 +16,22 @@ import { EXIDX } from './exercises.js'
 import { musclesOf } from './muscles.js'
 import { estimate1RM, bestKnownOneRM, oneRMTests } from './onerm.js'
 import { lastBW } from './history.js'
+import { t } from './i18n.js'
 
 export const TIERS = ['Iron', 'Bronze', 'Silver', 'Gold', 'Ruby', 'Emerald', 'Diamond', 'Champion', 'Symmetric']
 export const DIVISIONS = ['I', 'II', 'III']
 const SYMMETRIC_INDEX = TIERS.length - 1
+
+// One CSS custom property per tier (index.css) — flat, absolute colours, not an intensity
+// ramp, so a tier reads as one specific thing everywhere it shows: the body map, the
+// Profile badge, the exercise-rank cards inside Rank.jsx.
+export const TIER_COLOR = {
+  Iron: 'var(--tier-iron)', Bronze: 'var(--tier-bronze)', Silver: 'var(--tier-silver)',
+  Gold: 'var(--tier-gold)', Ruby: 'var(--tier-ruby)', Emerald: 'var(--tier-emerald)',
+  Diamond: 'var(--tier-diamond)', Champion: 'var(--tier-champion)', Symmetric: 'var(--tier-symmetric)',
+}
+// "Gold II", "Simétrico" (no division) — the one place a {tier, division} pair becomes text.
+export const rankLabel = r => t(r.tier) + (r.division ? ' ' + r.division : '')
 
 // The curated lifts a rank can be computed for — not the whole exercise library. Each
 // needs a published-style standard (STANDARDS below) to compare against, and most of the

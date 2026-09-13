@@ -13,6 +13,7 @@ import { MOBILE, shareExport, syncReminder } from '../lib/mobile.js'
 import { loadStarterPlan, confirmSheet, importFromApp } from '../sheets.jsx'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
+import { RankGuideSheet } from './Rank.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button } from '../components/ui.jsx'
 
@@ -186,6 +187,8 @@ export default function Settings() {
           onChange={v => update(s => { s.body = v })}
         />
       </Row>
+      <Row icon="shield" iconTint="var(--acc)" title={t('Ranks')} subtitle={t('How ranks work, what you need, how many there are')} accessory="chevron"
+        onClick={() => useUI.getState().openSheet(() => <RankGuideSheet />)} />
       <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12, paddingTop: 13, paddingBottom: 14 }}>
         <span className="lrow-t">{t('Accent color')}</span>
         <div className="swatches">
