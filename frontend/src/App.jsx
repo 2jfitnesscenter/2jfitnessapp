@@ -13,6 +13,8 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Modals from './components/Modals.jsx'
 import Toast from './components/Toast.jsx'
 import RestTimer from './components/RestTimer.jsx'
+import ChatWatcher from './components/ChatWatcher.jsx'
+import FriendsWatcher from './components/FriendsWatcher.jsx'
 import Login from './views/Login.jsx'
 import Home from './views/Home.jsx'
 import Plan from './views/Plan.jsx'
@@ -138,6 +140,8 @@ function Shell() {
           onboarded so the wizard doesn't reappear). */}
       {!needsOnboarding && <TabBar />}
       <RestTimer />
+      <ChatWatcher />
+      <FriendsWatcher />
       <Modals />
       <Toast />
     </>

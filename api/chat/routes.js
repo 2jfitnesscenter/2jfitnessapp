@@ -12,12 +12,17 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
     return user;
   };
   const memberName = id => (users().find(u => u.id === id) || {}).name || null;
-  const preview = thread => {
+  // `unread` is per-viewer: a thread is unread for you when the last message wasn't written
+  // by you and arrived after the last time you (specifically) opened it — tracked per user id
+  // in thread.readBy so every trainer has their own read state on a thread they all share.
+  const preview = (thread, viewerId) => {
     const last = store.lastMessageOf(thread.id);
+    const readAt = (thread.readBy || {})[viewerId] || 0;
     return {
       id: thread.id, memberId: thread.memberId, status: thread.status,
       createdAt: thread.createdAt, updatedAt: thread.updatedAt,
-      lastMessage: last ? { text: last.text, authorRole: last.authorRole, createdAt: last.createdAt } : null
+      lastMessage: last ? { text: last.text, authorRole: last.authorRole, createdAt: last.createdAt } : null,
+      unread: !!last && last.authorId !== viewerId && last.createdAt > readAt
     };
   };
   const notifyTrainers = (fromName, text, threadId) => {
@@ -29,8 +34,8 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
   return {
     'GET /api/chat/threads': async (req, res) => {
       const user = guard(req, res); if (!user) return;
-      if (isTrainer(user)) return json(res, 200, { threads: store.allThreads().map(t => ({ ...preview(t), memberName: memberName(t.memberId) })) });
-      json(res, 200, { threads: store.threadsOf(user.id).map(preview) });
+      if (isTrainer(user)) return json(res, 200, { threads: store.allThreads().map(t => ({ ...preview(t, user.id), memberName: memberName(t.memberId) })) });
+      json(res, 200, { threads: store.threadsOf(user.id).map(t => preview(t, user.id)) });
     },
 
     'POST /api/chat/threads': async (req, res) => {
@@ -40,7 +45,7 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       if (!text) return json(res, 400, { error: 'escribe un mensaje' });
       const { thread } = store.createThread(user.id, text);
       notifyTrainers(user.name, text, thread.id);
-      json(res, 200, { ok: true, thread: preview(thread) });
+      json(res, 200, { ok: true, thread: preview(thread, user.id) });
     },
 
     'GET /api/chat/messages': async (req, res) => {
@@ -49,7 +54,8 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       const thread = store.findThread(threadId);
       if (!thread) return json(res, 404, { error: 'esa conversación no existe' });
       if (thread.memberId !== user.id && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
-      json(res, 200, { thread: { ...preview(thread), memberName: memberName(thread.memberId) }, messages: store.messagesOf(thread.id) });
+      store.markRead(thread.id, user.id);
+      json(res, 200, { thread: { ...preview(thread, user.id), memberName: memberName(thread.memberId) }, messages: store.messagesOf(thread.id) });
     },
 
     'POST /api/chat/messages': async (req, res) => {
@@ -75,7 +81,7 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       const status = body.status === 'closed' ? 'closed' : 'open';
       const thread = store.setStatus(body.threadId, status);
       if (!thread) return json(res, 404, { error: 'esa conversación no existe' });
-      json(res, 200, { ok: true, thread: preview(thread) });
+      json(res, 200, { ok: true, thread: preview(thread, user.id) });
     }
   };
 }

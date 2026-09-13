@@ -22,6 +22,8 @@ export default function Profile() {
   const user = useStore(s => s.user)
   const { update, setUser, pullState, pushState } = useStore()
   const toast = useUI(s => s.toast)
+  const chatUnread = useUI(s => s.chatUnread)
+  const friendUnread = useUI(s => s.friendUnread)
   const avatarInput = useRef(null)
   const [avatarBusy, setAvatarBusy] = useState(false)
   const rank = user ? globalRank(S) : null
@@ -79,8 +81,12 @@ export default function Profile() {
          the Account section right above needing one ---------- */}
     {user && (
       <Section title={t('Social')}>
-        <Row icon="users" iconTint="var(--blue)" title={t('Friends')} accessory="chevron" onClick={() => nav('/friends')} />
-        <Row icon="personCircle" iconTint="var(--acc)" title={t('Chat with trainers')} accessory="chevron" onClick={() => nav('/chat')} />
+        <Row icon="users" iconTint="var(--blue)" title={t('Friends')} accessory="chevron" onClick={() => nav('/friends')}>
+          {friendUnread > 0 && <span aria-label={t('Pending friend requests')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
+        </Row>
+        <Row icon="personCircle" iconTint="var(--acc)" title={t('Chat with trainers')} accessory="chevron" onClick={() => nav('/chat')}>
+          {chatUnread > 0 && <span aria-label={t('Unread messages')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
+        </Row>
       </Section>
     )}
 

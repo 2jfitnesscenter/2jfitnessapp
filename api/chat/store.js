@@ -36,7 +36,7 @@ export function findThread(id) {
 }
 export function createThread(memberId, text) {
   const now = Date.now();
-  const thread = { id: crypto.randomBytes(9).toString('base64url'), memberId, status: 'open', createdAt: now, updatedAt: now };
+  const thread = { id: crypto.randomBytes(9).toString('base64url'), memberId, status: 'open', createdAt: now, updatedAt: now, readBy: {} };
   store.threads.push(thread);
   const message = { id: crypto.randomBytes(9).toString('base64url'), threadId: thread.id, authorId: memberId, authorRole: 'member', text, createdAt: now };
   store.messages.push(message);
@@ -58,6 +58,13 @@ export function addMessage(threadId, authorId, authorRole, text) {
   if (thread) thread.updatedAt = now;
   save();
   return message;
+}
+export function markRead(threadId, userId) {
+  const thread = store.threads.find(t => t.id === threadId);
+  if (!thread) return;
+  if (!thread.readBy) thread.readBy = {};
+  thread.readBy[userId] = Date.now();
+  save();
 }
 export function setStatus(threadId, status) {
   const thread = store.threads.find(t => t.id === threadId);

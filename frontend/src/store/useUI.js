@@ -22,6 +22,10 @@ export const useUI = create((set, get) => ({
   toastMsg: '',
   timer: null,         // rest countdown between sets — { left, total, endsAt }
   work: null,          // work countdown DURING a timed set (issue #16) — { left, total, endsAt, label }
+  chatUnread: 0,       // count of chat threads with an unread reply — kept by components/ChatWatcher.jsx
+  setChatUnread(n) { set({ chatUnread: n }) },
+  friendUnread: 0,     // count of pending incoming friend requests — kept by components/FriendsWatcher.jsx
+  setFriendUnread(n) { set({ friendUnread: n }) },
 
   openSheet(render, { kind = 'sheet', locked = false } = {}) {
     const id = uid()
