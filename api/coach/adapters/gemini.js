@@ -11,7 +11,14 @@
  * declares no setupToken/deviceLogin, so the existing "Use an API key" admin flow already
  * covers it with no UI changes). The free tier is exactly that: no card on file, request-per-
  * minute and per-day caps instead — see the Coach's own per-user/instance daily caps in the
- * admin panel for a second layer of that same protection. */
+ * admin panel for a second layer of that same protection.
+ *
+ * The key travels as the `x-goog-api-key` header, not a `?key=` query param: Google replaced
+ * the old `AIzaSy...` "Standard key" format with a new `AQ....` "Auth key" format (fully
+ * rejecting the legacy one from September 2026), and the new format is only accepted via the
+ * header — a `?key=` request gets treated as having no credential at all, which is why the
+ * failure Google returns for it reads "expected OAuth 2 access token, login cookie or other
+ * valid authentication credential" rather than anything mentioning the key itself. */
 const DEFAULT_MODEL = 'gemini-3.6-flash';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const SYSTEM_PROMPT = [
@@ -21,7 +28,7 @@ const SYSTEM_PROMPT = [
 ].join(' ');
 
 async function callGemini({ apiKey, model, prompt, image, timeoutMs }) {
-  const url = `${API_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const url = `${API_BASE}/${encodeURIComponent(model)}:generateContent`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   // A scan request attaches the report as a second part alongside the text prompt — Gemini
@@ -32,7 +39,7 @@ async function callGemini({ apiKey, model, prompt, image, timeoutMs }) {
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
       signal: controller.signal,
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
