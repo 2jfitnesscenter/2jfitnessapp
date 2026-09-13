@@ -3,11 +3,12 @@ import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
 import { uid, exCount, routineCount, DAYN } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { glyphPicker, confirmSheet, routinePickerSheet, dayAssignSheet } from '../sheets.jsx'
+import { glyphPicker, confirmSheet, routinePickerSheet, dayAssignSheet, exportPlanFile } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
 import { Button, Switch } from '../components/ui.jsx'
 import { mediaUrl } from '../lib/media.js'
+import { buildPlanBundle } from '../lib/plan-share.js'
 
 // A program is a named folder of routine ids — see useStore.js's DEF.programs comment. This
 // screen is the folder's contents: add an existing loose routine to it, build a new one
@@ -16,6 +17,7 @@ export default function ProgramEdit() {
   const nav = useNavigate()
   const { id } = useParams()
   const S = useStore(s => s.S)
+  const user = useStore(s => s.user)
   const update = useStore(s => s.update)
   const p = (S.programs || []).find(x => x.id === id)
   useEffect(() => { if (!p) nav('/plan') }, [!!p])
@@ -102,6 +104,11 @@ export default function ProgramEdit() {
       <Button icon="plus" onClick={addNew}>{t('New routine')}</Button>
       {loose.length > 0 && <Button icon="folder" onClick={addExisting}>{t('Add existing routine')}</Button>}
     </div>
+    <div style={{ height: 10 }} />
+    <Button variant="tinted" icon="upload" disabled={!routines.some(r => r.ex && r.ex.length)}
+      onClick={() => exportPlanFile(buildPlanBundle(S, user?.name ? t('{0}’s plan', user.name) : '', { routineIds: p.routineIds || [], week: p.week }), 'program')}>
+      {t('Export program')}
+    </Button>
     <div style={{ height: 14 }} />
     <Button variant="danger" onClick={deleteProgram}>{t('Delete program')}</Button>
   </>

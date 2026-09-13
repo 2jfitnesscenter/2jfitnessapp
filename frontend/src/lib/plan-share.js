@@ -42,17 +42,27 @@ function cleanEx(e) {
   return o
 }
 
-/** Build the shareable bundle: every routine, the week schedule, referenced customs. */
-export function buildPlanBundle(S, name) {
-  const routines = (S.routines || []).map(r => ({
+/**
+ * Build the shareable bundle. By default: every routine + the flat weekly schedule.
+ * `routineIds` scopes it down to just those routines (in that order) — used to export a
+ * single routine, or one program's routines — and also restricts which days end up in the
+ * exported week. `week` overrides which schedule is read: pass a program's own `p.week`
+ * when exporting a program, since that's a separate mapping from the flat `S.week`.
+ */
+export function buildPlanBundle(S, name, { routineIds, week: weekSource } = {}) {
+  const source = routineIds
+    ? routineIds.map(id => (S.routines || []).find(r => r.id === id)).filter(Boolean)
+    : (S.routines || [])
+  const routines = source.map(r => ({
     id: r.id, name: r.name, emoji: r.emoji, ...(r.prog ? { prog: r.prog } : {}), ex: (r.ex || []).map(cleanEx)
   }))
   const usedIds = new Set(routines.flatMap(r => r.ex.map(e => e.id)))
   const customEx = (S.customEx || [])
     .filter(c => usedIds.has(c.id))
     .map(c => ({ id: c.id, n: c.n, bp: c.bp, ...(c.desc ? { desc: c.desc } : {}) }))
+  const srcWeek = weekSource !== undefined ? weekSource : S.week
   const week = {}
-  WEEK_ORDER.forEach(d => { if (S.week?.[d]) week[d] = S.week[d] })
+  WEEK_ORDER.forEach(d => { if (srcWeek?.[d] && (!routineIds || routineIds.includes(srcWeek[d]))) week[d] = srcWeek[d] })
   return { '2jfitness_plan': PLAN_FMT, exported: todayISO(), name: name || '', week, routines, customEx }
 }
 

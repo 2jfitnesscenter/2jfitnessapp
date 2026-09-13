@@ -7,7 +7,8 @@ import { uid } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../lib/history.js'
 import { Thumb } from '../components/Media.jsx'
-import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet } from '../sheets.jsx'
+import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, exportPlanFile } from '../sheets.jsx'
+import { buildPlanBundle } from '../lib/plan-share.js'
 import Icon from '../components/Icon.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { Button, SelectRow } from '../components/ui.jsx'
@@ -20,6 +21,7 @@ export default function RoutineEdit() {
   const nav = useNavigate()
   const { id } = useParams()
   const S = useStore(s => s.S)
+  const user = useStore(s => s.user)
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
   const r = S.routines.find(x => x.id === id)
@@ -164,6 +166,11 @@ export default function RoutineEdit() {
 
     <div className="small dim row" style={{ margin: '10px 2px', gap: 5 }}><Icon name="link" style={{ fontSize: 13 }} />{t('Tap the link button on an exercise to superset it with the one above — you’ll do them back-to-back.')}</div>
     <Button variant="primary" onClick={() => exercisePicker(ex => exConfigSheet(ex, null, cfg => edit(x => { x.push({ id: ex.id, ...cfg }) }), null, r))} icon="plus">{t('Add exercise')}</Button>
+    <div style={{ height: 10 }} />
+    <Button variant="tinted" icon="upload" disabled={!r.ex.length}
+      onClick={() => exportPlanFile(buildPlanBundle(S, user?.name ? t('{0}’s plan', user.name) : '', { routineIds: [r.id] }), 'routine')}>
+      {t('Export routine')}
+    </Button>
     <div style={{ height: 10 }} />
     <Button variant="danger" onClick={() => confirmSheet({
       title: t('Delete routine?'), message: t('“{0}” and its exercises will be removed.', r.name), confirmText: t('Delete'), danger: true,

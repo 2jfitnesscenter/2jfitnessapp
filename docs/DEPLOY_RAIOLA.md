@@ -117,10 +117,17 @@ Plan → Herramientas → Importar archivo. Añade las rutinas sin tocar nada m�
 ## 9. Copias de seguridad
 
 Todo lo que importa vive en `/opt/2jfitness/data` en el servidor — perfiles, passkeys, rutinas,
-historial. Automatiza algo como esto (por ejemplo con `cron`):
+historial. Ojo: esa carpeta es propiedad de `root` (la API dentro del contenedor escribe como
+root), así que el backup se ejecuta como root, no como el usuario `2jfitness`.
+
+`scripts/backup-data.sh` hace el `tar` y borra copias de más de `BACKUP_KEEP_DAYS` días (14 por
+defecto) para que el disco no se llene solo. Prográmalo con `cron` (como root):
 
 ```bash
-tar czf /root/backups/2jfitness-$(date +%F).tar.gz -C /opt/2jfitness data
+crontab -e
+# añade, en su propia línea:
+BACKUP_DIR=/root/backups
+30 3 * * * /opt/2jfitness/scripts/backup-data.sh >> /root/backups/backup.log 2>&1
 ```
 
 Y de vez en cuando baja esa copia fuera del servidor (a tu ordenador, o a otro sitio) — una copia

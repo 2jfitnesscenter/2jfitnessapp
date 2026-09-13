@@ -18,7 +18,7 @@ import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf } from './lib/muscles.js'
 import { rankUpsFor, rankEmblemUrl } from './lib/rank.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
-import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
+import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
@@ -901,6 +901,18 @@ export const routinePickerSheet = (routines, onPick) => ui().openSheet(close => 
 </>)
 
 /* ============================ share / print / import a plan ============================ */
+// The actual file-saving mechanic, shared by every export entry point (a single routine's own
+// button, a program's own button, and mobile's share sheet) — building the bundle itself is
+// the caller's job via buildPlanBundle(), scoped to whatever that screen is exporting.
+export async function exportPlanFile(bundle, tag) {
+  const json = JSON.stringify(bundle, null, 2)
+  const name = `2jfitness-${tag}-${todayISO()}.json`
+  if (MOBILE) { try { await shareExport(json, name) } catch (e) { /* dismissed */ } return }
+  const blob = new Blob([json], { type: 'application/json' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href)
+  toast(t('Plan file saved — send it to a friend'))
+}
+
 export const planToolsSheet = () => ui().openSheet(close => <PlanTools close={close} />)
 
 function PlanTools({ close }) {
@@ -909,15 +921,6 @@ function PlanTools({ close }) {
   const fileRef = useRef(null)
   const hasRoutines = (st.routines || []).some(r => r.ex && r.ex.length)
 
-  const exportFile = async () => {
-    const bundle = buildPlanBundle(st, user?.name ? t('{0}’s plan', user.name) : '')
-    const json = JSON.stringify(bundle, null, 2)
-    const name = '2jfitness-plan-' + todayISO() + '.json'
-    if (MOBILE) { try { await shareExport(json, name) } catch (e) { /* dismissed */ } close(); return }
-    const blob = new Blob([json], { type: 'application/json' })
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href)
-    close(); toast(t('Plan file saved — send it to a friend'))
-  }
   const pickFile = ev => {
     const f = ev.target.files[0]; ev.target.value = ''; if (!f) return
     const rd = new FileReader()
@@ -930,15 +933,15 @@ function PlanTools({ close }) {
 
   return <>
     <h3>{t('Share your plan')}</h3>
-    <div className="muted small" style={{ marginBottom: 16 }}>{t('Send your routines to a friend, or put your week on paper.')}</div>
-    <Button variant="primary" icon="upload" onClick={exportFile} disabled={!hasRoutines}>{t('Export plan file')}</Button>
-    <div className="dim small" style={{ margin: '7px 2px 0', lineHeight: 1.4 }}>{t('A small file a friend imports into their own 2J Fitness Center — routines only, none of your workouts or weigh-ins.')}</div>
+    <div className="muted small" style={{ marginBottom: 16 }}>{t('Put your week on paper, or bring in a plan from a friend.')}</div>
+    {/* Exporting a file lives on the routine/program itself now (its own "Export" button) —
+        with dozens of routines, a single "export everything" button here stopped being useful. */}
     {!MOBILE && <>
-      <div style={{ height: 12 }} />
-      <Button variant="tinted" icon="download" onClick={() => { close(); printPlan(st, user?.name || '') }} disabled={!hasRoutines}>{t('Print / Save as PDF')}</Button>
+      <Button variant="primary" icon="download" onClick={() => { close(); printPlan(st, user?.name || '') }} disabled={!hasRoutines}>{t('Print / Save as PDF')}</Button>
       <div className="dim small" style={{ margin: '7px 2px 0', lineHeight: 1.4 }}>{t('A clean one-page-per-plan printout — no exercise ever splits across a page.')}</div>
+      {!hasRoutines && <div className="dim small" style={{ margin: '12px 2px 0' }}>{t('Add an exercise to a routine first — an empty plan has nothing to print.')}</div>}
+      <div style={{ height: 12 }} />
     </>}
-    {!hasRoutines && <div className="dim small" style={{ margin: '12px 2px 0' }}>{t('Add an exercise to a routine first — an empty plan has nothing to share.')}</div>}
     <h4 className="sec">{t('Got a plan from a friend?')}</h4>
     <Button variant="ghost" icon="folder" onClick={() => fileRef.current?.click()}>{t('Import a plan file')}</Button>
     <input ref={fileRef} type="file" accept="application/json,.json" onChange={pickFile} hidden />

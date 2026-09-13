@@ -9,7 +9,11 @@
 # 127.0.0.1 so `curl http://localhost:8080` on the server itself keeps working for debugging.
 services:
   web:
-    ports:
+    # Compose merges list-valued keys across -f files by concatenating them, not replacing —
+    # without !override this appends to the base file's public "8080:80" instead of replacing
+    # it, so the container ends up trying to publish port 8080 twice (once wide open, once
+    # loopback-only) and fails to come up at all.
+    ports: !override
       - "127.0.0.1:${WEB_PORT:-8080}:80"
 
   caddy:
