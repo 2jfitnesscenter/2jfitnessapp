@@ -104,6 +104,11 @@
 :root[data-accent="sky"]   { --acc:var(--blue);  --acc-2:#0060df; --on-acc:#fff }
 :root[data-accent="red"]   { --acc:var(--red);   --acc-2:#d70015; --on-acc:#fff }
 :root[data-accent="violet"]{ --acc:var(--purple);--acc-2:#8944ab; --on-acc:#fff }
+:root[data-accent="orange"]{ --acc:var(--orange); --acc-2:#c67f00; --on-acc:#000 }
+:root[data-accent="yellow"]{ --acc:var(--yellow); --acc-2:#cca800; --on-acc:#000 }
+:root[data-accent="teal"]  { --acc:var(--teal);   --acc-2:#2b98a8; --on-acc:#000 }
+:root[data-accent="indigo"]{ --acc:var(--indigo); --acc-2:#4341b0; --on-acc:#fff }
+:root[data-accent="pink"]  { --acc:var(--pink);   --acc-2:#d41f45; --on-acc:#fff }
 /* Label colour on a filled accent button is picked per accent by measured contrast,
    not by taste. Button text is 17px/600, so the AA bar is 3:1 (large text). White on
    the light-theme green is 2.22:1 — fails, and green is the DEFAULT accent, so every
@@ -111,9 +116,14 @@
    are dark enough that white passes in both themes (6.2:1 / 11.3:1) without needing a
    light-mode override. Blue, purple and red keep white (3.5–4.1:1) too, matching the
    platform convention. */
-:root[data-theme="light"][data-accent="lime"] { --on-acc:#000 }
+:root[data-theme="light"][data-accent="lime"],
+:root[data-theme="light"][data-accent="orange"],
+:root[data-theme="light"][data-accent="yellow"],
+:root[data-theme="light"][data-accent="teal"]  { --on-acc:#000 }
 :root[data-theme="light"][data-accent="sky"],
 :root[data-theme="light"][data-accent="violet"],
+:root[data-theme="light"][data-accent="indigo"],
+:root[data-theme="light"][data-accent="pink"],
 :root[data-theme="light"][data-accent="red"]   { --on-acc:#fff }
 
 /* ---------------------------------------------------------------- reset -- */
@@ -271,19 +281,26 @@ h4.sec{
 .helpbtn:active{color:var(--label)}
 
 /* -------------------------------------------------------------- buttons -- */
+/* Every button picks up a tinted fill + a colour-matched border — the same "outlined card"
+   language the admin dashboard's featured nav cards use, just at button scale. All of it rides
+   the one existing --acc/--acc-2/--acc-soft/--acc-line chain, so changing the accent swatch in
+   Settings recolours every button in the app exactly like it already recolours everything else —
+   no separate picker needed. Visual weight still steps down primary → tinted → ghost/plain, just
+   each step now reads as a defined shape instead of flat fill or bare text. */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;
   padding:14px 18px;border-radius:var(--r);font-size:17px;font-weight:600;
   letter-spacing:-.012em;background:var(--surface-2);color:var(--label);
-  transition:transform var(--fast) var(--ease),background var(--fast),opacity var(--fast);
+  border:1.5px solid transparent;
+  transition:transform var(--fast) var(--ease),background var(--fast),opacity var(--fast),border-color var(--fast);
 }
 .btn .icn{font-size:19px}
 .btn:active{transform:scale(.975)}
-.btn.primary{background:var(--acc);color:var(--on-acc)}
+.btn.primary{background:var(--acc);color:var(--on-acc);border-color:var(--acc-2)}
 .btn.primary:active{background:var(--acc-2)}
-.btn.tinted{background:var(--acc-soft);color:var(--acc)}
-.btn.danger{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red)}
-.btn.ghost,.btn.plain{background:none;color:var(--acc);font-weight:400}
+.btn.tinted{background:var(--acc-soft);color:var(--acc);border-color:var(--acc-line)}
+.btn.danger{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,transparent)}
+.btn.ghost,.btn.plain{background:none;color:var(--acc);font-weight:400;border-color:var(--acc-line)}
 .btn.ghost:active,.btn.plain:active{background:var(--surface-2)}
 .btn.sm{padding:8px 14px;width:auto;font-size:15px;border-radius:var(--r-sm);gap:5px}
 .btn.sm .icn{font-size:16px}
@@ -349,6 +366,74 @@ h4.sec{
   border:2px solid var(--orange);animation:ping 1.9s var(--ease) infinite;
 }
 @keyframes ping{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.45);opacity:0}}
+
+/* ------------------------------------------------------ liquid glass ----- */
+/* Opt-in from Settings — App.jsx's applyPrefs toggles this class on <html> and sets
+   --glass-solid/--glass-sheen/--glass-edge (from the opacity slider) and --glass-blur (from
+   the thickness slider). Every rule below is built the same way: a faint tinted sheen over a
+   backing that's blended, via colour-mix against transparent, toward the SAME solid colour
+   that element uses when glass is off entirely — so at 100% opacity a panel is pixel-identical
+   to the flat look (fully legible, however high the slider goes; a translucent, hard-to-read
+   tab bar over scrolling content was the exact bug this fixes) and it only gets glassier as
+   the slider comes down. Nothing above this point changes when the class is absent. Over this
+   app's own plain black background there's nothing colourful to refract, so at less than 100%
+   the effect reads as a soft frosted panel with a light-catching edge rather than the dramatic
+   bend a photo behind it would show — the same technique, just a quieter version of it, the
+   way iOS's own glass looks over a plain wallpaper. */
+.glass-on .card, .glass-on .tile{
+  position:relative; isolation:isolate; overflow:hidden;
+  background:
+    linear-gradient(155deg, rgba(255,255,255,var(--glass-sheen)), rgba(255,255,255,calc(var(--glass-sheen) * .3))),
+    color-mix(in srgb, var(--surface) calc(var(--glass-solid) * 100%), transparent);
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border:1px solid rgba(255,255,255,var(--glass-edge));
+  box-shadow:0 10px 28px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,calc(var(--glass-sheen) * 1.4));
+}
+.glass-on .card::before, .glass-on .tile::before{
+  content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(120px 60px at 18% 0%, rgba(255,255,255,var(--glass-sheen)), transparent 70%);
+  mix-blend-mode:screen;
+}
+.glass-on .btn{
+  position:relative; isolation:isolate; overflow:hidden;
+  background:
+    linear-gradient(155deg, rgba(255,255,255,var(--glass-sheen)), rgba(255,255,255,calc(var(--glass-sheen) * .3))),
+    color-mix(in srgb, var(--surface-2) calc(var(--glass-solid) * 100%), transparent);
+  backdrop-filter:blur(calc(var(--glass-blur) * .6)) saturate(160%);
+  -webkit-backdrop-filter:blur(calc(var(--glass-blur) * .6)) saturate(160%);
+  border-color:rgba(255,255,255,calc(var(--glass-edge) * .8));
+}
+.glass-on .btn.primary{
+  background:
+    linear-gradient(155deg, rgba(255,255,255,calc(var(--glass-sheen) * .6)), transparent),
+    color-mix(in srgb, var(--acc) calc(18% + var(--glass-solid) * 82%), transparent);
+  border-color:color-mix(in srgb, var(--acc-2) calc(var(--glass-solid) * 100%), color-mix(in srgb, var(--acc) 60%, white 12%));
+}
+.glass-on .btn.tinted{
+  background:
+    linear-gradient(155deg, rgba(255,255,255,calc(var(--glass-sheen) * .5)), transparent),
+    color-mix(in srgb, var(--acc) calc(6% + var(--glass-solid) * 10%), transparent);
+}
+.glass-on .btn.danger{
+  background:
+    linear-gradient(155deg, rgba(255,255,255,calc(var(--glass-sheen) * .5)), transparent),
+    color-mix(in srgb, var(--red) calc(6% + var(--glass-solid) * 9%), transparent);
+}
+.glass-on #tabbar{
+  background:
+    linear-gradient(155deg, rgba(255,255,255,var(--glass-sheen)), rgba(255,255,255,calc(var(--glass-sheen) * .3))),
+    color-mix(in srgb, var(--bg-el) calc(var(--glass-solid) * 100%), transparent);
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  border-top-color:rgba(255,255,255,var(--glass-edge));
+}
+.glass-on #tabbar button.start .cir{
+  background:
+    linear-gradient(155deg, rgba(255,255,255,calc(var(--glass-sheen) * .8)), transparent),
+    color-mix(in srgb, var(--acc) calc(30% + var(--glass-solid) * 70%), transparent);
+  box-shadow:0 6px 16px color-mix(in srgb, var(--acc) 45%, transparent), inset 0 1px 0 rgba(255,255,255,var(--glass-sheen));
+}
 
 /* ------------------------------------------------------------ week strip -- */
 .week{display:flex;justify-content:space-between;gap:4px}

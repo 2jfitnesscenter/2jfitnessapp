@@ -1426,6 +1426,24 @@ export default {
   'Ready': 'Listo',
 
   /* ---- Trainer panel AI (admin card + brief form + draft review) ---- */
+  'Desktop': 'Escritorio',
+  'Members': 'Socios',
+  'I lost my passkey': 'He perdido mi passkey',
+  'Request sent': 'Solicitud enviada',
+  'Staff have been notified — they’ll set you up with a new passkey on your existing profile next time you’re at the gym.':
+    'Se ha avisado al personal — te configurarán un passkey nuevo en tu perfil actual la próxima vez que vengas al gimnasio.',
+  'Type the name your profile is under — staff will get notified and set you up with a new passkey in person.':
+    'Escribe el nombre con el que está tu perfil — se avisará al personal y te configurarán un passkey nuevo en persona.',
+  'Send request': 'Enviar solicitud',
+  'Could not send the request': 'No se pudo enviar la solicitud',
+  'Lost passkey requests': 'Solicitudes de passkey perdido',
+  'matches {0}': 'coincide con {0}',
+  'no exact match — check Members': 'sin coincidencia exacta — revisa Socios',
+  'Replace exercise': 'Sustituir ejercicio',
+  'Keep these swaps?': '¿Mantener estos cambios?',
+  'You swapped an exercise during this session. Check any that should replace it in the routine from now on — leave one unchecked and today was a one-off.':
+    'Has sustituido algún ejercicio durante esta sesión. Marca los que quieras que sustituyan al original en la rutina a partir de ahora — deja uno sin marcar y hoy habrá sido algo puntual.',
+  'replaces {0}': 'sustituye a {0}',
   'Trainer panel AI': 'IA del panel de entrenador',
   'Lets trainers draft a member’s routines with AI from the desktop panel. Always Claude, and completely independent of the member-facing Coach above — this can be on even if that one is off, or the other way around.':
     'Permite a los entrenadores redactar rutinas de un socio con IA desde el panel de escritorio. Siempre usa Claude, e independiente del Coach de arriba (el que ven los usuarios) — esta puede estar activa aunque esa esté apagada, o al revés.',
@@ -1465,4 +1483,8 @@ export default {
   'The AI couldn’t run — check its setup in the admin panel.': 'La IA no pudo ejecutarse — revisa su configuración en el panel de administrador.',
   'The AI answered with something the app couldn’t use.': 'La IA respondió con algo que la app no pudo usar.',
   'Something went wrong on the server.': 'Algo salió mal en el servidor.',
+  'Liquid glass': 'Cristal líquido',
+  'A frosted, translucent look for cards, buttons and the tab bar': 'Un acabado esmerilado y translúcido para las tarjetas, los botones y la barra de pestañas',
+  'Opacity': 'Opacidad',
+  'Thickness': 'Grosor',
 }

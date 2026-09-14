@@ -12,7 +12,7 @@ import Media, { Thumb } from './components/Media.jsx'
 import BarbellPlates, { plateBreakdown } from './components/BarbellPlates.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
-import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row, ChipSelect } from './components/ui.jsx'
+import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row, ChipSelect, Check } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf } from './lib/muscles.js'
@@ -1119,6 +1119,7 @@ function ActionsSheet({ close }) {
       <Row icon="shuffle" iconTint="var(--indigo)" title={t('Start a freestyle workout')} onClick={act(() => startFlow(null))} />
       <Row icon="clipboard" iconTint="var(--teal)" title={t('Start a test session')} onClick={act(() => nav('/tests'))} />
       <Row icon="timer" iconTint="var(--orange)" title={t('Clock')} onClick={act(() => nav('/clock'))} />
+      <Row icon="figureRun" iconTint="var(--mint)" title="Estiramiento" onClick={act(() => nav('/stretch'))} />
     </div>
   </>
 }
@@ -1385,6 +1386,43 @@ function FinishSummary({ w, prs, e1prs = [], rankUps = [], close }) {
     <Button variant="primary" onClick={() => { close(); nav('/home') }}>{t('Nice!')}</Button>
   </div>
 }
+// Shown once, right after finishing a session that had at least one mid-workout exercise swap
+// (Workout.jsx's `replaceExercise`) — a choice per swap between "just applied to today" (the
+// routine keeps its original exercise, nothing further happens) and "make it stick" (patches
+// the routine so every future session starts with the substitute instead).
+function SwapKeepSheet({ swaps, routineId, onDone }) {
+  const [keep, setKeep] = useState(() => new Set())
+  const toggle = i => setKeep(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n })
+  const save = () => {
+    if (keep.size) update(s => {
+      const r = s.routines.find(x => x.id === routineId)
+      if (!r) return
+      swaps.forEach((sw, i) => {
+        if (!keep.has(i)) return
+        const exIdx = r.ex.findIndex(e => e.id === sw.oldId)
+        if (exIdx >= 0) r.ex[exIdx] = { ...r.ex[exIdx], id: sw.newId }
+      })
+    })
+    onDone()
+  }
+  return <>
+    <h3>{t('Keep these swaps?')}</h3>
+    <div className="muted small" style={{ marginBottom: 14, lineHeight: 1.5 }}>
+      {t('You swapped an exercise during this session. Check any that should replace it in the routine from now on — leave one unchecked and today was a one-off.')}
+    </div>
+    <div className="list" style={{ marginBottom: 14 }}>
+      {swaps.map((sw, i) => <div key={i} className="item" onClick={() => toggle(i)}>
+        <div className="grow">
+          <div className="tt capitalize">{nameFor(exOr(sw.newId))}</div>
+          <div className="ss capitalize">{t('replaces {0}', nameFor(exOr(sw.oldId)))}</div>
+        </div>
+        <Check checked={keep.has(i)} onChange={() => toggle(i)} />
+      </div>)}
+    </div>
+    <Button variant="primary" onClick={save}>{t('Continue')}</Button>
+  </>
+}
+
 export function finishWorkout() {
   const A = S().active
   if (!A) return
@@ -1418,6 +1456,12 @@ function doFinishWorkout() {
   }
   w.vol = workoutVolume(w)
   const rankUps = rankUpsFor(st, w)
+  // Resolve mid-session swaps (Workout.jsx's `replaceExercise`) against the CURRENT entry ids —
+  // A.swaps holds each slot's original id, keyed by position; if that slot still differs from
+  // its original, it's a real swap worth asking about below.
+  const swaps = A.swaps
+    ? Object.entries(A.swaps).map(([idx, oldId]) => ({ oldId, newId: A.entries[+idx]?.id })).filter(sw => sw.newId && sw.newId !== sw.oldId)
+    : []
   update(s => {
     w.entries.forEach(e => {
       const mx = Math.max(0, ...e.sets.filter(x => x.done).map(x => x.w || 0), e.topW || 0)
@@ -1430,7 +1474,12 @@ function doFinishWorkout() {
   sendWorkoutToStrava(w).catch(() => {})
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
-  ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} rankUps={rankUps} close={close} />, { kind: 'center', locked: true })
+  const openSummary = () => ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} rankUps={rankUps} close={close} />, { kind: 'center', locked: true })
+  if (swaps.length && A.routineId) {
+    ui().openSheet(close => <SwapKeepSheet swaps={swaps} routineId={A.routineId} onDone={() => { close(); openSummary() }} />, { kind: 'center', locked: true })
+  } else {
+    openSummary()
+  }
 }
 
 /* ============================ add a friend ============================ */

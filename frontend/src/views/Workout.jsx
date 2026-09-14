@@ -67,7 +67,7 @@ const setBadge = (sets, i) => {
 }
 
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
-function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType }) {
+function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType, onReplace }) {
   const S = useStore(s => s.S)
   const working = useUI(s => s.work)
   const entry = S.active.entries[entryIdx]
@@ -123,7 +123,13 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
     <Media ex={ex} key={entry.id} compact={compact} minimizable />
     <div className="row between" style={{ marginBottom: 6 }}>
       <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{nameFor(ex)}</div>
-      <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
+      <div className="row" style={{ gap: 4, flex: 'none' }}>
+        {/* Equipment taken, machine broken, whatever — swap it for today without leaving the
+            session. Nothing about the routine changes here; only the finish-time prompt (see
+            doFinishWorkout's swap-keep sheet) ever writes it back. */}
+        <button className="iconbtn" aria-label={t('Replace exercise')} title={t('Replace exercise')} onClick={onReplace}><Icon name="shuffle" /></button>
+        <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
+      </div>
     </div>
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
       {cardio && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
@@ -239,6 +245,20 @@ function ActiveWorkout() {
   })
   const openSetType = (idx, i) => setTypeSheet(A.entries[idx].sets[i].type, type => setType(idx, i, type), () => removeSetAt(idx, i))
 
+  // Swap one exercise for another mid-session (equipment taken, machine broken) without touching
+  // the routine — same sets/reps/weight target carries over, only the id changes, same as
+  // RoutineEdit's own "Replace" (sheets.jsx). `active.swaps` remembers the ORIGINAL id per slot
+  // (first swap only — swapping back to it clears the entry) so finishWorkout can offer to make
+  // the change stick in the routine; leaving it alone means it only ever applied to today.
+  const replaceExercise = idx => exercisePicker(newEx => update(s => {
+    const e = s.active.entries[idx]
+    if (newEx.id === e.id) return
+    const swaps = (s.active.swaps ||= {})
+    if (!(idx in swaps)) swaps[idx] = e.id
+    else if (swaps[idx] === newEx.id) delete swaps[idx]
+    e.id = newEx.id
+  }))
+
   // A timed set is held, not typed. The work timer records what was actually held — an early
   // finish logs 0:38 of a 0:45 target rather than crediting the full prescription — and then
   // checks the set off through the normal path, so rest, supersets and the finish prompt all
@@ -321,11 +341,11 @@ function ActiveWorkout() {
           {unit.map((idx, k) => <div key={idx} className="ss-ex">
             {k > 0 && <div className="ss-amp">+</div>}
             <ExerciseBlock entryIdx={idx} compact
-              onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} onSetType={i => openSetType(idx, i)} />
+              onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} onSetType={i => openSetType(idx, i)} onReplace={() => replaceExercise(idx)} />
           </div>)}
         </div>
       ) : (
-        <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} onSetType={i => openSetType(cur, i)} />
+        <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} onSetType={i => openSetType(cur, i)} onReplace={() => replaceExercise(cur)} />
       )}
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 

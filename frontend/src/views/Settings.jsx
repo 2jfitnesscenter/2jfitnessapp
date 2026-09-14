@@ -15,7 +15,7 @@ import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import { RankGuideSheet } from './Rank.jsx'
 import Icon from '../components/Icon.jsx'
-import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button } from '../components/ui.jsx'
+import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button, Slider } from '../components/ui.jsx'
 
 // One-screen design trial (see the owner's ask for a less "colorful template" look): every row
 // here gets Row's muted `softIcon` badge instead of the solid-fill one the rest of the app still
@@ -198,6 +198,19 @@ export default function Settings() {
           ))}
         </div>
       </div>
+      <Row icon="sparkles" iconTint="var(--acc)" title={t('Liquid glass')} subtitle={t('A frosted, translucent look for cards, buttons and the tab bar')}>
+        <Switch checked={!!S.glass} onChange={v => update(s => { s.glass = v })} />
+      </Row>
+      {S.glass && <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 16, paddingTop: 13, paddingBottom: 14 }}>
+        <div>
+          <div className="row between" style={{ marginBottom: 8 }}><span className="lrow-t">{t('Opacity')}</span><span className="dim small">{S.glassOpacity}%</span></div>
+          <Slider value={S.glassOpacity} min={0} max={100} step={5} onChange={v => update(s => { s.glassOpacity = v })} />
+        </div>
+        <div>
+          <div className="row between" style={{ marginBottom: 8 }}><span className="lrow-t">{t('Thickness')}</span><span className="dim small">{S.glassBlur}%</span></div>
+          <Slider value={S.glassBlur} min={0} max={100} step={5} onChange={v => update(s => { s.glassBlur = v })} />
+        </div>
+      </div>}
     </Section>
 
     {/* ---------- data: fill it, bring things over, back it up, wipe it ---------- */}

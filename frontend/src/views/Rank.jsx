@@ -7,7 +7,7 @@ import { lastBW } from '../lib/history.js'
 import { musclesOf, MUSCLE_NAME } from '../lib/muscles.js'
 import { EXIDX } from '../lib/exercises.js'
 import {
-  TIERS, RANK_LIFTS, RANK_GROUPS, RANK_GROUP_KEYS, RANK_GROUP_NAME,
+  TIERS, DIVISIONS, RANK_LIFTS, RANK_GROUPS, RANK_GROUP_KEYS, RANK_GROUP_NAME,
   liftRatio, rankOfLift, muscleRank, groupRank, globalRank, TIER_COLOR, rankLabel, rankEmblemUrl,
 } from '../lib/rank.js'
 import Icon from '../components/Icon.jsx'
@@ -40,10 +40,17 @@ export function RankGuideSheet() {
     <div className="small dim" style={{ lineHeight: 1.5, marginBottom: 10 }}>
       {t('From {0} to {1}, each with three divisions — I, II and III. You move up a division, then the next one, before moving into the next tier. {2} is the top, for the very strongest lifts, and has no divisions.', t('Iron'), t('Champion'), t('Symmetric'))}
     </div>
-    <div className="mstrip" style={{ marginBottom: 4 }}>
-      {TIERS.map(tier => <div key={tier} className="mstrip-i">
-        <img src={rankEmblemUrl(tier, tier === 'Symmetric' ? null : 'I')} alt="" style={{ width: 44, height: 44, objectFit: 'contain' }} />
-        <span className="mstrip-name" style={{ color: TIER_COLOR[tier] }}>{t(tier)}</span>
+    {/* A vertical list instead of a horizontal strip: nothing to swipe past or cut off at the
+        edge, and every tier shows its three divisions (or none, for the top tier) right there —
+        the actual answer to "what is each one", not just a name. */}
+    <div className="list" style={{ marginBottom: 4 }}>
+      {TIERS.map(tier => <div key={tier} className="item">
+        <div className="grow"><span className="tt" style={{ color: TIER_COLOR[tier] }}>{t(tier)}</span></div>
+        <div className="row" style={{ gap: 5, flex: 'none' }}>
+          {tier === 'Symmetric'
+            ? <img src={rankEmblemUrl(tier, null)} alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+            : DIVISIONS.map(d => <img key={d} src={rankEmblemUrl(tier, d)} alt={d} title={t(tier) + ' ' + d} style={{ width: 28, height: 28, objectFit: 'contain' }} />)}
+        </div>
       </div>)}
     </div>
     <h4 className="sec">{t('What you need')}</h4>

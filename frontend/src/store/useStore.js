@@ -11,6 +11,11 @@ export const DEF = {
   // 'system' follows the device's own light/dark setting until the user picks one explicitly
   // in Settings — see App.jsx's applyPrefs().
   theme: 'system', accent: 'lime', body: 'male', targetW: null,
+  // Liquid-glass chrome (App.jsx's applyPrefs toggles the .glass-on class + these two CSS
+  // vars) — off by default since it's a heavier visual style, not everyone's taste, and
+  // backdrop-filter isn't free on an older phone. glassOpacity/glassBlur are 0-100 dials;
+  // applyPrefs maps them into an actual alpha/px range, see its own comment for the mapping.
+  glass: false, glassOpacity: 35, glassBlur: 45,
   // Basic profile, collected (optionally) at registration and editable later in Settings.
   // birthDate is the ISO date, not a stored age — age is derived from it wherever it is needed.
   birthDate: null, height: null,
@@ -33,6 +38,9 @@ export const DEF = {
   measurements: {},
   bodyweight: [], routines: [], programs: [], week: {}, dayPlan: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
+  // A personal target weight for a given exercise — private like targetW (the bodyweight
+  // goal) unless explicitly published to Social's "Desafíos y Metas" tab. Keyed by exercise id.
+  exGoals: {},
   // Exercise ids the member asked not to be offered again (RoutineEdit's "..." menu — Replace/
   // Remove "and don't recommend"). Per-profile, unlike the gym-wide admin blacklist in
   // lib/exercises.js — see allExercises() for where this is actually enforced.

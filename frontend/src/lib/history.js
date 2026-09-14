@@ -192,10 +192,15 @@ const roundToPlate = (w, unit) => {
   const step = unit === 'lb' ? 5 : 2.5
   return Math.round(w / step) * step
 }
-// Two ramp-up sets ahead of the working weight — 50%×8 then 75%×5. No working weight yet (a
-// brand-new exercise) means nothing to ramp up to, so no warmups are suggested.
+// Two ramp-up sets ahead of the working weight — 50%×8 then 75%×5. A brand-new exercise with
+// no working weight yet has nothing to compute a ramp from, but the setting still means "show
+// me warmup rows" — so they still appear, blank at 0, exactly like a fresh working set does
+// when nothing is known yet (the profile fills them in the first time they actually do it).
 function warmupSets(workingWeight, unit) {
-  if (!(workingWeight > 0)) return []
+  if (!(workingWeight > 0)) return [
+    { w: 0, r: 8, done: false, type: 'warmup' },
+    { w: 0, r: 5, done: false, type: 'warmup' },
+  ]
   return [
     { w: roundToPlate(workingWeight * 0.5, unit), r: 8, done: false, type: 'warmup' },
     { w: roundToPlate(workingWeight * 0.75, unit), r: 5, done: false, type: 'warmup' },

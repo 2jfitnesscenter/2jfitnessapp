@@ -76,6 +76,40 @@ function RegisterSheet({ close }) {
   </>
 }
 
+// Self-service half of admin-assisted recovery (see api/server.js's POST /api/recover/request):
+// someone locked out can't do anything on their own — only an admin can actually issue a
+// recovery link — so this just raises a hand and lets staff take it from there, instead of the
+// member having to track someone down in person or over chat first.
+function LostPasskeySheet({ close }) {
+  const [name, setName] = useState('')
+  const [sent, setSent] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
+  const go = async () => {
+    const n = name.trim()
+    if (!n) { useUI.getState().toast(t('Enter a name')); return }
+    setBusy(true)
+    try { await api('/api/recover/request', { method: 'POST', body: JSON.stringify({ name: n }) }); setSent(true) }
+    catch (e) { useUI.getState().toast(e.message || t('Could not send the request')) }
+    setBusy(false)
+  }
+  if (sent) return <>
+    <h3>{t('Request sent')}</h3>
+    <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 14 }}>
+      {t('Staff have been notified — they’ll set you up with a new passkey on your existing profile next time you’re at the gym.')}
+    </div>
+    <Button variant="primary" onClick={close}>{t('Done')}</Button>
+  </>
+  return <>
+    <h3>{t('I lost my passkey')}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>{t('Type the name your profile is under — staff will get notified and set you up with a new passkey in person.')}</div>
+    <input ref={ref} className="input" placeholder={t('Your name')} maxLength={40} value={name} onChange={e => setName(e.target.value)} />
+    <div style={{ height: 12 }} />
+    <Button variant="primary" icon="key" disabled={busy} onClick={go}>{t('Send request')}</Button>
+  </>
+}
+
 export default function Login() {
   const { setUser, pullState, setGuest } = useStore()
   const [params] = useSearchParams()
@@ -119,6 +153,8 @@ export default function Login() {
         <div style={{ height: 10 }} />
         <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
         <div style={{ height: 10 }} />
+        <button className="dim small" style={{ border: 'none', background: 'none', textDecoration: 'underline', cursor: 'pointer' }}
+          onClick={() => useUI.getState().openSheet(close => <LostPasskeySheet close={close} />)}>{t('I lost my passkey')}</button>
       </> : <div className="card small muted" style={{ textAlign: 'left' }}>{t("This browser doesn't support passkeys — try a different browser to create a profile.")}</div>}
       <div className="dim small" style={{ marginTop: 26, lineHeight: 1.5 }}>{t('Passkeys use {0} — no passwords.', t(BIO))}<br />{t('Each profile keeps its own plan, workouts & body weight.')}</div>
     </div>

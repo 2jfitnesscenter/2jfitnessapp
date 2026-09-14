@@ -330,9 +330,13 @@ describe('buildSets warmup generation', () => {
     ])
   })
 
-  it('suggests no warmups for a brand-new exercise with no working weight yet', () => {
+  it('still shows blank warmup rows for a brand-new exercise with no working weight yet', () => {
     const S = { workouts: [], exWeights: {}, warmupEnabled: true, unit: 'kg' }
-    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 0 })).toEqual([{ w: 0, r: 8, done: false }])
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 0 })).toEqual([
+      { w: 0, r: 8, done: false, type: 'warmup' },
+      { w: 0, r: 5, done: false, type: 'warmup' },
+      { w: 0, r: 8, done: false },
+    ])
   })
 
   it('is off entirely once the profile turns warmups off in settings', () => {

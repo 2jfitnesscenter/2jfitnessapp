@@ -27,7 +27,7 @@ const GOAL_LABEL = { hypertrophy: 'Build muscle', toning: 'Tone up', fatloss: 'L
 // Uses the same t()/locale packs as the rest of the app — an owner running this in Spanish
 // should see Spanish here too, not just on the member-facing screens.
 
-const rel = ts => {
+export const rel = ts => {
   if (!ts) return t('never')
   const s = Math.max(0, (Date.now() - ts) / 1000)
   if (s < 60) return t('just now')
@@ -225,7 +225,7 @@ function StarterPlanSheet({ u, onApplied, close }) {
   </>
 }
 
-function UserDetail({ id, onChanged, close }) {
+export function UserDetail({ id, onChanged, close }) {
   const [d, setD] = useState(null)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
@@ -301,7 +301,8 @@ function UserDetail({ id, onChanged, close }) {
   </>
 }
 
-function InvitesCard({ invites, reload }) {
+// Sheet content — opened from the compact "Invite codes" nav card below.
+function InvitesSheet({ invites, reload }) {
   const toast = useUI(s => s.toast)
   const gen = () => api('/api/admin/invites/new', { method: 'POST', body: '{}' })
     .then(({ invite }) => { navigator.clipboard?.writeText(invite.code).catch(() => {}); toast(t('Code {0} created & copied', invite.code)); reload() })
@@ -310,8 +311,8 @@ function InvitesCard({ invites, reload }) {
     .then(() => { toast(t('Code revoked')); reload() }).catch(e => toast(e.message))
   const open = (invites || []).filter(i => !i.usedBy)
   const used = (invites || []).filter(i => i.usedBy)
-  return <div className="card">
-    <div className="row between"><h2 style={{ margin: 0 }}>{t('Invite codes')}</h2>
+  return <>
+    <div className="row between"><h3 style={{ margin: 0 }}>{t('Invite codes')}</h3>
       <Button variant="primary" size="sm" onClick={gen} icon="plus">{t('Generate')}</Button></div>
     <div className="small muted" style={{ margin: '6px 0 10px' }}>{t('{0} unused · {1} redeemed', open.length, used.length)}</div>
     {open.map(i => <div key={i.code} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
@@ -323,7 +324,8 @@ function InvitesCard({ invites, reload }) {
       <span style={{ fontFamily: 'monospace' }}>{i.code}</span><span>→ {i.usedByName || t('used')}</span>
     </div>)}
     {!open.length && !used.length && <div className="dim small">{t('No codes yet — generate one to invite someone.')}</div>}
-  </div>
+    <div style={{ height: 8 }} />
+  </>
 }
 
 /* ============================ exercise blacklist ============================ */
@@ -372,18 +374,41 @@ function ExerciseLibrarySheet({ initialHidden, close }) {
   </>
 }
 
-function ExerciseLibraryCard() {
+// A reusable "featured" nav card — a big colored icon, title (+ optional tag), a one-line
+// subtitle, and a chevron. Used for the handful of admin sections important/frequent enough to
+// live at the top of the dashboard instead of buried in the day-to-day scroll (Trainer panel,
+// Members, Invite codes, Exercise library) — each group gets its own tint so they read as a
+// deliberate row of shortcuts, not just more cards.
+function AdminNavCard({ icon, tint, title, tag, sub, onClick }) {
+  return <div className="card row between" style={{
+    cursor: 'pointer', gap: 14,
+    border: `1.5px solid ${tint}`,
+    background: `color-mix(in srgb, ${tint} 9%, var(--surface))`
+  }} onClick={onClick}>
+    <div className="row" style={{ gap: 14, minWidth: 0 }}>
+      <span className="lrow-i" style={{ '--tint': tint, width: 46, height: 46, borderRadius: 14, fontSize: 22, flex: 'none' }}>
+        <Icon name={icon} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <h2 style={{ margin: '0 2px 2px 0', fontSize: 17, fontWeight: 600, color: 'var(--label)', textTransform: 'none' }}>{title}</h2>
+          {tag && <span className="tag" style={{ background: `color-mix(in srgb, ${tint} 20%, transparent)`, color: tint }}>{tag}</span>}
+        </div>
+        <div className="dim small">{sub}</div>
+      </div>
+    </div>
+    <Icon name="chevronRight" className="chev" style={{ flex: 'none' }} />
+  </div>
+}
+
+function ExerciseLibraryNav() {
   const openSheet = useUI(s => s.openSheet)
   const [hidden, setHidden] = useState(null)   // Set of ids, once loaded
   useEffect(() => { api('/api/admin/exercises/hidden').then(d => setHidden(new Set(d.hidden))).catch(() => setHidden(new Set())) }, [])
   if (hidden === null) return null
-  return <div className="card">
-    <div className="row between"><h2 style={{ margin: 0 }}>{t('Exercise library')}</h2>
-      <Button size="sm" onClick={() => openSheet(closeFn => <ExerciseLibrarySheet initialHidden={hidden} close={h => { setHidden(h); closeFn() }} />)}>{t('Manage')}</Button></div>
-    <div className="small muted" style={{ marginTop: 6 }}>{hidden.size
-      ? t('{0} of {1} hidden from members.', hidden.size, EXDB.length)
-      : t('{0} of {1} hidden from members — full catalogue is visible.', hidden.size, EXDB.length)}</div>
-  </div>
+  return <AdminNavCard icon="barbell" tint="var(--blue)" title={t('Exercise library')}
+    sub={hidden.size ? t('{0} of {1} hidden from members.', hidden.size, EXDB.length) : t('{0} of {1} hidden from members — full catalogue is visible.', hidden.size, EXDB.length)}
+    onClick={() => openSheet(closeFn => <ExerciseLibrarySheet initialHidden={hidden} close={h => { setHidden(h); closeFn() }} />)} />
 }
 
 export default function Admin() {
@@ -394,28 +419,23 @@ export default function Admin() {
   const [users, setUsers] = useState(null)
   const [invites, setInvites] = useState(null)
   const [inviteOnly, setInviteOnly] = useState(false)
-  const [q, setQ] = useState('')
-  const [filter, setFilter] = useState('all')   // all | active | inactive | disabled
+  const [recoveryRequests, setRecoveryRequests] = useState(null)
 
   const loadUsers = () => api('/api/admin/users').then(d => { setUsers(d.users); setInviteOnly(d.invite_only) }).catch(e => toast(e.message || t('Failed to load')))
   const loadInvites = () => api('/api/admin/invites').then(d => setInvites(d.invites)).catch(() => {})
-  // poll every 15s so the "training now" section stays live without a manual refresh
-  useEffect(() => { if (!user?.admin) return; loadUsers(); loadInvites(); const iv = setInterval(loadUsers, 15000); return () => clearInterval(iv) }, [])
+  const loadRecoveryRequests = () => api('/api/admin/recovery-requests').then(d => setRecoveryRequests(d.requests)).catch(() => {})
+  // poll every 15s so the "training now" section (and any new recovery request) stays live
+  // without a manual refresh
+  useEffect(() => { if (!user?.admin) return; loadUsers(); loadInvites(); loadRecoveryRequests(); const iv = setInterval(() => { loadUsers(); loadRecoveryRequests() }, 15000); return () => clearInterval(iv) }, [])
   if (!user?.admin) return null
+
+  const resolveRecovery = id => api('/api/admin/recovery-requests/resolve', { method: 'POST', body: JSON.stringify({ id }) })
+    .then(loadRecoveryRequests).catch(e => toast(e.message))
 
   const openUser = id => openSheet(close => <UserDetail id={id} onChanged={loadUsers} close={close} />)
   const liveUsers = (users || []).filter(u => u.live)
   const activeCount = (users || []).filter(u => u.lastSync && Date.now() - u.lastSync < 7 * 86400000).length
   const disabledCount = (users || []).filter(u => u.disabled).length
-  const ql = q.toLowerCase().trim()
-  const shown = (users || []).filter(u => {
-    if (ql && !u.name.toLowerCase().includes(ql)) return false
-    if (filter === 'active') return u.lastSync && Date.now() - u.lastSync < 7 * 86400000
-    if (filter === 'inactive') return !u.disabled && (!u.lastSync || Date.now() - u.lastSync >= 7 * 86400000)
-    if (filter === 'disabled') return u.disabled
-    return true
-  })
-  const FILTERS = [['all', t('All')], ['active', t('Active 7d')], ['inactive', t('Inactive')], ['disabled', t('Disabled')]]
 
   return <div className="narrow">
     <div className="hdr">
@@ -441,38 +461,36 @@ export default function Admin() {
       </div>)}
     </div>}
 
-    <div className="card row between" style={{ cursor: 'pointer' }} onClick={() => nav('/trainer')}>
-      <div><h2 style={{ margin: '0 0 2px' }}>{t('Trainer panel')}</h2><div className="dim small">{t('Build and assign routines for your members — best used on a computer.')}</div></div>
-      <Icon name="chevronRight" className="chev" />
-    </div>
+    {!!recoveryRequests?.length && <div className="card" style={{ border: '1.5px solid var(--orange)' }}>
+      <h2 className="row" style={{ margin: '0 0 8px', gap: 6 }}><Icon name="key" style={{ fontSize: 15, color: 'var(--orange)' }} />{t('Lost passkey requests')}</h2>
+      {recoveryRequests.map(r => <div key={r.id} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)', gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="small" style={{ fontWeight: 600 }}>{r.name}</div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>{r.matchedUserName ? t('matches {0}', r.matchedUserName) : t('no exact match — check Members')} · {rel(r.at)}</div>
+        </div>
+        <div className="row" style={{ gap: 6, flex: 'none' }}>
+          {r.matchedUserId && <Button size="sm" icon="key" onClick={() => openUser(r.matchedUserId)}>{t('Open')}</Button>}
+          <button className="iconbtn" onClick={() => resolveRecovery(r.id)} aria-label={t('Dismiss')} title={t('Dismiss')}><Icon name="xmark" /></button>
+        </div>
+      </div>)}
+    </div>}
+
+    <AdminNavCard icon="dumbbell" tint="var(--indigo)" title={t('Trainer panel')} tag={t('Desktop')}
+      sub={t('Build and assign routines for your members — best used on a computer.')} onClick={() => nav('/trainer')} />
+
+    <AdminNavCard icon="users" tint="var(--blue)" title={t('Members')}
+      sub={users ? t('{0} users · {1} active this week', users.length, activeCount) : t('Loading…')} onClick={() => nav('/admin/members')} />
+
+    <AdminNavCard icon="link" tint="var(--blue)" title={t('Invite codes')}
+      sub={invites ? t('{0} unused · {1} redeemed', invites.filter(i => !i.usedBy).length, invites.filter(i => i.usedBy).length) : t('Loading…')}
+      onClick={() => openSheet(close => <InvitesSheet invites={invites} reload={loadInvites} close={close} />)} />
+
+    <ExerciseLibraryNav />
 
     <AdminCoach />
 
     <AdminTrainerAI />
 
     <AdminIntegrations />
-
-    <ExerciseLibraryCard />
-
-    <InvitesCard invites={invites} reload={loadInvites} />
-
-    <h4 className="sec">{t('Users')}</h4>
-    <div className="search" style={{ marginBottom: 10 }}>
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
-      <input className="input" placeholder={t('Search {0} users…', users ? users.length : '')} value={q} onChange={e => setQ(e.target.value)} />
-    </div>
-    <div className="chips" style={{ marginBottom: 10 }}>
-      {FILTERS.map(([v, label]) =>
-        <button key={v} className={'chip' + (filter === v ? ' on' : '')} onClick={() => setFilter(v)}>{label}</button>)}
-    </div>
-    <div className="list">
-      {shown.map(u => <div key={u.id} className="item" onClick={() => openUser(u.id)} style={u.disabled ? { opacity: .55 } : null}>
-        <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{u.name} {u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>{t('admin')}</span>}{u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>{t('off')}</span>}</div>
-          <div className="ss">{u.live ? t('training now · {0}', u.live.name) : t('{0} workouts', u.workouts) + (u.lastWorkout ? ' · ' + t('last {0}', fmtDate(u.lastWorkout)) : '') + ' · ' + t('synced {0}', rel(u.lastSync))}</div></div>
-        {u.hasPush && <Icon name="bell" title={t('push enabled')} style={{ fontSize: 15, color: 'var(--label-3)' }} />}<Icon name="chevronRight" className="chev" />
-      </div>)}
-      {users && !users.length && <div className="empty">{t('No users yet.')}</div>}
-      {users && users.length > 0 && !shown.length && <div className="empty">{t('No users match.')}</div>}
-    </div>
   </div>
 }

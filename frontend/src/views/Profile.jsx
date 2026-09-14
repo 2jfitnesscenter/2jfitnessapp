@@ -15,6 +15,7 @@ import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, Button, TextField, Avatar } from '../components/ui.jsx'
 import BodyWeightCard from '../components/BodyWeightCard.jsx'
+import StaffBadge from '../components/StaffBadge.jsx'
 
 export default function Profile() {
   const nav = useNavigate()
@@ -67,7 +68,10 @@ export default function Profile() {
       </button>
       {user && <input ref={avatarInput} type="file" accept="image/*" hidden onChange={onAvatarFile} />}
       <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
-        <div className="capitalize" style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-.012em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name || t('Guest')}</div>
+        <div className="row capitalize" style={{ gap: 6, fontSize: 19, fontWeight: 600, letterSpacing: '-.012em', overflow: 'hidden' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name || t('Guest')}</span>
+          {user?.trainer && <StaffBadge size={16} />}
+        </div>
         {user?.created && <div className="dim small">{t('joined {0}', fmtDate(user.created.slice(0, 10)))}</div>}
         {user?.username && <button className="dim small" style={{ marginTop: 2, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={editUsername}>@{user.username}</button>}
       </div>

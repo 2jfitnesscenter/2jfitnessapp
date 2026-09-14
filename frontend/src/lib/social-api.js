@@ -22,6 +22,17 @@ export const postWallComment = (id, text) => api('/api/social/wall/comment', { m
 export const deleteWallComment = (postId, commentId) =>
   api('/api/social/wall/comment/delete', { method: 'POST', body: JSON.stringify({ postId, commentId }) })
 
+export const fetchChallenges = () => api('/api/social/challenges').then(r => r.challenges)
+export const fetchChallengeDetail = id => api('/api/social/challenges/detail?id=' + encodeURIComponent(id))
+export const createChallenge = ch => api('/api/social/challenges/new', { method: 'POST', body: JSON.stringify(ch) })
+export const joinChallenge = id => api('/api/social/challenges/join', { method: 'POST', body: JSON.stringify({ id }) })
+export const leaveChallenge = id => api('/api/social/challenges/leave', { method: 'POST', body: JSON.stringify({ id }) })
+export const deleteChallenge = id => api('/api/social/challenges/delete', { method: 'POST', body: JSON.stringify({ id }) })
+
+export const fetchGoals = () => api('/api/social/goals').then(r => r.goals)
+export const publishGoal = goal => api('/api/social/goals/publish', { method: 'POST', body: JSON.stringify(goal) })
+export const unpublishGoal = id => api('/api/social/goals/unpublish', { method: 'POST', body: JSON.stringify({ id }) })
+
 export const fetchTrainerMembers = () => api('/api/trainer/members').then(r => r.members)
 export const assignRoutineToMember = (routineId, memberId) =>
   api('/api/trainer/assign-routine', { method: 'POST', body: JSON.stringify({ routineId, memberId }) })

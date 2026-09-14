@@ -21,6 +21,7 @@ import Plan from './views/Plan.jsx'
 import ProgramEdit from './views/ProgramEdit.jsx'
 import RoutineEdit from './views/RoutineEdit.jsx'
 import Workout from './views/Workout.jsx'
+import Stretch from './views/Stretch.jsx'
 import TestSession from './views/TestSession.jsx'
 import ClockPicker from './views/Clock.jsx'
 import ClockRun from './views/ClockRun.jsx'
@@ -37,6 +38,7 @@ import Measurements from './views/Measurements.jsx'
 import Recovery from './views/Recovery.jsx'
 import Rank from './views/Rank.jsx'
 import Admin from './views/Admin.jsx'
+import AdminMembers from './views/AdminMembers.jsx'
 import PhysicalProfileWizard from './views/PhysicalProfileWizard.jsx'
 import Coach from './views/Coach.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
@@ -54,10 +56,26 @@ bindUI(useUI)   // lets the shared controls open sheets without importing the st
 const systemPrefersLight = () => window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
 const resolveTheme = theme => (theme === 'light' || theme === 'dark') ? theme : (systemPrefersLight() ? 'light' : 'dark')
 
-function applyPrefs(theme, accent) {
+// glassOpacity/glassBlur are friendly 0-100 dials (Settings' sliders).
+// --glass-solid (0..1) is how much of each element's own normal, fully-opaque colour shows
+// through — every glass rule in index.css is built as "a faint tinted sheen, blended toward
+// that element's real flat colour by --glass-solid", so at 100 a panel is pixel-identical to
+// the non-glass look (fully legible, never stuck translucent no matter how high the slider
+// goes) and at 0 it's as see-through as the effect gets. --glass-sheen/--glass-edge are the
+// highlight/border alphas, which fade out over the same range so a "opaque" glass panel
+// doesn't keep a diagonal shine baked into what is now just a normal solid surface.
+const glassBlurPx = v => Math.round(6 + (Math.max(0, Math.min(100, v)) / 100) * 28)
+
+function applyPrefs(theme, accent, glass, glassOpacity, glassBlur) {
   const de = document.documentElement
   de.dataset.theme = resolveTheme(theme)
   de.dataset.accent = ACCENTS[accent] ? accent : 'lime'
+  de.classList.toggle('glass-on', !!glass)
+  const solid = Math.max(0, Math.min(100, glassOpacity)) / 100
+  de.style.setProperty('--glass-solid', solid.toFixed(3))
+  de.style.setProperty('--glass-sheen', (0.16 * (1 - solid)).toFixed(3))
+  de.style.setProperty('--glass-edge', (0.05 + (1 - solid) * 0.15).toFixed(3))
+  de.style.setProperty('--glass-blur', glassBlurPx(glassBlur) + 'px')
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) meta.content = de.dataset.theme === 'light' ? '#f2f2f7' : '#000000'
 }
@@ -70,14 +88,14 @@ function Shell() {
   const langV = useLang()   // re-renders the whole shell when the language (pack) changes
   useEffect(() => { setNav(navigate) }, [navigate])
   useEffect(() => {
-    applyPrefs(S.theme, S.accent)
+    applyPrefs(S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur)
     if (S.theme !== 'system' || !window.matchMedia) return
     // live-follow the OS toggle (e.g. sunset auto dark mode) while on 'system', no reload needed
     const mq = window.matchMedia('(prefers-color-scheme: light)')
-    const onChange = () => applyPrefs(S.theme, S.accent)
+    const onChange = () => applyPrefs(S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur)
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
-  }, [S.theme, S.accent])
+  }, [S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur])
   useEffect(() => { setLang(S.lang || 'es') }, [S.lang])
   useEffect(() => { document.documentElement.lang = S.lang || 'es' }, [langV, S.lang])
   // every tab/route change starts at the top of the page
@@ -140,6 +158,7 @@ function Shell() {
               <Route path="/plan/p/:id" element={<ProgramEdit />} />
               <Route path="/plan/r/:id" element={<RoutineEdit />} />
               <Route path="/workout" element={<Workout />} />
+              <Route path="/stretch" element={<Stretch />} />
               <Route path="/tests" element={<TestSession />} />
               <Route path="/clock" element={<ClockPicker />} />
               <Route path="/clock/:mode" element={<ClockRun />} />
@@ -162,6 +181,7 @@ function Shell() {
               <Route path="/coach/intake" element={<CoachIntake />} />
               <Route path="/coach/proposal" element={<CoachProposal />} />
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
+              <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
           )}

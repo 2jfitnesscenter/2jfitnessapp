@@ -144,7 +144,14 @@ export default function Home() {
   const plannedPerWeek = Object.values(activeWeek(S)).filter(Boolean).length
 
   // today's session shown right under the week strip
-  const onToday = () => { if (S.active) nav('/workout'); else if (routine) startFlow(routine.id); else dayOverrideSheet(todayISO()) }
+  const todaysWorkouts = S.workouts.filter(w => w.d === todayISO())
+  const doneToday = todaysWorkouts.length > 0
+  const onToday = () => {
+    if (S.active) nav('/workout')
+    else if (doneToday) (todaysWorkouts.length === 1 ? workoutDetailSheet(todaysWorkouts[0]) : calendarSheet(todayISO()))
+    else if (routine) startFlow(routine.id)
+    else dayOverrideSheet(todayISO())
+  }
 
   return <div className="narrow">
     <div className="hdr">
@@ -160,15 +167,16 @@ export default function Home() {
       <div className="week">{strip}</div>
       <div className="today-row" onClick={onToday}>
         <div className="row" style={{ gap: 9, minWidth: 0 }}>
-          <span className="lrow-i" style={{ background: S.active ? 'var(--orange)' : routine ? 'var(--acc)' : 'var(--surface-3)' }}>
-            <Icon name={S.active ? 'timer' : routine ? glyphOf(routine.emoji) : 'moon'} />
+          <span className="lrow-i" style={{ background: S.active ? 'var(--orange)' : doneToday ? 'var(--green)' : routine ? 'var(--acc)' : 'var(--surface-3)' }}>
+            <Icon name={S.active ? 'timer' : doneToday ? 'check' : routine ? glyphOf(routine.emoji) : 'moon'} />
           </span>
           <div style={{ minWidth: 0 }}>
             <div className="lbl2">{t('Today')}</div>
-            <div className="ttl">{S.active ? t('{0} — in progress', S.active.name) : routine ? routine.name : t('Rest day')}{todayOvr && routine ? ' · ' + t('rescheduled') : ''}</div>
+            <div className="ttl">{S.active ? t('{0} — in progress', S.active.name) : doneToday ? (routine ? routine.name : todaysWorkouts[0].name) : routine ? routine.name : t('Rest day')}{todayOvr && routine ? ' · ' + t('rescheduled') : ''}</div>
           </div>
         </div>
         {S.active ? <span className="tag" style={{ color: 'var(--orange)', background: 'color-mix(in srgb,var(--orange) 16%,transparent)' }}>{t('Resume')}</span>
+          : doneToday ? <span className="tag" style={{ color: 'var(--green)', background: 'color-mix(in srgb,var(--green) 16%,transparent)' }}>{t('Done')}</span>
           : routine ? <span className="tag acc">{t('Start')}</span>
           : <Icon name="plus" className="chev" />}
       </div>

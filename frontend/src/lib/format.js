@@ -64,4 +64,7 @@ export function weekKey(d) {
 export const localTZ = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' } catch { return 'UTC' } }
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
-export const ACCENTS = { lime: '#73b52e', grey: '#5E6263', black: '#3a3a3c', sky: '#0a84ff', red: '#ff453a', violet: '#bf5af2' }
+export const ACCENTS = {
+  lime: '#73b52e', grey: '#5E6263', black: '#3a3a3c', sky: '#0a84ff', red: '#ff453a', violet: '#bf5af2',
+  orange: '#ff9f0a', yellow: '#ffd60a', teal: '#40c8e0', indigo: '#5e5ce6', pink: '#ff375f'
+}

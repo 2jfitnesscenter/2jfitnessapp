@@ -63,6 +63,7 @@ try { db = JSON.parse(fs.readFileSync(dbFile, 'utf8')); } catch {}
 db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.recoveries = db.recoveries || [];
+db.recoveryRequests = db.recoveryRequests || [];
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
@@ -111,12 +112,14 @@ function readState(uid) {
 // state-<uid>.json — same module-level cache + atomicWrite-the-whole-object shape as hiddenEx
 // above, just with content many different users contribute to instead of only the admin.
 const socialFile = path.join(DATA, 'social.json');
-let social = { routines: [], programs: [], wall: [] };
+let social = { routines: [], programs: [], wall: [], challenges: [], goals: [] };
 try {
   const parsed = JSON.parse(fs.readFileSync(socialFile, 'utf8'));
   social.routines = Array.isArray(parsed.routines) ? parsed.routines : [];
   social.programs = Array.isArray(parsed.programs) ? parsed.programs : [];
   social.wall = Array.isArray(parsed.wall) ? parsed.wall : [];
+  social.challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
+  social.goals = Array.isArray(parsed.goals) ? parsed.goals : [];
 } catch {}
 function saveSocial() { atomicWrite(socialFile, JSON.stringify(social, null, 2)); }
 
@@ -223,6 +226,46 @@ function effectiveRoutineId(S, iso) {
   if (ov && S.routines?.some(r => r.id === ov)) return ov;
   const wd = new Date(iso + 'T12:00:00').getDay();
   return activeWeek(S)[wd] || null;
+}
+
+// ---------- challenge/goal progress (Social's "Desafíos y Metas") ----------
+// Computed fresh from each participant's own workouts every time a challenge/goal is read,
+// never stored — the workout log is already the source of truth, and a stored running total
+// would just be one more thing to keep in sync with it. Same "duplicate the tiny pure helper
+// instead of importing the frontend module" precedent as activeWeek/effectiveRoutineId above.
+function workoutsInRange(S, from, to) {
+  return (S.workouts || []).filter(w => w.d && w.d >= from && w.d <= to);
+}
+// Sets/reps/volume for one exercise, within a date range, same "done && not warmup" inclusion
+// rule as frontend/src/lib/history.js's workoutVolume (a drop set still counts, a warmup never does).
+function exerciseTotals(S, exId, from, to) {
+  let sets = 0, reps = 0, volume = 0;
+  workoutsInRange(S, from, to).forEach(w => (w.entries || []).forEach(e => {
+    if (e.id !== exId) return;
+    (e.sets || []).forEach(s => {
+      if (!s.done || s.type === 'warmup') return;
+      sets++; reps += (s.r || 0); volume += (s.w || 0) * (s.r || 0);
+    });
+  }));
+  return { sets, reps, volume };
+}
+// A challenge participant's single progress number, whatever its metric is.
+function challengeProgress(ch, S) {
+  if (!S) return 0;
+  if (ch.type === 'frequency') return workoutsInRange(S, ch.startDate, ch.endDate).length;
+  const t = exerciseTotals(S, ch.exId, ch.startDate, ch.endDate);
+  return t[ch.metric] || 0;
+}
+// Best weight ever logged for one exercise — same "heaviest done, non-warmup set" idea
+// frontend/src/lib/history.js's bestWeightFor uses, for comparing a published exercise goal
+// against what the person has actually lifted.
+function bestWeightForServer(S, exId) {
+  let best = 0;
+  (S.workouts || []).forEach(w => (w.entries || []).forEach(e => {
+    if (e.id !== exId) return;
+    (e.sets || []).forEach(s => { if (s.done && s.type !== 'warmup' && s.w > best) best = s.w; });
+  }));
+  return best;
 }
 // Computes "now" in an arbitrary IANA zone (e.g. "Europe/Lisbon") instead of the server's own —
 // each user's reminder fires by their own clock, wherever they and their phone actually are.
@@ -556,6 +599,31 @@ const routes = {
   // lets that member register a brand-new passkey onto their EXISTING account in person at the
   // gym, instead of creating a second, empty one. Same shape as an invite code, but it grants
   // access to an existing profile rather than creating a fresh one, hence the short expiry.
+  // The member-facing half of the flow above: someone locked out taps "I lost my passkey" on
+  // the login screen and types their name. This never issues a recovery link itself (only an
+  // admin, standing with the member or otherwise sure who they're talking to, does that via
+  // POST /api/admin/user/recovery-link) — it just raises a hand. Public/unauthenticated by
+  // necessity (the whole point is the caller can't sign in), and deliberately answers the same
+  // way whether or not the name matches anyone, so this can't be used to probe the member list.
+  'POST /api/recover/request': async (req, res) => {
+    const body = await readBody(req);
+    const name = String(body.name || '').trim().slice(0, 40);
+    if (!name) return json(res, 400, { error: 'escribe tu nombre' });
+    const matches = db.users.filter(u => !u.disabled && u.name.trim().toLowerCase() === name.toLowerCase());
+    const reqRecord = {
+      id: crypto.randomBytes(9).toString('base64url'),
+      name, matchedUserId: matches.length === 1 ? matches[0].id : null,
+      at: new Date().toISOString(), resolved: false
+    };
+    db.recoveryRequests.push(reqRecord);
+    saveDb();
+    db.users.filter(isAdmin).forEach(a => sendPush(a.id, {
+      title: 'Solicitud de recuperación', body: `${name} ha perdido su passkey`,
+      tag: 'recovery-request-' + reqRecord.id, url: '#/admin/members'
+    }));
+    json(res, 200, { ok: true });
+  },
+
   'POST /api/recover/options': async (req, res) => {
     const body = await readBody(req);
     const token = String(body.token || '').trim().toUpperCase();
@@ -1062,6 +1130,27 @@ const routes = {
     json(res, 200, { token, expiresAt });
   },
 
+  // Pending "I lost my passkey" requests raised from the login screen — see POST
+  // /api/recover/request above. Newest first; resolved ones drop off after being marked so this
+  // never grows without bound.
+  'GET /api/admin/recovery-requests': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const open = db.recoveryRequests.filter(r => !r.resolved).map(r => ({
+      ...r, matchedUserName: r.matchedUserId ? (db.users.find(u => u.id === r.matchedUserId) || {}).name || null : null
+    })).reverse();
+    json(res, 200, { requests: open });
+  },
+
+  'POST /api/admin/recovery-requests/resolve': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const r = db.recoveryRequests.find(x => x.id === body.id);
+    if (!r) return json(res, 404, { error: 'esa solicitud ya no existe' });
+    r.resolved = true;
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
   'GET /api/admin/invites': async (req, res) => {
     if (!requireAdmin(req, res)) return;
     // resolve usedBy uid → name for display
@@ -1350,7 +1439,7 @@ const routes = {
     if (!entry || !entry.sets.some(matches)) return json(res, 400, { error: 'esto no coincide con ninguna serie de tu propio historial registrado' });
     const post = {
       id: crypto.randomBytes(9).toString('base64url'),
-      authorId: user.id, authorName: user.name,
+      authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
       exId, exName: String(body.exName || '').trim().slice(0, 60) || exId, mode, value, sourceDate,
       note: String(body.note || '').trim().slice(0, 140) || null,
       createdAt: Date.now(),
@@ -1373,7 +1462,7 @@ const routes = {
     const post = social.wall.find(w => w.id === body.id);
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     post.comments = post.comments || [];
-    const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, text, createdAt: Date.now() };
+    const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     post.comments.push(comment);
     saveSocial();
     json(res, 200, { ok: true, comment });
@@ -1401,6 +1490,171 @@ const routes = {
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
     social.wall = social.wall.filter(w => w.id !== body.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  /* ---------- Challenges & Goals ("Desafíos y Metas") ---------- */
+  // A challenge is gym-wide and trainer-authored (same requireTrainer gate as assigning a
+  // routine directly) — members opt in, and progress is never typed in by hand, only ever
+  // computed fresh from what they already logged (challengeProgress above). A goal is the
+  // opposite direction: personal and private by default (mirrors S.targetW's bodyweight goal,
+  // now generalised to a target weight on any exercise too) — publishing one is the one
+  // deliberate act that puts a single number of theirs in front of the rest of the gym.
+
+  'GET /api/social/challenges': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const today = new Date().toISOString().slice(0, 10);
+    const list = social.challenges.map(c => ({
+      id: c.id, name: c.name, description: c.description, type: c.type,
+      targetWorkouts: c.targetWorkouts || null, exId: c.exId || null, exName: c.exName || null,
+      metric: c.metric || null, targetValue: c.targetValue || null,
+      startDate: c.startDate, endDate: c.endDate, authorName: c.authorName, createdAt: c.createdAt,
+      participantCount: c.participants.length, joined: c.participants.includes(user.id),
+      active: c.endDate >= today
+    })).sort((a, b) => b.createdAt - a.createdAt);
+    json(res, 200, { challenges: list });
+  },
+
+  // Full leaderboard — reads every participant's own state file, same cross-user read the
+  // trainer/admin routes already rely on (readState), just fanned out over a whole list.
+  'GET /api/social/challenges/detail': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const id = new URL(req.url, 'http://x').searchParams.get('id') || '';
+    const c = social.challenges.find(x => x.id === id);
+    if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
+    const leaderboard = c.participants.map(uid => {
+      const u = db.users.find(x => x.id === uid);
+      return { userId: uid, userName: u ? u.name : 'Socio', value: challengeProgress(c, readState(uid)) };
+    }).sort((a, b) => b.value - a.value);
+    json(res, 200, {
+      challenge: {
+        id: c.id, name: c.name, description: c.description, type: c.type,
+        targetWorkouts: c.targetWorkouts || null, exId: c.exId || null, exName: c.exName || null,
+        metric: c.metric || null, targetValue: c.targetValue || null,
+        startDate: c.startDate, endDate: c.endDate, authorId: c.authorId, authorName: c.authorName
+      },
+      leaderboard, joined: c.participants.includes(user.id)
+    });
+  },
+
+  'POST /api/social/challenges/new': async (req, res) => {
+    const trainer = requireTrainer(req, res); if (!trainer) return;
+    const body = await readBody(req);
+    const name = String(body.name || '').trim().slice(0, 60);
+    const description = String(body.description || '').trim().slice(0, 300);
+    const type = ['frequency', 'exercise'].includes(body.type) ? body.type : null;
+    const startDate = String(body.startDate || '');
+    const endDate = String(body.endDate || '');
+    if (!name || !type || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate)
+      return json(res, 400, { error: 'faltan datos o las fechas no son válidas' });
+    const ch = {
+      id: crypto.randomBytes(9).toString('base64url'), name, description, type, startDate, endDate,
+      authorId: trainer.id, authorName: trainer.name, authorKind: isTrainer(trainer) ? 'trainer' : 'member',
+      createdAt: Date.now(), participants: []
+    };
+    if (type === 'frequency') {
+      const n = Math.round(+body.targetWorkouts);
+      if (!(n > 0)) return json(res, 400, { error: 'indica cuántos entrenos hay que completar' });
+      ch.targetWorkouts = Math.min(60, n);
+    } else {
+      const exId = String(body.exId || '');
+      const metric = ['sets', 'reps', 'volume'].includes(body.metric) ? body.metric : null;
+      const targetValue = +body.targetValue;
+      if (!exId || !metric || !(targetValue > 0)) return json(res, 400, { error: 'indica el ejercicio, la métrica y el objetivo' });
+      ch.exId = exId; ch.exName = String(body.exName || '').trim().slice(0, 60) || exId; ch.metric = metric; ch.targetValue = targetValue;
+    }
+    social.challenges.push(ch);
+    saveSocial();
+    json(res, 200, { ok: true, id: ch.id });
+  },
+
+  'POST /api/social/challenges/join': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const c = social.challenges.find(x => x.id === body.id);
+    if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
+    if (!c.participants.includes(user.id)) c.participants.push(user.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  'POST /api/social/challenges/leave': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const c = social.challenges.find(x => x.id === body.id);
+    if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
+    c.participants = c.participants.filter(id => id !== user.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  'POST /api/social/challenges/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const c = social.challenges.find(x => x.id === body.id);
+    if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
+    if (c.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    social.challenges = social.challenges.filter(x => x.id !== body.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  // Published goals only ever hold ONE number — the target — snapshotted at publish time;
+  // "current" is always read live off the publisher's own state, same live-computation
+  // principle as challenges, just for a party of one instead of a leaderboard.
+  'GET /api/social/goals': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const list = social.goals.map(g => {
+      const S = readState(g.userId);
+      const current = !S ? 0 : g.kind === 'bodyweight'
+        ? ((S.bodyweight || []).length ? S.bodyweight[S.bodyweight.length - 1].w : 0)
+        : bestWeightForServer(S, g.exId);
+      return { ...g, current, unit: S?.unit || 'kg' };
+    }).sort((a, b) => b.createdAt - a.createdAt);
+    json(res, 200, { goals: list });
+  },
+
+  'POST /api/social/goals/publish': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const kind = ['bodyweight', 'exercise'].includes(body.kind) ? body.kind : null;
+    if (!kind) return json(res, 400, { error: 'tipo de meta no válido' });
+    const target = +body.target;
+    if (!(target > 0)) return json(res, 400, { error: 'indica un objetivo válido' });
+    const exId = kind === 'exercise' ? String(body.exId || '') : null;
+    if (kind === 'exercise' && !exId) return json(res, 400, { error: 'indica el ejercicio' });
+    const exName = kind === 'exercise' ? (String(body.exName || '').trim().slice(0, 60) || exId) : null;
+    // One published goal per person per kind (and per exercise, for exercise goals) —
+    // publishing again just updates the target instead of piling up duplicates.
+    let g = social.goals.find(x => x.userId === user.id && x.kind === kind && (kind !== 'exercise' || x.exId === exId));
+    if (g) { g.target = target; g.updatedAt = Date.now(); }
+    else {
+      g = {
+        id: crypto.randomBytes(9).toString('base64url'), userId: user.id, userName: user.name,
+        authorKind: isTrainer(user) ? 'trainer' : 'member', kind, exId, exName, target, createdAt: Date.now()
+      };
+      social.goals.push(g);
+    }
+    saveSocial();
+    json(res, 200, { ok: true, id: g.id });
+  },
+
+  'POST /api/social/goals/unpublish': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const g = social.goals.find(x => x.id === body.id);
+    if (!g) return json(res, 200, { ok: true });
+    if (g.userId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    social.goals = social.goals.filter(x => x.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
   },
