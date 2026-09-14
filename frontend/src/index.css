@@ -199,6 +199,36 @@ body.resting #app{padding-bottom:calc(250px + var(--sab))}
 .hdr h1{font-size:34px;line-height:1.06;font-weight:700;letter-spacing:-.028em}
 .hdr .sub{color:var(--label-2);font-size:15px;letter-spacing:-.006em;margin-top:4px}
 
+/* --------------------------------------------------- Home's own greeting -- */
+/* Only the Home screen's own "Hi <name>" card — every other screen keeps the plain .hdr
+   above. The mark is forced to a flat white silhouette (brightness(0) then invert(1)) so
+   whatever colour the source logo file ships in, the watermark always reads as a quiet,
+   on-brand ghost mark rather than fighting the accent colour used elsewhere on the card. */
+.home-hero{
+  position:relative;overflow:hidden;isolation:isolate;
+  border-radius:26px;padding:30px 22px 26px;margin:8px 0 18px;
+  background:linear-gradient(165deg,#1a1c1e 0%,#0a0b0c 68%);
+  border:1px solid rgba(255,255,255,.07);
+}
+.home-hero-bg{
+  position:absolute;inset:-20% -8%;z-index:-2;
+  background:url('/brand/logo-mark.png') right -6% center/58% no-repeat;
+  filter:brightness(0) invert(1) blur(1px);
+  opacity:.09;pointer-events:none;
+}
+.home-hero::after{
+  content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(120% 90% at 100% -12%,color-mix(in srgb,var(--acc) 22%,transparent),transparent 55%);
+}
+.home-hero h1{
+  font-family:'Sora',-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,system-ui,sans-serif;
+  font-weight:800;font-size:29px;line-height:1.1;letter-spacing:-.02em;margin:0;
+}
+.home-hero .sub{color:var(--label-2);font-size:14.5px;letter-spacing:-.004em;margin-top:6px}
+:root[data-theme="light"] .home-hero{background:linear-gradient(165deg,#2c2e31 0%,#111214 70%);border-color:rgba(255,255,255,.08)}
+:root[data-theme="light"] .home-hero h1{color:#fff}
+:root[data-theme="light"] .home-hero .sub{color:rgba(255,255,255,.62)}
+
 .iconbtn{
   width:36px;height:36px;border-radius:50%;flex:none;
   background:var(--surface);color:var(--label);
@@ -420,13 +450,19 @@ h4.sec{
     linear-gradient(155deg, rgba(255,255,255,calc(var(--glass-sheen) * .5)), transparent),
     color-mix(in srgb, var(--red) calc(6% + var(--glass-solid) * 9%), transparent);
 }
+/* The tab bar is exempt from the opacity slider on purpose — it sits fixed over content that's
+   constantly scrolling underneath it, so unlike a card (which only ever has the page's own
+   background behind it) it's the one place a translucent fill reads as "broken" rather than
+   "glassy": labels and rows bleed through and the tab labels stop being legible. It still picks
+   up the thickness slider's blur and a fixed, non-reactive glass sheen/edge for the same visual
+   language as everything else — only its own base fill is pinned fully opaque. */
 .glass-on #tabbar{
   background:
-    linear-gradient(155deg, rgba(255,255,255,var(--glass-sheen)), rgba(255,255,255,calc(var(--glass-sheen) * .3))),
-    color-mix(in srgb, var(--bg-el) calc(var(--glass-solid) * 100%), transparent);
+    linear-gradient(155deg, rgba(255,255,255,.05), rgba(255,255,255,.015)),
+    var(--bg-el);
   backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
-  border-top-color:rgba(255,255,255,var(--glass-edge));
+  border-top-color:rgba(255,255,255,.09);
 }
 .glass-on #tabbar button.start .cir{
   background:

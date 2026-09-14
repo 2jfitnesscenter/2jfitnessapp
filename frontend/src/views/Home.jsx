@@ -154,8 +154,10 @@ export default function Home() {
   }
 
   return <div className="narrow">
-    <div className="hdr">
-      <div><h1>{user ? t('Hi {0}', user.name) : '2J Fitness'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
+    <div className="home-hero">
+      <div className="home-hero-bg" />
+      <h1>{user ? t('Hi {0}', user.name) : '2J Fitness'}</h1>
+      <div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div>
     </div>
 
     <div className="card">
