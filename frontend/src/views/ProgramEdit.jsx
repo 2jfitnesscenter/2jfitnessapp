@@ -3,12 +3,12 @@ import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
 import { uid, exCount, routineCount, DAYN } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { glyphPicker, confirmSheet, routinePickerSheet, dayAssignSheet, exportPlanFile } from '../sheets.jsx'
+import { glyphPicker, confirmSheet, routinePickerSheet, dayAssignSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
 import { Button, Switch } from '../components/ui.jsx'
 import { mediaUrl } from '../lib/media.js'
-import { buildPlanBundle } from '../lib/plan-share.js'
+import { printProgram } from '../lib/plan-share.js'
 
 // A program is a named folder of routine ids — see useStore.js's DEF.programs comment. This
 // screen is the folder's contents: add an existing loose routine to it, build a new one
@@ -61,6 +61,8 @@ export default function ProgramEdit() {
     <div className="hdr">
       <button className="iconbtn" onClick={() => nav('/plan')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 8 }}><h1 className="capitalize">{p.name}</h1><div className="sub">{routineCount(routines.length)}</div></div>
+      <button className="iconbtn" aria-label={t('Print program')} title={t('Print program')} disabled={!routines.some(r => r.ex && r.ex.length)}
+        onClick={() => printProgram(p, routines, user?.name || '', S.unit)}><Icon name="download" /></button>
     </div>
 
     <div className="row" style={{ gap: 10, marginBottom: 16 }}>
@@ -104,11 +106,6 @@ export default function ProgramEdit() {
       <Button icon="plus" onClick={addNew}>{t('New routine')}</Button>
       {loose.length > 0 && <Button icon="folder" onClick={addExisting}>{t('Add existing routine')}</Button>}
     </div>
-    <div style={{ height: 10 }} />
-    <Button variant="tinted" icon="upload" disabled={!routines.some(r => r.ex && r.ex.length)}
-      onClick={() => exportPlanFile(buildPlanBundle(S, user?.name ? t('{0}’s plan', user.name) : '', { routineIds: p.routineIds || [], week: p.week }), 'program')}>
-      {t('Export program')}
-    </Button>
     <div style={{ height: 14 }} />
     <Button variant="danger" onClick={deleteProgram}>{t('Delete program')}</Button>
   </>

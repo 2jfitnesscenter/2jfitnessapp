@@ -21,7 +21,7 @@ import { parseImport, mergeImport } from './lib/import-csv.js'
 import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
-import { MOBILE, shareExport } from './lib/mobile.js'
+import { MOBILE } from './lib/mobile.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
 import { resizeImageFile, uploadImage, mediaUrl } from './lib/media.js'
 import ScanUpload from './components/ScanUpload.jsx'
@@ -903,17 +903,6 @@ export const routinePickerSheet = (routines, onPick) => ui().openSheet(close => 
 </>)
 
 /* ============================ share / print / import a plan ============================ */
-// The actual file-saving mechanic, shared by every export entry point (a single routine's own
-// button, a program's own button, and mobile's share sheet) — building the bundle itself is
-// the caller's job via buildPlanBundle(), scoped to whatever that screen is exporting.
-export async function exportPlanFile(bundle, tag) {
-  const json = JSON.stringify(bundle, null, 2)
-  const name = `2jfitness-${tag}-${todayISO()}.json`
-  if (MOBILE) { try { await shareExport(json, name) } catch (e) { /* dismissed */ } return }
-  const blob = new Blob([json], { type: 'application/json' })
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href)
-  toast(t('Plan file saved — send it to a friend'))
-}
 
 export const planToolsSheet = () => ui().openSheet(close => <PlanTools close={close} />)
 
@@ -936,8 +925,8 @@ function PlanTools({ close }) {
   return <>
     <h3>{t('Share your plan')}</h3>
     <div className="muted small" style={{ marginBottom: 16 }}>{t('Put your week on paper, or bring in a plan from a friend.')}</div>
-    {/* Exporting a file lives on the routine/program itself now (its own "Export" button) —
-        with dozens of routines, a single "export everything" button here stopped being useful. */}
+    {/* Printing a single routine/program lives on the item itself now (its own "Imprimir"
+        button) — with dozens of routines, one "export everything" button here wasn't useful. */}
     {!MOBILE && <>
       <Button variant="primary" icon="download" onClick={() => { close(); printPlan(st, user?.name || '') }} disabled={!hasRoutines}>{t('Print / Save as PDF')}</Button>
       <div className="dim small" style={{ margin: '7px 2px 0', lineHeight: 1.4 }}>{t('A clean one-page-per-plan printout — no exercise ever splits across a page.')}</div>

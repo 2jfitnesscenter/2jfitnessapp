@@ -12,6 +12,7 @@ import webpush from 'web-push';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
+import { trainerAIRoutes } from './coach/trainer-routes.js';
 import { scanBioimpedanceImage } from './lib/measurements-scan.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
@@ -1545,6 +1546,12 @@ const routes = {
   // them: they are closures over db and SECRET, and passing them in keeps that module free of
   // a cycle. Every one of them is inert while the feature is unconfigured.
   ...coachRoutes({ json, readBody, readSession, requireAdmin }),
+
+  /* ---------- IA del panel de entrenador (siempre Claude, independiente del Coach) ---------- */
+  // Same factory shape as coachRoutes, but its own file (coach/trainer-ai.js) so this instance's
+  // member-facing Coach and the trainer panel's "Generate with AI" can be configured, connected
+  // and even enabled/disabled completely independently of each other.
+  ...trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer }),
 
   /* ---------- Amigos + chat con entrenadores ---------- */
   // Same factory shape as coachRoutes — their own data/friends.json and data/chat.json, no

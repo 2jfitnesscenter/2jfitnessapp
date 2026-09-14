@@ -11,6 +11,7 @@ import Icon from '../components/Icon.jsx'
 import { Button, Segmented, ChipSelect } from '../components/ui.jsx'
 import ScanUpload from '../components/ScanUpload.jsx'
 import AdminCoach from './AdminCoach.jsx'
+import AdminTrainerAI from './AdminTrainerAI.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
 import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
 import { Thumb } from '../components/Media.jsx'
@@ -446,6 +447,8 @@ export default function Admin() {
     </div>
 
     <AdminCoach />
+
+    <AdminTrainerAI />
 
     <AdminIntegrations />
 

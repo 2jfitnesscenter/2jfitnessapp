@@ -72,7 +72,7 @@ export default function PhysicalProfileWizard() {
     s.onboarded = true
   })
 
-  return <div className="narrow" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+  return <div className="narrow" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', paddingBottom: 86 }}>
     <div className="row between" style={{ marginBottom: 18 }}>
       {step > 0
         ? <button className="iconbtn" onClick={() => setStep(step - 1)} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
@@ -138,9 +138,10 @@ export default function PhysicalProfileWizard() {
       </>}
     </div>
 
-    <Button variant="primary" onClick={() => last ? finish() : setStep(step + 1)}>
-      {last ? t('Finish') : t('Continue')}
-    </Button>
-    <div style={{ height: 20 }} />
+    <div className="wizard-footer">
+      <Button variant="primary" onClick={() => last ? finish() : setStep(step + 1)}>
+        {last ? t('Finish') : t('Continue')}
+      </Button>
+    </div>
   </div>
 }

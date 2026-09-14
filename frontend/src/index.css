@@ -290,6 +290,21 @@ h4.sec{
 .btn.xs{padding:5px 10px;width:auto;font-size:13px;border-radius:7px;gap:4px}
 .btn:disabled{opacity:.32;pointer-events:none}
 
+/* Fixed primary-action bar for a full-screen step wizard (PhysicalProfileWizard, CoachIntake)
+   — on iOS in particular, a step with enough content (the muscle-priority grid, the equipment
+   checklist) pushes a button placed at the natural end of the flow below the fold, and 100vh
+   there is measured against the largest possible viewport, not what's actually visible with the
+   address bar showing — so "scroll to find it" was the reliable reproduction, not an edge case.
+   Fixed removes the button from flow entirely; the caller adds matching bottom padding to its
+   scroll content so the last field is never hidden underneath it. */
+.wizard-footer{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  padding:12px var(--pad) calc(12px + var(--sab));
+  background:var(--bg-el);
+  border-top:var(--hair) solid var(--sep-op);
+}
+:root[data-theme="light"] .wizard-footer{background:#f9f9fb}
+
 /* ----------------------------------------------------------- tab bar ----- */
 #tabbar{
   position:fixed;left:0;right:0;bottom:0;z-index:50;
@@ -1077,6 +1092,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
     padding:7px 10px 9px;box-shadow:0 12px 40px -10px rgba(0,0,0,.5);
   }
   #tabbar button.start{margin-top:-26px}
+  .wizard-footer{left:50%;right:auto;transform:translateX(-50%);width:640px}
   .sheet{left:50%;right:auto;margin-left:-320px;width:640px;border-radius:var(--r-xl) var(--r-xl) 0 0}
   .center{width:340px}
   #timer{left:50%;right:auto;margin-left:-260px;width:520px;bottom:112px}

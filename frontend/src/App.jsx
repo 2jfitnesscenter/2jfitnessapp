@@ -45,6 +45,7 @@ import TrainerClients from './views/trainer/TrainerClients.jsx'
 import TrainerClientPlan from './views/trainer/TrainerClientPlan.jsx'
 import TrainerRoutineBuilder from './views/trainer/TrainerRoutineBuilder.jsx'
 import TrainerProgramBuilder from './views/trainer/TrainerProgramBuilder.jsx'
+import TrainerAIGenerate from './views/trainer/TrainerAIGenerate.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -98,6 +99,7 @@ function Shell() {
               <Routes>
                 <Route path="/trainer" element={<TrainerClients />} />
                 <Route path="/trainer/:memberId" element={<TrainerClientPlan />} />
+                <Route path="/trainer/:memberId/ai" element={<TrainerAIGenerate />} />
                 <Route path="/trainer/:memberId/r/:routineId" element={<TrainerRoutineBuilder />} />
                 <Route path="/trainer/:memberId/p/:programId" element={<TrainerProgramBuilder />} />
                 <Route path="*" element={<Navigate to="/trainer" replace />} />

@@ -91,7 +91,7 @@ export default function CoachIntake() {
     equipment: p.equipment.includes(e) ? p.equipment.filter(x => x !== e) : [...p.equipment, e]
   })
 
-  return <div className="narrow">
+  return <div className="narrow" style={{ paddingBottom: 86 }}>
     <div className="hdr">
       <button className="iconbtn" onClick={() => step ? setStep(step - 1) : nav('/coach')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 10 }}>
@@ -179,15 +179,16 @@ export default function CoachIntake() {
       </>}
     </div>
 
-    <div className="row" style={{ gap: 10 }}>
-      {step > 0 && <Button onClick={() => setStep(step - 1)} style={{ flex: 1 }}>{t("Back")}</Button>}
-      {!last
-        ? <Button variant="primary" style={{ flex: 1 }} disabled={!canNext} onClick={() => setStep(step + 1)}>{t('Next')}</Button>
-        : <Button variant="primary" style={{ flex: 1 }} icon="sparkles" disabled={busy} onClick={finish}>
-          {editing ? t('Save') : t('Build my plan')}
-        </Button>}
+    <div className="wizard-footer">
+      {!canNext && <div className="dim small" style={{ textAlign: 'center', marginBottom: 10 }}>{t('Pick a goal and where you are starting from to continue.')}</div>}
+      <div className="row" style={{ gap: 10 }}>
+        {step > 0 && <Button onClick={() => setStep(step - 1)} style={{ flex: 1 }}>{t("Back")}</Button>}
+        {!last
+          ? <Button variant="primary" style={{ flex: 1 }} disabled={!canNext} onClick={() => setStep(step + 1)}>{t('Next')}</Button>
+          : <Button variant="primary" style={{ flex: 1 }} icon="sparkles" disabled={busy} onClick={finish}>
+            {editing ? t('Save') : t('Build my plan')}
+          </Button>}
+      </div>
     </div>
-    {!canNext && <div className="dim small" style={{ textAlign: 'center', marginTop: 10 }}>{t('Pick a goal and where you are starting from to continue.')}</div>}
-    <div style={{ height: 20 }} />
   </div>
 }

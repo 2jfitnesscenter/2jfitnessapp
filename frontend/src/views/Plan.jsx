@@ -12,6 +12,7 @@ import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import Library from './Library.jsx'
 import { mediaUrl } from '../lib/media.js'
+import { printRoutines } from '../lib/plan-share.js'
 
 export default function Plan() {
   const nav = useNavigate()
@@ -25,6 +26,21 @@ export default function Plan() {
   const [tab, setTab] = useState('routines')
   const grouped = new Set((S.programs || []).flatMap(p => p.routineIds || []))
   const loose = S.routines.filter(r => !grouped.has(r.id))
+
+  // Printing a hand-picked few routines instead of the whole loose list — see the "Select"
+  // toggle in the Routines tab below.
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState(() => new Set())
+  const exitSelect = () => { setSelectMode(false); setSelected(new Set()) }
+  const toggleSelected = id => setSelected(s => {
+    const next = new Set(s)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const printSelected = () => {
+    const picked = loose.filter(r => selected.has(r.id))
+    printRoutines(picked, user?.name || '', S.unit)
+  }
 
   const addRoutine = () => {
     const r = { id: uid(), name: t('New routine'), emoji: DEFAULT_GLYPH, ex: [] }
@@ -40,8 +56,12 @@ export default function Plan() {
   return <>
     <div className="hdr">
       <div><h1>{t('Library')}</h1><div className="sub">{t('Your weekly routine')}</div></div>
-      {coachOn && <button className="iconbtn" onClick={() => nav('/coach')} aria-label={t('Coach')} title={t('Coach')}><Icon name="sparkles" /></button>}
-      <button className="iconbtn" onClick={planToolsSheet} aria-label={t('Share your plan')} title={t('Share your plan')}><Icon name="upload" /></button>
+      {selectMode
+        ? <button className="iconbtn" onClick={printSelected} disabled={!selected.size} aria-label={t('Print selected ({0})', selected.size)} title={t('Print selected ({0})', selected.size)}><Icon name="download" /></button>
+        : <>
+          {coachOn && <button className="iconbtn" onClick={() => nav('/coach')} aria-label={t('Coach')} title={t('Coach')}><Icon name="sparkles" /></button>}
+          <button className="iconbtn" onClick={planToolsSheet} aria-label={t('Share your plan')} title={t('Share your plan')}><Icon name="upload" /></button>
+        </>}
     </div>
     <div className="ptabs">
       {[{ value: 'programs', icon: 'calendar', label: t('Programs') },
@@ -72,14 +92,24 @@ export default function Plan() {
     </> : tab === 'routines' ? <>
       <div className="row between" style={{ marginBottom: 10 }}>
         <h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
-        <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>
+        <div className="row" style={{ gap: 8 }}>
+          {loose.length > 0 && (selectMode
+            ? <Button size="sm" onClick={exitSelect}>{t('Cancel')}</Button>
+            : <Button size="sm" icon="checkCircle" onClick={() => setSelectMode(true)}>{t('Select to print')}</Button>)}
+          <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>
+        </div>
       </div>
-      {loose.length ? <div className="list">{loose.map(r => <div key={r.id} className="item" onClick={() => nav('/plan/r/' + r.id)}>
-        {r.image
-          ? <img src={mediaUrl(r.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
-          : <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>}
+      {loose.length ? <div className="list">{loose.map(r => <div key={r.id} className="item"
+        onClick={() => selectMode ? toggleSelected(r.id) : nav('/plan/r/' + r.id)}>
+        {selectMode
+          ? <span className="lrow-i" style={{ color: selected.has(r.id) ? 'var(--acc)' : 'var(--label-3)' }}>
+              {selected.has(r.id) ? <Icon name="checkCircle" /> : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid currentColor', display: 'block' }} />}
+            </span>
+          : r.image
+            ? <img src={mediaUrl(r.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
+            : <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>}
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
-        <Icon name="chevronRight" className="chev" /></div>)}</div> : <>
+        {!selectMode && <Icon name="chevronRight" className="chev" />}</div>)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>
         <Button icon="sparkles" onClick={loadStarterPlan}>{t('Load starter plan (Push / Pull / Legs)')}</Button>
       </>}

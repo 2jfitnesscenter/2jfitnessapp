@@ -9,8 +9,8 @@
 //     a page break — each exercise, and each routine that fits, stays in one place.
 
 import { EXIDX } from './exercises.js'
-import { modeOf, fmtSec } from './history.js'
-import { uid, todayISO, DAYN, fmtNum } from './format.js'
+import { modeOf, fmtSec, activeWeek } from './history.js'
+import { uid, todayISO, DAYN, fmtNum, exCount, routineCount } from './format.js'
 import { t, nameFor } from './i18n.js'
 
 const PLAN_FMT = 1
@@ -190,7 +190,8 @@ function units(ex) {
 
 // Gym-floor sheet: one log table per scheduled day (not per routine — a routine repeated on
 // two days gets a table each, matching a physical sheet used on that specific day), with a
-// blank box per set so it can be printed and filled in by hand on the gym floor.
+// blank box per set so it can be printed and filled in by hand on the gym floor. `num`/`weekday`
+// are optional — a standalone routine (no day of its own) omits both and prints just the table.
 function dayLogHTML(num, weekday, r, unit) {
   const maxSets = Math.max(1, ...r.ex.map(e => e.sets || 1))
   const setHeads = Array.from({ length: maxSets }, (_, i) => `<th class="set">${esc(t('Set {0}', i + 1))}</th>`).join('')
@@ -206,8 +207,11 @@ function dayLogHTML(num, weekday, r, unit) {
       ${boxes}
     </tr>`
   })).join('')
+  const head = num
+    ? `<span class="num">${esc(String(num).padStart(2, '0'))}</span><h2>${esc(r.name)}</h2><span class="wd">${esc(weekday)}</span>`
+    : `<h2>${esc(r.name)}</h2>`
   return `<section class="day">
-    <div class="day-head"><span class="num">${esc(String(num).padStart(2, '0'))}</span><h2>${esc(r.name)}</h2><span class="wd">${esc(weekday)}</span></div>
+    <div class="day-head">${head}</div>
     <table class="log">
       <thead><tr><th>${esc(t('Exercise'))}</th><th>${esc(t('Target'))}</th>${setHeads}</tr></thead>
       <tbody>${rows || `<tr><td colspan="${maxSets + 2}" class="empty">${esc(t('No exercises yet.'))}</td></tr>`}</tbody>
@@ -215,9 +219,9 @@ function dayLogHTML(num, weekday, r, unit) {
   </section>`
 }
 
-function weekStripHTML(S) {
+function weekStripHTML(routines, week) {
   const cells = WEEK_ORDER.map(d => {
-    const r = S.routines.find(x => x.id === S.week?.[d])
+    const r = routines.find(x => x.id === week?.[d])
     const short = t(DAYN[d]).slice(0, 3).toUpperCase()
     const label = r ? esc(r.name) : `<span class="off">${esc(t('Rest'))}</span>`
     return `<div class="d${r ? ' on' : ''}"><div class="dn">${esc(short)}</div><div class="dr">${label}</div></div>`
@@ -225,20 +229,11 @@ function weekStripHTML(S) {
   return `<div class="week-strip">${cells}</div>`
 }
 
-/** Full self-contained HTML for the print/PDF view — a gym-floor sheet, one table per
- *  scheduled day, with blank boxes to log each set by hand. */
-export function planPrintHTML(S, owner) {
-  const unit = S.unit || 'kg'
-  const days = WEEK_ORDER
-    .map(d => ({ d, r: S.routines?.find(x => x.id === S.week?.[d]) }))
-    .filter(x => x.r && x.r.ex && x.r.ex.length)
-  const body = days.length
-    ? days.map((x, i) => dayLogHTML(i + 1, t(DAYN[x.d]), x.r, unit)).join('')
-    : `<p class="none">${esc(t('No routines yet.'))}</p>`
-  const dayCount = days.length ? t('{0} days a week', days.length) : ''
-  const metaLines = [owner ? `<div><b>${esc(owner)}</b></div>` : '', `<div>${esc([dayCount, todayISO()].filter(Boolean).join(' · '))}</div>`].join('')
+// Shared document chrome (styles + masthead + footer) behind all three print views below —
+// the styles are the expensive part to keep in sync, so there is exactly one copy of them.
+function printShell(title, metaLines, bodyHTML) {
   return `<!doctype html><html><head><meta charset="utf-8">
-<title>${esc(t('Weekly Training Plan'))}</title>
+<title>${esc(title)}</title>
 <style>
   @page { margin: 14mm 12mm; }
   * { box-sizing: border-box; }
@@ -291,21 +286,92 @@ export function planPrintHTML(S, owner) {
   <div class="masthead">
     <div>
       <div class="brand">2J Fitness Center</div>
-      <h1>${esc(t('Weekly Training Plan'))}</h1>
+      <h1>${esc(title)}</h1>
     </div>
     <div class="meta">${metaLines}</div>
   </div>
-  ${weekStripHTML(S)}
-  ${body}
+  ${bodyHTML}
   <footer>${esc(t('Made with 2J Fitness Center'))} · 2jfitnesscenter.com</footer>
 </div></body></html>`
 }
 
+const metaOf = (owner, extra) => [owner ? `<div><b>${esc(owner)}</b></div>` : '', `<div>${esc([extra, todayISO()].filter(Boolean).join(' · '))}</div>`].join('')
+
+/** Full self-contained HTML for the print/PDF view — a gym-floor sheet, one table per
+ *  scheduled day, with blank boxes to log each set by hand. Whichever schedule is actually
+ *  driving Home right now — an active program's own week if one is active, the flat week
+ *  otherwise (same activeWeek() Home itself reads) — not always the flat S.week, or this
+ *  prints "no routines" for someone whose whole plan lives inside an active program. */
+export function planPrintHTML(S, owner) {
+  const unit = S.unit || 'kg'
+  const routines = S.routines || []
+  const week = activeWeek(S)
+  const days = WEEK_ORDER.map(d => ({ d, r: routines.find(x => x.id === week?.[d]) })).filter(x => x.r && x.r.ex && x.r.ex.length)
+  const body = days.length
+    ? days.map((x, i) => dayLogHTML(i + 1, t(DAYN[x.d]), x.r, unit)).join('')
+    : `<p class="none">${esc(t('No routines yet.'))}</p>`
+  const meta = metaOf(owner, days.length ? t('{0} days a week', days.length) : '')
+  return printShell(t('Weekly Training Plan'), meta, weekStripHTML(routines, week) + body)
+}
+
+/** Print view for a single standalone routine — just its own exercise table, no week strip
+ *  (a lone routine isn't necessarily assigned to any day). */
+export function routinePrintHTML(routine, owner, unit) {
+  const body = routine.ex?.length ? dayLogHTML(null, '', routine, unit) : `<p class="none">${esc(t('No exercises yet.'))}</p>`
+  return printShell(routine.name || t('Routine'), metaOf(owner, exCount(routine.ex?.length || 0)), body)
+}
+
+// A plain sequence of routine tables, one per routine in the order given, no week/day framing
+// — for anything that isn't tied to a schedule: a hand-picked selection, or a program with
+// routines but no days assigned to them yet.
+function routinesListHTML(routines, unit) {
+  return routines.length
+    ? routines.filter(r => r.ex?.length).map((r, i) => dayLogHTML(i + 1, '', r, unit)).join('')
+    : `<p class="none">${esc(t('No routines yet.'))}</p>`
+}
+
+/** Print view for a hand-picked set of routines — e.g. from the multi-select in the Routines
+ *  tab, printing 2 of a dozen instead of the whole list. Order follows the given array. */
+export function routinesPrintHTML(routines, owner, unit) {
+  return printShell(t('Routines'), metaOf(owner, routineCount(routines.length)), routinesListHTML(routines, unit))
+}
+
+/** Print view for one program — its own routines + its own weekday schedule, same gym-floor
+ *  layout as the whole-plan view but scoped to just this program instead of the flat S.week. */
+export function programPrintHTML(program, routines, owner, unit) {
+  const days = WEEK_ORDER.map(d => ({ d, r: routines.find(x => x.id === program.week?.[d]) })).filter(x => x.r && x.r.ex && x.r.ex.length)
+  const body = days.length ? days.map((x, i) => dayLogHTML(i + 1, t(DAYN[x.d]), x.r, unit)).join('') : routinesListHTML(routines, unit)
+  const meta = metaOf(owner, days.length ? t('{0} days a week', days.length) : routineCount(routines.length))
+  return printShell(program.name || t('Program'), meta, (days.length ? weekStripHTML(routines, program.week) : '') + body)
+}
+
+// Standalone-mode iOS (added to the home screen) largely doesn't support window.print() from
+// inside the app itself — WebKit has nowhere to host the print sheet without Safari's own
+// chrome. A blob: URL opened as a real new tab escapes into Safari, where printing (via the
+// share sheet's own Print / "Save as PDF") works exactly as it does in any other Safari tab.
+// Everywhere else (desktop, Android, iOS Safari proper) the hidden-iframe + print() path below
+// already works well and keeps the print CSS's page-break handling, so it stays the default.
+const isStandaloneIOS = () =>
+  /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+  (window.navigator.standalone === true || window.matchMedia?.('(display-mode: standalone)').matches)
+
+function openInNewTab(html) {
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url, '_blank')
+  // Never got a handle back (a popup blocker, most likely) — nothing left to clean up toward,
+  // and revoking now would pull the page out from under a tab that did open.
+  if (!win) return
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
+}
+
 /**
- * Render the plan and open the browser's print dialog (→ Save as PDF).
- * Uses a hidden iframe so we never navigate away or trip a popup blocker.
+ * Render the given print HTML and open the browser's print dialog (→ Save as PDF). Uses a
+ * hidden iframe so we never navigate away or trip a popup blocker — except in standalone iOS,
+ * where a real new tab is the only thing that actually lets printing happen (see above).
  */
-export function printPlan(S, owner) {
+function openPrintWindow(html) {
+  if (isStandaloneIOS()) { openInNewTab(html); return }
   const ifr = document.createElement('iframe')
   ifr.setAttribute('aria-hidden', 'true')
   ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;'
@@ -320,8 +386,13 @@ export function printPlan(S, owner) {
     try { w.print() } catch (e) { cleanup() }
   }
   const doc = ifr.contentWindow.document
-  doc.open(); doc.write(planPrintHTML(S, owner)); doc.close()
+  doc.open(); doc.write(html); doc.close()
   // Give the iframe a tick to lay out before printing.
   if (doc.readyState === 'complete') setTimeout(run, 120)
   else ifr.onload = () => setTimeout(run, 120)
 }
+
+export const printPlan = (S, owner) => openPrintWindow(planPrintHTML(S, owner))
+export const printRoutine = (routine, owner, unit) => openPrintWindow(routinePrintHTML(routine, owner, unit))
+export const printRoutines = (routines, owner, unit) => openPrintWindow(routinesPrintHTML(routines, owner, unit))
+export const printProgram = (program, routines, owner, unit) => openPrintWindow(programPrintHTML(program, routines, owner, unit))
