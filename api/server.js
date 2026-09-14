@@ -1408,7 +1408,7 @@ const routes = {
   // someone, not the full admin detail view.
   'GET /api/trainer/members': async (req, res) => {
     if (!requireTrainer(req, res)) return;
-    const members = db.users.filter(u => !u.disabled).map(u => ({ id: u.id, name: u.name }));
+    const members = db.users.filter(u => !u.disabled).map(u => ({ id: u.id, name: u.name, avatar: u.avatar || null }));
     json(res, 200, { members });
   },
 
@@ -1463,6 +1463,81 @@ const routes = {
     S._ts = Date.now();
     atomicWrite(stateFile(member.id), JSON.stringify(S));
     json(res, 200, { ok: true });
+  },
+
+  /* ---------- Trainer panel (desktop): build/edit a member's plan directly ---------- */
+  // Same "mutate the member's state file directly" mechanism as assign-routine/assign-program
+  // above, but for the desktop trainer panel: the trainer supplies the routine/program content
+  // themselves instead of pointing at something already published to Social. Read-only here on
+  // purpose — never the member's workout history or body weight, same reduced blast radius
+  // GET /api/trainer/members already keeps to.
+  'GET /api/trainer/member-plan': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const memberId = new URL(req.url, 'http://x').searchParams.get('id') || '';
+    const member = db.users.find(x => x.id === memberId);
+    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const S = readState(member.id);
+    json(res, 200, { routines: S?.routines || [], programs: S?.programs || [] });
+  },
+
+  // body: { memberId, routineId?, name, emoji, ex, customExDefs?, prog? } — same validation as
+  // POST /api/social/routines. Passing `routineId` for a routine already on that member's plan
+  // replaces it in place (same id, so a program's routineIds referencing it stay valid);
+  // omitting it (or passing one that doesn't match) appends a new routine instead.
+  'POST /api/trainer/member-routine': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const body = await readBody(req);
+    const member = db.users.find(x => x.id === body.memberId);
+    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const name = String(body.name || '').trim().slice(0, 60);
+    const ex = Array.isArray(body.ex) ? body.ex : null;
+    if (!name || !ex || !ex.length) return json(res, 400, { error: 'una rutina necesita un nombre y al menos un ejercicio' });
+    const customExDefs = Array.isArray(body.customExDefs)
+      ? body.customExDefs.filter(d => d && typeof d.id === 'string' && typeof d.n === 'string') : [];
+    const customIds = new Set(customExDefs.map(d => d.id));
+    if (ex.some(e => typeof e.id === 'string' && e.id.startsWith('c') && !customIds.has(e.id)))
+      return json(res, 400, { error: 'faltan definiciones de uno o más ejercicios personalizados en esta rutina' });
+    const S = readState(member.id);
+    if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    S.customEx = S.customEx || [];
+    customExDefs.forEach(def => { if (!S.customEx.some(x => x.id === def.id)) S.customEx.push(def); });
+    S.routines = S.routines || [];
+    const existingIdx = body.routineId ? S.routines.findIndex(r => r.id === body.routineId) : -1;
+    const routine = { id: existingIdx >= 0 ? body.routineId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'dumbbell').slice(0, 20), ex };
+    if (body.prog) routine.prog = String(body.prog).slice(0, 20);
+    if (existingIdx >= 0) S.routines[existingIdx] = routine; else S.routines.push(routine);
+    S._ts = Date.now();
+    atomicWrite(stateFile(member.id), JSON.stringify(S));
+    json(res, 200, { ok: true, routineId: routine.id });
+  },
+
+  // body: { memberId, programId?, name, emoji, routineIds, week? } — routineIds must already be
+  // on this member's plan (build them with member-routine first). Unlike assign-program above,
+  // `week` travels with it (weekday -> routineId), since here the trainer is scheduling it
+  // directly rather than leaving that step for the member to do afterward.
+  'POST /api/trainer/member-program': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const body = await readBody(req);
+    const member = db.users.find(x => x.id === body.memberId);
+    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const name = String(body.name || '').trim().slice(0, 60);
+    const routineIds = Array.isArray(body.routineIds) ? body.routineIds : null;
+    if (!name || !routineIds || !routineIds.length) return json(res, 400, { error: 'un programa necesita un nombre y al menos una rutina' });
+    const S = readState(member.id);
+    if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const memberRoutineIds = new Set((S.routines || []).map(r => r.id));
+    if (routineIds.some(id => !memberRoutineIds.has(id))) return json(res, 400, { error: 'una de las rutinas no pertenece a este miembro' });
+    const week = {};
+    if (body.week && typeof body.week === 'object') {
+      for (const [d, rid] of Object.entries(body.week)) { if (routineIds.includes(rid)) week[d] = rid; }
+    }
+    S.programs = S.programs || [];
+    const existingIdx = body.programId ? S.programs.findIndex(p => p.id === body.programId) : -1;
+    const program = { id: existingIdx >= 0 ? body.programId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'folder').slice(0, 20), routineIds, week };
+    if (existingIdx >= 0) S.programs[existingIdx] = program; else S.programs.push(program);
+    S._ts = Date.now();
+    atomicWrite(stateFile(member.id), JSON.stringify(S));
+    json(res, 200, { ok: true, programId: program.id });
   },
 
   /* ---------- AI Coach ---------- */

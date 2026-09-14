@@ -440,6 +440,11 @@ export default function Admin() {
       </div>)}
     </div>}
 
+    <div className="card row between" style={{ cursor: 'pointer' }} onClick={() => nav('/trainer')}>
+      <div><h2 style={{ margin: '0 0 2px' }}>{t('Trainer panel')}</h2><div className="dim small">{t('Build and assign routines for your members — best used on a computer.')}</div></div>
+      <Icon name="chevronRight" className="chev" />
+    </div>
+
     <AdminCoach />
 
     <AdminIntegrations />

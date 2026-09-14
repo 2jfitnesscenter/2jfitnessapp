@@ -1086,3 +1086,36 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   .exmedia img{height:380px}
   .hm-wrap{display:flex;flex-direction:column;align-items:center}
 }
+
+/* ------------------------------------------- trainer panel (desktop only) --- */
+/* Its own shell — no TabBar/RestTimer here, so no bottom safe-area padding to clear, and a
+   much wider column than #app's 560px mobile cap since this is only ever opened on a desktop
+   browser (App.jsx routes it separately, before the mobile chrome). */
+#trainer-app{max-width:1160px;margin:0 auto;padding:24px 20px 60px}
+.trainer-topbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.trainer-topbar h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0}
+.trainer-topbar .sub{color:var(--label-2);font-size:14px;margin-top:2px}
+.trainer-back{color:var(--label-2);text-decoration:none;font-size:14px;display:flex;align-items:center;gap:4px}
+
+.client-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.client-card{
+  background:var(--surface);border-radius:var(--r-lg);padding:18px 14px;text-align:center;
+  border:none;cursor:pointer;color:inherit;transition:background var(--fast);
+}
+.client-card:hover{background:var(--surface-2)}
+.client-card .name{margin-top:10px;font-weight:600;font-size:15px}
+
+.builder-layout{display:flex;gap:24px;align-items:flex-start}
+.builder-main{flex:1;min-width:0}
+.builder-side{
+  flex:0 0 360px;background:var(--surface);border-radius:var(--r-lg);padding:14px;
+  position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;
+}
+
+.day-cols{display:flex;gap:16px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.day-col{
+  flex:0 0 300px;background:var(--surface);border-radius:var(--r-lg);padding:14px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.day-col-hd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.day-col-hd input{font-weight:600;font-size:15px}

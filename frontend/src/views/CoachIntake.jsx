@@ -25,7 +25,10 @@ const GOALS = [
   ['fatloss', 'Lose fat'],
   ['power', 'Power'],
   ['plyometrics', 'Plyometrics'],
-  ['longevity', 'Health & longevity']
+  ['longevity', 'Health & longevity'],
+  ['padel', 'Padel performance'],
+  ['basketball', 'Basketball performance'],
+  ['examfitness', 'Physical exam prep']
 ]
 const EXPERIENCE = [
   ['new', 'New to lifting'],

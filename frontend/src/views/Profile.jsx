@@ -87,6 +87,7 @@ export default function Profile() {
         <Row icon="personCircle" iconTint="var(--acc)" title={t('Chat with trainers')} accessory="chevron" onClick={() => nav('/chat')}>
           {chatUnread > 0 && <span aria-label={t('Unread messages')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
         </Row>
+        {user?.trainer && <Row icon="dumbbell" iconTint="var(--green)" title={t('Trainer panel')} subtitle={t('Best used on a computer.')} accessory="chevron" onClick={() => nav('/trainer')} />}
       </Section>
     )}
 

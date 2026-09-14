@@ -41,6 +41,10 @@ import PhysicalProfileWizard from './views/PhysicalProfileWizard.jsx'
 import Coach from './views/Coach.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachProposal from './views/CoachProposal.jsx'
+import TrainerClients from './views/trainer/TrainerClients.jsx'
+import TrainerClientPlan from './views/trainer/TrainerClientPlan.jsx'
+import TrainerRoutineBuilder from './views/trainer/TrainerRoutineBuilder.jsx'
+import TrainerProgramBuilder from './views/trainer/TrainerProgramBuilder.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -81,6 +85,32 @@ function Shell() {
   useWakeLock(!!S.active && S.keepAwake !== false)
 
   const authed = user || isGuest
+  // The trainer panel is a separate desktop-oriented surface — its own routes, none of the
+  // mobile chrome (TabBar/RestTimer/ChatWatcher/FriendsWatcher mean nothing on a screen a
+  // trainer is using to build a client's routine), reusing the same session/API and the shared
+  // Modals/Toast so sheets like the exercise picker still work.
+  if (loc.pathname.startsWith('/trainer')) {
+    return (
+      <>
+        <div id="trainer-app" key={loc.pathname}>
+          <ErrorBoundary>
+            {!authed ? <Login /> : !user?.trainer ? <Navigate to="/home" replace /> : (
+              <Routes>
+                <Route path="/trainer" element={<TrainerClients />} />
+                <Route path="/trainer/:memberId" element={<TrainerClientPlan />} />
+                <Route path="/trainer/:memberId/r/:routineId" element={<TrainerRoutineBuilder />} />
+                <Route path="/trainer/:memberId/p/:programId" element={<TrainerProgramBuilder />} />
+                <Route path="*" element={<Navigate to="/trainer" replace />} />
+              </Routes>
+            )}
+          </ErrorBoundary>
+        </div>
+        <Modals />
+        <Toast />
+      </>
+    )
+  }
+
   // A genuinely brand-new profile only — one with no real data at all yet — sees the Physical
   // Profile wizard once, right after registering, instead of Login.jsx's old single-sheet form.
   // A profile that already has data (existing accounts from before this existed, or one restored

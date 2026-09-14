@@ -616,7 +616,9 @@ function usageMap(st) {
   st.workouts.forEach(w => w.entries.forEach(e => { u[e.id] = (u[e.id] || 0) + 1 }))
   return u
 }
-function ExercisePicker({ onPick, close }) {
+// Exported (not just the sheet-opener below) so the desktop trainer panel can render it inline
+// as a persistent side panel instead of a modal sheet — same search/filter logic either way.
+export function ExercisePicker({ onPick, close }) {
   const st = useStore(s => s.S)
   const usage = usageMap(st)
   const [q, setQ] = useState('')
@@ -645,8 +647,8 @@ function ExercisePicker({ onPick, close }) {
         options={BODYPARTS.map(b => ({ value: b, label: t(b) }))} />
     </div>
     {eqOpts.length > 1 && <div className="chips" style={{ marginBottom: 10 }}>
-      <button className={'chip nocap' + (!eqOn ? ' on' : '')} onClick={() => { setEq(''); setShown(50) }}>{t('Any equipment')}</button>
-      {eqOpts.map(x => <button key={x} className={'chip' + (eqOn === x ? ' on' : '')} onClick={() => { setEq(x); setShown(50) }}>{t(x)}</button>)}
+      <ChipSelect value={eqOn} onChange={v => { setEq(v); setShown(50) }} sheetTitle={t('Equipment')} placeholder={t('Any equipment')}
+        options={[{ value: '', label: t('Any equipment') }, ...eqOpts.map(x => ({ value: x, label: t(x) }))]} />
     </div>}
     <div className="list">
       {bp !== '★' && <div className="item" onClick={() => { close(); customExSheet(null, ex => onPick(ex), q.trim()) }}>
@@ -716,8 +718,8 @@ function ExerciseBrowser({ initial }) {
     <div className="search" style={{ margin: '2px 0 10px' }}><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
       <input className="input" placeholder={t('Search {0} exercises…', allExercises(st).length)} value={q} onChange={e => { setQ(e.target.value); setShown(40) }} /></div>
     {eqOpts.length > 1 && <div className="chips" style={{ marginBottom: 12 }}>
-      <button className={'chip nocap' + (!eqOn ? ' on' : '')} onClick={() => { setEq(''); setShown(40) }}>{t('Any equipment')}</button>
-      {eqOpts.map(x => <button key={x} className={'chip' + (eqOn === x ? ' on' : '')} onClick={() => { setEq(x); setShown(40) }}>{t(x)}</button>)}
+      <ChipSelect value={eqOn} onChange={v => { setEq(v); setShown(40) }} sheetTitle={t('Equipment')} placeholder={t('Any equipment')}
+        options={[{ value: '', label: t('Any equipment') }, ...eqOpts.map(x => ({ value: x, label: t(x) }))]} />
     </div>}
     <div className="exgrid">
       <div className="excard" onClick={() => customExSheet(null, ex => exerciseDetailSheet(ex), q.trim())}>
