@@ -135,6 +135,8 @@ const P = {
   // A viewfinder frame — four open corners, the universal "point this at something to read it"
   // mark, for scanning a printed report instead of typing it in.
   scan: <path d="M5 8.5V6a1.5 1.5 0 0 1 1.5-1.5H9M15 4.5h2.5A1.5 1.5 0 0 1 19 6v2.5M19 15.5V18a1.5 1.5 0 0 1-1.5 1.5H15M9 19.5H6.5A1.5 1.5 0 0 1 5 18v-2.5" />,
+  // Three bars stepping up, baseline-aligned — the "text size" mark (Settings → Appearance).
+  textSize: <path d="M5 19v-4M12 19v-8M19 19v-12" />,
 }
 
 // A few keys are aliases so call sites can say what they mean.

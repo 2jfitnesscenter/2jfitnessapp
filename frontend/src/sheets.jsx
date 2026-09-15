@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden, exOr } from './lib/exercises.js'
-import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS } from './lib/format.js'
+import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
 import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, nameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
@@ -320,21 +320,42 @@ export const bioimpedanceScanSheet = () => ui().openSheet(close => <Bioimpedance
 // the one action where "just try it" is expensive — it's someone's entire training
 // history — so the numbers, the unit conversion and the exercises we couldn't recognise
 // are all on screen before the confirm button.
+const overlapCount = (list, existing) => list.filter(x => (existing || []).some(y => y.d === x.d)).length
+
 function ImportSummary({ parsed, close }) {
   const st = useStore(s => s.S)
   const isBW = parsed.kind === 'bodyweight'
-  const have = isBW
-    ? parsed.bodyweight.filter(b => st.bodyweight.some(x => x.d === b.d)).length
-    : parsed.workouts.filter(w => st.workouts.some(x => x.d === w.d)).length
-  const fresh = (isBW ? parsed.bodyweight.length : parsed.workouts.length) - have
+  const isHealth = parsed.kind === 'health'
+
+  let have, fresh, healthCounts
+  if (isHealth) {
+    healthCounts = {
+      bodyweight: parsed.bodyweight.length, bodyFat: parsed.measurements.bodyFat.length,
+      muscleMass: parsed.measurements.muscleMass.length, steps: parsed.steps.length,
+      sleep: parsed.sleep.length, restingHR: parsed.restingHR.length, hr: parsed.hrZonesByWorkout.size,
+    }
+    const haveHR = [...parsed.hrZonesByWorkout.keys()].filter(id => st.workouts.some(w => w.id === id && w.hrZones)).length
+    have = overlapCount(parsed.bodyweight, st.bodyweight)
+      + overlapCount(parsed.measurements.bodyFat, st.measurements.bodyFat)
+      + overlapCount(parsed.measurements.muscleMass, st.measurements.muscleMass)
+      + overlapCount(parsed.steps, st.steps) + overlapCount(parsed.sleep, st.sleep)
+      + overlapCount(parsed.restingHR, st.restingHR) + haveHR
+    fresh = Object.values(healthCounts).reduce((a, b) => a + b, 0) - have
+  } else if (isBW) {
+    have = parsed.bodyweight.filter(b => st.bodyweight.some(x => x.d === b.d)).length
+    fresh = parsed.bodyweight.length - have
+  } else {
+    have = parsed.workouts.filter(w => st.workouts.some(x => x.d === w.d)).length
+    fresh = parsed.workouts.length - have
+  }
 
   const doImport = () => {
     let res
     update(s => { res = mergeImport(s, parsed) })
     close()
-    toast(isBW
-      ? t('{0} weigh-ins imported', res.added)
-      : t('{0} workouts imported', res.added))
+    toast(isHealth
+      ? t('{0} health records imported', res.bodyweight + res.bodyFat + res.muscleMass + res.steps + res.sleep + res.restingHR + res.hrMatched)
+      : isBW ? t('{0} weigh-ins imported', res.added) : t('{0} workouts imported', res.added))
   }
 
   return <>
@@ -344,7 +365,15 @@ function ImportSummary({ parsed, close }) {
     </div>
 
     <div className="tiles" style={{ textAlign: 'left' }}>
-      {isBW ? <>
+      {isHealth ? <>
+        {healthCounts.bodyweight > 0 && <div className="tile"><div className="l">{t('Weigh-ins')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{healthCounts.bodyweight}</div></div>}
+        {healthCounts.bodyFat > 0 && <div className="tile"><div className="l">{t('Body fat readings')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{healthCounts.bodyFat}</div></div>}
+        {healthCounts.muscleMass > 0 && <div className="tile"><div className="l">{t('Muscle mass readings')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{healthCounts.muscleMass}</div></div>}
+        {healthCounts.steps > 0 && <div className="tile"><div className="l">{t('Days with steps')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{healthCounts.steps}</div></div>}
+        {healthCounts.sleep > 0 && <div className="tile"><div className="l">{t('Nights of sleep')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{healthCounts.sleep}</div></div>}
+        {healthCounts.restingHR > 0 && <div className="tile"><div className="l">{t('Resting heart rate readings')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{healthCounts.restingHR}</div></div>}
+        {healthCounts.hr > 0 && <div className="tile"><div className="l">{t('Workouts with heart rate')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{healthCounts.hr}</div></div>}
+      </> : isBW ? <>
         <div className="tile"><div className="l">{t('Weigh-ins')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{parsed.bodyweight.length}</div></div>
         <div className="tile"><div className="l">{t('New')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fresh}</div></div>
       </> : <>
@@ -360,21 +389,27 @@ function ImportSummary({ parsed, close }) {
     </div> : parsed.converted ? <div className="small" style={{ color: 'var(--yellow)', marginBottom: 10 }}>
       {t('The file is in {0} and your profile is in {1} — weights will be converted.', parsed.fileUnit, st.unit)}
     </div> : null}
-    {!isBW && !parsed.fileUnit && !parsed.mixedUnits && <div className="small dim" style={{ marginBottom: 10 }}>
+    {!isBW && !isHealth && !parsed.fileUnit && !parsed.mixedUnits && <div className="small dim" style={{ marginBottom: 10 }}>
       {t('The file does not say which unit it uses — numbers are imported as they are.')}
+    </div>}
+    {isHealth && healthCounts.hr > 0 && !st.birthDate && <div className="small dim" style={{ marginBottom: 10 }}>
+      {t('Add your birth date in Settings to also split these into heart-rate zones.')}
+    </div>}
+    {isHealth && healthCounts.muscleMass > 0 && <div className="small dim" style={{ marginBottom: 10 }}>
+      {t('Health has no dedicated muscle-mass reading — this uses its closest one, lean body mass, which also includes bone and water.')}
     </div>}
     {have > 0 && <div className="small dim" style={{ marginBottom: 10 }}>
       {t('{0} days already have data here and will be left alone.', have)}
     </div>}
     {/* The file rated its sets. Say so: the column is off by default, so the ratings would
         otherwise arrive invisibly and look like they had been dropped. */}
-    {!isBW && (parsed.rirSets + parsed.rpeSets) > 0 && <div className="small dim" style={{ marginBottom: 10 }}>
+    {!isBW && !isHealth && (parsed.rirSets + parsed.rpeSets) > 0 && <div className="small dim" style={{ marginBottom: 10 }}>
       {t(effortOf(st) === 'none'
         ? '{0} sets bring an {1} with them — switch on Effort per set in Settings to see it.'
         : '{0} sets bring an {1} with them.',
       parsed.rirSets || parsed.rpeSets, parsed.rirSets ? 'RIR' : 'RPE')}
     </div>}
-    {!isBW && parsed.unmatchedNames.length > 0 && <>
+    {!isBW && !isHealth && parsed.unmatchedNames.length > 0 && <>
       <h4 className="sec">{t('Not in the library — added as your own exercises')}</h4>
       <div className="mchips" style={{ marginBottom: 12 }}>
         {parsed.unmatchedNames.slice(0, 12).map(n => <span key={n} className="mchip capitalize">{n}</span>)}
@@ -395,13 +430,18 @@ export function importFromApp(file, onDone) {
   const rd = new FileReader()
   rd.onload = () => {
     let parsed
-    try { parsed = parseImport(String(rd.result), { unit: S().unit }) }
+    // maxHR (220 - age) drives the heart-rate-zone split for any workout a Health export's
+    // continuous HR data overlaps — left null (zones simply not computed) if birthDate is unset.
+    const age = ageFrom(S().birthDate)
+    try { parsed = parseImport(String(rd.result), { unit: S().unit, workouts: S().workouts, maxHR: age ? 220 - age : null }) }
     catch (e) { toast(t('Could not read that file')); return }
     if (parsed.error === 'empty') { toast(t('That file is empty')); return }
     if (parsed.error) { toast(t("That file's columns aren't recognised — see the docs for supported apps.")); return }
-    if (parsed.kind === 'bodyweight' ? !parsed.bodyweight.length : !parsed.workouts.length) {
-      toast(t('Nothing to import from that file')); return
-    }
+    const empty = parsed.kind === 'health'
+      ? !parsed.bodyweight.length && !parsed.measurements.bodyFat.length && !parsed.measurements.muscleMass.length
+        && !parsed.steps.length && !parsed.sleep.length && !parsed.restingHR.length && !parsed.hrZonesByWorkout.size
+      : parsed.kind === 'bodyweight' ? !parsed.bodyweight.length : !parsed.workouts.length
+    if (empty) { toast(t('Nothing to import from that file')); return }
     ui().openSheet(close => <ImportSummary parsed={parsed} close={close} />)
     onDone && onDone()
   }
@@ -1040,11 +1080,42 @@ function DayAssign({ day, programId, close }) {
 export const dayAssignSheet = (day, programId) => ui().openSheet(close => <DayAssign day={day} programId={programId} close={close} />)
 
 /* ============================ workout detail ============================ */
+// Zone 1 (easiest) through zone 5 (hardest) — same blue-through-red ramp used for effort
+// elsewhere in the app, just five stops instead of three.
+const HR_ZONE_COLOR = ['var(--blue)', 'var(--teal)', 'var(--green)', 'var(--orange)', 'var(--red)']
+
+// Only rendered when an Apple Health import actually matched this session's start/end window
+// against continuous heart-rate samples — see lib/import-csv.js's parseAppleHealth. Wrist HR
+// during a lift is noisier than during steady cardio (motion artifacts), so this reads as a
+// reasonable estimate of where the effort went, not a lab measurement.
+function HRZoneBar({ hrZones }) {
+  const { z, avg, max } = hrZones
+  const total = z ? z.reduce((a, b) => a + b, 0) : 0
+  return <div style={{ marginBottom: 14 }}>
+    <div className="row between" style={{ marginBottom: 6 }}>
+      <span className="dim small">{t('Heart rate')}</span>
+      <span className="dim small">{t('avg')} {avg} · {t('max')} {max} bpm</span>
+    </div>
+    {z && total > 0 ? <>
+      <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: 'var(--surface-2)' }}>
+        {z.map((min, i) => min > 0 && <div key={i} style={{ width: (min / total * 100) + '%', background: HR_ZONE_COLOR[i] }} />)}
+      </div>
+      <div className="row" style={{ gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+        {z.map((min, i) => min > 0 && <span key={i} className="dim small">
+          <i style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: HR_ZONE_COLOR[i], marginRight: 4 }} />
+          {t('Z{0}', i + 1)} {t('{0} min', min)}
+        </span>)}
+      </div>
+    </> : <div className="dim small">{t('Add your birth date in Settings to split this into heart-rate zones.')}</div>}
+  </div>
+}
+
 function WorkoutDetail({ w, close }) {
   const st = useStore(s => s.S)
   return <>
     <h3>{w.name}</h3>
     <div className="muted small" style={{ marginBottom: 12 }}>{[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, st.unit), ...(w.bw ? [fmtNum(w.bw) + ' ' + st.unit] : [])].join(' · ')}</div>
+    {w.hrZones && <HRZoneBar hrZones={w.hrZones} />}
     {w.entries.map((e, i) => {
       const ex = EXIDX[e.id]
       return <div key={i} className="row" style={{ marginBottom: 12, alignItems: 'flex-start' }}>

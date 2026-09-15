@@ -66,7 +66,7 @@ const resolveTheme = theme => (theme === 'light' || theme === 'dark') ? theme : 
 // doesn't keep a diagonal shine baked into what is now just a normal solid surface.
 const glassBlurPx = v => Math.round(6 + (Math.max(0, Math.min(100, v)) / 100) * 28)
 
-function applyPrefs(theme, accent, glass, glassOpacity, glassBlur) {
+function applyPrefs(theme, accent, glass, glassOpacity, glassBlur, textScale) {
   const de = document.documentElement
   de.dataset.theme = resolveTheme(theme)
   de.dataset.accent = ACCENTS[accent] ? accent : 'lime'
@@ -76,6 +76,9 @@ function applyPrefs(theme, accent, glass, glassOpacity, glassBlur) {
   de.style.setProperty('--glass-sheen', (0.16 * (1 - solid)).toFixed(3))
   de.style.setProperty('--glass-edge', (0.05 + (1 - solid) * 0.15).toFixed(3))
   de.style.setProperty('--glass-blur', glassBlurPx(glassBlur) + 'px')
+  // Every font-size in index.css is written as calc(Npx * var(--text-scale,1)) — this is the
+  // one place that multiplier is set, from Settings → Appearance → Text size.
+  de.style.setProperty('--text-scale', (Number(textScale) || 1).toFixed(3))
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) meta.content = de.dataset.theme === 'light' ? '#f2f2f7' : '#000000'
 }
@@ -88,14 +91,14 @@ function Shell() {
   const langV = useLang()   // re-renders the whole shell when the language (pack) changes
   useEffect(() => { setNav(navigate) }, [navigate])
   useEffect(() => {
-    applyPrefs(S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur)
+    applyPrefs(S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur, S.textScale)
     if (S.theme !== 'system' || !window.matchMedia) return
     // live-follow the OS toggle (e.g. sunset auto dark mode) while on 'system', no reload needed
     const mq = window.matchMedia('(prefers-color-scheme: light)')
-    const onChange = () => applyPrefs(S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur)
+    const onChange = () => applyPrefs(S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur, S.textScale)
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
-  }, [S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur])
+  }, [S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur, S.textScale])
   useEffect(() => { setLang(S.lang || 'es') }, [S.lang])
   useEffect(() => { document.documentElement.lang = S.lang || 'es' }, [langV, S.lang])
   // every tab/route change starts at the top of the page

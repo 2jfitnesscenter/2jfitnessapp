@@ -192,9 +192,16 @@ function units(ex) {
 // two days gets a table each, matching a physical sheet used on that specific day), with a
 // blank box per set so it can be printed and filled in by hand on the gym floor. `num`/`weekday`
 // are optional — a standalone routine (no day of its own) omits both and prints just the table.
+//
+// Sized for a third of a landscape page (see DAYS_PER_PAGE below) — column widths are computed
+// here rather than left to the browser's own table layout, since a fixed-layout table this
+// narrow needs the exercise name column to win most of the space or it wraps into unreadable
+// slivers, and that balance shifts with how many set columns a given day actually needs.
 function dayLogHTML(num, weekday, r, unit) {
   const maxSets = Math.max(1, ...r.ex.map(e => e.sets || 1))
-  const setHeads = Array.from({ length: maxSets }, (_, i) => `<th class="set">${esc(t('Set {0}', i + 1))}</th>`).join('')
+  const setW = Math.min(14, Math.max(7, 40 / maxSets))       // %, narrower per column the more sets there are
+  const nameW = Math.max(30, 96 - 18 - setW * maxSets)        // % — whatever the set columns don't use, minus target's fixed 18%
+  const setHeads = Array.from({ length: maxSets }, (_, i) => `<th class="set" style="width:${setW}%">${esc(t('Set {0}', i + 1))}</th>`).join('')
   const rows = units(r.ex).flatMap(u => u.map(e => {
     const ex = EXIDX[e.id]
     const name = ex ? nameFor(ex) : t('Unknown exercise')
@@ -213,11 +220,18 @@ function dayLogHTML(num, weekday, r, unit) {
   return `<section class="day">
     <div class="day-head">${head}</div>
     <table class="log">
+      <colgroup><col style="width:${nameW}%"><col style="width:18%">${Array.from({ length: maxSets }, () => `<col style="width:${setW}%">`).join('')}</colgroup>
       <thead><tr><th>${esc(t('Exercise'))}</th><th>${esc(t('Target'))}</th>${setHeads}</tr></thead>
       <tbody>${rows || `<tr><td colspan="${maxSets + 2}" class="empty">${esc(t('No exercises yet.'))}</td></tr>`}</tbody>
     </table>
   </section>`
 }
+
+// 3 columns fit comfortably on a landscape page without the exercise table shrinking past
+// legibility — a 4th made the name column too narrow to hold most exercise names on one line.
+// A 5-day week is exactly two sheets this way (3 + 2), printed both sides of one page.
+const DAYS_PER_PAGE = 3
+const paginate = (arr, n) => { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out }
 
 function weekStripHTML(routines, week) {
   const cells = WEEK_ORDER.map(d => {
@@ -229,13 +243,50 @@ function weekStripHTML(routines, week) {
   return `<div class="week-strip">${cells}</div>`
 }
 
-// Shared document chrome (styles + masthead + footer) behind all three print views below —
-// the styles are the expensive part to keep in sync, so there is exactly one copy of them.
-function printShell(title, metaLines, bodyHTML) {
+// The gym's own logo (frontend/public/brand/logo-full.png), inlined as a data: URI so it
+// renders regardless of how the print document ends up hosted — a same-origin hidden iframe
+// (openPrintWindow's default path) can load a plain /brand/... URL fine, but the blob: URL
+// standalone-iOS falls back to (see openInNewTab below) gets its own opaque origin, where a
+// relative path to the real app server isn't guaranteed to resolve. Fetched once and cached
+// module-wide; every print/export call after the first pays nothing for it.
+let LOGO_CACHE = null
+async function logoDataUri() {
+  if (LOGO_CACHE) return LOGO_CACHE
+  try {
+    const res = await fetch('/brand/logo-full.png')
+    const blob = await res.blob()
+    LOGO_CACHE = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(blob)
+    })
+  } catch { /* offline, or the asset moved — the masthead just runs without it */ }
+  return LOGO_CACHE
+}
+
+// Shared document chrome (styles + one .page per DAYS_PER_PAGE-sized group of day tables,
+// each with its own masthead so a page found on its own is still identifiable) behind all four
+// print views below — the styles are the expensive part to keep in sync, so there is exactly
+// one copy of them. `dayBlocks` are already-rendered dayLogHTML() strings; `weekStripHtml`,
+// when given, appears once, under the first page's masthead only.
+function printShell(title, meta, logoImg, dayBlocks, weekStripHtml) {
+  const groups = paginate(dayBlocks.length ? dayBlocks : ['<p class="none">' + esc(t('No routines yet.')) + '</p>'], DAYS_PER_PAGE)
+  const pages = groups.map((group, gi) => `
+    <div class="page">
+      <div class="masthead">
+        ${logoImg ? `<img class="logo" src="${logoImg}" alt="" />` : ''}
+        <div class="titles"><div class="brand">2J Fitness Center</div><h1>${esc(title)}</h1></div>
+        <div class="meta">${meta}</div>
+      </div>
+      ${gi === 0 && weekStripHtml ? weekStripHtml : ''}
+      <div class="days-grid">${group.join('')}</div>
+      <footer>${esc(t('Made with 2J Fitness Center'))} · 2jfitnesscenter.com${groups.length > 1 ? ` · ${gi + 1}/${groups.length}` : ''}</footer>
+    </div>`).join('')
   return `<!doctype html><html><head><meta charset="utf-8">
 <title>${esc(title)}</title>
 <style>
-  @page { margin: 14mm 12mm; }
+  @page { size: landscape; margin: 10mm; }
   * { box-sizing: border-box; }
   html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body {
@@ -243,106 +294,99 @@ function printShell(title, metaLines, bodyHTML) {
     font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-variant-numeric: tabular-nums;
   }
-  .doc { max-width: 760px; margin: 0 auto; }
 
-  .masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; border-bottom: 3px solid #1c1d17; padding-bottom: 14px; margin-bottom: 6px; }
-  .masthead .brand { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #3e6626; font-weight: 700; }
-  .masthead h1 { font-size: 30px; letter-spacing: -.01em; margin: 5px 0 0; }
-  .masthead .meta { text-align: right; font-size: 12px; color: #5e6263; line-height: 1.6; white-space: nowrap; }
+  /* 277mm = A4 landscape (297mm) minus the @page's own 10mm margins either side — sizing this
+     in mm (a real physical unit, not just a print-time one) means the layout previews at its
+     true printed proportions in an ordinary browser tab too, not only inside the print dialog. */
+  .page { width: 277mm; margin: 0 auto 10mm; }
+  .page:not(:last-child) { break-after: page; page-break-after: always; }
+
+  .masthead { display: flex; align-items: center; gap: 8mm; border-bottom: 1.5px solid #1c1d17; padding-bottom: 3mm; margin-bottom: 5mm; }
+  .masthead .logo { height: 11mm; width: auto; flex: none; display: block; }
+  .masthead .titles { min-width: 0; }
+  .masthead .brand { font-size: 8px; letter-spacing: .13em; text-transform: uppercase; color: #3e6626; font-weight: 700; }
+  .masthead h1 { font-size: 17px; letter-spacing: -.01em; margin: 2px 0 0; }
+  .masthead .meta { margin-left: auto; text-align: right; font-size: 9px; color: #5e6263; line-height: 1.6; white-space: nowrap; flex: none; }
   .masthead .meta b { color: #1c1d17; font-weight: 600; }
 
-  .week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #c7c0a9; border: 1px solid #c7c0a9; margin: 18px 0 30px; break-inside: avoid; page-break-inside: avoid; }
-  .week-strip .d { background: #efebdf; padding: 8px 5px 10px; text-align: center; }
+  .week-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: #c7c0a9; border: 1px solid #c7c0a9; margin: 0 0 6mm; break-inside: avoid; page-break-inside: avoid; }
+  .week-strip .d { background: #efebdf; padding: 5px 4px 6px; text-align: center; }
   .week-strip .d.on { background: #e4efdb; }
-  .week-strip .dn { font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: #5e6263; font-weight: 600; }
+  .week-strip .dn { font-size: 7.5px; letter-spacing: .08em; text-transform: uppercase; color: #5e6263; font-weight: 600; }
   .week-strip .d.on .dn { color: #3e6626; }
-  .week-strip .dr { font-size: 10.5px; margin-top: 6px; color: #1c1d17; text-transform: capitalize; }
+  .week-strip .dr { font-size: 8px; margin-top: 3px; color: #1c1d17; text-transform: capitalize; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .week-strip .dr .off { color: #a79f89; text-transform: none; }
 
-  .day { break-inside: avoid; page-break-inside: avoid; margin-bottom: 26px; }
-  .day-head { display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid #1c1d17; padding-bottom: 6px; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }
-  .day-head .num { font-size: 22px; font-weight: 700; color: #5a9438; flex: none; }
-  .day-head h2 { font-size: 18px; letter-spacing: -.005em; margin: 0; flex: 1; text-transform: capitalize; }
-  .day-head .wd { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #5e6263; font-weight: 600; white-space: nowrap; }
+  .days-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7mm; align-items: start; }
+  .day { break-inside: avoid; page-break-inside: avoid; min-width: 0; }
+  .day-head { display: flex; align-items: baseline; gap: 5px; border-bottom: 1.5px solid #1c1d17; padding-bottom: 3px; margin-bottom: 5px; break-after: avoid; page-break-after: avoid; }
+  .day-head .num { font-size: 13px; font-weight: 700; color: #5a9438; flex: none; }
+  .day-head h2 { font-size: 10.5px; letter-spacing: -.005em; margin: 0; flex: 1; min-width: 0; text-transform: capitalize; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .day-head .wd { font-size: 6.5px; letter-spacing: .09em; text-transform: uppercase; color: #5e6263; font-weight: 600; white-space: nowrap; }
 
-  table.log { width: 100%; border-collapse: collapse; }
-  table.log th { text-align: left; font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: #5e6263; font-weight: 600; padding: 0 7px 6px; border-bottom: 1px solid #c7c0a9; }
-  table.log th.set { text-align: center; width: 58px; }
-  table.log td { padding: 7px 7px; border-bottom: 1px solid #dbd5c3; vertical-align: top; break-inside: avoid; page-break-inside: avoid; }
-  table.log tbody tr:last-child td { border-bottom: 2px solid #1c1d17; }
-  .ex-name { font-weight: 500; text-transform: capitalize; }
-  .ex-part { display: block; font-size: 10px; letter-spacing: .03em; text-transform: uppercase; color: #5e6263; margin-top: 2px; }
-  .target { color: #5e6263; white-space: nowrap; }
-  .box { display: inline-block; width: 40px; height: 17px; border-bottom: 1.5px solid #c7c0a9; }
-  .ss-row td:first-child { position: relative; padding-left: 15px; }
-  .ss-row td:first-child::before { content: ''; position: absolute; left: 0; top: 5px; bottom: 5px; width: 3px; background: #5a9438; border-radius: 2px; }
-  .ss-tag { display: block; font-size: 8.5px; letter-spacing: .07em; text-transform: uppercase; color: #3e6626; font-weight: 700; margin-bottom: 3px; }
-  .empty { color: #a79f89; }
+  table.log { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.log th { text-align: left; font-size: 5.5px; letter-spacing: .04em; text-transform: uppercase; color: #5e6263; font-weight: 600; padding: 0 2px 3px; border-bottom: 1px solid #c7c0a9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.log th.set { text-align: center; }
+  table.log td { padding: 3px 2px; border-bottom: 1px solid #dbd5c3; vertical-align: top; break-inside: avoid; page-break-inside: avoid; }
+  table.log tbody tr:last-child td { border-bottom: 1.5px solid #1c1d17; }
+  .ex-name { font-size: 7.5px; font-weight: 500; text-transform: capitalize; line-height: 1.25; overflow-wrap: break-word; }
+  .ex-part { display: block; font-size: 5.5px; letter-spacing: .02em; text-transform: uppercase; color: #5e6263; margin-top: 1px; }
+  .target { color: #5e6263; font-size: 6.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .box { display: block; width: 100%; height: 8px; border-bottom: 1px solid #c7c0a9; }
+  .ss-row td:first-child { position: relative; padding-left: 7px; }
+  .ss-row td:first-child::before { content: ''; position: absolute; left: 0; top: 3px; bottom: 3px; width: 2px; background: #5a9438; border-radius: 1px; }
+  .ss-tag { display: block; font-size: 5px; letter-spacing: .05em; text-transform: uppercase; color: #3e6626; font-weight: 700; margin-bottom: 2px; }
+  .empty { color: #a79f89; font-size: 8px; }
 
   .none { color: #a79f89; }
-  footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #dbd5c3; color: #a79f89; font-size: 11px; text-align: center; }
+  footer { margin-top: 6mm; padding-top: 2mm; border-top: 1px solid #dbd5c3; color: #a79f89; font-size: 8px; text-align: center; }
 </style></head>
-<body><div class="doc">
-  <div class="masthead">
-    <div>
-      <div class="brand">2J Fitness Center</div>
-      <h1>${esc(title)}</h1>
-    </div>
-    <div class="meta">${metaLines}</div>
-  </div>
-  ${bodyHTML}
-  <footer>${esc(t('Made with 2J Fitness Center'))} · 2jfitnesscenter.com</footer>
-</div></body></html>`
+<body>${pages}</body></html>`
 }
 
 const metaOf = (owner, extra) => [owner ? `<div><b>${esc(owner)}</b></div>` : '', `<div>${esc([extra, todayISO()].filter(Boolean).join(' · '))}</div>`].join('')
 
 /** Full self-contained HTML for the print/PDF view — a gym-floor sheet, one table per
- *  scheduled day, with blank boxes to log each set by hand. Whichever schedule is actually
- *  driving Home right now — an active program's own week if one is active, the flat week
- *  otherwise (same activeWeek() Home itself reads) — not always the flat S.week, or this
- *  prints "no routines" for someone whose whole plan lives inside an active program. */
-export function planPrintHTML(S, owner) {
+ *  scheduled day, 3 to a landscape page, with blank boxes to log each set by hand. Whichever
+ *  schedule is actually driving Home right now — an active program's own week if one is
+ *  active, the flat week otherwise (same activeWeek() Home itself reads) — not always the flat
+ *  S.week, or this prints "no routines" for someone whose whole plan lives inside an active
+ *  program. */
+export async function planPrintHTML(S, owner) {
   const unit = S.unit || 'kg'
   const routines = S.routines || []
   const week = activeWeek(S)
   const days = WEEK_ORDER.map(d => ({ d, r: routines.find(x => x.id === week?.[d]) })).filter(x => x.r && x.r.ex && x.r.ex.length)
-  const body = days.length
-    ? days.map((x, i) => dayLogHTML(i + 1, t(DAYN[x.d]), x.r, unit)).join('')
-    : `<p class="none">${esc(t('No routines yet.'))}</p>`
+  const dayBlocks = days.map((x, i) => dayLogHTML(i + 1, t(DAYN[x.d]), x.r, unit))
   const meta = metaOf(owner, days.length ? t('{0} days a week', days.length) : '')
-  return printShell(t('Weekly Training Plan'), meta, weekStripHTML(routines, week) + body)
+  return printShell(t('Weekly Training Plan'), meta, await logoDataUri(), dayBlocks, days.length ? weekStripHTML(routines, week) : '')
 }
 
 /** Print view for a single standalone routine — just its own exercise table, no week strip
  *  (a lone routine isn't necessarily assigned to any day). */
-export function routinePrintHTML(routine, owner, unit) {
-  const body = routine.ex?.length ? dayLogHTML(null, '', routine, unit) : `<p class="none">${esc(t('No exercises yet.'))}</p>`
-  return printShell(routine.name || t('Routine'), metaOf(owner, exCount(routine.ex?.length || 0)), body)
+export async function routinePrintHTML(routine, owner, unit) {
+  const dayBlocks = routine.ex?.length ? [dayLogHTML(null, '', routine, unit)] : []
+  return printShell(routine.name || t('Routine'), metaOf(owner, exCount(routine.ex?.length || 0)), await logoDataUri(), dayBlocks)
 }
 
 // A plain sequence of routine tables, one per routine in the order given, no week/day framing
 // — for anything that isn't tied to a schedule: a hand-picked selection, or a program with
 // routines but no days assigned to them yet.
-function routinesListHTML(routines, unit) {
-  return routines.length
-    ? routines.filter(r => r.ex?.length).map((r, i) => dayLogHTML(i + 1, '', r, unit)).join('')
-    : `<p class="none">${esc(t('No routines yet.'))}</p>`
-}
+const routineBlocks = (routines, unit) => routines.filter(r => r.ex?.length).map((r, i) => dayLogHTML(i + 1, '', r, unit))
 
 /** Print view for a hand-picked set of routines — e.g. from the multi-select in the Routines
  *  tab, printing 2 of a dozen instead of the whole list. Order follows the given array. */
-export function routinesPrintHTML(routines, owner, unit) {
-  return printShell(t('Routines'), metaOf(owner, routineCount(routines.length)), routinesListHTML(routines, unit))
+export async function routinesPrintHTML(routines, owner, unit) {
+  return printShell(t('Routines'), metaOf(owner, routineCount(routines.length)), await logoDataUri(), routineBlocks(routines, unit))
 }
 
 /** Print view for one program — its own routines + its own weekday schedule, same gym-floor
  *  layout as the whole-plan view but scoped to just this program instead of the flat S.week. */
-export function programPrintHTML(program, routines, owner, unit) {
+export async function programPrintHTML(program, routines, owner, unit) {
   const days = WEEK_ORDER.map(d => ({ d, r: routines.find(x => x.id === program.week?.[d]) })).filter(x => x.r && x.r.ex && x.r.ex.length)
-  const body = days.length ? days.map((x, i) => dayLogHTML(i + 1, t(DAYN[x.d]), x.r, unit)).join('') : routinesListHTML(routines, unit)
+  const dayBlocks = days.length ? days.map((x, i) => dayLogHTML(i + 1, t(DAYN[x.d]), x.r, unit)) : routineBlocks(routines, unit)
   const meta = metaOf(owner, days.length ? t('{0} days a week', days.length) : routineCount(routines.length))
-  return printShell(program.name || t('Program'), meta, (days.length ? weekStripHTML(routines, program.week) : '') + body)
+  return printShell(program.name || t('Program'), meta, await logoDataUri(), dayBlocks, days.length ? weekStripHTML(routines, program.week) : '')
 }
 
 // Standalone-mode iOS (added to the home screen) largely doesn't support window.print() from
@@ -392,7 +436,10 @@ function openPrintWindow(html) {
   else ifr.onload = () => setTimeout(run, 120)
 }
 
-export const printPlan = (S, owner) => openPrintWindow(planPrintHTML(S, owner))
-export const printRoutine = (routine, owner, unit) => openPrintWindow(routinePrintHTML(routine, owner, unit))
-export const printRoutines = (routines, owner, unit) => openPrintWindow(routinesPrintHTML(routines, owner, unit))
-export const printProgram = (program, routines, owner, unit) => openPrintWindow(programPrintHTML(program, routines, owner, unit))
+// The *PrintHTML builders are async now (they await the logo once) — callers already fire
+// these off from a plain onClick with nothing to await afterwards, so wrapping each in an
+// async arrow is the whole change; nothing downstream needed to start awaiting anything.
+export const printPlan = async (S, owner) => openPrintWindow(await planPrintHTML(S, owner))
+export const printRoutine = async (routine, owner, unit) => openPrintWindow(await routinePrintHTML(routine, owner, unit))
+export const printRoutines = async (routines, owner, unit) => openPrintWindow(await routinesPrintHTML(routines, owner, unit))
+export const printProgram = async (program, routines, owner, unit) => openPrintWindow(await programPrintHTML(program, routines, owner, unit))

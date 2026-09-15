@@ -18,6 +18,29 @@ import {
 } from '../lib/effort.js'
 import { Button, Segmented, SelectRow } from '../components/ui.jsx'
 
+// Steps, sleep and resting heart rate only ever arrive via an Apple Health import (Settings →
+// Import from another app) — nothing in the app logs these by hand, so the card just doesn't
+// render for anyone who hasn't imported one.
+function HealthCard({ S }) {
+  const opts = []
+  if (S.steps.length) opts.push({ value: 'steps', label: t('Steps') })
+  if (S.sleep.length) opts.push({ value: 'sleep', label: t('Sleep') })
+  if (S.restingHR.length) opts.push({ value: 'hr', label: t('Resting HR') })
+  const [metric, setMetric] = useState(opts[0].value)
+  const on = opts.some(o => o.value === metric) ? metric : opts[0].value
+  const pts = on === 'steps' ? S.steps.map(p => ({ t: p.t, y: p.v, d: p.d }))
+    : on === 'sleep' ? S.sleep.map(p => ({ t: p.t, y: Math.round(p.v / 6) / 10, d: p.d }))
+    : S.restingHR.map(p => ({ t: p.t, y: p.v, d: p.d }))
+  const unit = on === 'steps' ? '' : on === 'sleep' ? 'h' : 'bpm'
+  const color = on === 'steps' ? 'var(--teal)' : on === 'sleep' ? 'var(--indigo)' : 'var(--red)'
+  return <div className="card">
+    <h2>{t('Health')}</h2>
+    {opts.length > 1 && <Segmented className="seg-range" value={on} onChange={setMetric} options={opts} />}
+    <div className="chart"><LineChart points={pts} h={150} unit={unit} color={color} /></div>
+    <div className="small dim" style={{ marginTop: 8 }}>{t('Imported from Apple Health.')}</div>
+  </div>
+}
+
 // Which muscles the training in a window actually hit — and, the point of the card,
 // which ones it keeps missing. Shading is relative within the window (lib/muscles.js).
 function MuscleBalance({ S }) {
@@ -269,6 +292,8 @@ export default function Stats() {
           </>}
         </> : <div className="muted small">{t('Finish your first workout to see progress curves here.')}</div>}
       </div>
+
+      {(S.steps.length || S.sleep.length || S.restingHR.length) > 0 && <HealthCard S={S} />}
     </div>
 
     {S.workouts.length > 0 && <>

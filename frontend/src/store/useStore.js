@@ -16,6 +16,10 @@ export const DEF = {
   // backdrop-filter isn't free on an older phone. glassOpacity/glassBlur are 0-100 dials;
   // applyPrefs maps them into an actual alpha/px range, see its own comment for the mapping.
   glass: false, glassOpacity: 35, glassBlur: 45,
+  // Settings → Appearance → Text size — a multiplier applied to every font-size in the app
+  // (App.jsx's applyPrefs sets --text-scale from this). 1 is the size the app was designed at;
+  // the four steps Settings offers are 0.9/1/1.15/1.3.
+  textScale: 1,
   // Basic profile, collected (optionally) at registration and editable later in Settings.
   // birthDate is the ISO date, not a stored age — age is derived from it wherever it is needed.
   birthDate: null, height: null,
@@ -36,6 +40,9 @@ export const DEF = {
   // an array of {d, v, t} exactly like bodyweight's own shape, just generalised to more than
   // one series. Absent keys are just "never logged", not zero.
   measurements: {},
+  // Same {d, v, t} shape again — steps/sleep(minutes)/restingHR only ever arrive via an Apple
+  // Health import (lib/import-csv.js's parseAppleHealth/mergeImport), never logged by hand.
+  steps: [], sleep: [], restingHR: [],
   bodyweight: [], routines: [], programs: [], week: {}, dayPlan: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // A personal target weight for a given exercise — private like targetW (the bodyweight

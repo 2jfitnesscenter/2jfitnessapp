@@ -14,9 +14,9 @@
 // spreadsheet round-trips people actually have on disk, as long as the file has a
 // date, an exercise name and something measured.
 //
-// Apple Health is a different animal — an XML dump, often hundreds of MB — and only its
-// body-weight records are interesting here. parseBodyweight() scans for those without
-// building a DOM.
+// Apple Health is a different animal — an XML dump, often hundreds of MB. parseAppleHealth()
+// scans it in one pass for body weight, body fat, lean mass, steps, sleep, resting heart rate,
+// and heart-rate zones during workouts already logged here, all without building a DOM.
 
 import { EXDB, EXIDX } from './exercises.js'
 import { uid } from './format.js'
@@ -434,48 +434,30 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
 /* ------------------------------------------------------- body weight ------ */
 
 /**
- * Body-weight history from Apple Health, or any CSV with a date and a weight.
- *
- * Health's own export is one big `export.xml` — often several hundred MB, nearly all of
- * it step counts and heart rate. Building a DOM would blow up the tab, so the body-mass
- * records are pulled out with a scan instead. Health writes weights in the unit the
- * phone is set to and labels each record, so the unit is read per record.
+ * Body weight from any CSV with a date and a weight column — FitNotes/Strong/Hevy's own
+ * weight-tracking exports, or a spreadsheet round-trip. Apple Health's export.xml is handled
+ * separately by parseAppleHealth() below (a different animal entirely: one huge XML dump
+ * rather than a weight-only table), which parseImport() routes to first.
  */
 export function parseBodyweight(text, { unit = 'kg' } = {}) {
   const s = String(text)
   const out = new Map()          // iso date -> { w, t }  (one weigh-in per day, the last)
   let fileUnit = ''
 
-  if (s.includes('HKQuantityTypeIdentifierBodyMass')) {
-    const re = /<Record[^>]*type="HKQuantityTypeIdentifierBodyMass"[^>]*>/g
-    let m
-    while ((m = re.exec(s))) {
-      const tag = m[0]
-      const val = /value="([\d.]+)"/.exec(tag)
-      const dt = /startDate="([^"]+)"/.exec(tag) || /creationDate="([^"]+)"/.exec(tag)
-      const u = /unit="([^"]+)"/.exec(tag)
-      if (!val || !dt) continue
-      const when = parseWhen(dt[1])
-      if (!when) continue
-      if (u) fileUnit = /lb/i.test(u[1]) ? 'lb' : 'kg'
-      out.set(when.d, { w: parseFloat(val[1]), t: new Date(dt[1]).getTime() || null })
-    }
-  } else {
-    const rows = parseCSV(s)
-    if (rows.length < 2) return { error: 'empty' }
-    const map = mapHeader(rows[0])
-    // a weight-only CSV: whichever weight column it has
-    const wCol = map.weightKg ?? map.weightLb ?? map.weight
-    const dCol = map.date ?? map.startTime
-    if (wCol === undefined || dCol === undefined) return { error: 'unrecognised' }
-    if (map.weightKg !== undefined) fileUnit = 'kg'
-    else if (map.weightLb !== undefined) fileUnit = 'lb'
-    for (let i = 1; i < rows.length; i++) {
-      const when = parseWhen(String(rows[i][dCol] ?? ''))
-      const w = num(rows[i][wCol])
-      if (!when || !w) continue
-      out.set(when.d, { w, t: new Date(when.d).getTime() + (when.t ?? 0) })
-    }
+  const rows = parseCSV(s)
+  if (rows.length < 2) return { error: 'empty' }
+  const map = mapHeader(rows[0])
+  // a weight-only CSV: whichever weight column it has
+  const wCol = map.weightKg ?? map.weightLb ?? map.weight
+  const dCol = map.date ?? map.startTime
+  if (wCol === undefined || dCol === undefined) return { error: 'unrecognised' }
+  if (map.weightKg !== undefined) fileUnit = 'kg'
+  else if (map.weightLb !== undefined) fileUnit = 'lb'
+  for (let i = 1; i < rows.length; i++) {
+    const when = parseWhen(String(rows[i][dCol] ?? ''))
+    const w = num(rows[i][wCol])
+    if (!when || !w) continue
+    out.set(when.d, { w, t: new Date(when.d).getTime() + (when.t ?? 0) })
   }
 
   if (!out.size) return { error: 'unrecognised' }
@@ -485,16 +467,207 @@ export function parseBodyweight(text, { unit = 'kg' } = {}) {
     : x => Math.round(x * 10) / 10
   const dates = [...out.keys()].sort()
   return {
-    kind: 'bodyweight', source: 'Apple Health',
+    kind: 'bodyweight', source: null,
     bodyweight: dates.map(d => ({ d, w: conv(out.get(d).w), t: out.get(d).t || new Date(d).getTime() })),
     fileUnit, converted, from: dates[0], to: dates[dates.length - 1],
+  }
+}
+
+/* -------------------------------------------------------- Apple Health ---- */
+
+// Attribute pickers reused across every <Record> tag — predefined once rather than built per
+// call, since this runs against every record in what can be a several-hundred-MB file.
+const AT_TYPE = /\btype="([^"]*)"/, AT_VALUE = /\bvalue="([^"]*)"/
+const AT_START = /\bstartDate="([^"]*)"/, AT_END = /\bendDate="([^"]*)"/, AT_UNIT = /\bunit="([^"]*)"/
+const pick = (tag, re) => { const m = re.exec(tag); return m ? m[1] : null }
+const pickNum = (tag, re) => { const v = pick(tag, re); const n = v == null ? NaN : parseFloat(v); return isFinite(n) ? n : null }
+
+// Health writes "2024-01-01 08:00:00 -0500" — space-separated, numeric offset, not real ISO
+// 8601 — which native Date parsing handles inconsistently across engines. Parsed by hand so a
+// heart-rate sample's timestamp lines up reliably against S.workouts' own start/end (real UTC
+// epoch ms) on every platform, iOS Safari included, where this app actually runs.
+function parseHKDate(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:\s([+-]\d{2})(\d{2}))?/.exec(v || '')
+  if (!m) { const t = Date.parse(v); return isFinite(t) ? t : null }
+  const [, y, mo, d, h, mi, se, oh, om] = m
+  const utc = Date.UTC(+y, +mo - 1, +d, +h, +mi, +se)
+  const offMin = oh ? (oh[0] === '-' ? -1 : 1) * (Math.abs(+oh) * 60 + +om) : 0
+  return utc - offMin * 60000
+}
+
+const HK = {
+  BodyMass: 'HKQuantityTypeIdentifierBodyMass',
+  BodyFat: 'HKQuantityTypeIdentifierBodyFatPercentage',
+  LeanMass: 'HKQuantityTypeIdentifierLeanBodyMass',
+  Steps: 'HKQuantityTypeIdentifierStepCount',
+  Sleep: 'HKCategoryTypeIdentifierSleepAnalysis',
+  RestingHR: 'HKQuantityTypeIdentifierRestingHeartRate',
+  HeartRate: 'HKQuantityTypeIdentifierHeartRate',
+}
+
+// Binary search over workout windows sorted by start: the last window starting at-or-before
+// `t`, if `t` actually falls inside it. Correct regardless of the file's own record order —
+// Health does not guarantee heart-rate records arrive chronologically across the whole export.
+function windowAt(wins, t) {
+  let lo = 0, hi = wins.length - 1, ans = -1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (wins[mid].start <= t) { ans = mid; lo = mid + 1 } else hi = mid - 1
+  }
+  const w = ans >= 0 ? wins[ans] : null
+  return w && t <= w.end ? w : null
+}
+
+// 5 standard bands as fractions of estimated max heart rate: Z1 50-60%, Z2 60-70%, Z3 70-80%,
+// Z4 80-90%, Z5 90%+. A reading below Z1's floor still counts as Z1 rather than being dropped —
+// any elevated heart rate during a lift is still some effort.
+const bandFor = (bpm, cuts) => bpm < cuts[1] ? 0 : bpm < cuts[2] ? 1 : bpm < cuts[3] ? 2 : bpm < cuts[4] ? 3 : 4
+
+const lastWins = (out, d, v, t) => out.set(d, { v, t })   // same "last reading of the day wins" rule as bodyweight
+const addTo = (out, d, v, t) => { const cur = out.get(d); out.set(d, { v: (cur ? cur.v : 0) + v, t }) }
+
+/**
+ * Everything this app can use out of an Apple Health export.xml: body weight, body fat, lean
+ * mass (the closest thing Health has to "muscle mass" — see measurements.js), steps, sleep,
+ * resting heart rate, and — for every passed-in workout whose window overlaps a continuous
+ * heart-rate sample — minutes spent in each of 5 heart-rate zones for that session.
+ *
+ * One pass over the text, dispatching each <Record> by its own `type` attribute, rather than
+ * scanning once per type: the file is often several hundred MB, nearly all of it step counts
+ * and heart rate, and re-scanning that many times over would multiply the cost for no reason.
+ * Daily series are summed/overwritten into the day's bucket immediately and the raw record
+ * dropped — memory stays O(days), not O(records) — except heart-rate samples that fall inside
+ * a workout window, which are kept (per matched workout only) so zone minutes can be computed
+ * from real gaps between consecutive samples once every record has been seen.
+ */
+export function parseAppleHealth(text, { unit = 'kg', workouts = [], maxHR = null } = {}) {
+  const s = String(text)
+  if (!s.includes('HKQuantityTypeIdentifier') && !s.includes('HKCategoryTypeIdentifier')) return { error: 'unrecognised' }
+
+  const bw = new Map(), bodyFat = new Map(), leanMass = new Map()
+  const steps = new Map(), sleep = new Map(), restingHR = new Map()
+  let bwUnit = '', leanUnit = ''
+
+  const wins = workouts
+    .filter(w => w.id && w.start && w.end > w.start)
+    .map(w => ({ id: w.id, start: w.start, end: w.end }))
+    .sort((a, b) => a.start - b.start)
+  const hrSamples = new Map()   // workout id -> [{t, v}] — only for workouts a sample actually falls in
+  const zoneCuts = maxHR > 0 ? [0.5, 0.6, 0.7, 0.8, 0.9, 1].map(p => p * maxHR) : null
+
+  const RE = /<Record\b[^>]*\/?>/g
+  let m
+  while ((m = RE.exec(s))) {
+    const tag = m[0]
+    const type = pick(tag, AT_TYPE)
+    if (!type) continue
+
+    if (type === HK.HeartRate) {
+      if (!wins.length) continue
+      const t = parseHKDate(pick(tag, AT_START)); if (t == null) continue
+      const w = windowAt(wins, t); if (!w) continue
+      const v = pickNum(tag, AT_VALUE); if (v == null) continue
+      let arr = hrSamples.get(w.id); if (!arr) { arr = []; hrSamples.set(w.id, arr) }
+      arr.push({ t, v })
+      continue
+    }
+
+    const dt = pick(tag, AT_START)
+    const when = dt ? parseWhen(dt) : null
+    if (!when) continue
+
+    if (type === HK.BodyMass) {
+      const v = pickNum(tag, AT_VALUE); if (v == null) continue
+      const u = pick(tag, AT_UNIT); if (u) bwUnit = /lb/i.test(u) ? 'lb' : 'kg'
+      lastWins(bw, when.d, v, parseHKDate(dt))
+    } else if (type === HK.BodyFat) {
+      let v = pickNum(tag, AT_VALUE); if (v == null) continue
+      // Some exports write this as a 0-1 fraction rather than 0-100 — there is no way to tell
+      // which convention a given file uses except by the size of the number itself.
+      if (v <= 1) v *= 100
+      lastWins(bodyFat, when.d, Math.round(v * 10) / 10, parseHKDate(dt))
+    } else if (type === HK.LeanMass) {
+      const v = pickNum(tag, AT_VALUE); if (v == null) continue
+      const u = pick(tag, AT_UNIT); if (u) leanUnit = /lb/i.test(u) ? 'lb' : 'kg'
+      lastWins(leanMass, when.d, v, parseHKDate(dt))
+    } else if (type === HK.Steps) {
+      const v = pickNum(tag, AT_VALUE); if (v == null) continue
+      addTo(steps, when.d, v, parseHKDate(dt))
+    } else if (type === HK.RestingHR) {
+      const v = pickNum(tag, AT_VALUE); if (v == null) continue
+      lastWins(restingHR, when.d, Math.round(v), parseHKDate(dt))
+    } else if (type === HK.Sleep) {
+      const val = pick(tag, AT_VALUE)
+      if (!val || !val.includes('Asleep')) continue   // skips "InBed" and "Awake" segments
+      const endRaw = pick(tag, AT_END)
+      const startMs = parseHKDate(dt), endMs = endRaw ? parseHKDate(endRaw) : null
+      if (startMs == null || endMs == null || endMs <= startMs) continue
+      // attributed to the date you woke up, like most sleep trackers show a night's sleep
+      const wakeWhen = parseWhen(endRaw) || when
+      addTo(sleep, wakeWhen.d, Math.round((endMs - startMs) / 60000), endMs)
+    }
+  }
+
+  // Zone minutes: a heart-rate reading is a snapshot, so the interval it describes runs from
+  // itself to whenever the next one arrives. These samples come from whatever the watch was
+  // doing during S.workouts' own window, not necessarily a matching Watch workout session —
+  // often just its passive background reading, which can be several minutes apart rather than
+  // the few-seconds cadence of an active Watch workout. Capped at 5 minutes so a real gap (the
+  // watch coming off the wrist, or the matched window running long) never reads as one
+  // continuous zone, without discarding a realistic background sample as if it were one.
+  const GAP_CAP_MS = 5 * 60000
+  const hrZonesByWorkout = new Map()
+  for (const [wid, arr] of hrSamples) {
+    arr.sort((a, b) => a.t - b.t)
+    let sum = 0, max = 0
+    const zMs = [0, 0, 0, 0, 0]
+    arr.forEach(({ t, v }, i) => {
+      sum += v; if (v > max) max = v
+      if (i === arr.length - 1) return
+      const gap = Math.min(arr[i + 1].t - t, GAP_CAP_MS)
+      if (gap > 0 && zoneCuts) zMs[bandFor(v, zoneCuts)] += gap
+    })
+    hrZonesByWorkout.set(wid, {
+      avg: Math.round(sum / arr.length), max: Math.round(max),
+      z: zoneCuts ? zMs.map(ms => Math.round(ms / 60000)) : null,
+    })
+  }
+
+  const total = bw.size + bodyFat.size + leanMass.size + steps.size + sleep.size + restingHR.size + hrZonesByWorkout.size
+  if (!total) return { error: 'unrecognised' }
+
+  const convW = (map, fileUnit) => {
+    const converted = !!fileUnit && fileUnit !== unit
+    const conv = converted
+      ? (fileUnit === 'lb' ? x => Math.round(x * LB_TO_KG * 10) / 10 : x => Math.round(x / LB_TO_KG * 10) / 10)
+      : x => Math.round(x * 10) / 10
+    return [...map.keys()].sort().map(d => ({ d, w: conv(map.get(d).v), t: map.get(d).t }))
+  }
+  const toSeries = map => [...map.keys()].sort().map(d => ({ d, v: map.get(d).v, t: map.get(d).t }))
+
+  const allDates = [...bw.keys(), ...bodyFat.keys(), ...leanMass.keys(), ...steps.keys(), ...sleep.keys(), ...restingHR.keys()].sort()
+
+  return {
+    kind: 'health', source: 'Apple Health',
+    bodyweight: convW(bw, bwUnit).map(({ d, w, t }) => ({ d, w, t })),
+    measurements: {
+      bodyFat: toSeries(bodyFat),
+      // muscleMass is stored in kg (see lib/measurements.js) — lean mass converts the same way weight does
+      muscleMass: convW(leanMass, leanUnit).map(({ d, w, t }) => ({ d, v: w, t })),
+    },
+    steps: toSeries(steps).map(p => ({ ...p, v: Math.round(p.v) })),
+    sleep: toSeries(sleep),
+    restingHR: toSeries(restingHR),
+    hrZonesByWorkout,
+    from: allDates[0] || null, to: allDates[allDates.length - 1] || null,
   }
 }
 
 /** Sniff the file and parse it as whatever it is. */
 export function parseImport(text, opts) {
   const s = String(text)
-  if (s.includes('HKQuantityTypeIdentifier') || /^\s*</.test(s)) return parseBodyweight(s, opts)
+  if (s.includes('HKQuantityTypeIdentifier') || s.includes('HKCategoryTypeIdentifier')) return parseAppleHealth(s, opts)
+  if (/^\s*</.test(s)) return { error: 'unrecognised' }
   const asWorkouts = parseWorkoutCSV(s, opts)
   if (!asWorkouts.error) return asWorkouts
   const asWeights = parseBodyweight(s, opts)
@@ -503,8 +676,48 @@ export function parseImport(text, opts) {
 
 /* --------------------------------------------------------------- merge ---- */
 
+// Same "existing day wins" de-dupe every kind of import already uses, factored out for the
+// 5 daily series an Apple Health import can bring (bodyweight plus the 4 new ones below).
+function mergeSeries(existing, fresh) {
+  const have = new Set((existing || []).map(x => x.d))
+  const add = (fresh || []).filter(x => !have.has(x.d))
+  return { list: [...(existing || []), ...add].sort((a, b) => (a.d < b.d ? -1 : 1)), added: add.length }
+}
+
 /** Merge into state. Existing days win — importing twice never duplicates a workout. */
 export function mergeImport(S, parsed) {
+  if (parsed.kind === 'health') {
+    const bw = mergeSeries(S.bodyweight, parsed.bodyweight)
+    S.bodyweight = bw.list
+    S.measurements = S.measurements || {}
+    const bodyFat = mergeSeries(S.measurements.bodyFat, parsed.measurements.bodyFat)
+    S.measurements.bodyFat = bodyFat.list
+    const muscleMass = mergeSeries(S.measurements.muscleMass, parsed.measurements.muscleMass)
+    S.measurements.muscleMass = muscleMass.list
+    const steps = mergeSeries(S.steps, parsed.steps)
+    S.steps = steps.list
+    const sleep = mergeSeries(S.sleep, parsed.sleep)
+    S.sleep = sleep.list
+    const restingHR = mergeSeries(S.restingHR, parsed.restingHR)
+    S.restingHR = restingHR.list
+
+    // Only fills in workouts that don't already have a zone breakdown, so reimporting the
+    // same export.xml (e.g. a newer one that just extends the date range) never recomputes or
+    // overwrites what a previous import already matched.
+    let hrMatched = 0
+    if (parsed.hrZonesByWorkout && parsed.hrZonesByWorkout.size) {
+      S.workouts.forEach(w => {
+        if (w.hrZones) return
+        const z = parsed.hrZonesByWorkout.get(w.id)
+        if (z) { w.hrZones = z; hrMatched++ }
+      })
+    }
+
+    return {
+      bodyweight: bw.added, bodyFat: bodyFat.added, muscleMass: muscleMass.added,
+      steps: steps.added, sleep: sleep.added, restingHR: restingHR.added, hrMatched,
+    }
+  }
   if (parsed.kind === 'bodyweight') {
     const have = new Set(S.bodyweight.map(b => b.d))
     const fresh = parsed.bodyweight.filter(b => !have.has(b.d))

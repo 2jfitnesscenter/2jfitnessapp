@@ -18,6 +18,13 @@
 
 /* ---------------------------------------------------------------- tokens -- */
 :root {
+  /* Settings → Appearance → Text size — every font-size in this file multiplies by this, so
+     changing it scales the whole app at once instead of just the handful of spots that used to
+     get patched one at a time whenever a number ran into trouble on a real phone (see the
+     reps/RPE clipping issue). Set from JS (App.jsx's applyPrefs); the ,1 fallback is what every
+     screen renders at before that first effect runs. */
+  --text-scale: 1;
+
   /* surfaces — dark is the default */
   --bg:        #000000;
   --bg-el:     #0e0e10;   /* elevated backdrop (sheets, bars) */
@@ -129,13 +136,13 @@
 /* ---------------------------------------------------------------- reset -- */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{
-  font-size:16px;background:var(--bg);overscroll-behavior:none;overflow-x:clip;
+  font-size:calc(16px * var(--text-scale,1));background:var(--bg);overscroll-behavior:none;overflow-x:clip;
   -webkit-text-size-adjust:100%;
 }
 body{
   background:var(--bg);color:var(--label);
   font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Segoe UI',Roboto,system-ui,sans-serif;
-  font-size:17px;line-height:1.29;letter-spacing:-.01em;
+  font-size:calc(17px * var(--text-scale,1));line-height:1.29;letter-spacing:-.01em;
   min-height:100vh;overscroll-behavior-y:none;overflow-x:clip;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
   touch-action:manipulation;
@@ -160,18 +167,18 @@ button,.chip,.tile,.item,.wday,.cal-d,.swatch,.hm-c,.lrow,.seg button,.stp butto
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 
 /* ------------------------------------------------------------ type scale -- */
-.t-large  {font-size:34px;line-height:1.06;font-weight:700;letter-spacing:-.028em}
-.t-title  {font-size:28px;line-height:1.12;font-weight:700;letter-spacing:-.024em}
-.t-title2 {font-size:22px;line-height:1.18;font-weight:700;letter-spacing:-.021em}
-.t-head   {font-size:17px;line-height:1.29;font-weight:600;letter-spacing:-.012em}
-.t-body   {font-size:17px;line-height:1.29;font-weight:400;letter-spacing:-.012em}
-.t-callout{font-size:16px;line-height:1.31;font-weight:400;letter-spacing:-.009em}
-.t-sub    {font-size:15px;line-height:1.33;font-weight:400;letter-spacing:-.006em}
-.t-foot   {font-size:13px;line-height:1.38;font-weight:400;letter-spacing:-.001em}
-.t-cap    {font-size:12px;line-height:1.33;font-weight:400;letter-spacing:0}
+.t-large  {font-size:calc(34px * var(--text-scale,1));line-height:1.06;font-weight:700;letter-spacing:-.028em}
+.t-title  {font-size:calc(28px * var(--text-scale,1));line-height:1.12;font-weight:700;letter-spacing:-.024em}
+.t-title2 {font-size:calc(22px * var(--text-scale,1));line-height:1.18;font-weight:700;letter-spacing:-.021em}
+.t-head   {font-size:calc(17px * var(--text-scale,1));line-height:1.29;font-weight:600;letter-spacing:-.012em}
+.t-body   {font-size:calc(17px * var(--text-scale,1));line-height:1.29;font-weight:400;letter-spacing:-.012em}
+.t-callout{font-size:calc(16px * var(--text-scale,1));line-height:1.31;font-weight:400;letter-spacing:-.009em}
+.t-sub    {font-size:calc(15px * var(--text-scale,1));line-height:1.33;font-weight:400;letter-spacing:-.006em}
+.t-foot   {font-size:calc(13px * var(--text-scale,1));line-height:1.38;font-weight:400;letter-spacing:-.001em}
+.t-cap    {font-size:calc(12px * var(--text-scale,1));line-height:1.33;font-weight:400;letter-spacing:0}
 
 .muted{color:var(--label-2)} .dim{color:var(--label-3)}
-.small{font-size:13px;line-height:1.38}
+.small{font-size:calc(13px * var(--text-scale,1));line-height:1.38}
 .accent{color:var(--acc)}
 .capitalize{text-transform:capitalize}
 /* exercise names and body-part/equipment terms arrive lowercase from the dataset,
@@ -196,8 +203,8 @@ body.resting #app{padding-bottom:calc(250px + var(--sab))}
 
 /* large title, the way a nav bar does it */
 .hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:8px 0 18px}
-.hdr h1{font-size:34px;line-height:1.06;font-weight:700;letter-spacing:-.028em}
-.hdr .sub{color:var(--label-2);font-size:15px;letter-spacing:-.006em;margin-top:4px}
+.hdr h1{font-size:calc(34px * var(--text-scale,1));line-height:1.06;font-weight:700;letter-spacing:-.028em}
+.hdr .sub{color:var(--label-2);font-size:calc(15px * var(--text-scale,1));letter-spacing:-.006em;margin-top:4px}
 
 /* --------------------------------------------------- Home's own greeting -- */
 /* Only the Home screen's own "Hi <name>" card — every other screen keeps the plain .hdr
@@ -222,9 +229,9 @@ body.resting #app{padding-bottom:calc(250px + var(--sab))}
 }
 .home-hero h1{
   font-family:'Sora',-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,system-ui,sans-serif;
-  font-weight:800;font-size:29px;line-height:1.1;letter-spacing:-.02em;margin:0;
+  font-weight:800;font-size:calc(29px * var(--text-scale,1));line-height:1.1;letter-spacing:-.02em;margin:0;
 }
-.home-hero .sub{color:var(--label-2);font-size:14.5px;letter-spacing:-.004em;margin-top:6px}
+.home-hero .sub{color:var(--label-2);font-size:calc(14.5px * var(--text-scale,1));letter-spacing:-.004em;margin-top:6px}
 :root[data-theme="light"] .home-hero{background:linear-gradient(165deg,#2c2e31 0%,#111214 70%);border-color:rgba(255,255,255,.08)}
 :root[data-theme="light"] .home-hero h1{color:#fff}
 :root[data-theme="light"] .home-hero .sub{color:rgba(255,255,255,.62)}
@@ -232,18 +239,18 @@ body.resting #app{padding-bottom:calc(250px + var(--sab))}
 .iconbtn{
   width:36px;height:36px;border-radius:50%;flex:none;
   background:var(--surface);color:var(--label);
-  display:flex;align-items:center;justify-content:center;font-size:18px;
+  display:flex;align-items:center;justify-content:center;font-size:calc(18px * var(--text-scale,1));
   transition:background var(--fast),transform var(--fast);
 }
 .iconbtn:active{background:var(--surface-2);transform:scale(.92)}
 .iconbtn.on-ss{background:var(--acc-soft);color:var(--acc)}
 
 h4.sec{
-  font-size:13px;font-weight:400;letter-spacing:-.004em;color:var(--label-2);
+  font-size:calc(13px * var(--text-scale,1));font-weight:400;letter-spacing:-.004em;color:var(--label-2);
   text-transform:none;margin:22px 0 8px;padding:0 4px;
 }
 .card h2{
-  font-size:13px;font-weight:400;letter-spacing:-.004em;color:var(--label-2);
+  font-size:calc(13px * var(--text-scale,1));font-weight:400;letter-spacing:-.004em;color:var(--label-2);
   text-transform:none;margin:0 0 12px;
 }
 .divider{height:var(--hair);background:var(--sep);margin:14px 0;border:0}
@@ -256,16 +263,16 @@ h4.sec{
   background:var(--surface);border-radius:var(--r-card);
   padding:16px;margin-bottom:12px;
 }
-.card .big{font-size:30px;font-weight:600;letter-spacing:-.026em;line-height:1.1}
+.card .big{font-size:calc(30px * var(--text-scale,1));font-weight:600;letter-spacing:-.026em;line-height:1.1}
 
 /* ------------------------------------------------------ inset group list -- */
 .sect{margin-bottom:22px}
 .sect-t{
-  font-size:13px;font-weight:400;color:var(--label-2);
+  font-size:calc(13px * var(--text-scale,1));font-weight:400;color:var(--label-2);
   letter-spacing:-.004em;padding:0 4px 7px;display:block;
 }
 .sect-b{background:var(--surface);border-radius:var(--r-card);overflow:hidden}
-.sect-f{font-size:13px;color:var(--label-2);padding:7px 4px 0;line-height:1.38}
+.sect-f{font-size:calc(13px * var(--text-scale,1));color:var(--label-2);padding:7px 4px 0;line-height:1.38}
 
 .lrow{
   display:flex;align-items:center;gap:12px;width:100%;text-align:left;
@@ -279,7 +286,7 @@ h4.sec{
 .lrow:has(.lrow-i)+.lrow:has(.lrow-i)::before{left:55px}
 .lrow.tap:active{background:var(--surface-2)}
 .lrow-i{
-  width:29px;height:29px;border-radius:7px;flex:none;font-size:18px;
+  width:29px;height:29px;border-radius:7px;flex:none;font-size:calc(18px * var(--text-scale,1));
   display:flex;align-items:center;justify-content:center;
   background:var(--tint,var(--acc));color:#fff;
 }
@@ -288,24 +295,24 @@ h4.sec{
    light and dark). Deliberately ignores --tint: a row-specific iconTint would defeat the point
    of a monochrome badge set. One-screen trial, see Row's `softIcon` prop. */
 .lrow-i.soft{
-  width:32px;height:32px;border-radius:10px;font-size:16px;
+  width:32px;height:32px;border-radius:10px;font-size:calc(16px * var(--text-scale,1));
   background:color-mix(in srgb, var(--acc) 14%, transparent);
   color:var(--acc);
   --icon-stroke:1.9;
 }
 .lrow-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.lrow-t{font-size:17px;letter-spacing:-.012em;line-height:1.25}
-.lrow-s{font-size:13px;color:var(--label-2);line-height:1.3}
-.lrow-v{color:var(--label-2);font-size:17px;letter-spacing:-.012em;flex:none}
-.lrow-c{color:var(--label);font-size:15px;flex:none;--icon-stroke:2.4}
-.lrow-k{color:var(--acc);font-size:17px;flex:none;--icon-stroke:2.4}
+.lrow-t{font-size:calc(17px * var(--text-scale,1));letter-spacing:-.012em;line-height:1.25}
+.lrow-s{font-size:calc(13px * var(--text-scale,1));color:var(--label-2);line-height:1.3}
+.lrow-v{color:var(--label-2);font-size:calc(17px * var(--text-scale,1));letter-spacing:-.012em;flex:none}
+.lrow-c{color:var(--label);font-size:calc(15px * var(--text-scale,1));flex:none;--icon-stroke:2.4}
+.lrow-k{color:var(--acc);font-size:calc(17px * var(--text-scale,1));flex:none;--icon-stroke:2.4}
 .lrow.danger,.lrow.danger .lrow-t{color:var(--red)}
 /* an (i) before a row's control: painted small and dim so the control stays the loud thing,
    but with a finger-sized target like everything else — the padding is the hit area and the
    vertical negative margin keeps it from making the row taller. The horizontal ones pull the
    hit area back under the row's own 12px gap instead of adding to it. */
 .helpbtn{
-  color:var(--label-3);font-size:16px;background:none;line-height:0;flex:none;
+  color:var(--label-3);font-size:calc(16px * var(--text-scale,1));background:none;line-height:0;flex:none;
   margin:-11px -2px -11px -4px;padding:11px 4px;
 }
 .helpbtn:active{color:var(--label)}
@@ -319,12 +326,12 @@ h4.sec{
    each step now reads as a defined shape instead of flat fill or bare text. */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;
-  padding:14px 18px;border-radius:var(--r);font-size:17px;font-weight:600;
+  padding:14px 18px;border-radius:var(--r);font-size:calc(17px * var(--text-scale,1));font-weight:600;
   letter-spacing:-.012em;background:var(--surface-2);color:var(--label);
   border:1.5px solid transparent;
   transition:transform var(--fast) var(--ease),background var(--fast),opacity var(--fast),border-color var(--fast);
 }
-.btn .icn{font-size:19px}
+.btn .icn{font-size:calc(19px * var(--text-scale,1))}
 .btn:active{transform:scale(.975)}
 .btn.primary{background:var(--acc);color:var(--on-acc);border-color:var(--acc-2)}
 .btn.primary:active{background:var(--acc-2)}
@@ -332,9 +339,9 @@ h4.sec{
 .btn.danger{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,transparent)}
 .btn.ghost,.btn.plain{background:none;color:var(--acc);font-weight:400;border-color:var(--acc-line)}
 .btn.ghost:active,.btn.plain:active{background:var(--surface-2)}
-.btn.sm{padding:8px 14px;width:auto;font-size:15px;border-radius:var(--r-sm);gap:5px}
-.btn.sm .icn{font-size:16px}
-.btn.xs{padding:5px 10px;width:auto;font-size:13px;border-radius:7px;gap:4px}
+.btn.sm{padding:8px 14px;width:auto;font-size:calc(15px * var(--text-scale,1));border-radius:var(--r-sm);gap:5px}
+.btn.sm .icn{font-size:calc(16px * var(--text-scale,1))}
+.btn.xs{padding:5px 10px;width:auto;font-size:calc(13px * var(--text-scale,1));border-radius:7px;gap:4px}
 .btn:disabled{opacity:.32;pointer-events:none}
 
 /* Fixed primary-action bar for a full-screen step wizard (PhysicalProfileWizard, CoachIntake,
@@ -371,7 +378,7 @@ h4.sec{
 :root[data-theme="light"] #tabbar{background:#f9f9fb}
 #tabbar button{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
-  color:var(--label-3);font-size:10px;font-weight:500;letter-spacing:.005em;padding-top:3px;
+  color:var(--label-3);font-size:calc(10px * var(--text-scale,1));font-weight:500;letter-spacing:.005em;padding-top:3px;
   transition:color var(--fast);
 }
 /* The inactive tint is semi-transparent, so wherever two strokes cross inside an
@@ -379,7 +386,7 @@ h4.sec{
    the alpha doubled up and the icon read as a stack of loose layers. Carrying the
    fade on the <svg> instead of in the stroke colour flattens the icon first and
    fades it as one shape — and it does that for every icon, not just this one. */
-#tabbar button .icn{font-size:25px;--icon-stroke:1.65;color:var(--label)}
+#tabbar button .icn{font-size:calc(25px * var(--text-scale,1));--icon-stroke:1.65;color:var(--label)}
 #tabbar button.on{color:var(--acc)}
 #tabbar button.on .icn{--icon-stroke:2;color:inherit;opacity:1}
 #tabbar button.start{margin-top:-24px}
@@ -390,7 +397,7 @@ h4.sec{
   transition:transform var(--fast) var(--ease);
 }
 #tabbar button.start:active .cir{transform:scale(.93)}
-#tabbar button.start .cir .icn{font-size:26px;--icon-stroke:2;color:inherit;opacity:1}
+#tabbar button.start .cir .icn{font-size:calc(26px * var(--text-scale,1));--icon-stroke:2;color:inherit;opacity:1}
 #tabbar button.start span{color:var(--acc);font-weight:600}
 /* `.cir` is itself a <span>, so the label rules above and below reach it too and
    outrank the `.cir` block — which is how the running state ended up painting an
@@ -485,8 +492,8 @@ h4.sec{
   flex:1;text-align:center;padding:8px 2px 9px;border-radius:10px;
   background:none;border:none;transition:background var(--fast);
 }
-.wday .lbl{font-size:11px;color:var(--label-3);font-weight:500;text-transform:uppercase;letter-spacing:.03em}
-.wday .num{font-size:17px;font-weight:400;margin:4px 0;letter-spacing:-.012em}
+.wday .lbl{font-size:calc(11px * var(--text-scale,1));color:var(--label-3);font-weight:500;text-transform:uppercase;letter-spacing:.03em}
+.wday .num{font-size:calc(17px * var(--text-scale,1));font-weight:400;margin:4px 0;letter-spacing:-.012em}
 .wday .dot{width:5px;height:5px;border-radius:50%;background:transparent;margin:0 auto}
 .wday .dot.plan{background:var(--label-3)}
 .wday .dot.ovr{background:var(--orange)}
@@ -508,16 +515,16 @@ h4.sec{
 .item:active{background:var(--surface-2)}
 .thumb{width:50px;height:50px;border-radius:9px;object-fit:cover;background:#fff;flex:none}
 .thumb-x{
-  display:flex;align-items:center;justify-content:center;font-size:21px;
+  display:flex;align-items:center;justify-content:center;font-size:calc(21px * var(--text-scale,1));
   background:var(--surface-2);color:var(--label-2);
 }
-.item .tt{font-size:16px;font-weight:400;line-height:1.25;letter-spacing:-.009em}
-.item .ss{color:var(--label-2);font-size:13px;margin-top:2px}
+.item .tt{font-size:calc(16px * var(--text-scale,1));font-weight:400;line-height:1.25;letter-spacing:-.009em}
+.item .ss{color:var(--label-2);font-size:calc(13px * var(--text-scale,1));margin-top:2px}
 .item .grow{flex:1;min-width:0}
-.chev{color:var(--label);flex:none;font-size:15px;--icon-stroke:2.4}
+.chev{color:var(--label);flex:none;font-size:calc(15px * var(--text-scale,1));--icon-stroke:2.4}
 .tag{
   display:inline-flex;align-items:center;gap:3px;background:var(--surface-2);
-  color:var(--label-2);border-radius:6px;padding:3px 7px;font-size:12px;
+  color:var(--label-2);border-radius:6px;padding:3px 7px;font-size:calc(12px * var(--text-scale,1));
   font-weight:500;text-transform:capitalize;
 }
 .tag.acc{background:var(--acc-soft);color:var(--acc)}
@@ -533,21 +540,21 @@ h4.sec{
 .chips::-webkit-scrollbar{display:none}
 .chip{
   flex:none;padding:6px 13px;border-radius:99px;background:var(--surface);
-  font-size:14px;font-weight:400;color:var(--label);text-transform:capitalize;
+  font-size:calc(14px * var(--text-scale,1));font-weight:400;color:var(--label);text-transform:capitalize;
   letter-spacing:-.006em;transition:background var(--fast),color var(--fast);
 }
 .chip:active{background:var(--surface-2)}
 .chip.on{background:var(--acc);color:var(--on-acc);font-weight:500}
-.chip.lg{padding:11px 20px;font-size:15.5px}
+.chip.lg{padding:11px 20px;font-size:calc(15.5px * var(--text-scale,1))}
 .chip.chip-select{display:inline-flex;align-items:center;gap:5px}
-.chip.chip-select svg{font-size:11px}
+.chip.chip-select svg{font-size:calc(11px * var(--text-scale,1))}
 
 /* =========================== CONTROLS ==================================== */
 
 /* --- text field --- */
 .field,.input{
   width:100%;background:var(--surface);border:none;border-radius:var(--r);
-  padding:13px 15px;font-size:17px;letter-spacing:-.012em;outline:none;
+  padding:13px 15px;font-size:calc(17px * var(--text-scale,1));letter-spacing:-.012em;outline:none;
   transition:box-shadow var(--fast);
 }
 .field::placeholder,.input::placeholder{color:var(--label-3)}
@@ -555,13 +562,13 @@ h4.sec{
 .field.area,textarea.input{min-height:92px;resize:vertical;line-height:1.42}
 .exnote{
   background:var(--surface);border-radius:var(--r);padding:13px 15px;
-  line-height:1.45;white-space:pre-wrap;font-size:15px;margin-bottom:10px;color:var(--label-2);
+  line-height:1.45;white-space:pre-wrap;font-size:calc(15px * var(--text-scale,1));margin-bottom:10px;color:var(--label-2);
 }
 
 /* --- search field --- */
 .searchf{position:relative;display:flex;align-items:center}
 .searchf .lead{
-  position:absolute;left:11px;font-size:16px;color:var(--label-3);
+  position:absolute;left:11px;font-size:calc(16px * var(--text-scale,1));color:var(--label-3);
   pointer-events:none;--icon-stroke:2.1;z-index:1;
 }
 .searchf .field{padding-left:35px;padding-right:36px;background:var(--surface-2);border-radius:10px}
@@ -569,7 +576,7 @@ h4.sec{
 .searchf .clear{
   position:absolute;right:8px;width:22px;height:22px;border-radius:50%;
   background:var(--label-3);color:var(--bg);display:flex;align-items:center;
-  justify-content:center;font-size:11px;--icon-stroke:3;
+  justify-content:center;font-size:calc(11px * var(--text-scale,1));--icon-stroke:3;
 }
 /* legacy .search wrapper */
 .search{position:relative}
@@ -618,11 +625,11 @@ h4.sec{
 }
 :root[data-theme="light"] .seg-sel{background:#fff}
 .seg button{
-  position:relative;z-index:1;padding:6px 8px;font-size:14px;font-weight:500;
+  position:relative;z-index:1;padding:6px 8px;font-size:calc(14px * var(--text-scale,1));font-weight:500;
   letter-spacing:-.006em;color:var(--label);display:flex;align-items:center;
   justify-content:center;gap:5px;min-height:30px;transition:opacity var(--fast);
 }
-.seg button .icn{font-size:16px}
+.seg button .icn{font-size:calc(16px * var(--text-scale,1))}
 .seg button:not(.on){color:var(--label-2);font-weight:400}
 .seg button:active{opacity:.5}
 /* sitting in a list row: shrink to content instead of filling the row */
@@ -633,11 +640,11 @@ h4.sec{
 .ptabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .ptab{
   display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 4px 12px;
-  border-radius:var(--r-card);background:var(--surface);font-size:12.5px;font-weight:500;
+  border-radius:var(--r-card);background:var(--surface);font-size:calc(12.5px * var(--text-scale,1));font-weight:500;
   color:var(--label-2);transition:background var(--fast),color var(--fast);
 }
 .ptab-i{
-  width:42px;height:42px;border-radius:50%;flex:none;font-size:19px;
+  width:42px;height:42px;border-radius:50%;flex:none;font-size:calc(19px * var(--text-scale,1));
   display:flex;align-items:center;justify-content:center;
   background:var(--surface-2);color:var(--label-2);
   transition:background var(--fast),color var(--fast);
@@ -645,13 +652,13 @@ h4.sec{
 .ptab.on{color:var(--label)}
 .ptab.on .ptab-i{background:var(--acc);color:var(--on-acc)}
 .seg-range{margin-bottom:10px}
-.seg-inline button{padding:5px 10px;font-size:13px;min-height:28px}
-.seg-inline button .icn{font-size:14px}
+.seg-inline button{padding:5px 10px;font-size:calc(13px * var(--text-scale,1));min-height:28px}
+.seg-inline button .icn{font-size:calc(14px * var(--text-scale,1))}
 
 /* native time input, restyled to sit in a row like a value label */
 .timef{
   background:var(--surface-2);border:none;border-radius:8px;padding:6px 10px;
-  font-size:16px;color:var(--label);outline:none;font-variant-numeric:tabular-nums;
+  font-size:calc(16px * var(--text-scale,1));color:var(--label);outline:none;font-variant-numeric:tabular-nums;
 }
 .timef::-webkit-calendar-picker-indicator{filter:invert(.5)}
 :root[data-theme="light"] .timef::-webkit-calendar-picker-indicator{filter:none}
@@ -661,13 +668,13 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 
 /* --- stepper --- */
 .stp-w{display:flex;flex-direction:column;gap:6px;min-width:0}
-.stp-l{font-size:13px;color:var(--label-2);text-align:center}
+.stp-l{font-size:calc(13px * var(--text-scale,1));color:var(--label-2);text-align:center}
 .stp{
   display:flex;align-items:center;background:var(--surface-2);
   border-radius:10px;overflow:hidden;min-width:0;
 }
 .stp button{
-  width:40px;min-height:44px;flex:none;color:var(--label);font-size:16px;
+  width:40px;min-height:44px;flex:none;color:var(--label);font-size:calc(16px * var(--text-scale,1));
   display:flex;align-items:center;justify-content:center;
   transition:background var(--fast);--icon-stroke:2.2;
 }
@@ -675,7 +682,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .stp .val{
   flex:1;min-width:0;display:flex;align-items:baseline;justify-content:center;gap:3px;padding:2px;
 }
-.stp .val i{font-style:normal;font-size:12px;color:var(--label-2);flex:none}
+.stp .val i{font-style:normal;font-size:calc(12px * var(--text-scale,1));color:var(--label-2);flex:none}
 /* min-height (not height) on the button above + an explicit, font-size-relative line-height here
    (not the UA default) is what a reported "the 8 in RPE looks sliced in half" turned out to need:
    with iOS's own Larger Text accessibility setting on, the number renders well past 17px/14px and
@@ -684,7 +691,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
    Now the row itself grows to whatever the number needs and the button centers within it instead. */
 .stp .num{
   width:100%;min-width:0;text-align:center;background:none;border:none;outline:none;
-  font-size:17px;font-weight:500;letter-spacing:-.012em;line-height:1.25;padding:0;
+  font-size:calc(17px * var(--text-scale,1));font-weight:500;letter-spacing:-.012em;line-height:1.25;padding:0;
   -moz-appearance:textfield;appearance:textfield;
 }
 .stp .num::-webkit-inner-spin-button{display:none}
@@ -706,8 +713,8 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 
 /* --- ruler slider (Physical Profile wizard: weight/height) --- */
 .ruler{display:flex;flex-direction:column;align-items:center;gap:18px;user-select:none}
-.ruler-read{font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--label)}
-.ruler-unit{font-size:20px;font-weight:500;color:var(--label-3);letter-spacing:0}
+.ruler-read{font-size:calc(44px * var(--text-scale,1));font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--label)}
+.ruler-unit{font-size:calc(20px * var(--text-scale,1));font-weight:500;color:var(--label-3);letter-spacing:0}
 .ruler-viewport{
   position:relative;width:100%;height:74px;overflow:hidden;cursor:grab;touch-action:none;
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 15%,#000 85%,transparent);
@@ -718,7 +725,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .ruler-tick{position:absolute;bottom:8px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center}
 .ruler-tick::before{content:'';display:block;width:2px;height:14px;border-radius:2px;background:var(--label-4)}
 .ruler-tick.major::before{height:26px;background:var(--label-2)}
-.ruler-tick-num{position:absolute;top:-20px;font-size:12px;font-weight:500;color:var(--label-3);white-space:nowrap}
+.ruler-tick-num{position:absolute;top:-20px;font-size:calc(12px * var(--text-scale,1));font-weight:500;color:var(--label-3);white-space:nowrap}
 .ruler-center{
   position:absolute;left:50%;top:0;bottom:8px;width:3px;border-radius:2px;
   background:var(--acc);transform:translateX(-50%);pointer-events:none;
@@ -731,7 +738,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   background:none;box-shadow:inset 0 0 0 1.8px var(--label-4);color:transparent;
   transition:background var(--fast),box-shadow var(--fast),color var(--fast),transform var(--fast);
 }
-.chk .icn{font-size:16px;--icon-stroke:2.6}
+.chk .icn{font-size:calc(16px * var(--text-scale,1));--icon-stroke:2.6}
 .chk.on{background:var(--acc);box-shadow:none;color:var(--on-acc)}
 .chk:active,.ck:active{transform:scale(.9)}
 .ck svg{
@@ -749,12 +756,12 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .exmedia .gifhint,.exmedia .giftoggle{
   position:absolute;bottom:9px;display:inline-flex;align-items:center;gap:4px;
   background:rgba(0,0,0,.45);color:#fff;border-radius:99px;padding:5px 11px;
-  font-size:12px;font-weight:500;
+  font-size:calc(12px * var(--text-scale,1));font-weight:500;
   backdrop-filter:blur(12px);
 }
 .exmedia .gifhint{right:9px}
 .exmedia .giftoggle{left:9px}
-.exmedia .gifhint .icn,.exmedia .giftoggle .icn{font-size:13px}
+.exmedia .gifhint .icn,.exmedia .giftoggle .icn{font-size:calc(13px * var(--text-scale,1))}
 /* superset: both exercises are on screen together, so the animations have to give way —
    at 180px you had to scroll a full screen between two exercises done back-to-back */
 .exmedia.compact img{height:120px}
@@ -763,14 +770,14 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setgroup-hd{
   display:flex;align-items:center;justify-content:space-between;padding:4px 0 6px;
 }
-.setgroup-title{font-size:12px;font-weight:600;color:var(--label-2);text-transform:uppercase;letter-spacing:.03em}
+.setgroup-title{font-size:calc(12px * var(--text-scale,1));font-weight:600;color:var(--label-2);text-transform:uppercase;letter-spacing:.03em}
 .setgroup-toggle{
-  display:flex;align-items:center;gap:3px;color:var(--acc);font-size:12.5px;font-weight:500;
+  display:flex;align-items:center;gap:3px;color:var(--acc);font-size:calc(12.5px * var(--text-scale,1));font-weight:500;
 }
 .setgroup-toggle svg{width:13px;height:13px}
 .sethead{
   display:flex;align-items:center;gap:8px;padding:0 0 6px;
-  font-size:11px;color:var(--label-3);font-weight:500;text-transform:uppercase;letter-spacing:.045em;
+  font-size:calc(11px * var(--text-scale,1));color:var(--label-3);font-weight:500;text-transform:uppercase;letter-spacing:.045em;
 }
 .sethead .n-sp{width:24px;flex:none}
 .sethead .w-sp{flex:1.4;text-align:center}
@@ -783,7 +790,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .setrow .n{
   width:24px;height:24px;border-radius:50%;background:var(--surface-2);color:var(--label-2);
-  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:calc(12px * var(--text-scale,1));font-weight:500;flex:none;
   transition:background var(--fast),color var(--fast);
 }
 .setrow .stp.w{flex:1.4;min-width:0}
@@ -806,17 +813,17 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow.eff3 .stp.eff,.sethead.eff3 .eff-sp{flex:.85}
 .setrow.eff3 .stp button{width:26px}
 .setrow.eff3 .stp.eff button{width:23px}
-.setrow.eff3 .stp .num{font-size:14px}
+.setrow.eff3 .stp .num{font-size:calc(14px * var(--text-scale,1))}
 /* the plate button is a 4th thing competing for the same row once effort tracking is also on —
    shrink it the same way the RIR/RPE stepper already shrinks, or its value clips (issue: barbell
    plate calculator felt cramped next to RPE) */
-.setrow.eff3 .platesbtn{width:22px;height:22px;font-size:11px}
+.setrow.eff3 .platesbtn{width:22px;height:22px;font-size:calc(11px * var(--text-scale,1))}
 .setrow.done .n{background:var(--acc);color:var(--on-acc)}
 .setrow.done{opacity:.45}
 /* why the next target is what it is (issue #17) */
 .progline{
   display:flex;align-items:flex-start;gap:7px;margin:6px 0 2px;
-  font-size:13px;line-height:1.38;color:var(--acc);
+  font-size:calc(13px * var(--text-scale,1));line-height:1.38;color:var(--acc);
 }
 .progline.warn{color:var(--yellow)}
 .progline svg{flex:none;margin-top:2px}
@@ -825,7 +832,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow .setgo{
   width:30px;height:30px;border-radius:50%;flex:none;
   display:flex;align-items:center;justify-content:center;
-  background:var(--surface-2);color:var(--acc);font-size:14px;
+  background:var(--surface-2);color:var(--acc);font-size:calc(14px * var(--text-scale,1));
   transition:background var(--fast),opacity var(--fast);
 }
 .setrow .setgo:disabled{opacity:.3;cursor:default}
@@ -835,7 +842,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow .platesbtn{
   width:28px;height:28px;border-radius:50%;flex:none;
   display:flex;align-items:center;justify-content:center;
-  background:var(--surface-2);color:var(--label-2);font-size:13px;
+  background:var(--surface-2);color:var(--label-2);font-size:calc(13px * var(--text-scale,1));
   transition:background var(--fast);
 }
 .setrow .platesbtn:active{background:var(--surface-3)}
@@ -858,7 +865,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   animation:slideup var(--med) var(--ease);
 }
 @keyframes slideup{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
-#timer .t{font-size:26px;font-weight:600;letter-spacing:-.026em;font-variant-numeric:tabular-nums;min-width:66px}
+#timer .t{font-size:calc(26px * var(--text-scale,1));font-weight:600;letter-spacing:-.026em;font-variant-numeric:tabular-nums;min-width:66px}
 #timer .bar{flex:1;height:4px;background:var(--surface-3);border-radius:99px;overflow:hidden}
 #timer .bar i{display:block;height:100%;background:var(--acc);transition:width 1s linear}
 /* rest variant: −15/+15/Skip and the clock won't share one line on a phone, so the clock and
@@ -871,7 +878,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 #timer.rest .acts .skip{margin-left:auto;min-width:84px}
 #timer.rest .head .grow{flex:1;min-width:0}
 #timer.rest .head .lbl{
-  font-size:12px;color:var(--label-2);margin-bottom:5px;text-transform:capitalize;
+  font-size:calc(12px * var(--text-scale,1));color:var(--label-2);margin-bottom:5px;text-transform:capitalize;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 /* work timer (issue #16): the same bar doing the opposite job — outlined and tinted so a
@@ -880,7 +887,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 #timer.working .t{color:var(--acc)}
 #timer.working .grow{flex:1;min-width:0}
 #timer.working .lbl{
-  font-size:12px;color:var(--label-2);margin-bottom:5px;text-transform:capitalize;
+  font-size:calc(12px * var(--text-scale,1));color:var(--label-2);margin-bottom:5px;text-transform:capitalize;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 
@@ -903,7 +910,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 :root[data-theme="light"] .sheet{background:var(--bg)}
 @keyframes sheetup{from{transform:translateY(100%)}to{transform:none}}
 .sheet .grab{width:36px;height:5px;border-radius:99px;background:var(--label-4);margin:6px auto 14px}
-.sheet h3{font-size:20px;font-weight:600;letter-spacing:-.021em;margin-bottom:14px}
+.sheet h3{font-size:calc(20px * var(--text-scale,1));font-weight:600;letter-spacing:-.021em;margin-bottom:14px}
 .center{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   width:min(84vw,300px);background:var(--bg-el);border-radius:var(--r-lg);padding:20px;
@@ -925,14 +932,14 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   content:'';position:absolute;left:14px;right:0;top:0;height:var(--hair);background:var(--sep);
 }
 .efftbl .n{
-  width:36px;flex:none;text-align:center;font-size:17px;font-weight:600;
+  width:36px;flex:none;text-align:center;font-size:calc(17px * var(--text-scale,1));font-weight:600;
   letter-spacing:-.02em;font-variant-numeric:tabular-nums;
 }
-.efftbl .f{flex:1;min-width:0;font-size:15px;color:var(--label-2);line-height:1.3}
+.efftbl .f{flex:1;min-width:0;font-size:calc(15px * var(--text-scale,1));color:var(--label-2);line-height:1.3}
 /* the header names the columns without competing with them */
 .efftbl .hd{background:var(--surface-2);padding-top:8px;padding-bottom:8px}
 .efftbl .hd .n,.efftbl .hd .f{
-  font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  font-size:calc(11px * var(--text-scale,1));font-weight:600;letter-spacing:.05em;text-transform:uppercase;
   color:var(--label-3);
 }
 /* the row a working set usually lands on — the anchor the others are read against */
@@ -944,7 +951,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .glyph-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
 .glyph-cell{
   aspect-ratio:1;border-radius:13px;background:var(--surface);
-  display:flex;align-items:center;justify-content:center;font-size:24px;
+  display:flex;align-items:center;justify-content:center;font-size:calc(24px * var(--text-scale,1));
   color:var(--label);transition:background var(--fast),color var(--fast),transform var(--fast);
 }
 .glyph-cell:active{transform:scale(.92)}
@@ -954,21 +961,21 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .bwstep{display:flex;align-items:center;justify-content:center;gap:18px;margin:14px 0 6px}
 .bw-pm{
   width:46px;height:46px;border-radius:50%;background:var(--surface);flex:none;
-  color:var(--label);display:flex;align-items:center;justify-content:center;font-size:19px;
+  color:var(--label);display:flex;align-items:center;justify-content:center;font-size:calc(19px * var(--text-scale,1));
   transition:background var(--fast),transform var(--fast);--icon-stroke:2.2;
 }
 .bw-pm:active{background:var(--surface-2);transform:scale(.92)}
 .bw-read{
-  font-size:52px;font-weight:600;letter-spacing:-.035em;min-width:158px;text-align:center;
+  font-size:calc(52px * var(--text-scale,1));font-weight:600;letter-spacing:-.035em;min-width:158px;text-align:center;
   font-variant-numeric:tabular-nums;line-height:1;
 }
-.bw-read .u{font-size:19px;color:var(--label-2);font-weight:400;letter-spacing:-.01em}
+.bw-read .u{font-size:calc(19px * var(--text-scale,1));color:var(--label-2);font-weight:400;letter-spacing:-.01em}
 .bwin{display:flex;align-items:baseline;justify-content:center;gap:7px;margin:16px 0}
 .bwin input{
   width:150px;background:none;border:none;outline:none;text-align:right;
-  font-size:52px;font-weight:600;letter-spacing:-.035em;color:var(--label);
+  font-size:calc(52px * var(--text-scale,1));font-weight:600;letter-spacing:-.035em;color:var(--label);
 }
-.bwin span{color:var(--label-2);font-size:19px}
+.bwin span{color:var(--label-2);font-size:calc(19px * var(--text-scale,1))}
 
 /* --------------------------------------------------------------- charts -- */
 .chart{width:100%;overflow:hidden}
@@ -978,7 +985,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
    pushed under the `.chart` clip at either edge — hence no offset here. */
 .ctip{
   position:absolute;left:0;top:0;background:var(--surface-2);
-  border-radius:8px;padding:4px 10px;font-size:12px;font-weight:500;white-space:nowrap;
+  border-radius:8px;padding:4px 10px;font-size:calc(12px * var(--text-scale,1));font-weight:500;white-space:nowrap;
   max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;
   pointer-events:none;box-shadow:0 6px 18px -4px rgba(0,0,0,.4);
 }
@@ -987,10 +994,10 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .hm-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
 .hm-wrap::-webkit-scrollbar{display:none}
 .hm-months{display:flex;margin-left:28px;margin-bottom:5px}
-.hm-months span{flex:none;width:14px;font-size:11px;color:var(--label-3);white-space:nowrap;overflow:visible}
+.hm-months span{flex:none;width:14px;font-size:calc(11px * var(--text-scale,1));color:var(--label-3);white-space:nowrap;overflow:visible}
 .hm-body{display:flex}
 .hm-days{display:flex;flex-direction:column;gap:3px;flex:none;width:28px}
-.hm-days span{height:11px;font-size:10px;color:var(--label-2);line-height:11px}
+.hm-days span{height:11px;font-size:calc(10px * var(--text-scale,1));color:var(--label-2);line-height:11px}
 .hm-grid{display:flex;gap:3px}
 .hm-col{display:flex;flex-direction:column;gap:3px}
 .hm-c{width:11px;height:11px;border-radius:3px;background:var(--surface-2);flex:none}
@@ -1002,7 +1009,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .hm-c.future{opacity:.3}
 .hm-legend{
   display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:9px;
-  font-size:11px;color:var(--label-3);
+  font-size:calc(11px * var(--text-scale,1));color:var(--label-3);
 }
 .hm-legend .hm-c{width:10px;height:10px}
 
@@ -1054,22 +1061,22 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .sbd-ph-compact{max-width:180px}
 .sbd-lead{stroke:var(--label-4);stroke-width:3}
 .sbd-dot{fill:var(--label-3)}
-.sbd-fat,.sbd-muscle{font-size:22px;font-weight:600}
+.sbd-fat,.sbd-muscle{font-size:calc(22px * var(--text-scale,1));font-weight:600}
 .sbd-fat{fill:var(--orange)}
 .sbd-muscle{fill:var(--indigo)}
-.sbd-general{font-size:13px}
+.sbd-general{font-size:calc(13px * var(--text-scale,1))}
 .sbd-general b{font-weight:700}
 
 .mrow{display:flex;align-items:center;gap:9px;padding:5px 0}
-.mrow .nm{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .nm{flex:1;min-width:0;font-size:calc(14px * var(--text-scale,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mrow .bar{width:74px;height:5px;border-radius:3px;background:var(--surface-2);flex:none;overflow:hidden}
 .mrow .bar i{display:block;height:100%;background:var(--acc);border-radius:3px}
-.mrow .v{font-size:12px;color:var(--label-2);min-width:52px;text-align:right;flex:none}
+.mrow .v{font-size:calc(12px * var(--text-scale,1));color:var(--label-2);min-width:52px;text-align:right;flex:none}
 /* A headline number inside a card — tile weight without a tile around it, for the pair of
    readings at the top of the effort card. */
-.stat-v{font-size:26px;font-weight:600;letter-spacing:-.026em;line-height:1.1}
+.stat-v{font-size:calc(26px * var(--text-scale,1));font-weight:600;letter-spacing:-.026em;line-height:1.1}
 .mchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-.mchip{font-size:12px;padding:4px 9px;border-radius:99px;background:var(--surface-2);color:var(--label-2)}
+.mchip{font-size:calc(12px * var(--text-scale,1));padding:4px 9px;border-radius:99px;background:var(--surface-2);color:var(--label-2)}
 .mchip.miss{background:color-mix(in srgb,var(--orange) 16%,transparent);color:var(--orange)}
 
 /* Row of "this muscle, this much" chips — one MuscleIcon plus a name/percent pair each,
@@ -1080,8 +1087,8 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .mitem{flex:none;display:flex;align-items:center;gap:10px}
 .mitem-icon{width:64px;height:64px;border-radius:var(--r-lg);background:var(--surface-2);flex:none;overflow:hidden;padding:8px;box-sizing:border-box}
 .mitem-t{display:flex;flex-direction:column;gap:2px}
-.mitem-name{font-size:14px;font-weight:600;color:var(--label);white-space:nowrap}
-.mitem-pct{font-size:13px;color:var(--label-2)}
+.mitem-name{font-size:calc(14px * var(--text-scale,1));font-weight:600;color:var(--label);white-space:nowrap}
+.mitem-pct{font-size:calc(13px * var(--text-scale,1));color:var(--label-2)}
 .bm-mini{width:100%;height:100%;display:block}
 .bm-mini-ph{width:100%;height:100%}
 .bm-mini .bm-sil{fill:color-mix(in srgb,var(--label) 18%,var(--surface))}
@@ -1097,7 +1104,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .mtile{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
 .mtile-photo{width:100%;aspect-ratio:1/1;border-radius:var(--r-lg);background-color:var(--surface-2);background-size:cover;background-position:center;transition:transform var(--fast)}
 .mtile:active .mtile-photo{transform:scale(.96)}
-.mtile-name{font-size:13px;font-weight:600;color:var(--label)}
+.mtile-name{font-size:calc(13px * var(--text-scale,1));font-weight:600;color:var(--label)}
 
 /* The muscle-switcher strip inside the exercise browser sheet — same photos as the
    landing tiles, shrunk to circles so it reads as a filter row, not another grid. */
@@ -1105,10 +1112,10 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .mstrip::-webkit-scrollbar{display:none}
 .mstrip-i{flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;width:58px}
 .mstrip-photo{width:52px;height:52px;border-radius:50%;background-color:var(--surface-2);background-size:cover;background-position:center;border:2px solid transparent}
-.mstrip-photo-plain{display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--label-2)}
+.mstrip-photo-plain{display:flex;align-items:center;justify-content:center;font-size:calc(20px * var(--text-scale,1));color:var(--label-2)}
 .mstrip-i.on .mstrip-photo{border-color:var(--acc)}
 .mstrip-i.on .mstrip-photo-plain{color:var(--acc)}
-.mstrip-name{font-size:11px;color:var(--label-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58px}
+.mstrip-name{font-size:calc(11px * var(--text-scale,1));color:var(--label-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58px}
 .mstrip-i.on .mstrip-name{color:var(--acc);font-weight:600}
 
 /* Two-column photo grid for browsing exercises within one muscle (or all of them) —
@@ -1117,31 +1124,31 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .excard{background:var(--surface);border-radius:var(--r-lg);overflow:hidden;text-align:left;cursor:pointer}
 .excard-media{position:relative;aspect-ratio:1/1;background:#fff;display:flex;align-items:center;justify-content:center}
 .excard-media .thumb{width:100%;height:100%;border-radius:0;object-fit:cover}
-.excard-media-x{background:var(--surface-2);font-size:26px;color:var(--label-2)}
-.excard-plan{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
-.excard-best{position:absolute;bottom:6px;right:6px;padding:2px 7px;border-radius:99px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:600}
+.excard-media-x{background:var(--surface-2);font-size:calc(26px * var(--text-scale,1));color:var(--label-2)}
+.excard-plan{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:calc(14px * var(--text-scale,1));flex:none}
+.excard-best{position:absolute;bottom:6px;right:6px;padding:2px 7px;border-radius:99px;background:rgba(0,0,0,.55);color:#fff;font-size:calc(11px * var(--text-scale,1));font-weight:600}
 .excard-b{padding:8px 9px 10px}
-.excard-t{font-size:13px;font-weight:600;color:var(--label);line-height:1.28;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.excard-s{font-size:11.5px;color:var(--label-2);margin-top:2px}
+.excard-t{font-size:calc(13px * var(--text-scale,1));font-weight:600;color:var(--label);line-height:1.28;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.excard-s{font-size:calc(11.5px * var(--text-scale,1));color:var(--label-2);margin-top:2px}
 
 /* --- stat tiles --- */
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .tile{background:var(--surface);border-radius:var(--r-card);padding:14px}
 .tile .l{
-  color:var(--label-2);font-size:13px;font-weight:400;letter-spacing:-.004em;
+  color:var(--label-2);font-size:calc(13px * var(--text-scale,1));font-weight:400;letter-spacing:-.004em;
   text-transform:none;display:flex;align-items:center;gap:5px;
 }
-.tile .l .icn{font-size:14px;color:var(--label)}
-.tile .v{font-size:26px;font-weight:600;letter-spacing:-.026em;margin-top:5px;line-height:1.1}
+.tile .l .icn{font-size:calc(14px * var(--text-scale,1));color:var(--label)}
+.tile .v{font-size:calc(26px * var(--text-scale,1));font-weight:600;letter-spacing:-.026em;margin-top:5px;line-height:1.1}
 .tile.tappable:active{background:var(--surface-2)}
 
 /* --- PR badge --- */
 .pr{
   display:inline-flex;align-items:center;gap:4px;
   background:color-mix(in srgb,var(--yellow) 18%,transparent);color:var(--yellow);
-  border-radius:6px;padding:3px 8px;font-size:12px;font-weight:500;
+  border-radius:6px;padding:3px 8px;font-size:calc(12px * var(--text-scale,1));font-weight:500;
 }
-.pr .icn{font-size:13px}
+.pr .icn{font-size:calc(13px * var(--text-scale,1))}
 
 /* --- toast --- */
 #toast{
@@ -1149,7 +1156,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   bottom:calc(96px + var(--sab));z-index:200;
   background:color-mix(in srgb,var(--surface-2) 88%,transparent);
   backdrop-filter:saturate(180%) blur(20px);
-  border-radius:99px;padding:11px 20px;font-size:15px;font-weight:500;
+  border-radius:99px;padding:11px 20px;font-size:calc(15px * var(--text-scale,1));font-weight:500;
   box-shadow:0 10px 30px -6px rgba(0,0,0,.5);
   opacity:0;pointer-events:none;transition:opacity var(--med),transform var(--med) var(--ease);
   max-width:88vw;text-align:center;
@@ -1157,21 +1164,21 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ---------------------------------------------------------------- misc --- */
-.empty{text-align:center;color:var(--label-2);padding:44px 20px;font-size:15px;line-height:1.45}
-.empty .ico{font-size:34px;color:var(--label-2);margin-bottom:12px;display:flex;justify-content:center}
+.empty{text-align:center;color:var(--label-2);padding:44px 20px;font-size:calc(15px * var(--text-scale,1));line-height:1.45}
+.empty .ico{font-size:calc(34px * var(--text-scale,1));color:var(--label-2);margin-bottom:12px;display:flex;justify-content:center}
 .steps-list{
-  padding-left:18px;color:var(--label-2);font-size:15px;line-height:1.5;
+  padding-left:18px;color:var(--label-2);font-size:calc(15px * var(--text-scale,1));line-height:1.5;
   display:flex;flex-direction:column;gap:9px;
 }
 .steps-list::marker{color:var(--label-3)}
 
 /* --- month calendar --- */
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:10px}
-.cal-h{text-align:center;font-size:11px;color:var(--label-3);font-weight:500;text-transform:uppercase;padding:2px 0}
+.cal-h{text-align:center;font-size:calc(11px * var(--text-scale,1));color:var(--label-3);font-weight:500;text-transform:uppercase;padding:2px 0}
 .cal-d{
   aspect-ratio:1;border-radius:10px;background:var(--surface);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  font-weight:400;font-size:15px;color:var(--label);transition:background var(--fast);
+  font-weight:400;font-size:calc(15px * var(--text-scale,1));color:var(--label);transition:background var(--fast);
 }
 .cal-d:active{background:var(--surface-2)}
 .cal-d.has{background:var(--acc-soft);color:var(--acc)}
@@ -1180,7 +1187,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .cal-d i.done{background:var(--acc)}
 .cal-d i.plan{background:var(--label-3)}
 .cal-d i.ovr{background:var(--orange)}
-.cal-legend{display:flex;gap:14px;justify-content:center;margin-top:12px;font-size:12px;color:var(--label-3)}
+.cal-legend{display:flex;gap:14px;justify-content:center;margin-top:12px;font-size:calc(12px * var(--text-scale,1));color:var(--label-3)}
 .cal-legend i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px}
 
 /* --- accent swatches --- */
@@ -1191,21 +1198,21 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 
 /* --- supersets --- */
 .ss-label{
-  font-size:12px;font-weight:600;letter-spacing:-.004em;text-transform:none;
+  font-size:calc(12px * var(--text-scale,1));font-weight:600;letter-spacing:-.004em;text-transform:none;
   color:var(--acc);margin:8px 0 5px 4px;display:flex;align-items:center;gap:5px;
 }
-.ss-label .icn{font-size:13px}
+.ss-label .icn{font-size:calc(13px * var(--text-scale,1))}
 .item.in-ss{box-shadow:inset 3px 0 0 var(--acc)}
 .ss-card{
   border-radius:var(--r-lg);padding:14px;
   background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--acc-line);
 }
 .ss-hd{
-  font-size:12px;font-weight:600;color:var(--acc);margin-bottom:12px;
+  font-size:calc(12px * var(--text-scale,1));font-weight:600;color:var(--acc);margin-bottom:12px;
   text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;
 }
 .ss-ex{position:relative}
-.ss-amp{text-align:center;font-size:15px;font-weight:600;color:var(--acc);margin:14px 0 8px}
+.ss-amp{text-align:center;font-size:calc(15px * var(--text-scale,1));font-weight:600;color:var(--acc);margin:14px 0 8px}
 
 /* --- home: today's session row --- */
 .today-row{
@@ -1214,9 +1221,9 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   transition:background var(--fast);width:100%;text-align:left;
 }
 .today-row:active{background:var(--surface-3)}
-.today-row .lbl2{font-size:11px;font-weight:500;letter-spacing:.03em;text-transform:uppercase;color:var(--label-3)}
+.today-row .lbl2{font-size:calc(11px * var(--text-scale,1));font-weight:500;letter-spacing:.03em;text-transform:uppercase;color:var(--label-3)}
 .today-row .ttl{
-  font-weight:500;font-size:17px;line-height:1.25;text-transform:capitalize;
+  font-weight:500;font-size:calc(17px * var(--text-scale,1));line-height:1.25;text-transform:capitalize;
   letter-spacing:-.012em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;
 }
 
@@ -1234,12 +1241,12 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .clock-card:active{transform:scale(.98)}
 .clock-card-i{
-  width:44px;height:44px;border-radius:12px;flex:none;font-size:22px;color:#fff;
+  width:44px;height:44px;border-radius:12px;flex:none;font-size:calc(22px * var(--text-scale,1));color:#fff;
   background:rgba(0,0,0,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   display:flex;align-items:center;justify-content:center;
 }
-.clock-card-t{color:#fff;font-size:26px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
-.clock-card-d{color:rgba(255,255,255,.88);font-size:14.5px;line-height:1.35;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+.clock-card-t{color:#fff;font-size:calc(26px * var(--text-scale,1));font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+.clock-card-d{color:rgba(255,255,255,.88);font-size:calc(14.5px * var(--text-scale,1));line-height:1.35;text-shadow:0 1px 3px rgba(0,0,0,.3)}
 
 /* --------------------------------------------------- desktop (≥1000px) --- */
 .cols{display:block}
@@ -1281,9 +1288,9 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
    browser (App.jsx routes it separately, before the mobile chrome). */
 #trainer-app{max-width:1160px;margin:0 auto;padding:24px 20px 60px}
 .trainer-topbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
-.trainer-topbar h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0}
-.trainer-topbar .sub{color:var(--label-2);font-size:14px;margin-top:2px}
-.trainer-back{color:var(--label-2);text-decoration:none;font-size:14px;display:flex;align-items:center;gap:4px}
+.trainer-topbar h1{font-size:calc(26px * var(--text-scale,1));font-weight:700;letter-spacing:-.02em;margin:0}
+.trainer-topbar .sub{color:var(--label-2);font-size:calc(14px * var(--text-scale,1));margin-top:2px}
+.trainer-back{color:var(--label-2);text-decoration:none;font-size:calc(14px * var(--text-scale,1));display:flex;align-items:center;gap:4px}
 
 .client-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
 .client-card{
@@ -1291,7 +1298,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   border:none;cursor:pointer;color:inherit;transition:background var(--fast);
 }
 .client-card:hover{background:var(--surface-2)}
-.client-card .name{margin-top:10px;font-weight:600;font-size:15px}
+.client-card .name{margin-top:10px;font-weight:600;font-size:calc(15px * var(--text-scale,1))}
 
 .builder-layout{display:flex;gap:24px;align-items:flex-start}
 .builder-main{flex:1;min-width:0}
@@ -1306,4 +1313,4 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   display:flex;flex-direction:column;gap:10px;
 }
 .day-col-hd{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.day-col-hd input{font-weight:600;font-size:15px}
+.day-col-hd input{font-weight:600;font-size:calc(15px * var(--text-scale,1))}

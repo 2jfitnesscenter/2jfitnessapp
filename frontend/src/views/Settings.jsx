@@ -178,6 +178,31 @@ export default function Settings() {
           onChange={v => update(s => { s.theme = v })}
         />
       </Row>
+      {/* Scales every font-size in the app (App.jsx's applyPrefs sets --text-scale from this) —
+          added after reports of reps/weight/RPE numbers clipping on iOS under the OS's own
+          Larger Text accessibility setting: fighting that from here is more reliable than
+          reacting to whatever the OS decides to do, and it means a member who just prefers
+          bigger numbers doesn't have to change their phone's system-wide setting to get them.
+          Stacked (title above, control below) rather than sharing a row like the other
+          Segmented rows above — 4 labels is one too many to sit next to a title without
+          crowding it, and at the top text-scale step the title itself wraps to multiple lines,
+          which used to leave the still-centered control sitting on top of it. */}
+      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 13, paddingBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="lrow-i" style={{ '--tint': 'var(--blue)' }}><Icon name="textSize" /></span>
+          <span className="lrow-t">{t('Text size')}</span>
+        </div>
+        <Segmented
+          options={[
+            { value: 0.9, label: t('Small') },
+            { value: 1, label: t('Default') },
+            { value: 1.15, label: t('Large') },
+            { value: 1.3, label: t('Extra large') }
+          ]}
+          value={S.textScale || 1}
+          onChange={v => update(s => { s.textScale = v })}
+        />
+      </div>
       {/* Drives the muscle map illustration and, as "sex", is also sent to the AI Coach
           (api/coach/payload.js) when it builds a plan — set here, not asked again in the intake. */}
       <Row icon="figureStrength" iconTint="var(--teal)" title={t('Body diagram')}>
@@ -222,8 +247,14 @@ export default function Settings() {
           subtitle={t('Strava, Whoop')} accessory="chevron" onClick={() => nav('/connected-apps')} />
       )}
       <Row icon="shuffle" iconTint="var(--teal)" title={t('Import from another app')}
-        subtitle={t('FitNotes, Strong, Hevy — or body weight from Apple Health')}
+        subtitle={t('FitNotes, Strong, Hevy — or weight, body composition, steps, sleep and heart rate from Apple Health')}
         accessory="chevron" onClick={() => importRef.current.click()} />
+      {/* Health's own export is a .zip — iOS auto-extracts a tapped .zip in Files, so this
+          points there rather than adding an in-app unzip step (a multi-year export can run to
+          several hundred MB, and unzipping that again in the tab risks Safari killing it). */}
+      <div className="small dim" style={{ padding: '2px 14px 10px' }}>
+        {t('From Apple Health: Settings → your name → Export All Health Data, then open the .zip in Files and pick export.xml from inside it.')}
+      </div>
       <Row icon="upload" iconTint="var(--blue)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
       <Row icon="download" iconTint="var(--blue)" title={t('Export backup (JSON)')} accessory="chevron" onClick={doExport} />
       {/* Also drops anything the Coach is holding server-side: a wipe that leaves a pending
