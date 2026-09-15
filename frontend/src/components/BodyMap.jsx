@@ -14,7 +14,9 @@ import { t } from '../lib/i18n.js'
 let CACHE = null                                  // shared across every mounted map
 let PENDING = null
 
-function useBodyPaths() {
+// Exported so other screens that want the same real body geometry (Measurements' segmental
+// diagram, say) share this one cache/fetch instead of a second 90 KB import of their own.
+export function useBodyPaths() {
   const [paths, setPaths] = useState(CACHE)
   useEffect(() => {
     if (CACHE) return

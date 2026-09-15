@@ -248,12 +248,14 @@ export const measurementSheet = mkey => ui().openSheet(close => <MeasurementShee
 function BioimpedanceScanSheet({ close }) {
   const st = useStore(s => s.S)
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
-  const [vals, setVals] = useState(() => Object.fromEntries(composition.map(m => [m.key, lastMeasurement(st, m.key)?.v ?? ''])))
+  const segments = MEASUREMENTS.filter(m => m.group === 'segments')
+  const all = [...composition, ...segments]
+  const [vals, setVals] = useState(() => Object.fromEntries(all.map(m => [m.key, lastMeasurement(st, m.key)?.v ?? ''])))
   const [weight, setWeight] = useState(() => lastBW(st)?.w ?? '')
   const [scanned, setScanned] = useState(false)
   const set = (k, v) => setVals(s => ({ ...s, [k]: v }))
   const applyScan = values => {
-    setVals(s => ({ ...s, ...Object.fromEntries(composition.filter(m => values[m.key] != null).map(m => [m.key, values[m.key]])) }))
+    setVals(s => ({ ...s, ...Object.fromEntries(all.filter(m => values[m.key] != null).map(m => [m.key, values[m.key]])) }))
     if (values.weight != null) setWeight(values.weight)
     setScanned(true)
     toast(t('Report read — check the values below'))
@@ -263,7 +265,7 @@ function BioimpedanceScanSheet({ close }) {
     let n = 0
     update(s => {
       s.measurements = s.measurements || {}
-      for (const m of composition) {
+      for (const m of all) {
         if (vals[m.key] === '' || vals[m.key] == null) continue
         const v = Number(vals[m.key])
         const list = s.measurements[m.key] = s.measurements[m.key] || []
@@ -297,6 +299,12 @@ function BioimpedanceScanSheet({ close }) {
         placeholder="— kg" value={weight} onChange={e => setWeight(e.target.value)} />
     </div>
     {composition.map(m => <div key={m.key} style={{ marginBottom: 10 }}>
+      <div className="dim small" style={{ marginBottom: 4 }}>{t(m.label)}</div>
+      <input type="number" inputMode="decimal" className="input" step={m.step} min={m.min} max={m.max}
+        placeholder={m.unit ? `— ${m.unit}` : '—'} value={vals[m.key]} onChange={e => set(m.key, e.target.value)} />
+    </div>)}
+    <div className="sec" style={{ margin: '14px 0 8px' }}>{t('By segment')}</div>
+    {segments.map(m => <div key={m.key} style={{ marginBottom: 10 }}>
       <div className="dim small" style={{ marginBottom: 4 }}>{t(m.label)}</div>
       <input type="number" inputMode="decimal" className="input" step={m.step} min={m.min} max={m.max}
         placeholder={m.unit ? `— ${m.unit}` : '—'} value={vals[m.key]} onChange={e => set(m.key, e.target.value)} />

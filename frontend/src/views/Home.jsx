@@ -9,6 +9,7 @@ import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import BodyMap from '../components/BodyMap.jsx'
 import BodyWeightCard from '../components/BodyWeightCard.jsx'
+import SegmentBodyDiagram from '../components/SegmentBodyDiagram.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
@@ -16,6 +17,7 @@ import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { recoveryOf, overallRecovery } from '../lib/recovery.js'
 import { loadOfWorkouts } from '../lib/muscles.js'
+import { hasBodyComposition } from '../lib/measurements.js'
 import RecoveryRing from '../components/RecoveryRing.jsx'
 import { fetchWhoopRecovery } from '../lib/whoop-api.js'
 
@@ -222,5 +224,10 @@ export default function Home() {
     <WhoopCard nav={nav} connected={!!user?.whoop} />
 
     <BodyWeightCard S={S} showChart={false} />
+
+    {hasBodyComposition(S) && <>
+      <h4 className="sec">{t('Body composition')}</h4>
+      <SegmentBodyDiagram S={S} showGeneral compact />
+    </>}
   </div>
 }

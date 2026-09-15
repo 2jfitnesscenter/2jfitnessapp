@@ -5,7 +5,7 @@
 // full body assessment (bioimpedance scan + skinfold calipers) from one staff-run session — see
 // sheets.jsx's measurementSheet and Admin.jsx's BioimpedanceSheet (which covers both the
 // 'composition' and 'folds' groups, since they're typically taken in the same sitting).
-export const GROUPS = ['body', 'composition', 'folds']
+export const GROUPS = ['body', 'composition', 'segments', 'folds']
 
 // Icon + tint follow the measurement technique, not the individual spot: every tape-measure
 // circumference shares one icon/colour (they're all "wrap a tape around it"), same for the four
@@ -13,6 +13,11 @@ export const GROUPS = ['body', 'composition', 'folds']
 // other to earn their own icon.
 const TAPE = { icon: 'expand', iconTint: 'var(--mint)' }
 const CALIPER = { icon: 'caliper', iconTint: 'var(--teal)' }
+// Same reasoning for the 10 segmental readings: they're the same scan as `composition`, just
+// broken down per limb/trunk, so they split into exactly two icons — fat vs muscle — matching
+// bodyFat's and muscleMass's own icon/tint rather than getting 10 distinct ones.
+const SEG_FAT = { icon: 'flame', iconTint: 'var(--orange)' }
+const SEG_MUSCLE = { icon: 'figureStrength', iconTint: 'var(--indigo)' }
 
 export const MEASUREMENTS = [
   // ---- circumference, cm — a member's own tape measure ----
@@ -35,6 +40,24 @@ export const MEASUREMENTS = [
   { key: 'waterPct', label: 'Body water', group: 'composition', unit: '%', min: 25, max: 75, step: 0.1, dec: true, icon: 'drop', iconTint: 'var(--blue)' },
   { key: 'visceralFat', label: 'Visceral fat', group: 'composition', unit: '', min: 1, max: 59, step: 1, dec: false, icon: 'target', iconTint: 'var(--purple)' },
   { key: 'boneMass', label: 'Bone mass', group: 'composition', unit: 'kg', min: 0.5, max: 6, step: 0.1, dec: true, icon: 'bone', iconTint: 'var(--grey)' },
+  // ---- segmental composition — the same bioimpedance scan, broken down per body part.
+  // Fat stays a percentage: it's the reading's ratio against its own segment's standard
+  // reference range, same as the scan report itself prints it (e.g. "116.2%" for a trunk
+  // reading against a 90-110% standard band) — not a share of the limb's own weight, which the
+  // scan can't measure on its own, so this is the number staff or the member actually reads off
+  // the printed report. Muscle is the segment's muscle mass in kg instead (the report prints
+  // both a kg figure and the same kind of ratio %, and kg is the one that's directly useful —
+  // comparable side to side, and addable up toward the whole-body muscleMass above).
+  { key: 'segFatArmL', label: 'Left arm fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
+  { key: 'segFatArmR', label: 'Right arm fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
+  { key: 'segFatLegL', label: 'Left leg fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
+  { key: 'segFatLegR', label: 'Right leg fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
+  { key: 'segFatTrunk', label: 'Trunk fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
+  { key: 'segMuscleArmL', label: 'Left arm muscle', group: 'segments', unit: 'kg', min: 0.5, max: 15, step: 0.1, dec: true, ...SEG_MUSCLE },
+  { key: 'segMuscleArmR', label: 'Right arm muscle', group: 'segments', unit: 'kg', min: 0.5, max: 15, step: 0.1, dec: true, ...SEG_MUSCLE },
+  { key: 'segMuscleLegL', label: 'Left leg muscle', group: 'segments', unit: 'kg', min: 1, max: 25, step: 0.1, dec: true, ...SEG_MUSCLE },
+  { key: 'segMuscleLegR', label: 'Right leg muscle', group: 'segments', unit: 'kg', min: 1, max: 25, step: 0.1, dec: true, ...SEG_MUSCLE },
+  { key: 'segMuscleTrunk', label: 'Trunk muscle', group: 'segments', unit: 'kg', min: 5, max: 50, step: 0.1, dec: true, ...SEG_MUSCLE },
   // ---- skinfolds, mm — calipers (a staff assessment, taken alongside the bioimpedance scan) ----
   { key: 'skinTriceps', label: 'Triceps skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true, ...CALIPER },
   { key: 'skinSubscapular', label: 'Subscapular skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true, ...CALIPER },
@@ -48,6 +71,12 @@ export const lastMeasurement = (S, key) => {
   const list = S.measurements?.[key]
   return list && list.length ? list[list.length - 1] : null
 }
+
+/** Whether there's anything at all to show on the body-composition diagram (Home gates on this
+ *  — no point offering an all-dashes figure on a screen meant for a daily glance, unlike
+ *  Measurements' own copy, which stays up as an invitation to scan a report). */
+export const hasBodyComposition = S =>
+  MEASUREMENTS.some(m => (m.group === 'composition' || m.group === 'segments') && lastMeasurement(S, m.key))
 
 // Healthy body-fat-% bands by sex and age — Gallagher et al. 2000 (Am J Clin Nutr 72:694-701),
 // the age/sex-adjusted "healthy range" most fitness and clinical tools use instead of one flat

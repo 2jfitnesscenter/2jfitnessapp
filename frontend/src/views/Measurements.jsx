@@ -7,6 +7,7 @@ import { measurementSheet, bioimpedanceScanSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { SelectRow, Button } from '../components/ui.jsx'
 import LineChart from '../components/LineChart.jsx'
+import SegmentBodyDiagram from '../components/SegmentBodyDiagram.jsx'
 import { MEASUREMENTS, lastMeasurement, bodyFatBand, visceralFatBand } from '../lib/measurements.js'
 
 // Each row is one time series (see lib/measurements.js) — tapping it opens the same generic
@@ -53,12 +54,23 @@ function EvolutionCard({ S }) {
   </>
 }
 
+// A link row to one of the two dedicated screens below, instead of another inline list — folds
+// and tape measurements are staff/self logging that most members check rarely, so they no longer
+// compete with body composition (the thing "Scan report" actually fills in) for space here.
+function GroupLinkRow({ icon, iconTint, title, subtitle, to }) {
+  const nav = useNavigate()
+  return <div className="item" onClick={() => nav(to)}>
+    <span className="lrow-i" style={{ '--tint': iconTint }}><Icon name={icon} /></span>
+    <div className="grow"><div className="tt">{t(title)}</div>{subtitle && <div className="ss">{t(subtitle)}</div>}</div>
+    <Icon name="chevronRight" className="chev" />
+  </div>
+}
+
 export default function Measurements() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
-  const body = MEASUREMENTS.filter(m => m.group === 'body')
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
-  const folds = MEASUREMENTS.filter(m => m.group === 'folds')
+  const segments = MEASUREMENTS.filter(m => m.group === 'segments')
   const needsProfile = lastMeasurement(S, 'bodyFat') && !bodyFatBand(lastMeasurement(S, 'bodyFat').v, S.body, ageFrom(S.birthDate))
 
   return <div className="narrow">
@@ -75,15 +87,41 @@ export default function Measurements() {
     {needsProfile && <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('Add your date of birth and sex in Settings to see whether your body fat is in a healthy range.')}</div>}
     <div className="list" style={{ marginBottom: 22 }}>{composition.map(m => <Row key={m.key} m={m} S={S} />)}</div>
 
-    <h4 className="sec">{t('Skinfolds')}</h4>
-    <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('Caliper readings — ask staff if this gym takes these.')}</div>
-    <div className="list" style={{ marginBottom: 22 }}>{folds.map(m => <Row key={m.key} m={m} S={S} />)}</div>
+    <h4 className="sec">{t('Body composition by segment')}</h4>
+    <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('From the same scan, broken down by arm, leg and trunk.')}</div>
+    <div className="list" style={{ marginBottom: 14 }}>{segments.map(m => <Row key={m.key} m={m} S={S} />)}</div>
+    <div style={{ marginBottom: 22 }}><SegmentBodyDiagram S={S} /></div>
 
-    <h4 className="sec">{t('Body measurements')}</h4>
-    <div className="list">{body.map(m => <Row key={m.key} m={m} S={S} />)}</div>
+    <div className="list" style={{ marginBottom: 22 }}>
+      <GroupLinkRow icon="caliper" iconTint="var(--teal)" title="Skinfolds" subtitle="Caliper readings" to="/measurements/folds" />
+      <GroupLinkRow icon="expand" iconTint="var(--mint)" title="Body measurements" subtitle="Your own tape measure" to="/measurements/body" />
+    </div>
 
-    <div style={{ height: 4 }} />
     <EvolutionCard S={S} />
     <div style={{ height: 20 }} />
   </div>
+}
+
+// Skinfolds and body measurements are structurally identical — a header, a back button and one
+// list of Row for that group's keys — so both screens share this instead of two near-duplicates.
+function MeasurementGroupScreen({ group, title, subtitle }) {
+  const nav = useNavigate()
+  const S = useStore(s => s.S)
+  const list = MEASUREMENTS.filter(m => m.group === group)
+  return <div className="narrow">
+    <div className="hdr">
+      <button className="iconbtn" onClick={() => nav('/measurements')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
+      <div style={{ flex: 1, marginLeft: 8 }}>
+        <h1>{t(title)}</h1>
+        {subtitle && <div className="sub">{t(subtitle)}</div>}
+      </div>
+    </div>
+    <div className="list" style={{ marginTop: 10 }}>{list.map(m => <Row key={m.key} m={m} S={S} />)}</div>
+  </div>
+}
+export function SkinfoldsScreen() {
+  return <MeasurementGroupScreen group="folds" title="Skinfolds" subtitle="Caliper readings — ask staff if this gym takes these." />
+}
+export function BodyMeasurementsScreen() {
+  return <MeasurementGroupScreen group="body" title="Body measurements" />
 }

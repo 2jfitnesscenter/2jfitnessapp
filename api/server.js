@@ -888,6 +888,8 @@ const routes = {
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde añadir medidas' });
     const KEYS = ['neck', 'shoulders', 'chest', 'bicepsL', 'bicepsR', 'forearmL', 'forearmR', 'waist', 'hips',
       'thighL', 'thighR', 'calfL', 'calfR', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass',
+      'segFatArmL', 'segFatArmR', 'segFatLegL', 'segFatLegR', 'segFatTrunk',
+      'segMuscleArmL', 'segMuscleArmR', 'segMuscleLegL', 'segMuscleLegR', 'segMuscleTrunk',
       'skinTriceps', 'skinSubscapular', 'skinSuprailiac', 'skinAbdominal'];
     const iso = /^\d{4}-\d{2}-\d{2}$/.test(body.d || '') ? body.d : new Date().toISOString().slice(0, 10);
     const values = body.values && typeof body.values === 'object' ? body.values : {};

@@ -149,8 +149,9 @@ function RecoveryLinkSheet({ u, close }) {
 function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
   const toast = useUI(s => s.toast)
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
+  const segments = MEASUREMENTS.filter(m => m.group === 'segments')
   const folds = MEASUREMENTS.filter(m => m.group === 'folds')
-  const all = [...composition, ...folds]
+  const all = [...composition, ...segments, ...folds]
   const [vals, setVals] = useState(() => Object.fromEntries(all.map(m => [m.key, current?.[m.key]?.v ?? ''])))
   const [weight, setWeight] = useState(latestWeight ?? '')
   const [scanned, setScanned] = useState(false)
@@ -190,6 +191,8 @@ function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
         placeholder="— kg" value={weight} onChange={e => setWeight(e.target.value)} />
     </div>
     {composition.map(Field)}
+    <div className="sec" style={{ margin: '14px 0 8px' }}>{t('By segment')}</div>
+    {segments.map(Field)}
     <div className="sec" style={{ margin: '14px 0 8px' }}>{t('Skinfolds (calipers)')}</div>
     {folds.map(Field)}
     <div style={{ height: 6 }} />

@@ -17,13 +17,18 @@ import { extractJSON } from '../coach/validate.js';
 const TIMEOUT_MS = 60000;
 
 // Keys this feature knows how to place — bodyFat/muscleMass/waterPct/visceralFat/boneMass match
-// lib/measurements.js's `composition` group 1:1; `weight` is the member's own body weight, not a
-// "measurement" in that schema, but it's on every one of these reports and worth a free reading.
-export const SCAN_KEYS = ['weight', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass'];
+// lib/measurements.js's `composition` group 1:1, and the 10 seg* keys match its `segments` group
+// 1:1; `weight` is the member's own body weight, not a "measurement" in that schema, but it's on
+// every one of these reports and worth a free reading.
+export const SCAN_KEYS = [
+  'weight', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass',
+  'segFatArmL', 'segFatArmR', 'segFatLegL', 'segFatLegR', 'segFatTrunk',
+  'segMuscleArmL', 'segMuscleArmR', 'segMuscleLegL', 'segMuscleLegR', 'segMuscleTrunk'
+];
 
 const PROMPT = `This image or PDF is a body-composition ("bioimpedance") scan report from a fitness scale, in any language. Read the values it prints and reply with EXACTLY this JSON object and nothing else — no markdown fences, no explanation:
 
-{"weight": <number|null>, "bodyFat": <number|null>, "muscleMass": <number|null>, "waterPct": <number|null>, "visceralFat": <number|null>, "boneMass": <number|null>}
+{"weight": <number|null>, "bodyFat": <number|null>, "muscleMass": <number|null>, "waterPct": <number|null>, "visceralFat": <number|null>, "boneMass": <number|null>, "segFatArmL": <number|null>, "segFatArmR": <number|null>, "segFatLegL": <number|null>, "segFatLegR": <number|null>, "segFatTrunk": <number|null>, "segMuscleArmL": <number|null>, "segMuscleArmR": <number|null>, "segMuscleLegL": <number|null>, "segMuscleLegR": <number|null>, "segMuscleTrunk": <number|null>}
 
 Field meanings:
 - weight: total body weight in kg.
@@ -32,6 +37,17 @@ Field meanings:
 - waterPct: total body water as a PERCENTAGE of body weight (0-100). If the report only prints water in kg, divide it by the weight in kg and multiply by 100 yourself.
 - visceralFat: the visceral fat grade/level/index (typically a small integer like 1-30).
 - boneMass: skeletal/bone mass in kg (often labeled "bone mass", "masa ósea" or "masa esquelética").
+- segFatArmL/segFatArmR/segFatLegL/segFatLegR/segFatTrunk: the segmental fat analysis section
+  (labeled e.g. "Segmental fat analysis" / "Análisis de obesidad segmentario" / "Fat mass control"),
+  which prints one row per body part with a PERCENTAGE next to a weight in kg (e.g. "0.5kg  116.2%")
+  — read that percentage, not the kg. This is a ratio against that segment's own standard range,
+  not a share of the limb's own weight, so values over 100 are normal and expected.
+- segMuscleArmL/segMuscleArmR/segMuscleLegL/segMuscleLegR/segMuscleTrunk: the equivalent segmental
+  MUSCLE analysis section (labeled e.g. "Muscle balance" / "Equilibrio muscular" / "Segmental muscle
+  analysis"), which also prints a weight in kg next to a percentage (e.g. "9.7kg  109.0%") — here
+  read the KG figure, not the percentage (the opposite of the fat fields above).
+- For every segmental field: L/left and R/right refer to the report's own left/right, arm covers
+  the entire arm (not forearm/upper-arm separately), leg the entire leg, trunk the torso/core row.
 
 Use null for any field you cannot find on the report. Never guess or invent a number. Reply with the JSON object only.`;
 
@@ -39,7 +55,15 @@ const isFiniteNum = v => typeof v === 'number' && Number.isFinite(v);
 
 // Keeps only the known keys, coerces to finite numbers (or null), and drops anything wildly out
 // of a human range — a model hallucinating "180" for visceralFat is worse than leaving it blank.
-const RANGES = { weight: [20, 400], bodyFat: [1, 70], muscleMass: [5, 150], waterPct: [10, 90], visceralFat: [1, 60], boneMass: [0.5, 15] };
+const SEG_FAT_RANGE = [0, 250];        // a ratio against the segment's own standard range, in %
+const SEG_ARM_RANGE = [0.5, 15];       // segment muscle mass, in kg — see lib/measurements.js
+const SEG_LEG_RANGE = [1, 25];
+const SEG_TRUNK_RANGE = [5, 50];
+const RANGES = {
+  weight: [20, 400], bodyFat: [1, 70], muscleMass: [5, 150], waterPct: [10, 90], visceralFat: [1, 60], boneMass: [0.5, 15],
+  segFatArmL: SEG_FAT_RANGE, segFatArmR: SEG_FAT_RANGE, segFatLegL: SEG_FAT_RANGE, segFatLegR: SEG_FAT_RANGE, segFatTrunk: SEG_FAT_RANGE,
+  segMuscleArmL: SEG_ARM_RANGE, segMuscleArmR: SEG_ARM_RANGE, segMuscleLegL: SEG_LEG_RANGE, segMuscleLegR: SEG_LEG_RANGE, segMuscleTrunk: SEG_TRUNK_RANGE
+};
 function normalize(raw) {
   const values = {};
   for (const key of SCAN_KEYS) {
