@@ -38,7 +38,11 @@ export default function ScanUpload({ onResult }) {
   }
 
   return <>
-    <input ref={inputRef} type="file" accept="image/*,application/pdf" capture="environment"
+    {/* No `capture` attribute on purpose — that forces iOS straight into the camera and skips
+        its own picker, so there was never a way to import an existing photo or PDF (issue: iOS
+        "scan report" only opened the camera). Leaving it off gets the native action sheet back
+        (Take Photo / Photo Library / Browse), and a live capture is still one tap away in it. */}
+    <input ref={inputRef} type="file" accept="image/*,application/pdf"
       style={{ display: 'none' }} onChange={onFile} />
     <Button size="sm" variant="tinted" icon="scan" disabled={busy} onClick={() => inputRef.current.click()}>
       {busy ? t('Reading…') : t('Scan report')}

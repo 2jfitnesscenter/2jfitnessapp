@@ -14,6 +14,7 @@ import { loadStarterPlan, confirmSheet, importFromApp } from '../sheets.jsx'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import { RankGuideSheet } from './Rank.jsx'
+import { ChangelogSheet } from './Changelog.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button, Slider } from '../components/ui.jsx'
 
@@ -237,7 +238,9 @@ export default function Settings() {
 
     <div className="dim small" style={{ textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
       2J Fitness Center · {t('free & open source (AGPL v3)')}<br />
-      {t('exercise data:')} hasaneyldrm/exercises-dataset (CC)
+      {t('exercise data:')} hasaneyldrm/exercises-dataset (CC)<br />
+      <span className="tap" style={{ color: 'var(--acc)', cursor: 'pointer' }}
+        onClick={() => useUI.getState().openSheet(() => <ChangelogSheet />)}>{t('Version history')}</span>
     </div>
   </div>
 }

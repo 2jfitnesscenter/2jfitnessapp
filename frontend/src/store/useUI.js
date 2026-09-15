@@ -18,7 +18,7 @@ let workTick = null
 let workDone = null
 
 export const useUI = create((set, get) => ({
-  sheets: [],          // { id, render:(close)=>JSX, kind:'sheet'|'center', locked }
+  sheets: [],          // { id, render:(close)=>JSX, kind:'sheet'|'center', locked, wide }
   toastMsg: '',
   timer: null,         // rest countdown between sets — { left, total, endsAt }
   work: null,          // work countdown DURING a timed set (issue #16) — { left, total, endsAt, label }
@@ -27,9 +27,12 @@ export const useUI = create((set, get) => ({
   friendUnread: 0,     // count of pending incoming friend requests — kept by components/FriendsWatcher.jsx
   setFriendUnread(n) { set({ friendUnread: n }) },
 
-  openSheet(render, { kind = 'sheet', locked = false } = {}) {
+  // `wide` only matters on desktop, where a sheet otherwise caps at the same 640px every mobile
+  // sheet uses — a picker or a list meant to be scanned (the exercise library, say) benefits from
+  // the extra width a phone screen could never have had anyway; a form-shaped sheet usually doesn't.
+  openSheet(render, { kind = 'sheet', locked = false, wide = false } = {}) {
     const id = uid()
-    set(s => ({ sheets: [...s.sheets, { id, render, kind, locked }] }))
+    set(s => ({ sheets: [...s.sheets, { id, render, kind, locked, wide }] }))
     const close = () => get().closeSheet(id)
     return { id, close, lock: v => set(s => ({ sheets: s.sheets.map(x => x.id === id ? { ...x, locked: v } : x) })) }
   },

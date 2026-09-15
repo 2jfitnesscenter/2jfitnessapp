@@ -138,7 +138,7 @@ export default function PhysicalProfileWizard() {
       </>}
     </div>
 
-    <div className="wizard-footer">
+    <div className="wizard-footer flush">
       <Button variant="primary" onClick={() => last ? finish() : setStep(step + 1)}>
         {last ? t('Finish') : t('Continue')}
       </Button>

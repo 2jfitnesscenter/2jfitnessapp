@@ -337,19 +337,27 @@ h4.sec{
 .btn.xs{padding:5px 10px;width:auto;font-size:13px;border-radius:7px;gap:4px}
 .btn:disabled{opacity:.32;pointer-events:none}
 
-/* Fixed primary-action bar for a full-screen step wizard (PhysicalProfileWizard, CoachIntake)
-   — on iOS in particular, a step with enough content (the muscle-priority grid, the equipment
-   checklist) pushes a button placed at the natural end of the flow below the fold, and 100vh
-   there is measured against the largest possible viewport, not what's actually visible with the
-   address bar showing — so "scroll to find it" was the reliable reproduction, not an edge case.
-   Fixed removes the button from flow entirely; the caller adds matching bottom padding to its
-   scroll content so the last field is never hidden underneath it. */
+/* Fixed primary-action bar for a full-screen step wizard (PhysicalProfileWizard, CoachIntake,
+   Stretch's exercise picker) — on iOS in particular, a step with enough content (the
+   muscle-priority grid, the equipment checklist) pushes a button placed at the natural end of the
+   flow below the fold, and 100vh there is measured against the largest possible viewport, not
+   what's actually visible with the address bar showing — so "scroll to find it" was the reliable
+   reproduction, not an edge case. Fixed removes the button from flow entirely; the caller adds
+   matching bottom padding to its scroll content so the last field is never hidden underneath it.
+
+   Defaults to floating above #tabbar (same bottom offset #timer already clears it by) — every
+   caller except PhysicalProfileWizard's onboarding reaches this with the tab bar still on screen,
+   and #tabbar shares this same bottom:0/z-index:50, so without the offset the tab bar (painted
+   after this in the DOM) simply covers the button instead of leaving it reachable. Onboarding is
+   the one flow with no tab bar at all (App.jsx never renders one there) — it opts into sitting
+   flush against the edge with .flush. */
 .wizard-footer{
-  position:fixed;left:0;right:0;bottom:0;z-index:50;
-  padding:12px var(--pad) calc(12px + var(--sab));
+  position:fixed;left:0;right:0;bottom:calc(88px + var(--sab));z-index:50;
+  padding:12px var(--pad);
   background:var(--bg-el);
   border-top:var(--hair) solid var(--sep-op);
 }
+.wizard-footer.flush{bottom:0;padding-bottom:calc(12px + var(--sab))}
 :root[data-theme="light"] .wizard-footer{background:#f9f9fb}
 
 /* ----------------------------------------------------------- tab bar ----- */
@@ -659,18 +667,24 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   border-radius:10px;overflow:hidden;min-width:0;
 }
 .stp button{
-  width:40px;height:44px;flex:none;color:var(--label);font-size:16px;
+  width:40px;min-height:44px;flex:none;color:var(--label);font-size:16px;
   display:flex;align-items:center;justify-content:center;
   transition:background var(--fast);--icon-stroke:2.2;
 }
 .stp button:active{background:var(--surface-3)}
 .stp .val{
-  flex:1;min-width:0;display:flex;align-items:baseline;justify-content:center;gap:3px;padding:0 2px;
+  flex:1;min-width:0;display:flex;align-items:baseline;justify-content:center;gap:3px;padding:2px;
 }
 .stp .val i{font-style:normal;font-size:12px;color:var(--label-2);flex:none}
+/* min-height (not height) on the button above + an explicit, font-size-relative line-height here
+   (not the UA default) is what a reported "the 8 in RPE looks sliced in half" turned out to need:
+   with iOS's own Larger Text accessibility setting on, the number renders well past 17px/14px and
+   this row used to be pinned to the button's own fixed height — taller text than that just got
+   sliced by .stp's overflow:hidden (there for the pill's rounded corners, not to crop a value).
+   Now the row itself grows to whatever the number needs and the button centers within it instead. */
 .stp .num{
   width:100%;min-width:0;text-align:center;background:none;border:none;outline:none;
-  font-size:17px;font-weight:500;letter-spacing:-.012em;padding:0;
+  font-size:17px;font-weight:500;letter-spacing:-.012em;line-height:1.25;padding:0;
   -moz-appearance:textfield;appearance:textfield;
 }
 .stp .num::-webkit-inner-spin-button{display:none}
@@ -775,18 +789,23 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow .stp.w{flex:1.4;min-width:0}
 .setrow .stp.r{flex:1;min-width:0}
 .setrow .stp.eff{flex:1.1;min-width:0}
-.setrow .stp button{width:32px;height:40px}
+.setrow .stp button{width:32px;min-height:40px}
 /* a 3rd stepper (RIR) needs narrower buttons and a tighter row gap to fit next to weight+reps
    on narrow phones, same technique as the exercise-config sheet's three-steppers-in-a-row
    (.cfgrow below) — RIR's own value is short ("1.5") so its buttons shrink the most, weight/reps
    just enough to make room since their values ("82.5", "12") need more of what's left.
-   The header shares the numbers so its labels stay centred over the steppers they name. */
-.setrow.eff3,.sethead.eff3{gap:5px}
+   The header shares the numbers so its labels stay centred over the steppers they name.
+
+   The gap between the three stepper pills (7px, was 5px) and the +/- buttons themselves
+   (26/23px, was 23/20px) both got a bump after a reported "reps won't go past 1" turned out to
+   be a mis-tap, not a logic bug: with RIR/RPE on, reps' + sat ~5-12px from RIR's − at real phone
+   DPI — a stray tap there nudges RIR instead and reps looks frozen because it never moved. */
+.setrow.eff3,.sethead.eff3{gap:7px}
 .setrow.eff3 .stp.w,.sethead.eff3 .w-sp{flex:1.2}
 .setrow.eff3 .stp.r,.sethead.eff3 .r-sp{flex:1}
 .setrow.eff3 .stp.eff,.sethead.eff3 .eff-sp{flex:.85}
-.setrow.eff3 .stp button{width:23px}
-.setrow.eff3 .stp.eff button{width:20px}
+.setrow.eff3 .stp button{width:26px}
+.setrow.eff3 .stp.eff button{width:23px}
 .setrow.eff3 .stp .num{font-size:14px}
 /* the plate button is a 4th thing competing for the same row once effort tracking is also on —
    shrink it the same way the RIR/RPE stepper already shrinks, or its value clips (issue: barbell
@@ -1213,8 +1232,14 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
     padding:7px 10px 9px;box-shadow:0 12px 40px -10px rgba(0,0,0,.5);
   }
   #tabbar button.start{margin-top:-26px}
-  .wizard-footer{left:50%;right:auto;transform:translateX(-50%);width:640px}
+  .wizard-footer{left:50%;right:auto;transform:translateX(-50%);width:640px;bottom:112px}
+  .wizard-footer.flush{bottom:0}
   .sheet{left:50%;right:auto;margin-left:-320px;width:640px;border-radius:var(--r-xl) var(--r-xl) 0 0}
+  /* A handful of sheets are really a whole screen's worth of scannable content (the admin
+     exercise library, 1300+ rows) squeezed into the same 640px every form-shaped sheet uses —
+     opt into more of the desktop viewport via openSheet(..., { wide: true }) instead of widening
+     every sheet, which would just add dead margin on the sheets that are actually forms. */
+  .sheet.wide{margin-left:-450px;width:900px}
   .center{width:340px}
   #timer{left:50%;right:auto;margin-left:-260px;width:520px;bottom:112px}
   /* 520px fits the clock, the bar and all three controls on one line again */

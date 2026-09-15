@@ -489,7 +489,7 @@ const routes = {
 
   'POST /api/register/options': async (req, res) => {
     const body = await readBody(req);
-    const name = String(body.name || '').trim().slice(0, 40);
+    const name = String(body.name || '').trim().slice(0, 60);
     if (!name) return json(res, 400, { error: 'se requiere un nombre' });
     const code = String(body.code || '').trim().toUpperCase();
     if (INVITE_ONLY && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked))
@@ -607,7 +607,7 @@ const routes = {
   // way whether or not the name matches anyone, so this can't be used to probe the member list.
   'POST /api/recover/request': async (req, res) => {
     const body = await readBody(req);
-    const name = String(body.name || '').trim().slice(0, 40);
+    const name = String(body.name || '').trim().slice(0, 60);
     if (!name) return json(res, 400, { error: 'escribe tu nombre' });
     const matches = db.users.filter(u => !u.disabled && u.name.trim().toLowerCase() === name.toLowerCase());
     const reqRecord = {
@@ -844,7 +844,7 @@ const routes = {
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     if (body.name !== undefined) {
-      const name = String(body.name).trim().slice(0, 40);
+      const name = String(body.name).trim().slice(0, 60);
       if (!name) return json(res, 400, { error: 'se requiere un nombre' });
       u.name = name;
       saveDb();

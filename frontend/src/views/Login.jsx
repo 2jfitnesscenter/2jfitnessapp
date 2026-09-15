@@ -40,16 +40,18 @@ function RecoverCard({ token }) {
 
 function RegisterSheet({ close }) {
   const { setUser, pushState, pullState } = useStore()
-  const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [code, setCode] = useState('')
   const [inviteOnly, setInviteOnly] = useState(false)
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
   useEffect(() => { api('/api/config').then(c => setInviteOnly(!!c.invite_only)).catch(() => {}) }, [])
   const go = async () => {
-    const n = name.trim()
-    if (!n) { useUI.getState().toast(t('Enter a name')); return }
+    const fn = firstName.trim(), ln = lastName.trim()
+    if (!fn || !ln) { useUI.getState().toast(t('Enter your first and last name')); return }
     if (inviteOnly && !code.trim()) { useUI.getState().toast(t('An invite code is required')); return }
+    const n = fn + ' ' + ln
     try {
       const u = await passkeyRegister(n, code.trim())
       setUser(u)
@@ -63,8 +65,15 @@ function RegisterSheet({ close }) {
   }
   return <>
     <h3>{t('Create your profile')}</h3>
+    {/* First + last name (not one free-text field) so staff can always tell members with the
+        same first name apart in the admin roster — the two are joined with a space into the
+        single `name` the rest of the app already works with (display, admin search, the
+        recovery flow's name match), so nothing downstream needed to change. */}
     <div className="muted small" style={{ marginBottom: 14 }}>{t('Pick a name, then confirm with {0}. The passkey is saved in your device — no password needed.', t(BIO))}</div>
-    <input ref={ref} className="input" placeholder={t('Your name')} maxLength={40} value={name} onChange={e => setName(e.target.value)} />
+    <div className="row" style={{ gap: 10 }}>
+      <input ref={ref} className="input" style={{ flex: 1 }} placeholder={t('First name')} maxLength={28} value={firstName} onChange={e => setFirstName(e.target.value)} />
+      <input className="input" style={{ flex: 1 }} placeholder={t('Last name')} maxLength={28} value={lastName} onChange={e => setLastName(e.target.value)} />
+    </div>
     {inviteOnly && <>
       <div style={{ height: 10 }} />
       <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
@@ -104,7 +113,7 @@ function LostPasskeySheet({ close }) {
   return <>
     <h3>{t('I lost my passkey')}</h3>
     <div className="muted small" style={{ marginBottom: 14 }}>{t('Type the name your profile is under — staff will get notified and set you up with a new passkey in person.')}</div>
-    <input ref={ref} className="input" placeholder={t('Your name')} maxLength={40} value={name} onChange={e => setName(e.target.value)} />
+    <input ref={ref} className="input" placeholder={t('Your name')} maxLength={60} value={name} onChange={e => setName(e.target.value)} />
     <div style={{ height: 12 }} />
     <Button variant="primary" icon="key" disabled={busy} onClick={go}>{t('Send request')}</Button>
   </>

@@ -408,7 +408,7 @@ function ExerciseLibraryNav() {
   if (hidden === null) return null
   return <AdminNavCard icon="barbell" tint="var(--blue)" title={t('Exercise library')}
     sub={hidden.size ? t('{0} of {1} hidden from members.', hidden.size, EXDB.length) : t('{0} of {1} hidden from members — full catalogue is visible.', hidden.size, EXDB.length)}
-    onClick={() => openSheet(closeFn => <ExerciseLibrarySheet initialHidden={hidden} close={h => { setHidden(h); closeFn() }} />)} />
+    onClick={() => openSheet(closeFn => <ExerciseLibrarySheet initialHidden={hidden} close={h => { setHidden(h); closeFn() }} />, { wide: true })} />
 }
 
 export default function Admin() {
