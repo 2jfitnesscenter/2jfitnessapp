@@ -35,6 +35,7 @@ import Chat from './views/Chat.jsx'
 import ChatThread from './views/ChatThread.jsx'
 import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements, { SkinfoldsScreen, BodyMeasurementsScreen } from './views/Measurements.jsx'
+import Health from './views/Health.jsx'
 import Recovery from './views/Recovery.jsx'
 import Rank from './views/Rank.jsx'
 import Admin from './views/Admin.jsx'
@@ -177,6 +178,7 @@ function Shell() {
               <Route path="/measurements" element={<Measurements />} />
               <Route path="/measurements/folds" element={<SkinfoldsScreen />} />
               <Route path="/measurements/body" element={<BodyMeasurementsScreen />} />
+              <Route path="/health" element={<Health />} />
               <Route path="/recovery" element={<Recovery />} />
               <Route path="/rank" element={<Rank />} />
               {/* The Coach screens gate themselves on the instance config; the routes exist

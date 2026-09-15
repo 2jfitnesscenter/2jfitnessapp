@@ -1036,6 +1036,7 @@ function DayOverride({ iso, close }) {
   }
   return <>
     <h3>{fmtDate(iso, true)}</h3>
+    <DayHealthSummary d={iso} S={st} />
     <div className="muted small" style={{ marginBottom: 12 }}>{t('Weekly plan:')} {weeklyR ? weeklyR.name : t('Rest')}{hasOvr && <span style={{ color: 'var(--orange)' }}> · {t('changed for this day')}</span>}<br />{t('Sick, missed a day or want a different session? Pick what to train instead.')}</div>
     <div className="list">
       {st.routines.map(r => <div key={r.id} className="item" onClick={() => set(r.id)}>
@@ -1110,12 +1111,31 @@ function HRZoneBar({ hrZones }) {
   </div>
 }
 
+// That same calendar day's imported data, if any — steps that day and resting HR that day, plus
+// whichever sleep record's wake-up date is this one (so a morning workout shows last night's
+// sleep, an evening one shows this morning's — see parseAppleHealth's own wake-date attribution
+// in lib/import-csv.js). A plain summary line, not another chart: this is one day's numbers next
+// to one day's workout, not a trend.
+function DayHealthSummary({ d, S }) {
+  const steps = S.steps.find(x => x.d === d)
+  const sleep = S.sleep.find(x => x.d === d)
+  const hr = S.restingHR.find(x => x.d === d)
+  if (!steps && !sleep && !hr) return null
+  const parts = [
+    steps && t('{0} steps', fmtNum(steps.v)),
+    sleep && t('{0} h sleep', Math.round(sleep.v / 6) / 10),
+    hr && t('{0} bpm resting', hr.v),
+  ].filter(Boolean)
+  return <div className="small dim" style={{ marginBottom: 14 }}>{t('That day:')} {parts.join(' · ')}</div>
+}
+
 function WorkoutDetail({ w, close }) {
   const st = useStore(s => s.S)
   return <>
     <h3>{w.name}</h3>
     <div className="muted small" style={{ marginBottom: 12 }}>{[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, st.unit), ...(w.bw ? [fmtNum(w.bw) + ' ' + st.unit] : [])].join(' · ')}</div>
     {w.hrZones && <HRZoneBar hrZones={w.hrZones} />}
+    <DayHealthSummary d={w.d} S={st} />
     {w.entries.map((e, i) => {
       const ex = EXIDX[e.id]
       return <div key={i} className="row" style={{ marginBottom: 12, alignItems: 'flex-start' }}>

@@ -46,7 +46,7 @@ export default function ConnectedApps() {
 
     {config?.whoop && <Section title="Whoop">
       <Row icon="heart" iconTint="var(--purple)" title="Whoop"
-        subtitle={t('Shows your daily recovery score on Home')}
+        subtitle={t('Shows your daily recovery score on Home, and syncs your sleep')}
         accessory="chevron" onClick={user?.whoop ? () => disconnect(disconnectWhoop, 'Whoop') : connectWhoop}>
         <span className={'tag ' + (user?.whoop ? 'good' : 'bad')}>{user?.whoop ? t('Connected') : t('Not connected')}</span>
       </Row>

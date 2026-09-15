@@ -16,6 +16,7 @@ export function whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb,
   const states = new Map(); // state -> { uid, exp }
   setInterval(() => { const now = Date.now(); for (const [k, v] of states) if (v.exp < now) states.delete(k); }, 60000).unref();
   const recoveryCache = new Map(); // uid -> { data, exp }
+  const sleepCache = new Map(); // uid -> { data, exp }
 
   const redirectUri = () => `${origin}/api/whoop/callback`;
 
@@ -73,6 +74,7 @@ export function whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb,
       if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
       user.whoopAuth = null;
       recoveryCache.delete(user.id);
+      sleepCache.delete(user.id);
       saveDb();
       json(res, 200, { ok: true });
     },
@@ -90,6 +92,26 @@ export function whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb,
         recoveryCache.set(user.id, { data: recovery, exp: Date.now() + RECOVERY_CACHE_MS });
         json(res, 200, { connected: true, recovery });
       } catch (e) { json(res, 200, { connected: true, recovery: null, error: e.message }); }
+    },
+
+    // Recent nights of sleep, for the client to merge into its own S.sleep — same series an
+    // Apple Health import can fill in (lib/import-csv.js), so a member gets one calendar of
+    // sleep no matter which source it came from. This endpoint only ever reads from Whoop; the
+    // client does the actual merging (and so the persisting), the same as every other import in
+    // this app — nothing here writes to the member's own state.
+    'GET /api/whoop/sleep': async (req, res) => {
+      const user = readSession(req);
+      if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+      if (!user.whoopAuth) return json(res, 200, { connected: false });
+      const cached = sleepCache.get(user.id);
+      if (cached && cached.exp > Date.now()) return json(res, 200, { connected: true, sleep: cached.data });
+      const token = await validAccessToken(user);
+      if (!token) return json(res, 200, { connected: false });
+      try {
+        const sleep = await client.fetchRecentSleep(token);
+        sleepCache.set(user.id, { data: sleep, exp: Date.now() + RECOVERY_CACHE_MS });
+        json(res, 200, { connected: true, sleep });
+      } catch (e) { json(res, 200, { connected: true, sleep: null, error: e.message }); }
     },
 
     /* ---------- admin: the one instance-wide Whoop app ---------- */

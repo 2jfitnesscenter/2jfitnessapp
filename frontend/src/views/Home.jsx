@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
+import { useUI } from '../store/useUI.js'
 import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks, setsDoneActive, setsDone } from '../lib/history.js'
 import { fmtDate, fmtDur, fmtVol, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
@@ -19,7 +20,8 @@ import { recoveryOf, overallRecovery } from '../lib/recovery.js'
 import { loadOfWorkouts } from '../lib/muscles.js'
 import { hasBodyComposition } from '../lib/measurements.js'
 import RecoveryRing from '../components/RecoveryRing.jsx'
-import { fetchWhoopRecovery } from '../lib/whoop-api.js'
+import { fetchWhoopRecovery, fetchWhoopSleep } from '../lib/whoop-api.js'
+import { mergeSeries } from '../lib/import-csv.js'
 
 // A tap-through summary of the most recently finished workout — duration, sets, volume, and
 // which muscles it hit (the same body map FinishSummary shows right after finishing one).
@@ -101,6 +103,24 @@ function WhoopCard({ nav, connected }) {
   useEffect(() => {
     if (!connected) return
     fetchWhoopRecovery().then(setData).catch(() => {})
+  }, [connected])
+  // Whoop also tracks sleep, same as recovery — merged straight into S.sleep so it lands in the
+  // same calendar an Apple Health import fills in (Profile → Health), and persists like anything
+  // else the app tracks, not just a number shown while this card happens to be on screen. Runs
+  // whenever Home mounts with Whoop connected; each night is de-duped by date the same way a
+  // re-imported export.xml is, so this never double-counts a night already merged in.
+  useEffect(() => {
+    if (!connected) return
+    fetchWhoopSleep().then(res => {
+      if (!res.connected || !res.sleep?.length) return
+      let added = 0
+      useStore.getState().update(s => {
+        const merged = mergeSeries(s.sleep, res.sleep)
+        s.sleep = merged.list
+        added = merged.added
+      })
+      if (added > 0) useUI.getState().toast(t('{0} nights of sleep synced from Whoop', added))
+    }).catch(() => {})
   }, [connected])
   if (!connected || !data?.connected || !data.recovery) return null
   const { score } = data.recovery

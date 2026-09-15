@@ -678,7 +678,7 @@ export function parseImport(text, opts) {
 
 // Same "existing day wins" de-dupe every kind of import already uses, factored out for the
 // 5 daily series an Apple Health import can bring (bodyweight plus the 4 new ones below).
-function mergeSeries(existing, fresh) {
+export function mergeSeries(existing, fresh) {
   const have = new Set((existing || []).map(x => x.d))
   const add = (fresh || []).filter(x => !have.has(x.d))
   return { list: [...(existing || []), ...add].sort((a, b) => (a.d < b.d ? -1 : 1)), added: add.length }
