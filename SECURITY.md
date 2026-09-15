@@ -98,12 +98,33 @@ Read this before hosting 2J Fitness Center for anyone other than yourself.
 
 ### What it does not do
 
-- **Nothing in `./data` is encrypted.** It holds `db.json` (users, passkey public keys, push
-  subscriptions, invite codes), one `state-<uid>.json` per user with their complete workout
-  history and body-weight log, `secret`, and `vapid.json`. Anyone who can read that folder — you,
-  whoever holds the backups, whoever gets into the host — can read every user's data, and with
-  `secret` can mint a valid session cookie for any account. **If you host 2J Fitness Center for other
-  people, they are trusting you exactly as much as they'd trust any server operator.**
+- **Health data is encrypted at rest; the rest of `./data` is not.** Each `state-<uid>.json` — a
+  member's complete workout history, body-weight log and body-composition measurements (body
+  fat %, muscle mass, visceral fat, water %, bone mass) — is AES-256-GCM encrypted on every write
+  (`api/lib/state-store.js:36`, `api/lib/crypto.js:22`), transparently: the app reads and writes
+  it as a normal object, only the bytes on disk change. `db.json` (users, passkey public keys,
+  push subscriptions, invite codes), `social.json`, `chat.json`, `friends.json`, `coach/*.json`,
+  `secret` and `vapid.json` are still plain JSON. **This is not protection against someone who
+  can read the whole `./data` folder.** The encryption key is derived from `./data/secret`
+  (`api/lib/crypto.js:14-21`) — the same file that signs session cookies and lives right next to
+  the files it protects — so a full copy of `./data` (a host compromise, a backup of the whole
+  directory) carries its own key with it and decrypts exactly as before. What it does stop: a
+  *partial* leak — one `state-*.json` file exposed on its own (a misconfigured sync target, a
+  bug, a single file that ends up somewhere it shouldn't) is unreadable without `secret`
+  alongside it. **If you host 2J Fitness Center for other people, they are trusting you exactly as
+  much as they'd trust any server operator** — this narrows one specific way their data could leak,
+  it does not remove the trust.
+  An existing instance upgrading to this version should run the one-time migration
+  (`docker compose exec api node scripts/encrypt-existing-state.mjs`) right after updating, so no
+  profile sits unconverted until its owner's next write; back up `./data` first, the same as
+  before any change that rewrites every user's file. New writes encrypt automatically either way.
+- **A bioimpedance scan photo leaves the server, briefly.** "Scan a report" (Measurements, and
+  the admin panel's own bioimpedance entry) sends the photo to Google's Gemini API over HTTPS to
+  read the printed values off it (`api/lib/measurements-scan.js`, `api/coach/adapters/gemini.js`)
+  — that's the one place a health-adjacent file this app touches goes to a third party. The image
+  is never written to disk on this server: it's held in memory for that one request and discarded
+  once Gemini answers. Opt-in per scan, and only reachable at all if the instance's Coach is
+  configured with a Gemini key in the first place.
 - **Admins can read everything.** A user listed in `ADMIN_UIDS` (or flagged `admin: true` in
   `db.json`) gets every user's full history and body weight, can disable accounts, and can create
   or revoke invite codes (`api/server.js:460-540`). Off by default — a fresh instance has no admin.
@@ -120,10 +141,16 @@ Read this before hosting 2J Fitness Center for anyone other than yourself.
   `requireUserVerification: false` (`api/server.js:297`, `api/server.js:343`), so a passkey
   released without a biometric or PIN is still accepted. In practice: unlocked device ≈ account
   access.
-- **One passkey per profile, and no recovery.** Every successful registration creates a *new*
-  profile (`api/server.js:309-319`); there is no route to attach a second passkey to an existing
-  one, and no email or reset path. Lose the passkey and that profile is unreachable — only direct
-  surgery on `./data` gets it back.
+- **One passkey per profile — recovery is admin-assisted, not self-service.** Every successful
+  registration still creates a *new* profile; there is no email or automated reset path. A member
+  who loses their only device can raise an unauthenticated "I lost my passkey" flag from the
+  login screen (`POST /api/recover/request`, `api/server.js:608`), which just queues a request —
+  it hands out nothing. Only an admin can turn that into access, by generating a link
+  (`POST /api/admin/user/recovery-link`, `api/server.js:1114`) meant to be handed over in person:
+  a 64-bit single-use token, dead in 15 minutes, and generating a new one for the same member
+  retires any older one still unused. It lets them register a fresh passkey onto their *existing*
+  profile (history intact) rather than starting a new one. There is still no instance without an
+  admin able to recover a lost passkey on their own.
 - **Disabling someone isn't a ban.** They can still register a fresh profile with a new passkey
   unless `INVITE_ONLY=1` is set.
 - **HTTPS is required and the app doesn't provide it.** The API container speaks plain HTTP and

@@ -14,6 +14,7 @@ import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { trainerAIRoutes } from './coach/trainer-routes.js';
 import { scanBioimpedanceImage } from './lib/measurements-scan.js';
+import { readState, writeState } from './lib/state-store.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
 import { chatRoutes } from './chat/routes.js';
@@ -102,10 +103,9 @@ let hiddenEx = [];
 try { hiddenEx = JSON.parse(fs.readFileSync(hiddenExFile, 'utf8')); if (!Array.isArray(hiddenEx)) hiddenEx = []; } catch {}
 function saveHiddenEx() { atomicWrite(hiddenExFile, JSON.stringify(hiddenEx)); }
 
-const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
-function readState(uid) {
-  try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
-}
+// state-<uid>.json (the member's own workout history, body-weight log and measurements) is
+// encrypted at rest — readState/writeState live in lib/state-store.js, the one place that
+// knows the on-disk format, so nothing here parses it as plain JSON directly.
 
 // Social: routines and programs members publish for each other (and trainers publish
 // separately), plus the Wall of real logged PRs. Shared across every user, unlike
@@ -702,10 +702,7 @@ const routes = {
   'GET /api/data': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    try {
-      const state = JSON.parse(fs.readFileSync(stateFile(user.id), 'utf8'));
-      json(res, 200, { state });
-    } catch { json(res, 200, { state: null }); }
+    json(res, 200, { state: readState(user.id) });
   },
 
   'PUT /api/data': async (req, res) => {
@@ -714,7 +711,7 @@ const routes = {
     const body = await readBody(req);
     if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'se requiere el estado' });
     delete body.state.active;              // in-progress workouts stay device-local
-    atomicWrite(stateFile(user.id), JSON.stringify(body.state));
+    writeState(user.id, body.state);
     json(res, 200, { ok: true, ts: body.state._ts || null });
   },
 
@@ -872,7 +869,7 @@ const routes = {
       S.secondaryMuscles = Array.isArray(body.secondaryMuscles) ? body.secondaryMuscles.filter(m => MUSCLES.includes(m)) : [];
     }
     S._ts = Date.now();
-    atomicWrite(stateFile(u.id), JSON.stringify(S));
+    writeState(u.id, S);
     json(res, 200, { ok: true });
   },
 
@@ -923,7 +920,7 @@ const routes = {
     }
     if (!n) return json(res, 400, { error: 'no se han dado valores válidos' });
     S._ts = Date.now();
-    atomicWrite(stateFile(u.id), JSON.stringify(S));
+    writeState(u.id, S);
     json(res, 200, { ok: true, saved: n });
   },
 
@@ -1060,7 +1057,7 @@ const routes = {
     S.programs = [...(S.programs || []), program];
     S.activeProgramId = program.id;
     S._ts = Date.now();
-    atomicWrite(stateFile(u.id), JSON.stringify(S));
+    writeState(u.id, S);
     json(res, 200, { ok: true });
   },
 
@@ -1688,7 +1685,7 @@ const routes = {
     if (post.prog) routine.prog = post.prog;
     S.routines = [...(S.routines || []), routine];
     S._ts = Date.now();
-    atomicWrite(stateFile(member.id), JSON.stringify(S));
+    writeState(member.id, S);
     json(res, 200, { ok: true, routineId: routine.id });
   },
 
@@ -1716,7 +1713,7 @@ const routes = {
     }
     S.programs = [...(S.programs || []), { id: crypto.randomBytes(9).toString('base64url'), name: post.name, emoji: post.emoji, routineIds }];
     S._ts = Date.now();
-    atomicWrite(stateFile(member.id), JSON.stringify(S));
+    writeState(member.id, S);
     json(res, 200, { ok: true });
   },
 
@@ -1762,7 +1759,7 @@ const routes = {
     if (body.prog) routine.prog = String(body.prog).slice(0, 20);
     if (existingIdx >= 0) S.routines[existingIdx] = routine; else S.routines.push(routine);
     S._ts = Date.now();
-    atomicWrite(stateFile(member.id), JSON.stringify(S));
+    writeState(member.id, S);
     json(res, 200, { ok: true, routineId: routine.id });
   },
 
@@ -1791,7 +1788,7 @@ const routes = {
     const program = { id: existingIdx >= 0 ? body.programId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'folder').slice(0, 20), routineIds, week };
     if (existingIdx >= 0) S.programs[existingIdx] = program; else S.programs.push(program);
     S._ts = Date.now();
-    atomicWrite(stateFile(member.id), JSON.stringify(S));
+    writeState(member.id, S);
     json(res, 200, { ok: true, programId: program.id });
   },
 

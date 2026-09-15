@@ -26,6 +26,7 @@ COPY friends/ ./friends/
 COPY chat/ ./chat/
 COPY strava/ ./strava/
 COPY whoop/ ./whoop/
+COPY scripts/ ./scripts/
 ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["node", "server.js"]

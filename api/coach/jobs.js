@@ -20,6 +20,8 @@ import * as cfgStore from './config.js';
 import { adapterFor } from './adapters/index.js';
 import * as payloadLib from './payload.js';
 import { extractJSON, validatePlan, validateReview, contractOK } from './validate.js';
+import { readState } from '../lib/state-store.js';
+export { readState };   // re-exported: trainer-jobs.js and cadence.js import it from here
 
 const DATA = process.env.DATA_DIR || '/data';
 const COACH_DIR = path.join(DATA, 'coach');
@@ -54,11 +56,6 @@ function patchUser(uid, patch) {
 /** Consent revoked, profile deleted, "reset everything" — no server-side residue (FR-51). */
 export function clearUser(uid) {
   try { fs.unlinkSync(userFile(uid)); } catch { /* nothing to clear */ }
-}
-
-export function readState(uid) {
-  try { return JSON.parse(fs.readFileSync(path.join(DATA, 'state-' + safe(uid) + '.json'), 'utf8')); }
-  catch { return null; }
 }
 
 /* ---------- caps ---------- */
