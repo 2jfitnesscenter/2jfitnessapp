@@ -870,6 +870,15 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   transition:background var(--fast);
 }
 .setrow .platesbtn:active{background:var(--surface-3)}
+/* the reactive Training Zones chip (lib/training-zones.js) — a flat colour, not a soft tint,
+   so Z5's red reads as urgent the same instant the weight does */
+.zonechip{
+  flex:none;min-width:24px;height:22px;padding:0 5px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--zc);color:#fff;font-weight:700;font-size:calc(11px * var(--text-scale,1));
+  text-shadow:0 1px 1px rgba(0,0,0,.25);
+  letter-spacing:-.01em;
+}
 /* exercise-config sheet: three steppers side by side on narrow phones */
 .cfgrow{gap:8px}
 .cfgrow>div{flex:1;min-width:0}

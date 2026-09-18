@@ -141,6 +141,14 @@ export default function Settings() {
       <Row icon="barbell" iconTint="var(--blue)" title={t('Plate calculator')}
         subtitle={t('Work out what to load on any bar, outside of a set')}
         accessory="chevron" onClick={() => platesSheet(S.unit === 'lb' ? 45 : 20, S.unit)} />
+      <Row icon="barbell" iconTint="var(--blue)" title={t('Plate calculator quick access')}
+        subtitle={t('Show the quick-access icon to calculate barbell plates on each set.')}>
+        <Switch checked={S.enablePlateCalculator !== false} onChange={v => update(s => { s.enablePlateCalculator = v })} />
+      </Row>
+      <Row icon="target" iconTint="var(--purple)" title={t('Training zones')}
+        subtitle={t('Calculate and show relative effort, RPE and %1RM while training.')}>
+        <Switch checked={S.enableTrainingZones !== false} onChange={v => update(s => { s.enableTrainingZones = v })} />
+      </Row>
       <SelectRow icon="timer" iconTint="var(--orange)" title={t('Rest timer')}
         value={S.restSec} onChange={v => update(s => { s.restSec = v })}
         options={[60, 90, 120, 150, 180].map(v => ({ value: v, label: v + 's' }))} />

@@ -7,7 +7,7 @@ import { uid } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../lib/history.js'
 import { Thumb } from '../components/Media.jsx'
-import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, celebrateBadges } from '../sheets.jsx'
+import { glyphPicker, exercisePicker, alternativesSheet, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, celebrateBadges } from '../sheets.jsx'
 import { printRoutine } from '../lib/plan-share.js'
 import { evaluateBadgesIn } from '../lib/badges.js'
 import Icon from '../components/Icon.jsx'
@@ -59,8 +59,11 @@ export default function RoutineEdit() {
   })
 
   const menuActions = (ex, e, i) => ({
-    onReplace: () => exercisePicker(newEx => edit(x => { x[i] = { ...x[i], id: newEx.id } })),
-    onReplaceExclude: () => exercisePicker(newEx => {
+    onReplace: () => alternativesSheet(ex, newEx => {
+      edit(x => { x[i] = { ...x[i], id: newEx.id } })
+      toast(t('Replaced with {0}', nameFor(newEx)))
+    }),
+    onReplaceExclude: () => alternativesSheet(ex, newEx => {
       edit(x => { x[i] = { ...x[i], id: newEx.id } })
       excludeEx(ex.id)
       toast(t('{0} won’t be suggested again', nameFor(ex)))

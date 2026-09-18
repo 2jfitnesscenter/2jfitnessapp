@@ -9,12 +9,13 @@ import { beep, vibrate } from '../lib/sound.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
-import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet, effortSheet } from '../sheets.jsx'
+import { startFlow, exercisePicker, alternativesSheet, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet, effortSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { stepWeight, BARBELL_LIKE_EQ } from '../lib/equipment.js'
+import { zoneOfSet } from '../lib/training-zones.js'
 
 /* ---------- start chooser (no active workout) ---------- */
 function StartChooser() {
@@ -108,9 +109,15 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
   // A plate diagram only means anything with a real load — never on a warmup set (asked for by
   // name: only the effective sets get one) and never on a cardio hold. The calculator's own
   // bar-type picker (components/BarbellPlates.jsx) is what makes it meaningful for a Smith/EZ/
-  // trap bar too now, not just a plain barbell.
+  // trap bar too now, not just a plain barbell. Settings → During a workout can turn the quick
+  // -access icon off independently of the standalone tool (still reachable from Settings itself).
   const barbellEq = BARBELL_LIKE_EQ.includes(ex.eq)
-  const showPlates = s => !cardio && barbellEq && s.type !== 'warmup' && s.w > 0
+  const showPlates = s => S.enablePlateCalculator !== false && !cardio && barbellEq && s.type !== 'warmup' && s.w > 0
+  // The zone chip is the reactive half of Training Zones (lib/training-zones.js) — %1RM against
+  // whatever this exercise's best known 1RM already is, or the set's own RIR/RPE when there's no
+  // 1RM estimate yet. Same on/off switch as the plate calculator, its own row in Settings.
+  const showZones = S.enableTrainingZones !== false && !cardio && mode === 'reps'
+  const zoneOf = s => showZones ? zoneOfSet(S, entry.id, s) : null
   // Collapsible per exercise, not global — reset whenever the visible exercise changes so a
   // hidden warmup block from the last one doesn't silently carry over to this one.
   const [hideWarmup, setHideWarmup] = useState(false)
@@ -200,6 +207,8 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
           {cell(s, i, col1, 'w', workPosOf[i])}
           {cell(s, i, col2, 'r', workPosOf[i])}
           {col3 && effortBadge(s, i)}
+          {(() => { const zone = zoneOf(s); return zone && <span className="zonechip" style={{ '--zc': zone.color }}
+            title={zone.short + ' · ' + t(zone.label)} aria-label={zone.short + ' · ' + t(zone.label)}>{zone.short}</span> })()}
           {showPlates(s) && <button className="platesbtn" aria-label={t('Plate breakdown')}
             onClick={() => platesSheet(s.w, S.unit, v => onField(i, 'w', v))}><Icon name="barbell" /></button>}
           {/* A timed set is started, not typed: the timer counts the hold down and checks the
@@ -295,14 +304,20 @@ function ActiveWorkout() {
   // RoutineEdit's own "Replace" (sheets.jsx). `active.swaps` remembers the ORIGINAL id per slot
   // (first swap only — swapping back to it clears the entry) so finishWorkout can offer to make
   // the change stick in the routine; leaving it alone means it only ever applied to today.
-  const replaceExercise = idx => exercisePicker(newEx => update(s => {
-    const e = s.active.entries[idx]
-    if (newEx.id === e.id) return
-    const swaps = (s.active.swaps ||= {})
-    if (!(idx in swaps)) swaps[idx] = e.id
-    else if (swaps[idx] === newEx.id) delete swaps[idx]
-    e.id = newEx.id
-  }))
+  const replaceExercise = idx => {
+    const current = exOr(A.entries[idx].id)
+    alternativesSheet(current, newEx => {
+      if (newEx.id === current.id) return
+      update(s => {
+        const e = s.active.entries[idx]
+        const swaps = (s.active.swaps ||= {})
+        if (!(idx in swaps)) swaps[idx] = e.id
+        else if (swaps[idx] === newEx.id) delete swaps[idx]
+        e.id = newEx.id
+      })
+      useUI.getState().toast(t('Replaced with {0}', nameFor(newEx)))
+    })
+  }
 
   // A timed set is held, not typed. The work timer records what was actually held — an early
   // finish logs 0:38 of a 0:45 target rather than crediting the full prescription — and then

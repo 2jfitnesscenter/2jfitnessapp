@@ -22,6 +22,8 @@ import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
+import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
+import { getExerciseAlternatives, QUICK_FILTERS } from './lib/alternatives.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE } from './lib/mobile.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
@@ -724,6 +726,43 @@ export function ExercisePicker({ onPick, close }) {
 }
 export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker onPick={onPick} close={close} />)
 
+/* ============================ swap exercise (ranked alternatives) ============================ */
+// Unlike ExercisePicker above (a flat "browse everything" list), this ranks the catalogue
+// against the exercise actually being replaced — see lib/alternatives.js for how, and why there's
+// no movement-pattern field to rank by.
+function AlternativesPicker({ current, onPick, close }) {
+  const st = useStore(s => s.S)
+  const [filter, setFilter] = useState(null)
+  const alts = getExerciseAlternatives(st, current.id)
+  const activeFilter = QUICK_FILTERS.find(f => f.key === filter)
+  const filtered = !activeFilter ? alts
+    : filter === 'same' ? alts.filter(a => a.ex.eq === current.eq)
+      : alts.filter(a => activeFilter.eq.includes(a.ex.eq))
+  const labelFor = a => a.matchKey === 'exact' ? t('Exact replacement')
+    : a.matchKey === 'sameMuscle' ? t('Alternative with {0}', t(a.ex.eq))
+      : t('Related muscle')
+  return <>
+    <h3 className="capitalize">{t('Replace {0}', nameFor(current))}</h3>
+    <div className="chips" style={{ margin: '10px 0' }}>
+      <button className={'chip nocap' + (!filter ? ' on' : '')} onClick={() => setFilter(null)}>{t('All')}</button>
+      {QUICK_FILTERS.map(f => <button key={f.key} className={'chip' + (filter === f.key ? ' on' : '')} onClick={() => setFilter(f.key)}>{t(f.label)}</button>)}
+    </div>
+    <div className="list">
+      {filtered.length === 0 && <div className="empty">{t('No alternatives found for this filter.')}</div>}
+      {filtered.map(a => <div key={a.ex.id} className="item" onClick={() => { close(); onPick(a.ex) }}>
+        <Thumb ex={a.ex} />
+        <div className="grow">
+          <div className="tt capitalize">{nameFor(a.ex)}</div>
+          <div className="ss capitalize">{t(a.ex.tg || a.ex.bp)} · {t(a.ex.eq)}</div>
+        </div>
+        <span className={'tag nocap' + (a.matchKey === 'exact' ? ' acc' : '')}>{labelFor(a)}</span>
+        <Icon name="chevronRight" className="chev" />
+      </div>)}
+    </div>
+  </>
+}
+export const alternativesSheet = (current, onPick) => ui().openSheet(close => <AlternativesPicker current={current} onPick={onPick} close={close} />)
+
 /* ============================ exercise browser (by muscle, photo grid) ============================ */
 // Plan > Exercises opens this as its own sheet per muscle (or unfiltered) instead of filtering
 // a list in place — closer to a real "different window" you can dismiss, and it puts the same
@@ -865,6 +904,7 @@ function ExConfig({ ex, existing, onSave, onDelete, close, routine }) {
       const out = { sets, mode: 'reps', reps, weight: Math.max(0, c.weight || 0), ...prog }
       if (repsRange) { out.targetRepsMin = repsMin; out.targetRepsMax = repsMax }
       if (policyFor({ ...c, id: ex.id }, routine, 'reps') === 'double') out.repsMin = Math.min(reps, Math.max(1, Math.round(c.repsMin) || Math.max(1, reps - 2)))
+      if (c.targetZone) out.targetZone = Number(c.targetZone)
       onSave(out)
     }
   }
@@ -911,6 +951,18 @@ function ExConfig({ ex, existing, onSave, onDelete, close, routine }) {
     {mode === 'time' && <div className="small dim" style={{ marginBottom: 18 }}>
       {t('A timer runs while you hold the set. Leave the weight at 0 for bodyweight holds.')}
     </div>}
+    {mode === 'reps' && st.enableTrainingZones !== false && (() => {
+      const suggested = c.targetZone ? suggestedWeightForZone(st, ex.id, c.targetZone, st.unit) : null
+      return <div className="sect-b" style={{ marginBottom: 18 }}>
+        <SelectRow title={t('Target zone')} sheetTitle={t('Target zone')} value={c.targetZone || ''}
+          onChange={v => setC(x => ({ ...x, targetZone: v || undefined }))}
+          options={[{ value: '', label: t('None') },
+            ...ZONES.map(z => ({ value: String(z.id), label: z.short + ' · ' + t(z.label), subtitle: t('{0} reps', z.reps) }))]} />
+        {suggested != null && <div className="small dim" style={{ margin: '6px 2px 0' }}>
+          {t('≈ {0} {1} suggested, from this exercise’s current 1RM estimate', fmtNum(suggested), st.unit)}
+        </div>}
+      </div>
+    })()}
     <ProgressionFields ex={ex} mode={mode} c={c} setC={setC} routine={routine} unit={st.unit} />
     <Button variant="primary" onClick={save}>{existing ? t('Save') : t('Add to routine')}</Button>
     {ex.custom && <><div style={{ height: 8 }} /><Button icon="pencil" onClick={() => { close(); customExSheet(ex) }}>{t('Edit or delete this exercise')}</Button></>}

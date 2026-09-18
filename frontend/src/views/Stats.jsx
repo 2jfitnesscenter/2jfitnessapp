@@ -17,6 +17,7 @@ import {
   hasEffort, displayScale, scaleName, toScale, avgRir, effortSummary, effortWeeks,
   effortHistogram, isHardSet, HARD_RIR
 } from '../lib/effort.js'
+import { ZONES, zoneOfSet } from '../lib/training-zones.js'
 import { Button, Segmented, SelectRow } from '../components/ui.jsx'
 
 // Steps, sleep and resting heart rate only ever arrive via an Apple Health import (Settings →
@@ -153,6 +154,47 @@ function EffortCard({ S }) {
   </div>
 }
 
+// Where the week's/month's working volume actually landed across the 5 Training Zones
+// (lib/training-zones.js) — the counterpart to EffortCard's RIR histogram, but weighted by
+// volume (w×r) instead of set count, and classified per set the same way the live logger's
+// zone chip is (zoneOfSet: %1RM when known, RIR/RPE fallback otherwise). A set neither signal
+// can classify (no 1RM estimate yet and unrated) simply doesn't count toward any zone — shown
+// as its own share rather than silently folded into one, so the percentages stay honest.
+function ZoneDistributionCard({ S }) {
+  const [win, setWin] = useState('week')
+  const inWin = S.workouts.filter(w => win === 'week' ? weekKey(w.d) === weekKey(todayISO()) : w.d.slice(0, 7) === todayISO().slice(0, 7))
+  const vol = {}
+  ZONES.forEach(z => { vol[z.id] = 0 })
+  let classified = 0, unclassified = 0
+  inWin.forEach(w => (w.entries || []).forEach(e => {
+    if (modeOf({ ...(e.target || {}), id: e.id }) !== 'reps') return
+    ;(e.sets || []).forEach(s => {
+      if (!s.done || s.type === 'warmup' || !s.w || !s.r) return
+      const v = s.w * s.r
+      const zone = zoneOfSet(S, e.id, s)
+      if (zone) { vol[zone.id] += v; classified += v } else unclassified += v
+    })
+  }))
+  const total = classified + unclassified
+  const maxVol = Math.max(1, ...ZONES.map(z => vol[z.id]))
+
+  return <div className="card">
+    <h2>{t('Training zones')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('volume by intensity')}</span></h2>
+    <Segmented className="seg-range" value={win} onChange={setWin}
+      options={[{ value: 'week', label: t('Week') }, { value: 'month', label: t('Month') }]} />
+    {total === 0 ? <div className="muted small">{t('No working sets in this period yet.')}</div> : <>
+      {ZONES.map(z => <div key={z.id} className="mrow">
+        <span className="nm">{z.short} · {t(z.label)}</span>
+        <span className="bar"><i style={{ width: Math.round(vol[z.id] / maxVol * 100) + '%', background: z.color }} /></span>
+        <span className="v">{classified ? Math.round(vol[z.id] / classified * 100) + '%' : '—'}</span>
+      </div>)}
+      {unclassified > 0 && <div className="small dim" style={{ marginTop: 8 }}>
+        {t('{0}% of this period’s volume has no 1RM estimate or rated effort to classify yet.', Math.round(unclassified / total * 100))}
+      </div>}
+    </>}
+  </div>
+}
+
 // Stats = the analytics hub: all charts, progress and history live here.
 export default function Stats() {
   const nav = useNavigate()
@@ -251,6 +293,7 @@ export default function Stats() {
 
     {S.workouts.length > 0 && <MuscleBalance S={S} />}
     {anyEffort && <EffortCard S={S} />}
+    {S.enableTrainingZones !== false && <ZoneDistributionCard S={S} />}
 
     <div className="cols">
       <div className="card">

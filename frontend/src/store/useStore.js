@@ -14,6 +14,10 @@ export const DEF = {
   // dumbbell rack / machine pins / barbell plates instead of customIncrements below.
   showPreviousResults: true, use2JRoomEquipment: true,
   customIncrements: { barbell: 5, dumbbell: 2, machineOther: 5 },
+  // Settings → During a workout — independent on/off switches for two optional tools, each
+  // defaulting on so nothing already-shipped goes missing for an existing profile. See
+  // Workout.jsx's showPlates and lib/training-zones.js's consumers for what each one gates.
+  enablePlateCalculator: true, enableTrainingZones: true,
   // Settings → Statistics — how much a secondary/stabilising muscle counts toward volume, sets
   // and the muscle map, everywhere lib/muscles.js's loadOf family is used (see muscleOptsOf).
   countSecondaryMuscles: true, secondaryMuscleFactor: 0.5,
