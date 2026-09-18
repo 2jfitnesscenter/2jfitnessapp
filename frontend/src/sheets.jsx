@@ -23,8 +23,10 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE } from './lib/mobile.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
-import { resizeImageFile, uploadImage, mediaUrl } from './lib/media.js'
+import { resizeImageFile, uploadImage, mediaUrl, scanRoutine } from './lib/media.js'
+import { matchScannedRoutine, applyPendingChoice } from './lib/routine-scan.js'
 import ScanUpload from './components/ScanUpload.jsx'
+import PendingExerciseChoices from './components/PendingExerciseChoices.jsx'
 import { fetchFriendCode, resetFriendCode, sendFriendRequest } from './lib/friends-api.js'
 import { startThread } from './lib/chat-api.js'
 import { sendWorkoutToStrava } from './lib/strava-api.js'
@@ -1021,6 +1023,59 @@ function PlanImport({ bundle, close }) {
     <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
   </>
 }
+
+/** Kicks off the file/camera picker, reads the routine, and — once matched against the
+ * library — opens the review sheet. A thin wrapper so Plan.jsx can drop in a single button
+ * without wiring the scan → match → review chain itself. */
+export function scanRoutineSheet() {
+  ui().openSheet(close => <ScanUpload
+    scanFn={scanRoutine}
+    label={t('Scan a routine')}
+    busyLabel={t('Reading the routine…')}
+    onResult={raw => { close(); scannedRoutineSheet(matchScannedRoutine(raw)) }}
+  />)
+}
+
+// Same "review before it lands in your plan" shape as PlanImport above (a shared file from a
+// friend) and CSV import's ImportSummary — this one's own wrinkle is that a scanned exercise
+// name never just gets dropped when it doesn't match the library: it becomes a custom exercise
+// instead, same as the CSV importer already does for a row it doesn't recognise.
+function ScannedRoutineSummary({ bundle: initialBundle, close }) {
+  const [bundle, setBundle] = useState(initialBundle)
+  const [schedule, setSchedule] = useState(Object.keys(initialBundle.week || {}).length > 0)
+  const exerciseCount = bundle.routines.reduce((n, r) => n + r.ex.length, 0)
+  const choose = (exId, chosenId) => setBundle(b => applyPendingChoice(b, exId, chosenId))
+  const apply = () => {
+    update(s => mergePlan(s, bundle, { asProgram: schedule && bundle.routines.length > 1, programName: bundle.name }))
+    close()
+    toast(t('Added {0} routines to your plan', bundle.routines.length))
+    nav('/plan')
+  }
+  return <>
+    <h3>{t('Import “{0}”', bundle.name)}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>
+      {t(bundle.routines.length === 1 ? '{0} routine' : '{0} routines', bundle.routines.length)}
+      {' · ' + exCount(exerciseCount)}
+    </div>
+    <div className="dim small" style={{ marginBottom: 14, lineHeight: 1.4 }}>{t('These are added as new routines — nothing you already have is changed. Check the sets, reps and weight it read before you train from it.')}</div>
+    <PendingExerciseChoices pendingChoices={bundle.pendingChoices} onChoose={choose} />
+    {bundle.unmatchedNames.length > 0 && <>
+      <h4 className="sec">{t('Not in the library — added as your own exercises')}</h4>
+      <div className="mchips" style={{ marginBottom: 14 }}>
+        {bundle.unmatchedNames.slice(0, 12).map(n => <span key={n} className="mchip capitalize">{n}</span>)}
+        {bundle.unmatchedNames.length > 12 && <span className="mchip">+{bundle.unmatchedNames.length - 12}</span>}
+      </div>
+    </>}
+    {Object.keys(bundle.week || {}).length > 0 && bundle.routines.length > 1 && <div className="row between" style={{ padding: '10px 2px', borderTop: '1px solid var(--sep)', borderBottom: '1px solid var(--sep)', marginBottom: 16, gap: 12 }}>
+      <div><div className="tt" style={{ fontSize: 15 }}>{t('Group into a scheduled program')}</div><div className="small dim">{t('Uses the weekly schedule read off the page.')}</div></div>
+      <Switch checked={schedule} onChange={setSchedule} />
+    </div>}
+    <Button variant="primary" onClick={apply}>{t('Add to my plan')}</Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
+  </>
+}
+const scannedRoutineSheet = bundle => ui().openSheet(close => <ScannedRoutineSummary bundle={bundle} close={close} />)
 
 /* ============================ day override / assign ============================ */
 function DayOverride({ iso, close }) {

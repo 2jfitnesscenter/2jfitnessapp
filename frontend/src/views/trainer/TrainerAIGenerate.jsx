@@ -4,12 +4,10 @@ import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
 import { DAYN } from '../../lib/format.js'
 import { EXDB } from '../../lib/exercises.js'
-import { exLine } from '../../lib/history.js'
-import { exName } from '../../lib/coach.js'
 import { requestMemberPlan, discardMemberPlan, useTrainerAIStatus, TRAINER_AI_ERRORS } from '../../lib/trainer-ai-api.js'
-import { saveMemberRoutine, saveMemberProgram } from '../../lib/trainer-api.js'
-import Icon from '../../components/Icon.jsx'
-import { Button, TextArea, Segmented, Check, Switch } from '../../components/ui.jsx'
+import { Button, TextArea, Segmented } from '../../components/ui.jsx'
+import PlanReviewCard from './PlanReviewCard.jsx'
+import Topbar from './Topbar.jsx'
 
 // Same 6 goals as CoachIntake.jsx / api/coach/prompts/create.md's goal table — kept in sync by
 // hand since the two runtimes share no build step (same trade-off payload.js documents for its
@@ -64,7 +62,7 @@ export default function TrainerAIGenerate() {
     </div>
   </div>
 
-  if (pending) return <ReviewDraft memberId={memberId} pending={pending} onDiscard={discard} onBack={back} />
+  if (pending) return <PlanReviewCard memberId={memberId} bundle={pending.bundle} onBack={back} onDiscard={discard} onSaved={discard} />
 
   return <div id="trainer-app">
     <Topbar title={t('Generate with AI')} onBack={back} />
@@ -120,86 +118,5 @@ export default function TrainerAIGenerate() {
     <Button variant="primary" icon="sparkles" disabled={busy || !brief.goal || !brief.experience} onClick={generate}>
       {t('Generate routines')}
     </Button>
-  </div>
-}
-
-function ReviewDraft({ memberId, pending, onDiscard, onBack }) {
-  const toast = useUI(s => s.toast)
-  const b = pending.bundle
-  const [included, setIncluded] = useState(() => new Set(b.routines.map(r => r.id)))
-  const [schedule, setSchedule] = useState(Object.keys(b.week || {}).length > 0)
-  const [saving, setSaving] = useState(false)
-  const toggle = id => setIncluded(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
-
-  const save = async () => {
-    const picked = b.routines.filter(r => included.has(r.id))
-    if (!picked.length) { toast(t('Pick at least one routine')); return }
-    setSaving(true)
-    try {
-      const idMap = {}
-      for (const r of picked) {
-        const customExDefs = (b.customEx || []).filter(c => r.ex.some(e => e.id === c.id))
-        const res = await saveMemberRoutine({ memberId, name: r.name, emoji: r.emoji, ex: r.ex, customExDefs, prog: r.prog })
-        idMap[r.id] = res.routineId
-      }
-      if (schedule && picked.length > 1) {
-        const week = {}
-        Object.entries(b.week || {}).forEach(([d, rid]) => { if (idMap[rid]) week[d] = idMap[rid] })
-        if (Object.keys(week).length) {
-          await saveMemberProgram({ memberId, name: b.name, emoji: 'sparkles', routineIds: Object.values(idMap), week })
-        }
-      }
-      await onDiscard()
-      toast(t('Saved'))
-      window.location.hash = '#/trainer/' + memberId
-    } catch (e) { toast(e.message || t('Could not save')) }
-    setSaving(false)
-  }
-
-  return <div id="trainer-app">
-    <Topbar title={t('Review the draft')} onBack={onBack} />
-
-    {!!b.summary && <div className="card"><div className="muted small" style={{ lineHeight: 1.55 }}>{b.summary}</div>
-      {!!b.basedOn && <div className="dim small" style={{ marginTop: 8 }}>{b.basedOn}</div>}</div>}
-
-    {b.routines.map(r => <div key={r.id} className="card" style={!included.has(r.id) ? { opacity: .5 } : undefined}>
-      <div className="row between" style={{ marginBottom: 4 }}>
-        <div className="row" style={{ gap: 10 }}>
-          <Check checked={included.has(r.id)} onChange={() => toggle(r.id)} />
-          <h2 style={{ margin: 0 }}>{r.emoji} {r.name}</h2>
-        </div>
-        <span className="dim small">{t('{0} exercises', r.ex.length)}</span>
-      </div>
-      {!!r.why && <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.5 }}>{r.why}</div>}
-      {r.ex.map((e, i) => <div key={i} style={{ padding: '8px 0', borderTop: i ? '1px solid var(--sep)' : 'none' }}>
-        <div className="row between">
-          <span className="small capitalize" style={{ fontWeight: 500 }}>{exName(e.id)}</span>
-          <span className="small muted" style={{ whiteSpace: 'nowrap' }}>{exLine(e, 'kg')}</span>
-        </div>
-        {!!e.why && <div className="dim" style={{ fontSize: '.72rem', marginTop: 3, lineHeight: 1.4 }}>{e.why}</div>}
-      </div>)}
-    </div>)}
-
-    {Object.keys(b.week || {}).length > 0 && <div className="card">
-      <div className="row between">
-        <div style={{ minWidth: 0 }}>
-          <div className="lrow-t">{t('Group into a scheduled program')}</div>
-          <div className="lrow-s">{t('Groups the included routines into a new program with the AI’s suggested weekly schedule.')}</div>
-        </div>
-        <Switch checked={schedule} onChange={setSchedule} />
-      </div>
-    </div>}
-
-    <div className="row" style={{ gap: 10 }}>
-      <Button variant="primary" icon="check" disabled={saving} onClick={save} style={{ flex: 1 }}>{t('Save selected')}</Button>
-      <Button danger disabled={saving} onClick={onDiscard}>{t('Discard')}</Button>
-    </div>
-  </div>
-}
-
-function Topbar({ title, onBack }) {
-  return <div className="trainer-topbar">
-    <div style={{ flex: 1 }}><h1>{title}</h1></div>
-    <a className="trainer-back" href="#" onClick={e => { e.preventDefault(); onBack() }}><Icon name="chevronLeft" />{t('Back')}</a>
   </div>
 }

@@ -41,6 +41,12 @@ export const mediaUrl = id => id ? '/api/social/media?id=' + encodeURIComponent(
 export const scanMeasurements = dataUrl =>
   api('/api/measurements/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl }) }).then(r => r.values)
 
+// A printed/handwritten/photographed routine (photo or PDF, as a data URL) -> raw
+// { name, days: [{ label, exercises: [...] }] } — exercise names exactly as printed, not yet
+// matched to a library id. See lib/routine-scan.js's matchScannedRoutine() for that next step.
+export const scanRoutine = dataUrl =>
+  api('/api/routines/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl }) }).then(r => r.routine)
+
 // Re-encodes an already-uploaded image as a fresh data URL — used when publishing a routine/
 // program that already has its own cover set, so Social gets its own independent copy of the
 // file rather than sharing one two different deletes could race on.

@@ -44,6 +44,7 @@ export default function TrainerClientPlan() {
       <Button icon="plus" onClick={() => nav('/trainer/' + memberId + '/r/new')}>{t('New routine')}</Button>
       <Button icon="plus" variant="tinted" onClick={() => nav('/trainer/' + memberId + '/p/new')}>{t('New program')}</Button>
       <Button icon="sparkles" variant="tinted" onClick={() => nav('/trainer/' + memberId + '/ai')}>{t('Generate with AI')}</Button>
+      <Button icon="scan" variant="tinted" onClick={() => nav('/trainer/' + memberId + '/scan')}>{t('Scan a routine')}</Button>
     </div>
 
     <h4 className="sec">{t('Programs')}</h4>

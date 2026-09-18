@@ -20,6 +20,7 @@
 
 import { EXDB, EXIDX } from './exercises.js'
 import { uid } from './format.js'
+import { nameFor } from './i18n.js'
 
 /* ----------------------------------------------------------------- CSV ---- */
 
@@ -185,37 +186,48 @@ const aliasIndex = () => {
 }
 
 /**
- * Find the dataset exercise a foreign name refers to, or null.
+ * Find the dataset exercise a foreign name refers to — plus, when it can't be resolved to
+ * exactly one, every candidate that was too close to call.
  *
- * Curated alias first, then an exact word-bag match, then entries that contain every
- * word of the query — but only when exactly one candidate is that close. Guessing
- * between "barbell bench press" and "dumbbell bench press" would file years of training
- * under the wrong lift, which is worse than leaving it as a custom exercise the user can
- * see and fix.
+ * Curated alias first, then an exact word-bag match, then entries that contain every word of
+ * the query — but only auto-resolved when exactly one candidate is that close. Guessing between
+ * "cable hammer curl" and "dumbbell hammer curl" would file years of training under the wrong
+ * lift, which is worse than surfacing both and asking. `candidates` carries that tied set (the
+ * scan-a-routine review screen turns it into a picker); a genuinely unmatched name — nothing
+ * close at all — gets an empty list and falls back to a custom exercise, same as always.
+ *
+ * @returns {{ id: string|null, candidates: Array<{id: string, n: string}> }}
  */
-export function matchExercise(name) {
+export function matchExerciseCandidates(name) {
   const idx = buildIndex()
   const w = wordsOf(name)
-  if (!w.length) return null
+  if (!w.length) return { id: null, candidates: [] }
   // Compared as a sorted bag of words, so "Squat (Barbell)" finds the 'barbell squat'
   // alias — the exporters disagree about whether the equipment leads or trails.
   const sorted = w.slice().sort().join(' ')
   const aliased = aliasIndex().get(sorted)
-  if (aliased && EXIDX[aliased]) return aliased
+  if (aliased && EXIDX[aliased]) return { id: aliased, candidates: [] }
   const exact = idx.exact.get(sorted)
-  if (exact) return exact
+  if (exact) return { id: exact, candidates: [] }
   const q = new Set(w)
-  let best = null, bestExtra = Infinity, ties = 0
+  let bestExtra = Infinity, tied = []
   for (const c of idx.all) {
     let ok = true
     for (const word of q) if (!c.set.has(word)) { ok = false; break }
     if (!ok) continue
     const extra = c.n - q.size
     if (extra > 2) continue
-    if (extra < bestExtra) { best = c.id; bestExtra = extra; ties = 1 }
-    else if (extra === bestExtra) ties++
+    if (extra < bestExtra) { bestExtra = extra; tied = [c.id] }
+    else if (extra === bestExtra) tied.push(c.id)
   }
-  return ties === 1 ? best : null
+  if (tied.length === 1) return { id: tied[0], candidates: [] }
+  return { id: null, candidates: tied.map(id => ({ id, n: nameFor(EXIDX[id]) })) }
+}
+
+/** Find the dataset exercise a foreign name refers to, or null — see matchExerciseCandidates()
+ * for the tied-candidates version the scan-a-routine review screen uses. */
+export function matchExercise(name) {
+  return matchExerciseCandidates(name).id
 }
 
 // Categories the exporters use -> the dataset's body parts, for exercises we invent.

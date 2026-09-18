@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import { uid, exCount, routineCount } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { loadStarterPlan, planToolsSheet } from '../sheets.jsx'
+import { loadStarterPlan, planToolsSheet, scanRoutineSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
@@ -96,6 +96,7 @@ export default function Plan() {
           {loose.length > 0 && (selectMode
             ? <Button size="sm" onClick={exitSelect}>{t('Cancel')}</Button>
             : <Button size="sm" icon="checkCircle" onClick={() => setSelectMode(true)}>{t('Select to print')}</Button>)}
+          {!selectMode && <Button size="sm" variant="tinted" icon="scan" onClick={scanRoutineSheet}>{t('Scan')}</Button>}
           <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>
         </div>
       </div>

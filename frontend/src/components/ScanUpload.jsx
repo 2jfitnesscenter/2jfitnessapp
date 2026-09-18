@@ -11,12 +11,14 @@ const readAsDataUrl = file => new Promise((resolve, reject) => {
   reader.readAsDataURL(file)
 })
 
-// Shared by Admin's BioimpedanceSheet and Measurements' own scan sheet — opens the file/camera
+// Shared by Admin's BioimpedanceSheet, Measurements' own scan sheet, and the routine-scan flows
+// (Plan.jsx for a member's own routine, the trainer panel for a member's) — opens the file/camera
 // picker, reads the file (downsizing a photo the same way every other upload in the app does;
-// a PDF goes through as-is since a canvas can't decode one), sends it off for a one-shot AI read,
-// and hands the extracted values back. Never saves anything itself — the caller always shows the
-// result in an editable form first, exactly like a manual entry would be.
-export default function ScanUpload({ onResult }) {
+// a PDF goes through as-is since a canvas can't decode one), sends it off for a one-shot AI read
+// via `scanFn` (defaults to the bioimpedance scan, the original and still most common caller),
+// and hands the result back. Never saves anything itself — the caller always shows the result in
+// an editable form/review first, exactly like a manual entry would be.
+export default function ScanUpload({ onResult, scanFn = scanMeasurements, label, busyLabel }) {
   const toast = useUI(s => s.toast)
   const inputRef = useRef(null)
   const [busy, setBusy] = useState(false)
@@ -28,8 +30,8 @@ export default function ScanUpload({ onResult }) {
     setBusy(true)
     try {
       const dataUrl = file.type === 'application/pdf' ? await readAsDataUrl(file) : await resizeImageFile(file)
-      const values = await scanMeasurements(dataUrl)
-      onResult(values)
+      const result = await scanFn(dataUrl)
+      onResult(result)
     } catch (err) {
       toast(err.message || t('Could not read that file'))
     } finally {
@@ -45,7 +47,7 @@ export default function ScanUpload({ onResult }) {
     <input ref={inputRef} type="file" accept="image/*,application/pdf"
       style={{ display: 'none' }} onChange={onFile} />
     <Button size="sm" variant="tinted" icon="scan" disabled={busy} onClick={() => inputRef.current.click()}>
-      {busy ? t('Reading…') : t('Scan report')}
+      {busy ? (busyLabel || t('Reading…')) : (label || t('Scan report'))}
     </Button>
   </>
 }

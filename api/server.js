@@ -14,6 +14,7 @@ import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { trainerAIRoutes } from './coach/trainer-routes.js';
 import { scanBioimpedanceImage } from './lib/measurements-scan.js';
+import { scanRoutineDocument } from './lib/routine-scan.js';
 import { readState, writeState } from './lib/state-store.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
@@ -1319,6 +1320,30 @@ const routes = {
     const r = await scanBioimpedanceImage({ data: b64, mimeType });
     if (!r.ok) return json(res, 400, { error: r.error });
     json(res, 200, { values: r.values });
+  },
+
+  // Printed/handwritten/photographed routine scan (photo or PDF) → raw exercise text, for the
+  // member's own "scan a routine" flow and the trainer panel's "scan a routine for this member".
+  // Same shape as /api/measurements/scan: any signed-in user, reads the file and hands back what
+  // it read, never writes anyone's plan itself — matching exercise names to real ids and saving
+  // happens client-side (frontend/src/lib/routine-scan.js's matchScannedRoutine(), then either
+  // mergePlan() for the member's own routines or the existing trainer/member-routine endpoints).
+  // body: { file: '<dataURL>' }.
+  'POST /api/routines/scan': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const dataUrl = typeof body.file === 'string' ? body.file : '';
+    const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
+    if (!m) return json(res, 400, { error: 'archivo no válido' });
+    const [, mimeType, b64] = m;
+    if (!/^image\//.test(mimeType) && mimeType !== 'application/pdf') {
+      return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
+    }
+    if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
+    const r = await scanRoutineDocument({ data: b64, mimeType });
+    if (!r.ok) return json(res, 400, { error: r.error });
+    json(res, 200, { routine: r.value });
   },
 
   /* ---------- Social: Programs (a named group of routines, published as one unit) ---------- */
