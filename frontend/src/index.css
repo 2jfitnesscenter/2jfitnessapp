@@ -887,6 +887,47 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   transition:background var(--fast);
 }
 .setrow .platesbtn:active{background:var(--surface-3)}
+/* --- plate calculator (sheets.jsx's PlatesSheet) --- */
+.platessheet{text-align:center}
+.ps-head{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:2px}
+.ps-w{
+  font-size:calc(40px * var(--text-scale,1));font-weight:800;letter-spacing:-.02em;
+  display:flex;align-items:baseline;gap:6px;
+}
+.ps-w input{
+  width:auto;max-width:150px;border:none;background:none;color:var(--label);
+  font:inherit;font-size:inherit;font-weight:inherit;text-align:right;padding:0;
+}
+.ps-w i{font-style:normal;font-size:calc(20px * var(--text-scale,1));font-weight:600;color:var(--label-2)}
+.ps-step{width:32px;height:32px;font-size:calc(14px * var(--text-scale,1))}
+.ps-sub{color:var(--label-2);font-size:calc(14px * var(--text-scale,1));margin-top:2px}
+.ps-exact{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  color:var(--green);font-weight:600;font-size:calc(14px * var(--text-scale,1));margin:2px 0 6px;
+}
+.ps-exact svg{width:16px;height:16px}
+.ps-exact.warn{color:var(--orange)}
+.ps-row-head{display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px;padding:0 4px}
+.ps-minchange{
+  display:flex;align-items:center;gap:5px;color:var(--label-2);font-size:calc(13px * var(--text-scale,1));
+  font-weight:600;padding:5px 9px;border-radius:99px;background:var(--surface-2);
+}
+.ps-minchange svg{width:13px;height:13px}
+.ps-minchange.on{color:var(--acc);background:var(--acc-soft)}
+.ps-chips{display:flex;flex-direction:column;gap:6px}
+.ps-chip{
+  display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:10px;
+  padding:10px 12px;text-align:left;font-size:calc(14.5px * var(--text-scale,1));font-weight:600;
+}
+.ps-dot{width:16px;height:16px;border-radius:50%;flex:none;border:1px solid transparent}
+.ps-editbtn{color:var(--acc);font-size:calc(14px * var(--text-scale,1));font-weight:600}
+.ps-palette{display:flex;justify-content:space-between;gap:6px}
+.ps-plate{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;transition:transform var(--fast)}
+.ps-plate-c{width:36px;height:36px;border-radius:50%;border:1px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.ps-plate-l{font-size:calc(12.5px * var(--text-scale,1));font-weight:600;color:var(--label-2)}
+.ps-plate.off .ps-plate-c{opacity:.28}
+.ps-plate.off .ps-plate-l{color:var(--label-4);text-decoration:line-through}
+.ps-plate.editing:active{transform:scale(.9)}
 /* the reactive Training Zones chip (lib/training-zones.js) — a flat colour, not a soft tint,
    so Z5's red reads as urgent the same instant the weight does */
 .zonechip{

@@ -19,6 +19,10 @@ export const DEF = {
   // Workout.jsx's showPlates/showOverload and lib/training-zones.js's consumers for what each
   // one gates.
   enablePlateCalculator: true, enableTrainingZones: true, enableProgressiveOverloadCoach: true,
+  // Which kg plates the calculator (sheets.jsx's PlatesSheet) assumes are on the rack — `null`
+  // means "the default set" (components/BarbellPlates.jsx's DEFAULT_AVAILABLE_KG) rather than
+  // baking that list in here twice, so it stays in sync if that default ever changes.
+  availablePlates: null,
   // Settings → Statistics — how much a secondary/stabilising muscle counts toward volume, sets
   // and the muscle map, everywhere lib/muscles.js's loadOf family is used (see muscleOptsOf).
   countSecondaryMuscles: true, secondaryMuscleFactor: 0.5,

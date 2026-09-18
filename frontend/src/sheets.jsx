@@ -5,14 +5,14 @@ import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden, 
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
 import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted, EFFORT, stepEffort, feelFor, effortColor, EFFORT_COLOR_VAR } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
-import { t, instrFor, nameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
+import { t, instrFor, nameFor, getLang, dateLocale, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
 import { starterRoutines, buildPlan, GOALS } from './lib/starter.js'
 import Media, { Thumb } from './components/Media.jsx'
-import BarbellPlates, { plateBreakdown, BARBELL_TYPES } from './components/BarbellPlates.jsx'
+import BarbellPlates, { plateBreakdown, plateBreakdownMinChange, groupPlates, BARBELL_TYPES, DEFAULT_AVAILABLE_KG, KG_PLATES } from './components/BarbellPlates.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
-import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row, ChipSelect, Check } from './components/ui.jsx'
+import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row, ChipSelect, Check, NumberField } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf } from './lib/muscles.js'
@@ -1555,35 +1555,112 @@ export const setTypeSheet = (current, onPick, onDelete) => ui().openSheet(close 
 // weight and an onApply that writes back through the same onField pipeline the +/- steppers and
 // typing already use), or standalone (Settings' own entry — no onApply, weight starts wherever
 // the caller likes and is freely editable either way).
+// A small, local picker sheet for the bar-type row below — SelectRow's own default rendering
+// always shows the matched option's full label as the row's value ("Olympic bar (20kg)"), but
+// the "Starting weight" row wants the name and the weight as two separate columns instead, so
+// it opens this directly rather than going through SelectRow.
+function barTypeSheet(value, onChange) {
+  ui().openSheet(close => <>
+    <h3>{t('Bar type')}</h3>
+    <div className="sect-b">
+      {BARBELL_TYPES.map(b => (
+        <button key={b.id} className="lrow tap" onClick={() => { close(); onChange(b.id) }}>
+          <span className="lrow-m"><span className="lrow-t">{t(b.label)}</span></span>
+          {b.id === value && <Icon name="check" className="lrow-k" />}
+        </button>
+      ))}
+    </div>
+  </>)
+}
 function PlatesSheet({ weight: initWeight, unit, barId: initBarId, onApply, close }) {
+  const st = useStore(s => s.S)
   const [weight, setWeight] = useState(initWeight)
   const [barId, setBarId] = useState(initBarId || 'olympic')
-  // The bar-type picker only applies to kg — none of these named bars has an established pound
-  // convention worth inventing, so an lb profile keeps BarbellPlates' own plain 45lb default.
+  // "Fewer changes" (below) only makes sense once the target has actually moved away from
+  // where the sheet opened — with nothing to diff against yet it's silently ignored either way.
+  const [minChange, setMinChange] = useState(false)
+  const [editingPlates, setEditingPlates] = useState(false)
+  // The bar-type picker and the available-plates editor only apply to kg — none of the named
+  // bars has an established pound convention worth inventing, and BarbellPlates' lb set has no
+  // "what's on your rack" editor either, so an lb profile keeps its plain 45lb/full-set default.
   const barW = unit === 'lb' ? undefined : (BARBELL_TYPES.find(b => b.id === barId)?.kg ?? 20)
-  const { plates, leftover } = plateBreakdown(weight, unit, barW)
-  return <>
-    <h3>{t('Plate calculator')}</h3>
-    <Stepper value={weight} step={2.5} unit={unit} label={t('Target weight')} onChange={setWeight} />
-    {unit !== 'lb' && <div style={{ marginTop: 10 }}>
-      <SelectRow title={t('Bar type')} sheetTitle={t('Bar type')} value={barId}
-        options={BARBELL_TYPES.map(b => ({ value: b.id, label: t(b.label) }))} onChange={setBarId} />
-    </div>}
-    <div className="row" style={{ justifyContent: 'center', margin: '18px 0' }}>
-      <BarbellPlates weight={weight} unit={unit} barW={barW} size="lg" />
+  const available = unit === 'lb' ? null : (st.availablePlates || DEFAULT_AVAILABLE_KG)
+  const result = (minChange && weight !== initWeight)
+    ? plateBreakdownMinChange(initWeight, weight, unit, barW, available)
+    : plateBreakdown(weight, unit, barW, available)
+  const { plates, perSide, leftover } = result
+  const groups = groupPlates(plates)
+  const exact = leftover <= 0.01
+  const bar = BARBELL_TYPES.find(b => b.id === barId)
+  const barShortLabel = bar ? t(bar.label).replace(/\s*\([^)]*\)\s*$/, '') : ''
+  const togglePlate = w => update(s => {
+    const cur = (s.availablePlates || DEFAULT_AVAILABLE_KG).slice()
+    const i = cur.indexOf(w)
+    i === -1 ? cur.push(w) : cur.splice(i, 1)
+    s.availablePlates = cur
+  })
+
+  return <div className="platessheet">
+    <div className="ps-head">
+      <button className="iconbtn ps-step" aria-label={t('Decrease')}
+        onClick={() => setWeight(w => Math.max(0, Math.round((w - 2.5) * 100) / 100))}><Icon name="minus" /></button>
+      <span className="ps-w"><NumberField value={weight} onChange={v => setWeight(v ?? 0)} />{unit}</span>
+      <button className="iconbtn ps-step" aria-label={t('Increase')}
+        onClick={() => setWeight(w => Math.round((w + 2.5) * 100) / 100)}><Icon name="plus" /></button>
     </div>
-    {plates.length
-      ? <div className="big" style={{ textAlign: 'center' }}>{t('Each side: {0} {1}', plates.map(p => fmtNum(p.w)).join(' + '), unit)}</div>
-      : <div className="dim small" style={{ textAlign: 'center' }}>{t('Bar only — no plates needed.')}</div>}
-    {leftover > 0.01 && <div className="small" style={{ color: 'var(--orange)', textAlign: 'center', marginTop: 10 }}>
-      {t('Closest with these plates: {0} {1} ({2} {1} short)', fmtNum(weight - leftover), unit, fmtNum(leftover))}
-    </div>}
-    {onApply && <Button variant="primary" style={{ marginTop: 18 }}
+    <div className="ps-sub">{perSide > 0 ? t('{0} {1} per side', fmtNum(perSide), unit) : t('Bar only')}</div>
+
+    <div className="row" style={{ justifyContent: 'center', margin: '14px 0 8px' }}>
+      <BarbellPlates weight={weight} unit={unit} barW={barW} available={available} height={140} />
+    </div>
+    {exact
+      ? <div className="ps-exact"><Icon name="checkCircle" />{t('Exact weight')}</div>
+      : <div className="ps-exact warn"><Icon name="info" />{t('Closest with these plates: {0} {1} ({2} {1} short)', fmtNum(weight - leftover), unit, fmtNum(leftover))}</div>}
+
+    <div className="ps-row-head">
+      <h4 className="sec" style={{ margin: 0 }}>{t('Per side')}</h4>
+      <button className={'ps-minchange' + (minChange ? ' on' : '')} onClick={() => setMinChange(v => !v)}>
+        <Icon name="shuffle" />{t('Fewer changes')}
+      </button>
+    </div>
+    {groups.length
+      ? <div className="ps-chips">{groups.map(g => <div key={g.w} className="ps-chip">
+          <span className="ps-dot" style={{ background: g.color, borderColor: g.outline ? 'var(--sep)' : 'transparent' }} />
+          {t('{0} x {1} {2}', g.count, fmtNum(g.w), unit)}
+        </div>)}</div>
+      : <div className="dim small">{t('Bar only — no plates needed.')}</div>}
+
+    {available && <>
+      <div className="ps-row-head">
+        <h4 className="sec" style={{ margin: 0 }}>{t('Available weights')}</h4>
+        <button className="ps-editbtn" onClick={() => setEditingPlates(v => !v)}>{editingPlates ? t('Done') : t('Edit')}</button>
+      </div>
+      <div className="ps-palette">
+        {(unit === 'lb' ? [] : [...KG_PLATES].reverse()).map(p => {
+          const on = available.includes(p.w)
+          return <button key={p.w} className={'ps-plate' + (on ? '' : ' off') + (editingPlates ? ' editing' : '')}
+            disabled={!editingPlates} onClick={() => togglePlate(p.w)}>
+            <span className="ps-plate-c" style={{ background: p.color, borderColor: p.outline ? 'var(--sep)' : 'transparent' }} />
+            {/* fmtNum rounds to one decimal — fine for a logged weight, but it would flatten
+                the 1.25kg micro-plate down to "1,3". This label needs its real two decimals. */}
+            <span className="ps-plate-l">{p.w.toLocaleString(dateLocale(), { maximumFractionDigits: 2 })}</span>
+          </button>
+        })}
+      </div>
+    </>}
+
+    {unit !== 'lb' && <>
+      <h4 className="sec">{t('Starting weight')}</h4>
+      <Row icon="barbell" title={barShortLabel} value={fmtNum(barW) + ' ' + unit} accessory="chevron"
+        onClick={() => barTypeSheet(barId, setBarId)} />
+    </>}
+
+    {onApply && <Button variant="primary" style={{ marginTop: 18, width: '100%' }}
       onClick={() => { onApply(weight - Math.max(0, leftover)); close() }}>{t('Apply to set')}</Button>}
-  </>
+  </div>
 }
 export const platesSheet = (weight, unit, onApply, barId) =>
-  ui().openSheet(close => <PlatesSheet weight={weight} unit={unit} onApply={onApply} barId={barId} close={close} />)
+  ui().openSheet(close => <PlatesSheet weight={weight} unit={unit} onApply={onApply} barId={barId} close={close} />, { wide: true })
 
 /* ============================ per-exercise "…" menu (routine editor) ============================ */
 // Every action beyond what tapping the row itself already does (open exConfigSheet for
