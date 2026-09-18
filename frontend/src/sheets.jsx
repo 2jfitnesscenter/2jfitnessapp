@@ -17,6 +17,8 @@ import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf } from './lib/muscles.js'
 import { rankUpsFor, rankEmblemUrl } from './lib/rank.js'
+import { evaluateBadges } from './lib/badges.js'
+import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
@@ -352,12 +354,23 @@ function ImportSummary({ parsed, close }) {
   }
 
   const doImport = () => {
-    let res
-    update(s => { res = mergeImport(s, parsed) })
+    let res, newBadges = []
+    update(s => {
+      res = mergeImport(s, parsed)
+      // Retroactive on purpose — an imported history (or a bodyweight-only import, which can
+      // newly unlock globalRank's strength-score badges by supplying the bodyweight it needs)
+      // can cross a threshold with no live session to hang the evaluation off of. No
+      // `justFinishedLiveEntries` here — a superset milestone genuinely can't be detected
+      // from imported data (see lib/badges.js's MILESTONE_CHECKS comment).
+      const badgeRes = evaluateBadges(s)
+      s.badges = badgeRes.badges
+      newBadges = badgeRes.newlyUnlocked
+    })
     close()
     toast(isHealth
       ? t('{0} health records imported', res.bodyweight + res.bodyFat + res.muscleMass + res.steps + res.sleep + res.restingHR + res.hrMatched)
       : isBW ? t('{0} weigh-ins imported', res.added) : t('{0} workouts imported', res.added))
+    celebrateBadges(newBadges)
   }
 
   return <>
@@ -1643,7 +1656,39 @@ function SessionRating({ w }) {
   </div>
 }
 
-function FinishSummary({ w, prs, e1prs = [], rankUps = [], close }) {
+/* ============================ badge unlock celebration ============================ */
+// The one place a badge unlock is ever announced, whichever of the three trigger points
+// (doFinishWorkout below — covers both a live finish and a retroactive past-workout log,
+// since both go through the same function — or doImport's retroactive pass) produced it.
+// A live finish chains into this after its own FinishSummary closes, an import chains into
+// it after its own summary closes, so it always reads as its own short, distinct moment
+// rather than competing with whichever screen triggered it. Whatever unlocked it was already
+// written to S.badges before this is ever called — nothing here can block or delay a save.
+//
+// Multiple unlocks in one call queue up in useUI's pendingBadgeModals and are celebrated one
+// at a time (each with its own fresh entrance/confetti) rather than dumped into one static
+// list — openNextBadgeModal recurses through the queue via each sheet's own "next" button.
+function openNextBadgeModal() {
+  const st = useUI.getState()
+  const badge = st.pendingBadgeModals[0]
+  if (!badge) return
+  beep(snd(), 1200, 0.12); beep(snd(), 1500, 0.12, 0.14); beep(snd(), 1900, 0.25, 0.3)
+  const { close } = ui().openSheet(() => (
+    <BadgeCelebrationModal badge={badge} remaining={st.pendingBadgeModals.length - 1} onAdvance={() => {
+      close()
+      useUI.getState().dequeueBadgeModal()
+      openNextBadgeModal()
+    }} />
+  ), { kind: 'center', locked: true })
+}
+export function celebrateBadges(newBadges) {
+  if (!newBadges || !newBadges.length) return
+  const wasEmpty = useUI.getState().pendingBadgeModals.length === 0
+  useUI.getState().enqueueBadgeModals(newBadges)
+  if (wasEmpty) openNextBadgeModal()
+}
+
+function FinishSummary({ w, prs, e1prs = [], rankUps = [], newBadges = [], close }) {
   const st = useStore(s => s.S)
   const coachOn = !!useStore(s => s.config)?.coach?.enabled && !!st.coach?.consent?.agreedAt
   return <div style={{ textAlign: 'center', padding: '8px 0' }}>
@@ -1664,7 +1709,11 @@ function FinishSummary({ w, prs, e1prs = [], rankUps = [], close }) {
     <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(st))} body={st.body} />
     {coachOn && <SessionRating w={w} />}
     <div style={{ height: 14 }} />
-    <Button variant="primary" onClick={() => { close(); nav('/home') }}>{t('Nice!')}</Button>
+    {/* The badge celebration is its own sheet+sound (celebrateBadges) rather than folded in
+        here as another row — a badge unlock needs to work the same way from a CSV/Health
+        import too, which never has a FinishSummary to fold into, so both paths go through
+        the one shared celebration instead of two different treatments. */}
+    <Button variant="primary" onClick={() => { close(); celebrateBadges(newBadges); nav('/home') }}>{t('Nice!')}</Button>
   </div>
 }
 // Shown once, right after finishing a session that had at least one mid-workout exercise swap
@@ -1746,6 +1795,7 @@ function doFinishWorkout() {
   const swaps = A.swaps
     ? Object.entries(A.swaps).map(([idx, oldId]) => ({ oldId, newId: A.entries[+idx]?.id })).filter(sw => sw.newId && sw.newId !== sw.oldId)
     : []
+  let newBadges = []
   update(s => {
     w.entries.forEach(e => {
       const mx = Math.max(0, ...e.sets.filter(x => x.done).map(x => x.w || 0), e.topW || 0)
@@ -1755,12 +1805,18 @@ function doFinishWorkout() {
     // recently — insertWorkoutSorted keeps S.workouts chronological either way.
     s.workouts = insertWorkoutSorted(s.workouts, w)
     s.active = null
+    // Evaluated against `s` AFTER the push (so totals/streak/volume include this session),
+    // with the live A.entries passed through for superset detection — the one thing that
+    // doesn't survive into the saved `w` (see lib/badges.js's MILESTONE_CHECKS comment).
+    const res = evaluateBadges(s, { justFinishedLiveEntries: A.entries })
+    s.badges = res.badges
+    newBadges = res.newlyUnlocked
   })
   // No-ops server-side if Strava isn't connected — never surface a failure into this flow.
   sendWorkoutToStrava(w).catch(() => {})
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
-  const openSummary = () => ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} rankUps={rankUps} close={close} />, { kind: 'center', locked: true })
+  const openSummary = () => ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} rankUps={rankUps} newBadges={newBadges} close={close} />, { kind: 'center', locked: true })
   if (swaps.length && A.routineId) {
     ui().openSheet(close => <SwapKeepSheet swaps={swaps} routineId={A.routineId} onDone={() => { close(); openSummary() }} />, { kind: 'center', locked: true })
   } else {

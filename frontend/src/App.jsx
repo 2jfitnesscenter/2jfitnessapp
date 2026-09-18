@@ -31,6 +31,7 @@ import Social from './views/Social.jsx'
 import Settings from './views/Settings.jsx'
 import TrainingSettings from './views/TrainingSettings.jsx'
 import StatsSettings from './views/StatsSettings.jsx'
+import Badges from './views/Badges.jsx'
 import Profile from './views/Profile.jsx'
 import Friends from './views/Friends.jsx'
 import Chat from './views/Chat.jsx'
@@ -187,6 +188,7 @@ function Shell() {
               <Route path="/health" element={<Health />} />
               <Route path="/recovery" element={<Recovery />} />
               <Route path="/rank" element={<Rank />} />
+              <Route path="/badges" element={<Badges />} />
               {/* The Coach screens gate themselves on the instance config; the routes exist
                   unconditionally so a deep link from a notification lands somewhere sane
                   rather than on the catch-all. */}

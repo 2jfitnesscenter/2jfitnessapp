@@ -128,6 +128,9 @@ export default function Profile() {
       <Row icon="figureStrength" iconTint="var(--acc)" title={t('Measurements')} subtitle={t('Body composition & tape measurements over time')} accessory="chevron" onClick={() => nav('/measurements')} />
       <Row icon="heart" iconTint="var(--red)" title={t('Health')} subtitle={t('Steps, sleep and heart rate from Apple Health')} accessory="chevron" onClick={() => nav('/health')} />
       <Row icon="shield" iconTint="var(--acc)" title={t('Strength rank')} subtitle={t('Your lift and muscle ranks, from your logged sets')} accessory="chevron" onClick={() => nav('/rank')} />
+      <Row icon="sparkles" iconTint="var(--yellow)" title={t('Badges')}
+        subtitle={t('{0} unlocked', Object.values(S.badges || {}).filter(x => x.unlockedAt).length)}
+        accessory="chevron" onClick={() => nav('/badges')} />
     </Section>
 
     <BodyWeightCard S={S} />

@@ -66,3 +66,15 @@ export async function shareExport(json, filename) {
   const w = await Filesystem.writeFile({ path: filename, directory: Directory.Cache, data: json, encoding: Encoding.UTF8 })
   await Share.share({ title: filename, url: w.uri })
 }
+
+// A plain-text share (the badge unlock celebration's "Share achievement" button — nothing to
+// write to a temp file for, unlike shareExport). Three tiers, each falling through to the
+// next when it isn't available: the native OS share sheet on the app build, the Web Share API
+// on a browser that has it (most mobile browsers do), or the clipboard as a last resort —
+// callers that want to say so should toast on a resolved `false`.
+export async function shareText(text) {
+  if (MOBILE) { const { Share } = await import('@capacitor/share'); await Share.share({ text }); return true }
+  if (navigator.share) { await navigator.share({ text }); return true }
+  if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return false }
+  throw new Error('not supported')
+}

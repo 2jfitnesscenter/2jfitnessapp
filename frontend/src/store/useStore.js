@@ -79,7 +79,12 @@ export const DEF = {
   // AI Coach (issue: AI enablement). null until the profile opts in — a null namespace is the
   // same app it was before the feature existed, which is what Epic F asks for. Shape and
   // bounds live in lib/coach.js.
-  coach: null
+  coach: null,
+  // Badges/achievements (lib/badges.js's evaluateBadges) — keyed by badge id, each
+  // { badgeId, unlockedAt: ISO string | null, progress: 0..1 }. An id absent from this map
+  // just means "never evaluated as close yet", same as 0 progress — see BADGES in
+  // lib/badges-data.js for the catalogue this is checked against.
+  badges: {},
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 

@@ -27,6 +27,17 @@ export const useUI = create((set, get) => ({
   friendUnread: 0,     // count of pending incoming friend requests — kept by components/FriendsWatcher.jsx
   setFriendUnread(n) { set({ friendUnread: n }) },
 
+  // Badge unlock celebration queue (sheets.jsx's celebrateBadges/BadgeCelebrationModal) — pure
+  // ephemeral UI state, deliberately NOT in useStore's S: it says what's still waiting to be
+  // *shown*, not anything that happened to the profile (that's already been written to
+  // S.badges by the time this ever has anything in it), so it has no business surviving a
+  // reload or syncing to the server. One badge is celebrated on screen at a time even when a
+  // single workout/import unlocks several — each pop of the queue opens its own fresh sheet,
+  // so every badge gets its own entrance animation rather than a swapped-out title.
+  pendingBadgeModals: [],
+  enqueueBadgeModals(badges) { set(s => ({ pendingBadgeModals: [...s.pendingBadgeModals, ...badges] })) },
+  dequeueBadgeModal() { set(s => ({ pendingBadgeModals: s.pendingBadgeModals.slice(1) })) },
+
   // `wide` only matters on desktop, where a sheet otherwise caps at the same 640px every mobile
   // sheet uses — a picker or a list meant to be scanned (the exercise library, say) benefits from
   // the extra width a phone screen could never have had anyway; a form-shaped sheet usually doesn't.
