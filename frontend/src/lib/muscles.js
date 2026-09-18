@@ -91,18 +91,35 @@ const BY_BODYPART = {
   cardio: {},
 }
 
-const SECONDARY = 0.4   // a supporting muscle counts this much against a primary
+// Default weight a supporting muscle counts against a primary. Overridable per call (Settings
+// → Statistics → "Secondary muscle factor") — see musclesOf's `opts`.
+const SECONDARY = 0.4
+export const SECONDARY_FACTORS = [0.25, 0.33, 0.5, 0.75]
+export const DEFAULT_SECONDARY_FACTOR = 0.5
+// Settings → Statistics's two knobs, read off the profile — the one place every caller that
+// has `S` in scope builds musclesOf/loadOf's `opts` from, so the two settings can't drift out
+// of sync between the muscle map, the stats screen and muscle recovery.
+export const muscleOptsOf = S => ({ countSecondary: S.countSecondaryMuscles !== false, secondaryFactor: S.secondaryMuscleFactor })
 
-/** Muscles one exercise trains: { slug: 0…1 }. */
-export function musclesOf(ex) {
+/**
+ * Muscles one exercise trains: { slug: 0…1 }.
+ * `opts.countSecondary` (default true) and `opts.secondaryFactor` (default SECONDARY, 0.4) —
+ * Settings → Statistics's two knobs on how much a supporting muscle counts. Every caller below
+ * (loadOf and friends) threads the same opts through, so a member who turns secondaries off
+ * gets that reflected consistently in the muscle map, the stats screen and muscle recovery,
+ * not just one of them.
+ */
+export function musclesOf(ex, opts) {
   if (!ex) return {}
+  const countSecondary = !opts || opts.countSecondary !== false
+  const secondaryFactor = opts && opts.secondaryFactor > 0 ? opts.secondaryFactor : SECONDARY
   const out = {}
   const add = (name, w) => {
     const slug = ALIAS[String(name || '').toLowerCase().trim()]
     if (slug) out[slug] = Math.max(out[slug] || 0, w)
   }
   add(ex.tg, 1)
-  ;(ex.sm || []).forEach(m => add(m, SECONDARY))
+  if (countSecondary) (ex.sm || []).forEach(m => add(m, secondaryFactor))
   // Nothing recognised (custom exercises, or a target we don't draw) — use the body part.
   if (!Object.keys(out).length) Object.assign(out, BY_BODYPART[ex.bp] || {})
   return out
@@ -114,11 +131,11 @@ export function musclesOf(ex) {
  * times a single set. Volume in kg is deliberately not used: 100 kg of leg press
  * against 12 kg of lateral raise says nothing about which muscle worked harder.
  */
-export function loadOf(items) {
+export function loadOf(items, opts) {
   const load = {}
   items.forEach(({ id, sets }) => {
     if (!sets) return
-    const m = musclesOf(EXIDX[id])
+    const m = musclesOf(EXIDX[id], opts)
     for (const slug in m) load[slug] = (load[slug] || 0) + m[slug] * sets
   })
   return load
@@ -128,19 +145,19 @@ export function loadOf(items) {
  * Load for finished workouts (only sets actually ticked off count, and a warmup never did count
  * as training load). `pick` narrows that further — the map can then answer "where did the
  * *hard* sets go", which is a different question from where the sets went: a muscle can lead on
- * volume and still never be trained near failure.
+ * volume and still never be trained near failure. `opts` is musclesOf's secondary-muscle knobs.
  */
-export const loadOfWorkouts = (workouts, pick) =>
+export const loadOfWorkouts = (workouts, pick, opts) =>
   loadOf((workouts || []).flatMap(w =>
-    (w.entries || []).map(e => ({ id: e.id, sets: (e.sets || []).filter(s => s.done && s.type !== 'warmup' && (!pick || pick(s))).length }))))
+    (w.entries || []).map(e => ({ id: e.id, sets: (e.sets || []).filter(s => s.done && s.type !== 'warmup' && (!pick || pick(s))).length }))), opts)
 
 /** Load a routine *would* produce, from its planned set counts. */
-export const loadOfRoutine = routine =>
-  loadOf((routine?.ex || []).map(c => ({ id: c.id, sets: c.sets || 1 })))
+export const loadOfRoutine = (routine, opts) =>
+  loadOf((routine?.ex || []).map(c => ({ id: c.id, sets: c.sets || 1 })), opts)
 
 /** Load for a workout still in progress — the sets ticked so far. */
-export const loadOfActive = active =>
-  loadOf((active?.entries || []).map(e => ({ id: e.id, sets: (e.sets || []).filter(s => s.done).length })))
+export const loadOfActive = (active, opts) =>
+  loadOf((active?.entries || []).map(e => ({ id: e.id, sets: (e.sets || []).filter(s => s.done).length })), opts)
 
 /**
  * Shade buckets 0–4 per muscle, relative to the hardest-worked muscle in the same

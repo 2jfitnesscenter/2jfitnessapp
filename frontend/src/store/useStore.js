@@ -8,6 +8,20 @@ import { MOBILE, nativeLoad, nativeSave, syncReminder } from '../lib/mobile.js'
 const KEY = 'gym_state_v1'
 export const DEF = {
   unit: 'kg', restSec: 90, sound: true, keepAwake: true, warmupEnabled: true, lang: 'es',
+  // Settings → Training — see lib/equipment.js for the stepping rules these two drive.
+  // showPreviousResults: whether a set starts pre-filled with last time's/tracked weight, or
+  // clean (routine target only). use2JRoomEquipment: the weight +/- steps to the gym's real
+  // dumbbell rack / machine pins / barbell plates instead of customIncrements below.
+  showPreviousResults: true, use2JRoomEquipment: true,
+  customIncrements: { barbell: 5, dumbbell: 2, machineOther: 5 },
+  // Settings → Statistics — how much a secondary/stabilising muscle counts toward volume, sets
+  // and the muscle map, everywhere lib/muscles.js's loadOf family is used (see muscleOptsOf).
+  countSecondaryMuscles: true, secondaryMuscleFactor: 0.5,
+  // Settings → General → "Default tab" — which of Library's three tabs (Plan.jsx) opens first
+  // when you land there. 'programs' rather than 'routines' (the screen's own long-standing
+  // hardcoded default) because that's the default this setting was specified with; anyone who
+  // preferred the old behavior just picks Routines here once.
+  defaultLibraryTab: 'programs',
   // 'system' follows the device's own light/dark setting until the user picks one explicitly
   // in Settings — see App.jsx's applyPrefs().
   theme: 'system', accent: 'lime', body: 'male', targetW: null,

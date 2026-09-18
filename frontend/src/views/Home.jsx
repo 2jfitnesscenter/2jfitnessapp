@@ -17,7 +17,7 @@ import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { recoveryOf, overallRecovery } from '../lib/recovery.js'
-import { loadOfWorkouts } from '../lib/muscles.js'
+import { loadOfWorkouts, muscleOptsOf } from '../lib/muscles.js'
 import { hasBodyComposition } from '../lib/measurements.js'
 import RecoveryRing from '../components/RecoveryRing.jsx'
 import { fetchWhoopRecovery, fetchWhoopSleep } from '../lib/whoop-api.js'
@@ -43,7 +43,7 @@ function LastWorkoutCard({ S }) {
       <div className="tile"><div className="l">{t('Sets')}</div><div className="v">{setsDone(w)}</div></div>
       <div className="tile"><div className="l">{t('Volume')}</div><div className="v">{fmtVol(w.vol, S.unit)}</div></div>
     </div>
-    <BodyMap load={loadOfWorkouts([w])} body={S.body} />
+    <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(S))} body={S.body} />
   </div>
 }
 

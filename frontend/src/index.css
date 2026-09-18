@@ -820,6 +820,18 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow.eff3 .platesbtn{width:22px;height:22px;font-size:calc(11px * var(--text-scale,1))}
 .setrow.done .n{background:var(--acc);color:var(--on-acc)}
 .setrow.done{opacity:.45}
+/* The effort column, once it's a tap-to-open badge (EffortSheet) rather than a +/- stepper —
+   sits inside the same .stp.eff wrapper so the existing eff3 width rules still size the column,
+   just filled with one button instead of button/value/button. Color comes from an inline style
+   per instance (green/amber/red by intensity), same pattern as a set-type badge's TYPE_COLOR. */
+.effbadge{
+  width:100%;min-height:40px;border-radius:8px;background:var(--surface-3);color:var(--label-2);
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  font-size:calc(13px * var(--text-scale,1));font-weight:600;transition:background var(--fast),color var(--fast);
+}
+.effbadge:active{filter:brightness(.94)}
+.effbadge .em{font-size:calc(15px * var(--text-scale,1));line-height:1}
+.setrow.eff3 .effbadge{font-size:calc(12px * var(--text-scale,1));gap:2px}
 /* why the next target is what it is (issue #17) */
 .progline{
   display:flex;align-items:flex-start;gap:7px;margin:6px 0 2px;

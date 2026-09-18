@@ -3,7 +3,7 @@ import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden, exOr } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted } from './lib/history.js'
+import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted, EFFORT, stepEffort, feelFor, effortColor, EFFORT_COLOR_VAR } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, nameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -15,7 +15,7 @@ import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row, ChipSelect, Check } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
-import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf } from './lib/muscles.js'
+import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf } from './lib/muscles.js'
 import { rankUpsFor, rankEmblemUrl } from './lib/rank.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
@@ -830,6 +830,10 @@ function ExConfig({ ex, existing, onSave, onDelete, close, routine }) {
   // Cardio keeps its own duration+speed form; the reps/time choice (issue #16) is offered for
   // everything else, which is where the gap was — planks, hangs, wall sits, loaded carries.
   const mode = cardio ? 'cardio' : modeOf({ ...c, id: ex.id })
+  // Fixed vs. a rep range (e.g. "8-12") — own bit of state rather than inferred purely from
+  // c.targetRepsMin, so switching back to Fixed and forth again doesn't lose the range you'd
+  // already dialled in.
+  const [repsRange, setRepsRange] = useState(existing?.targetRepsMin != null)
   // Keep whatever the other mode already had (sets, weight) and fill only what is missing.
   const setMode = m => setC(x => ({ ...defaultConfig(ex.id, m), ...x, mode: m }))
   const save = () => {
@@ -843,8 +847,15 @@ function ExConfig({ ex, existing, onSave, onDelete, close, routine }) {
     if (cardio) onSave({ sets, min: Math.max(1, Math.round(c.min) || 20), speed: Math.max(0, c.speed || 8) })
     else if (mode === 'time') onSave({ sets, mode: 'time', sec: Math.max(1, Math.round(c.sec) || 45), weight: Math.max(0, c.weight || 0), ...prog })
     else {
-      const reps = Math.max(1, Math.round(c.reps) || 10)
+      // A range's ceiling is the real prescription everywhere else in the app (buildSets,
+      // progression) — the range itself is an additional display/placeholder hint on top.
+      // Same fallback the min/max steppers below show as their value when untouched, so
+      // leaving them alone saves exactly the range on screen, not some other default.
+      const repsMin = Math.max(1, Math.round(c.targetRepsMin ?? Math.max(1, (c.reps || 10) - 2)))
+      const repsMax = Math.max(repsMin, Math.round(c.targetRepsMax ?? (c.reps || 10) + 2))
+      const reps = repsRange ? repsMax : Math.max(1, Math.round(c.reps) || 10)
       const out = { sets, mode: 'reps', reps, weight: Math.max(0, c.weight || 0), ...prog }
+      if (repsRange) { out.targetRepsMin = repsMin; out.targetRepsMax = repsMax }
       if (policyFor({ ...c, id: ex.id }, routine, 'reps') === 'double') out.repsMin = Math.min(reps, Math.max(1, Math.round(c.repsMin) || Math.max(1, reps - 2)))
       onSave(out)
     }
@@ -861,7 +872,11 @@ function ExConfig({ ex, existing, onSave, onDelete, close, routine }) {
       <Segmented className="seg-range" value={mode} onChange={setMode}
         options={[{ value: 'reps', label: t('Reps') }, { value: 'time', label: t('Time') }]} />
     </div>}
-    <div className="row cfgrow" style={{ marginBottom: mode === 'time' ? 8 : 18 }}>
+    {mode === 'reps' && <div style={{ marginBottom: 12 }}>
+      <Segmented className="seg-range" value={repsRange ? 'range' : 'fixed'} onChange={v => setRepsRange(v === 'range')}
+        options={[{ value: 'fixed', label: t('Fixed') }, { value: 'range', label: t('Range') }]} />
+    </div>}
+    <div className="row cfgrow" style={{ marginBottom: mode === 'reps' && repsRange ? 8 : mode === 'time' ? 8 : 18 }}>
       {cardio ? <>
         <Stepper label={t('Intervals')} value={c.sets} step={1} decimal={false} onChange={v => setC(x => ({ ...x, sets: v }))} />
         <Stepper label={t('Minutes')} value={c.min} step={1} decimal={false} onChange={v => setC(x => ({ ...x, min: v }))} />
@@ -870,12 +885,21 @@ function ExConfig({ ex, existing, onSave, onDelete, close, routine }) {
         <Stepper label={t('Sets')} value={c.sets} step={1} decimal={false} onChange={v => setC(x => ({ ...x, sets: v }))} />
         <Stepper label={t('Seconds')} value={c.sec} step={5} decimal={false} onChange={v => setC(x => ({ ...x, sec: v }))} />
         <Stepper label={t('Weight ({0})', st.unit)} value={c.weight} step={2.5} onChange={v => setC(x => ({ ...x, weight: v }))} />
+      </> : repsRange ? <>
+        <Stepper label={t('Sets')} value={c.sets} step={1} decimal={false} onChange={v => setC(x => ({ ...x, sets: v }))} />
+        <Stepper label={t('Reps min')} value={c.targetRepsMin ?? Math.max(1, (c.reps || 10) - 2)} step={1} decimal={false}
+          onChange={v => setC(x => ({ ...x, targetRepsMin: v }))} />
+        <Stepper label={t('Reps max')} value={c.targetRepsMax ?? (c.reps || 10) + 2} step={1} decimal={false}
+          onChange={v => setC(x => ({ ...x, targetRepsMax: v }))} />
       </> : <>
         <Stepper label={t('Sets')} value={c.sets} step={1} decimal={false} onChange={v => setC(x => ({ ...x, sets: v }))} />
         <Stepper label={t('Reps')} value={c.reps} step={1} decimal={false} onChange={v => setC(x => ({ ...x, reps: v }))} />
         <Stepper label={t('Weight ({0})', st.unit)} value={c.weight} step={2.5} onChange={v => setC(x => ({ ...x, weight: v }))} />
       </>}
     </div>
+    {mode === 'reps' && repsRange && <div className="row cfgrow" style={{ marginBottom: 18 }}>
+      <Stepper label={t('Weight ({0})', st.unit)} value={c.weight} step={2.5} onChange={v => setC(x => ({ ...x, weight: v }))} />
+    </div>}
     {mode === 'time' && <div className="small dim" style={{ marginBottom: 18 }}>
       {t('A timer runs while you hold the set. Leave the weight at 0 for bodyweight holds.')}
     </div>}
@@ -1376,6 +1400,44 @@ function PastWorkoutSheet({ presetDate, close }) {
   </>
 }
 export const pastWorkoutSheet = presetDate => ui().openSheet(close => <PastWorkoutSheet presetDate={presetDate} close={close} />)
+
+/* ============================ effort picker (RPE/RIR bottom sheet) ============================ */
+// Replaces the old inline +/- stepper for effort (Workout.jsx's `col3`) — a felt intensity is a
+// judgment call read off a described scale, not a number worth nudging by 0.5 in a tiny box.
+// Operates on whichever scale the profile logs (kind: 'rir' | 'rpe'); the emoji/description
+// table (history.js's EFFORT_FEEL) is written in RPE and read for RIR through its RPE
+// equivalent (feelFor), so the two scales never need two tables that could drift apart.
+function EffortPicker({ kind, current, onPick, close }) {
+  const e = EFFORT[kind]
+  const [v, setV] = useState(current ?? (kind === 'rpe' ? 8 : 2))
+  const feel = feelFor(kind, v)
+  const color = effortColor(kind === 'rpe' ? 10 - v : v)
+  const step = dir => setV(x => {
+    const n = Math.round((x + dir * e.step) * 100) / 100
+    return dir > 0 ? Math.min(e.max, n) : Math.max(e.min, n)
+  })
+  return <>
+    <h3>{t('How hard was that set?')}</h3>
+    <div style={{ textAlign: 'center', padding: '6px 0 10px' }}>
+      <div style={{ fontSize: 58, lineHeight: 1 }}>{feel.emoji}</div>
+      <div style={{ fontSize: 40, fontWeight: 700, letterSpacing: '-.02em', margin: '10px 0 2px' }}>
+        {fmtNum(v)} <span className="dim" style={{ fontSize: 18, fontWeight: 500 }}>{e.hd}</span>
+      </div>
+      <div className="small" style={{ color: EFFORT_COLOR_VAR[color], fontWeight: 600, minHeight: 34, lineHeight: 1.3 }}>{t(feel.label)}</div>
+    </div>
+    <div className="bwstep">
+      <button className="bw-pm" aria-label={t('Decrease')} onClick={() => step(-1)}><Icon name="minus" /></button>
+      <div className="bw-read" style={{ fontSize: 28 }}>{fmtNum(v)}</div>
+      <button className="bw-pm" aria-label={t('Increase')} onClick={() => step(1)}><Icon name="plus" /></button>
+    </div>
+    <Slider value={v} min={e.min} max={e.max} step={e.step} onChange={setV} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={() => { onPick(v); close() }}>{t('Save')}</Button>
+    {current != null && <><div style={{ height: 8 }} /><Button variant="ghost" className="dim" onClick={() => { onPick(null); close() }}>{t('Clear')}</Button></>}
+  </>
+}
+export const effortSheet = (kind, current, onPick) => ui().openSheet(close => <EffortPicker kind={kind} current={current} onPick={onPick} close={close} />, { kind: 'center' })
+
 // A set's type — see history.js's `workingSets` for what each one actually changes about how
 // the set counts (progression, volume, recovery, carry-forward). 'normal' is stored as no
 // `type` at all, matching every optional set field's "absent = default" convention.
@@ -1599,7 +1661,7 @@ function FinishSummary({ w, prs, e1prs = [], rankUps = [], close }) {
       {rankUps.map(u => <div key={u.id} className="small accent capitalize row" style={{ gap: 5 }}><img src={rankEmblemUrl(u.newRank.tier, u.newRank.division)} alt="" style={{ width: 15, height: 15, objectFit: 'contain', flex: 'none' }} />{t('New rank:')} {EXIDX[u.id] ? nameFor(EXIDX[u.id]) : u.id} · {t(u.newRank.tier)}{u.newRank.division ? ' ' + u.newRank.division : ''}</div>)}
     </div>}
     <h4 className="sec" style={{ textAlign: 'left' }}>{t('What you just trained')}</h4>
-    <BodyMap load={loadOfWorkouts([w])} body={st.body} />
+    <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(st))} body={st.body} />
     {coachOn && <SessionRating w={w} />}
     <div style={{ height: 14 }} />
     <Button variant="primary" onClick={() => { close(); nav('/home') }}>{t('Nice!')}</Button>

@@ -5,7 +5,7 @@ import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { fmtDate } from '../lib/format.js'
 import { exLine } from '../lib/history.js'
-import { loadOfRoutine } from '../lib/muscles.js'
+import { loadOfRoutine, muscleOptsOf } from '../lib/muscles.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import {
@@ -98,7 +98,7 @@ function CreatedPlan({ p, S, update, toast, nav, refresh }) {
         </div>
         {!!e.why && <div className="dim" style={{ fontSize: '.72rem', marginTop: 3, lineHeight: 1.4 }}>{e.why}</div>}
       </div>)}
-      <div style={{ marginTop: 10 }}><BodyMap load={loadOfRoutine(r)} body={S.body} /></div>
+      <div style={{ marginTop: 10 }}><BodyMap load={loadOfRoutine(r, muscleOptsOf(S))} body={S.body} /></div>
     </div>)}
 
     <div className="card">

@@ -23,7 +23,10 @@ export default function Plan() {
   const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
   // Routines already inside a program are shown there, not loose here too — same routine,
   // one place, never two lists claiming it at once.
-  const [tab, setTab] = useState('routines')
+  // Settings → General → "Default tab" (S.defaultLibraryTab) only sets where this lands on
+  // mount — read once into useState, same as any other "initial value from a setting" — so
+  // switching tabs by hand afterward is never fought or reset back.
+  const [tab, setTab] = useState(S.defaultLibraryTab || 'programs')
   const grouped = new Set((S.programs || []).flatMap(p => p.routineIds || []))
   const loose = S.routines.filter(r => !grouped.has(r.id))
 

@@ -5,7 +5,6 @@ import { useUI } from '../store/useUI.js'
 import { ACCENTS, todayISO, localTZ } from '../lib/format.js'
 import { effortOf } from '../lib/history.js'
 import { pushSupported, enablePush, disablePush, sendTestPush } from '../lib/push.js'
-import { wakeLockSupported } from '../lib/wakelock.js'
 import { t, nameFor, LANGS, INSTR_LANGS } from '../lib/i18n.js'
 import { exOr } from '../lib/exercises.js'
 import { DEMO } from '../lib/demo.js'
@@ -34,7 +33,6 @@ export default function Settings() {
   const toast = useUI(s => s.toast)
   const fileRef = useRef(null)
   const importRef = useRef(null)
-  const wakeOK = wakeLockSupported()
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -112,20 +110,37 @@ export default function Settings() {
           options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]}
           value={S.unit} onChange={v => update(s => { s.unit = v })} />
       </Row>
+      {/* Which of Library's three tabs (Plan.jsx) opens first — stacked rather than sharing
+          the row like Weight unit above it, since "Programas"/"Rutinas"/"Ejercicios" are too
+          wide to sit next to a title without crowding it (same reasoning as Text size below). */}
+      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 13, paddingBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="lrow-i" style={{ '--tint': 'var(--indigo)' }}><Icon name="folder" /></span>
+          <span className="lrow-t">{t('Default tab')}</span>
+        </div>
+        <Segmented
+          options={[
+            { value: 'programs', label: t('Programs') },
+            { value: 'routines', label: t('Routines') },
+            { value: 'library', label: t('Exercises') },
+          ]}
+          value={S.defaultLibraryTab || 'programs'}
+          onChange={v => update(s => { s.defaultLibraryTab = v })}
+        />
+      </div>
+      <Row icon="figureStrength" iconTint="var(--purple)" title={t('Statistics')}
+        subtitle={t('How secondary muscles count toward volume and the muscle map')}
+        accessory="chevron" onClick={() => nav('/settings/stats')} />
     </Section>
 
     {/* ---------- during a workout ---------- */}
-    <Section title={t('During a workout')} footer={wakeOK ? t('The screen stays on while a workout is running, so you don’t have to unlock your phone between sets.') : null}>
+    <Section title={t('During a workout')}>
+      <Row icon="dumbbell" iconTint="var(--acc)" title={t('Training')}
+        subtitle={t('Weight step buttons, room equipment, previous results')}
+        accessory="chevron" onClick={() => nav('/settings/training')} />
       <SelectRow icon="timer" iconTint="var(--orange)" title={t('Rest timer')}
         value={S.restSec} onChange={v => update(s => { s.restSec = v })}
         options={[60, 90, 120, 150, 180].map(v => ({ value: v, label: v + 's' }))} />
-      {(wakeOK || !MOBILE) && (
-        <Row icon="sun" iconTint="var(--yellow)" title={t('Keep screen awake')}
-          subtitle={wakeOK ? null : t('Not supported in this browser.')}>
-          <Switch checked={wakeOK && S.keepAwake !== false} disabled={!wakeOK}
-            onChange={v => update(s => { s.keepAwake = v })} />
-        </Row>
-      )}
       <Row icon="bell" iconTint="var(--pink)" title={t('Sounds')}>
         <Switch checked={!!S.sound} onChange={v => update(s => { s.sound = v })} />
       </Row>

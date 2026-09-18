@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, repsLabel, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted, feelFor, effortColor } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -265,6 +265,18 @@ describe('exLine', () => {
     expect(exLine({ id: LIFT, sets: 2, sec: 90, weight: 20, mode: 'time' }, 'kg')).toBe('2 × 1:30 · 20 kg')
     expect(exLine({ id: CARDIO, sets: 1, min: 20, speed: 8 }, 'kg')).toBe('1 × 20 min @ 8 km/h')
   })
+  it('shows a configured rep range instead of the single reps target', () => {
+    expect(exLine({ id: LIFT, sets: 3, reps: 12, targetRepsMin: 8, targetRepsMax: 12, weight: 60 }, 'kg')).toBe('3 × 8-12 · 60 kg')
+  })
+})
+
+describe('repsLabel', () => {
+  it('is the plain number with no range configured', () => {
+    expect(repsLabel({ reps: 10 })).toBe(10)
+  })
+  it('is "min-max" once a rep range is set', () => {
+    expect(repsLabel({ reps: 12, targetRepsMin: 8, targetRepsMax: 12 })).toBe('8-12')
+  })
 })
 
 // warmupEnabled: false throughout — these cases are about the working-set shape itself,
@@ -308,6 +320,17 @@ describe('buildSets', () => {
   it('still prefers the confirmed working weight for reps sets', () => {
     const S = { exWeights: { [LIFT]: { w: 75 } }, warmupEnabled: false, workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, sets: [{ w: 60, r: 10, done: true }] }] }] }
     expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 50 })).toEqual([{ w: 75, r: 10, done: false }])
+  })
+
+  // Settings → Training → "Show previous results" (default on) — off means a fresh set starts
+  // from the routine's own target only, ignoring history and the tracked working weight, same
+  // as a brand-new exercise with nothing logged yet.
+  it('ignores history and the tracked working weight when showPreviousResults is off', () => {
+    const S = {
+      exWeights: { [LIFT]: { w: 75 } }, warmupEnabled: false, showPreviousResults: false,
+      workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, sets: [{ w: 60, r: 10, done: true }] }] }],
+    }
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 50 })).toEqual([{ w: 50, r: 8, done: false }])
   })
 })
 
@@ -426,6 +449,41 @@ describe('insertWorkoutSorted', () => {
     const workouts = [{ id: 'a', d: '2026-01-01' }]
     insertWorkoutSorted(workouts, { id: 'b', d: '2026-01-01' })
     expect(workouts).toHaveLength(1)
+  })
+})
+
+describe('feelFor — the effort picker\'s emoji/description table', () => {
+  it('returns null for an unrated set', () => {
+    expect(feelFor('rpe', null)).toBeNull()
+  })
+  it('reads the RPE scale directly, given the values from the spec', () => {
+    expect(feelFor('rpe', 6).label).toMatch(/very easy/i)
+    expect(feelFor('rpe', 7).label).toMatch(/moderate/i)
+    expect(feelFor('rpe', 8).label).toMatch(/demanding/i)
+    expect(feelFor('rpe', 8.5).label).toMatch(/1-2 more reps/i)
+    expect(feelFor('rpe', 9).label).toMatch(/very hard/i)
+    expect(feelFor('rpe', 9.5).label).toMatch(/limit/i)
+    expect(feelFor('rpe', 10).label).toMatch(/failure/i)
+  })
+  it('reads RIR through its RPE equivalent (rpe = 10 − rir), same feeling either scale', () => {
+    expect(feelFor('rir', 2)).toEqual(feelFor('rpe', 8))   // RIR 2 == RPE 8
+    expect(feelFor('rir', 0)).toEqual(feelFor('rpe', 10))  // failure either way
+  })
+  it('clamps an easier-than-6 RPE-equivalent to the lightest bucket rather than guessing', () => {
+    expect(feelFor('rir', 8)).toEqual(feelFor('rpe', 6))
+  })
+})
+
+describe('effortColor', () => {
+  it('is null when nothing was logged', () => {
+    expect(effortColor(null)).toBeNull()
+  })
+  it('splits the scale green / amber / red at the spec\'s RPE 7-8 and 9-10 boundaries', () => {
+    expect(effortColor(4)).toBe('green')    // RPE 6 — "ligero"
+    expect(effortColor(3)).toBe('amber')    // RPE 7
+    expect(effortColor(2)).toBe('amber')    // RPE 8
+    expect(effortColor(1)).toBe('red')      // RPE 9
+    expect(effortColor(0)).toBe('red')      // RPE 10, failure
   })
 })
 

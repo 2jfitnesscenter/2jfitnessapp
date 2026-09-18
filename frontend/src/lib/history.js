@@ -34,6 +34,41 @@ export const EFFORT = {
   rir: { f: 'rir', hd: 'RIR', step: 0.5, min: 0, max: 10 },
   rpe: { f: 'rpe', hd: 'RPE', step: 0.5, min: 6, max: 10 }
 }
+// Emoji + a plain-language read of each RPE step, for the visual effort picker (sheets.jsx's
+// effortSheet/EffortBadge) — the standard RPE 6-10 scale, one entry per 0.5 step. RIR reads the
+// same table through its RPE equivalent (rpe = 10 − rir, see feelFor) rather than keeping a
+// second table, since the two scales describe the same feeling from opposite ends.
+export const EFFORT_FEEL = [
+  { rpe: 6, emoji: '🙂', label: 'Warmup / very easy (4+ reps in reserve)' },
+  { rpe: 6.5, emoji: '🙂', label: 'Easy (about 4 reps in reserve)' },
+  { rpe: 7, emoji: '😐', label: 'Moderate (3 reps in reserve)' },
+  { rpe: 7.5, emoji: '😐', label: 'Getting harder (2-3 reps in reserve)' },
+  { rpe: 8, emoji: '😬', label: 'Demanding (2 reps in reserve)' },
+  { rpe: 8.5, emoji: '😟', label: 'You could have done 1-2 more reps' },
+  { rpe: 9, emoji: '😣', label: 'Very hard (1 rep in reserve)' },
+  { rpe: 9.5, emoji: '😫', label: 'Right at the limit (maybe 1 more with a spot)' },
+  { rpe: 10, emoji: '🥵', label: 'Complete muscular failure (0 reps in reserve)' },
+]
+// The emoji/label for a value on either scale — RIR is converted to its RPE equivalent first
+// (clamped into 6-10, the range the table actually covers: anything easier than RPE 6 reads the
+// same as RPE 6 itself, "very easy").
+export function feelFor(kind, value) {
+  if (value == null) return null
+  const rpe = kind === 'rpe' ? value : Math.max(6, Math.min(10, 10 - value))
+  let best = EFFORT_FEEL[0]
+  for (const f of EFFORT_FEEL) if (Math.abs(f.rpe - rpe) < Math.abs(best.rpe - rpe)) best = f
+  return best
+}
+// The three-way color a logged set's intensity badges as, by canonical RIR (10 − rpe) —
+// matching the boundaries the spec calls out: RPE 7-8 (RIR 2-3) reads amber, RPE 9-10
+// (RIR 0-1) reads red, anything easier reads green.
+export function effortColor(rir) {
+  if (rir == null) return null
+  if (rir >= 3.5) return 'green'
+  if (rir >= 1.5) return 'amber'
+  return 'red'
+}
+export const EFFORT_COLOR_VAR = { green: 'var(--green)', amber: 'var(--yellow)', red: 'var(--red)' }
 // One tap of an effort stepper. Empty is not 0 — an unlogged effort must not become "went to
 // failure" from one stray tap — so − on an empty cell leaves it empty, and + starts at the
 // bottom of the scale and walks up from there in even steps. Stepping back off the bottom
@@ -81,6 +116,11 @@ export function defaultConfig(id, mode) {
   if (m === 'time') return { sets: 3, sec: 45, weight: 0, mode: 'time' }
   return { sets: 3, reps: 10, weight: 0, mode: 'reps' }
 }
+// "10", or "8-12" once a rep range (RoutineEdit's exConfigSheet) is set — the single number
+// stays the real prescription (buildSets, progression) everywhere else; the range is purely a
+// wider display/placeholder hint layered on top of it.
+export const repsLabel = cfg =>
+  cfg.targetRepsMin != null && cfg.targetRepsMax != null ? `${cfg.targetRepsMin}-${cfg.targetRepsMax}` : cfg.reps
 // One-line summary of a planned exercise ("3 × 10 · 60 kg"), shared by the routine editor
 // and the plan export so a mode is described the same way everywhere.
 export function exLine(cfg, unit) {
@@ -89,7 +129,7 @@ export function exLine(cfg, unit) {
   const load = cfg.weight ? ' · ' + fmtNum(cfg.weight) + ' ' + unit : ''
   if (mode === 'cardio') return `${n} × ${cfg.min || 20} min @ ${fmtNum(cfg.speed || 8)} km/h`
   if (mode === 'time') return `${n} × ${fmtSec(cfg.sec || 45)}${load}`
-  return `${n} × ${cfg.reps}${load}`
+  return `${n} × ${repsLabel(cfg)}${load}`
 }
 
 // Drop superset ids that no longer have an adjacent partner (after unlink/reorder/remove).
@@ -160,7 +200,10 @@ export function effectiveRoutine(S, iso) {
   return id ? S.routines.find(r => r.id === id) || null : null
 }
 export function buildSets(S, cfg) {
-  const last = lastEntryFor(S, cfg.id)
+  // Settings → Training → "Show previous results" — off means a fresh set starts at the
+  // routine's own target only, not last time's/the tracked weight, so `prevAt` below always
+  // misses and every mode falls back to its own `cfg.*` default a few lines down.
+  const last = S.showPreviousResults !== false ? lastEntryFor(S, cfg.id) : null
   const n = Math.max(1, cfg.sets || 1)
   const mode = modeOf(cfg)
   const sets = []
@@ -184,7 +227,9 @@ export function buildSets(S, cfg) {
     }
     return sets
   }
-  const conf = S.exWeights[cfg.id]
+  // The confirmed working weight (TopWeight's own sheet) is just as much "a previous result"
+  // as a raw logged set — both are data from an earlier session, so the same toggle skips both.
+  const conf = S.showPreviousResults !== false ? S.exWeights[cfg.id] : null
   for (let i = 0; i < n; i++) {
     const prev = prevAt(i)
     const usable = prev && prev.r > 0 ? prev : null

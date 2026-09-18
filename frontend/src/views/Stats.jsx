@@ -10,7 +10,7 @@ import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
-import { loadOfWorkouts, rankOf, MUSCLE_NAME } from '../lib/muscles.js'
+import { loadOfWorkouts, rankOf, MUSCLE_NAME, muscleOptsOf } from '../lib/muscles.js'
 import { e1rmSeries, best1RM } from '../lib/onerm.js'
 import {
   hasEffort, displayScale, scaleName, toScale, avgRir, effortSummary, effortWeeks,
@@ -58,7 +58,7 @@ function MuscleBalance({ S }) {
   // would just be empty and read as "you trained nothing".
   const rated = inWin.some(w => w.entries.some(e => e.sets.some(s => s.done && isHardSet(s))))
   const on = hard && rated
-  const load = loadOfWorkouts(inWin, on ? isHardSet : null)
+  const load = loadOfWorkouts(inWin, on ? isHardSet : null, muscleOptsOf(S))
   const { worked, missed } = rankOf(load)
   const top = worked.slice(0, 4)
   const max = worked.length ? load[worked[0]] : 0

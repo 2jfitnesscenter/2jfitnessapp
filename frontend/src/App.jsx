@@ -29,6 +29,8 @@ import Stats from './views/Stats.jsx'
 import History from './views/History.jsx'
 import Social from './views/Social.jsx'
 import Settings from './views/Settings.jsx'
+import TrainingSettings from './views/TrainingSettings.jsx'
+import StatsSettings from './views/StatsSettings.jsx'
 import Profile from './views/Profile.jsx'
 import Friends from './views/Friends.jsx'
 import Chat from './views/Chat.jsx'
@@ -172,6 +174,8 @@ function Shell() {
               <Route path="/history" element={<History />} />
               <Route path="/social" element={<Social />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/training" element={<TrainingSettings />} />
+              <Route path="/settings/stats" element={<StatsSettings />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/friends" element={<Friends />} />
               <Route path="/chat" element={<Chat />} />

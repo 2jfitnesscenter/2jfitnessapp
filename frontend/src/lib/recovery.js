@@ -15,7 +15,7 @@
 // work. A failure or drop set still counts fully; both are genuine work, not a data point about
 // "to failure" or drop-set intensity that this estimate tries to weigh any differently.
 import { EXIDX } from './exercises.js'
-import { musclesOf, MUSCLES, MUSCLE_NAME } from './muscles.js'
+import { musclesOf, muscleOptsOf, MUSCLES, MUSCLE_NAME } from './muscles.js'
 import { modeOf } from './history.js'
 
 const WINDOW_DAYS = 7
@@ -34,6 +34,7 @@ export function recoveryOf(S) {
   const now = Date.now()
   const cutoff = now - WINDOW_DAYS * dayMs
   const fatigue = {}
+  const muscleOpts = muscleOptsOf(S)
   ;(S.workouts || []).forEach(w => {
     const at = w.start || new Date(w.d + 'T12:00:00').getTime()
     if (at < cutoff) return
@@ -44,7 +45,7 @@ export function recoveryOf(S) {
       if (!ex) return
       const mode = modeOf({ ...(e.target || {}), id: e.id })
       if (mode !== 'reps') return   // time/cardio work isn't counted, same as the reference
-      const m = musclesOf(ex)
+      const m = musclesOf(ex, muscleOpts)
       ;(e.sets || []).forEach(s => {
         if (!s.done || !s.r || s.type === 'warmup') return
         const contribution = (s.r / STANDARD_REPS) * weight

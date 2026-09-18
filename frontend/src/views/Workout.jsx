@@ -3,17 +3,18 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
-import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, stepEffort, capEffort } from '../lib/history.js'
+import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, feelFor, effortColor, EFFORT_COLOR_VAR } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
-import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet } from '../sheets.jsx'
+import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet, effortSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
+import { stepWeight } from '../lib/equipment.js'
 
 /* ---------- start chooser (no active workout) ---------- */
 function StartChooser() {
@@ -75,25 +76,38 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
   const mode = modeOf({ ...(entry.target || {}), id: entry.id })
   const cardio = mode === 'cardio'
   const timed = mode === 'time'
-  const last = lastEntryFor(S, entry.id)
+  // Settings → Training → "Show previous results" — off drops both the "Last time" line below
+  // and the ghost placeholder in the weight/reps cells (cell()'s `ghost` columns), same switch
+  // that already tells buildSets not to pre-fill a fresh set from history (lib/history.js).
+  const showPrev = S.showPreviousResults !== false
+  const last = showPrev ? lastEntryFor(S, entry.id) : null
   // The same number the "confirm your working weight" sheet calls your best, so the two
   // never disagree inside one session: heaviest logged set, or the working weight you kept.
   const best = cardio ? 0 : Math.max(bestWeightFor(S, entry.id), (S.exWeights[entry.id] || {}).w || 0)
   // What the progression policy decided for this session, and why (issue #17). Computed when
   // the session was built so the reason matches the numbers already in the rows.
   const plan = entry.plan
+  // `ghost: true` marks the columns cell() below both steps via lib/equipment.js's stepWeight
+  // (weight only) and may show a "last time" placeholder in (reps and weight) — never the
+  // effort column, where an empty vs. a logged 0 (failure) are deliberately different things.
   const col1 = cardio ? { f: 'min', step: 1, dec: false, hd: t('Duration (min)') }
     : timed ? { f: 'sec', step: 5, dec: false, hd: t('Seconds') }
-      : { f: 'w', step: 2.5, dec: true, hd: t('Weight ({0})', S.unit) }
+      : { f: 'w', step: 2.5, dec: true, hd: t('Weight ({0})', S.unit), ghost: true }
+  // A configured rep range (RoutineEdit's exConfigSheet, "Range" mode) outranks the plain
+  // last-time ghost as the reps placeholder — "8-12" is what the routine is actually asking
+  // for right now, not just an echo of what happened before.
+  const target = entry.target
+  const repsRangeLabel = mode === 'reps' && target?.targetRepsMin != null && target?.targetRepsMax != null
+    ? `${target.targetRepsMin}-${target.targetRepsMax}` : null
   const col2 = cardio ? { f: 'speed', step: 0.5, dec: true, hd: t('Speed (km/h)') }
-    : timed ? { f: 'w', step: 2.5, dec: true, hd: t('Weight ({0})', S.unit) }
-      : { f: 'r', step: 1, dec: false, hd: t('Reps') }
+    : timed ? { f: 'w', step: 2.5, dec: true, hd: t('Weight ({0})', S.unit), ghost: true }
+      : { f: 'r', step: 1, dec: false, hd: t('Reps'), ghost: true, rangeLabel: repsRangeLabel }
   // Effort (RIR or RPE, whichever the profile logs) only makes sense for weighted rep sets,
   // not cardio/timed holds, and is opt-in since it adds a third stepper to every row. `opt`
   // because an unlogged effort is not the same as 0 — RIR 0 says the set went to failure.
   const kind = effortOf(S)
   const eff = EFFORT[kind]
-  const col3 = mode === 'reps' && eff ? { ...eff, eff: kind, dec: true, opt: true, hd: t(eff.hd) } : null
+  const col3 = mode === 'reps' && eff ? { ...eff, eff: kind, hd: t(eff.hd) } : null
   // A plate diagram only means anything on a real straight bar with a real load — never on a
   // warmup set (asked for by name: only the effective sets get one) and never on a cardio hold.
   const barbellEq = BARBELL_EQ.includes(ex.eq)
@@ -102,23 +116,50 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
   // hidden warmup block from the last one doesn't silently carry over to this one.
   const [hideWarmup, setHideWarmup] = useState(false)
   useEffect(() => { setHideWarmup(false) }, [entryIdx])
-  // The effort column walks its own scale — see stepEffort. Weight and reps step up from 0
-  // with no ceiling, as they always did.
+  // Reps step up from 0 with no ceiling, as they always did. Weight instead walks the gym's
+  // real rack/pins/plates (or a member's own custom jump) via lib/equipment.js — see
+  // Settings → Training. Effort isn't stepped here at all any more — see effortBadge below.
   const bump = (s, i, col, dir) => {
-    if (col.eff) return onField(i, col.f, stepEffort(col.eff, s[col.f], dir))
+    if (col.f === 'w') return onField(i, col.f, stepWeight(S, ex.eq, s[col.f] || 0, dir))
     onField(i, col.f, Math.max(0, Math.round(((s[col.f] || 0) + dir * col.step) * 100) / 100))
   }
-  // Uses the shared stepper markup so a set row picks up the same control styling
-  // as every other +/- field in the app.
-  const cell = (s, i, col, cls) => (
-    <div className={'stp ' + cls}>
-      <button aria-label={t('Decrease')} onClick={() => bump(s, i, col, -1)}><Icon name="minus" /></button>
-      {/* a typed effort is capped — there is no RPE 12, and 12 reps in reserve is a warm-up */}
-      <span className="val"><NumberField decimal={col.dec} nullable={col.opt} value={s[col.f] ?? ''}
-        onChange={v => onField(i, col.f, col.eff ? capEffort(col.eff, v) : v)} /></span>
-      <button aria-label={t('Increase')} onClick={() => bump(s, i, col, 1)}><Icon name="plus" /></button>
-    </div>
-  )
+  // Uses the shared stepper markup so a set row picks up the same control styling as every
+  // other +/- field in the app. `wp` (this row's position among WORKING sets only, warmups
+  // excluded on both sides) is how a ghost column finds its own set in `last` — the two lists
+  // don't line up by raw index once a warmup ramp is in front of the working sets.
+  const cell = (s, i, col, cls, wp) => {
+    const ghostVal = col.ghost && last && wp != null ? last.sets[wp]?.[col.f] : null
+    const placeholder = col.rangeLabel || (ghostVal != null ? String(ghostVal) : undefined)
+    return (
+      <div className={'stp ' + cls}>
+        <button aria-label={t('Decrease')} onClick={() => bump(s, i, col, -1)}><Icon name="minus" /></button>
+        {/* A ghost column reads an unset 0 as empty too, so its placeholder — a rep-range
+            target if one's configured, else last time's number — actually has room to show. */}
+        <span className="val"><NumberField decimal={col.dec} nullable={col.opt}
+          value={col.ghost ? (s[col.f] || '') : (s[col.f] ?? '')}
+          placeholder={placeholder}
+          onChange={v => onField(i, col.f, v)} /></span>
+        <button aria-label={t('Increase')} onClick={() => bump(s, i, col, 1)}><Icon name="plus" /></button>
+      </div>
+    )
+  }
+  // The effort column is a tap-to-open bottom sheet (sheets.jsx's effortSheet), not a stepper —
+  // RPE/RIR is a judgment call read off a 9-point emoji scale, not a number worth nudging by
+  // 0.5 with a tiny +/-. Still sits in a ".stp eff" wrapper so the eff3 column-width rules
+  // (index.css) size it the same as when it was one.
+  const effortBadge = (s, i) => {
+    const value = s[col3.f]
+    const feel = feelFor(col3.eff, value)
+    const color = value == null ? null : effortColor(col3.eff === 'rpe' ? 10 - value : value)
+    return (
+      <div className="stp eff">
+        <button className="effbadge" style={color ? { background: EFFORT_COLOR_VAR[color], color: '#fff' } : undefined}
+          onClick={() => effortSheet(col3.eff, value, v => onField(i, col3.f, v))}>
+          {feel ? <><span className="em">{feel.emoji}</span>{fmtNum(value)}</> : col3.hd}
+        </button>
+      </div>
+    )
+  }
   return <>
     <Media ex={ex} key={entry.id} compact={compact} minimizable />
     <div className="row between" style={{ marginBottom: 6 }}>
@@ -146,12 +187,20 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
       {/* the header carries the same eff3 sizing as the rows, or the labels drift off their columns */}
       {(() => {
         const sethead = <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{col3 && <span className="eff-sp">{col3.hd}</span>}{timed && <span className="ck-sp" />}<span className="ck-sp" /></div>
+        // Warmup/working split, computed once up front so `row` below can look up each row's
+        // position among WORKING sets only — that's the index a ghost column needs into `last`
+        // (lastEntryFor already drops warmups from its own sets), not its raw position here.
+        const warmupIdx = []
+        const workIdx = []
+        entry.sets.forEach((s, i) => (s.type === 'warmup' ? warmupIdx : workIdx).push(i))
+        const workPosOf = {}
+        workIdx.forEach((idx, pos) => { workPosOf[idx] = pos })
         const row = (s, i) => <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '')}>
           <button className="n" aria-label={t('Set type')} style={s.type ? { background: TYPE_COLOR[s.type], color: '#fff' } : undefined}
             onClick={() => onSetType(i)}>{setBadge(entry.sets, i)}</button>
-          {cell(s, i, col1, 'w')}
-          {cell(s, i, col2, 'r')}
-          {col3 && cell(s, i, col3, 'eff')}
+          {cell(s, i, col1, 'w', workPosOf[i])}
+          {cell(s, i, col2, 'r', workPosOf[i])}
+          {col3 && effortBadge(s, i)}
           {showPlates(s) && <button className="platesbtn" aria-label={t('Plate breakdown')}
             onClick={() => platesSheet(s.w, S.unit)}><Icon name="barbell" /></button>}
           {/* A timed set is started, not typed: the timer counts the hold down and checks the
@@ -163,9 +212,6 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
         // Only split into two labelled blocks when there's actually a warmup to separate out —
         // an exercise with none (warmups off, or no working weight to ramp up to yet) keeps the
         // single plain list it always had, so nothing changes for the common case.
-        const warmupIdx = []
-        const workIdx = []
-        entry.sets.forEach((s, i) => (s.type === 'warmup' ? warmupIdx : workIdx).push(i))
         if (!warmupIdx.length) return <>{sethead}{entry.sets.map((s, i) => row(s, i))}</>
         return <>
           <div className="setgroup-hd">

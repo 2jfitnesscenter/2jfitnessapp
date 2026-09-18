@@ -14,7 +14,7 @@ import { glyphOf } from '../lib/glyphs.js'
 import { Button, SelectRow } from '../components/ui.jsx'
 import { POLICIES_FOR, POLICY_NAME, POLICY_DESC } from '../lib/progression.js'
 import BodyMap, { MuscleIcon } from '../components/BodyMap.jsx'
-import { loadOfRoutine, rankOf, pctOf, MUSCLE_NAME } from '../lib/muscles.js'
+import { loadOfRoutine, rankOf, pctOf, MUSCLE_NAME, muscleOptsOf } from '../lib/muscles.js'
 import { mediaUrl } from '../lib/media.js'
 
 export default function RoutineEdit() {
@@ -96,7 +96,7 @@ export default function RoutineEdit() {
     </div>
 
     {r.ex.length > 0 && (() => {
-      const load = loadOfRoutine(r)
+      const load = loadOfRoutine(r, muscleOptsOf(S))
       const { worked } = rankOf(load)
       const pct = pctOf(load)
       return <>
@@ -155,7 +155,7 @@ export default function RoutineEdit() {
     {/* Coverage of the routine as planned, so a gap shows up while you're building it
         rather than after a month of training around it. */}
     {r.ex.length > 0 && (() => {
-      const load = loadOfRoutine(r)
+      const load = loadOfRoutine(r, muscleOptsOf(S))
       const { worked } = rankOf(load)
       return <div className="card" style={{ marginTop: 12 }}>
         <h2>{t('What this session hits')}</h2>
