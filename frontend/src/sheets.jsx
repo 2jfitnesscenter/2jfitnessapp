@@ -9,7 +9,7 @@ import { t, instrFor, nameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
 import { starterRoutines, buildPlan, GOALS } from './lib/starter.js'
 import Media, { Thumb } from './components/Media.jsx'
-import BarbellPlates, { plateBreakdown } from './components/BarbellPlates.jsx'
+import BarbellPlates, { plateBreakdown, BARBELL_TYPES } from './components/BarbellPlates.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row, ChipSelect, Check } from './components/ui.jsx'
@@ -1497,23 +1497,39 @@ export const setTypeSheet = (current, onPick, onDelete) => ui().openSheet(close 
 
 // What to actually load on the bar for one working set — shown on tap rather than as a row icon
 // (see BarbellPlates.jsx), so the drawing gets room to be legible instead of squeezed into a
-// stepper row.
-function PlatesSheet({ weight, unit }) {
-  const { barW, plates } = plateBreakdown(weight, unit)
+// stepper row. Interactive in both directions a member might reach for it: from a set (a real
+// weight and an onApply that writes back through the same onField pipeline the +/- steppers and
+// typing already use), or standalone (Settings' own entry — no onApply, weight starts wherever
+// the caller likes and is freely editable either way).
+function PlatesSheet({ weight: initWeight, unit, barId: initBarId, onApply, close }) {
+  const [weight, setWeight] = useState(initWeight)
+  const [barId, setBarId] = useState(initBarId || 'olympic')
+  // The bar-type picker only applies to kg — none of these named bars has an established pound
+  // convention worth inventing, so an lb profile keeps BarbellPlates' own plain 45lb default.
+  const barW = unit === 'lb' ? undefined : (BARBELL_TYPES.find(b => b.id === barId)?.kg ?? 20)
+  const { plates, leftover } = plateBreakdown(weight, unit, barW)
   return <>
-    <h3>{t('Plate breakdown')}</h3>
-    <div className="muted small" style={{ marginBottom: 14 }}>
-      {t('A {0} {1} bar plus plates on each side, for {2} {1} total.', fmtNum(barW), unit, fmtNum(weight))}
-    </div>
-    <div className="row" style={{ justifyContent: 'center', margin: '4px 0 18px' }}>
-      <BarbellPlates weight={weight} unit={unit} size="lg" />
+    <h3>{t('Plate calculator')}</h3>
+    <Stepper value={weight} step={2.5} unit={unit} label={t('Target weight')} onChange={setWeight} />
+    {unit !== 'lb' && <div style={{ marginTop: 10 }}>
+      <SelectRow title={t('Bar type')} sheetTitle={t('Bar type')} value={barId}
+        options={BARBELL_TYPES.map(b => ({ value: b.id, label: t(b.label) }))} onChange={setBarId} />
+    </div>}
+    <div className="row" style={{ justifyContent: 'center', margin: '18px 0' }}>
+      <BarbellPlates weight={weight} unit={unit} barW={barW} size="lg" />
     </div>
     {plates.length
       ? <div className="big" style={{ textAlign: 'center' }}>{t('Each side: {0} {1}', plates.map(p => fmtNum(p.w)).join(' + '), unit)}</div>
       : <div className="dim small" style={{ textAlign: 'center' }}>{t('Bar only — no plates needed.')}</div>}
+    {leftover > 0.01 && <div className="small" style={{ color: 'var(--orange)', textAlign: 'center', marginTop: 10 }}>
+      {t('Closest with these plates: {0} {1} ({2} {1} short)', fmtNum(weight - leftover), unit, fmtNum(leftover))}
+    </div>}
+    {onApply && <Button variant="primary" style={{ marginTop: 18 }}
+      onClick={() => { onApply(weight - Math.max(0, leftover)); close() }}>{t('Apply to set')}</Button>}
   </>
 }
-export const platesSheet = (weight, unit) => ui().openSheet(() => <PlatesSheet weight={weight} unit={unit} />)
+export const platesSheet = (weight, unit, onApply, barId) =>
+  ui().openSheet(close => <PlatesSheet weight={weight} unit={unit} onApply={onApply} barId={barId} close={close} />)
 
 /* ============================ per-exercise "…" menu (routine editor) ============================ */
 // Every action beyond what tapping the row itself already does (open exConfigSheet for

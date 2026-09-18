@@ -15,10 +15,10 @@ export const MACHINE_WEIGHTS_CONFIG = { min: 5, max: 100, step: 5 }
 export const BARBELL_PLATES_2J = [2.5, 5, 10, 15, 20, 25]
 
 // A bar loaded with plates on each side — same total-weight math regardless of which kind of
-// bar it is. Kept separate from BARBELL_EQ in views/Workout.jsx, which is only about whether a
-// plate-breakdown diagram makes sense (a Smith machine's counterweighted bar doesn't get one;
-// it still steps like a barbell here).
-const BARBELL_LIKE_EQ = ['barbell', 'olympic barbell', 'ez barbell', 'trap bar', 'smith machine']
+// bar it is. Also what Workout.jsx's plate-breakdown button gates on (components/BarbellPlates.jsx's
+// bar-type picker covers Smith/EZ/trap-bar-shaped bars now, so there's no reason for the two
+// lists to disagree the way they used to).
+export const BARBELL_LIKE_EQ = ['barbell', 'olympic barbell', 'ez barbell', 'trap bar', 'smith machine']
 
 // Which of the three stepping rules an exercise's equipment falls under. Everything that isn't
 // a dumbbell or a bar is treated as "machine" — cable stacks, leverage machines, kettlebells,

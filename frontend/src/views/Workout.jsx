@@ -14,7 +14,7 @@ import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
-import { stepWeight } from '../lib/equipment.js'
+import { stepWeight, BARBELL_LIKE_EQ } from '../lib/equipment.js'
 
 /* ---------- start chooser (no active workout) ---------- */
 function StartChooser() {
@@ -57,9 +57,6 @@ function Elapsed({ start }) {
 // reference strength app numbers a session: 1, W, F, D, 2, not 1, 2, 3, 4, 5).
 const TYPE_LETTER = { warmup: 'W', failure: 'F', drop: 'D' }
 const TYPE_COLOR = { warmup: 'var(--orange)', failure: 'var(--red)', drop: 'var(--blue)' }
-// The only equipment values with an unambiguous standard bar weight (20kg/45lb) to calculate
-// plates against — see BarbellPlates.jsx for why an EZ bar, Smith machine or trap bar don't count.
-const BARBELL_EQ = ['barbell', 'olympic barbell']
 const setBadge = (sets, i) => {
   if (TYPE_LETTER[sets[i].type]) return TYPE_LETTER[sets[i].type]
   let n = 0
@@ -108,9 +105,11 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
   const kind = effortOf(S)
   const eff = EFFORT[kind]
   const col3 = mode === 'reps' && eff ? { ...eff, eff: kind, hd: t(eff.hd) } : null
-  // A plate diagram only means anything on a real straight bar with a real load — never on a
-  // warmup set (asked for by name: only the effective sets get one) and never on a cardio hold.
-  const barbellEq = BARBELL_EQ.includes(ex.eq)
+  // A plate diagram only means anything with a real load — never on a warmup set (asked for by
+  // name: only the effective sets get one) and never on a cardio hold. The calculator's own
+  // bar-type picker (components/BarbellPlates.jsx) is what makes it meaningful for a Smith/EZ/
+  // trap bar too now, not just a plain barbell.
+  const barbellEq = BARBELL_LIKE_EQ.includes(ex.eq)
   const showPlates = s => !cardio && barbellEq && s.type !== 'warmup' && s.w > 0
   // Collapsible per exercise, not global — reset whenever the visible exercise changes so a
   // hidden warmup block from the last one doesn't silently carry over to this one.
@@ -202,7 +201,7 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
           {cell(s, i, col2, 'r', workPosOf[i])}
           {col3 && effortBadge(s, i)}
           {showPlates(s) && <button className="platesbtn" aria-label={t('Plate breakdown')}
-            onClick={() => platesSheet(s.w, S.unit)}><Icon name="barbell" /></button>}
+            onClick={() => platesSheet(s.w, S.unit, v => onField(i, 'w', v))}><Icon name="barbell" /></button>}
           {/* A timed set is started, not typed: the timer counts the hold down and checks the
               set off itself. The checkbox stays for anyone who timed it on their own watch. */}
           {timed && <button className="setgo" aria-label={t('Start set')} disabled={s.done || !!working}

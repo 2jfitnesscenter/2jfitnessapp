@@ -9,7 +9,7 @@ import { t, nameFor, LANGS, INSTR_LANGS } from '../lib/i18n.js'
 import { exOr } from '../lib/exercises.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE, shareExport, syncReminder } from '../lib/mobile.js'
-import { loadStarterPlan, confirmSheet, importFromApp } from '../sheets.jsx'
+import { loadStarterPlan, confirmSheet, importFromApp, platesSheet } from '../sheets.jsx'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import { RankGuideSheet } from './Rank.jsx'
@@ -138,6 +138,9 @@ export default function Settings() {
       <Row icon="dumbbell" iconTint="var(--acc)" title={t('Training')}
         subtitle={t('Weight step buttons, room equipment, previous results')}
         accessory="chevron" onClick={() => nav('/settings/training')} />
+      <Row icon="barbell" iconTint="var(--blue)" title={t('Plate calculator')}
+        subtitle={t('Work out what to load on any bar, outside of a set')}
+        accessory="chevron" onClick={() => platesSheet(S.unit === 'lb' ? 45 : 20, S.unit)} />
       <SelectRow icon="timer" iconTint="var(--orange)" title={t('Rest timer')}
         value={S.restSec} onChange={v => update(s => { s.restSec = v })}
         options={[60, 90, 120, 150, 180].map(v => ({ value: v, label: v + 's' }))} />
