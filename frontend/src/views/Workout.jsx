@@ -279,15 +279,19 @@ function ActiveWorkout() {
     mutEntry(idx, e => {
       e.sets[i].done = !e.sets[i].done
       if (e.sets[i].done) {
-        beep(S.sound, 1040, 0.12); vibrate(30)
+        // A past log is filled in after the fact — no rest timer, no live sound/vibration,
+        // and no "confirm your working weight" interruption. Just check things off.
+        if (!A.past) { beep(S.sound, 1040, 0.12); vibrate(30) }
         const isLastExInUnit = idx === unit[unit.length - 1]
         const unitDone = unit.every(ui => (ui === idx ? e : A.entries[ui]).sets.every(x => x.done))
-        if (isLastExInUnit && !unitDone) startRest(S.restSec, nameFor(exOr(e.id)))
-        else if (unitDone) stopRest()
+        if (!A.past) {
+          if (isLastExInUnit && !unitDone) startRest(S.restSec, nameFor(exOr(e.id)))
+          else if (unitDone) stopRest()
+        }
         if (unitDone && isLastUnit) workoutDone = true      // last exercise's last set → done
         // Only reps training has a "working weight" worth confirming — a bodyweight plank
         // has nothing to put in that slider.
-        if (e.sets.every(x => x.done)) { exJustDone = true; if (m === 'reps' && !e.asked) { e.asked = true; askTop = true } }
+        if (e.sets.every(x => x.done)) { exJustDone = true; if (m === 'reps' && !e.asked && !A.past) { e.asked = true; askTop = true } }
       }
     })
     // reps: topWeight first (it chains into the finish/continue prompt on the last unit).
@@ -301,6 +305,9 @@ function ActiveWorkout() {
   // Live-presence heartbeat so the admin dashboard can show who's training now. Signed-in only —
   // guests have no server session. Reads fresh state each tick so progress stays current.
   useEffect(() => {
+    // A backdated log isn't a live session — nothing to tell the admin dashboard's "training
+    // now" view about.
+    if (A.past) return
     if (!useStore.getState().user) return
     let stopped = false
     const ping = active => {
@@ -327,9 +334,9 @@ function ActiveWorkout() {
 
   return <div className="narrow">
     <div className="hdr">
-      <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t('Discard workout?'), message: t('The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => { update(s => { s.active = null }); stopRest(); nav('/home') } })}><Icon name="xmark" /></button>
-      <div style={{ textAlign: 'center' }}><div style={{ fontWeight: 600 }}>{A.name}</div><div className="sub"><Elapsed start={A.start} /> · {t('{0} sets', done + '/' + total)}</div></div>
-      <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t('Finish')} onClick={finishWorkout}><Icon name="check" /></button>
+      <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => { update(s => { s.active = null }); stopRest(); nav('/home') } })}><Icon name="xmark" /></button>
+      <div style={{ textAlign: 'center' }}><div style={{ fontWeight: 600 }}>{A.name}</div><div className="sub">{A.past ? fmtDate(A.d, true) : <Elapsed start={A.start} />} · {t('{0} sets', done + '/' + total)}</div></div>
+      <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t(A.past ? 'Save' : 'Finish')} onClick={finishWorkout}><Icon name="check" /></button>
     </div>
     <div className="wprog"><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
 
@@ -365,8 +372,8 @@ function ActiveWorkout() {
     {(() => {
       const exDone = A.entries.filter(e => e.sets.length && e.sets.every(s => s.done)).length
       const allDone = A.entries.length > 0 && exDone === A.entries.length
-      return <button className={allDone ? 'btn primary' : 'btn ghost dim'} onClick={finishWorkout}>
-        {allDone ? t('Finish workout') : t('Finish workout early · {0} exercises', exDone + '/' + A.entries.length)}
+      return <button className={allDone || A.past ? 'btn primary' : 'btn ghost dim'} onClick={finishWorkout}>
+        {A.past ? t('Save workout') : allDone ? t('Finish workout') : t('Finish workout early · {0} exercises', exDone + '/' + A.entries.length)}
       </button>
     })()}
     <div style={{ height: 40 }} />

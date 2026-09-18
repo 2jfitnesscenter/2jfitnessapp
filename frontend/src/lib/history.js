@@ -117,6 +117,19 @@ export function lastEntryFor(S, exId) {
   }
   return null
 }
+// Inserts a workout by date instead of appending — a workout logged after the fact (see
+// sheets.jsx's beginPastWorkout) can be older than ones already on file. lastEntryFor above,
+// and e1rmSeries/best1RM in onerm.js, all read S.workouts front-to-back assuming chronological
+// order (their own comments say so); a plain push would silently make a backdated log look like
+// the most recent session for progression and PR purposes. Ties (same day) land after any
+// existing entries for that day, matching what push already did for two same-day sessions.
+export function insertWorkoutSorted(workouts, w) {
+  const out = [...workouts]
+  let i = out.length
+  while (i > 0 && out[i - 1].d > w.d) i--
+  out.splice(i, 0, w)
+  return out
+}
 export function bestWeightFor(S, exId) {
   let best = 0
   S.workouts.forEach(w => w.entries.forEach(e => {

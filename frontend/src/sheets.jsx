@@ -3,7 +3,7 @@ import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden, exOr } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf } from './lib/history.js'
+import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, nameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -1093,6 +1093,12 @@ function DayOverride({ iso, close }) {
     <h3>{fmtDate(iso, true)}</h3>
     <DayHealthSummary d={iso} S={st} />
     <div className="muted small" style={{ marginBottom: 12 }}>{t('Weekly plan:')} {weeklyR ? weeklyR.name : t('Rest')}{hasOvr && <span style={{ color: 'var(--orange)' }}> · {t('changed for this day')}</span>}<br />{t('Sick, missed a day or want a different session? Pick what to train instead.')}</div>
+    {iso <= todayISO() && <div className="list" style={{ marginBottom: 12 }}>
+      <div className="item" onClick={() => { close(); pastWorkoutSheet(iso) }}>
+        <span className="lrow-i" style={{ background: 'var(--surface-3)' }}><Icon name="history" /></span>
+        <div className="grow"><div className="tt">{t('Log a workout for this day')}</div></div>
+      </div>
+    </div>}
     <div className="list">
       {st.routines.map(r => <div key={r.id} className="item" onClick={() => set(r.id)}>
         <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
@@ -1271,6 +1277,7 @@ function ActionsSheet({ close }) {
     <div className="sect-b">
       <Row icon="play" iconTint="var(--acc)" title={t('Start scheduled workout')} onClick={act(() => nav('/workout'))} />
       <Row icon="shuffle" iconTint="var(--indigo)" title={t('Start a freestyle workout')} onClick={act(() => startFlow(null))} />
+      <Row icon="history" iconTint="var(--teal)" title={t('Log a past workout')} onClick={act(() => pastWorkoutSheet())} />
       <Row icon="clipboard" iconTint="var(--teal)" title={t('Start a test session')} onClick={act(() => nav('/tests'))} />
       <Row icon="timer" iconTint="var(--orange)" title={t('Clock')} onClick={act(() => nav('/clock'))} />
       <Row icon="figureRun" iconTint="var(--mint)" title="Estiramiento" onClick={act(() => nav('/stretch'))} />
@@ -1311,6 +1318,64 @@ export function beginWorkout(routineId, bw) {
   nav('/workout')
   if (skipped) toast(t('{0} exercise(s) skipped — not currently available', skipped))
 }
+// A workout logged after the fact — same session shape as a live one (Workout.jsx's
+// ActiveWorkout drives both from S.active), just dated in the past and flagged `past` so the UI
+// skips everything that only makes sense in real time: the rest timer, the live-presence ping,
+// and the "confirm your working weight" prompt. No body-weight check-in either — that sheet
+// always asks for TODAY's weight, the wrong question for a backdated session. `end` is
+// precomputed from the chosen start time + duration, since doFinishWorkout can no longer just
+// stamp Date.now() as the end of a session that didn't just happen.
+export function beginPastWorkout(routineId, iso, time, durMin) {
+  const st = S()
+  const r = routineId ? st.routines.find(x => x.id === routineId) : null
+  const usable = (r ? r.ex : []).filter(cfg => !isHidden(cfg.id)).map(cfg => ({ ...cfg }))
+  cleanupSg(usable)
+  const entries = usable.map(cfg => {
+    const plan = nextPrescription(st, cfg, r)
+    return { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: applyPrescription(buildSets(st, cfg), plan) }
+  })
+  const start = new Date(iso + 'T' + (time || '12:00') + ':00').getTime()
+  const end = start + Math.max(5, Number(durMin) || 45) * 60000
+  update(s => {
+    s.active = { id: uid(), d: iso, start, end, past: true, routineId, name: r ? r.name : t('Freestyle'), bw: null, cur: 0, entries }
+  })
+  nav('/workout')
+}
+function PastWorkoutSheet({ presetDate, close }) {
+  const st = useStore(s => s.S)
+  const [iso, setIso] = useState(presetDate || todayISO())
+  const [time, setTime] = useState('18:00')
+  const [dur, setDur] = useState(45)
+  const [routineId, setRoutineId] = useState('')
+  const routineOpts = [{ value: '', label: t('From scratch (pick exercises)') }, ...st.routines.map(r => ({ value: r.id, label: r.name }))]
+  const go = () => {
+    if (!iso || iso > todayISO()) { toast(t('Pick a date that isn’t in the future')); return }
+    close()
+    beginPastWorkout(routineId || null, iso, time, dur)
+  }
+  return <>
+    <h3>{t('Log a past workout')}</h3>
+    <div className="muted small" style={{ marginBottom: 14, lineHeight: 1.5 }}>{t('Fill in what you actually did — no rest timer, nothing forced live.')}</div>
+    <div style={{ marginBottom: 10 }}>
+      <div className="dim small" style={{ marginBottom: 4 }}>{t('Date')}</div>
+      <input type="date" className="input" value={iso} max={todayISO()} disabled={!!presetDate} onChange={e => setIso(e.target.value)} />
+    </div>
+    <div className="row" style={{ gap: 10, marginBottom: 10 }}>
+      <div style={{ flex: 1 }}>
+        <div className="dim small" style={{ marginBottom: 4 }}>{t('Start time (optional)')}</div>
+        <input type="time" className="timef" value={time} onChange={e => setTime(e.target.value)} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div className="dim small" style={{ marginBottom: 4 }}>{t('Duration (min)')}</div>
+        <input type="number" inputMode="numeric" className="input" min={5} max={600} value={dur} onChange={e => setDur(e.target.value)} />
+      </div>
+    </div>
+    <SelectRow title={t('Routine')} value={routineId} options={routineOpts} onChange={setRoutineId} sheetTitle={t('Routine')} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={go}>{t('Continue')}</Button>
+  </>
+}
+export const pastWorkoutSheet = presetDate => ui().openSheet(close => <PastWorkoutSheet presetDate={presetDate} close={close} />)
 // A set's type — see history.js's `workingSets` for what each one actually changes about how
 // the set counts (progression, volume, recovery, carry-forward). 'normal' is stored as no
 // `type` at all, matching every optional set field's "absent = default" convention.
@@ -1601,7 +1666,10 @@ function doFinishWorkout() {
     if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec })
   })
   const w = {
-    id: A.id, d: A.d, start: A.start, end: Date.now(), routineId: A.routineId, name: A.name, bw: A.bw,
+    // A live session ends now, by definition. A past one already carries its own end
+    // (start + the duration entered in pastWorkoutSheet) — Date.now() would stamp today's
+    // real time onto a session that happened days ago.
+    id: A.id, d: A.d, start: A.start, end: A.past ? (A.end || A.start) : Date.now(), routineId: A.routineId, name: A.name, bw: A.bw,
     // `target` (what the session prescribed) is kept alongside the sets: without it a
     // finished workout cannot say whether it hit its reps, and a timed session reads back
     // as "0 reps". It is what the progression engine works from.
@@ -1621,7 +1689,9 @@ function doFinishWorkout() {
       const mx = Math.max(0, ...e.sets.filter(x => x.done).map(x => x.w || 0), e.topW || 0)
       if (mx > 0) { const cur = s.exWeights[e.id]; if (!cur || mx > cur.w) s.exWeights[e.id] = { w: mx, d: w.d } }
     })
-    s.workouts.push(w)
+    // A push here would put a backdated log after workouts that actually happened more
+    // recently — insertWorkoutSorted keeps S.workouts chronological either way.
+    s.workouts = insertWorkoutSorted(s.workouts, w)
     s.active = null
   })
   // No-ops server-side if Strava isn't connected — never surface a failure into this flow.

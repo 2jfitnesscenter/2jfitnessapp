@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -399,6 +399,33 @@ describe('workoutVolume', () => {
       { id: CARDIO, sets: [{ min: 20, speed: 9, done: true }] }
     ] }
     expect(workoutVolume(w)).toBe(600)
+  })
+})
+
+describe('insertWorkoutSorted', () => {
+  // Logging a past workout (sheets.jsx's beginPastWorkout) can insert a date older than what's
+  // already on file — lastEntryFor and onerm.js's e1rmSeries/best1RM both read S.workouts
+  // front-to-back assuming chronological order, so a plain push would silently misfile it as
+  // the most recent session.
+  it('inserts a backdated workout before later ones instead of appending it', () => {
+    const workouts = [{ id: 'a', d: '2026-01-01' }, { id: 'b', d: '2026-01-10' }]
+    const w = { id: 'c', d: '2026-01-05' }
+    expect(insertWorkoutSorted(workouts, w).map(x => x.id)).toEqual(['a', 'c', 'b'])
+  })
+  it('appends when the new workout is the most recent, same as push', () => {
+    const workouts = [{ id: 'a', d: '2026-01-01' }]
+    const w = { id: 'b', d: '2026-01-10' }
+    expect(insertWorkoutSorted(workouts, w).map(x => x.id)).toEqual(['a', 'b'])
+  })
+  it('lands a same-day entry after any existing ones for that day', () => {
+    const workouts = [{ id: 'a', d: '2026-01-05' }, { id: 'b', d: '2026-01-05' }]
+    const w = { id: 'c', d: '2026-01-05' }
+    expect(insertWorkoutSorted(workouts, w).map(x => x.id)).toEqual(['a', 'b', 'c'])
+  })
+  it('does not mutate the array passed in', () => {
+    const workouts = [{ id: 'a', d: '2026-01-01' }]
+    insertWorkoutSorted(workouts, { id: 'b', d: '2026-01-01' })
+    expect(workouts).toHaveLength(1)
   })
 })
 
