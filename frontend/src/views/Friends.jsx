@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Avatar } from '../components/ui.jsx'
-import { addFriendSheet, confirmSheet } from '../sheets.jsx'
+import { addFriendSheet, confirmSheet, celebrateBadges } from '../sheets.jsx'
 import { fetchFriends, acceptFriendRequest, declineFriendRequest, cancelFriendRequest, removeFriend, sendFriendRequest } from '../lib/friends-api.js'
+import { evaluateBadgesIn } from '../lib/badges.js'
 
 export default function Friends() {
   const [params, setParams] = useSearchParams()
+  const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
   const [data, setData] = useState(null)   // { friends, incoming, outgoing }
   const [busy, setBusy] = useState(false)
@@ -31,6 +34,18 @@ export default function Friends() {
     fn(id).then(() => { toast(okMsg); load() }).catch(e => toast(e.message)).finally(() => setBusy(false))
   }
 
+  // Accepting is the one moment a friendship actually starts existing — friends live
+  // server-side, not in S (see lib/badges.js's first_friend check), so this is the only chance
+  // to record the "has a friend" flag the badge condition reads back.
+  const acceptFriend = id => {
+    setBusy(true)
+    acceptFriendRequest(id).then(() => {
+      toast(t('Now you are friends'))
+      load()
+      celebrateBadges(evaluateBadgesIn(update, s => { s.badgeFlags = { ...(s.badgeFlags || {}), addedFriend: true } }))
+    }).catch(e => toast(e.message)).finally(() => setBusy(false))
+  }
+
   if (!data) return <div className="narrow"><div className="hdr"><div><h1>{t('Friends')}</h1></div></div></div>
 
   const nothingYet = !data.friends.length && !data.incoming.length && !data.outgoing.length
@@ -47,7 +62,7 @@ export default function Friends() {
         {data.incoming.map(r => <div key={r.id} className="item">
           <Avatar name={r.from?.name} size={40} />
           <div className="grow"><div className="tt capitalize">{r.from?.name}</div></div>
-          <Button size="sm" variant="primary" disabled={busy} onClick={() => respond(acceptFriendRequest, r.id, t('Now you are friends'))}>{t('Accept')}</Button>
+          <Button size="sm" variant="primary" disabled={busy} onClick={() => acceptFriend(r.id)}>{t('Accept')}</Button>
           <Button size="sm" disabled={busy} onClick={() => respond(declineFriendRequest, r.id, t('Request declined'))}>{t('Decline')}</Button>
         </div>)}
       </div>

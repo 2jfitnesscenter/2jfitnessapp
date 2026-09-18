@@ -36,4 +36,9 @@
          on Android 12+. Where it isn't granted, scheduling silently falls back to inexact
          alarms — the reminder still arrives, just not to the minute. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- "Home turf" badge (sheets.jsx's checkGymLocationBadge, fired on finishing a workout) —
+         a one-shot getCurrentPosition() call, never a background/continuous location request.
+         Denying it just leaves that one badge locked; nothing else in the app depends on it. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 </manifest>

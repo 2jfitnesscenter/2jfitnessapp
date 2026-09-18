@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import { uid, exCount, routineCount } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { loadStarterPlan, planToolsSheet, scanRoutineSheet } from '../sheets.jsx'
+import { loadStarterPlan, planToolsSheet, scanRoutineSheet, celebrateBadges } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
@@ -13,6 +13,7 @@ import { MOBILE } from '../lib/mobile.js'
 import Library from './Library.jsx'
 import { mediaUrl } from '../lib/media.js'
 import { printRoutines } from '../lib/plan-share.js'
+import { evaluateBadgesIn } from '../lib/badges.js'
 
 export default function Plan() {
   const nav = useNavigate()
@@ -43,6 +44,17 @@ export default function Plan() {
   const printSelected = () => {
     const picked = loose.filter(r => selected.has(r.id))
     printRoutines(picked, user?.name || '', S.unit)
+    celebrateBadges(evaluateBadgesIn(update, s => { s.badgeFlags = { ...(s.badgeFlags || {}), sharedRoutine: true } }))
+  }
+  // Retroactive-friendly (see lib/badges.js's first_favorite) — the flag lives on the routine
+  // itself, not a one-way S.badgeFlags entry, so un-favouriting and re-favouriting later never
+  // re-triggers the celebration (evaluateBadges only ever unlocks a badge once, never re-locks).
+  const toggleFav = (ev, id) => {
+    ev.stopPropagation()
+    celebrateBadges(evaluateBadgesIn(update, s => {
+      const r = s.routines.find(x => x.id === id)
+      r.fav = !r.fav
+    }))
   }
 
   const addRoutine = () => {
@@ -113,6 +125,9 @@ export default function Plan() {
             ? <img src={mediaUrl(r.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
             : <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>}
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
+        {!selectMode && <button className="iconbtn" style={{ color: r.fav ? 'var(--yellow)' : 'var(--label-3)' }}
+          aria-label={r.fav ? t('Unfavorite') : t('Favorite')} title={r.fav ? t('Unfavorite') : t('Favorite')}
+          onClick={ev => toggleFav(ev, r.id)}><Icon name={r.fav ? 'starFill' : 'star'} /></button>}
         {!selectMode && <Icon name="chevronRight" className="chev" />}</div>)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>
         <Button icon="sparkles" onClick={loadStarterPlan}>{t('Load starter plan (Push / Pull / Legs)')}</Button>

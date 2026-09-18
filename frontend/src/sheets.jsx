@@ -17,7 +17,7 @@ import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf } from './lib/muscles.js'
 import { rankUpsFor, rankEmblemUrl } from './lib/rank.js'
-import { evaluateBadges } from './lib/badges.js'
+import { evaluateBadges, evaluateBadgesIn } from './lib/badges.js'
 import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
@@ -1010,7 +1010,10 @@ function PlanTools({ close }) {
     {/* Printing a single routine/program lives on the item itself now (its own "Imprimir"
         button) — with dozens of routines, one "export everything" button here wasn't useful. */}
     {!MOBILE && <>
-      <Button variant="primary" icon="download" onClick={() => { close(); printPlan(st, user?.name || '') }} disabled={!hasRoutines}>{t('Print / Save as PDF')}</Button>
+      <Button variant="primary" icon="download" onClick={() => {
+        close(); printPlan(st, user?.name || '')
+        celebrateBadges(evaluateBadgesIn(update, s => { s.badgeFlags = { ...(s.badgeFlags || {}), sharedRoutine: true } }))
+      }} disabled={!hasRoutines}>{t('Print / Save as PDF')}</Button>
       <div className="dim small" style={{ margin: '7px 2px 0', lineHeight: 1.4 }}>{t('A clean one-page-per-plan printout — no exercise ever splits across a page.')}</div>
       {!hasRoutines && <div className="dim small" style={{ margin: '12px 2px 0' }}>{t('Add an exercise to a routine first — an empty plan has nothing to print.')}</div>}
       <div style={{ height: 12 }} />

@@ -92,6 +92,10 @@ export const DEF = {
   // just means "never evaluated as close yet", same as 0 progress — see BADGES in
   // lib/badges-data.js for the catalogue this is checked against.
   badges: {},
+  // One-way flags for badge conditions that can't be re-derived from the rest of S (see
+  // lib/badges.js's MILESTONE_CHECKS) — e.g. friends live server-side, so the moment a friend
+  // request is accepted (views/Friends.jsx) is the only chance to record it here.
+  badgeFlags: {},
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 

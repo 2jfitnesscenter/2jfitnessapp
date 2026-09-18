@@ -7,8 +7,9 @@ import { uid } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../lib/history.js'
 import { Thumb } from '../components/Media.jsx'
-import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet } from '../sheets.jsx'
+import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, celebrateBadges } from '../sheets.jsx'
 import { printRoutine } from '../lib/plan-share.js'
+import { evaluateBadgesIn } from '../lib/badges.js'
 import Icon from '../components/Icon.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { Button, SelectRow } from '../components/ui.jsx'
@@ -92,7 +93,10 @@ export default function RoutineEdit() {
         {r.image ? <img src={mediaUrl(r.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={glyphOf(r.emoji)} />}
       </button>
       <button className="iconbtn" aria-label={t('Print routine')} title={t('Print routine')} disabled={!r.ex.length}
-        onClick={() => printRoutine(r, user?.name || '', S.unit)}><Icon name="download" /></button>
+        onClick={() => {
+          printRoutine(r, user?.name || '', S.unit)
+          celebrateBadges(evaluateBadgesIn(update, s => { s.badgeFlags = { ...(s.badgeFlags || {}), sharedRoutine: true } }))
+        }}><Icon name="download" /></button>
     </div>
 
     {r.ex.length > 0 && (() => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { evaluateBadges, totalWorkouts, totalVolumeKg, exerciseSessionCounts, distinctExerciseCount, maxExerciseRepeatCount, isFullBodyWorkout, strengthScore } from './badges.js'
+import { evaluateBadges, evaluateBadgesIn, totalWorkouts, totalVolumeKg, exerciseSessionCounts, distinctExerciseCount, maxExerciseRepeatCount, isFullBodyWorkout, strengthScore, maxWeeklyWorkoutDays, maxMonthlyWorkoutDays } from './badges.js'
 import { BADGES, BADGE_BY_ID, BADGES_BY_CATEGORY, badgeAccent } from './badges-data.js'
 
 // Real dataset ids, one per recovery.js movement-pattern group, so isFullBodyWorkout exercises
@@ -32,7 +32,7 @@ describe('badgeAccent — the celebration modal\'s gold/cyan/emerald', () => {
   })
   it('the highest threshold in a numbered ladder reads as gold', () => {
     const list = BADGES_BY_CATEGORY.workouts
-    expect(badgeAccent(list[list.length - 1])).toBe('gold')   // workouts_200
+    expect(badgeAccent(list[list.length - 1])).toBe('gold')   // workouts_100
     expect(badgeAccent(list[0])).not.toBe('gold')              // workouts_1
   })
   it('is deterministic — same badge, same color, every call', () => {
@@ -114,7 +114,7 @@ describe('evaluateBadges', () => {
     const S = baseS({ workouts: [workout('2026-01-01', [], { vol: 3000 }), workout('2026-01-08', [], { vol: 2500 })] })
     const { badges } = evaluateBadges(S)
     expect(badges.volume_5000.unlockedAt).toBeTruthy()
-    expect(badges.volume_10000.unlockedAt).toBeNull()
+    expect(badges.volume_20000.unlockedAt).toBeNull()
   })
 
   it('unlocks a streak badge from streakWeeks(S)', () => {
@@ -155,5 +155,74 @@ describe('evaluateBadges', () => {
     const { badges } = evaluateBadges(S)
     expect(badges.exercises_repeat_10.unlockedAt).toBeTruthy()
     expect(badges.exercises_distinct_10.unlockedAt).toBeFalsy()   // only one distinct exercise here
+  })
+})
+
+describe('Calendar frequency — maxWeeklyWorkoutDays/maxMonthlyWorkoutDays (Mon-Sun weeks, calendar months)', () => {
+  it('dedupes two workouts logged the same day into a single day for both buckets', () => {
+    const S = baseS({ workouts: [
+      workout('2026-01-05', []),
+      { ...workout('2026-01-05', []), id: 'w2026-01-05b' },   // a second session, same calendar day
+      workout('2026-01-06', []),
+      workout('2026-01-07', []),
+    ] })
+    expect(maxWeeklyWorkoutDays(S)).toBe(3)    // 3 distinct days, not 4 workouts
+    expect(maxMonthlyWorkoutDays(S)).toBe(3)
+  })
+
+  it('unlocks a weekly-frequency badge once a single Mon-Sun week reaches its distinct-day threshold', () => {
+    const S = baseS({ workouts: ['2026-01-05', '2026-01-06', '2026-01-07'].map(d => workout(d, [])) })
+    const { badges } = evaluateBadges(S)
+    expect(badges.calendar_3w.unlockedAt).toBeTruthy()
+    expect(badges.calendar_4w?.unlockedAt).toBeFalsy()
+  })
+
+  it('unlocks a monthly-frequency badge once a single calendar month reaches its distinct-day threshold', () => {
+    const days = []
+    for (let i = 1; i <= 16; i++) days.push('2026-01-' + String(i).padStart(2, '0'))
+    const S = baseS({ workouts: days.map(d => workout(d, [])) })
+    const { badges } = evaluateBadges(S)
+    expect(badges.calendar_15m.unlockedAt).toBeTruthy()
+    expect(badges.calendar_20m?.unlockedAt).toBeFalsy()
+  })
+
+  it('a week spanning two calendar months counts each bucket independently', () => {
+    // Jan 29 (Thu) .. Feb 1 (Sun) 2026 — one Mon-Sun week, split across two months.
+    const S = baseS({ workouts: ['2026-01-29', '2026-01-30', '2026-01-31', '2026-02-01'].map(d => workout(d, [])) })
+    expect(maxWeeklyWorkoutDays(S)).toBe(4)     // all 4 fall in the same ISO week
+    expect(maxMonthlyWorkoutDays(S)).toBe(3)    // 3 in January, 1 in February — 3 is the best bucket
+  })
+})
+
+describe('App-category badge triggers', () => {
+  it('app_measurement unlocks from either S.bodyweight or S.measurements ("peso, contornos o grasa")', () => {
+    expect(evaluateBadges(baseS({ bodyweight: [{ d: '2026-01-01', w: 80 }] })).badges.app_measurement.unlockedAt).toBeTruthy()
+    expect(evaluateBadges(baseS({ measurements: { bodyFat: [{ d: '2026-01-01', v: 20 }] } })).badges.app_measurement.unlockedAt).toBeTruthy()
+    expect(evaluateBadges(baseS()).badges.app_measurement).toBeUndefined()
+  })
+
+  it('app_favorite unlocks once any routine carries fav:true — retroactive, like the other first_action checks', () => {
+    expect(evaluateBadges(baseS({ routines: [{ id: 'r1', fav: true }] })).badges.app_favorite.unlockedAt).toBeTruthy()
+    expect(evaluateBadges(baseS({ routines: [{ id: 'r1' }] })).badges.app_favorite).toBeUndefined()
+  })
+
+  it('app_share only unlocks via the one-way badgeFlags.sharedRoutine flag — an action, not a fact left behind in S', () => {
+    expect(evaluateBadges(baseS({ badgeFlags: { sharedRoutine: true } })).badges.app_share.unlockedAt).toBeTruthy()
+    expect(evaluateBadges(baseS()).badges.app_share).toBeUndefined()
+  })
+
+  it('app_gym_location stays locked — deferred pending real gym coordinates', () => {
+    expect(evaluateBadges(baseS()).badges.app_gym_location).toBeUndefined()
+  })
+})
+
+describe('evaluateBadgesIn — the shared update()+evaluate dance for triggers outside sheets.jsx', () => {
+  it('runs the mutator inside the same update, then evaluates against the mutated state', () => {
+    const S = baseS({ routines: [{ id: 'r1', fav: false }] })
+    const fakeUpdate = fn => fn(S)   // mirrors useStore's update(mut) signature closely enough here
+    const newlyUnlocked = evaluateBadgesIn(fakeUpdate, s => { s.routines[0].fav = true })
+    expect(S.routines[0].fav).toBe(true)
+    expect(S.badges.app_favorite.unlockedAt).toBeTruthy()
+    expect(newlyUnlocked.map(b => b.id)).toContain('app_favorite')
   })
 })

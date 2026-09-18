@@ -59,9 +59,13 @@ export default function BadgeCelebrationModal({ badge, remaining, onAdvance }) {
         ))}
       </div>
       <div className="badgecel-eyebrow" style={{ color: accent }}>{t('NEW BADGE UNLOCKED!')}</div>
-      <div className="badgecel-icon" style={{ '--tint': accent, boxShadow: `0 0 0 3px ${accent}, 0 0 34px 6px color-mix(in srgb, ${accent} 55%, transparent)` }}>
-        <Icon name={badge.icon} />
-      </div>
+      {badge.image ? (
+        <img src={badge.image} alt="" className="badgecel-img" style={{ filter: `drop-shadow(0 0 22px ${accent})` }} />
+      ) : (
+        <div className="badgecel-icon" style={{ '--tint': accent, boxShadow: `0 0 0 3px ${accent}, 0 0 34px 6px color-mix(in srgb, ${accent} 55%, transparent)` }}>
+          <Icon name={badge.icon} />
+        </div>
+      )}
       <h2 className="badgecel-title">{t(badge.title)}</h2>
       <div className="badgecel-desc">{t(badge.description)}</div>
       <div className="badgecel-date">{fmtDate(todayISO(), true)}</div>

@@ -3,10 +3,17 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { fmtDate } from '../lib/format.js'
-import { BADGE_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, BADGES_BY_CATEGORY } from '../lib/badges-data.js'
+import { BADGE_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, CATEGORY_IMAGE, BADGES_BY_CATEGORY, MASTER_BADGE_IMAGE } from '../lib/badges-data.js'
 import { evaluateBadges } from '../lib/badges.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+
+// The illustrated PNG when a badge/category has one (every category but 'exercises', see
+// badges-data.js), falling back to the old SVG icon registry otherwise — one place for that
+// choice so BadgeCell/BadgeDetail/CategoryHeader/the category strip don't each repeat it.
+function BadgeArt({ image, icon }) {
+  return image ? <img src={image} alt="" loading="lazy" /> : <Icon name={icon} />
+}
 
 // Tap-to-expand detail — description, and how close you are if it's still locked (the
 // percentage the grid cell itself only hints at with a sliver of progress bar).
@@ -14,8 +21,8 @@ function BadgeDetail({ b, state, close }) {
   const unlocked = !!state?.unlockedAt
   const pct = Math.round((state?.progress || 0) * 100)
   return <div style={{ textAlign: 'center', padding: '8px 0' }}>
-    <span className={'badgecell-i' + (unlocked ? ' on' : '')} style={{ width: 84, height: 84, fontSize: 36, margin: '0 auto 14px' }}>
-      <Icon name={b.icon} />
+    <span className={'badgecell-i' + (b.image ? ' img' : '') + (unlocked ? ' on' : '')} style={{ width: 84, height: 84, fontSize: 36, margin: '0 auto 14px' }}>
+      <BadgeArt image={b.image} icon={b.icon} />
       {!unlocked && <span className="badgecell-lock" style={{ width: 28, height: 28, fontSize: 14 }}><Icon name="lock" /></span>}
     </span>
     <h3 style={{ margin: '0 0 6px' }}>{t(b.title)}</h3>
@@ -39,8 +46,8 @@ function BadgeCell({ b, state }) {
   const pct = Math.round((state?.progress || 0) * 100)
   return (
     <button className={'badgecell' + (unlocked ? ' on' : '')} onClick={() => badgeDetailSheet(b, state)}>
-      <span className="badgecell-i">
-        <Icon name={b.icon} />
+      <span className={'badgecell-i' + (b.image ? ' img' : '')}>
+        <BadgeArt image={b.image} icon={b.icon} />
         {!unlocked && <span className="badgecell-lock"><Icon name="lock" /></span>}
       </span>
       <span className="badgecell-t">{t(b.title)}</span>
@@ -57,13 +64,24 @@ function BadgeCell({ b, state }) {
 // blown up large, plus how many of the category are unlocked so far.
 function CategoryHeader({ cat, list, unlockedCount }) {
   const rep = list[0]
+  const catImg = CATEGORY_IMAGE[cat]
   return <div className="card" style={{ textAlign: 'center', marginBottom: 16 }}>
-    <span className="badgecell-i" style={{ width: 72, height: 72, fontSize: 30, margin: '0 auto 10px' }}>
-      <Icon name={CATEGORY_ICON[cat]} />
+    <span className={'badgecell-i' + (catImg ? ' img' : '')} style={{ width: 72, height: 72, fontSize: 30, margin: '0 auto 10px' }}>
+      <BadgeArt image={catImg} icon={CATEGORY_ICON[cat]} />
     </span>
     <h2 style={{ margin: '0 0 4px' }}>{t(CATEGORY_LABEL[cat])}</h2>
     <div className="muted small">{rep ? t(rep.description) : null}</div>
     <div className="dim small" style={{ marginTop: 6 }}>{t('{0} of {1} unlocked', unlockedCount, list.length)}</div>
+  </div>
+}
+
+// The gym's own crest — presides over the whole screen, above the category strip and grid,
+// not tied to any one member's progress (no lock state, no unlock condition; see
+// badges-data.js's MASTER_BADGE_IMAGE comment).
+function MasterBadgeHero() {
+  return <div className="badgemaster">
+    <img src={MASTER_BADGE_IMAGE} alt="" className="badgemaster-img" loading="lazy" />
+    <div className="badgemaster-label">{t('2J Fitness Center • Official rank')}</div>
   </div>
 }
 
@@ -89,12 +107,14 @@ export default function Badges() {
   return <div className="narrow">
     <div className="hdr"><div><h1>{t('Badges')}</h1></div></div>
 
+    <MasterBadgeHero />
+
     <div className="mstrip">
       {cats.map(c => {
         const n = BADGES_BY_CATEGORY[c].filter(b => S.badges?.[b.id]?.unlockedAt).length
         return (
           <button key={c} className={'mstrip-i' + (cat === c ? ' on' : '')} onClick={() => setCat(c)}>
-            <span className="mstrip-photo mstrip-photo-plain"><Icon name={CATEGORY_ICON[c]} /></span>
+            <span className="mstrip-photo mstrip-photo-plain"><BadgeArt image={CATEGORY_IMAGE[c]} icon={CATEGORY_ICON[c]} /></span>
             <span className="mstrip-name">{t(CATEGORY_LABEL[c])} ({n}/{BADGES_BY_CATEGORY[c].length})</span>
           </button>
         )

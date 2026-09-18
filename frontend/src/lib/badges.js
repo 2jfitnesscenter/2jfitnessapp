@@ -6,6 +6,7 @@
 // profile with years of history from before this feature shipped (see ensureBadgesCurrent).
 import { BADGES } from './badges-data.js'
 import { streakWeeks, modeOf } from './history.js'
+import { weekKey } from './format.js'
 import { rirOf } from './effort.js'
 import { loadOfWorkouts, muscleOptsOf } from './muscles.js'
 import { globalRank } from './rank.js'
@@ -13,6 +14,25 @@ import { GROUPS, GROUP_MUSCLES } from './recovery.js'
 
 export const totalWorkouts = S => (S.workouts || []).length
 export const totalVolumeKg = S => (S.workouts || []).reduce((a, w) => a + (w.vol || 0), 0)
+
+// { weekKey/monthKey: Set of distinct workout dates } — deduped by calendar day first (two
+// sessions logged the same day count once, per the Calendar badges' own "don't double-count a
+// day" rule), then bucketed. weekKey (lib/format.js) is the same Mon-Sun ISO-week key
+// streakWeeks already uses; a month bucket is just `w.d`'s own 'YYYY-MM' prefix — `w.d` is
+// already a local calendar date (not a UTC timestamp), so no timezone conversion is needed for
+// either bucket, and both stay correct across a CSV import or a backdated past-workout log the
+// same way every other badge condition here does (a full re-scan of S.workouts, nothing tracked
+// incrementally).
+function workoutDaysByBucket(S, keyFn) {
+  const map = {}
+  ;(S.workouts || []).forEach(w => {
+    const k = keyFn(w.d)
+    ;(map[k] || (map[k] = new Set())).add(w.d)
+  })
+  return map
+}
+export const maxWeeklyWorkoutDays = S => Math.max(0, ...Object.values(workoutDaysByBucket(S, weekKey)).map(s => s.size))
+export const maxMonthlyWorkoutDays = S => Math.max(0, ...Object.values(workoutDaysByBucket(S, d => d.slice(0, 7))).map(s => s.size))
 
 // globalRank's own 0-24 continuous scale (lib/rank.js — 4 tiers-worth of intervals × 6
 // divisions), rescaled to 0-300 so the brief's 100/150/200/250 thresholds land at sensible
@@ -65,6 +85,22 @@ const MILESTONE_CHECKS = {
   first_cardio: S => (S.workouts || []).some(hasCardio),
   first_failure_set: S => (S.workouts || []).some(hasFailureSet),
   first_full_body: S => (S.workouts || []).some(w => isFullBodyWorkout(S, w)),
+  // Friends live server-side, not in S (see lib/friends-api.js) — nothing here to re-scan
+  // retroactively, so acceptFriendRequest's own success handler (views/Friends.jsx) sets this
+  // one-way flag itself, the same moment it calls evaluateBadges. Once set, stays set.
+  first_friend: S => !!S.badgeFlags?.addedFriend,
+  // Fully retroactive — weight, girths and body-fat/muscle readings all count ("peso, contornos
+  // o grasa"), and both stores already hold full history, so a CSV/Health import can unlock
+  // this one same as a live log can.
+  first_measurement: S => (S.bodyweight || []).length > 0 || Object.keys(S.measurements || {}).some(k => (S.measurements[k] || []).length > 0),
+  // Fully retroactive — `fav` lives on the routine itself (views/Plan.jsx's star toggle), so an
+  // imported plan that already carries a favourite (a future plan-share revision might) would
+  // unlock this too, same as any of the other first_action checks.
+  first_favorite: S => (S.routines || []).some(r => r.fav),
+  // Sharing/printing a routine is an action, not a fact left behind in S.routines — same
+  // situation as first_friend above, so the print button itself (RoutineEdit.jsx, Plan.jsx,
+  // sheets.jsx's PlanTools) sets this one-way flag right before evaluating.
+  first_share: S => !!S.badgeFlags?.sharedRoutine,
 }
 
 // One badge's current { value, target, unlocked } against S (+ ctx for the live-only checks).
@@ -74,6 +110,8 @@ function evalCondition(b, S, ctx) {
     case 'weekly_streak': { const v = streakWeeks(S); return { value: v, target: b.threshold, unlocked: v >= b.threshold } }
     case 'total_volume_kg': { const v = totalVolumeKg(S); return { value: v, target: b.threshold, unlocked: v >= b.threshold } }
     case 'strength_score': { const v = strengthScore(S); return { value: v, target: b.threshold, unlocked: v >= b.threshold } }
+    case 'weekly_workout_days': { const v = maxWeeklyWorkoutDays(S); return { value: v, target: b.threshold, unlocked: v >= b.threshold } }
+    case 'monthly_workout_days': { const v = maxMonthlyWorkoutDays(S); return { value: v, target: b.threshold, unlocked: v >= b.threshold } }
     case 'specific_exercise_count': {
       const v = b.metric === 'repeat' ? maxExerciseRepeatCount(S) : distinctExerciseCount(S)
       return { value: v, target: b.threshold, unlocked: v >= b.threshold }
@@ -83,6 +121,9 @@ function evalCondition(b, S, ctx) {
       const done = !!check && check(S, ctx)
       return { value: done ? 1 : 0, target: 1, unlocked: done }
     }
+    // 'not_yet_tracked' (currently just app_gym_location — needs the gym's real coordinates
+    // and a geolocation-permission decision, see badges-data.js's comment on it) hits this
+    // default on purpose: the art and copy ship today, the unlock condition ships later.
     default: return { value: 0, target: 1, unlocked: false }
   }
 }
@@ -115,4 +156,23 @@ export function evaluateBadges(S, { justFinishedLiveEntries } = {}) {
     }
   })
   return { badges: next, newlyUnlocked }
+}
+
+/**
+ * The evaluateBadges-inside-an-update() dance (see doFinishWorkout/doImport in sheets.jsx)
+ * pulled out for the App-category triggers that live outside sheets.jsx — Plan.jsx's favourite
+ * toggle, RoutineEdit.jsx's/Plan.jsx's/PlanTools' print-a-routine buttons, Friends.jsx's accept.
+ * `mutate`, if given, runs first inside the same update() (e.g. to flip `r.fav` or set a
+ * badgeFlags one-way flag) so the evaluation below already sees it. Returns newlyUnlocked,
+ * ready to hand straight to celebrateBadges.
+ */
+export function evaluateBadgesIn(update, mutate) {
+  let newlyUnlocked = []
+  update(s => {
+    if (mutate) mutate(s)
+    const res = evaluateBadges(s)
+    s.badges = res.badges
+    newlyUnlocked = res.newlyUnlocked
+  })
+  return newlyUnlocked
 }
