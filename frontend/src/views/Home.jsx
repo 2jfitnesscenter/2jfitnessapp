@@ -16,10 +16,9 @@ import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
-import { recoveryOf, overallRecovery } from '../lib/recovery.js'
 import { loadOfWorkouts, muscleOptsOf } from '../lib/muscles.js'
+import RecoveryCard from '../components/RecoveryCard.jsx'
 import { hasBodyComposition } from '../lib/measurements.js'
-import RecoveryRing from '../components/RecoveryRing.jsx'
 import { fetchWhoopRecovery, fetchWhoopSleep } from '../lib/whoop-api.js'
 import { mergeSeries } from '../lib/import-csv.js'
 
@@ -44,28 +43,6 @@ function LastWorkoutCard({ S }) {
       <div className="tile"><div className="l">{t('Volume')}</div><div className="v">{fmtVol(w.vol, S.unit)}</div></div>
     </div>
     <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(S))} body={S.body} />
-  </div>
-}
-
-// Muscle recovery — an estimate of how ready each muscle group is, from the last 7 days of
-// logged sets (see lib/recovery.js). The ring gives the one number that matters at a glance;
-// the coloured manikin is the same red/orange/green map /recovery itself uses, just without
-// its legend or the per-muscle % list — tapping through is the only way to get those, on
-// purpose, so the card stays a glance rather than a second copy of the detail screen.
-function RecoveryCard({ nav, S }) {
-  const recovery = recoveryOf(S)
-  const overall = overallRecovery(recovery)
-  const pillColor = v => v >= 70 ? 'var(--green)' : v >= 40 ? 'var(--orange)' : 'var(--red)'
-  const colorOf = slug => pillColor(recovery[slug] ?? 100)
-  return <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => nav('/recovery')}>
-    <div className="row between">
-      <div style={{ minWidth: 0 }}>
-        <h2 style={{ margin: '0 0 2px' }}>{t('Muscle recovery')}</h2>
-        <div className="muted small">{t('See which muscles are ready to train')}</div>
-      </div>
-      <RecoveryRing value={overall} size={58} stroke={6} />
-    </div>
-    <BodyMap colorOf={colorOf} body={S.body} />
   </div>
 }
 
