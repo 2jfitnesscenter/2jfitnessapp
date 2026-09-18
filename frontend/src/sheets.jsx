@@ -1176,6 +1176,25 @@ function DayAssign({ day, programId, close }) {
 }
 export const dayAssignSheet = (day, programId) => ui().openSheet(close => <DayAssign day={day} programId={programId} close={close} />)
 
+// The "…" on a program day's card (ProgramEdit.jsx) — everything beyond the card's own tap
+// (view the assigned routine, or open the assign picker for an empty day).
+function DayMenu({ day, programId, routine, close }) {
+  const act = fn => () => { close(); fn() }
+  const clearDay = () => update(s => {
+    const p = (s.programs || []).find(x => x.id === programId)
+    if (p?.week) delete p.week[day]
+  })
+  return <>
+    <h3>{t(DAYN[day])}</h3>
+    <div className="sect-b" style={{ marginTop: 10 }}>
+      {routine && <Row icon="clipboard" iconTint="var(--indigo)" title={t('View full routine')} onClick={act(() => nav('/plan/r/' + routine.id))} />}
+      <Row icon="shuffle" iconTint="var(--teal)" title={t('Change routine')} onClick={act(() => dayAssignSheet(day, programId))} />
+      {routine && <Row icon="moon" iconTint="var(--red)" title={t('Mark as rest day')} danger onClick={act(clearDay)} />}
+    </div>
+  </>
+}
+export const dayMenuSheet = (day, programId, routine) => ui().openSheet(close => <DayMenu day={day} programId={programId} routine={routine} close={close} />)
+
 /* ============================ workout detail ============================ */
 // Zone 1 (easiest) through zone 5 (hardest) — same blue-through-red ramp used for effort
 // elsewhere in the app, just five stops instead of three.

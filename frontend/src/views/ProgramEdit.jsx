@@ -2,13 +2,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
 import { uid, exCount, routineCount, DAYN } from '../lib/format.js'
-import { t } from '../lib/i18n.js'
-import { glyphPicker, confirmSheet, routinePickerSheet, dayAssignSheet } from '../sheets.jsx'
+import { t, nameFor } from '../lib/i18n.js'
+import { glyphPicker, confirmSheet, routinePickerSheet, dayAssignSheet, dayMenuSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
 import { Button, Switch } from '../components/ui.jsx'
 import { mediaUrl } from '../lib/media.js'
 import { printProgram } from '../lib/plan-share.js'
+import { exOr } from '../lib/exercises.js'
 
 // A program is a named folder of routine ids — see useStore.js's DEF.programs comment. This
 // screen is the folder's contents: add an existing loose routine to it, build a new one
@@ -91,13 +92,30 @@ export default function ProgramEdit() {
 
     {routines.length > 0 && <>
       <h4 className="sec">{t('Program schedule')}</h4>
-      <div className="list" style={{ display: 'flex', flexDirection: 'column', marginBottom: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 14 }}>
         {[1, 2, 3, 4, 5, 6, 0].map(d => {
           const r = routines.find(x => x.id === (p.week || {})[d])
-          return <div key={d} className="item" onClick={() => dayAssignSheet(d, id)}>
-            <div className="grow"><div className="tt">{t(DAYN[d])}</div></div>
-            {r ? <span className="tag acc"><Icon name={glyphOf(r.emoji)} />{r.name}</span> : <span className="tag">{t('Rest')}</span>}
-            <Icon name="chevronRight" className="chev" /></div>
+          return <div key={d} className="card daycard" onClick={() => r ? nav('/plan/r/' + r.id) : dayAssignSheet(d, id)}>
+            <div className="row between" style={{ marginBottom: 8 }}>
+              <div className="grow">
+                <div className="tt" style={{ fontWeight: 600 }}>{t(DAYN[d])}</div>
+                {r && <div className="ss">{r.name}</div>}
+              </div>
+              <button className="iconbtn" aria-label={t('More options')} title={t('More options')}
+                onClick={ev => { ev.stopPropagation(); dayMenuSheet(d, id, r) }}><Icon name="moreH" /></button>
+            </div>
+            {r ? (
+              r.ex.length ? <div className="daycard-exlist">
+                {r.ex.map((e, i) => {
+                  const ex = exOr(e.id)
+                  return <div key={i} className="daycard-exrow">
+                    <span className="daycard-exname capitalize">{nameFor(ex)}{ex.eq && <span className="dim"> ({t(ex.eq)})</span>}</span>
+                    <span className="daycard-exsets">×{e.sets || 1}</span>
+                  </div>
+                })}
+              </div> : <div className="dim small">{t('No exercises programmed yet.')}</div>
+            ) : <div className="dim small">{t('Rest day')}</div>}
+          </div>
         })}
       </div>
     </>}

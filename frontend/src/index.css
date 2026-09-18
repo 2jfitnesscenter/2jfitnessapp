@@ -265,6 +265,18 @@ h4.sec{
 }
 .card .big{font-size:calc(30px * var(--text-scale,1));font-weight:600;letter-spacing:-.026em;line-height:1.1}
 
+/* A program's day-by-day schedule (views/ProgramEdit.jsx) — one .card per weekday, its own
+   exercise breakdown inside instead of just a routine-name tag, so the whole week reads at a
+   glance without drilling into every routine. margin-bottom:0 since the day list already gets
+   its spacing from the parent's own flex `gap`, not each card's default .card margin. */
+.daycard{cursor:pointer;margin-bottom:0;transition:transform var(--fast)}
+.daycard:active{transform:scale(.985)}
+.daycard-exlist{display:flex;flex-direction:column}
+.daycard-exrow{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0}
+.daycard-exrow+.daycard-exrow{border-top:var(--hair) solid var(--sep)}
+.daycard-exname{font-size:calc(14px * var(--text-scale,1));color:var(--label);flex:1;min-width:0}
+.daycard-exsets{font-size:calc(13px * var(--text-scale,1));color:var(--label-3);flex:none;font-variant-numeric:tabular-nums}
+
 /* ------------------------------------------------------ inset group list -- */
 .sect{margin-bottom:22px}
 .sect-t{

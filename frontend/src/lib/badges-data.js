@@ -30,8 +30,6 @@
 
 export const BADGE_CATEGORIES = ['workouts', 'milestones', 'calendar', 'streaks', 'volume', 'strength', 'exercises', 'app']
 
-// 'exercises' is the one category with no commissioned art (no brief covered it) — it keeps
-// rendering its badges from `icon` via components/Icon.jsx, same as before this PNG pass.
 export const CATEGORY_LABEL = {
   workouts: 'Workouts', milestones: 'Milestones', calendar: 'Calendar', streaks: 'Streaks',
   volume: 'Volume', strength: 'Strength', exercises: 'Exercises', app: 'App',
@@ -40,8 +38,7 @@ export const CATEGORY_ICON = {
   workouts: 'dumbbell', milestones: 'sparkles', calendar: 'calendar', streaks: 'flame',
   volume: 'barbell', strength: 'shield', exercises: 'exercises', app: 'star',
 }
-// A category's own "cover" badge (Badges.jsx's category strip + CategoryHeader) — undefined
-// for 'exercises', which falls back to CATEGORY_ICON above.
+// A category's own "cover" badge (Badges.jsx's category strip + CategoryHeader).
 export const CATEGORY_IMAGE = {
   workouts: '/badges/badge-workouts-main.png',
   milestones: '/badges/badge-milestones-main.png',
@@ -49,6 +46,7 @@ export const CATEGORY_IMAGE = {
   streaks: '/badges/badge-streaks-main.png',
   volume: '/badges/badge-volume-main.png',
   strength: '/badges/badge-strength-main.png',
+  exercises: '/badges/badge-exercises-main.png',
   app: '/badges/badge-app-main.png',
 }
 // The gym's own "master rank" badge, shown once in the Badges screen's header — not a member
@@ -86,13 +84,13 @@ export const BADGES = [
   { id: 'volume_1000000', category: 'volume', title: 'A million kilos', description: 'Lift 1,000,000 kg in total.', icon: 'barbell', image: '/badges/badge-volume-1m.png', conditionType: 'total_volume_kg', threshold: 1000000 },
 
   // ---------- exercises: breadth (distinct exercises) and depth (repeats of one) ----------
-  { id: 'exercises_distinct_10', category: 'exercises', title: 'Explorer', description: 'Log 10 different exercises.', icon: 'exercises', conditionType: 'specific_exercise_count', metric: 'distinct', threshold: 10 },
-  { id: 'exercises_distinct_25', category: 'exercises', title: 'Curious', description: 'Log 25 different exercises.', icon: 'exercises', conditionType: 'specific_exercise_count', metric: 'distinct', threshold: 25 },
-  { id: 'exercises_distinct_50', category: 'exercises', title: 'Encyclopedic', description: 'Log 50 different exercises.', icon: 'exercises', conditionType: 'specific_exercise_count', metric: 'distinct', threshold: 50 },
-  { id: 'exercises_distinct_100', category: 'exercises', title: 'Catalogue master', description: 'Log 100 different exercises.', icon: 'exercises', conditionType: 'specific_exercise_count', metric: 'distinct', threshold: 100 },
-  { id: 'exercises_repeat_10', category: 'exercises', title: 'Getting the hang of it', description: 'Train the same exercise across 10 different sessions.', icon: 'reset', conditionType: 'specific_exercise_count', metric: 'repeat', threshold: 10 },
-  { id: 'exercises_repeat_25', category: 'exercises', title: 'Old friends', description: 'Train the same exercise across 25 different sessions.', icon: 'reset', conditionType: 'specific_exercise_count', metric: 'repeat', threshold: 25 },
-  { id: 'exercises_repeat_50', category: 'exercises', title: 'Inseparable', description: 'Train the same exercise across 50 different sessions.', icon: 'reset', conditionType: 'specific_exercise_count', metric: 'repeat', threshold: 50 },
+  { id: 'exercises_distinct_10', category: 'exercises', title: 'Explorer', description: 'Log 10 different exercises.', icon: 'exercises', image: '/badges/badge-exercise-explorer.png', conditionType: 'specific_exercise_count', metric: 'distinct', threshold: 10 },
+  { id: 'exercises_distinct_25', category: 'exercises', title: 'Curious', description: 'Log 25 different exercises.', icon: 'exercises', image: '/badges/badge-exercise-curious.png', conditionType: 'specific_exercise_count', metric: 'distinct', threshold: 25 },
+  { id: 'exercises_distinct_50', category: 'exercises', title: 'Encyclopedic', description: 'Log 50 different exercises.', icon: 'exercises', image: '/badges/badge-exercise-encyclopedic.png', conditionType: 'specific_exercise_count', metric: 'distinct', threshold: 50 },
+  { id: 'exercises_distinct_100', category: 'exercises', title: 'Catalogue master', description: 'Log 100 different exercises.', icon: 'exercises', image: '/badges/badge-exercise-master.png', conditionType: 'specific_exercise_count', metric: 'distinct', threshold: 100 },
+  { id: 'exercises_repeat_10', category: 'exercises', title: 'Getting the hang of it', description: 'Train the same exercise across 10 different sessions.', icon: 'reset', image: '/badges/badge-exercise-repeat-10.png', conditionType: 'specific_exercise_count', metric: 'repeat', threshold: 10 },
+  { id: 'exercises_repeat_25', category: 'exercises', title: 'Old friends', description: 'Train the same exercise across 25 different sessions.', icon: 'reset', image: '/badges/badge-exercise-repeat-25.png', conditionType: 'specific_exercise_count', metric: 'repeat', threshold: 25 },
+  { id: 'exercises_repeat_50', category: 'exercises', title: 'Inseparable', description: 'Train the same exercise across 50 different sessions.', icon: 'reset', image: '/badges/badge-exercise-repeat-50.png', conditionType: 'specific_exercise_count', metric: 'repeat', threshold: 50 },
 
   // ---------- strength: the global strength score (lib/badges.js's strengthScore, 0-300) ----------
   { id: 'strength_100', category: 'strength', title: 'Solid base', description: 'Reach a strength score of 100.', icon: 'shield', image: '/badges/badge-strength-100.png', conditionType: 'strength_score', threshold: 100 },

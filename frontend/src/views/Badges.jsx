@@ -46,7 +46,7 @@ function BadgeCell({ b, state }) {
   const pct = Math.round((state?.progress || 0) * 100)
   return (
     <button className={'badgecell' + (unlocked ? ' on' : '')} onClick={() => badgeDetailSheet(b, state)}>
-      <span className={'badgecell-i' + (b.image ? ' img' : '')}>
+      <span className={'badgecell-i' + (b.image ? ' img' : '') + (unlocked ? ' on' : '')}>
         <BadgeArt image={b.image} icon={b.icon} />
         {!unlocked && <span className="badgecell-lock"><Icon name="lock" /></span>}
       </span>
@@ -65,8 +65,10 @@ function BadgeCell({ b, state }) {
 function CategoryHeader({ cat, list, unlockedCount }) {
   const rep = list[0]
   const catImg = CATEGORY_IMAGE[cat]
+  // Always full color, unlike a BadgeCell — this is the category's own cover art, not a
+  // specific badge's unlock state, so there's no "locked" reading for it to apply here.
   return <div className="card" style={{ textAlign: 'center', marginBottom: 16 }}>
-    <span className={'badgecell-i' + (catImg ? ' img' : '')} style={{ width: 72, height: 72, fontSize: 30, margin: '0 auto 10px' }}>
+    <span className={'badgecell-i' + (catImg ? ' img on' : '')} style={{ width: 72, height: 72, fontSize: 30, margin: '0 auto 10px' }}>
       <BadgeArt image={catImg} icon={CATEGORY_ICON[cat]} />
     </span>
     <h2 style={{ margin: '0 0 4px' }}>{t(CATEGORY_LABEL[cat])}</h2>
