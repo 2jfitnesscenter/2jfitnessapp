@@ -1,8 +1,21 @@
 import { t } from '../lib/i18n.js'
 import { fmtNum, fmtDate } from '../lib/format.js'
-import { lastMeasurement } from '../lib/measurements.js'
+import { lastMeasurement, altValueOf, bodyweightNear, MEASUREMENT } from '../lib/measurements.js'
 import { MUSCLES, INERT } from '../lib/muscles.js'
 import { useBodyPaths } from './BodyMap.jsx'
+
+// A reading in whatever unit the profile's Muscle toggle (S.measurementUnitMode.muscle,
+// Measurements' "Scan a report" sheet) currently wants — converted against the bodyweight on
+// file closest to *that reading's own date*, not today's, so an older reading doesn't quietly
+// misconvert once someone's weight has moved since. Falls back to the reading's own canonical
+// unit (what altValueOf/bodyweightNear return null for) rather than hiding the number outright.
+function displayMuscle(S, muscleKey, entry) {
+  if (!entry) return null
+  const wantAlt = (S.measurementUnitMode?.muscle || 'canonical') === 'alt'
+  if (!wantAlt) return { v: entry.v, unit: 'kg' }
+  const alt = altValueOf(MEASUREMENT[muscleKey], entry.v, bodyweightNear(S, entry.d))
+  return alt == null ? { v: entry.v, unit: 'kg' } : { v: alt, unit: '%' }
+}
 
 // The 5 segmental readings called out on the same real body illustration the muscle
 // picker/map uses (front view only — arms, legs and trunk are all visible from the front, no
@@ -23,7 +36,8 @@ const ZONES = [
 
 function Callout({ zone, S }) {
   const fat = lastMeasurement(S, zone.fatKey)
-  const muscle = lastMeasurement(S, zone.muscleKey)
+  const muscleEntry = lastMeasurement(S, zone.muscleKey)
+  const muscle = displayMuscle(S, zone.muscleKey, muscleEntry)
   const [dx, dy] = zone.dot
   const [vx, vy] = zone.via
   const [lx, ly] = zone.label
@@ -31,11 +45,13 @@ function Callout({ zone, S }) {
     <line x1={dx} y1={dy} x2={vx} y2={vy} className="sbd-lead" />
     <line x1={vx} y1={vy} x2={lx} y2={ly - 8} className="sbd-lead" />
     <circle cx={dx} cy={dy} r="7" className="sbd-dot" />
+    {/* Segmental fat is always a % against the standard range — no altUnit to switch to
+        (lib/measurements.js explains why), so this one never reads through displayMuscle. */}
     <text x={lx} y={ly} textAnchor={zone.anchor} className="sbd-fat">
       {t('Fat')} {fat ? fmtNum(fat.v) + '%' : '—'}
     </text>
     <text x={lx} y={ly + 24} textAnchor={zone.anchor} className="sbd-muscle">
-      {t('Muscle')} {muscle ? fmtNum(muscle.v) + ' kg' : '—'}
+      {t('Muscle')} {muscle ? fmtNum(muscle.v) + ' ' + muscle.unit : '—'}
     </text>
   </g>
 }
@@ -54,11 +70,12 @@ export default function SegmentBodyDiagram({ S, showGeneral = false, compact = f
     .filter(Boolean).map(x => x.d).sort()
   const latest = dates[dates.length - 1]
   const bodyFat = lastMeasurement(S, 'bodyFat')
-  const muscleMass = lastMeasurement(S, 'muscleMass')
+  const muscleMassEntry = lastMeasurement(S, 'muscleMass')
+  const muscleMass = displayMuscle(S, 'muscleMass', muscleMassEntry)
   return <div className="card sbd-card">
     {showGeneral && (bodyFat || muscleMass) && <div className="row" style={{ gap: 16, marginBottom: 10 }}>
       {bodyFat && <span className="sbd-general" style={{ color: 'var(--orange)' }}>{t('Body fat')} <b>{fmtNum(bodyFat.v)}%</b></span>}
-      {muscleMass && <span className="sbd-general" style={{ color: 'var(--indigo)' }}>{t('Muscle mass')} <b>{fmtNum(muscleMass.v)} kg</b></span>}
+      {muscleMass && <span className="sbd-general" style={{ color: 'var(--indigo)' }}>{t('Muscle mass')} <b>{fmtNum(muscleMass.v)} {muscleMass.unit}</b></span>}
     </div>}
     {front ? (
       <svg viewBox={front.vb} className={'sbd-svg' + (compact ? ' sbd-svg-compact' : '')} role="img" aria-label={t('Body composition by segment, shown on a body diagram')}>

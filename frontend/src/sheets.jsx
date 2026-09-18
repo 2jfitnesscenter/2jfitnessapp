@@ -25,6 +25,7 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE } from './lib/mobile.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
+import BioimpedanceFields from './components/BioimpedanceFields.jsx'
 import { resizeImageFile, uploadImage, mediaUrl, scanRoutine } from './lib/media.js'
 import { matchScannedRoutine, applyPendingChoice } from './lib/routine-scan.js'
 import ScanUpload from './components/ScanUpload.jsx'
@@ -256,12 +257,12 @@ function BioimpedanceScanSheet({ close }) {
   const all = [...composition, ...segments]
   const [vals, setVals] = useState(() => Object.fromEntries(all.map(m => [m.key, lastMeasurement(st, m.key)?.v ?? ''])))
   const [weight, setWeight] = useState(() => lastBW(st)?.w ?? '')
-  const [scanned, setScanned] = useState(false)
+  const [scanned, setScanned] = useState(0)   // also doubles as BioimpedanceFields' resetToken
   const set = (k, v) => setVals(s => ({ ...s, [k]: v }))
   const applyScan = values => {
     setVals(s => ({ ...s, ...Object.fromEntries(all.filter(m => values[m.key] != null).map(m => [m.key, values[m.key]])) }))
     if (values.weight != null) setWeight(values.weight)
-    setScanned(true)
+    setScanned(n => n + 1)
     toast(t('Report read — check the values below'))
   }
   const save = () => {
@@ -296,23 +297,17 @@ function BioimpedanceScanSheet({ close }) {
       <div className="muted small" style={{ lineHeight: 1.5, flex: 1 }}>{t('Leave a field blank to leave that reading as it was.')}</div>
       <ScanUpload onResult={applyScan} />
     </div>
-    {scanned && <div className="small" style={{ color: 'var(--acc)', marginBottom: 10 }}>{t('Estimated by AI — review before saving.')}</div>}
+    {scanned > 0 && <div className="small" style={{ color: 'var(--acc)', marginBottom: 10 }}>{t('Estimated by AI — review before saving.')}</div>}
     <div style={{ marginBottom: 10 }}>
       <div className="dim small" style={{ marginBottom: 4 }}>{t('Weight')}</div>
       <input type="number" inputMode="decimal" className="input" step={0.1} min={20} max={400}
         placeholder="— kg" value={weight} onChange={e => setWeight(e.target.value)} />
+      <div className="dim small" style={{ marginTop: 3 }}>{t('Used to convert % ↔ kg below.')}</div>
     </div>
-    {composition.map(m => <div key={m.key} style={{ marginBottom: 10 }}>
-      <div className="dim small" style={{ marginBottom: 4 }}>{t(m.label)}</div>
-      <input type="number" inputMode="decimal" className="input" step={m.step} min={m.min} max={m.max}
-        placeholder={m.unit ? `— ${m.unit}` : '—'} value={vals[m.key]} onChange={e => set(m.key, e.target.value)} />
-    </div>)}
-    <div className="sec" style={{ margin: '14px 0 8px' }}>{t('By segment')}</div>
-    {segments.map(m => <div key={m.key} style={{ marginBottom: 10 }}>
-      <div className="dim small" style={{ marginBottom: 4 }}>{t(m.label)}</div>
-      <input type="number" inputMode="decimal" className="input" step={m.step} min={m.min} max={m.max}
-        placeholder={m.unit ? `— ${m.unit}` : '—'} value={vals[m.key]} onChange={e => set(m.key, e.target.value)} />
-    </div>)}
+    <BioimpedanceFields vals={vals} setVal={set} weightKg={Number(weight) || null}
+      unitMode={st.measurementUnitMode || { fat: 'canonical', muscle: 'canonical' }}
+      setUnitMode={(k, v) => update(s => { s.measurementUnitMode = { ...(s.measurementUnitMode || { fat: 'canonical', muscle: 'canonical' }), [k]: v } })}
+      resetToken={scanned} />
     <div style={{ height: 6 }} />
     <Button variant="primary" onClick={save}>{t('Save')}</Button>
   </>

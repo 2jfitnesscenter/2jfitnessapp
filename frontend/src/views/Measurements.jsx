@@ -5,10 +5,10 @@ import { fmtDate, fmtNum, ageFrom } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { measurementSheet, bioimpedanceScanSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { SelectRow, Button } from '../components/ui.jsx'
+import { SelectRow, Button, Segmented } from '../components/ui.jsx'
 import LineChart from '../components/LineChart.jsx'
 import SegmentBodyDiagram from '../components/SegmentBodyDiagram.jsx'
-import { MEASUREMENTS, lastMeasurement, bodyFatBand, visceralFatBand } from '../lib/measurements.js'
+import { MEASUREMENTS, lastMeasurement, bodyFatBand, visceralFatBand, altValueOf, bodyweightNear, UNIT_TOGGLE_METRIC } from '../lib/measurements.js'
 
 // Each row is one time series (see lib/measurements.js) — tapping it opens the same generic
 // log-a-value-and-see-recent-entries sheet bodyweight already used, just for that measurement.
@@ -21,26 +21,44 @@ function Row({ m, S }) {
   const band = m.key === 'bodyFat' && last ? bodyFatBand(last.v, S.body, ageFrom(S.birthDate))
     : m.key === 'visceralFat' && last ? visceralFatBand(last.v)
     : null
+  // Reflects the same %/kg toggle the entry form and the evolution chart use — this row is
+  // read-only display, so it can freely follow S.measurementUnitMode even though tapping it
+  // still opens the plain single-value sheet (always in the canonical unit; the toggle is
+  // scoped to the bulk composition form and the chart, not every single-field editor too).
+  const toggleBucket = UNIT_TOGGLE_METRIC[m.key]
+  const showAlt = last && m.altUnit && toggleBucket && (S.measurementUnitMode || {})[toggleBucket] === 'alt'
+  const shown = showAlt ? altValueOf(m, last.v, bodyweightNear(S, last.d)) : last?.v
+  const shownUnit = showAlt && shown != null ? m.altUnit : m.unit
   return <div className="item" onClick={() => measurementSheet(m.key)}>
     <span className="lrow-i" style={{ '--tint': m.iconTint }}><Icon name={m.icon} /></span>
     <div className="grow"><div className="tt">{t(m.label)}</div>
       {last && <div className="ss">{fmtDate(last.d)}</div>}
     </div>
-    {last ? <span className={'tag ' + (band || 'acc')}>{fmtNum(last.v)} {m.unit}</span> : <span className="tag">{t('Not logged')}</span>}
+    {last ? <span className={'tag ' + (band || 'acc')}>{fmtNum(shown ?? last.v)} {shownUnit}</span> : <span className="tag">{t('Not logged')}</span>}
     <Icon name="chevronRight" className="chev" />
   </div>
 }
 
 // One chart, one picker — instead of a wall of ~20 tiny always-on graphs (one per measurement),
 // which would be noise for most members who only track two or three of these. Whichever
-// measurement is picked keeps its own unit and reuses the exact bodyweight chart component.
-function EvolutionCard({ S }) {
+// measurement is picked keeps its own unit and reuses the exact bodyweight chart component —
+// unless it's one of the fat/muscle readings with a %/kg toggle (S.measurementUnitMode, the
+// same one the "Scan a report" entry form uses), in which case the chart follows that same
+// setting so a member never sees the entry form say "kg" and the chart say "%".
+function EvolutionCard({ S, update }) {
   const withData = useMemo(() => MEASUREMENTS.filter(m => (S.measurements?.[m.key]?.length || 0) > 0), [S.measurements])
   const [key, setKey] = useState(() => withData[0]?.key || null)
   if (!withData.length) return null
   const m = MEASUREMENTS.find(x => x.key === key) || withData[0]
+  const toggleBucket = UNIT_TOGGLE_METRIC[m.key]   // 'fat' | 'muscle' | undefined
+  const mode = (S.measurementUnitMode || {})[toggleBucket] || 'canonical'
+  const showAlt = !!(m.altUnit && toggleBucket && mode === 'alt')
   const list = S.measurements?.[m.key] || []
-  const points = list.map(x => ({ t: x.t || new Date(x.d).getTime(), y: x.v, d: x.d }))
+  const points = list.map(x => {
+    const y = showAlt ? (altValueOf(m, x.v, bodyweightNear(S, x.d)) ?? x.v) : x.v
+    return { t: x.t || new Date(x.d).getTime(), y, d: x.d }
+  })
+  const unit = showAlt ? m.altUnit : m.unit
   return <>
     <h4 className="sec">{t('Evolution')}</h4>
     <div className="card">
@@ -49,7 +67,15 @@ function EvolutionCard({ S }) {
           options={withData.map(x => ({ value: x.key, label: t(x.label) }))}
           onChange={setKey} />
       </div>
-      <div className="chart"><LineChart points={points} h={150} unit={m.unit} /></div>
+      {toggleBucket && m.altUnit && (
+        <div className="row between" style={{ marginBottom: 10 }}>
+          <span className="dim small">{t('Unit')}</span>
+          <Segmented className="seg-inline"
+            options={m.unit === '%' ? [{ value: 'canonical', label: '%' }, { value: 'alt', label: 'kg' }] : [{ value: 'canonical', label: 'kg' }, { value: 'alt', label: '%' }]}
+            value={mode} onChange={v => update(s => { s.measurementUnitMode = { ...(s.measurementUnitMode || {}), [toggleBucket]: v } })} />
+        </div>
+      )}
+      <div className="chart"><LineChart points={points} h={150} unit={unit} /></div>
     </div>
   </>
 }
@@ -69,6 +95,7 @@ function GroupLinkRow({ icon, iconTint, title, subtitle, to }) {
 export default function Measurements() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
+  const update = useStore(s => s.update)
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
   const segments = MEASUREMENTS.filter(m => m.group === 'segments')
   const needsProfile = lastMeasurement(S, 'bodyFat') && !bodyFatBand(lastMeasurement(S, 'bodyFat').v, S.body, ageFrom(S.birthDate))
@@ -97,7 +124,7 @@ export default function Measurements() {
       <GroupLinkRow icon="expand" iconTint="var(--mint)" title="Body measurements" subtitle="Your own tape measure" to="/measurements/body" />
     </div>
 
-    <EvolutionCard S={S} />
+    <EvolutionCard S={S} update={update} />
     <div style={{ height: 20 }} />
   </div>
 }

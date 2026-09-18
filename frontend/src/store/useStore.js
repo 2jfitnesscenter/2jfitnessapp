@@ -54,6 +54,13 @@ export const DEF = {
   // an array of {d, v, t} exactly like bodyweight's own shape, just generalised to more than
   // one series. Absent keys are just "never logged", not zero.
   measurements: {},
+  // Which unit the body-fat and muscle-mass entry forms show/accept — 'canonical' (the unit
+  // lib/measurements.js's MEASUREMENTS actually stores: % for fat, kg for muscle, unchanged
+  // since before this toggle existed) or 'alt' (kg for fat, % for muscle). Whichever is picked,
+  // the OTHER unit still shows as a live "≈" suggestion (lib/measurements.js's altValueOf) —
+  // this only decides which one you're actually typing into and which is read back out of
+  // S.measurements. See lib/measurements.js's UNIT_TOGGLE_METRIC for which keys each governs.
+  measurementUnitMode: { fat: 'canonical', muscle: 'canonical' },
   // Same {d, v, t} shape again — steps/sleep(minutes)/restingHR only ever arrive via an Apple
   // Health import (lib/import-csv.js's parseAppleHealth/mergeImport), never logged by hand.
   steps: [], sleep: [], restingHR: [],

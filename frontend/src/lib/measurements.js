@@ -35,29 +35,37 @@ export const MEASUREMENTS = [
   { key: 'calfL', label: 'Left calf', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true, ...TAPE },
   { key: 'calfR', label: 'Right calf', group: 'body', unit: 'cm', min: 15, max: 60, step: 0.5, dec: true, ...TAPE },
   // ---- body composition — a bioimpedance scan (e.g. this gym's Tanita) ----
-  { key: 'bodyFat', label: 'Body fat', group: 'composition', unit: '%', min: 2, max: 55, step: 0.1, dec: true, icon: 'flame', iconTint: 'var(--orange)' },
-  { key: 'muscleMass', label: 'Muscle mass', group: 'composition', unit: 'kg', min: 10, max: 70, step: 0.1, dec: true, icon: 'figureStrength', iconTint: 'var(--indigo)' },
+  // `altUnit`: the other unit this reading can be entered/shown in, converted against total
+  // bodyweight (see pctOfWeight/kgOfWeight below) — the member-facing "Scan report" sheet and
+  // Admin's staff version both use this to offer the %/kg toggle. Absent = only ever the one
+  // unit; see segFat* below for why that's deliberate there, not an oversight.
+  { key: 'bodyFat', label: 'Body fat', group: 'composition', unit: '%', altUnit: 'kg', min: 2, max: 55, step: 0.1, dec: true, icon: 'flame', iconTint: 'var(--orange)' },
+  { key: 'muscleMass', label: 'Muscle mass', group: 'composition', unit: 'kg', altUnit: '%', min: 10, max: 70, step: 0.1, dec: true, icon: 'figureStrength', iconTint: 'var(--indigo)' },
   { key: 'waterPct', label: 'Body water', group: 'composition', unit: '%', min: 25, max: 75, step: 0.1, dec: true, icon: 'drop', iconTint: 'var(--blue)' },
   { key: 'visceralFat', label: 'Visceral fat', group: 'composition', unit: '', min: 1, max: 59, step: 1, dec: false, icon: 'target', iconTint: 'var(--purple)' },
   { key: 'boneMass', label: 'Bone mass', group: 'composition', unit: 'kg', min: 0.5, max: 6, step: 0.1, dec: true, icon: 'bone', iconTint: 'var(--grey)' },
   // ---- segmental composition — the same bioimpedance scan, broken down per body part.
-  // Fat stays a percentage: it's the reading's ratio against its own segment's standard
-  // reference range, same as the scan report itself prints it (e.g. "116.2%" for a trunk
-  // reading against a 90-110% standard band) — not a share of the limb's own weight, which the
-  // scan can't measure on its own, so this is the number staff or the member actually reads off
-  // the printed report. Muscle is the segment's muscle mass in kg instead (the report prints
-  // both a kg figure and the same kind of ratio %, and kg is the one that's directly useful —
-  // comparable side to side, and addable up toward the whole-body muscleMass above).
+  // Fat stays a percentage ONLY — no altUnit, deliberately: it's the reading's ratio against
+  // its own segment's standard reference range, same as the scan report itself prints it (e.g.
+  // "116.2%" for a trunk reading against a 90-110% standard band) — not a share of the limb's
+  // own weight. There is no meaningful kg to convert it to: the scan does not (and physically
+  // cannot, from a wrist-to-wrist/foot-to-foot BIA reading) isolate "kg of fat in this one limb"
+  // the way it can for muscle. Offering a kg toggle here would invent a number, not convert one.
+  // Muscle is the segment's muscle mass in kg instead (the report prints both a kg figure and
+  // the same kind of ratio %, and kg is the one that's directly useful — comparable side to
+  // side, and addable up toward the whole-body muscleMass above) — its altUnit '%' is that
+  // segment's muscle as a share of TOTAL bodyweight (not of the segment's own estimated weight,
+  // which would need a biomechanical segment-mass table this app has no other use for).
   { key: 'segFatArmL', label: 'Left arm fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
   { key: 'segFatArmR', label: 'Right arm fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
   { key: 'segFatLegL', label: 'Left leg fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
   { key: 'segFatLegR', label: 'Right leg fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
   { key: 'segFatTrunk', label: 'Trunk fat', group: 'segments', unit: '%', min: 0, max: 250, step: 0.1, dec: true, ...SEG_FAT },
-  { key: 'segMuscleArmL', label: 'Left arm muscle', group: 'segments', unit: 'kg', min: 0.5, max: 15, step: 0.1, dec: true, ...SEG_MUSCLE },
-  { key: 'segMuscleArmR', label: 'Right arm muscle', group: 'segments', unit: 'kg', min: 0.5, max: 15, step: 0.1, dec: true, ...SEG_MUSCLE },
-  { key: 'segMuscleLegL', label: 'Left leg muscle', group: 'segments', unit: 'kg', min: 1, max: 25, step: 0.1, dec: true, ...SEG_MUSCLE },
-  { key: 'segMuscleLegR', label: 'Right leg muscle', group: 'segments', unit: 'kg', min: 1, max: 25, step: 0.1, dec: true, ...SEG_MUSCLE },
-  { key: 'segMuscleTrunk', label: 'Trunk muscle', group: 'segments', unit: 'kg', min: 5, max: 50, step: 0.1, dec: true, ...SEG_MUSCLE },
+  { key: 'segMuscleArmL', label: 'Left arm muscle', group: 'segments', unit: 'kg', altUnit: '%', min: 0.5, max: 15, step: 0.1, dec: true, ...SEG_MUSCLE },
+  { key: 'segMuscleArmR', label: 'Right arm muscle', group: 'segments', unit: 'kg', altUnit: '%', min: 0.5, max: 15, step: 0.1, dec: true, ...SEG_MUSCLE },
+  { key: 'segMuscleLegL', label: 'Left leg muscle', group: 'segments', unit: 'kg', altUnit: '%', min: 1, max: 25, step: 0.1, dec: true, ...SEG_MUSCLE },
+  { key: 'segMuscleLegR', label: 'Right leg muscle', group: 'segments', unit: 'kg', altUnit: '%', min: 1, max: 25, step: 0.1, dec: true, ...SEG_MUSCLE },
+  { key: 'segMuscleTrunk', label: 'Trunk muscle', group: 'segments', unit: 'kg', altUnit: '%', min: 5, max: 50, step: 0.1, dec: true, ...SEG_MUSCLE },
   // ---- skinfolds, mm — calipers (a staff assessment, taken alongside the bioimpedance scan) ----
   { key: 'skinTriceps', label: 'Triceps skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true, ...CALIPER },
   { key: 'skinSubscapular', label: 'Subscapular skinfold', group: 'folds', unit: 'mm', min: 2, max: 40, step: 0.5, dec: true, ...CALIPER },
@@ -66,10 +74,68 @@ export const MEASUREMENTS = [
 ]
 export const MEASUREMENT = Object.fromEntries(MEASUREMENTS.map(m => [m.key, m]))
 
+// Which section-level %/kg toggle (Settings → the "Grasa"/"Masa Muscular" header switch,
+// S.measurementUnitMode) a given key answers to — the fat keys that have no altUnit
+// (segFat*) still belong to the 'fat' group for layout purposes (they sit under the same
+// section header), they just never actually change unit when the switch is flipped.
+export const UNIT_TOGGLE_METRIC = {
+  bodyFat: 'fat', segFatArmL: 'fat', segFatArmR: 'fat', segFatLegL: 'fat', segFatLegR: 'fat', segFatTrunk: 'fat',
+  muscleMass: 'muscle', segMuscleArmL: 'muscle', segMuscleArmR: 'muscle', segMuscleLegL: 'muscle', segMuscleLegR: 'muscle', segMuscleTrunk: 'muscle',
+}
+
+// The one relationship every altUnit conversion in this app runs on — always against TOTAL
+// bodyweight, never an estimated segment weight (see the segMuscle* comment above for why —
+// there's no biomechanical segment-mass table anywhere else in this app to make that
+// meaningful). Symmetric on purpose: converting % -> kg and kg -> % are the same fraction,
+// just which side you already have.
+const pctToKg = (pct, bwKg) => bwKg * pct / 100
+const kgToPct = (kg, bwKg) => kg / bwKg * 100
+
+/**
+ * A measurement's stored (canonical-unit) value, converted into its altUnit for a live "≈
+ * 12.4 kg" suggestion next to the input — null when there's nothing sensible to show (no
+ * altUnit at all, nothing typed yet, or no bodyweight on file to convert against).
+ */
+export function altValueOf(m, canonicalValue, bodyweightKg) {
+  if (!m.altUnit || !(bodyweightKg > 0)) return null
+  const v = Number(canonicalValue)
+  if (!Number.isFinite(v)) return null
+  const alt = m.unit === '%' ? pctToKg(v, bodyweightKg) : kgToPct(v, bodyweightKg)
+  return Math.round(alt * 10) / 10
+}
+/** The reverse — what to actually store when the member typed a value in the altUnit
+ *  (Settings → the section's %/kg toggle set to "alt"). Same caller contract as altValueOf. */
+export function canonicalFromAlt(m, altValue, bodyweightKg) {
+  if (!m.altUnit || !(bodyweightKg > 0)) return null
+  const v = Number(altValue)
+  if (!Number.isFinite(v)) return null
+  const canon = m.unit === '%' ? kgToPct(v, bodyweightKg) : pctToKg(v, bodyweightKg)
+  return Math.round(canon * 10) / 10
+}
+
 /** Most recent entry for one measurement, or null. */
 export const lastMeasurement = (S, key) => {
   const list = S.measurements?.[key]
   return list && list.length ? list[list.length - 1] : null
+}
+
+/**
+ * The bodyweight to convert a measurement dated `iso` against — the closest entry on or
+ * before that date, or (for a reading older than the first weigh-in on file) the earliest one
+ * available. Charting a whole history of %/kg-converted points against *today's* weight would
+ * quietly misconvert every older point once someone's weight has moved much at all, so the
+ * evolution chart and the segment diagram both read a point's own converted value through
+ * this rather than always reaching for lastBW.
+ */
+export function bodyweightNear(S, iso) {
+  const list = S.bodyweight || []
+  if (!list.length) return null
+  let best = null
+  for (const b of list) {
+    if (b.d <= iso) best = b
+    else { if (!best) best = b; break }
+  }
+  return best ? best.w : null
 }
 
 /** Whether there's anything at all to show on the body-composition diagram (Home gates on this

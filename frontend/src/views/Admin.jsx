@@ -18,6 +18,7 @@ import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 import { MEASUREMENTS, bodyFatBand, visceralFatBand } from '../lib/measurements.js'
+import BioimpedanceFields from '../components/BioimpedanceFields.jsx'
 
 // Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "hypertrophy" means the
 // same rep range whether a member or an admin set it up.
@@ -154,13 +155,18 @@ function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
   const all = [...composition, ...segments, ...folds]
   const [vals, setVals] = useState(() => Object.fromEntries(all.map(m => [m.key, current?.[m.key]?.v ?? ''])))
   const [weight, setWeight] = useState(latestWeight ?? '')
-  const [scanned, setScanned] = useState(false)
+  const [scanned, setScanned] = useState(0)   // also doubles as BioimpedanceFields' resetToken
   const [busy, setBusy] = useState(false)
+  // Local to this sheet, not a profile preference — several trainers may share this dashboard
+  // on one device, so "remembering" a %/kg choice across sessions here would mean remembering
+  // whichever staff member last used it, not this one.
+  const [unitMode, setUnitModeState] = useState({ fat: 'canonical', muscle: 'canonical' })
+  const setUnitMode = (k, v) => setUnitModeState(s => ({ ...s, [k]: v }))
   const set = (k, v) => setVals(s => ({ ...s, [k]: v }))
   const applyScan = values => {
     setVals(s => ({ ...s, ...Object.fromEntries(all.filter(m => values[m.key] != null).map(m => [m.key, values[m.key]])) }))
     if (values.weight != null) setWeight(values.weight)
-    setScanned(true)
+    setScanned(n => n + 1)
     toast(t('Report read — check the values below'))
   }
   const save = () => {
@@ -173,28 +179,21 @@ function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
       .then(() => { toast(t('Measurements saved')); onSaved(); close() })
       .catch(e => { toast(e.message); setBusy(false) })
   }
-  const Field = m => <div key={m.key} style={{ marginBottom: 10 }}>
-    <div className="dim small" style={{ marginBottom: 4 }}>{t(m.label)}</div>
-    <input type="number" inputMode="decimal" className="input" step={m.step} min={m.min} max={m.max}
-      placeholder={m.unit ? `— ${m.unit}` : '—'} value={vals[m.key]} onChange={e => set(m.key, e.target.value)} />
-  </div>
   return <>
     <h3>{t('Bioimpedance scan — {0}', u.name)}</h3>
     <div className="row between" style={{ marginBottom: 12 }}>
       <div className="muted small" style={{ lineHeight: 1.5, flex: 1 }}>{t('Leave a field blank to leave that reading as it was.')}</div>
       <ScanUpload onResult={applyScan} />
     </div>
-    {scanned && <div className="small" style={{ color: 'var(--acc)', marginBottom: 10 }}>{t('Estimated by AI — review before saving.')}</div>}
+    {scanned > 0 && <div className="small" style={{ color: 'var(--acc)', marginBottom: 10 }}>{t('Estimated by AI — review before saving.')}</div>}
     <div style={{ marginBottom: 10 }}>
       <div className="dim small" style={{ marginBottom: 4 }}>{t('Weight')}</div>
       <input type="number" inputMode="decimal" className="input" step={0.1} min={20} max={400}
         placeholder="— kg" value={weight} onChange={e => setWeight(e.target.value)} />
+      <div className="dim small" style={{ marginTop: 3 }}>{t('Used to convert % ↔ kg below.')}</div>
     </div>
-    {composition.map(Field)}
-    <div className="sec" style={{ margin: '14px 0 8px' }}>{t('By segment')}</div>
-    {segments.map(Field)}
-    <div className="sec" style={{ margin: '14px 0 8px' }}>{t('Skinfolds (calipers)')}</div>
-    {folds.map(Field)}
+    <BioimpedanceFields vals={vals} setVal={set} weightKg={Number(weight) || null}
+      unitMode={unitMode} setUnitMode={setUnitMode} showFolds resetToken={scanned} />
     <div style={{ height: 6 }} />
     <Button variant="primary" disabled={busy} onClick={save}>{t('Save')}</Button>
   </>
