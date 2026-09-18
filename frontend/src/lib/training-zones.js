@@ -17,12 +17,14 @@ import { rirOf } from './effort.js'
 //   rirMax        — RIR fallback boundary (used top-down: the first zone whose rirMax the set's
 //                   RIR is at or under, hardest first — see zoneForRir)
 //   reps          — the rep range this zone is conventionally trained in, for display only
+//   pctLabel/rirLabel — friendly range strings for the two boundaries above, display only
+//                   (Settings' trainingZonesHelpSheet is the one place that reads these)
 export const ZONES = [
-  { id: 1, key: 'z1', short: 'Z1', label: 'Recovery', color: 'var(--teal)', pctMin: 0, pctMax: 60, rirMax: Infinity, reps: '15+' },
-  { id: 2, key: 'z2', short: 'Z2', label: 'Muscular endurance', color: 'var(--green)', pctMin: 60, pctMax: 70, rirMax: 5, reps: '12-20+' },
-  { id: 3, key: 'z3', short: 'Z3', label: 'Hypertrophy', color: 'var(--yellow)', pctMin: 70, pctMax: 80, rirMax: 3, reps: '8-12' },
-  { id: 4, key: 'z4', short: 'Z4', label: 'Strength', color: 'var(--orange)', pctMin: 80, pctMax: 90, rirMax: 2, reps: '4-6' },
-  { id: 5, key: 'z5', short: 'Z5', label: 'Max strength', color: 'var(--red)', pctMin: 90, pctMax: Infinity, rirMax: 0, reps: '1-3' },
+  { id: 1, key: 'z1', short: 'Z1', label: 'Recovery', color: 'var(--teal)', pctMin: 0, pctMax: 60, rirMax: Infinity, reps: '15+', pctLabel: '< 60%', rirLabel: '> 5' },
+  { id: 2, key: 'z2', short: 'Z2', label: 'Muscular endurance', color: 'var(--green)', pctMin: 60, pctMax: 70, rirMax: 5, reps: '12-20+', pctLabel: '60-70%', rirLabel: '4-5' },
+  { id: 3, key: 'z3', short: 'Z3', label: 'Hypertrophy', color: 'var(--yellow)', pctMin: 70, pctMax: 80, rirMax: 3, reps: '8-12', pctLabel: '70-80%', rirLabel: '2-3' },
+  { id: 4, key: 'z4', short: 'Z4', label: 'Strength', color: 'var(--orange)', pctMin: 80, pctMax: 90, rirMax: 2, reps: '4-6', pctLabel: '80-90%', rirLabel: '1-2' },
+  { id: 5, key: 'z5', short: 'Z5', label: 'Max strength', color: 'var(--red)', pctMin: 90, pctMax: Infinity, rirMax: 0, reps: '1-3', pctLabel: '> 90%', rirLabel: '0' },
 ]
 export const ZONE_BY_ID = Object.fromEntries(ZONES.map(z => [z.id, z]))
 

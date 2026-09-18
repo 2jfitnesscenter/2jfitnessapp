@@ -11,6 +11,14 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Smarter "Replace exercise": ranked alternatives instead of a flat list, with equipment filters',
+      'Training zones: %1RM/RPE-based intensity zones, shown per set and as a weekly/monthly volume chart',
+      'An interactive barbell plate calculator — 9 bar types, edit the target weight, apply it to a set',
+      'Muscle recovery: size-aware recovery windows and effort-weighted fatigue, with a time-to-ready estimate',
+      '3D badge artwork and a 2J master crest on the Badges screen',
+      'Program day cards show each day’s full exercise breakdown, not just the routine name',
+      'A badges/achievement system, with a festive unlock celebration',
+      'Segmented body-fat and muscle-mass tracking (per limb/trunk), with a %/kg toggle',
       'Strength rank system, with a per-lift, per-muscle-group and overall rank',
       'A staff badge on trainer/admin profiles and their posts',
       'Stretching: an auto-planned or self-picked stretch-only session',

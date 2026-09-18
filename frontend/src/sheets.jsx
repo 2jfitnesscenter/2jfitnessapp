@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, isCardio, allExercises, equipmentOf, isHidden, exOr } from './lib/exercises.js'
@@ -25,7 +25,9 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
 import { getExerciseAlternatives, QUICK_FILTERS } from './lib/alternatives.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
-import { MOBILE } from './lib/mobile.js'
+import { MOBILE, shareImage } from './lib/mobile.js'
+import { buildShareCardData } from './lib/share-card.js'
+import WorkoutShareCard, { CARD_SIZE } from './components/WorkoutShareCard.jsx'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
 import BioimpedanceFields from './components/BioimpedanceFields.jsx'
 import { resizeImageFile, uploadImage, mediaUrl, scanRoutine } from './lib/media.js'
@@ -1794,12 +1796,81 @@ function FinishSummary({ w, prs, e1prs = [], rankUps = [], newBadges = [], close
     <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(st))} body={st.body} />
     {coachOn && <SessionRating w={w} />}
     <div style={{ height: 14 }} />
+    <Button variant="tinted" icon="upload" onClick={() => shareCardSheet(w, prs, e1prs, newBadges)}>{t('Share workout')}</Button>
+    <div style={{ height: 8 }} />
     {/* The badge celebration is its own sheet+sound (celebrateBadges) rather than folded in
         here as another row — a badge unlock needs to work the same way from a CSV/Health
         import too, which never has a FinishSummary to fold into, so both paths go through
         the one shared celebration instead of two different treatments. */}
     <Button variant="primary" onClick={() => { close(); celebrateBadges(newBadges); nav('/home') }}>{t('Nice!')}</Button>
   </div>
+}
+// A shareable PNG of the just-finished session (or, from the badge celebration's own trigger,
+// still the current `w` closed over there) — 9:16 by default with a 1:1 toggle, rendered
+// off-screen at CARD_SIZE and rasterized with html-to-image, loaded lazily since most sessions
+// never open this sheet and the library has no reason to ride along in the main bundle.
+function shareCardSheet(w, prs, e1prs, newBadges) {
+  ui().openSheet(close => <WorkoutShareSheet w={w} prs={prs} e1prs={e1prs} newBadges={newBadges} close={close} />)
+}
+function WorkoutShareSheet({ w, prs, e1prs, newBadges, close }) {
+  const st = useStore(s => s.S)
+  const data = useMemo(() => buildShareCardData(st, w, prs, e1prs, newBadges), [st, w, prs, e1prs, newBadges])
+  const [aspect, setAspect] = useState('story')
+  const [busy, setBusy] = useState(false)
+  const cardRef = useRef(null)
+
+  // pixelRatio 4 against WorkoutShareCard's 270px-wide DOM node is what turns the on-screen
+  // preview into the spec's 1080×1920 (story) / 1080×1080 (square) export — see CARD_SIZE's
+  // own comment. cacheBust appends a timestamp to the crest/badge <img> requests so a stale
+  // service-worker/browser cache can never hand back a half-loaded image mid-capture.
+  const capture = async () => {
+    const { toPng } = await import('html-to-image')
+    return toPng(cardRef.current, { pixelRatio: 4, cacheBust: true })
+  }
+  const filename = `2J-Workout-${w.d}.png`
+  const withCapture = async fn => {
+    if (busy) return
+    setBusy(true)
+    try { await fn(await capture()) }
+    catch (e) { ui().toast(t("Couldn't create the image")) }
+    finally { setBusy(false) }
+  }
+  const doShare = async dataUrl => {
+    if (MOBILE) { await shareImage(dataUrl.split(',')[1], filename); return }
+    const blob = await (await fetch(dataUrl)).blob()
+    const file = new File([blob], filename, { type: 'image/png' })
+    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: t('My workout') }); return }
+    downloadPng(dataUrl, filename)
+  }
+  const doDownload = async dataUrl => downloadPng(dataUrl, filename)
+  const doCopy = async dataUrl => {
+    if (!navigator.clipboard?.write) { ui().toast(t("Copy isn't supported here")); return }
+    const blob = await (await fetch(dataUrl)).blob()
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+    ui().toast(t('Copied'))
+  }
+
+  return <div>
+    <h3 style={{ textAlign: 'center', margin: '0 0 12px' }}>{t('Share your workout')}</h3>
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <Segmented value={aspect} onChange={setAspect} className="seg-inline"
+        options={[{ value: 'story', label: '9:16' }, { value: 'square', label: '1:1' }]} />
+    </div>
+    <div className="sharecard-preview">
+      <WorkoutShareCard data={data} aspect={aspect} cardRef={cardRef} />
+    </div>
+    <div className="row" style={{ gap: 8, marginTop: 16 }}>
+      <Button variant="tinted" icon="upload" disabled={busy} onClick={() => withCapture(doShare)}>{t('Share')}</Button>
+      <Button variant="tinted" icon="download" disabled={busy} onClick={() => withCapture(doDownload)}>{t('Save')}</Button>
+      <Button variant="tinted" icon="clipboard" disabled={busy} onClick={() => withCapture(doCopy)}>{t('Copy')}</Button>
+    </div>
+    <Button variant="plain" className="dim" style={{ marginTop: 8, width: '100%' }} onClick={close}>{t('Close')}</Button>
+  </div>
+}
+function downloadPng(dataUrl, filename) {
+  const a = document.createElement('a')
+  a.href = dataUrl; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove()
 }
 // Shown once, right after finishing a session that had at least one mid-workout exercise swap
 // (Workout.jsx's `replaceExercise`) — a choice per swap between "just applied to today" (the

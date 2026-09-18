@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { wakeLockSupported } from '../lib/wakelock.js'
 import { t } from '../lib/i18n.js'
@@ -14,6 +15,7 @@ const DEFAULT_INC = { barbell: 5, dumbbell: 2, machineOther: 5 }
 // (lib/equipment.js's stepWeight), or a member's own flat increment per equipment class once
 // that's switched off.
 export default function TrainingSettings() {
+  const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const wakeOK = wakeLockSupported()
@@ -22,7 +24,10 @@ export default function TrainingSettings() {
   const setInc = (k, v) => update(s => { s.customIncrements = { ...(s.customIncrements || DEFAULT_INC), [k]: v } })
 
   return <div className="narrow">
-    <div className="hdr"><div><h1>{t('Training')}</h1></div></div>
+    <div className="hdr">
+      <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
+      <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Training')}</h1></div>
+    </div>
 
     <Section title={t('Previous results')}>
       <Row icon="history" iconTint="var(--blue)" title={t('Show previous results')}

@@ -16,6 +16,7 @@ import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { stepWeight, BARBELL_LIKE_EQ } from '../lib/equipment.js'
 import { zoneOfSet } from '../lib/training-zones.js'
+import { suggestOverload, isOverloadSet, isPotentialPR } from '../lib/overload.js'
 
 /* ---------- start chooser (no active workout) ---------- */
 function StartChooser() {
@@ -118,6 +119,37 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
   // 1RM estimate yet. Same on/off switch as the plate calculator, its own row in Settings.
   const showZones = S.enableTrainingZones !== false && !cardio && mode === 'reps'
   const zoneOf = s => showZones ? zoneOfSet(S, entry.id, s) : null
+  // The Progressive Overload Coach — lib/overload.js. Distinct from `plan` above: `plan` is
+  // this SESSION's one-time prescription from the routine's own progression policy (or nothing,
+  // for a freestyle exercise or a routine set to "off"); `suggestion` is always-on, purely
+  // reactive to last time's numbers, and never writes anything back — tap the ghost values or
+  // the +/- steppers to actually act on it, same as any other set.
+  const showOverload = S.enableProgressiveOverloadCoach !== false && !cardio && mode === 'reps'
+  const topReps = target?.targetRepsMax ?? target?.reps ?? null
+  const suggestion = showOverload ? suggestOverload(S, ex.eq, last, topReps) : null
+  // Warmup/working split, computed once up front (rather than inside the row-rendering IIFE
+  // further down) so both the header's "best result so far" summary and each row's own
+  // check-mark colour can share it without a second pass over entry.sets.
+  const warmupIdx = []
+  const workIdx = []
+  entry.sets.forEach((s, i) => (s.type === 'warmup' ? warmupIdx : workIdx).push(i))
+  const workPosOf = {}
+  workIdx.forEach((idx, pos) => { workPosOf[idx] = pos })
+  // 'pr' beats 'overload' beats nothing — a done working set's check lights up gold for an
+  // all-time estimated-1RM PR, emerald for merely beating last time's equivalent set, and the
+  // header line below the sets echoes whichever is best across the whole exercise so far.
+  const achievementOf = (s, wp) => {
+    if (!showOverload || !s.done || s.type === 'warmup') return null
+    if (isPotentialPR(S, entry.id, s)) return 'pr'
+    if (last && wp != null && isOverloadSet(last.sets[wp], s)) return 'overload'
+    return null
+  }
+  const bestAchievement = showOverload
+    ? workIdx.reduce((best, idx) => {
+      const a = achievementOf(entry.sets[idx], workPosOf[idx])
+      return a === 'pr' ? 'pr' : (a === 'overload' && best !== 'pr' ? 'overload' : best)
+    }, null)
+    : null
   // Collapsible per exercise, not global — reset whenever the visible exercise changes so a
   // hidden warmup block from the last one doesn't silently carry over to this one.
   const [hideWarmup, setHideWarmup] = useState(false)
@@ -136,12 +168,19 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
   const cell = (s, i, col, cls, wp) => {
     const ghostVal = col.ghost && last && wp != null ? last.sets[wp]?.[col.f] : null
     const placeholder = col.rangeLabel || (ghostVal != null ? String(ghostVal) : undefined)
+    // Tap the ghost text to fill the field with it — only when the field is actually still
+    // showing the ghost (same falsy check the `value` prop below uses, so a field that LOOKS
+    // empty is always tappable — a bare 0 renders as the placeholder too, not as "0") and
+    // there's a plain number behind it, not a rep-range label with nothing concrete to fill in.
+    const fillGhost = () => {
+      if (showOverload && !col.rangeLabel && ghostVal != null && !s[col.f]) onField(i, col.f, ghostVal)
+    }
     return (
       <div className={'stp ' + cls}>
         <button aria-label={t('Decrease')} onClick={() => bump(s, i, col, -1)}><Icon name="minus" /></button>
         {/* A ghost column reads an unset 0 as empty too, so its placeholder — a rep-range
             target if one's configured, else last time's number — actually has room to show. */}
-        <span className="val"><NumberField decimal={col.dec} nullable={col.opt}
+        <span className="val" onClick={fillGhost}><NumberField decimal={col.dec} nullable={col.opt}
           value={col.ghost ? (s[col.f] || '') : (s[col.f] ?? '')}
           placeholder={placeholder}
           onChange={v => onField(i, col.f, v)} /></span>
@@ -189,18 +228,22 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
       <Icon name={plan.kind === 'up' ? 'arrowUp' : plan.kind === 'deload' ? 'arrowDown' : 'lightbulb'} />
       <span>{t(...plan.why)}</span>
     </div>}
+    {/* The Coach's own suggestion sits below `plan` rather than replacing it — `plan` (when
+        present) explains what THIS session's prescribed numbers already are and why; this is a
+        standing "here's a sane next target" a member can act on with any exercise, prescribed
+        or not. */}
+    {suggestion && <div className="overload-chip">
+      <Icon name="target" />
+      <span>{t('Target: {0} {1} × {2}', fmtNum(suggestion.w), S.unit, suggestion.r)}</span>
+    </div>}
+    {bestAchievement && <div className={'progline' + (bestAchievement === 'pr' ? ' pr' : '')}>
+      <Icon name={bestAchievement === 'pr' ? 'trophy' : 'arrowUp'} />
+      <span>{bestAchievement === 'pr' ? t('New PR this session!') : t('Overload achieved')}</span>
+    </div>}
     <div className="card" style={{ marginTop: 10, marginBottom: 0 }}>
       {/* the header carries the same eff3 sizing as the rows, or the labels drift off their columns */}
       {(() => {
         const sethead = <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{col3 && <span className="eff-sp">{col3.hd}</span>}{timed && <span className="ck-sp" />}<span className="ck-sp" /></div>
-        // Warmup/working split, computed once up front so `row` below can look up each row's
-        // position among WORKING sets only — that's the index a ghost column needs into `last`
-        // (lastEntryFor already drops warmups from its own sets), not its raw position here.
-        const warmupIdx = []
-        const workIdx = []
-        entry.sets.forEach((s, i) => (s.type === 'warmup' ? warmupIdx : workIdx).push(i))
-        const workPosOf = {}
-        workIdx.forEach((idx, pos) => { workPosOf[idx] = pos })
         const row = (s, i) => <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '')}>
           <button className="n" aria-label={t('Set type')} style={s.type ? { background: TYPE_COLOR[s.type], color: '#fff' } : undefined}
             onClick={() => onSetType(i)}>{setBadge(entry.sets, i)}</button>
@@ -215,7 +258,7 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
               set off itself. The checkbox stays for anyone who timed it on their own watch. */}
           {timed && <button className="setgo" aria-label={t('Start set')} disabled={s.done || !!working}
             onClick={() => onStartTimed(i)}><Icon name="play" /></button>}
-          <Check checked={s.done} onChange={() => onToggle(i)} />
+          <Check checked={s.done} onChange={() => onToggle(i)} className={achievementOf(s, workPosOf[i]) || ''} />
         </div>
         // Only split into two labelled blocks when there's actually a warmup to separate out —
         // an exercise with none (warmups off, or no working weight to ramp up to yet) keeps the

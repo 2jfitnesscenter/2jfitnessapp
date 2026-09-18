@@ -752,6 +752,12 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .chk .icn{font-size:calc(16px * var(--text-scale,1));--icon-stroke:2.6}
 .chk.on{background:var(--acc);box-shadow:none;color:var(--on-acc)}
+/* Progressive Overload Coach (lib/overload.js) — a done set that beat history lights up its own
+   check instead of the plain accent, so the "you did better" read doesn't need a second glance
+   anywhere else on the row. Gold (a genuine all-time PR) always outranks emerald (beat last
+   time's equivalent set only) — see Workout.jsx's achievementOf. */
+.chk.on.overload{background:var(--green);color:#fff}
+.chk.on.pr{background:var(--yellow);color:#000}
 .chk:active,.ck:active{transform:scale(.9)}
 .ck svg{
   width:16px;height:16px;stroke:transparent;fill:none;stroke-width:2.6;
@@ -850,7 +856,18 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   font-size:calc(13px * var(--text-scale,1));line-height:1.38;color:var(--acc);
 }
 .progline.warn{color:var(--yellow)}
+.progline.pr{color:var(--yellow);font-weight:600}
 .progline svg{flex:none;margin-top:2px}
+
+/* Progressive Overload Coach's own suggestion (lib/overload.js) — a small filled chip, not
+   another .progline row, so a member never confuses "here's a standing target" with "here's
+   why this session's numbers are what they are" (the routine's own progression reason, above). */
+.overload-chip{
+  display:inline-flex;align-items:center;gap:6px;margin:4px 0 2px;padding:5px 10px;
+  border-radius:99px;background:var(--acc-soft);color:var(--acc);
+  font-size:calc(12.5px * var(--text-scale,1));font-weight:600;
+}
+.overload-chip svg{width:14px;height:14px}
 
 /* start a timed set (issue #16) — sits where you'd otherwise reach for the checkbox */
 .setrow .setgo{
@@ -1235,6 +1252,88 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   text-transform:uppercase;color:var(--label-3);
 }
 @media (prefers-reduced-motion: reduce){.badgemaster-img{animation:none}}
+
+/* ------------------------ workout share card ------------------------ */
+/* The exported PNG's own "poster" look — pinned dark regardless of the viewer's live
+   Settings → Appearance choice, since a card shared to Instagram/WhatsApp needs to read the
+   same whether whoever made it uses light or dark mode. Redeclaring the app's own surface/
+   label/accent tokens here (rather than inventing a parallel set) means everything nested
+   inside — BodyMap's muscle shading, a reused .tile — already renders correctly with zero
+   component changes: custom properties cascade to the nearest ancestor that sets them, so
+   this scope wins over :root[data-theme] further up the tree. Sizes are tuned for the 270px
+   CSS width WorkoutShareCard.jsx renders at (see CARD_SIZE there) — html-to-image captures at
+   pixelRatio 4, so 1px here is 4px in the exported file.
+   CARD_SIZE and the pixelRatio in sheets.jsx's WorkoutShareSheet both assume this width. */
+.sharecard{
+  --bg:#04140b; --bg-el:#081d11; --surface:#102a1b; --surface-2:#173a26; --surface-3:#1f4b31;
+  --label:#f3fbf1; --label-2:rgba(232,250,232,.66); --label-3:rgba(232,250,232,.4); --label-4:rgba(232,250,232,.2);
+  --sep:rgba(180,255,170,.14); --acc:#73b52e; --acc-2:#578923; --on-acc:#04140b;
+  --acc-soft:color-mix(in srgb, var(--acc) 20%, transparent);
+  position:relative; overflow:hidden; display:flex; flex-direction:column;
+  padding:16px 16px 10px; box-sizing:border-box; border-radius:18px;
+  color:var(--label); text-align:center;
+  background:
+    radial-gradient(120% 65% at 50% -12%, rgba(142,232,90,.32), transparent 60%),
+    radial-gradient(90% 55% at 105% 110%, rgba(87,137,35,.28), transparent 60%),
+    linear-gradient(165deg, #082512, #030d07 72%);
+}
+.sc-top{display:flex;flex-direction:column;align-items:center;gap:4px}
+.sc-crest{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(107,224,76,.5))}
+.sc-brand{font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--label-3)}
+.sc-badges{display:flex;flex-direction:column;align-items:center;gap:3px;margin-top:8px}
+.sc-badge-row{display:flex;gap:4px}
+.sc-badge{width:22px;height:22px;object-fit:contain}
+.sc-badges-label{font-size:9px;font-weight:600;color:var(--acc);letter-spacing:.02em}
+.sc-title{
+  font-size:17px;font-weight:800;letter-spacing:-.01em;margin-top:10px;line-height:1.15;
+  text-wrap:balance;
+}
+.sc-date{font-size:10px;color:var(--label-3);margin-top:2px}
+.sc-map{height:118px;margin-top:6px}
+.sc-map .bodymap{height:100%}
+.sc-map .bm-v{max-height:118px}
+.sc-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.sc-tile{
+  background:var(--surface-2);border:1px solid rgba(255,255,255,.06);border-radius:10px;
+  padding:7px 8px;text-align:left;display:flex;flex-direction:column;gap:1px;
+}
+.sc-tile-l{font-size:8.5px;font-weight:600;color:var(--label-3);text-transform:uppercase;letter-spacing:.04em}
+.sc-tile-v{font-size:13px;font-weight:700;color:var(--label)}
+.sc-tile-v i{font-style:normal;font-size:9px;font-weight:500;color:var(--label-3)}
+.sc-lifts{display:flex;flex-direction:column;gap:4px;margin-top:8px;text-align:left}
+.sc-lift{
+  display:flex;align-items:center;gap:5px;background:var(--surface);border-radius:8px;
+  padding:5px 8px;font-size:10.5px;
+}
+.sc-lift svg{width:11px;height:11px;color:var(--acc);flex:none}
+.sc-lift-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;text-transform:capitalize}
+.sc-lift-v{font-weight:700;color:var(--acc);flex:none}
+.sc-footer{
+  margin-top:auto;padding-top:10px;display:flex;justify-content:center;align-items:center;gap:5px;
+  font-size:8.5px;color:var(--label-3);letter-spacing:.02em;
+}
+.sc-footer-dot{opacity:.6}
+/* Square has no muscle map to fill the height the story layout uses for one, so every
+   section below the title tightens up to keep the whole card inside 270px — verified against
+   the worst case (a badge unlock + 2 lifts) rather than eyeballed. */
+.sharecard[data-aspect="square"]{padding:12px 14px 8px}
+.sharecard[data-aspect="square"] .sc-crest{width:22px;height:22px}
+.sharecard[data-aspect="square"] .sc-brand{font-size:7px}
+.sharecard[data-aspect="square"] .sc-badges{margin-top:5px;gap:2px}
+.sharecard[data-aspect="square"] .sc-badge{width:18px;height:18px}
+.sharecard[data-aspect="square"] .sc-badges-label{font-size:8px}
+.sharecard[data-aspect="square"] .sc-title{font-size:15px;margin-top:6px}
+.sharecard[data-aspect="square"] .sc-date{margin-top:1px}
+.sharecard[data-aspect="square"] .sc-stats{margin-top:8px;gap:5px}
+.sharecard[data-aspect="square"] .sc-tile{padding:5px 7px}
+.sharecard[data-aspect="square"] .sc-tile-v{font-size:12px}
+.sharecard[data-aspect="square"] .sc-lifts{margin-top:6px;gap:3px}
+.sharecard[data-aspect="square"] .sc-lift{padding:4px 7px;font-size:9.5px}
+.sharecard[data-aspect="square"] .sc-footer{padding-top:6px}
+.sharecard-preview{
+  display:flex;justify-content:center;margin-top:14px;
+  filter:drop-shadow(0 12px 28px rgba(0,0,0,.45));
+}
 
 /* --- stat tiles --- */
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}

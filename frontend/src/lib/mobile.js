@@ -67,6 +67,17 @@ export async function shareExport(json, filename) {
   await Share.share({ title: filename, url: w.uri })
 }
 
+// Same temp-file-then-OS-share-sheet trick as shareExport, for a generated PNG (the workout
+// share card) instead of a JSON backup. `base64Png` is html-to-image's own data URL with the
+// "data:image/png;base64," prefix already stripped by the caller — Filesystem.writeFile with
+// no `encoding` writes its `data` as raw base64 bytes rather than UTF-8 text.
+export async function shareImage(base64Png, filename) {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem')
+  const { Share } = await import('@capacitor/share')
+  const w = await Filesystem.writeFile({ path: filename, directory: Directory.Cache, data: base64Png })
+  await Share.share({ title: filename, url: w.uri })
+}
+
 // A plain-text share (the badge unlock celebration's "Share achievement" button — nothing to
 // write to a temp file for, unlike shareExport). Three tiers, each falling through to the
 // next when it isn't available: the native OS share sheet on the app build, the Web Share API

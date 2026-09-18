@@ -10,6 +10,7 @@ import { exOr } from '../lib/exercises.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE, shareExport, syncReminder } from '../lib/mobile.js'
 import { loadStarterPlan, confirmSheet, importFromApp, platesSheet } from '../sheets.jsx'
+import { ZONES } from '../lib/training-zones.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import { RankGuideSheet } from './Rank.jsx'
@@ -147,7 +148,13 @@ export default function Settings() {
       </Row>
       <Row icon="target" iconTint="var(--purple)" title={t('Training zones')}
         subtitle={t('Calculate and show relative effort, RPE and %1RM while training.')}>
+        <button className="helpbtn" aria-label={t('What are Training zones?')} onClick={trainingZonesHelpSheet}><Icon name="info" /></button>
         <Switch checked={S.enableTrainingZones !== false} onChange={v => update(s => { s.enableTrainingZones = v })} />
+      </Row>
+      <Row icon="arrowUp" iconTint="var(--green)" title={t('Progressive overload coach')}
+        subtitle={t('Show references from your last workout and overload targets on each set.')}>
+        <button className="helpbtn" aria-label={t('What is the overload coach?')} onClick={overloadHelpSheet}><Icon name="info" /></button>
+        <Switch checked={S.enableProgressiveOverloadCoach !== false} onChange={v => update(s => { s.enableProgressiveOverloadCoach = v })} />
       </Row>
       <SelectRow icon="timer" iconTint="var(--orange)" title={t('Rest timer')}
         value={S.restSec} onChange={v => update(s => { s.restSec = v })}
@@ -335,6 +342,50 @@ function effortHelpSheet() {
       <div>{t('The highlighted row is where most working sets land. Sets you have already logged keep their own scale, and nothing else reads the value — progression and estimated 1RM are unaffected.')}</div>
     </div>
     <div style={{ height: 8 }} />
+  </>)
+}
+
+function trainingZonesHelpSheet() {
+  useUI.getState().openSheet(close => <>
+    <h3>{t('Training zones')}</h3>
+    <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 12 }}>
+      {t('Every logged set is placed into one of 5 standard strength-training zones, so you can see at a glance what kind of effort a session is actually made of.')}
+    </div>
+    <h4 className="sec" style={{ marginTop: 0 }}>{t('How it’s calculated')}</h4>
+    <div className="small dim" style={{ lineHeight: 1.5, marginBottom: 14 }}>
+      {t('Whenever this exercise already has an estimated 1RM (from your best set on record, or a test you logged), the zone comes from the set’s weight as a % of that 1RM — the most direct signal. Without an estimate yet — a brand-new exercise, or one you’ve only trained for very high reps — it falls back to the RIR/RPE you rated the set with instead.')}
+    </div>
+    <div className="efftbl">
+      <div className="r hd"><span className="n">{t('Zone')}</span><span className="f">{t('Range')}</span></div>
+      {ZONES.map(z => (
+        <div key={z.id} className="r">
+          <span className="n" style={{ color: z.color, fontWeight: 700 }}>{z.short}</span>
+          <span className="f">
+            <b>{t(z.label)}</b> — {z.pctLabel} 1RM · {t('RIR')} {z.rirLabel} · {z.reps} {t('reps')}
+          </span>
+        </div>
+      ))}
+    </div>
+    <div className="dim small" style={{ lineHeight: 1.5, marginTop: 14 }}>
+      {t('The coloured chip on each set (in the logger), the target-zone picker when planning a routine’s exercise, and the weekly/monthly volume-by-zone chart in Progress all read from the same calculation, and all turn off together with the switch above.')}
+    </div>
+  </>)
+}
+
+function overloadHelpSheet() {
+  useUI.getState().openSheet(close => <>
+    <h3>{t('Progressive overload coach')}</h3>
+    <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 14 }}>
+      {t('A standing suggestion for what to aim for next on any exercise you’ve trained before, plus a clear signal the moment you actually beat it.')}
+    </div>
+    <h4 className="sec" style={{ marginTop: 0 }}>{t('The target chip')}</h4>
+    <div className="small dim" style={{ lineHeight: 1.5, marginBottom: 14 }}>
+      {t('If your heaviest set last time hit the top of this exercise’s rep target, the suggestion is more weight, same reps. If it fell short, the suggestion holds the weight and asks for one more rep instead. Either way it’s a suggestion, not something the app changes for you — tap a set’s own “last time” placeholder to fill it in.')}
+    </div>
+    <h4 className="sec">{t('Beating it')}</h4>
+    <div className="small dim" style={{ lineHeight: 1.5 }}>
+      {t('A set that matches or beats the equivalent one from last time turns its checkmark green. One that also beats this exercise’s best-ever estimated 1RM turns it gold instead, with “New PR this session!” underneath the sets.')}
+    </div>
   </>)
 }
 
