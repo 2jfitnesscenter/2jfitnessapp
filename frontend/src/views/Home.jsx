@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks, setsDoneActive, setsDone } from '../lib/history.js'
-import { fmtDate, fmtDur, fmtVol, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
+import { fmtVol, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, workoutDetailSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -47,31 +47,23 @@ function WorkoutBodyMapModal({ w, S, close }) {
   </div>
 }
 
-// A tap-through summary of the most recently finished workout — duration, sets, volume, and
-// which muscles it hit (the same body map FinishSummary shows right after finishing one). The
-// map itself is shrunk to a compact side-by-side pair (index.css's .home-bodymap) and opens
-// its own full-screen detail on tap — stopping the event so that tap doesn't also fire the
-// card's own onClick (which opens the workout detail sheet instead).
+// The left half of Home's own 2-column glance row (.home-grid2) — a condensed tap-through to
+// the most recently finished workout: short header, one line of key metrics ("16 series ·
+// 5.653 kg"), and a shrunk body map (index.css's .home-bodymap-sm) that opens its own
+// full-screen detail on tap — stopping the event so that tap doesn't also fire the card's own
+// onClick (which opens the workout detail sheet instead). Same card either half of the grid
+// row got in the previous, full-width layout, just laid out for half the space.
 function LastWorkoutCard({ S }) {
   const w = S.workouts.length ? S.workouts[S.workouts.length - 1] : null
   if (!w) return null
-  const glyph = glyphOf((S.routines.find(r => r.id === w.routineId) || {}).emoji)
   const openMap = e => { e.stopPropagation(); useUI.getState().openSheet(close => <WorkoutBodyMapModal w={w} S={S} close={close} />, { kind: 'full' }) }
-  return <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => workoutDetailSheet(w)}>
-    <div className="row" style={{ gap: 9, marginBottom: 10 }}>
-      <span className="lrow-i" style={{ width: 34, height: 34, borderRadius: 8, fontSize: 19 }}><Icon name={glyph} /></span>
-      <div style={{ minWidth: 0 }}>
-        <div className="lbl2">{t('Last workout')}</div>
-        <div className="ttl">{w.name}</div>
-      </div>
-      <span className="dim small" style={{ marginLeft: 'auto' }}>{fmtDate(w.d, true)}</span>
+  return <div className="card home-half tappable" style={{ cursor: 'pointer' }} onClick={() => workoutDetailSheet(w)}>
+    <div className="row between" style={{ marginBottom: 6 }}>
+      <div className="home-half-ttl">{t('Last workout')}</div>
+      <Icon name="chevronRight" className="chev" style={{ fontSize: 15 }} />
     </div>
-    <div className="tiles">
-      <div className="tile"><div className="l">{t('Duration')}</div><div className="v">{fmtDur(w.end - w.start)}</div></div>
-      <div className="tile"><div className="l">{t('Sets')}</div><div className="v">{setsDone(w)}</div></div>
-      <div className="tile"><div className="l">{t('Volume')}</div><div className="v">{fmtVol(w.vol, S.unit)}</div></div>
-    </div>
-    <div className="home-bodymap tappable" style={{ cursor: 'pointer' }} onClick={openMap}>
+    <div className="home-half-sub">{t('{0} sets · {1}', setsDone(w), fmtVol(w.vol, S.unit))}</div>
+    <div className="home-bodymap-sm tappable" style={{ cursor: 'pointer' }} onClick={openMap}>
       <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(S))} body={S.body} />
     </div>
   </div>
@@ -271,9 +263,10 @@ export default function Home() {
       </div>
     )}
 
-    <LastWorkoutCard S={S} />
-
-    <RecoveryCard nav={nav} S={S} />
+    <div className="home-grid2">
+      <LastWorkoutCard S={S} />
+      <RecoveryCard nav={nav} S={S} compact />
+    </div>
 
     <WhoopCard nav={nav} connected={!!user?.whoop} />
 

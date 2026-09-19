@@ -18,12 +18,21 @@ import crypto from 'node:crypto';
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = path.join(DATA, 'bunker.json');
 
-const store = { pins: [], adminCodes: [], settings: { columns: 4, soundAlerts: true, header: '2J Fitness Center' } };
+const DEFAULT_SETTINGS = {
+  columns: 4,               // 'auto' | 2 | 3 | 4 | 6
+  header: '2J Fitness Center',
+  enableRestEndBeep: true,      // a tone when an athlete's rest countdown reaches zero
+  highlightFinishedRest: true,  // a pulsing highlight on that athlete's own card, same moment
+  hideWeightsInPublicView: false, // the room dashboard shows exercise + set only, no kg, when on
+  autoLockSec: 60,           // how long the individual panel sits idle before it locks itself
+};
+const store = { pins: [], adminCodes: [], roomKey: null, settings: { ...DEFAULT_SETTINGS } };
 try {
   const parsed = JSON.parse(fs.readFileSync(FILE, 'utf8'));
   store.pins = Array.isArray(parsed.pins) ? parsed.pins : [];
   store.adminCodes = Array.isArray(parsed.adminCodes) ? parsed.adminCodes : [];
-  store.settings = { ...store.settings, ...(parsed.settings || {}) };
+  store.roomKey = typeof parsed.roomKey === 'string' ? parsed.roomKey : null;
+  store.settings = { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) };
 } catch { /* first boot — no file yet */ }
 
 function atomicWrite(file, content) {
@@ -76,6 +85,24 @@ export function userIdForAdminCode(code) {
   return entry ? entry.userId : null;
 }
 
+// The single room-pairing key behind /bunker/launch?token=... — one shared screen's worth of
+// "this device is the gym's own kiosk" for now (see routes.js's own comment on why this is
+// deliberately not a per-screen registry). Lazily generated on first read, same shape as the
+// PIN/admin-code generators above; resettable, unlike the admin code, since a leaked launch
+// link is a much smaller blast radius (it only opens the public kiosk view) but still worth
+// being able to rotate.
+function newRoomKey() { return crypto.randomBytes(18).toString('base64url'); }
+export function getRoomKey() {
+  if (!store.roomKey) { store.roomKey = newRoomKey(); save(); }
+  return store.roomKey;
+}
+export function resetRoomKey() {
+  store.roomKey = newRoomKey();
+  save();
+  return store.roomKey;
+}
+export function verifyRoomKey(key) { return !!key && key === store.roomKey; }
+
 export function getSettings() { return store.settings; }
 export function setSettings(patch) {
   store.settings = { ...store.settings, ...patch };
@@ -84,11 +111,16 @@ export function setSettings(patch) {
 }
 
 /* ---------- live sessions (ephemeral — never persisted) ---------- */
-const sessions = new Map(); // uid -> { uid, name, checkinAt, exId, exName, setIdx, setsTotal, restEndsAt, lastActivityAt }
+// uid -> { uid, name, checkinAt, exId, exName, setIdx, setsTotal, restEndsAt, paused,
+//          pausedLeftSec, lastActivityAt }
+const sessions = new Map();
 const IDLE_TTL = 15 * 60000; // a session nobody has touched in 15 minutes is treated as abandoned
 
 export function startSession(uid, name) {
-  const s = { uid, name, checkinAt: Date.now(), exId: null, exName: null, setIdx: 0, setsTotal: 0, restEndsAt: null, lastActivityAt: Date.now() };
+  const s = {
+    uid, name, checkinAt: Date.now(), exId: null, exName: null, setIdx: 0, setsTotal: 0,
+    restEndsAt: null, paused: false, pausedLeftSec: null, lastActivityAt: Date.now(),
+  };
   sessions.set(uid, s);
   return s;
 }
@@ -97,6 +129,27 @@ export function touchSession(uid, patch) {
   const s = sessions.get(uid);
   if (!s) return null;
   Object.assign(s, patch, { lastActivityAt: Date.now() });
+  return s;
+}
+// Freezes/thaws the rest countdown only — an admin catching a member who stepped away without
+// pausing their own phone. Pausing banks however many seconds were left so resuming picks up
+// exactly where it stopped, instead of the countdown silently continuing to run out unseen.
+export function pauseSession(uid) {
+  const s = sessions.get(uid);
+  if (!s || s.paused) return s;
+  s.paused = true;
+  s.pausedLeftSec = s.restEndsAt ? Math.max(0, Math.round((s.restEndsAt - Date.now()) / 1000)) : null;
+  s.restEndsAt = null;
+  s.lastActivityAt = Date.now();
+  return s;
+}
+export function resumeSession(uid) {
+  const s = sessions.get(uid);
+  if (!s || !s.paused) return s;
+  s.paused = false;
+  s.restEndsAt = s.pausedLeftSec ? Date.now() + s.pausedLeftSec * 1000 : null;
+  s.pausedLeftSec = null;
+  s.lastActivityAt = Date.now();
   return s;
 }
 export function endSession(uid) { sessions.delete(uid); }

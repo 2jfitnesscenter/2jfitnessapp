@@ -35,6 +35,7 @@ import StatsSettings from './views/StatsSettings.jsx'
 import RpVolumeCalibration from './views/RpVolumeCalibration.jsx'
 import RpVolumeStats from './views/RpVolumeStats.jsx'
 import Bunker from './views/Bunker.jsx'
+import BunkerLaunch from './views/BunkerLaunch.jsx'
 import BunkerAdminPage from './views/BunkerAdminPage.jsx'
 import Badges from './views/Badges.jsx'
 import Profile from './views/Profile.jsx'
@@ -151,6 +152,7 @@ function Shell() {
   // guest bypass to think about). It owns its own full-bleed layout and never touches
   // Modals/Toast (see views/Bunker.jsx's own overlay components for why it doesn't need them).
   if (loc.pathname === '/bunker') return <Bunker />
+  if (loc.pathname === '/bunker/launch') return <BunkerLaunch />
 
   // A genuinely brand-new profile only — one with no real data at all yet — sees the Physical
   // Profile wizard once, right after registering, instead of Login.jsx's old single-sheet form.

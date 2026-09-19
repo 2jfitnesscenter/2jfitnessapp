@@ -1225,6 +1225,21 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
    interactive version (WorkoutBodyMapModal) instead of the default detail height above. */
 .home-bodymap .bm-v{max-height:min(22vh,160px)}
 .home-bodymap .bm-ph{height:120px}
+/* Home's 2-column glance row (LastWorkoutCard + RecoveryCard, compact) — same idea as the
+   .tiles/.cols grids elsewhere, an even 2-up split that stretches both cards to the taller
+   one's height for free (CSS grid's own default align-items:stretch). */
+.home-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.home-grid2 .card{margin-bottom:0;display:flex;flex-direction:column}
+.home-half-ttl{font-size:calc(13.5px * var(--text-scale,1));font-weight:600;color:var(--label)}
+.home-half-sub{font-size:calc(12px * var(--text-scale,1));color:var(--label-2);margin-bottom:8px}
+.home-half-pill{
+  font-size:calc(12px * var(--text-scale,1));font-weight:700;padding:2px 9px;border-radius:99px;
+  border:1.5px solid;line-height:1.5;flex:none;
+}
+/* Even smaller than .home-bodymap above — half a phone's width instead of the whole thing. */
+.home-bodymap-sm{margin-top:auto}
+.home-bodymap-sm .bm-v{max-height:min(15vh,110px)}
+.home-bodymap-sm .bm-ph{height:90px}
 .bm-sil{fill:color-mix(in srgb,var(--label) 18%,var(--surface))}
 .bm-m{fill:var(--bm-base);transition:fill var(--med) var(--ease)}
 .bm-m.l1{fill:color-mix(in srgb,var(--acc) 32%,var(--bm-base))}
@@ -1647,18 +1662,26 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   display:flex;flex-direction:column;
 }
 .bk-dash{flex:1;display:flex;flex-direction:column;padding:28px 32px;overflow-y:auto}
-.bk-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
-.bk-hd-title{font-size:28px;font-weight:700;letter-spacing:-.02em}
+.bk-hd{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:24px}
+.bk-hd-title{font-size:28px;font-weight:700;letter-spacing:-.02em;cursor:default;user-select:none}
+.bk-paired-badge{
+  font-size:11px;font-weight:600;color:#10B981;background:rgba(16,185,129,.12);
+  border:1px solid rgba(16,185,129,.3);border-radius:99px;padding:3px 10px;flex:none;
+}
 .bk-admin-btn{
-  width:44px;height:44px;border-radius:12px;background:#1a1a1e;color:#9a9a9e;
+  width:44px;height:44px;border-radius:12px;background:#1a1a1e;color:#9a9a9e;flex:none;
   display:flex;align-items:center;justify-content:center;font-size:20px;
 }
 .bk-empty{flex:1;display:flex;align-items:center;justify-content:center;color:#6a6a6e;font-size:20px}
 .bk-grid{display:grid;grid-template-columns:repeat(var(--cols,4),1fr);gap:16px;flex:1;align-content:start}
 .bk-card{
   background:#141417;border-radius:18px;padding:20px;min-height:140px;
-  display:flex;flex-direction:column;gap:6px;position:relative;
+  display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;
+  transition:box-shadow .3s;
 }
+.bk-card.paused{opacity:.6}
+.bk-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.bk-card-elapsed{font-size:12px;color:#6a6a6e;font-variant-numeric:tabular-nums}
 .bk-card-name{font-size:20px;font-weight:700}
 .bk-card-ex{font-size:15px;color:#c8c8cc}
 .bk-card-ex.dim{color:#6a6a6e;font-style:italic}
@@ -1666,6 +1689,15 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .bk-ring{position:absolute;right:14px;bottom:14px;display:flex;align-items:center;justify-content:center}
 .bk-ring svg{width:100%;height:100%;position:absolute;inset:0}
 .bk-ring-n{position:relative;font-size:14px;font-weight:700}
+.bk-ring-paused{color:#6a6a6e;font-size:16px}
+/* the rest-just-ended pulse (settings.highlightFinishedRest) — a soft emerald wash over the
+   whole card for a few seconds, visible from across the room without needing to read numbers */
+.bk-card-pulse{
+  position:absolute;inset:0;border-radius:18px;pointer-events:none;
+  box-shadow:inset 0 0 0 2px #10B981;animation:bkPulse 1.1s ease-in-out infinite;
+}
+@keyframes bkPulse{0%,100%{opacity:.35}50%{opacity:1}}
+.bk-rpbar{margin:2px 0 14px}
 .bk-join{
   margin-top:24px;align-self:center;background:#73b52e;color:#04140b;border-radius:99px;
   padding:18px 40px;font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px;
@@ -1735,4 +1767,142 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 @media (max-width:700px){
   .bk-grid{grid-template-columns:repeat(2,1fr)}
   .bk-bigstp button{width:44px;height:48px;font-size:22px}
+}
+
+/* ============================================================================
+   /admin/bunker — the Bunker's own full admin panel (views/BunkerAdminPage.jsx).
+   Its own fixed, always-dark identity per the owner's own brief: matte obsidian
+   (#0B0F12), emerald (#10B981) as the one working accent, a restrained metallic
+   gold for the credentials module only, light glassmorphism on every card, and
+   tabular figures wherever a number ticks (counters, timers, elapsed time). ==== */
+.bkadm-root{
+  position:fixed;inset:0;z-index:5;background:#0B0F12;color:#EDEFF1;
+  display:flex;flex-direction:column;overflow-y:auto;
+  font-variant-numeric:tabular-nums;
+}
+.bkadm-root .tabular{font-variant-numeric:tabular-nums}
+.bkadm-hd{
+  position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;
+  padding:18px 20px;background:rgba(11,15,18,.82);backdrop-filter:blur(20px) saturate(140%);
+  border-bottom:1px solid rgba(16,185,129,.14);
+}
+.bkadm-title{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.bkadm-sub{font-size:12.5px;color:#8B9198;margin-top:1px}
+.bkadm-iconbtn{
+  width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06);color:#C7CCD1;flex:none;
+  display:flex;align-items:center;justify-content:center;
+}
+.bkadm-body{padding:18px 20px 60px;display:flex;flex-direction:column;gap:16px;max-width:960px;margin:0 auto;width:100%}
+
+/* the glass card every section sits in */
+.bkadm-panel{
+  background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+  border:1px solid rgba(16,185,129,.16);border-radius:20px;padding:20px;
+  backdrop-filter:blur(18px) saturate(160%);
+  box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 20px 50px -30px rgba(0,0,0,.7);
+}
+.bkadm-h2{font-size:14px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:#8FF0C8;margin:0 0 14px}
+
+.bkadm-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:14px}
+.bkadm-card{
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:16px;
+  padding:14px;display:flex;flex-direction:column;gap:10px;transition:opacity .25s;
+}
+.bkadm-card.paused{opacity:.55}
+.bkadm-card-hd{display:flex;align-items:center;gap:10px}
+.bkadm-card-name{font-size:15px;font-weight:600;color:#F2F4F5}
+.bkadm-card-meta{font-size:11.5px;color:#7C8389;font-variant-numeric:tabular-nums}
+.bkadm-badge{
+  font-size:10.5px;font-weight:700;color:#0B0F12;background:#D4AF37;border-radius:99px;
+  padding:3px 8px;flex:none;letter-spacing:.02em;
+}
+.bkadm-card-body{min-height:40px}
+.bkadm-card-ex{font-size:13.5px;color:#C7CCD1}
+.bkadm-card-ex.dim{color:#5F656B;font-style:italic}
+.bkadm-card-set{font-size:12px;color:#8B9198;margin-top:2px}
+.bkadm-rest{display:flex;align-items:center;gap:6px;color:#10B981;font-weight:700;font-size:13px;margin-top:6px}
+.bkadm-card-acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:2px}
+.bkadm-act{
+  display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;
+  color:#C7CCD1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+  border-radius:10px;padding:8px 2px;
+}
+.bkadm-act:active{background:rgba(255,255,255,.09)}
+.bkadm-act.danger{color:#FF7A6E}
+
+.bkadm-setting{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 0;border-top:1px solid rgba(255,255,255,.06);font-size:13.5px;color:#D5D9DC;
+}
+.bkadm-setting:first-of-type{border-top:none;padding-top:2px}
+.bkadm-chip{
+  font-size:12px;font-weight:600;color:#C7CCD1;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);border-radius:99px;padding:8px 14px;
+  display:flex;align-items:center;gap:6px;
+}
+.bkadm-chip.sm{padding:6px 11px;font-size:11.5px}
+.bkadm-chip.on{background:rgba(16,185,129,.16);border-color:#10B981;color:#8FF0C8}
+.bkadm-toggle{
+  width:44px;height:26px;border-radius:99px;background:rgba(255,255,255,.08);position:relative;flex:none;
+  transition:background .2s;
+}
+.bkadm-toggle i{
+  position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#C7CCD1;
+  transition:transform .2s,background .2s;display:block;
+}
+.bkadm-toggle.on{background:rgba(16,185,129,.35)}
+.bkadm-toggle.on i{transform:translateX(18px);background:#10B981}
+
+/* credentials — the one place gold shows up, since these are the room's own keys */
+.bkadm-cred-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(220px,1fr));gap:20px}
+.bkadm-label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#B8935C;margin-bottom:8px}
+.bkadm-qr{background:#fff;border-radius:14px;padding:12px;width:fit-content}
+.bkadm-code{
+  font-size:26px;font-weight:700;letter-spacing:.14em;font-variant-numeric:tabular-nums;
+  background:linear-gradient(135deg,#D4AF37,#F4E5B2);-webkit-background-clip:text;background-clip:text;color:transparent;
+  margin-bottom:6px;
+}
+.bkadm-toast{
+  position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#10B981;color:#04140b;
+  font-weight:700;font-size:13px;padding:10px 18px;border-radius:99px;z-index:20;
+}
+.bkadm-search{
+  width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;
+  padding:10px 14px;color:#EDEFF1;font-size:14px;margin-bottom:10px;
+}
+.bkadm-members{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto}
+.bkadm-member-row{
+  display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.03);border-radius:10px;padding:9px 12px;font-size:13.5px;
+}
+.bkadm-member-row>span:first-child{flex:1;min-width:0}
+.bkadm-pin{color:#D4AF37;font-weight:700;letter-spacing:.08em}
+
+/* assist/adjust modal */
+.bkadm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(14px);z-index:30;display:flex;align-items:center;justify-content:center;padding:20px}
+.bkadm-modal{
+  position:relative;background:#111619;border:1px solid rgba(16,185,129,.2);border-radius:22px;
+  padding:28px;width:min(92vw,480px);max-height:86vh;overflow-y:auto;
+}
+.bkadm-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.05);color:#C7CCD1;display:flex;align-items:center;justify-content:center}
+.bkadm-modal-title{font-size:17px;font-weight:700;margin-bottom:16px}
+.bkadm-loading{color:#8B9198;text-align:center;padding:30px 0}
+.bkadm-extabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px}
+.bkadm-extab{flex:none;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:#C7CCD1;border-radius:10px;padding:8px 12px;font-size:12.5px;white-space:nowrap}
+.bkadm-extab.on{background:rgba(16,185,129,.16);border-color:#10B981;color:#8FF0C8}
+.bkadm-sets{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+.bkadm-setrow{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.03);border-radius:12px;padding:10px 12px}
+.bkadm-setrow.done{box-shadow:inset 0 0 0 1.5px #10B981}
+.bkadm-setn{width:20px;font-size:13px;font-weight:700;color:#7C8389;flex:none}
+.bkadm-stp{flex:1;display:flex;align-items:center;background:rgba(255,255,255,.05);border-radius:10px;overflow:hidden}
+.bkadm-stp button{width:34px;height:38px;color:#EDEFF1;font-size:16px;flex:none}
+.bkadm-stp span{flex:1;text-align:center;font-size:14px;font-weight:600}
+.bkadm-check{width:38px;height:38px;border-radius:10px;flex:none;background:rgba(255,255,255,.05);color:#3a3e42;display:flex;align-items:center;justify-content:center}
+.bkadm-check.on{background:#10B981;color:#04140b}
+.bkadm-save{width:100%;background:#10B981;color:#04140b;font-weight:700;font-size:15px;border-radius:12px;padding:14px}
+.bkadm-save:disabled{opacity:.5}
+
+@media (max-width:520px){
+  .bkadm-grid{grid-template-columns:1fr 1fr}
+  .bkadm-cred-grid{grid-template-columns:1fr}
 }
