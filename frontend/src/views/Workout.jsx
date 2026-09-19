@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -17,6 +17,9 @@ import { glyphOf } from '../lib/glyphs.js'
 import { stepWeight, BARBELL_LIKE_EQ } from '../lib/equipment.js'
 import { zoneOfSet } from '../lib/training-zones.js'
 import { suggestOverload, isOverloadSet, isPotentialPR } from '../lib/overload.js'
+import { musclesOf, muscleOptsOf, MUSCLE_GROUPS } from '../lib/muscles.js'
+import { weeklyGroupVolumeFinished, weeklyGroupVolumeActive, primaryGroupOf, landmarksFor } from '../lib/rp-volume.js'
+import RpVolumeBar from '../components/RpVolumeBar.jsx'
 
 /* ---------- start chooser (no active workout) ---------- */
 function StartChooser() {
@@ -98,7 +101,7 @@ function SetNumBtn({ s, i, sets, achievement, onToggle, onSetType }) {
 }
 
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
-function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType, onReplace }) {
+function ExerciseBlock({ entryIdx, compact, rpFinished, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType, onReplace }) {
   const S = useStore(s => s.S)
   const working = useUI(s => s.work)
   const entry = S.active.entries[entryIdx]
@@ -147,9 +150,23 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
   const showPlates = s => S.enablePlateCalculator !== false && !cardio && barbellEq && s.type !== 'warmup' && s.w > 0
   // The zone chip is the reactive half of Training Zones (lib/training-zones.js) — %1RM against
   // whatever this exercise's best known 1RM already is, or the set's own RIR/RPE when there's no
-  // 1RM estimate yet. Same on/off switch as the plate calculator, its own row in Settings.
-  const showZones = S.enableTrainingZones !== false && !cardio && mode === 'reps'
+  // 1RM estimate yet. Same on/off switch as the plate calculator, its own row in Settings — and
+  // off outright whenever Weekly Volume Zones is on, below: both are called "zones" but answer
+  // different questions (this set's intensity vs. this week's accumulated volume), and showing
+  // both at once tested as more confusing than either alone.
+  const showZones = S.enableTrainingZones !== false && !cardio && mode === 'reps' && !S.enableRpVolumeZones
   const zoneOf = s => showZones ? zoneOfSet(S, entry.id, s) : null
+  // Weekly Volume Zones (lib/rp-volume.js) — one bar per exercise, for whichever muscle group
+  // the exercise trains hardest (its highest-weighted slug in musclesOf). `rpFinished` (this
+  // week's already-finished workouts) comes from ActiveWorkout as a memoized prop; the
+  // still-open session's own sets-so-far are cheap enough (bounded by this workout's own size)
+  // to compute fresh right here rather than threading a second memo down for it.
+  const showRpVolume = !!S.enableRpVolumeZones && !cardio && mode === 'reps'
+  const rpOpts = muscleOptsOf(S)
+  const rpGroup = showRpVolume ? primaryGroupOf(musclesOf(ex, rpOpts)) : null
+  const rpLandmarks = rpGroup ? landmarksFor(S, rpGroup) : null
+  const rpActiveVolume = showRpVolume ? weeklyGroupVolumeActive(S, rpOpts) : null
+  const rpVolume = rpGroup ? (rpFinished?.[rpGroup] || 0) + (rpActiveVolume?.[rpGroup] || 0) : 0
   // The Progressive Overload Coach — lib/overload.js. Distinct from `plan` above: `plan` is
   // this SESSION's one-time prescription from the routine's own progression policy (or nothing,
   // for a freestyle exercise or a routine set to "off"); `suggestion` is always-on, purely
@@ -254,6 +271,9 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
       {ex.eq && <span className="tag">{t(ex.eq)}</span>}
       {best > 0 && <span className="tag nocap">{t('Best:')} {fmtNum(best)} {S.unit}</span>}
     </div>
+    {rpGroup && rpLandmarks && <RpVolumeBar
+      groupName={t(MUSCLE_GROUPS.find(g => g.key === rpGroup)?.name || rpGroup)}
+      sets={rpVolume} landmarks={rpLandmarks} />}
     {last && <div className="small dim" style={{ marginBottom: 4 }}>{t('Last time')} ({fmtDate(last.d)}): {last.sets.map(s => setLabel(entry.id, s, last.target)).join(', ')}</div>}
     {plan && plan.why && plan.kind !== 'off' && <div className={'progline' + (plan.kind === 'deload' ? ' warn' : '')}>
       <Icon name={plan.kind === 'up' ? 'arrowUp' : plan.kind === 'deload' ? 'arrowDown' : 'lightbulb'} />
@@ -322,6 +342,14 @@ function ActiveWorkout() {
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const { startRest, stopRest } = useUI()
+  // Weekly Volume Zones' history half (lib/rp-volume.js) — memoized against S.workouts, not the
+  // whole store, so typing into a set doesn't re-scan the week's finished workouts on every
+  // keystroke. The still-open session's own contribution is cheap enough to compute fresh in
+  // ExerciseBlock itself (see rpFinished's own doc comment there for why the split).
+  const rpFinished = useMemo(
+    () => S.enableRpVolumeZones ? weeklyGroupVolumeFinished(S, muscleOptsOf(S)) : null,
+    [S.enableRpVolumeZones, S.workouts, S.countSecondaryMuscles, S.secondaryMuscleFactor]
+  )
   const A = S.active
   const units = supersetUnits(A.entries)
   const cur = Math.min(A.cur, Math.max(0, A.entries.length - 1))
@@ -480,12 +508,12 @@ function ActiveWorkout() {
           <div className="ss-hd"><Icon name="link" />{t('Superset · do these back-to-back, rest after both')}</div>
           {unit.map((idx, k) => <div key={idx} className="ss-ex">
             {k > 0 && <div className="ss-amp">+</div>}
-            <ExerciseBlock entryIdx={idx} compact
+            <ExerciseBlock entryIdx={idx} compact rpFinished={rpFinished}
               onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} onSetType={i => openSetType(idx, i)} onReplace={() => replaceExercise(idx)} />
           </div>)}
         </div>
       ) : (
-        <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} onSetType={i => openSetType(cur, i)} onReplace={() => replaceExercise(cur)} />
+        <ExerciseBlock entryIdx={cur} rpFinished={rpFinished} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} onSetType={i => openSetType(cur, i)} onReplace={() => replaceExercise(cur)} />
       )}
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 

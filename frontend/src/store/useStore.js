@@ -23,6 +23,13 @@ export const DEF = {
   // means "the default set" (components/BarbellPlates.jsx's DEFAULT_AVAILABLE_KG) rather than
   // baking that list in here twice, so it stays in sync if that default ever changes.
   availablePlates: null,
+  // Weekly Volume Zones (lib/rp-volume.js) — off by default, unlike the three toggles above:
+  // it's a hypertrophy-training tool (MV/MEV/MAV/MRV weekly set-count bands), not something
+  // every member wants turned on. `trainingLevel` picks which default landmark table applies;
+  // `rpVolumeOverrides` is a future per-muscle calibration screen's home (v1 never writes it —
+  // Settings' level picker is the only UI that exists so far), keyed the same as the defaults
+  // table so a v2 needs no migration, just a screen that writes here.
+  enableRpVolumeZones: false, trainingLevel: 'intermediate', rpVolumeOverrides: {},
   // Settings → Statistics — how much a secondary/stabilising muscle counts toward volume, sets
   // and the muscle map, everywhere lib/muscles.js's loadOf family is used (see muscleOptsOf).
   countSecondaryMuscles: true, secondaryMuscleFactor: 0.5,

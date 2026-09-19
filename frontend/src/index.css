@@ -887,6 +887,29 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .overload-chip svg{width:14px;height:14px}
 
+/* --- weekly volume zones (Workout.jsx's RpVolumeBar, lib/rp-volume.js) --- */
+.rpbar-wrap{margin:2px 0 10px}
+.rpbar-hd{
+  display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:5px;
+  font-size:calc(12.5px * var(--text-scale,1));
+}
+.rpbar-name{font-weight:600;color:var(--label);text-transform:capitalize;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpbar-zone{font-weight:600;white-space:nowrap;flex:none}
+.rpbar{display:flex;flex-wrap:wrap;gap:2px}
+.rpbar-b{width:5px;height:14px;border-radius:2px;background:var(--zc);opacity:.25;flex:none;transition:opacity var(--fast)}
+.rpbar-b.on{opacity:1}
+
+/* --- RP volume analytics: 5-week historical matrix (RpVolumeStats.jsx) --- */
+/* 12 rows × 5 columns is wider than a phone screen — its own scroll container keeps the
+   page itself from scrolling sideways (only this table does). */
+.rpmatrix-wrap{overflow-x:auto;margin-top:8px}
+.rpmatrix{border-collapse:collapse;width:100%;font-size:calc(12px * var(--text-scale,1));font-variant-numeric:tabular-nums;white-space:nowrap}
+.rpmatrix th,.rpmatrix td{padding:6px 8px;text-align:right}
+.rpmatrix thead th{color:var(--label-3);font-weight:500;font-size:calc(11px * var(--text-scale,1))}
+.rpmatrix tbody th{text-align:left;font-weight:500;color:var(--label);position:sticky;left:0;background:var(--surface)}
+.rpmatrix td{font-weight:600}
+.rpmatrix tbody tr+tr th,.rpmatrix tbody tr+tr td{border-top:var(--hair) solid var(--sep)}
+
 /* start a timed set (issue #16) — sits where you'd otherwise reach for the checkbox */
 .setrow .setgo{
   width:30px;height:30px;border-radius:50%;flex:none;
@@ -960,6 +983,14 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .cfgrow>div{flex:1;min-width:0}
 .cfgrow .stp button{width:30px}
 .cfgrow .stp-l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* RP volume calibration: five steppers per muscle (MV/MEV/MAV/MRV min/MRV max) — a plain
+   flex row like .cfgrow's three would squeeze each one unreadably, so this wraps onto two
+   rows instead of shrinking further. */
+.rp-cal-steppers{flex-wrap:wrap;row-gap:10px;margin-top:10px}
+.rp-cal-steppers>div{flex:1 1 30%;min-width:84px}
+.rp-cal-steppers .stp button{width:28px}
+.rp-cal-steppers .stp-l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:calc(11px * var(--text-scale,1))}
 
 /* --- rest timer --- */
 #timer{

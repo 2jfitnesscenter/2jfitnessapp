@@ -31,6 +31,8 @@ import Social from './views/Social.jsx'
 import Settings from './views/Settings.jsx'
 import TrainingSettings from './views/TrainingSettings.jsx'
 import StatsSettings from './views/StatsSettings.jsx'
+import RpVolumeCalibration from './views/RpVolumeCalibration.jsx'
+import RpVolumeStats from './views/RpVolumeStats.jsx'
 import Badges from './views/Badges.jsx'
 import Profile from './views/Profile.jsx'
 import Friends from './views/Friends.jsx'
@@ -177,6 +179,8 @@ function Shell() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/training" element={<TrainingSettings />} />
               <Route path="/settings/stats" element={<StatsSettings />} />
+              <Route path="/settings/rp-volume" element={<RpVolumeCalibration />} />
+              <Route path="/stats/rp-volume" element={<RpVolumeStats />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/friends" element={<Friends />} />
               <Route path="/chat" element={<Chat />} />

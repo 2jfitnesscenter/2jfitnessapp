@@ -11,6 +11,7 @@ import { DEMO } from '../lib/demo.js'
 import { MOBILE, shareExport, syncReminder } from '../lib/mobile.js'
 import { loadStarterPlan, confirmSheet, importFromApp, platesSheet } from '../sheets.jsx'
 import { ZONES } from '../lib/training-zones.js'
+import { LEVELS, ZONE_ORDER, ZONE_META } from '../lib/rp-volume.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import { RankGuideSheet } from './Rank.jsx'
@@ -156,6 +157,17 @@ export default function Settings() {
         <button className="helpbtn" aria-label={t('What is the overload coach?')} onClick={overloadHelpSheet}><Icon name="info" /></button>
         <Switch checked={S.enableProgressiveOverloadCoach !== false} onChange={v => update(s => { s.enableProgressiveOverloadCoach = v })} />
       </Row>
+      <Row icon="chartLine" iconTint="var(--orange)" title={t('Weekly volume zones')}
+        subtitle={t('Calculate MV, MEV, MAV and MRV per muscle group and show your weekly progress live.')}>
+        <button className="helpbtn" aria-label={t('What are weekly volume zones?')} onClick={rpVolumeHelpSheet}><Icon name="info" /></button>
+        <Switch checked={!!S.enableRpVolumeZones} onChange={v => update(s => { s.enableRpVolumeZones = v })} />
+      </Row>
+      {S.enableRpVolumeZones && <SelectRow icon="figureStrength" iconTint="var(--orange)" title={t('Training level')}
+        value={S.trainingLevel || 'intermediate'} onChange={v => update(s => { s.trainingLevel = v })}
+        options={LEVELS.map(l => ({ value: l, label: t(l[0].toUpperCase() + l.slice(1)) }))} />}
+      {S.enableRpVolumeZones && <Row icon="wrench" iconTint="var(--orange)" title={t('Calibrate per muscle')}
+        subtitle={t('Fine-tune MV, MEV, MAV and MRV thresholds for each of the 12 muscle groups')}
+        accessory="chevron" onClick={() => nav('/settings/rp-volume')} />}
       <SelectRow icon="timer" iconTint="var(--orange)" title={t('Rest timer')}
         value={S.restSec} onChange={v => update(s => { s.restSec = v })}
         options={[60, 90, 120, 150, 180].map(v => ({ value: v, label: v + 's' }))} />
@@ -385,6 +397,27 @@ function overloadHelpSheet() {
     <h4 className="sec">{t('Beating it')}</h4>
     <div className="small dim" style={{ lineHeight: 1.5 }}>
       {t('A set that matches or beats the equivalent one from last time turns its checkmark green. One that also beats this exercise’s best-ever estimated 1RM turns it gold instead, with “New PR this session!” underneath the sets.')}
+    </div>
+  </>)
+}
+
+function rpVolumeHelpSheet() {
+  useUI.getState().openSheet(close => <>
+    <h3>{t('Weekly volume zones')}</h3>
+    <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 12 }}>
+      {t('Muscle growth tracks the number of effective sets a muscle gets in a week, not just how heavy any one of them was — too few and nothing adapts, too many and you can’t recover before the next session. This shows, per muscle group, which of five zones this week’s count actually lands in.')}
+    </div>
+    <div className="efftbl">
+      <div className="r hd"><span className="n">{t('Zone')}</span><span className="f">{t('Meaning')}</span></div>
+      {ZONE_ORDER.map(z => (
+        <div key={z} className="r">
+          <span className="n" style={{ color: ZONE_META[z].color, fontWeight: 700 }}>{ZONE_META[z].code}</span>
+          <span className="f">{t(ZONE_META[z].label)}</span>
+        </div>
+      ))}
+    </div>
+    <div className="dim small" style={{ lineHeight: 1.5, marginTop: 14 }}>
+      {t('Your training level (Beginner / Intermediate / Advanced) picks which set of weekly targets applies — a more experienced lifter tolerates, and needs, more volume to keep growing. Turning this on hides the per-set %1RM/RPE zone chip in the logger — the two are both called “zones” but answer different questions, and showing both at once was more confusing than either alone.')}
     </div>
   </>)
 }

@@ -11,7 +11,8 @@ import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
 import RecoveryCard from '../components/RecoveryCard.jsx'
-import { loadOfWorkouts, rankOf, MUSCLE_NAME, muscleOptsOf } from '../lib/muscles.js'
+import { loadOfWorkouts, rankOf, MUSCLE_NAME, MUSCLE_GROUPS, muscleOptsOf } from '../lib/muscles.js'
+import { weeklyGroupVolume, landmarksFor, zoneForVolume, ZONE_META, LEVELS } from '../lib/rp-volume.js'
 import { e1rmSeries, best1RM } from '../lib/onerm.js'
 import {
   hasEffort, displayScale, scaleName, toScale, avgRir, effortSummary, effortWeeks,
@@ -96,6 +97,37 @@ function MuscleBalance({ S }) {
           ? t('Every muscle group got at least one hard set in this period.')
           : t('Every muscle group got some work in this period.')}</div>}
     </> : <div className="muted small">{t('No workouts in this period yet.')}</div>}
+  </div>
+}
+
+// This week's accumulated set count per muscle group, against the current training level's
+// MV/MEV/MAV/MRV landmarks (lib/rp-volume.js) — the Progress-tab counterpart to Workout.jsx's
+// live per-exercise bar, all 12 groups at once instead of one at a time. Settings' own toggle
+// gates this card the same way it gates the logger bar and hides the %1RM/RPE zone chip.
+// Tapping the card opens the full analytics screen (heatmap, 5-week history, mesocycle
+// status); the gear jumps straight to per-muscle calibration instead, since that's an edit,
+// not a read — the same two destinations Settings' own "Calibrate per muscle" row and the
+// analytics screen's own gear both lead to.
+function RpVolumeCard({ S, nav }) {
+  const volume = weeklyGroupVolume(S, muscleOptsOf(S))
+  const level = LEVELS.includes(S.trainingLevel) ? S.trainingLevel : 'intermediate'
+  return <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => nav('/stats/rp-volume')}>
+    <div className="row between" style={{ marginBottom: 8 }}>
+      <h2 style={{ margin: 0 }}>{t('Weekly volume zones')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t(level[0].toUpperCase() + level.slice(1))}</span></h2>
+      <button className="iconbtn" aria-label={t('Calibrate volume zones')}
+        onClick={e => { e.stopPropagation(); nav('/settings/rp-volume') }}><Icon name="gear" /></button>
+    </div>
+    {MUSCLE_GROUPS.map(g => {
+      const lm = landmarksFor(S, g.key)
+      const sets = Math.round((volume[g.key] || 0) * 10) / 10
+      const zone = zoneForVolume(sets, lm)
+      const meta = ZONE_META[zone]
+      return <div key={g.key} className="mrow">
+        <span className="nm">{t(g.name)}</span>
+        <span className="v" style={{ color: meta.color, fontWeight: 700, minWidth: 84 }}>{meta.code} {fmtNum(sets)}</span>
+      </div>
+    })}
+    <div className="muted small" style={{ marginTop: 10 }}>{t('This week, updated live as you log sets. Tap for the full analytics screen.')}</div>
   </div>
 }
 
@@ -292,6 +324,7 @@ export default function Stats() {
     </div>
 
     {S.workouts.length > 0 && <MuscleBalance S={S} />}
+    {S.enableRpVolumeZones && <RpVolumeCard S={S} nav={nav} />}
     {anyEffort && <EffortCard S={S} />}
     {S.enableTrainingZones !== false && <ZoneDistributionCard S={S} />}
 
