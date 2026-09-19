@@ -1716,7 +1716,7 @@ export default {
   'What you tell the Coach': 'Lo que le cuentas al Coach',
   'Your intake answers, including any limitations or injuries you describe, plus your age, sex and height from your account basics.': 'Tus respuestas del cuestionario, incluidas las limitaciones o lesiones que describas, además de tu edad, sexo y altura de tus datos básicos.',
   'A few preferences': 'Algunas preferencias',
-  'Your unit, your language and which effort scale you log.': 'Tu unidad, tu idioma y la escala de esfuerzo que registras.',
+  'Your unit, your language, which effort scale you log, and — when you’ve turned them on — your training level and weekly volume/intensity zone targets.': 'Tu unidad, tu idioma, la escala de esfuerzo que registras y — cuando los tengas activados — tu nivel de entrenamiento y tus objetivos de zonas de volumen/intensidad semanales.',
 
   // Registration basics (name, date of birth, sex, height, starting weight) + Settings edit rows
   'Basic info': 'Datos básicos',

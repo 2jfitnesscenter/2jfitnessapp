@@ -28,7 +28,7 @@ const CATEGORY_TEXT = {
   training: ['Your logged training', 'Sets you logged in the review window — weights, reps, times, effort ratings and how long sessions took.'],
   bodyweight: ['Body weight', 'Weigh-ins from the same window, and your goal weight if you set one.'],
   profile: ['What you tell the Coach', 'Your intake answers, including any limitations or injuries you describe, plus your age, sex and height from your account basics.'],
-  prefs: ['A few preferences', 'Your unit, your language and which effort scale you log.']
+  prefs: ['A few preferences', 'Your unit, your language, which effort scale you log, and — when you’ve turned them on — your training level and weekly volume/intensity zone targets.']
 }
 
 export default function Coach() {

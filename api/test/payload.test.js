@@ -116,3 +116,45 @@ test('declined changes are carried forward so the Coach does not nag', () => {
   assert.equal(p.previouslyDeclined.length, 1);
   assert.equal(p.previouslyDeclined[0].type, 'sets');
 });
+
+/* The Coach was generating/reviewing plans with zero awareness of either of this app's two
+   "zone" systems — see the owner's own report. rpVolume/trainingZones close that gap; these
+   pin the gate (off unless the member turned it on) and the shape the prompt actually reads. */
+test('rpVolume is absent when the member has not turned Weekly Volume Zones on', () => {
+  const S = sampleState();
+  const p = payload.build(S, 'u1', { kind: 'review' });
+  assert.equal(p.rpVolume, undefined);
+});
+
+test('rpVolume carries this member’s real landmarks, level default plus any override, when the toggle is on', () => {
+  const S = sampleState({
+    enableRpVolumeZones: true, trainingLevel: 'beginner',
+    rpVolumeOverrides: { chest: { mv: 5, mev: 7, mav: 9, mrvMin: 13, mrvMax: 15 } }
+  });
+  const p = payload.build(S, 'u1', { kind: 'review' });
+  assert.equal(p.rpVolume.level, 'beginner');
+  assert.equal(p.rpVolume.groups.length, 12);
+  const chest = p.rpVolume.groups.find(g => g.key === 'chest');
+  assert.deepEqual(chest, { key: 'chest', name: 'Chest', mv: 5, mev: 7, mav: 9, mrvMin: 13, mrvMax: 15 });
+  // A group with no override still reads the beginner default, not intermediate's.
+  const back = p.rpVolume.groups.find(g => g.key === 'back');
+  assert.deepEqual(back, { key: 'back', name: 'Back', mv: 4, mev: 6, mav: 10, mrvMin: 12, mrvMax: 16 });
+});
+
+test('trainingZones travels by default and disappears once the member turns Training Zones off', () => {
+  const on = payload.build(sampleState(), 'u1', { kind: 'review' });
+  assert.equal(on.trainingZones.length, 5);
+  assert.equal(on.trainingZones[2].short, 'Z3');
+  const off = payload.build(sampleState({ enableTrainingZones: false }), 'u1', { kind: 'review' });
+  assert.equal(off.trainingZones, undefined);
+});
+
+test('library exercises carry their muscleGroup so the model can tally weekly sets against rpVolume', () => {
+  const lib = payload.librarySlice({}, []);
+  // '0025' = barbell bench press (tg: pectorals); '0001' = 3/4 sit-up (tg: abs).
+  assert.equal(lib.find(e => e.id === '0025').muscleGroup, 'chest');
+  assert.equal(lib.find(e => e.id === '0001').muscleGroup, 'abs');
+  // A custom exercise has no `tg` to resolve — it travels with no muscleGroup rather than a guess.
+  const withCustom = payload.librarySlice({ customEx: [{ id: 'cx1', n: 'Sandbag carry', bp: 'back' }] }, []);
+  assert.equal(withCustom.find(e => e.id === 'cx1').muscleGroup, undefined);
+});

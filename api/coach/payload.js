@@ -14,6 +14,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { rpVolumeSnapshot, groupOfTarget } from './rp-volume.js';
+import { ZONES as TRAINING_ZONES } from './training-zones.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const require_ = createRequire(import.meta.url);
@@ -43,7 +45,7 @@ export const DATA_CATEGORIES = [
   'training',    // logged sets, targets, effort ratings, durations, PRs in the review window
   'bodyweight',  // weigh-ins in the window and your goal weight
   'profile',     // the intake answers you gave the Coach, including any limitations, plus age/sex/height from your account basics
-  'prefs'        // unit, language, effort scale
+  'prefs'        // unit, language, effort scale, and — when you've turned them on — your training level and weekly volume/intensity zone targets
 ];
 
 /** Stable per-profile pseudonym. Never the uid, never reversible, same across jobs. */
@@ -140,6 +142,14 @@ export function cleanPlan(S) {
 }
 
 /* ---------- the library slice the model gets to choose from ---------- */
+// `muscleGroup` (one of rp-volume.js's 12 keys, or omitted when unresolvable) rides along on
+// every entry so the model can count weekly sets per group itself when rpVolume is present in
+// the payload, without having to guess "pectorals" means chest — see rp-volume.js's own
+// groupOfTarget. Cheap: one lookup per exercise, no new network or file I/O.
+const withGroup = e => {
+  const g = groupOfTarget(e.tg);
+  return g ? { ...e, muscleGroup: g } : e;
+};
 export function librarySlice(S, equipment) {
   const wanted = (equipment || []).map(x => String(x).toLowerCase());
   const hidden = hiddenIds();
@@ -148,7 +158,7 @@ export function librarySlice(S, equipment) {
   // No equipment stated (or "everything") ⇒ the whole (visible) catalogue. Filtering to nothing
   // would leave the Coach unable to propose anything at all, which is worse than a bigger payload.
   const base = wanted.length ? visible.filter(e => wanted.includes((e.eq || '').toLowerCase())) : visible;
-  return [...customs, ...(base.length ? base : visible)];
+  return [...customs, ...(base.length ? base : visible)].map(withGroup);
 }
 export const libraryHas = id => LIB_BY_ID.has(id);
 export const libraryName = id => LIB_BY_ID.get(id)?.n || null;
@@ -298,6 +308,15 @@ export function build(S, uid, opts = {}) {
     } : null,
     plan: cleanPlan(S)
   };
+
+  // Weekly Volume Zones (MV/MEV/MAV/MRV per muscle group) — only when the member has this on;
+  // the Coach should reason about landmarks a person doesn't have switched on exactly as little
+  // as the app itself shows them a chip for it. See prompts/common.md for how this is used.
+  const rpVolume = rpVolumeSnapshot(S);
+  if (rpVolume) p.rpVolume = rpVolume;
+  // Training Zones (Z1-Z5 %1RM/RIR bands) — same on-by-default gate the app's own logger chip
+  // uses, so the vocabulary in `why` text always matches what the member actually sees.
+  if (S.enableTrainingZones !== false) p.trainingZones = TRAINING_ZONES;
 
   // What the user already turned down, so the Coach does not re-propose it without new
   // evidence (FR-26). Summaries only — the log's full before/after stays on the device.
