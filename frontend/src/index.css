@@ -1031,6 +1031,25 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 
+/* --- install prompt (components/InstallPrompt.jsx) — floats above #tabbar, same offset #timer
+   already uses to clear it. */
+#install-prompt{
+  position:fixed;left:12px;right:12px;bottom:calc(88px + var(--sab));z-index:59;
+  background:color-mix(in srgb,var(--surface) 97%,transparent);
+  backdrop-filter:saturate(180%) blur(24px);
+  border:var(--hair) solid var(--acc);border-radius:var(--r-lg);padding:12px 12px 12px 14px;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 12px 34px -8px rgba(0,0,0,.55);
+  animation:slideup var(--med) var(--ease);
+}
+#install-prompt .install-i{
+  flex:none;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc);font-size:18px;
+}
+#install-prompt .grow{flex:1;min-width:0}
+#install-prompt .t{font-weight:600;font-size:calc(14px * var(--text-scale,1))}
+#install-prompt .s{font-size:calc(12px * var(--text-scale,1));color:var(--label-2);margin-top:1px}
+
 /* ---------------------------------------------------------------- modal -- */
 #modal-root{position:fixed;inset:0;z-index:100;display:none}
 #modal-root.open{display:block}
@@ -1060,6 +1079,10 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 :root[data-theme="light"] .center{background:#fff}
 @keyframes pop{from{transform:translate(-50%,-50%) scale(.94);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.sheet-full{
+  position:absolute;inset:0;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  animation:sheetup .28s var(--ease);
+}
 
 /* Badge unlock celebration (components/BadgeCelebrationModal.jsx) — content for a `.center`
    sheet, so it inherits that kind's own dark blurred scrim (.mback) and pop-in for free; this
@@ -1198,6 +1221,10 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .bm-v{flex:1;min-width:0;height:auto;max-height:min(46vh,340px)}
 .bm-ph{height:200px}                       /* holds the space while the geometry loads */
+/* Home's own LastWorkoutCard map — compact side-by-side, tapping it opens the full-size
+   interactive version (WorkoutBodyMapModal) instead of the default detail height above. */
+.home-bodymap .bm-v{max-height:min(22vh,160px)}
+.home-bodymap .bm-ph{height:120px}
 .bm-sil{fill:color-mix(in srgb,var(--label) 18%,var(--surface))}
 .bm-m{fill:var(--bm-base);transition:fill var(--med) var(--ease)}
 .bm-m.l1{fill:color-mix(in srgb,var(--acc) 32%,var(--bm-base))}
@@ -1608,3 +1635,104 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .day-col-hd{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .day-col-hd input{font-weight:600;font-size:calc(15px * var(--text-scale,1))}
+
+/* ============================================================================
+   Bunker (views/Bunker.jsx) — the gym-floor kiosk. Always dark, always high
+   contrast, hardcoded rather than reading the app's own light/dark tokens: a
+   shared TV/tablet reads the same regardless of whoever last touched Settings
+   on their own phone, and it needs to be legible from across the room. ==== */
+.bunker{
+  position:fixed;inset:0;background:#000;color:#f2f2f2;z-index:1;
+  font-variant-numeric:tabular-nums;overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.bk-dash{flex:1;display:flex;flex-direction:column;padding:28px 32px;overflow-y:auto}
+.bk-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.bk-hd-title{font-size:28px;font-weight:700;letter-spacing:-.02em}
+.bk-admin-btn{
+  width:44px;height:44px;border-radius:12px;background:#1a1a1e;color:#9a9a9e;
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+}
+.bk-empty{flex:1;display:flex;align-items:center;justify-content:center;color:#6a6a6e;font-size:20px}
+.bk-grid{display:grid;grid-template-columns:repeat(var(--cols,4),1fr);gap:16px;flex:1;align-content:start}
+.bk-card{
+  background:#141417;border-radius:18px;padding:20px;min-height:140px;
+  display:flex;flex-direction:column;gap:6px;position:relative;
+}
+.bk-card-name{font-size:20px;font-weight:700}
+.bk-card-ex{font-size:15px;color:#c8c8cc}
+.bk-card-ex.dim{color:#6a6a6e;font-style:italic}
+.bk-card-set{font-size:14px;color:#8a8a8e}
+.bk-ring{position:absolute;right:14px;bottom:14px;display:flex;align-items:center;justify-content:center}
+.bk-ring svg{width:100%;height:100%;position:absolute;inset:0}
+.bk-ring-n{position:relative;font-size:14px;font-weight:700}
+.bk-join{
+  margin-top:24px;align-self:center;background:#73b52e;color:#04140b;border-radius:99px;
+  padding:18px 40px;font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px;
+}
+.bk-join:disabled{opacity:.4}
+
+.bk-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(12px);z-index:2;display:flex;align-items:center;justify-content:center}
+.bk-pad{position:relative;background:#141417;border-radius:24px;padding:36px;width:min(90vw,420px);text-align:center}
+.bk-admin-pad{width:min(92vw,520px);text-align:left}
+.bk-close{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:10px;background:#232327;color:#c8c8cc;display:flex;align-items:center;justify-content:center}
+.bk-pad-title{font-size:20px;font-weight:700;margin-bottom:20px}
+.bk-pad-dots{display:flex;gap:14px;justify-content:center;margin-bottom:18px}
+.bk-dot{width:16px;height:16px;border-radius:50%;background:#2a2a2e}
+.bk-dot.on{background:#73b52e}
+.bk-pad-err{color:#ff453a;font-size:14px;margin-bottom:14px}
+.bk-keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.bk-key{
+  background:#1e1e22;border-radius:14px;font-size:24px;font-weight:600;padding:18px 0;color:#f2f2f2;
+}
+.bk-key:active{background:#2a2a2e}
+.bk-key.ghost{background:transparent}
+.bk-key.sm{padding:10px 14px;font-size:15px;border-radius:10px}
+.bk-key.on{background:#73b52e;color:#04140b}
+.bk-code-input{
+  width:100%;background:#1e1e22;border-radius:14px;padding:16px;font-size:28px;text-align:center;
+  color:#f2f2f2;letter-spacing:.2em;margin-bottom:16px;font-variant-numeric:tabular-nums;
+}
+.bk-admin-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:240px;overflow-y:auto}
+.bk-admin-row{display:flex;align-items:center;justify-content:space-between;background:#1e1e22;border-radius:10px;padding:10px 14px;font-size:15px}
+.bk-admin-x{width:30px;height:30px;border-radius:8px;background:#2a2a2e;color:#ff453a;display:flex;align-items:center;justify-content:center}
+.bk-admin-setting{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid #232327}
+
+.bk-panel{flex:1;display:flex;flex-direction:column;padding:24px 28px;overflow-y:auto}
+.bk-panel-hd{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.bk-minimize{background:#1a1a1e;color:#c8c8cc;border-radius:99px;padding:10px 18px;font-size:14px;display:flex;align-items:center;gap:6px}
+.bk-panel-name{flex:1;font-size:20px;font-weight:700;text-align:center}
+.bk-loading{margin:auto;color:#8a8a8e;font-size:18px}
+.bk-exlist{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:18px}
+.bk-extab{
+  flex:none;background:#1a1a1e;color:#c8c8cc;border-radius:14px;padding:12px 18px;font-size:15px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;white-space:nowrap;
+}
+.bk-extab.on{background:#232327;color:#fff;box-shadow:inset 0 0 0 2px #73b52e}
+.bk-extab.done{color:#73b52e}
+.bk-extab-n{font-size:12px;color:#8a8a8e}
+.bk-exname{font-size:24px;font-weight:700;margin-bottom:4px}
+.bk-last{color:#8a8a8e;font-size:15px;margin-bottom:16px}
+.bk-sets{display:flex;flex-direction:column;gap:14px;margin-bottom:24px}
+.bk-setrow{
+  display:flex;align-items:center;gap:14px;background:#141417;border-radius:16px;padding:14px 16px;
+}
+.bk-setrow.done{box-shadow:inset 0 0 0 2px #73b52e}
+.bk-setn{width:28px;font-size:18px;font-weight:700;color:#8a8a8e;flex:none}
+.bk-bigstp{flex:1;display:flex;align-items:center;background:#1e1e22;border-radius:14px;overflow:hidden}
+.bk-bigstp button{width:52px;height:56px;font-size:26px;color:#f2f2f2;flex:none}
+.bk-bigstp button:active{background:#2a2a2e}
+.bk-bigstp-v{flex:1;text-align:center;font-size:22px;font-weight:700;display:flex;align-items:baseline;justify-content:center;gap:4px}
+.bk-bigstp-v i{font-style:normal;font-size:13px;color:#8a8a8e}
+.bk-check{
+  width:56px;height:56px;border-radius:14px;flex:none;background:#1e1e22;color:#3a3a3e;font-size:22px;
+  display:flex;align-items:center;justify-content:center;
+}
+.bk-check.on{background:#73b52e;color:#04140b}
+.bk-finish{
+  margin-top:auto;background:#232327;color:#ff8a80;border-radius:14px;padding:16px;font-size:16px;font-weight:600;
+}
+@media (max-width:700px){
+  .bk-grid{grid-template-columns:repeat(2,1fr)}
+  .bk-bigstp button{width:44px;height:48px;font-size:22px}
+}

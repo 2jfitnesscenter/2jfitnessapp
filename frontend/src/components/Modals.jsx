@@ -53,6 +53,11 @@ function Sheet({ sheet }) {
       </div>
     )
   }
+  // Covers the whole viewport — no backdrop to tap (there's nothing behind it to see), so the
+  // content itself owns its own back/close control, same as any routed view's own <div className="hdr">.
+  if (sheet.kind === 'full') {
+    return <div className="sheet-full">{sheet.render(close)}</div>
+  }
   return (
     <div>
       <div className="mback" onClick={() => { if (!sheet.locked) close() }} />

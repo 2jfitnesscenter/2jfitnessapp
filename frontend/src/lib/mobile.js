@@ -58,6 +58,38 @@ export async function syncReminder(S, interactive = false) {
   } catch (e) { return false }
 }
 
+// (Re)schedule the "time for a new scan" nudge — a single one-shot notification fired the day
+// the member's own chosen cadence (15/30 days, Settings → General) elapses since their last
+// bioimpedance scan, unlike the weekday-repeating schedule above. `daysSince` is
+// lib/measurements.js's daysSinceBioimpedance(S) — computed by the caller rather than
+// imported here, so this file stays decoupled from the measurements domain the way
+// syncReminder above only ever reads S.week/S.routines. Re-run after any state change (a scan
+// just got logged, the toggle or cadence changed) the same way syncReminder is, via the same
+// debounced persist — cheap, and it's what keeps the scheduled date correct.
+export async function syncBioimpedanceReminder(S, daysSince, interactive = false) {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications')
+    await LocalNotifications.cancel({ notifications: [{ id: 150 }] }).catch(() => {})
+    if (S.enableBioimpedanceReminder === false || daysSince === null) return true
+    const cadence = S.bioimpedanceReminderDays || 15
+    if (daysSince >= cadence) return true   // already overdue — Home's own banner covers "right now"
+    let perm = await LocalNotifications.checkPermissions()
+    if (perm.display !== 'granted' && interactive) perm = await LocalNotifications.requestPermissions()
+    if (perm.display !== 'granted') return false
+    const fireAt = new Date(Date.now() + (cadence - daysSince) * 86400000)
+    fireAt.setHours(9, 0, 0, 0)
+    await LocalNotifications.schedule({
+      notifications: [{
+        id: 150,
+        title: t('Time for a new scan'),
+        body: t('It’s been {0} days since your last body-composition measurement — tap to log a new one.', cadence),
+        schedule: { at: fireAt, allowWhileIdle: true },
+      }],
+    })
+    return true
+  } catch (e) { return false }
+}
+
 // WKWebView can't do blob-URL downloads, so the backup goes out through the OS share sheet
 // (Files, AirDrop, mail, …) from a temp file instead.
 export async function shareExport(json, filename) {

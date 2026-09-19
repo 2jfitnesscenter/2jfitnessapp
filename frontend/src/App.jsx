@@ -15,6 +15,7 @@ import Toast from './components/Toast.jsx'
 import RestTimer from './components/RestTimer.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
 import FriendsWatcher from './components/FriendsWatcher.jsx'
+import InstallPrompt from './components/InstallPrompt.jsx'
 import Login from './views/Login.jsx'
 import Home from './views/Home.jsx'
 import Plan from './views/Plan.jsx'
@@ -33,6 +34,8 @@ import TrainingSettings from './views/TrainingSettings.jsx'
 import StatsSettings from './views/StatsSettings.jsx'
 import RpVolumeCalibration from './views/RpVolumeCalibration.jsx'
 import RpVolumeStats from './views/RpVolumeStats.jsx'
+import Bunker from './views/Bunker.jsx'
+import BunkerAdminPage from './views/BunkerAdminPage.jsx'
 import Badges from './views/Badges.jsx'
 import Profile from './views/Profile.jsx'
 import Friends from './views/Friends.jsx'
@@ -142,6 +145,13 @@ function Shell() {
     )
   }
 
+  // The Bunker kiosk runs on a shared, gym-owned screen — nobody "logs into" that device
+  // itself, members check in with their own PIN once the page is already up, so this is the
+  // one route in the whole app that skips the authed gate entirely (no Login, no TabBar, no
+  // guest bypass to think about). It owns its own full-bleed layout and never touches
+  // Modals/Toast (see views/Bunker.jsx's own overlay components for why it doesn't need them).
+  if (loc.pathname === '/bunker') return <Bunker />
+
   // A genuinely brand-new profile only — one with no real data at all yet — sees the Physical
   // Profile wizard once, right after registering, instead of Login.jsx's old single-sheet form.
   // A profile that already has data (existing accounts from before this existed, or one restored
@@ -201,6 +211,7 @@ function Shell() {
               <Route path="/coach/proposal" element={<CoachProposal />} />
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
+              <Route path="/admin/bunker" element={(user?.admin || user?.trainer) ? <BunkerAdminPage /> : <Navigate to="/home" replace />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
           )}
@@ -213,6 +224,7 @@ function Shell() {
       <RestTimer />
       <ChatWatcher />
       <FriendsWatcher />
+      {!needsOnboarding && <InstallPrompt />}
       <Modals />
       <Toast />
     </>

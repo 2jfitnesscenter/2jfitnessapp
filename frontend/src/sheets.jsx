@@ -30,8 +30,10 @@ import { buildShareCardData } from './lib/share-card.js'
 import WorkoutShareCard, { CARD_SIZE } from './components/WorkoutShareCard.jsx'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
 import BioimpedanceFields from './components/BioimpedanceFields.jsx'
-import { resizeImageFile, uploadImage, mediaUrl, scanRoutine } from './lib/media.js'
+import { resizeImageFile, uploadImage, mediaUrl, scanRoutine, scanMachine, fetchMachineAlias, saveMachineAlias } from './lib/media.js'
 import { matchScannedRoutine, applyPendingChoice } from './lib/routine-scan.js'
+import { matchScannedMachine } from './lib/machine-scan.js'
+import { fetchBunkerPin, resetBunkerPin } from './lib/bunker-api.js'
 import ScanUpload from './components/ScanUpload.jsx'
 import PendingExerciseChoices from './components/PendingExerciseChoices.jsx'
 import { fetchFriendCode, resetFriendCode, sendFriendRequest } from './lib/friends-api.js'
@@ -317,6 +319,43 @@ function BioimpedanceScanSheet({ close }) {
   </>
 }
 export const bioimpedanceScanSheet = () => ui().openSheet(close => <BioimpedanceScanSheet close={close} />)
+
+// A theme choice (dark, matching the app's own look, or light/printable) then one tap per
+// format — both files are built entirely client-side (lib/export-report.js), so there's
+// nothing to wait on and no reason to make format a second screen.
+function ExportReportSheet({ close }) {
+  const st = useStore(s => s.S)
+  const user = useStore(s => s.user)
+  const [theme, setTheme] = useState('dark')
+  const [busy, setBusy] = useState(false)
+  const go = async fmt => {
+    setBusy(true)
+    try {
+      // jsPDF + exceljs are ~1.3MB together — a dynamic import keeps them out of the main
+      // bundle entirely, loaded only by the member who actually taps export.
+      const { exportBioimpedancePdf, exportBioimpedanceExcel } = await import('./lib/export-report.js')
+      if (fmt === 'pdf') exportBioimpedancePdf(st, { memberName: user?.name || '', theme })
+      else await exportBioimpedanceExcel(st, { memberName: user?.name || '', theme })
+      close()
+    } catch (e) { toast(t('Could not build the report')) }
+    setBusy(false)
+  }
+  return <>
+    <h3>{t('Export report')}</h3>
+    <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 14 }}>
+      {t('A full body-composition report with the 2J Fitness Center template.')}
+    </div>
+    <div className="row between" style={{ marginBottom: 16 }}>
+      <span className="dim small">{t('Theme')}</span>
+      <Segmented className="seg-inline" value={theme} onChange={setTheme}
+        options={[{ value: 'dark', label: t('Dark') }, { value: 'light', label: t('Light / printable') }]} />
+    </div>
+    <Button variant="primary" icon="download" disabled={busy} onClick={() => go('pdf')}>{t('Export as PDF')}</Button>
+    <div style={{ height: 8 }} />
+    <Button icon="download" disabled={busy} onClick={() => go('excel')}>{t('Export as Excel')}</Button>
+  </>
+}
+export const exportReportSheet = () => ui().openSheet(close => <ExportReportSheet close={close} />)
 
 /* ============================ import from another app ============================ */
 // Shows what a parsed export would actually do before anything is written. An import is
@@ -678,6 +717,54 @@ export function deleteCustomEx(ex, afterDelete) {
   })
 }
 
+// Photo of a gym machine -> a library exercise, without silently filing a duplicate custom
+// exercise the way scanning used to. A saved alias for this exact machine (db.machineAliases,
+// gym-wide) resolves straight through with no picker; otherwise the matched candidates (always
+// at least the one strong match, if any — see machine-scan.js's own comment on why this flow
+// never auto-applies the way routine-scan does) are shown for a tap-to-confirm, and picking one
+// saves the alias so the next member who scans this same machine skips this step entirely.
+function ScanMachineSheet({ onPick, close }) {
+  const [match, setMatch] = useState(null)     // { name, key, candidates } once scanned
+  const [checking, setChecking] = useState(false)
+
+  const onResult = async raw => {
+    const m = matchScannedMachine(raw)
+    if (m.candidates.length === 0) { setMatch(m); return }
+    setChecking(true)
+    const aliasId = await fetchMachineAlias(m.key).catch(() => null)
+    setChecking(false)
+    if (aliasId && EXIDX[aliasId]) { close(); onPick(EXIDX[aliasId]); return }
+    setMatch(m)
+  }
+  const pick = ex => { saveMachineAlias(match.key, ex.id, match.name).catch(() => {}); close(); onPick(ex) }
+  const createNew = () => { close(); customExSheet(null, ex => onPick(ex), match?.name || '') }
+
+  return <>
+    <h3>{t('Scan a machine')}</h3>
+    {!match && !checking && <>
+      <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 14 }}>
+        {t('Take or choose a photo of the machine — we’ll match it to an exercise already in the library.')}
+      </div>
+      <ScanUpload scanFn={scanMachine} onResult={onResult} label={t('Scan a machine')} />
+    </>}
+    {checking && <div className="muted small">{t('Checking…')}</div>}
+    {match && <>
+      {match.candidates.length > 0 ? <>
+        <div className="muted small" style={{ marginBottom: 10 }}>{t('Exercises found in the library')}</div>
+        <div className="list" style={{ marginBottom: 14 }}>
+          {match.candidates.map(c => <div key={c.id} className="item" onClick={() => pick(EXIDX[c.id])}>
+            <Thumb ex={EXIDX[c.id]} />
+            <div className="grow"><div className="tt capitalize">{c.n}</div></div>
+            <Icon name="chevronRight" className="chev" />
+          </div>)}
+        </div>
+      </> : <div className="muted small" style={{ marginBottom: 14 }}>{t('No close match found in the library.')}</div>}
+      <Button onClick={createNew}>{t('None of these — create a new exercise')}</Button>
+    </>}
+  </>
+}
+export const scanMachineSheet = onPick => ui().openSheet(close => <ScanMachineSheet onPick={onPick} close={close} />)
+
 /* ============================ exercise picker ============================ */
 // Exercises already used in your routines or past workouts (for the "Chosen" filter + a marker).
 function usageMap(st) {
@@ -721,6 +808,10 @@ export function ExercisePicker({ onPick, close }) {
         options={[{ value: '', label: t('Any equipment') }, ...eqOpts.map(x => ({ value: x, label: t(x) }))]} />
     </div>}
     <div className="list">
+      {grp !== '★' && <div className="item" onClick={() => { close(); scanMachineSheet(ex => onPick(ex)) }}>
+        <div className="thumb thumb-x"><Icon name="scan" /></div>
+        <div className="grow"><div className="tt">{t('Scan a machine')}</div><div className="ss">{t('Photograph it — we’ll match it to the library')}</div></div><Icon name="chevronRight" className="chev" />
+      </div>}
       {grp !== '★' && <div className="item" onClick={() => { close(); customExSheet(null, ex => onPick(ex), q.trim()) }}>
         <div className="thumb thumb-x"><Icon name="sparkles" /></div>
         <div className="grow"><div className="tt">{t('Create your own exercise')}</div><div className="ss">{t('name + muscle group, no animation')}</div></div><Icon name="plus" className="chev" />
@@ -2132,6 +2223,29 @@ function AddFriend({ close, onDone }) {
   </>
 }
 export const addFriendSheet = onDone => ui().openSheet(close => <AddFriend close={close} onDone={onDone} />)
+
+/* ============================ bunker check-in PIN ============================ */
+function BunkerPinSheet({ close }) {
+  const [pin, setPin] = useState(null)
+  useEffect(() => { fetchBunkerPin().then(setPin).catch(e => toast(e.message)) }, [])
+  const reset = () => confirmSheet({
+    title: t('Reset your Bunker PIN?'),
+    message: t('Your old PIN stops working immediately.'),
+    confirmText: t('Reset PIN'), danger: true,
+    onConfirm: () => resetBunkerPin().then(setPin).catch(e => toast(e.message)),
+  })
+  return <>
+    <h3>{t('Bunker check-in PIN')}</h3>
+    <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 18 }}>
+      {t('Show it to a trainer, or type it on the Bunker screen to start training there — no phone needed once you’re checked in.')}
+    </div>
+    <div style={{ textAlign: 'center', fontSize: 40, fontWeight: 700, letterSpacing: '.2em', margin: '0 0 20px', fontVariantNumeric: 'tabular-nums' }}>
+      {pin || '····'}
+    </div>
+    <Button onClick={reset}>{t('Reset PIN')}</Button>
+  </>
+}
+export const bunkerPinSheet = () => ui().openSheet(close => <BunkerPinSheet close={close} />)
 
 /* ============================ new conversation ============================ */
 function NewConversation({ close, onDone }) {

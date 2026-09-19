@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { fmtDate, fmtNum, ageFrom } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { measurementSheet, bioimpedanceScanSheet } from '../sheets.jsx'
+import { measurementSheet, bioimpedanceScanSheet, exportReportSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { SelectRow, Button, Segmented } from '../components/ui.jsx'
 import LineChart from '../components/LineChart.jsx'
@@ -80,9 +80,9 @@ function EvolutionCard({ S, update }) {
   </>
 }
 
-// A link row to one of the two dedicated screens below, instead of another inline list — folds
-// and tape measurements are staff/self logging that most members check rarely, so they no longer
-// compete with body composition (the thing "Scan report" actually fills in) for space here.
+// A link row to the tape-measure screen below, instead of another inline list — those are
+// self logging that most members check rarely, so they don't compete with the three tabbed
+// groups (the thing a bioimpedance scan actually fills in) for space here.
 function GroupLinkRow({ icon, iconTint, title, subtitle, to }) {
   const nav = useNavigate()
   return <div className="item" onClick={() => nav(to)}>
@@ -92,12 +92,30 @@ function GroupLinkRow({ icon, iconTint, title, subtitle, to }) {
   </div>
 }
 
+// The %/kg display toggle for fat and muscle mass readings (Row's own showAlt/shown logic
+// already reads S.measurementUnitMode — this is just a visible control for it, shared across
+// the composition and segment tabs since both read the same two buckets). "%" mode is fat's
+// own canonical unit and muscle's alt; "kg" is the reverse — see lib/measurements.js's own
+// comment on why fat and muscle don't share one canonical unit to begin with.
+function UnitModeToggle({ S, update }) {
+  const mode = S.measurementUnitMode || {}
+  const percent = mode.fat !== 'alt'
+  const setPercent = v => update(s => { s.measurementUnitMode = { fat: v ? 'canonical' : 'alt', muscle: v ? 'alt' : 'canonical' } })
+  return <div className="row between" style={{ margin: '2px 2px 14px' }}>
+    <span className="dim small">{t('Show fat & muscle in')}</span>
+    <Segmented className="seg-inline" value={percent ? 'pct' : 'kg'} onChange={v => setPercent(v === 'pct')}
+      options={[{ value: 'pct', label: '%' }, { value: 'kg', label: 'kg' }]} />
+  </div>
+}
+
 export default function Measurements() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
+  const [tab, setTab] = useState('composition')
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
   const segments = MEASUREMENTS.filter(m => m.group === 'segments')
+  const folds = MEASUREMENTS.filter(m => m.group === 'folds')
   const needsProfile = lastMeasurement(S, 'bodyFat') && !bodyFatBand(lastMeasurement(S, 'bodyFat').v, S.body, ageFrom(S.birthDate))
 
   return <div className="narrow">
@@ -106,21 +124,40 @@ export default function Measurements() {
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Measurements')}</h1><div className="sub">{t('Track your body over time')}</div></div>
     </div>
 
-    <div className="row between" style={{ margin: '22px 0 8px' }}>
+    <div className="row between" style={{ margin: '22px 0 8px', gap: 8 }}>
       <h4 className="sec" style={{ margin: 0 }}>{t('Body composition')}</h4>
-      <Button size="sm" variant="tinted" icon="scan" onClick={bioimpedanceScanSheet}>{t('Scan report')}</Button>
+      <div className="row" style={{ gap: 8 }}>
+        <Button size="sm" icon="download" onClick={exportReportSheet}>{t('Export')}</Button>
+        <Button size="sm" variant="tinted" icon="scan" onClick={bioimpedanceScanSheet}>{t('Scan report')}</Button>
+      </div>
     </div>
-    <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('From a bioimpedance scan — ask staff if this gym has one.')}</div>
-    {needsProfile && <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('Add your date of birth and sex in Settings to see whether your body fat is in a healthy range.')}</div>}
-    <div className="list" style={{ marginBottom: 22 }}>{composition.map(m => <Row key={m.key} m={m} S={S} />)}</div>
+    <div className="dim small" style={{ margin: '0 2px 14px' }}>{t('From a bioimpedance scan — ask staff if this gym has one.')}</div>
 
-    <h4 className="sec">{t('Body composition by segment')}</h4>
-    <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('From the same scan, broken down by arm, leg and trunk.')}</div>
-    <div className="list" style={{ marginBottom: 14 }}>{segments.map(m => <Row key={m.key} m={m} S={S} />)}</div>
-    <div style={{ marginBottom: 22 }}><SegmentBodyDiagram S={S} /></div>
+    <Segmented className="seg-range" value={tab} onChange={setTab} options={[
+      { value: 'composition', label: t('General') },
+      { value: 'segments', label: t('By limb') },
+      { value: 'folds', label: t('Skinfolds') },
+    ]} />
+
+    <UnitModeToggle S={S} update={update} />
+
+    {tab === 'composition' && <>
+      {needsProfile && <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('Add your date of birth and sex in Settings to see whether your body fat is in a healthy range.')}</div>}
+      <div className="list" style={{ marginBottom: 22 }}>{composition.map(m => <Row key={m.key} m={m} S={S} />)}</div>
+    </>}
+
+    {tab === 'segments' && <>
+      <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('From the same scan, broken down by arm, leg and trunk.')}</div>
+      <div className="list" style={{ marginBottom: 14 }}>{segments.map(m => <Row key={m.key} m={m} S={S} />)}</div>
+      <div style={{ marginBottom: 22 }}><SegmentBodyDiagram S={S} /></div>
+    </>}
+
+    {tab === 'folds' && <>
+      <div className="dim small" style={{ margin: '0 2px 10px' }}>{t('Caliper readings — ask staff if this gym takes these.')}</div>
+      <div className="list" style={{ marginBottom: 22 }}>{folds.map(m => <Row key={m.key} m={m} S={S} />)}</div>
+    </>}
 
     <div className="list" style={{ marginBottom: 22 }}>
-      <GroupLinkRow icon="caliper" iconTint="var(--teal)" title="Skinfolds" subtitle="Caliper readings" to="/measurements/folds" />
       <GroupLinkRow icon="expand" iconTint="var(--mint)" title="Body measurements" subtitle="Your own tape measure" to="/measurements/body" />
     </div>
 

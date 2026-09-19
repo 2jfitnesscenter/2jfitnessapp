@@ -47,6 +47,20 @@ export const scanMeasurements = dataUrl =>
 export const scanRoutine = dataUrl =>
   api('/api/routines/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl }) }).then(r => r.routine)
 
+// A photo of a single gym machine/exercise (as a data URL) -> raw { name, nameEn } — the
+// exercise the AI thinks it recognises, not yet matched to a library id or checked against the
+// gym-wide machine-alias table. See lib/machine-scan.js's matchScannedMachine() for that.
+export const scanMachine = dataUrl =>
+  api('/api/exercises/scan-machine', { method: 'POST', body: JSON.stringify({ file: dataUrl }) })
+
+// Gym-wide "this scanned machine already means this exercise" links (db.machineAliases on the
+// server) — shared across every member, since it's the same physical equipment for all of
+// them. `key` is lib/machine-scan.js's own normalised form of the recognised name.
+export const fetchMachineAlias = key =>
+  api('/api/exercises/alias?key=' + encodeURIComponent(key)).then(r => r.exId)
+export const saveMachineAlias = (key, exId, name) =>
+  api('/api/exercises/alias', { method: 'POST', body: JSON.stringify({ key, exId, name }) })
+
 // Re-encodes an already-uploaded image as a fresh data URL — used when publishing a routine/
 // program that already has its own cover set, so Social gets its own independent copy of the
 // file rather than sharing one two different deletes could race on.

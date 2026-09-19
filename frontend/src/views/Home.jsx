@@ -8,7 +8,7 @@ import { t, dateLocale } from '../lib/i18n.js'
 import { dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, workoutDetailSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
-import BodyMap from '../components/BodyMap.jsx'
+import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
 import BodyWeightCard from '../components/BodyWeightCard.jsx'
 import SegmentBodyDiagram from '../components/SegmentBodyDiagram.jsx'
 import { glyphOf } from '../lib/glyphs.js'
@@ -16,18 +16,47 @@ import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
-import { loadOfWorkouts, muscleOptsOf } from '../lib/muscles.js'
+import { loadOfWorkouts, muscleOptsOf, MUSCLE_NAME } from '../lib/muscles.js'
 import RecoveryCard from '../components/RecoveryCard.jsx'
-import { hasBodyComposition } from '../lib/measurements.js'
+import { hasBodyComposition, daysSinceBioimpedance } from '../lib/measurements.js'
 import { fetchWhoopRecovery, fetchWhoopSleep } from '../lib/whoop-api.js'
 import { mergeSeries } from '../lib/import-csv.js'
 
+// Full-screen expansion of the compact body map below — the same load, just big enough to
+// tap a muscle and read its exact set count, the way Stats.jsx's own Muscle balance card
+// already lets you do for a wider window. Opened as a 'full' sheet (Modals.jsx) since a
+// pinch-to-read body map is exactly the kind of thing a bottom sheet's own max-height cuts off.
+function WorkoutBodyMapModal({ w, S, close }) {
+  const [sel, setSel] = useState(null)
+  const load = loadOfWorkouts([w], null, muscleOptsOf(S))
+  const sets = m => Math.round((load[m] || 0) * 10) / 10
+  return <div className="narrow">
+    <div className="hdr">
+      <button className="iconbtn" onClick={close} aria-label={t('Close')}><Icon name="xmark" /></button>
+      <div style={{ flex: 1, marginLeft: 8 }}><h1>{w.name}</h1></div>
+    </div>
+    <div className="card">
+      <BodyMap className="tappable" load={load} body={S.body} selected={sel}
+        onMuscle={m => setSel(s => (s === m ? null : m))} />
+      <BodyMapLegend />
+      {sel && <div className="mrow" style={{ borderTop: 'var(--hair) solid var(--sep)', marginTop: 4, paddingTop: 10 }}>
+        <span className="nm"><b>{t(MUSCLE_NAME[sel])}</b></span>
+        <span className="v">{sets(sel) ? t('{0} sets', sets(sel)) : t('not trained')}</span>
+      </div>}
+    </div>
+  </div>
+}
+
 // A tap-through summary of the most recently finished workout — duration, sets, volume, and
-// which muscles it hit (the same body map FinishSummary shows right after finishing one).
+// which muscles it hit (the same body map FinishSummary shows right after finishing one). The
+// map itself is shrunk to a compact side-by-side pair (index.css's .home-bodymap) and opens
+// its own full-screen detail on tap — stopping the event so that tap doesn't also fire the
+// card's own onClick (which opens the workout detail sheet instead).
 function LastWorkoutCard({ S }) {
   const w = S.workouts.length ? S.workouts[S.workouts.length - 1] : null
   if (!w) return null
   const glyph = glyphOf((S.routines.find(r => r.id === w.routineId) || {}).emoji)
+  const openMap = e => { e.stopPropagation(); useUI.getState().openSheet(close => <WorkoutBodyMapModal w={w} S={S} close={close} />, { kind: 'full' }) }
   return <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => workoutDetailSheet(w)}>
     <div className="row" style={{ gap: 9, marginBottom: 10 }}>
       <span className="lrow-i" style={{ width: 34, height: 34, borderRadius: 8, fontSize: 19 }}><Icon name={glyph} /></span>
@@ -42,7 +71,9 @@ function LastWorkoutCard({ S }) {
       <div className="tile"><div className="l">{t('Sets')}</div><div className="v">{setsDone(w)}</div></div>
       <div className="tile"><div className="l">{t('Volume')}</div><div className="v">{fmtVol(w.vol, S.unit)}</div></div>
     </div>
-    <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(S))} body={S.body} />
+    <div className="home-bodymap tappable" style={{ cursor: 'pointer' }} onClick={openMap}>
+      <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(S))} body={S.body} />
+    </div>
   </div>
 }
 
@@ -67,6 +98,30 @@ function CoachCard({ nav }) {
         </div>
       </div>
       {ready ? <span className="tag acc">{t('Review')}</span> : <Icon name="chevronRight" className="chev" />}
+    </div>
+  </div>
+}
+
+// Nudges toward a fresh body-composition scan once the member's own chosen cadence (15/30
+// days, Settings → General → Bioimpedance reminder) has passed since the last one. Renders
+// nothing when there's nothing to say — same rule CoachCard follows above — so a brand-new
+// profile with no scan on file yet (daysSinceBioimpedance returns null: nothing is "overdue"
+// when nothing has ever been logged) never sees this ahead of its first one.
+function BioimpedanceReminderCard({ S, nav }) {
+  if (S.enableBioimpedanceReminder === false) return null
+  const days = daysSinceBioimpedance(S)
+  const cadence = S.bioimpedanceReminderDays || 15
+  if (days === null || days < cadence) return null
+  return <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => nav('/measurements')}>
+    <div className="row" style={{ gap: 10 }}>
+      <span className="lrow-i" style={{ background: 'var(--orange)' }}><Icon name="calendar" /></span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="ttl">{t('Time for a new scan')}</div>
+        <div className="muted small" style={{ marginTop: 2 }}>
+          {t('It’s been {0} days since your last body-composition measurement — tap to log a new one.', days)}
+        </div>
+      </div>
+      <Icon name="chevronRight" className="chev" />
     </div>
   </div>
 }
@@ -197,6 +252,8 @@ export default function Home() {
     </div>
 
     {coachOn && <CoachCard nav={nav} />}
+
+    <BioimpedanceReminderCard S={S} nav={nav} />
 
     {!S.routines.length && !S.active && (
       <div className="card">

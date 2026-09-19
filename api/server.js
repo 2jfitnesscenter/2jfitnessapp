@@ -15,10 +15,12 @@ import { coachRoutes } from './coach/routes.js';
 import { trainerAIRoutes } from './coach/trainer-routes.js';
 import { scanBioimpedanceImage } from './lib/measurements-scan.js';
 import { scanRoutineDocument } from './lib/routine-scan.js';
+import { scanMachineImage } from './lib/machine-scan.js';
 import { readState, writeState } from './lib/state-store.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
 import { chatRoutes } from './chat/routes.js';
+import { bunkerRoutes } from './bunker/routes.js';
 import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
 import * as whoopConfig from './whoop/config.js';
@@ -66,6 +68,12 @@ db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.recoveries = db.recoveries || [];
 db.recoveryRequests = db.recoveryRequests || [];
+// Scanned-machine → library-exercise links (frontend/src/lib/machine-scan.js) — gym-wide, not
+// per-member: it's the same physical machine for every socio who scans it, so one member's
+// pick benefits everyone's next scan. Keyed by a normalised form of the AI's own recognised
+// name (see machine-scan.js's norm()) since there's no physical id printed on the equipment
+// itself to key off instead. { key, exId, name, updatedAt }.
+db.machineAliases = db.machineAliases || [];
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
@@ -823,6 +831,9 @@ const routes = {
       // (starter.js's buildPlan, mirrored below) and the AI Coach's exercise selection.
       priorityMuscles: Array.isArray(S.priorityMuscles) ? S.priorityMuscles : [],
       secondaryMuscles: Array.isArray(S.secondaryMuscles) ? S.secondaryMuscles : [],
+      // The two per-member toggles POST /api/admin/user/features can flip remotely.
+      enableTrainingZones: S.enableTrainingZones !== false,
+      enableRpVolumeZones: !!S.enableRpVolumeZones,
       latestWeight: bw.length ? bw[bw.length - 1] : null,
       // Latest reading per measurement key — see /api/admin/user/measurements. Full history
       // stays on the member's own device; the admin card only needs "what's the number now".
@@ -872,6 +883,24 @@ const routes = {
     S._ts = Date.now();
     writeState(u.id, S);
     json(res, 200, { ok: true });
+  },
+
+  // Admin/trainer switching Training zones or Weekly volume zones on or off for one member
+  // remotely (AdminMembers.jsx) — the same two Settings toggles the member has themselves,
+  // just reachable from the gym side for someone who'd otherwise never find or use them.
+  // body: { id, enableTrainingZones?, enableRpVolumeZones? }.
+  'POST /api/admin/user/features': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const S = readState(u.id);
+    if (!S) return json(res, 404, { error: 'este socio aún no ha sincronizado ningún dato' });
+    if (typeof body.enableTrainingZones === 'boolean') S.enableTrainingZones = body.enableTrainingZones;
+    if (typeof body.enableRpVolumeZones === 'boolean') S.enableRpVolumeZones = body.enableRpVolumeZones;
+    S._ts = Date.now();
+    writeState(u.id, S);
+    json(res, 200, { ok: true, enableTrainingZones: S.enableTrainingZones !== false, enableRpVolumeZones: !!S.enableRpVolumeZones });
   },
 
   // Staff entering a bioimpedance scan (this gym's Tanita, typically) straight onto a member's
@@ -1344,6 +1373,54 @@ const routes = {
     const r = await scanRoutineDocument({ data: b64, mimeType });
     if (!r.ok) return json(res, 400, { error: r.error });
     json(res, 200, { routine: r.value });
+  },
+
+  // Single gym-machine/exercise photo → a raw name (no OCR, one Gemini vision call), for the
+  // member-facing "scan this machine" flow. Same shape/permissions as the two scans above —
+  // any signed-in user, reads the file and hands back what it read; matching against the
+  // library, the alias lookup below and any save both happen client-side.
+  // body: { file: '<dataURL>' }.
+  'POST /api/exercises/scan-machine': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const dataUrl = typeof body.file === 'string' ? body.file : '';
+    const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
+    if (!m) return json(res, 400, { error: 'archivo no válido' });
+    const [, mimeType, b64] = m;
+    if (!/^image\//.test(mimeType) && mimeType !== 'application/pdf') {
+      return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
+    }
+    if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
+    const r = await scanMachineImage({ data: b64, mimeType });
+    if (!r.ok) return json(res, 400, { error: r.error });
+    json(res, 200, { name: r.value.name, nameEn: r.value.nameEn });
+  },
+
+  // Gym-wide machine→exercise alias lookup/save (db.machineAliases above) — any signed-in
+  // member can read or write one, since the whole point is that the first member to resolve a
+  // given machine saves everyone else the same picker next time.
+  'GET /api/exercises/alias': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const key = String(new URL(req.url, 'http://x').searchParams.get('key') || '').trim();
+    if (!key) return json(res, 400, { error: 'falta key' });
+    const alias = db.machineAliases.find(a => a.key === key);
+    json(res, 200, { exId: alias ? alias.exId : null });
+  },
+  'POST /api/exercises/alias': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const key = String(body.key || '').trim();
+    const exId = String(body.exId || '').trim();
+    const name = String(body.name || '').trim().slice(0, 100);
+    if (!key || !exId) return json(res, 400, { error: 'faltan datos' });
+    const existing = db.machineAliases.find(a => a.key === key);
+    if (existing) { existing.exId = exId; existing.name = name; existing.updatedAt = Date.now(); }
+    else db.machineAliases.push({ key, exId, name, updatedAt: Date.now() });
+    saveDb();
+    json(res, 200, { ok: true });
   },
 
   /* ---------- Social: Programs (a named group of routines, published as one unit) ---------- */
@@ -1837,6 +1914,13 @@ const routes = {
   // isTrainer above), so chat is one shared inbox every trainer/admin can see and reply to.
   ...friendsRoutes({ json, readBody, readSession, sendPush, users: () => db.users }),
   ...chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users: () => db.users }),
+
+  /* ---------- Bunker (gym-floor kiosk) ---------- */
+  // Its own data/bunker.json (PINs, admin codes, room settings) — see bunker/store.js's doc
+  // comment for why the live session board itself is in-memory instead, same as `presence`
+  // above. sign/verifySig are the exact functions the signed session cookie itself uses, reused
+  // for the kiosk's own short-lived, narrowly-scoped tokens (never a full login).
+  ...bunkerRoutes({ json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users }),
 
   /* ---------- connected apps: Strava (push workouts), Whoop (pull recovery) ---------- */
   ...stravaRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN }),

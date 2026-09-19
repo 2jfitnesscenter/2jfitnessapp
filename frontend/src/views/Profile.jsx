@@ -16,6 +16,7 @@ import Icon from '../components/Icon.jsx'
 import { Section, Row, Button, TextField, Avatar } from '../components/ui.jsx'
 import BodyWeightCard from '../components/BodyWeightCard.jsx'
 import StaffBadge from '../components/StaffBadge.jsx'
+import { bunkerPinSheet } from '../sheets.jsx'
 
 export default function Profile() {
   const nav = useNavigate()
@@ -92,6 +93,7 @@ export default function Profile() {
           {chatUnread > 0 && <span aria-label={t('Unread messages')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
         </Row>
         {user?.trainer && <Row icon="dumbbell" iconTint="var(--green)" title={t('Trainer panel')} subtitle={t('Best used on a computer.')} accessory="chevron" onClick={() => nav('/trainer')} />}
+        <Row icon="key" iconTint="var(--orange)" title={t('Bunker check-in PIN')} subtitle={t('Train on the gym-floor screen without your phone')} accessory="chevron" onClick={bunkerPinSheet} />
       </Section>
     )}
 

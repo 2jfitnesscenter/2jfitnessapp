@@ -3,7 +3,8 @@ import { api } from '../lib/api.js'
 import { localTZ } from '../lib/format.js'
 import { registerCustom, setHiddenExercises } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
-import { MOBILE, nativeLoad, nativeSave, syncReminder } from '../lib/mobile.js'
+import { MOBILE, nativeLoad, nativeSave, syncReminder, syncBioimpedanceReminder } from '../lib/mobile.js'
+import { daysSinceBioimpedance } from '../lib/measurements.js'
 
 const KEY = 'gym_state_v1'
 export const DEF = {
@@ -77,6 +78,11 @@ export const DEF = {
   // this only decides which one you're actually typing into and which is read back out of
   // S.measurements. See lib/measurements.js's UNIT_TOGGLE_METRIC for which keys each governs.
   measurementUnitMode: { fat: 'canonical', muscle: 'canonical' },
+  // Home's "time to scan again" nudge (lib/measurements.js's daysSinceBioimpedance, derived
+  // from S.measurements — no separate lastBioimpedanceDate field to keep in sync). On by
+  // default, like the app's other passive nudges; the frequency itself is a member choice
+  // between the two cadences a gym-run scan typically follows.
+  enableBioimpedanceReminder: true, bioimpedanceReminderDays: 15,
   // Same {d, v, t} shape again — steps/sleep(minutes)/restingHR only ever arrive via an Apple
   // Health import (lib/import-csv.js's parseAppleHealth/mergeImport), never logged by hand.
   steps: [], sleep: [], restingHR: [],
@@ -133,7 +139,10 @@ export const useStore = create((set, get) => {
   // storage eviction) and keep the native reminder schedule in step with the weekly plan.
   const nativePersist = () => {
     clearTimeout(saveTm)
-    saveTm = setTimeout(() => { saveTm = null; nativeSave(get().S); syncReminder(get().S) }, 800)
+    saveTm = setTimeout(() => {
+      saveTm = null; nativeSave(get().S); syncReminder(get().S)
+      syncBioimpedanceReminder(get().S, daysSinceBioimpedance(get().S))
+    }, 800)
   }
 
   const persist = (S, push = true) => {
@@ -259,6 +268,7 @@ export const useStore = create((set, get) => {
         }
         get().setGuest(true)
         syncReminder(get().S)
+        syncBioimpedanceReminder(get().S, daysSinceBioimpedance(get().S))
         set({ ready: true })
         return
       }

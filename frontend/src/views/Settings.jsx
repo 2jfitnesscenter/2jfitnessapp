@@ -8,7 +8,8 @@ import { pushSupported, enablePush, disablePush, sendTestPush } from '../lib/pus
 import { t, nameFor, LANGS, INSTR_LANGS } from '../lib/i18n.js'
 import { exOr } from '../lib/exercises.js'
 import { DEMO } from '../lib/demo.js'
-import { MOBILE, shareExport, syncReminder } from '../lib/mobile.js'
+import { MOBILE, shareExport, syncReminder, syncBioimpedanceReminder } from '../lib/mobile.js'
+import { daysSinceBioimpedance } from '../lib/measurements.js'
 import { loadStarterPlan, confirmSheet, importFromApp, platesSheet } from '../sheets.jsx'
 import { ZONES } from '../lib/training-zones.js'
 import { LEVELS, ZONE_ORDER, ZONE_META } from '../lib/rp-volume.js'
@@ -133,6 +134,16 @@ export default function Settings() {
       <Row icon="figureStrength" iconTint="var(--purple)" title={t('Statistics')}
         subtitle={t('How secondary muscles count toward volume and the muscle map')}
         accessory="chevron" onClick={() => nav('/settings/stats')} />
+      <Row icon="calendar" iconTint="var(--orange)" title={t('Bioimpedance reminder')}
+        subtitle={t('A nudge on Home when it’s been a while since your last body-composition scan')}>
+        <Switch checked={S.enableBioimpedanceReminder !== false} onChange={v => {
+          update(s => { s.enableBioimpedanceReminder = v })
+          if (MOBILE) syncBioimpedanceReminder({ ...S, enableBioimpedanceReminder: v }, daysSinceBioimpedance(S), true)
+        }} />
+      </Row>
+      {S.enableBioimpedanceReminder !== false && <SelectRow icon="calendar" iconTint="var(--orange)" title={t('Reminder frequency')}
+        value={S.bioimpedanceReminderDays || 15} onChange={v => update(s => { s.bioimpedanceReminderDays = v })}
+        options={[15, 30].map(d => ({ value: d, label: t('Every {0} days', d) }))} />}
     </Section>
 
     {/* ---------- during a workout ---------- */}

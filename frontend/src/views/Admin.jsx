@@ -8,7 +8,7 @@ import { workoutVolume, setsDone } from '../lib/history.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button, Segmented, ChipSelect } from '../components/ui.jsx'
+import { Button, Segmented, ChipSelect, Switch, Row } from '../components/ui.jsx'
 import ScanUpload from '../components/ScanUpload.jsx'
 import AdminCoach from './AdminCoach.jsx'
 import AdminTrainerAI from './AdminTrainerAI.jsx'
@@ -247,6 +247,10 @@ export function UserDetail({ id, onChanged, close }) {
       .catch(e => toast(e.message))
   }
   const applyStarterPlan = () => openSheet(close2 => <StarterPlanSheet u={u} onApplied={load} close={close2} />)
+  const setFeature = (key, value) => {
+    setD(dd => ({ ...dd, [key]: value }))   // optimistic — this member's own toggle already works this way
+    api('/api/admin/user/features', { method: 'POST', body: JSON.stringify({ id: u.id, [key]: value }) }).catch(e => { toast(e.message); load() })
+  }
   const age = ageFrom(d.birthDate)
   return <>
     <h3 className="capitalize">{u.name}</h3>
@@ -279,6 +283,14 @@ export function UserDetail({ id, onChanged, close }) {
         return <span key={m.key} className={'tag' + (band ? ' ' + band : '')}>{t(m.label)}: {fmtNum(d.measurements[m.key].v)} {m.unit}</span>
       })}
     </div>}
+    <div className="list" style={{ margin: '12px 0 4px' }}>
+      <Row icon="target" iconTint="var(--purple)" title={t('Training zones')}>
+        <Switch checked={d.enableTrainingZones !== false} onChange={v => setFeature('enableTrainingZones', v)} />
+      </Row>
+      <Row icon="chartLine" iconTint="var(--orange)" title={t('Weekly volume zones')}>
+        <Switch checked={!!d.enableRpVolumeZones} onChange={v => setFeature('enableRpVolumeZones', v)} />
+      </Row>
+    </div>
     <div className="row" style={{ gap: 8, margin: '12px 0 4px' }}>
       <Button style={{ flex: 1 }} icon="pencil" onClick={() => openSheet(close2 => <ProfileEditForm d={d} onSaved={load} close={close2} />)}>{t('Edit profile')}</Button>
       {!d.routines.length && <Button style={{ flex: 1 }} icon="sparkles" onClick={applyStarterPlan}>{t('Load PPL plan')}</Button>}
@@ -489,6 +501,9 @@ export default function Admin() {
     <AdminNavCard icon="link" tint="var(--blue)" title={t('Invite codes')}
       sub={invites ? t('{0} unused · {1} redeemed', invites.filter(i => !i.usedBy).length, invites.filter(i => i.usedBy).length) : t('Loading…')}
       onClick={() => openSheet(close => <InvitesSheet invites={invites} reload={loadInvites} close={close} />)} />
+
+    <AdminNavCard icon="dumbbell" tint="var(--acc)" title={t('Room admin')}
+      sub={t('Manage who’s checked into the Bunker and the room screen’s own settings')} onClick={() => nav('/admin/bunker')} />
 
     <ExerciseLibraryNav />
 
