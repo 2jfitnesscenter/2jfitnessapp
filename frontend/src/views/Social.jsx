@@ -15,7 +15,9 @@ import { confirmSheet, exercisePicker, goalSheet } from '../sheets.jsx'
 import {
   fetchSocialRoutines, publishSocialRoutine, rateSocialRoutine, deleteSocialRoutine,
   fetchSocialPrograms, publishSocialProgram, rateSocialProgram, deleteSocialProgram,
-  fetchWall, publishWallPost, deleteWallPost, postWallComment, deleteWallComment,
+  fetchWall, publishWallPost, deleteWallPost, postWallComment, deleteWallComment, setWallVisibility,
+  fetchTopics, publishTopic, deleteTopic, postTopicComment, deleteTopicComment,
+  fetchBoard, publishBoardPost, deleteBoardPost, toggleBoardComments, postBoardComment, deleteBoardComment,
   fetchChallenges, fetchChallengeDetail, createChallenge, joinChallenge, leaveChallenge, deleteChallenge,
   fetchGoals, publishGoal, unpublishGoal,
   fetchTrainerMembers, assignRoutineToMember, assignProgramToMember
@@ -443,6 +445,13 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
     title: t('Delete this post?'), confirmText: t('Delete'), danger: true,
     onConfirm: () => deleteWallPost(post.id).then(() => { toast(t('Deleted')); onChanged(); close() }).catch(e => toast(e.message))
   })
+  const isOwn = post.authorId === user?.id
+  const toggleVisibility = () => {
+    const next = !post.public
+    setWallVisibility(post.id, next)
+      .then(() => setPost(p => ({ ...p, public: next })))
+      .catch(e => toast(e.message))
+  }
 
   return <>
     <div className="row" style={{ gap: 10, marginBottom: 10 }}>
@@ -453,6 +462,10 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
       </div>
     </div>
     {post.note && <div className="small" style={{ margin: '0 0 14px', lineHeight: 1.5 }}>“{post.note}”</div>}
+    {(isOwn || user?.admin) && <div className="row between" style={{ margin: '0 0 14px', padding: '10px 12px', borderRadius: 10, background: 'var(--fill)' }}>
+      <div className="row" style={{ gap: 6 }}><Icon name={post.public ? 'globe' : 'lock'} style={{ width: 16, height: 16 }} /><div className="small">{post.public ? t('Visible to everyone') : t('Only visible to you')}</div></div>
+      <Button size="sm" variant={post.public ? 'primary' : 'tinted'} onClick={toggleVisibility}>{post.public ? t('Public') : t('Private')}</Button>
+    </div>}
     <h4 className="sec">{t('Comments')}</h4>
     <div className="list" style={{ gap: 0, marginBottom: 10 }}>
       {(post.comments || []).map(c => <div key={c.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
@@ -469,6 +482,182 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
     <div style={{ height: 10 }} />
     <div className="row" style={{ gap: 8 }}>
       <Button variant="primary" style={{ flex: 1 }} disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>
+      {(post.authorId === user?.id || user?.admin) &&
+        <Button variant="danger" style={{ flex: 1 }} onClick={delPost}>{t('Delete post')}</Button>}
+    </div>
+  </>
+}
+
+/* ============================ muro (topics chat) ============================ */
+// A gym-wide forum: anyone opens a topic, anyone comments. Moderation is wider than the Wall's
+// own (authorId-or-admin) — here any trainer can remove any topic or comment too, per the
+// owner's own choice, so the flat-comment pattern from WallDetailSheet gets that one check widened.
+const canModerate = user => !!(user?.admin || user?.trainer)
+
+function NewTopicSheet({ close, onPublished }) {
+  const toast = useUI(s => s.toast)
+  const [title, setTitle] = useState('')
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const send = () => {
+    if (!title.trim() || !text.trim()) { toast(t('Give it a title and a message.')); return }
+    setBusy(true)
+    publishTopic({ title: title.trim(), text: text.trim() })
+      .then(() => { toast(t('Topic created')); onPublished(); close() })
+      .catch(e => { setBusy(false); toast(e.message) })
+  }
+  return <>
+    <h3>{t('New topic')}</h3>
+    <TextField placeholder={t('Title')} maxLength={80} value={title} onChange={e => setTitle(e.target.value)} />
+    <div style={{ height: 10 }} />
+    <TextArea rows={4} maxLength={1000} placeholder={t('What do you want to talk about?')} value={text} onChange={e => setText(e.target.value)} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" disabled={busy} onClick={send}>{t('Post')}</Button>
+  </>
+}
+
+function TopicDetailSheet({ topic: initial, onChanged, close }) {
+  const user = useStore(s => s.user)
+  const toast = useUI(s => s.toast)
+  const [topic, setTopic] = useState(initial)
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const send = () => {
+    const v = text.trim()
+    if (!v) return
+    setBusy(true)
+    postTopicComment(topic.id, v).then(res => {
+      setTopic(p => ({ ...p, comments: [...(p.comments || []), res.comment] }))
+      setText('')
+      setBusy(false)
+    }).catch(e => { setBusy(false); toast(e.message) })
+  }
+  const removeComment = c => {
+    deleteTopicComment(topic.id, c.id)
+      .then(() => setTopic(p => ({ ...p, comments: (p.comments || []).filter(x => x.id !== c.id) })))
+      .catch(e => toast(e.message))
+  }
+  const delTopic = () => confirmSheet({
+    title: t('Delete this topic?'), confirmText: t('Delete'), danger: true,
+    onConfirm: () => deleteTopic(topic.id).then(() => { toast(t('Deleted')); onChanged(); close() }).catch(e => toast(e.message))
+  })
+
+  return <>
+    <h3>{topic.title}</h3>
+    <div className="ss capitalize row" style={{ gap: 4, margin: '2px 0 12px' }}>{topic.authorName}{topic.authorKind === 'trainer' && <StaffBadge size={11} />} · {fmtDate(topic.createdAt, true)}</div>
+    <div className="small" style={{ margin: '0 0 14px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{topic.text}</div>
+    <h4 className="sec">{t('Comments')}</h4>
+    <div className="list" style={{ gap: 0, marginBottom: 10 }}>
+      {(topic.comments || []).map(c => <div key={c.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="small capitalize row" style={{ gap: 4, fontWeight: 600 }}>{c.authorName}{c.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
+          <div className="small">{c.text}</div>
+        </div>
+        {(c.authorId === user?.id || canModerate(user)) &&
+          <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
+      </div>)}
+      {!(topic.comments || []).length && <div className="muted small" style={{ padding: '6px 2px' }}>{t('No comments yet.')}</div>}
+    </div>
+    <TextArea rows={3} maxLength={300} value={text} placeholder={t('Add a comment…')} onChange={e => setText(e.target.value)} />
+    <div style={{ height: 10 }} />
+    <div className="row" style={{ gap: 8 }}>
+      <Button variant="primary" style={{ flex: 1 }} disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>
+      {(topic.authorId === user?.id || canModerate(user)) &&
+        <Button variant="danger" style={{ flex: 1 }} onClick={delTopic}>{t('Delete topic')}</Button>}
+    </div>
+  </>
+}
+
+/* ============================ tablón de entrenadores ============================ */
+// Read-only by default: a trainer/admin can flip `commentsEnabled` on any post from the detail
+// sheet, and only then does the comment box appear — the server enforces the same gate, this is
+// just the UI reflecting it.
+
+function NewBoardPostSheet({ close, onPublished }) {
+  const toast = useUI(s => s.toast)
+  const [title, setTitle] = useState('')
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const send = () => {
+    if (!title.trim() || !text.trim()) { toast(t('Give it a title and a message.')); return }
+    setBusy(true)
+    publishBoardPost({ title: title.trim(), text: text.trim() })
+      .then(() => { toast(t('Posted')); onPublished(); close() })
+      .catch(e => { setBusy(false); toast(e.message) })
+  }
+  return <>
+    <h3>{t('New announcement')}</h3>
+    <TextField placeholder={t('Title')} maxLength={80} value={title} onChange={e => setTitle(e.target.value)} />
+    <div style={{ height: 10 }} />
+    <TextArea rows={5} maxLength={2000} placeholder={t('News, an idea, a test to try…')} value={text} onChange={e => setText(e.target.value)} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" disabled={busy} onClick={send}>{t('Post')}</Button>
+  </>
+}
+
+function BoardDetailSheet({ post: initial, onChanged, close }) {
+  const user = useStore(s => s.user)
+  const toast = useUI(s => s.toast)
+  const [post, setPost] = useState(initial)
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const send = () => {
+    const v = text.trim()
+    if (!v) return
+    setBusy(true)
+    postBoardComment(post.id, v).then(res => {
+      setPost(p => ({ ...p, comments: [...(p.comments || []), res.comment] }))
+      setText('')
+      setBusy(false)
+    }).catch(e => { setBusy(false); toast(e.message) })
+  }
+  const removeComment = c => {
+    deleteBoardComment(post.id, c.id)
+      .then(() => setPost(p => ({ ...p, comments: (p.comments || []).filter(x => x.id !== c.id) })))
+      .catch(e => toast(e.message))
+  }
+  const delPost = () => confirmSheet({
+    title: t('Delete this announcement?'), confirmText: t('Delete'), danger: true,
+    onConfirm: () => deleteBoardPost(post.id).then(() => { toast(t('Deleted')); onChanged(); close() }).catch(e => toast(e.message))
+  })
+  const toggleComments = () => {
+    const next = !post.commentsEnabled
+    toggleBoardComments(post.id, next)
+      .then(() => setPost(p => ({ ...p, commentsEnabled: next })))
+      .catch(e => toast(e.message))
+  }
+
+  return <>
+    <h3>{post.title}</h3>
+    <div className="ss capitalize row" style={{ gap: 4, margin: '2px 0 12px' }}>{post.authorName}<StaffBadge size={11} /> · {fmtDate(post.createdAt, true)}</div>
+    <div className="small" style={{ margin: '0 0 14px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{post.text}</div>
+
+    {canModerate(user) && <div className="row between" style={{ margin: '0 0 14px', padding: '10px 12px', borderRadius: 10, background: 'var(--fill)' }}>
+      <div className="small">{t('Allow comments on this post')}</div>
+      <Button size="sm" variant={post.commentsEnabled ? 'primary' : 'tinted'} onClick={toggleComments}>{post.commentsEnabled ? t('Enabled') : t('Disabled')}</Button>
+    </div>}
+
+    {post.commentsEnabled ? <>
+      <h4 className="sec">{t('Comments')}</h4>
+      <div className="list" style={{ gap: 0, marginBottom: 10 }}>
+        {(post.comments || []).map(c => <div key={c.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <div style={{ minWidth: 0 }}>
+            <div className="small capitalize row" style={{ gap: 4, fontWeight: 600 }}>{c.authorName}{c.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
+            <div className="small">{c.text}</div>
+          </div>
+          {(c.authorId === user?.id || canModerate(user)) &&
+            <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
+        </div>)}
+        {!(post.comments || []).length && <div className="muted small" style={{ padding: '6px 2px' }}>{t('No comments yet.')}</div>}
+      </div>
+      <TextArea rows={3} maxLength={300} value={text} placeholder={t('Add a comment…')} onChange={e => setText(e.target.value)} />
+      <div style={{ height: 10 }} />
+    </> : <div className="dim small" style={{ margin: '0 0 14px' }}>{t('Comments are off for this post.')}</div>}
+
+    <div className="row" style={{ gap: 8 }}>
+      {post.commentsEnabled && <Button variant="primary" style={{ flex: 1 }} disabled={busy || !text.trim()} onClick={send}>{t('Send')}</Button>}
       {(post.authorId === user?.id || user?.admin) &&
         <Button variant="danger" style={{ flex: 1 }} onClick={delPost}>{t('Delete post')}</Button>}
     </div>
@@ -720,10 +909,12 @@ export default function Social() {
   const S = useStore(s => s.S)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
-  const [tab, setTab] = useState('routines')
+  const [tab, setTab] = useState('muro')
   const [routines, setRoutines] = useState(null)
   const [programs, setPrograms] = useState(null)
   const [wall, setWall] = useState(null)
+  const [topics, setTopics] = useState(null)
+  const [board, setBoard] = useState(null)
   const [challenges, setChallenges] = useState(null)
   const [goals, setGoals] = useState(null)
 
@@ -731,12 +922,16 @@ export default function Social() {
   const loadPrograms = () => fetchSocialPrograms().then(setPrograms).catch(e => toast(e.message))
   const loadFeed = () => { loadRoutines(); loadPrograms() }
   const loadWall = () => fetchWall().then(setWall).catch(e => toast(e.message))
+  const loadTopics = () => fetchTopics().then(setTopics).catch(e => toast(e.message))
+  const loadBoard = () => fetchBoard().then(setBoard).catch(e => toast(e.message))
   const loadChallenges = () => fetchChallenges().then(setChallenges).catch(e => toast(e.message))
   const loadGoals = () => fetchGoals().then(setGoals).catch(e => toast(e.message))
 
-  useEffect(() => { loadFeed() }, [])
-  useEffect(() => { if (tab === 'wall' && wall === null) loadWall() }, [tab])
+  useEffect(() => { if (tab === 'muro' && topics === null) loadTopics() }, [tab])
+  useEffect(() => { if (tab === 'routines' && (routines === null || programs === null)) loadFeed() }, [tab])
+  useEffect(() => { if (tab === 'board' && board === null) loadBoard() }, [tab])
   useEffect(() => { if (tab === 'challenges' && challenges === null) { loadChallenges(); loadGoals() } }, [tab])
+  useEffect(() => { if (tab === 'challenges' && wall === null) loadWall() }, [tab])
 
   const openPublishDetails = (kind, source) =>
     openSheet(close => <PublishDetailsSheet kind={kind} source={source} S={S} close={close} onPublished={loadFeed} />)
@@ -758,6 +953,12 @@ export default function Social() {
   const publishWall = () => openSheet(close => <WallPublishSheet S={S} close={close} onPublished={loadWall} />)
   const openWallDetail = post => openSheet(close => <WallDetailSheet post={post} onChanged={loadWall} close={close} />)
 
+  const newTopic = () => openSheet(close => <NewTopicSheet close={close} onPublished={loadTopics} />)
+  const openTopicDetail = topic => openSheet(close => <TopicDetailSheet topic={topic} onChanged={loadTopics} close={close} />)
+
+  const newBoardPost = () => openSheet(close => <NewBoardPostSheet close={close} onPublished={loadBoard} />)
+  const openBoardDetail = post => openSheet(close => <BoardDetailSheet post={post} onChanged={loadBoard} close={close} />)
+
   const feed = routines === null || programs === null ? null :
     [...routines.map(r => ({ ...r, kind: 'routine' })), ...programs.map(p => ({ ...p, kind: 'program' }))]
       .sort((a, b) => b.createdAt - a.createdAt)
@@ -768,44 +969,39 @@ export default function Social() {
     <div className="hdr">
       <div><h1>{t('Social')}</h1><div className="sub">{t('Share and discover, gym-wide')}</div></div>
     </div>
-    <Segmented options={[{ value: 'routines', label: t('Routines') }, { value: 'wall', label: t('Wall') }, { value: 'trainers', label: t('Trainers') }, { value: 'challenges', label: 'Desafíos' }]} value={tab} onChange={setTab} />
+    <Segmented options={[{ value: 'muro', label: t('Wall') }, { value: 'routines', label: t('Routines') }, { value: 'board', label: t('Trainers') }, { value: 'challenges', label: t('Challenges & PRs') }]} value={tab} onChange={setTab} />
     <div style={{ height: 14 }} />
+
+    {tab === 'muro' && <>
+      <div className="row between" style={{ marginBottom: 10 }}>
+        <h4 className="sec" style={{ margin: 0 }}>{t('Wall')}</h4>
+        <Button size="sm" variant="tinted" icon="plus" onClick={newTopic}>{t('New topic')}</Button>
+      </div>
+      {topics === null ? <div className="muted small">{t('Loading…')}</div> :
+        topics.length ? <div className="list">{topics.map(tp => <div key={tp.id} className="item" onClick={() => openTopicDetail(tp)}>
+          <span className="lrow-i"><Icon name="list" /></span>
+          <div className="grow">
+            <div className="tt row" style={{ gap: 4 }}>{tp.title}{tp.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
+            <div className="ss capitalize">{tp.authorName} · {(tp.comments || []).length} {t('comments')} · {fmtDate(tp.createdAt, true)}</div>
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>)}</div> :
+          <div className="empty"><div className="ico"><Icon name="list" /></div>{t('No topics yet.')}<br />{t('Be the first to start one.')}</div>}
+    </>}
 
     {tab === 'routines' && <>
       <div className="row between" style={{ marginBottom: 10 }}>
         <h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
         <Button size="sm" variant="tinted" icon="upload" onClick={publish}>{t('Publish')}</Button>
       </div>
+      <h4 className="sec" style={{ marginTop: 0 }}>{t('Public routines')}</h4>
       {memberFeed === null ? <div className="muted small">{t('Loading…')}</div> :
-        memberFeed.length ? <div className="list">{memberFeed.map(p => p.kind === 'program'
+        memberFeed.length ? <div className="list" style={{ marginBottom: 18 }}>{memberFeed.map(p => p.kind === 'program'
           ? <ProgramCard key={p.id} post={p} onOpen={openDetail} />
           : <RoutineCard key={p.id} post={p} onOpen={openDetail} />)}</div> :
-          <div className="empty"><div className="ico"><Icon name="users" /></div>{t('No routines published yet.')}<br />{t('Be the first to share one.')}</div>}
-    </>}
+          <div className="empty" style={{ marginBottom: 18 }}><div className="ico"><Icon name="users" /></div>{t('No routines published yet.')}<br />{t('Be the first to share one.')}</div>}
 
-    {tab === 'wall' && <>
-      <div className="row between" style={{ marginBottom: 10 }}>
-        <h4 className="sec" style={{ margin: 0 }}>{t('Wall')}</h4>
-        <Button size="sm" variant="tinted" icon="upload" onClick={publishWall}>{t('Post a record')}</Button>
-      </div>
-      {wall === null ? <div className="muted small">{t('Loading…')}</div> :
-        wall.length ? <div className="list">{wall.map(p => <div key={p.id} className="item" onClick={() => openWallDetail(p)}>
-          <Thumb ex={exOr(p.exId)} />
-          <div className="grow">
-            <div className="tt capitalize">{p.exName}</div>
-            <div className="ss capitalize row" style={{ gap: 4 }}>{p.authorName} · {setLabel(p.exId, p.value, { mode: p.mode })} · {fmtDate(p.sourceDate, true)}{p.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
-            {p.note && <div className="ss dim">“{p.note}”</div>}
-          </div>
-          <Icon name="chevronRight" className="chev" />
-        </div>)}</div> :
-          <div className="empty"><div className="ico"><Icon name="trophy" /></div>{t('No records posted yet.')}<br />{t('Post one from a workout you already logged.')}</div>}
-    </>}
-
-    {tab === 'trainers' && <>
-      <div className="row between" style={{ marginBottom: 10 }}>
-        <h4 className="sec" style={{ margin: 0 }}>{t('Trainers')}</h4>
-        {user?.trainer && <Button size="sm" variant="tinted" icon="upload" onClick={publish}>{t('Publish')}</Button>}
-      </div>
+      <h4 className="sec">{t('Trainer routines')}</h4>
       {trainerFeed === null ? <div className="muted small">{t('Loading…')}</div> :
         trainerFeed.length ? <div className="list">{trainerFeed.map(p => p.kind === 'program'
           ? <ProgramCard key={p.id} post={p} onOpen={openDetail} />
@@ -813,9 +1009,44 @@ export default function Social() {
           <div className="empty"><div className="ico"><Icon name="medal" /></div>{t('No trainer routines yet.')}</div>}
     </>}
 
+    {tab === 'board' && <>
+      <div className="row between" style={{ marginBottom: 10 }}>
+        <h4 className="sec" style={{ margin: 0 }}>{t('Trainers')}</h4>
+        {(user?.trainer || user?.admin) && <Button size="sm" variant="tinted" icon="plus" onClick={newBoardPost}>{t('New announcement')}</Button>}
+      </div>
+      {board === null ? <div className="muted small">{t('Loading…')}</div> :
+        board.length ? <div className="list">{board.map(p => <div key={p.id} className="item" onClick={() => openBoardDetail(p)}>
+          <span className="lrow-i" style={{ '--tint': 'var(--acc)' }}><Icon name="medal" /></span>
+          <div className="grow">
+            <div className="tt row" style={{ gap: 4 }}>{p.title}<StaffBadge size={11} /></div>
+            <div className="ss capitalize">{p.authorName} · {fmtDate(p.createdAt, true)}{p.commentsEnabled ? ` · ${(p.comments || []).length} ${t('comments')}` : ''}</div>
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>)}</div> :
+          <div className="empty"><div className="ico"><Icon name="medal" /></div>{t('No announcements yet.')}</div>}
+    </>}
+
     {tab === 'challenges' && <>
       <ChallengesSection challenges={challenges} loadChallenges={loadChallenges} user={user} />
       <div style={{ height: 22 }} />
+
+      <div className="row between" style={{ marginBottom: 10 }}>
+        <h4 className="sec" style={{ margin: 0 }}>{t('Marks')}</h4>
+        <Button size="sm" variant="tinted" icon="upload" onClick={publishWall}>{t('Post a record')}</Button>
+      </div>
+      {wall === null ? <div className="muted small">{t('Loading…')}</div> :
+        wall.length ? <div className="list" style={{ marginBottom: 18 }}>{wall.map(p => <div key={p.id} className="item" onClick={() => openWallDetail(p)}>
+          <Thumb ex={exOr(p.exId)} />
+          <div className="grow">
+            <div className="tt capitalize">{p.exName}</div>
+            <div className="ss capitalize row" style={{ gap: 4 }}>{p.authorName} · {setLabel(p.exId, p.value, { mode: p.mode })} · {fmtDate(p.sourceDate, true)}{p.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
+            {p.note && <div className="ss dim">“{p.note}”</div>}
+          </div>
+          <Icon name={p.public ? 'globe' : 'lock'} style={{ width: 16, height: 16, opacity: .5, flexShrink: 0 }} />
+          <Icon name="chevronRight" className="chev" />
+        </div>)}</div> :
+          <div className="empty" style={{ marginBottom: 18 }}><div className="ico"><Icon name="trophy" /></div>{t('No records posted yet.')}<br />{t('Post one from a workout you already logged.')}</div>}
+
       <GoalsSection goals={goals} loadGoals={loadGoals} />
     </>}
     <div style={{ height: 20 }} />
@@ -832,6 +1063,7 @@ function WallPublishSheet({ S, onPublished, close }) {
   const [exId, setExId] = useState(null)
   const [chosen, setChosen] = useState(null)   // { d, s, mode }
   const [note, setNote] = useState('')
+  const [isPublic, setIsPublic] = useState(false)   // Marcas are private by default
   const [busy, setBusy] = useState(false)
 
   const trained = []
@@ -882,15 +1114,18 @@ function WallPublishSheet({ S, onPublished, close }) {
     const value = chosen.mode === 'cardio' ? { min: chosen.s.min, speed: chosen.s.speed }
       : chosen.mode === 'time' ? { sec: chosen.s.sec, w: chosen.s.w || 0 }
       : { w: chosen.s.w, r: chosen.s.r }
-    publishWallPost({ exId, exName: nameFor(exOr(exId)), mode: chosen.mode, value, sourceDate: chosen.d, note: note.trim().slice(0, 140) })
-      .then(() => { toast(t('Posted to the Wall')); onPublished(); close() })
+    publishWallPost({ exId, exName: nameFor(exOr(exId)), mode: chosen.mode, value, sourceDate: chosen.d, note: note.trim().slice(0, 140), public: isPublic })
+      .then(() => { toast(t('Mark posted')); onPublished(); close() })
       .catch(e => { setBusy(false); toast(e.message) })
   }
   return <>
     <h3>{t('Add a note (optional)')}</h3>
     <div className="muted small capitalize" style={{ margin: '4px 0 10px' }}>{nameFor(exOr(exId))} · {setLabel(exId, chosen.s, { mode: chosen.mode })}</div>
     <TextArea value={note} onChange={e => setNote(e.target.value)} maxLength={140} rows={3} placeholder={t('e.g. “Bar felt light today”')} />
-    <div style={{ height: 10 }} />
-    <Button variant="primary" disabled={busy} onClick={publish}>{t('Post to the Wall')}</Button>
+    <div style={{ height: 14 }} />
+    <div className="dim small" style={{ marginBottom: 6 }}>{t('Visibility')}</div>
+    <Segmented options={[{ value: false, label: t('Private (only you)') }, { value: true, label: t('Public (everyone)') }]} value={isPublic} onChange={setIsPublic} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" disabled={busy} onClick={publish}>{t('Post the mark')}</Button>
   </>
 }

@@ -121,14 +121,19 @@ function saveHiddenEx() { atomicWrite(hiddenExFile, JSON.stringify(hiddenEx)); }
 // state-<uid>.json — same module-level cache + atomicWrite-the-whole-object shape as hiddenEx
 // above, just with content many different users contribute to instead of only the admin.
 const socialFile = path.join(DATA, 'social.json');
-let social = { routines: [], programs: [], wall: [], challenges: [], goals: [] };
+let social = { routines: [], programs: [], wall: [], challenges: [], goals: [], topics: [], board: [] };
 try {
   const parsed = JSON.parse(fs.readFileSync(socialFile, 'utf8'));
   social.routines = Array.isArray(parsed.routines) ? parsed.routines : [];
   social.programs = Array.isArray(parsed.programs) ? parsed.programs : [];
-  social.wall = Array.isArray(parsed.wall) ? parsed.wall : [];
+  // Wall now doubles as "Marcas": every post predating the public/private toggle was shared
+  // under the old always-public behaviour, so it defaults `public` to true rather than silently
+  // hiding things members already chose to share.
+  social.wall = (Array.isArray(parsed.wall) ? parsed.wall : []).map(w => ({ public: true, ...w }));
   social.challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
   social.goals = Array.isArray(parsed.goals) ? parsed.goals : [];
+  social.topics = Array.isArray(parsed.topics) ? parsed.topics : [];
+  social.board = Array.isArray(parsed.board) ? parsed.board : [];
 } catch {}
 function saveSocial() { atomicWrite(socialFile, JSON.stringify(social, null, 2)); }
 
@@ -1508,15 +1513,20 @@ const routes = {
     json(res, 200, { ok: true });
   },
 
+  // "Marcas": a caller sees every public mark plus their own regardless of visibility — privacy
+  // is a personal choice, so even staff's moderation rights (delete-by-id, no browsing) don't
+  // bypass it here.
   'GET /api/social/wall': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    json(res, 200, { wall: [...social.wall].sort((a, b) => b.createdAt - a.createdAt) });
+    const visible = social.wall.filter(w => w.public || w.authorId === user.id);
+    json(res, 200, { wall: [...visible].sort((a, b) => b.createdAt - a.createdAt) });
   },
 
-  // body: { exId, exName, mode, value, sourceDate, note? } — re-checked against the CALLER's own
-  // logged history below, so this can never be a made-up number: the picker in the app is a
-  // convenience, this check is the actual guarantee.
+  // body: { exId, exName, mode, value, sourceDate, note?, public? } — re-checked against the
+  // CALLER's own logged history below, so this can never be a made-up number: the picker in the
+  // app is a convenience, this check is the actual guarantee. `public` defaults to false: a Marca
+  // is private unless the member deliberately shares it.
   'POST /api/social/wall': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
@@ -1543,12 +1553,25 @@ const routes = {
       authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
       exId, exName: String(body.exName || '').trim().slice(0, 60) || exId, mode, value, sourceDate,
       note: String(body.note || '').trim().slice(0, 140) || null,
+      public: !!body.public,
       createdAt: Date.now(),
       comments: []
     };
     social.wall.push(post);
     saveSocial();
     json(res, 200, { ok: true, id: post.id });
+  },
+
+  'POST /api/social/wall/visibility': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const post = social.wall.find(w => w.id === body.id);
+    if (!post) return json(res, 404, { error: 'esa marca ya no existe' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    post.public = !!body.public;
+    saveSocial();
+    json(res, 200, { ok: true, public: post.public });
   },
 
   // body: { id, text } — id is the Wall post, not a comment id. A flat list, no replies/likes:
@@ -1591,6 +1614,155 @@ const routes = {
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
     social.wall = social.wall.filter(w => w.id !== body.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  /* ---------- Muro ("Wall" chat): members open topics and comment on each other's. Gym-wide,
+     flat comments same shape as the Wall's own — moderation is wider than Wall's though: any
+     trainer or admin can remove any topic/comment, not just its own author. ---------- */
+
+  'GET /api/social/topics': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    json(res, 200, { topics: [...social.topics].sort((a, b) => b.createdAt - a.createdAt) });
+  },
+
+  'POST /api/social/topics': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const title = String(body.title || '').trim().slice(0, 80);
+    const text = String(body.text || '').trim().slice(0, 1000);
+    if (!title || !text) return json(res, 400, { error: 'el tema necesita un título y un mensaje' });
+    const topic = {
+      id: crypto.randomBytes(9).toString('base64url'),
+      authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
+      title, text, createdAt: Date.now(), comments: []
+    };
+    social.topics.push(topic);
+    saveSocial();
+    json(res, 200, { ok: true, id: topic.id });
+  },
+
+  'POST /api/social/topics/comment': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const text = String(body.text || '').trim().slice(0, 300);
+    if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
+    const topic = social.topics.find(t => t.id === body.id);
+    if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
+    topic.comments = topic.comments || [];
+    const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
+    topic.comments.push(comment);
+    saveSocial();
+    json(res, 200, { ok: true, comment });
+  },
+
+  'POST /api/social/topics/comment/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const topic = social.topics.find(t => t.id === body.topicId);
+    if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
+    const comment = (topic.comments || []).find(c => c.id === body.commentId);
+    if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
+    if (comment.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    topic.comments = topic.comments.filter(c => c.id !== body.commentId);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  'POST /api/social/topics/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const topic = social.topics.find(t => t.id === body.id);
+    if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
+    if (topic.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    social.topics = social.topics.filter(t => t.id !== body.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  /* ---------- Tablón de Entrenadores: news/tests trainers post for the gym to read. Read-only
+     by default — a trainer/admin can flip `commentsEnabled` on their own post, and only then does
+     the comment endpoint below accept anything, enforced server-side, not just hidden in the UI.
+     ---------- */
+
+  'GET /api/social/board': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    json(res, 200, { board: [...social.board].sort((a, b) => b.createdAt - a.createdAt) });
+  },
+
+  'POST /api/social/board': async (req, res) => {
+    const trainer = requireTrainer(req, res); if (!trainer) return;
+    const body = await readBody(req);
+    const title = String(body.title || '').trim().slice(0, 80);
+    const text = String(body.text || '').trim().slice(0, 2000);
+    if (!title || !text) return json(res, 400, { error: 'el aviso necesita un título y un mensaje' });
+    const post = {
+      id: crypto.randomBytes(9).toString('base64url'),
+      authorId: trainer.id, authorName: trainer.name, authorKind: isTrainer(trainer) ? 'trainer' : 'member',
+      title, text, commentsEnabled: false, createdAt: Date.now(), comments: []
+    };
+    social.board.push(post);
+    saveSocial();
+    json(res, 200, { ok: true, id: post.id });
+  },
+
+  'POST /api/social/board/toggle-comments': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    if (!isTrainer(user) && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    const body = await readBody(req);
+    const post = social.board.find(b => b.id === body.id);
+    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    post.commentsEnabled = !!body.commentsEnabled;
+    saveSocial();
+    json(res, 200, { ok: true, commentsEnabled: post.commentsEnabled });
+  },
+
+  'POST /api/social/board/comment': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const post = social.board.find(b => b.id === body.id);
+    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    if (!post.commentsEnabled) return json(res, 403, { error: 'los comentarios están desactivados en este aviso' });
+    const text = String(body.text || '').trim().slice(0, 300);
+    if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
+    post.comments = post.comments || [];
+    const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
+    post.comments.push(comment);
+    saveSocial();
+    json(res, 200, { ok: true, comment });
+  },
+
+  'POST /api/social/board/comment/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const post = social.board.find(b => b.id === body.postId);
+    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    const comment = (post.comments || []).find(c => c.id === body.commentId);
+    if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
+    if (comment.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    post.comments = post.comments.filter(c => c.id !== body.commentId);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  'POST /api/social/board/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const post = social.board.find(b => b.id === body.id);
+    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    social.board = social.board.filter(b => b.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
   },
