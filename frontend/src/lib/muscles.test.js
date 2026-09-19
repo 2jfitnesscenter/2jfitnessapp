@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { musclesOf, loadOf, muscleOptsOf, DEFAULT_SECONDARY_FACTOR } from './muscles.js'
+import { musclesOf, loadOf, muscleOptsOf, DEFAULT_SECONDARY_FACTOR, isInMuscleGroup, GROUP_TO_BODYPART, MUSCLE_GROUPS } from './muscles.js'
 
 // A synthetic bench-press-shaped exercise — primary chest, secondary triceps + deltoids —
 // so these tests exercise musclesOf's own weighting logic rather than depending on exactly
@@ -18,6 +18,45 @@ describe('musclesOf — secondary-muscle weighting (Settings → Statistics)', (
   })
   it('countSecondary: false wins even if a secondaryFactor is also given', () => {
     expect(musclesOf(BENCH, { countSecondary: false, secondaryFactor: 0.75 })).toEqual({ chest: 1 })
+  })
+})
+
+describe('musclesOf — custom exercises (no tg/sm)', () => {
+  it('falls back to the guessed body-part split when there is no mgKey', () => {
+    const ex = { id: 'c1', tg: '', bp: 'waist', custom: true }
+    expect(musclesOf(ex)).toEqual({ abs: 0.7, obliques: 0.3 })
+  })
+  it('gives full weight to every slug a chosen muscle group covers, no split guessed', () => {
+    const ex = { id: 'c2', tg: '', bp: 'back', mgKey: 'back', custom: true }
+    expect(musclesOf(ex)).toEqual({ 'upper-back': 1, 'lower-back': 1 })
+  })
+  it('a single-slug group (e.g. chest) resolves to just that one muscle at full weight', () => {
+    const ex = { id: 'c3', tg: '', bp: 'chest', mgKey: 'chest', custom: true }
+    expect(musclesOf(ex)).toEqual({ chest: 1 })
+  })
+  it('mgKey wins over bp when both are present', () => {
+    // bp says "waist" (would guess abs/obliques) but mgKey says the real answer is quads.
+    const ex = { id: 'c4', tg: '', bp: 'waist', mgKey: 'quadriceps', custom: true }
+    expect(musclesOf(ex)).toEqual({ quadriceps: 1 })
+  })
+})
+
+describe('isInMuscleGroup', () => {
+  const BENCH = { id: 'bench', tg: 'pectorals', sm: ['triceps', 'shoulders'], bp: 'chest' }
+  it('matches on the primary target', () => {
+    expect(isInMuscleGroup(BENCH, 'chest')).toBe(true)
+  })
+  it('does not match on a secondary-only muscle (primary target only, by design)', () => {
+    expect(isInMuscleGroup(BENCH, 'triceps')).toBe(false)
+  })
+  it('is false for an unknown group key rather than throwing', () => {
+    expect(isInMuscleGroup(BENCH, 'not-a-real-group')).toBe(false)
+  })
+})
+
+describe('GROUP_TO_BODYPART', () => {
+  it('has exactly one body part per muscle group, covering every group', () => {
+    MUSCLE_GROUPS.forEach(g => expect(typeof GROUP_TO_BODYPART[g.key]).toBe('string'))
   })
 })
 

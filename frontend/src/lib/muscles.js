@@ -46,6 +46,33 @@ export const MUSCLE_GROUPS = [
 export const musclePhotoUrl = (photo, body) =>
   `/muscles/chip_img_${photo}${body === 'female' ? '_female' : ''}.webp`
 
+// A custom exercise (sheets.jsx's CustomExForm) now picks one of the 12 groups above
+// directly, instead of one of the 10 coarser body parts — but `bp` itself is still
+// load-bearing elsewhere (isCardio, lib/progression.js's heavy-lift detection, and every
+// exercise card's `tg || bp` subtitle fallback), so a chosen group is mapped back to its
+// own body part here rather than dropping `bp` for customs. Every group maps to exactly
+// one body part; the reverse (BY_BODYPART below) can span several groups, since a body
+// part is coarser than a muscle group.
+export const GROUP_TO_BODYPART = {
+  trapezius: 'neck', deltoids: 'shoulders', chest: 'chest', back: 'back',
+  biceps: 'upper arms', triceps: 'upper arms', forearm: 'lower arms',
+  abs: 'waist', gluteal: 'upper legs', quadriceps: 'upper legs', hamstring: 'upper legs',
+  calves: 'lower legs',
+}
+
+// Whether exercise `e`'s resolved primary target lands in muscle group `groupKey` — the one
+// filter predicate every exercise picker in the app should share (add-to-routine, the by-muscle
+// browser, and the admin exercise-visibility list), so they all agree on what counts as e.g. "a
+// back exercise" instead of three separately-tuned definitions. Primary target only (weight >=
+// 1), not "any secondary mention" — a basic crunch lists hip flexors and lower back as
+// stabilizers, which shouldn't also count as a glute/back exercise here.
+export function isInMuscleGroup(e, groupKey, opts) {
+  const g = MUSCLE_GROUPS.find(x => x.key === groupKey)
+  if (!g) return false
+  const m = musclesOf(e, opts)
+  return g.slugs.some(s => (m[s] || 0) >= 1)
+}
+
 // English display names; these strings are the i18n keys (see lib/i18n.js).
 export const MUSCLE_NAME = {
   trapezius: 'Traps', deltoids: 'Shoulders', chest: 'Chest', 'upper-back': 'Upper back',
@@ -120,8 +147,15 @@ export function musclesOf(ex, opts) {
   }
   add(ex.tg, 1)
   if (countSecondary) (ex.sm || []).forEach(m => add(m, secondaryFactor))
-  // Nothing recognised (custom exercises, or a target we don't draw) — use the body part.
-  if (!Object.keys(out).length) Object.assign(out, BY_BODYPART[ex.bp] || {})
+  if (!Object.keys(out).length) {
+    // A custom exercise made with the muscle-group picker (`mgKey`) gets full weight on
+    // every slug that group covers — there's no split to guess, unlike a body part which
+    // can span several muscles. Only older customs (made before mgKey existed) or anything
+    // else unrecognised falls back to the guessed body-part distribution.
+    const g = ex.mgKey && MUSCLE_GROUPS.find(x => x.key === ex.mgKey)
+    if (g) g.slugs.forEach(s => { out[s] = 1 })
+    else Object.assign(out, BY_BODYPART[ex.bp] || {})
+  }
   return out
 }
 

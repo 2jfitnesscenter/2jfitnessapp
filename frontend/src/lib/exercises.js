@@ -4,7 +4,6 @@ import { t } from './i18n.js'
 export { EXDB }
 export const EXIDX = {}
 EXDB.forEach(e => { EXIDX[e.id] = e })
-export const BODYPARTS = [...new Set(EXDB.map(e => e.bp))].sort()
 
 // Equipment options present in a given list of exercises, most common first (issue #6).
 // Deriving them from the *already filtered* list keeps the chip row short and means

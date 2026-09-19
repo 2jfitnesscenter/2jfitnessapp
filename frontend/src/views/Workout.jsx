@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -11,7 +11,7 @@ import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
 import { startFlow, exercisePicker, alternativesSheet, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet, effortSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button, Check, NumberField } from '../components/ui.jsx'
+import { Button, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { stepWeight, BARBELL_LIKE_EQ } from '../lib/equipment.js'
@@ -64,6 +64,37 @@ const setBadge = (sets, i) => {
   let n = 0
   for (let j = 0; j <= i; j++) if (!TYPE_LETTER[sets[j].type]) n++
   return n
+}
+
+// The set-number badge and its done-checkbox, fused into one control (they used to be two
+// separate circles competing for the same cramped row) — a short tap toggles done, exactly
+// like the checkbox it replaces; holding it past LONG_PRESS_MS opens the same set-type sheet
+// the badge itself used to open on every tap. Pointer events rather than onClick/a native
+// long-press, so a long press never also fires a toggle when the finger lifts — `firedRef`
+// is what suppresses that trailing pointerup once the timer has already acted.
+// Typed sets (warmup/drop/failure) keep their letter after completion, colour and all — the
+// row's own dimmed opacity already reads as "done" for those, and swapping W/D/F for a bare
+// check would throw away the one thing this control still says about the set. A plain
+// numbered set switches to a check the moment it's done, matching Check before this fusion.
+const LONG_PRESS_MS = 500
+function SetNumBtn({ s, i, sets, achievement, onToggle, onSetType }) {
+  const timer = useRef(null)
+  const fired = useRef(false)
+  const start = () => {
+    fired.current = false
+    timer.current = setTimeout(() => { fired.current = true; vibrate(15); onSetType(i) }, LONG_PRESS_MS)
+  }
+  const cancel = () => clearTimeout(timer.current)
+  const release = () => { clearTimeout(timer.current); if (!fired.current) onToggle(i) }
+  return (
+    <button className={'n' + (s.done ? ' on' : '') + (achievement ? ' ' + achievement : '')}
+      aria-label={t('Set {0} — tap to mark done, hold for set type', setBadge(sets, i))}
+      style={s.type ? { background: TYPE_COLOR[s.type], color: '#fff' } : undefined}
+      onPointerDown={start} onPointerUp={release} onPointerLeave={cancel} onPointerCancel={cancel}
+      onContextMenu={e => e.preventDefault()}>
+      {s.done && !s.type ? <Icon name="check" /> : setBadge(sets, i)}
+    </button>
+  )
 }
 
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
@@ -243,10 +274,9 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
     <div className="card" style={{ marginTop: 10, marginBottom: 0 }}>
       {/* the header carries the same eff3 sizing as the rows, or the labels drift off their columns */}
       {(() => {
-        const sethead = <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{col3 && <span className="eff-sp">{col3.hd}</span>}{timed && <span className="ck-sp" />}<span className="ck-sp" /></div>
+        const sethead = <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{col3 && <span className="eff-sp">{col3.hd}</span>}{timed && <span className="ck-sp" />}</div>
         const row = (s, i) => <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '')}>
-          <button className="n" aria-label={t('Set type')} style={s.type ? { background: TYPE_COLOR[s.type], color: '#fff' } : undefined}
-            onClick={() => onSetType(i)}>{setBadge(entry.sets, i)}</button>
+          <SetNumBtn s={s} i={i} sets={entry.sets} achievement={achievementOf(s, workPosOf[i])} onToggle={onToggle} onSetType={onSetType} />
           {cell(s, i, col1, 'w', workPosOf[i])}
           {cell(s, i, col2, 'r', workPosOf[i])}
           {col3 && effortBadge(s, i)}
@@ -255,10 +285,10 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
           {showPlates(s) && <button className="platesbtn" aria-label={t('Plate breakdown')}
             onClick={() => platesSheet(s.w, S.unit, v => onField(i, 'w', v))}><Icon name="barbell" /></button>}
           {/* A timed set is started, not typed: the timer counts the hold down and checks the
-              set off itself. The checkbox stays for anyone who timed it on their own watch. */}
+              set off itself. SetNumBtn's own tap-to-toggle still covers anyone who timed it on
+              their own watch instead. */}
           {timed && <button className="setgo" aria-label={t('Start set')} disabled={s.done || !!working}
             onClick={() => onStartTimed(i)}><Icon name="play" /></button>}
-          <Check checked={s.done} onChange={() => onToggle(i)} className={achievementOf(s, workPosOf[i]) || ''} />
         </div>
         // Only split into two labelled blocks when there's actually a warmup to separate out —
         // an exercise with none (warmups off, or no working weight to ramp up to yet) keeps the

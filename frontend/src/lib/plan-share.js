@@ -59,7 +59,7 @@ export function buildPlanBundle(S, name, { routineIds, week: weekSource } = {}) 
   const usedIds = new Set(routines.flatMap(r => r.ex.map(e => e.id)))
   const customEx = (S.customEx || [])
     .filter(c => usedIds.has(c.id))
-    .map(c => ({ id: c.id, n: c.n, bp: c.bp, ...(c.desc ? { desc: c.desc } : {}) }))
+    .map(c => ({ id: c.id, n: c.n, bp: c.bp, ...(c.mgKey ? { mgKey: c.mgKey } : {}), ...(c.desc ? { desc: c.desc } : {}) }))
   const srcWeek = weekSource !== undefined ? weekSource : S.week
   const week = {}
   WEEK_ORDER.forEach(d => { if (srcWeek?.[d] && (!routineIds || routineIds.includes(srcWeek[d]))) week[d] = srcWeek[d] })
@@ -124,7 +124,7 @@ export function mergePlan(s, bundle, { schedule, asProgram, programName, program
     if (same) { exIdMap[c.id] = same.id; return }
     const nid = uid()
     exIdMap[c.id] = nid
-    s.customEx.push({ id: nid, n: c.n, bp: c.bp, ...(c.desc ? { desc: c.desc } : {}) })
+    s.customEx.push({ id: nid, n: c.n, bp: c.bp, ...(c.mgKey ? { mgKey: c.mgKey } : {}), ...(c.desc ? { desc: c.desc } : {}) })
   })
   const ridMap = {}
   bundle.routines.forEach(r => {

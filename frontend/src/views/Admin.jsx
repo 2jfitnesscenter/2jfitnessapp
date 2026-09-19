@@ -13,7 +13,8 @@ import ScanUpload from '../components/ScanUpload.jsx'
 import AdminCoach from './AdminCoach.jsx'
 import AdminTrainerAI from './AdminTrainerAI.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
-import { EXDB, BODYPARTS, equipmentOf } from '../lib/exercises.js'
+import { EXDB, equipmentOf } from '../lib/exercises.js'
+import { MUSCLE_GROUPS, isInMuscleGroup } from '../lib/muscles.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
@@ -339,10 +340,12 @@ function ExerciseLibrarySheet({ initialHidden, close }) {
   const toast = useUI(s => s.toast)
   const [hidden, setHidden] = useState(initialHidden)   // owns its own copy so toggles repaint immediately
   const [q, setQ] = useState('')
-  const [bp, setBp] = useState('')
+  const [grp, setGrp] = useState('')
   const [shown, setShown] = useState(60)
   const ql = q.toLowerCase().trim()
-  const base = EXDB.filter(e => (!bp || e.bp === bp) && (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql)))
+  const base = EXDB.filter(e =>
+    (grp === 'cardio' ? e.bp === 'cardio' : !grp || isInMuscleGroup(e, grp)) &&
+    (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql)))
   const toggle = (id, hide) => {
     const next = new Set(hidden); hide ? next.add(id) : next.delete(id); setHidden(next)   // optimistic
     api('/api/admin/exercises/hidden', { method: 'POST', body: JSON.stringify({ id, hidden: hide }) })
@@ -356,16 +359,16 @@ function ExerciseLibrarySheet({ initialHidden, close }) {
       <input className="input" placeholder={t('Search {0} exercises…', EXDB.length)} value={q} onChange={e => { setQ(e.target.value); setShown(60) }} />
     </div>
     <div className="chips" style={{ margin: '10px 0' }}>
-      <button className={'chip nocap' + (!bp ? ' on' : '')} onClick={() => { setBp(''); setShown(60) }}>{t('All')}</button>
-      <ChipSelect value={bp} onChange={b => { setBp(b); setShown(60) }} sheetTitle={t('Body part')} placeholder={t('Body part')}
-        options={BODYPARTS.map(b => ({ value: b, label: t(b) }))} />
+      <button className={'chip nocap' + (!grp ? ' on' : '')} onClick={() => { setGrp(''); setShown(60) }}>{t('All')}</button>
+      <ChipSelect value={grp} onChange={g => { setGrp(g); setShown(60) }} sheetTitle={t('Muscle group')} placeholder={t('Muscle group')}
+        options={[...MUSCLE_GROUPS.map(g => ({ value: g.key, label: t(g.name) })), { value: 'cardio', label: t('Cardio') }]} />
     </div>
     <div className="list">
       {base.slice(0, shown).map(e => {
         const isHidden = hidden.has(e.id)
         return <div key={e.id} className="item" onClick={() => toggle(e.id, !isHidden)} style={isHidden ? { opacity: .5 } : null}>
           <Thumb ex={e} />
-          <div className="grow"><div className="tt capitalize">{nameFor(e)}</div><div className="ss capitalize">{t(e.bp)} · {t(e.eq)}</div></div>
+          <div className="grow"><div className="tt capitalize">{nameFor(e)}</div><div className="ss capitalize">{t(e.tg || e.bp)} · {t(e.eq)}</div></div>
           <span className={'tag' + (isHidden ? '' : ' acc')}>{isHidden ? t('Hidden') : t('Visible')}</span>
         </div>
       })}

@@ -692,7 +692,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .stp button:active{background:var(--surface-3)}
 .stp .val{
-  flex:1;min-width:0;display:flex;align-items:baseline;justify-content:center;gap:3px;padding:2px;
+  flex:1;min-width:44px;display:flex;align-items:baseline;justify-content:center;gap:3px;padding:2px;
 }
 .stp .val i{font-style:normal;font-size:calc(12px * var(--text-scale,1));color:var(--label-2);flex:none}
 /* min-height (not height) on the button above + an explicit, font-size-relative line-height here
@@ -704,6 +704,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .stp .num{
   width:100%;min-width:0;text-align:center;background:none;border:none;outline:none;
   font-size:calc(17px * var(--text-scale,1));font-weight:500;letter-spacing:-.012em;line-height:1.25;padding:0;
+  font-variant-numeric:tabular-nums;
   -moz-appearance:textfield;appearance:textfield;
 }
 .stp .num::-webkit-inner-spin-button{display:none}
@@ -797,46 +798,63 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   display:flex;align-items:center;gap:8px;padding:0 0 6px;
   font-size:calc(11px * var(--text-scale,1));color:var(--label-3);font-weight:500;text-transform:uppercase;letter-spacing:.045em;
 }
-.sethead .n-sp{width:24px;flex:none}
+.sethead .n-sp{width:36px;flex:none}
 .sethead .w-sp{flex:1.4;text-align:center}
 .sethead .r-sp{flex:1;text-align:center}
 .sethead .eff-sp{text-align:center}
 .sethead .ck-sp{width:30px;flex:none}
 .setrow{display:flex;align-items:center;gap:8px;padding:7px 0;position:relative}
 .setrow+.setrow::before{
-  content:'';position:absolute;left:32px;right:0;top:0;height:var(--hair);background:var(--sep);
+  content:'';position:absolute;left:44px;right:0;top:0;height:var(--hair);background:var(--sep);
 }
+/* The set-number badge and its done-checkbox, fused (Workout.jsx's SetNumBtn) — a short tap
+   toggles done, a long press opens the set-type sheet. `.on` is the plain "done" accent, same
+   colour Check used to show; `.overload`/`.pr` (Progressive Overload Coach) still outrank it
+   exactly like they outranked Check's own default accent before this fusion. A `s.type` inline
+   background (warmup/drop/failure) always wins over all three — set above in Workout.jsx, kept
+   here only as the doc for why .on doesn't need `!important` to lose that fight. */
 .setrow .n{
-  width:24px;height:24px;border-radius:50%;background:var(--surface-2);color:var(--label-2);
-  display:flex;align-items:center;justify-content:center;font-size:calc(12px * var(--text-scale,1));font-weight:500;flex:none;
-  transition:background var(--fast),color var(--fast);
+  width:36px;height:36px;border-radius:50%;background:var(--surface-2);color:var(--label-2);
+  display:flex;align-items:center;justify-content:center;font-size:calc(13px * var(--text-scale,1));font-weight:600;flex:none;
+  box-shadow:inset 0 0 0 1.8px var(--label-4);
+  transition:background var(--fast),color var(--fast),box-shadow var(--fast),transform var(--fast);
 }
+.setrow .n .icn{font-size:calc(16px * var(--text-scale,1));--icon-stroke:2.6}
+.setrow .n:active{transform:scale(.94)}
+.setrow .n.on{background:var(--acc);color:var(--on-acc);box-shadow:none}
+.setrow .n.on.overload{background:var(--green);color:#fff}
+.setrow .n.on.pr{background:var(--yellow);color:#000}
 .setrow .stp.w{flex:1.4;min-width:0}
 .setrow .stp.r{flex:1;min-width:0}
 .setrow .stp.eff{flex:1.1;min-width:0}
-.setrow .stp button{width:32px;min-height:40px}
+/* Micro +/- buttons (spec: ~20-22px) so the value between them always has room — the value
+   area itself (.stp .val, below) has its own min-width floor regardless of how narrow these
+   get, which is what actually stops a 3-digit decimal like "102.5" from clipping. */
+.setrow .stp button{width:22px;min-height:38px}
 /* a 3rd stepper (RIR) needs narrower buttons and a tighter row gap to fit next to weight+reps
    on narrow phones, same technique as the exercise-config sheet's three-steppers-in-a-row
    (.cfgrow below) — RIR's own value is short ("1.5") so its buttons shrink the most, weight/reps
    just enough to make room since their values ("82.5", "12") need more of what's left.
    The header shares the numbers so its labels stay centred over the steppers they name.
 
-   The gap between the three stepper pills (7px, was 5px) and the +/- buttons themselves
-   (26/23px, was 23/20px) both got a bump after a reported "reps won't go past 1" turned out to
-   be a mis-tap, not a logic bug: with RIR/RPE on, reps' + sat ~5-12px from RIR's − at real phone
-   DPI — a stray tap there nudges RIR instead and reps looks frozen because it never moved. */
+   The gap between the three stepper pills (7px, was 5px) got a bump after a reported "reps
+   won't go past 1" turned out to be a mis-tap, not a logic bug: with RIR/RPE on, reps' + sat
+   ~5-12px from RIR's − at real phone DPI — a stray tap there nudges RIR instead and reps looks
+   frozen because it never moved. `.stp.eff button` is deliberately NOT narrowed here the way
+   `.stp button` is a few lines up — .eff holds one full-width tap-to-open badge (effbadge,
+   below), not a pair of +/- buttons, and a leftover width rule here once forced that badge down
+   to 23px, which is what was actually spilling its "🙂 8.5" content over the reps column in the
+   reported screenshot — not a genuine RIR stepper ever having lived at that width. */
 .setrow.eff3,.sethead.eff3{gap:7px}
 .setrow.eff3 .stp.w,.sethead.eff3 .w-sp{flex:1.2}
 .setrow.eff3 .stp.r,.sethead.eff3 .r-sp{flex:1}
 .setrow.eff3 .stp.eff,.sethead.eff3 .eff-sp{flex:.85}
-.setrow.eff3 .stp button{width:26px}
-.setrow.eff3 .stp.eff button{width:23px}
+.setrow.eff3 .stp.w button,.setrow.eff3 .stp.r button{width:20px}
 .setrow.eff3 .stp .num{font-size:calc(14px * var(--text-scale,1))}
 /* the plate button is a 4th thing competing for the same row once effort tracking is also on —
    shrink it the same way the RIR/RPE stepper already shrinks, or its value clips (issue: barbell
    plate calculator felt cramped next to RPE) */
 .setrow.eff3 .platesbtn{width:22px;height:22px;font-size:calc(11px * var(--text-scale,1))}
-.setrow.done .n{background:var(--acc);color:var(--on-acc)}
 .setrow.done{opacity:.45}
 /* The effort column, once it's a tap-to-open badge (EffortSheet) rather than a +/- stepper —
    sits inside the same .stp.eff wrapper so the existing eff3 width rules still size the column,
