@@ -12,46 +12,44 @@ en producción (Contabo VPS, `app.2jfitnesscenter.com`).
 `feat/pwa-tanita-bunker-roadmap`
 
 ## Último commit de código relevante
-`85b45ad` — "feat: V2 (perfil de IA auxiliar Gemini, importación CSV inteligente,
-disponibilidad de equipamiento)"
-(anterior: `14afe9d` — "feat: V1 de mejoras (colores de superserie, selector de
-sustitución, importación CSV Gravl, impresión adaptativa)")
+`3e4e0b4` — "fix: allow active workout to be discarded safely"
+(anterior: `85b45ad` — V2, `14afe9d` — V1)
 
-Commit `2eb932d` (`docs: add AI agent handoff`, este archivo) más `85b45ad` (V2) y
-`14afe9d` (V1) están incluidos en `origin/feat/pwa-tanita-bunker-roadmap` — el push del
-handoff se realizó junto con el resto en el despliegue de hoy.
+Commits `2eb932d` (handoff), `85b45ad` (V2), `14afe9d` (V1) y `3e4e0b4` (este fix) están
+todos en `origin/feat/pwa-tanita-bunker-roadmap`.
 
-**V2 (y V1) ESTÁN DESPLEGADAS en producción** desde 2026-09-20 ~20:45 UTC. Confirmado:
-`GET https://app.2jfitnesscenter.com/api/admin/aux-ai` → 401 "no has iniciado sesión"
-(ya no 404); `GET /api/config` incluye `"unavailableEquipment":[]`.
+**V1, V2 y el fix del active atascado ESTÁN DESPLEGADOS en producción** — V1/V2 desde
+2026-09-20 ~20:45 UTC, el fix desde ~21:05 UTC. Confirmado: `GET
+https://app.2jfitnesscenter.com/api/admin/aux-ai` → 401 (V2); `POST
+/api/active/clear` → 401, no 404 (el fix).
 
 ## Objetivo/tarea actual
-**Bug de producción prioritario corregido localmente, sin commitear ni desplegar
-todavía** (ver sección propia más abajo) — el usuario pidió tratarlo antes de V3 y pidió
-explícitamente ver el resultado antes de desplegar por tocar código adyacente a Bunker.
-Aparte de eso: cierre de V2 completado (despliegue + smoke test de infraestructura).
-Pendiente de que el usuario haga el smoke test autenticado (login/passkey, Admin, panel
-entrenador, Bunker, entrenamiento, IA auxiliar UI) — Claude no tiene passkey de producción.
-V3 (notas de programación, versionado, últimas sesiones, resumen de rutina, OpenAI REST
-— ahora explícitamente API REST directa, NO Codex CLI, ver la propia sección) fue pedida
-pero NO se ha empezado.
+Bug de producción prioritario (sesión activa atascada) corregido, testeado, desplegado
+(ver sección propia más abajo) — **pendiente de que el usuario confirme desde su propia
+UI** que su sesión fantasma real ("Espalda & Bíceps - Enfoque Principal") ya no reaparece
+tras pulsar Descartar. Aparte de eso: cierre de V2 completado. Pendiente de que el
+usuario haga el smoke test autenticado (login/passkey, Admin, panel entrenador, Bunker,
+entrenamiento, IA auxiliar UI) — Claude no tiene passkey de producción.
+**V3 no ha empezado todavía** — es la siguiente tarea de la sesión (notas de programación,
+versionado, últimas sesiones, resumen de rutina, y OpenAI REST — ahora explícitamente API
+REST directa, NO Codex CLI, ver la propia sección).
 
 ## Estado actual
-- **Working tree con cambios SIN COMMITEAR** (el fix del active atascado — ver más abajo).
-  `git status`: `api/bunker/routes.js`, `frontend/src/sheets.jsx`,
-  `frontend/src/store/useStore.js`, `frontend/src/views/Workout.jsx` modificados;
-  `api/test/active-discard.test.js` nuevo, sin seguimiento.
-- Rama al día con origin en lo ya commiteado (0 commits de diferencia).
-- **Producción desplegada y sana**: `docker compose ps` → api/web/caddy `Up`, `media` en
-  `Exited (0)` (normal, es un init container que solo descarga imágenes si faltan — logs
-  confirman "ya presentes, se omite descarga"). `curl .../api/health` externo → `{"ok":true,"users":13}`.
-- Backup pre-deploy realizado: `/root/backups/2jfitness-2026-09-20_2041.tar.gz` en el VPS
-  (además de los backups nocturnos automáticos ya existentes).
-- **Incidente durante el deploy, corregido en el momento**: el comando de `chown` post-tar
-  no soportaba `--exclude` y cambió por error la propiedad de `/opt/2jfitness/data` (debe
-  ser `root:root`, no `2jfitness:2jfitness`) — detectado y revertido antes de reiniciar
-  los contenedores, así que no llegó a afectar al proceso en marcha. Ver "Problemas
-  conocidos".
+- Working tree limpio, rama al día con origin (todo commiteado y empujado, incluido el
+  fix del active atascado, commit `3e4e0b4`).
+- **Producción desplegada y sana** con el fix incluido: `docker compose ps` →
+  api/web/caddy `Up`, `media` en `Exited (0)` (normal, init container). `curl
+  .../api/health` externo → `{"ok":true,"users":13}` (datos intactos en ambos despliegues
+  de hoy).
+- Backups pre-deploy: `/root/backups/2jfitness-2026-09-20_2041.tar.gz` (V1+V2) y
+  `2026-09-20_2104.tar.gz` (fix del active), además de los nocturnos automáticos.
+- **Incidente en el despliegue de V1+V2 (corregido en el momento, no repetido en el del
+  fix)**: el `chown` post-tar usaba `--exclude`, que no es una opción válida de `chown`, y
+  cambió por error la propiedad de `/opt/2jfitness/data` (debe ser `root:root`) —
+  detectado y revertido antes de reiniciar los contenedores. En el despliegue del fix se
+  usó en su lugar `find /opt/2jfitness -mindepth 1 -maxdepth 1 ! -name data | xargs chown`,
+  que nunca toca `data/` en absoluto — verificado `root:root` antes y después, sin
+  incidente esta vez. Ver "Problemas conocidos".
 - No hay PR abierto para esta rama (sigue faltando `gh` CLI o sesión de GitHub en este
   entorno).
 
@@ -192,18 +190,19 @@ Frontend:
   introducido por V1/V2, no tocado.
 
 ## Siguiente acción recomendada
-1. El usuario hace el smoke test autenticado en producción (login con su passkey real) y
-   confirma que Admin/panel entrenador/Bunker/entrenamiento/historial funcionan como antes.
-2. El usuario añade su API key de Gemini en "IA auxiliar" y prueba los 4 capabilities
+1. **El usuario prueba desde su propia UI** que pulsar Descartar en su sesión fantasma
+   real ("Espalda & Bíceps - Enfoque Principal") la elimina de verdad y no reaparece.
+2. El usuario hace el resto del smoke test autenticado en producción (login, Admin, panel
+   entrenador, Bunker, entrenamiento, historial, IA auxiliar UI).
+3. El usuario añade su API key de Gemini en "IA auxiliar" y prueba los 4 capabilities
    (comandos de disparo manual en "Trabajo pendiente" arriba).
-3. Crear el PR (`gh pr create` o vía navegador autenticado) — comando ya preparado en el
+4. Crear el PR (`gh pr create` o vía navegador autenticado) — comando ya preparado en el
    historial de la sesión.
-4. Empezar V3 (notas de programación + versionado + últimas sesiones + resumen de rutina +
-   OpenAI REST) en una sesión propia, inspeccionando primero el modelo real de
-   `routines`/`programs`/`entries` antes de tocar nada — alcance grande, no intentarlo
-   de pasada.
+5. **Empezar V3** (notas de programación + versionado + últimas sesiones + resumen de
+   rutina + OpenAI REST directo) — inspeccionando primero el modelo real de
+   `routines`/`programs`/`entries` antes de tocar nada, alcance grande.
 
-## BUG: sesión activa atascada ("Espalda & Bíceps...") — CORREGIDO LOCALMENTE, SIN DESPLEGAR
+## BUG: sesión activa atascada ("Espalda & Bíceps...") — CORREGIDO Y DESPLEGADO
 
 **Síntoma real reportado**: una sesión de entrenamiento activa reaparecía siempre al
 volver a Entrenar, aunque el usuario la cerrara — mostrando un timer enorme (455:09) y
@@ -262,14 +261,37 @@ ya NO reaparece (`Empezar entrenamiento`); Finalizar → guarda el workout con r
 detectado → boot limpio → tampoco reaparece. Ambos verificados con `active:null` explícito
 en el servidor entre medias.
 
-**Estado**: corregido, testeado, verificado E2E — **NO commiteado, NO desplegado**. Toca
-código adyacente a Bunker (nuevo endpoint en `api/bunker/routes.js`), así que sigue la
-instrucción explícita del usuario de reportar el resultado antes de desplegar. Esperando
-confirmación para commitear + desplegar.
+**Estado**: **CORREGIDO · TESTEADO · DESPLEGADO EN PRODUCCIÓN.** Commit `3e4e0b4` ("fix:
+allow active workout to be discarded safely"), desplegado 2026-09-20 ~21:05 UTC.
 
 **Archivos modificados**: `api/bunker/routes.js` (nuevo endpoint), `frontend/src/store/useStore.js`
 (`clearActiveOnServer`, retry en `boot()`), `frontend/src/views/Workout.jsx` (botón
 Descartar), `frontend/src/sheets.jsx` (`doFinishWorkout`), `api/test/active-discard.test.js` (nuevo).
+
+**Despliegue**: backup previo (`/root/backups/2jfitness-2026-09-20_2104.tar.gz`), tar+ssh
+igual que V2 pero esta vez el `chown` post-extracción usó `find ... ! -name data | xargs
+chown` en vez del `--exclude` inválido que causó el incidente de V2 — `data/` confirmado
+`root:root` antes y después del despliegue, sin incidente. `docker compose ... up -d
+--build`, contenedores sanos, `users:13` intacto.
+
+**Smoke test post-deploy**: `/api/health` interno y externo OK; `POST /api/active/clear`
+ya responde 401 (no 404) — confirma que el endpoint nuevo llegó; `/api/data` sigue
+gateado; Bunker (`/api/bunker/board`, `/settings`, `/checkin`, `/handoff`) responde con su
+comportamiento normal, nada roto; `coach` (Entrenador IA de socios) sin cambios
+(`provider: codex`); logs de los 3 contenedores sin errores nuevos.
+
+**PUT /api/data sigue preservando el active del servidor**: confirmado — el propio `git
+diff` de este fix no toca esa función en absoluto (0 líneas cambiadas en el handler de
+`PUT /api/data`), y el test de regresión dedicado (`active-discard.test.js`, caso 7)
+pasa contra este mismo commit. **No se tocó `S.active` del usuario real en producción a
+propósito** (instrucción explícita) — no se generó una cuenta sintética para probarlo en
+vivo porque habría sido una escritura de datos de producción fuera del flujo normal de la
+app, más arriesgada que necesaria dado que el propio handler no cambió.
+
+**Prueba manual pendiente del usuario**: tiene ahora mismo su sesión fantasma real
+"Espalda & Bíceps - Enfoque Principal" en producción — va a pulsar él mismo Descartar
+desde la UI (con su passkey real) y confirmar que ya no reaparece. Resultado esperado:
+Descartar → confirmación → vuelve a Entrenar → `Empezar entrenamiento` (nada atascado).
 
 ## OpenAI REST para el Entrenador IA de socios — pendiente para V3
 
