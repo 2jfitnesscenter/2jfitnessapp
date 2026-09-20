@@ -94,7 +94,7 @@ export default function RpVolumeStats() {
       <div className="rpmatrix-wrap">
         <table className="rpmatrix">
           <thead>
-            <tr><th /> {matrix.map(m => <th key={m.offset}>{m.label}</th>)}</tr>
+            <tr><th />{matrix.map(m => <th key={m.offset}>{m.label}</th>)}</tr>
           </thead>
           <tbody>
             {MUSCLE_GROUPS.map(g => (

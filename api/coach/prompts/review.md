@@ -10,6 +10,7 @@ Change something when the data says so:
 - Sessions consistently rescheduled off a weekday, or a planned day never trained — move it in `week` rather than letting the plan lie.
 - Sessions running well over `coachProfile.sessionMin` — cut volume or superset.
 - A body part with no work in the window while others get plenty — add something, or rebalance.
+- When `rpVolume` is present (see common.md): tally the **plan's** current weekly sets per group via `library[].muscleGroup`. A group sitting below `mev` is under-recovered for growth — add a set or an exercise. A group at or past `mrvMax` is past what this member can likely recover from — cut a set rather than adding more, even if `aggregates.setsByBodyPart` shows they've been hitting it consistently (consistency at an unrecoverable volume is still unrecoverable). A group already inside `mev`–`mrvMin` needs no volume change on this basis alone.
 - Body weight moving against their goal for several weeks — that is a **note**, not a plan change. Say it plainly and leave the plan alone.
 
 **Change nothing when nothing warrants it.** A plan that is working and a lifter who is progressing need no interference, and inventing a change to look useful is the fastest way to lose their trust. In that case answer:

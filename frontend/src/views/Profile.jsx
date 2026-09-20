@@ -16,6 +16,8 @@ import Icon from '../components/Icon.jsx'
 import { Section, Row, Button, TextField, Avatar } from '../components/ui.jsx'
 import BodyWeightCard from '../components/BodyWeightCard.jsx'
 import StaffBadge from '../components/StaffBadge.jsx'
+import { bunkerPinSheet } from '../sheets.jsx'
+import { fetchBunkerLaunchLink } from '../lib/bunker-api.js'
 
 export default function Profile() {
   const nav = useNavigate()
@@ -92,6 +94,22 @@ export default function Profile() {
           {chatUnread > 0 && <span aria-label={t('Unread messages')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
         </Row>
         {user?.trainer && <Row icon="dumbbell" iconTint="var(--green)" title={t('Trainer panel')} subtitle={t('Best used on a computer.')} accessory="chevron" onClick={() => nav('/trainer')} />}
+        <Row icon="key" iconTint="var(--orange)" title={t('Bunker check-in PIN')} subtitle={t('Train on the gym-floor screen without your phone')} accessory="chevron" onClick={bunkerPinSheet} />
+      </Section>
+    )}
+
+    {/* ---------- staff-only quick access to the Bunker kiosk/admin — same admin||trainer gate
+         Admin.jsx's own "Room admin" nav card and App.jsx's /admin/bunker route already use ---------- */}
+    {(user?.admin || user?.trainer) && (
+      <Section title={t('Bunker station')}>
+        <Row icon="link" iconTint="var(--acc)" title={t('Copy launch link')}
+          subtitle={t('The URL to open on the gym-floor TV/tablet')}
+          onClick={() => fetchBunkerLaunchLink()
+            .then(key => navigator.clipboard?.writeText(`${location.origin}/#/bunker/launch?token=${key}`))
+            .then(() => toast(t('Launch link copied')))
+            .catch(e => toast(e.message))} />
+        <Row icon="gear" iconTint="var(--indigo)" title={t('Room remote control')} subtitle={t('Manage sessions and room settings from here')}
+          accessory="chevron" onClick={() => nav('/admin/bunker')} />
       </Section>
     )}
 

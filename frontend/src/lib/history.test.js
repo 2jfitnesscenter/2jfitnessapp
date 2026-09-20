@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, repsLabel, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted, feelFor, effortColor } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, repsLabel, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted, feelFor, effortColor, swapEntryExercise } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -484,6 +484,46 @@ describe('effortColor', () => {
     expect(effortColor(2)).toBe('amber')    // RPE 8
     expect(effortColor(1)).toBe('red')      // RPE 9
     expect(effortColor(0)).toBe('red')      // RPE 10, failure
+  })
+})
+
+describe('swapEntryExercise', () => {
+  it('changes only the id of the targeted entry', () => {
+    const entries = [
+      { id: LIFT, target: { sets: 3, reps: 8, weight: 60 }, plan: { kind: 'first' }, sets: [{ w: 60, r: 8, done: false }] },
+    ]
+    const next = swapEntryExercise(entries, 0, CARDIO)
+    expect(next[0].id).toBe(CARDIO)
+  })
+
+  it('carries target, plan and every set — including already-done ones — over completely untouched', () => {
+    const entries = [
+      { id: LIFT, target: { sets: 3, reps: 8, weight: 60 }, plan: { kind: 'progress', why: ['x'] }, sets: [
+        { w: 60, r: 8, done: true }, { w: 60, r: 8, done: false },
+      ] },
+    ]
+    const next = swapEntryExercise(entries, 0, CARDIO)
+    expect(next[0].target).toEqual(entries[0].target)
+    expect(next[0].plan).toEqual(entries[0].plan)
+    expect(next[0].sets).toEqual(entries[0].sets)
+    expect(next[0].sets[0].done).toBe(true)
+  })
+
+  it('leaves every other entry untouched', () => {
+    const entries = [
+      { id: LIFT, sets: [{ w: 60, r: 8, done: false }] },
+      { id: CARDIO, sets: [{ min: 20, speed: 8, done: false }] },
+    ]
+    const next = swapEntryExercise(entries, 0, 'some-other-id')
+    expect(next[1]).toBe(entries[1])
+    expect(next[0].id).toBe('some-other-id')
+  })
+
+  it('does not mutate the array or the original entry passed in', () => {
+    const entries = [{ id: LIFT, sets: [{ w: 60, r: 8, done: false }] }]
+    const next = swapEntryExercise(entries, 0, CARDIO)
+    expect(entries[0].id).toBe(LIFT)
+    expect(next).not.toBe(entries)
   })
 })
 

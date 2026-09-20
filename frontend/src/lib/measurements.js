@@ -144,6 +144,30 @@ export function bodyweightNear(S, iso) {
 export const hasBodyComposition = S =>
   MEASUREMENTS.some(m => (m.group === 'composition' || m.group === 'segments') && lastMeasurement(S, m.key))
 
+/** Most recent date (ISO) any bioimpedance-scan reading (the 'composition' or 'segments'
+ *  groups — a tape measurement or a caliper skinfold isn't a scan) was logged, or null if
+ *  none yet. Derived from S.measurements rather than a separately-stored field, so there is
+ *  nothing to keep in sync when a reading is added, edited or removed, or when a backup is
+ *  imported — the Home reminder banner's "how long since your last scan" clock. */
+export function lastBioimpedanceDate(S) {
+  let latest = null
+  MEASUREMENTS.forEach(m => {
+    if (m.group !== 'composition' && m.group !== 'segments') return
+    const last = lastMeasurement(S, m.key)
+    if (last && (!latest || last.d > latest)) latest = last.d
+  })
+  return latest
+}
+
+/** Whole days since the most recent bioimpedance scan, or null if none has ever been logged
+ *  (a profile with nothing on file yet isn't "overdue" — that's a first-scan nudge, a
+ *  different concern from this reminder). */
+export function daysSinceBioimpedance(S) {
+  const d = lastBioimpedanceDate(S)
+  if (!d) return null
+  return Math.floor((Date.now() - new Date(d + 'T00:00:00').getTime()) / 86400000)
+}
+
 // Healthy body-fat-% bands by sex and age — Gallagher et al. 2000 (Am J Clin Nutr 72:694-701),
 // the age/sex-adjusted "healthy range" most fitness and clinical tools use instead of one flat
 // cutoff for everybody. `obese` is that study's high-risk threshold; anything below the healthy

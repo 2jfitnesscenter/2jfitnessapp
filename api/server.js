@@ -15,10 +15,12 @@ import { coachRoutes } from './coach/routes.js';
 import { trainerAIRoutes } from './coach/trainer-routes.js';
 import { scanBioimpedanceImage } from './lib/measurements-scan.js';
 import { scanRoutineDocument } from './lib/routine-scan.js';
+import { scanMachineImage } from './lib/machine-scan.js';
 import { readState, writeState } from './lib/state-store.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
 import { chatRoutes } from './chat/routes.js';
+import { bunkerRoutes } from './bunker/routes.js';
 import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
 import * as whoopConfig from './whoop/config.js';
@@ -66,6 +68,12 @@ db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.recoveries = db.recoveries || [];
 db.recoveryRequests = db.recoveryRequests || [];
+// Scanned-machine → library-exercise links (frontend/src/lib/machine-scan.js) — gym-wide, not
+// per-member: it's the same physical machine for every socio who scans it, so one member's
+// pick benefits everyone's next scan. Keyed by a normalised form of the AI's own recognised
+// name (see machine-scan.js's norm()) since there's no physical id printed on the equipment
+// itself to key off instead. { key, exId, name, updatedAt }.
+db.machineAliases = db.machineAliases || [];
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
@@ -113,14 +121,19 @@ function saveHiddenEx() { atomicWrite(hiddenExFile, JSON.stringify(hiddenEx)); }
 // state-<uid>.json — same module-level cache + atomicWrite-the-whole-object shape as hiddenEx
 // above, just with content many different users contribute to instead of only the admin.
 const socialFile = path.join(DATA, 'social.json');
-let social = { routines: [], programs: [], wall: [], challenges: [], goals: [] };
+let social = { routines: [], programs: [], wall: [], challenges: [], goals: [], topics: [], board: [] };
 try {
   const parsed = JSON.parse(fs.readFileSync(socialFile, 'utf8'));
   social.routines = Array.isArray(parsed.routines) ? parsed.routines : [];
   social.programs = Array.isArray(parsed.programs) ? parsed.programs : [];
-  social.wall = Array.isArray(parsed.wall) ? parsed.wall : [];
+  // Wall now doubles as "Marcas": every post predating the public/private toggle was shared
+  // under the old always-public behaviour, so it defaults `public` to true rather than silently
+  // hiding things members already chose to share.
+  social.wall = (Array.isArray(parsed.wall) ? parsed.wall : []).map(w => ({ public: true, ...w }));
   social.challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
   social.goals = Array.isArray(parsed.goals) ? parsed.goals : [];
+  social.topics = Array.isArray(parsed.topics) ? parsed.topics : [];
+  social.board = Array.isArray(parsed.board) ? parsed.board : [];
 } catch {}
 function saveSocial() { atomicWrite(socialFile, JSON.stringify(social, null, 2)); }
 
@@ -711,7 +724,17 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'se requiere el estado' });
-    delete body.state.active;              // in-progress workouts stay device-local
+    delete body.state.active;              // the client never has authority over this field
+    // A normal push still never lets the client SET `active` — but until now it also wiped
+    // whatever the server already had there, because this write replaces the whole state file.
+    // That silently erased a session the Bunker (or a V3.1-B handoff) had put there, the moment
+    // the phone synced anything else at all (E2E finding, Bunker V3.1-B). Carry the server's own
+    // current value forward instead of discarding it — not a merge of the rest of the state,
+    // just this one field surviving its own deletion. A finished session already wrote `active:
+    // null` (not absent) via POST /api/bunker/finish, and `null` is falsy, so this never
+    // resurrects one that has already ended.
+    const current = readState(user.id);
+    if (current && current.active) body.state.active = current.active;
     writeState(user.id, body.state);
     json(res, 200, { ok: true, ts: body.state._ts || null });
   },
@@ -823,6 +846,9 @@ const routes = {
       // (starter.js's buildPlan, mirrored below) and the AI Coach's exercise selection.
       priorityMuscles: Array.isArray(S.priorityMuscles) ? S.priorityMuscles : [],
       secondaryMuscles: Array.isArray(S.secondaryMuscles) ? S.secondaryMuscles : [],
+      // The two per-member toggles POST /api/admin/user/features can flip remotely.
+      enableTrainingZones: S.enableTrainingZones !== false,
+      enableRpVolumeZones: !!S.enableRpVolumeZones,
       latestWeight: bw.length ? bw[bw.length - 1] : null,
       // Latest reading per measurement key — see /api/admin/user/measurements. Full history
       // stays on the member's own device; the admin card only needs "what's the number now".
@@ -872,6 +898,24 @@ const routes = {
     S._ts = Date.now();
     writeState(u.id, S);
     json(res, 200, { ok: true });
+  },
+
+  // Admin/trainer switching Training zones or Weekly volume zones on or off for one member
+  // remotely (AdminMembers.jsx) — the same two Settings toggles the member has themselves,
+  // just reachable from the gym side for someone who'd otherwise never find or use them.
+  // body: { id, enableTrainingZones?, enableRpVolumeZones? }.
+  'POST /api/admin/user/features': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const S = readState(u.id);
+    if (!S) return json(res, 404, { error: 'este socio aún no ha sincronizado ningún dato' });
+    if (typeof body.enableTrainingZones === 'boolean') S.enableTrainingZones = body.enableTrainingZones;
+    if (typeof body.enableRpVolumeZones === 'boolean') S.enableRpVolumeZones = body.enableRpVolumeZones;
+    S._ts = Date.now();
+    writeState(u.id, S);
+    json(res, 200, { ok: true, enableTrainingZones: S.enableTrainingZones !== false, enableRpVolumeZones: !!S.enableRpVolumeZones });
   },
 
   // Staff entering a bioimpedance scan (this gym's Tanita, typically) straight onto a member's
@@ -1346,6 +1390,54 @@ const routes = {
     json(res, 200, { routine: r.value });
   },
 
+  // Single gym-machine/exercise photo → a raw name (no OCR, one Gemini vision call), for the
+  // member-facing "scan this machine" flow. Same shape/permissions as the two scans above —
+  // any signed-in user, reads the file and hands back what it read; matching against the
+  // library, the alias lookup below and any save both happen client-side.
+  // body: { file: '<dataURL>' }.
+  'POST /api/exercises/scan-machine': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const dataUrl = typeof body.file === 'string' ? body.file : '';
+    const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
+    if (!m) return json(res, 400, { error: 'archivo no válido' });
+    const [, mimeType, b64] = m;
+    if (!/^image\//.test(mimeType) && mimeType !== 'application/pdf') {
+      return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
+    }
+    if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
+    const r = await scanMachineImage({ data: b64, mimeType });
+    if (!r.ok) return json(res, 400, { error: r.error });
+    json(res, 200, { name: r.value.name, nameEn: r.value.nameEn });
+  },
+
+  // Gym-wide machine→exercise alias lookup/save (db.machineAliases above) — any signed-in
+  // member can read or write one, since the whole point is that the first member to resolve a
+  // given machine saves everyone else the same picker next time.
+  'GET /api/exercises/alias': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const key = String(new URL(req.url, 'http://x').searchParams.get('key') || '').trim();
+    if (!key) return json(res, 400, { error: 'falta key' });
+    const alias = db.machineAliases.find(a => a.key === key);
+    json(res, 200, { exId: alias ? alias.exId : null });
+  },
+  'POST /api/exercises/alias': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const key = String(body.key || '').trim();
+    const exId = String(body.exId || '').trim();
+    const name = String(body.name || '').trim().slice(0, 100);
+    if (!key || !exId) return json(res, 400, { error: 'faltan datos' });
+    const existing = db.machineAliases.find(a => a.key === key);
+    if (existing) { existing.exId = exId; existing.name = name; existing.updatedAt = Date.now(); }
+    else db.machineAliases.push({ key, exId, name, updatedAt: Date.now() });
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
   /* ---------- Social: Programs (a named group of routines, published as one unit) ---------- */
   'GET /api/social/programs': async (req, res) => {
     const user = readSession(req);
@@ -1431,15 +1523,20 @@ const routes = {
     json(res, 200, { ok: true });
   },
 
+  // "Marcas": a caller sees every public mark plus their own regardless of visibility — privacy
+  // is a personal choice, so even staff's moderation rights (delete-by-id, no browsing) don't
+  // bypass it here.
   'GET /api/social/wall': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    json(res, 200, { wall: [...social.wall].sort((a, b) => b.createdAt - a.createdAt) });
+    const visible = social.wall.filter(w => w.public || w.authorId === user.id);
+    json(res, 200, { wall: [...visible].sort((a, b) => b.createdAt - a.createdAt) });
   },
 
-  // body: { exId, exName, mode, value, sourceDate, note? } — re-checked against the CALLER's own
-  // logged history below, so this can never be a made-up number: the picker in the app is a
-  // convenience, this check is the actual guarantee.
+  // body: { exId, exName, mode, value, sourceDate, note?, public? } — re-checked against the
+  // CALLER's own logged history below, so this can never be a made-up number: the picker in the
+  // app is a convenience, this check is the actual guarantee. `public` defaults to false: a Marca
+  // is private unless the member deliberately shares it.
   'POST /api/social/wall': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
@@ -1466,12 +1563,25 @@ const routes = {
       authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
       exId, exName: String(body.exName || '').trim().slice(0, 60) || exId, mode, value, sourceDate,
       note: String(body.note || '').trim().slice(0, 140) || null,
+      public: !!body.public,
       createdAt: Date.now(),
       comments: []
     };
     social.wall.push(post);
     saveSocial();
     json(res, 200, { ok: true, id: post.id });
+  },
+
+  'POST /api/social/wall/visibility': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const post = social.wall.find(w => w.id === body.id);
+    if (!post) return json(res, 404, { error: 'esa marca ya no existe' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    post.public = !!body.public;
+    saveSocial();
+    json(res, 200, { ok: true, public: post.public });
   },
 
   // body: { id, text } — id is the Wall post, not a comment id. A flat list, no replies/likes:
@@ -1514,6 +1624,155 @@ const routes = {
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
     social.wall = social.wall.filter(w => w.id !== body.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  /* ---------- Muro ("Wall" chat): members open topics and comment on each other's. Gym-wide,
+     flat comments same shape as the Wall's own — moderation is wider than Wall's though: any
+     trainer or admin can remove any topic/comment, not just its own author. ---------- */
+
+  'GET /api/social/topics': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    json(res, 200, { topics: [...social.topics].sort((a, b) => b.createdAt - a.createdAt) });
+  },
+
+  'POST /api/social/topics': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const title = String(body.title || '').trim().slice(0, 80);
+    const text = String(body.text || '').trim().slice(0, 1000);
+    if (!title || !text) return json(res, 400, { error: 'el tema necesita un título y un mensaje' });
+    const topic = {
+      id: crypto.randomBytes(9).toString('base64url'),
+      authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
+      title, text, createdAt: Date.now(), comments: []
+    };
+    social.topics.push(topic);
+    saveSocial();
+    json(res, 200, { ok: true, id: topic.id });
+  },
+
+  'POST /api/social/topics/comment': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const text = String(body.text || '').trim().slice(0, 300);
+    if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
+    const topic = social.topics.find(t => t.id === body.id);
+    if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
+    topic.comments = topic.comments || [];
+    const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
+    topic.comments.push(comment);
+    saveSocial();
+    json(res, 200, { ok: true, comment });
+  },
+
+  'POST /api/social/topics/comment/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const topic = social.topics.find(t => t.id === body.topicId);
+    if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
+    const comment = (topic.comments || []).find(c => c.id === body.commentId);
+    if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
+    if (comment.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    topic.comments = topic.comments.filter(c => c.id !== body.commentId);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  'POST /api/social/topics/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const topic = social.topics.find(t => t.id === body.id);
+    if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
+    if (topic.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    social.topics = social.topics.filter(t => t.id !== body.id);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  /* ---------- Tablón de Entrenadores: news/tests trainers post for the gym to read. Read-only
+     by default — a trainer/admin can flip `commentsEnabled` on their own post, and only then does
+     the comment endpoint below accept anything, enforced server-side, not just hidden in the UI.
+     ---------- */
+
+  'GET /api/social/board': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    json(res, 200, { board: [...social.board].sort((a, b) => b.createdAt - a.createdAt) });
+  },
+
+  'POST /api/social/board': async (req, res) => {
+    const trainer = requireTrainer(req, res); if (!trainer) return;
+    const body = await readBody(req);
+    const title = String(body.title || '').trim().slice(0, 80);
+    const text = String(body.text || '').trim().slice(0, 2000);
+    if (!title || !text) return json(res, 400, { error: 'el aviso necesita un título y un mensaje' });
+    const post = {
+      id: crypto.randomBytes(9).toString('base64url'),
+      authorId: trainer.id, authorName: trainer.name, authorKind: isTrainer(trainer) ? 'trainer' : 'member',
+      title, text, commentsEnabled: false, createdAt: Date.now(), comments: []
+    };
+    social.board.push(post);
+    saveSocial();
+    json(res, 200, { ok: true, id: post.id });
+  },
+
+  'POST /api/social/board/toggle-comments': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    if (!isTrainer(user) && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    const body = await readBody(req);
+    const post = social.board.find(b => b.id === body.id);
+    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    post.commentsEnabled = !!body.commentsEnabled;
+    saveSocial();
+    json(res, 200, { ok: true, commentsEnabled: post.commentsEnabled });
+  },
+
+  'POST /api/social/board/comment': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const post = social.board.find(b => b.id === body.id);
+    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    if (!post.commentsEnabled) return json(res, 403, { error: 'los comentarios están desactivados en este aviso' });
+    const text = String(body.text || '').trim().slice(0, 300);
+    if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
+    post.comments = post.comments || [];
+    const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
+    post.comments.push(comment);
+    saveSocial();
+    json(res, 200, { ok: true, comment });
+  },
+
+  'POST /api/social/board/comment/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const post = social.board.find(b => b.id === body.postId);
+    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    const comment = (post.comments || []).find(c => c.id === body.commentId);
+    if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
+    if (comment.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    post.comments = post.comments.filter(c => c.id !== body.commentId);
+    saveSocial();
+    json(res, 200, { ok: true });
+  },
+
+  'POST /api/social/board/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const post = social.board.find(b => b.id === body.id);
+    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    social.board = social.board.filter(b => b.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
   },
@@ -1837,6 +2096,13 @@ const routes = {
   // isTrainer above), so chat is one shared inbox every trainer/admin can see and reply to.
   ...friendsRoutes({ json, readBody, readSession, sendPush, users: () => db.users }),
   ...chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users: () => db.users }),
+
+  /* ---------- Bunker (gym-floor kiosk) ---------- */
+  // Its own data/bunker.json (PINs, admin codes, room settings) — see bunker/store.js's doc
+  // comment for why the live session board itself is in-memory instead, same as `presence`
+  // above. sign/verifySig are the exact functions the signed session cookie itself uses, reused
+  // for the kiosk's own short-lived, narrowly-scoped tokens (never a full login).
+  ...bunkerRoutes({ json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users }),
 
   /* ---------- connected apps: Strava (push workouts), Whoop (pull recovery) ---------- */
   ...stravaRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN }),

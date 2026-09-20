@@ -1,0 +1,181 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import { tempData, writeState } from './helpers.mjs';
+
+tempData();
+const { bunkerRoutes } = await import('../bunker/routes.js');
+
+/* bunkerRoutes is a factory of closures — server.js's own json/readBody/readSession/sign/
+   verifySig are passed in rather than imported (see the module's own doc comment), precisely
+   so it can be exercised directly like this: no real HTTP server, no real session secret, just
+   a minimal sign/verifySig pair matching the same "HMAC'd payload + '.' + mac" contract
+   readBunkerToken expects. */
+const SECRET = 'bunker-finish-test-secret';
+function sign(payload) {
+  return payload + '.' + crypto.createHmac('sha256', SECRET).update(payload).digest('base64url');
+}
+function verifySig(token) {
+  const i = token.lastIndexOf('.');
+  if (i < 0) return null;
+  const payload = token.slice(0, i), mac = token.slice(i + 1);
+  const expect = crypto.createHmac('sha256', SECRET).update(payload).digest('base64url');
+  try { if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expect))) return null; } catch { return null; }
+  return payload;
+}
+const bunkerToken = uid => sign('bunker:' + uid + ':' + (Date.now() + 3600000));
+
+const routes = bunkerRoutes({
+  json: (res, status, body) => { res.status = status; res.body = body; },
+  readBody: async req => req._body,
+  readSession: () => null,
+  sign, verifySig,
+  users: () => [],
+  isTrainer: () => false,
+});
+const finish = routes['POST /api/bunker/finish'];
+
+async function callFinish(uid, workout) {
+  const req = { headers: { authorization: 'Bearer ' + bunkerToken(uid) }, _body: { workout } };
+  const res = {};
+  await finish(req, res);
+  return res;
+}
+
+const baseState = over => ({
+  unit: 'kg', routines: [], programs: [], week: {}, dayPlan: {}, workouts: [], customEx: [],
+  exWeights: {}, bodyweight: [], tests: [], badges: {}, active: { id: 'should-be-cleared' },
+  ...over,
+});
+
+test('a weight PR is detected and written to workout.prs, exactly as the normal finish flow would', async () => {
+  const uid = 'u_pr_weight';
+  writeState(process.env.DATA_DIR, uid, baseState({
+    workouts: [{ id: 'w0', d: '2026-09-01', entries: [{ id: '0025', sets: [{ w: 60, r: 5, done: true }], target: { sets: 1, reps: 5, weight: 60 } }] }],
+  }));
+  const workout = {
+    id: 'w1', d: '2026-09-19', start: 1000, end: 2000, routineId: 'r1', name: 'Bunker', bw: null,
+    entries: [{ id: '0025', sets: [{ w: 70, r: 5, done: true }], target: { sets: 1, reps: 5, weight: 70 } }],
+    prs: [], // whatever the client sends here must be ignored and re-derived server-side
+  };
+  const res = await callFinish(uid, workout);
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.prs, ['0025']);
+
+  const { readState } = await import('../lib/state-store.js');
+  const S = readState(uid);
+  assert.deepEqual(S.workouts.find(w => w.id === 'w1').prs, ['0025'], 'the weight PR must be persisted on the saved workout');
+});
+
+test('a 1RM record with no new top weight still surfaces as an e1RM record, same as is1RMRecord', async () => {
+  const uid = 'u_pr_1rm';
+  // Prior best: a single heavy rep at 80kg -> est. 1RM exactly 80.
+  writeState(process.env.DATA_DIR, uid, baseState({
+    workouts: [{ id: 'w0', d: '2026-09-01', entries: [{ id: '0025', sets: [{ w: 80, r: 1, done: true }], target: { sets: 1, reps: 1, weight: 80 } }] }],
+  }));
+  // 75kg x5 (Epley est. ~87.5) beats the prior 1RM estimate without beating the raw 80kg weight
+  // PR -- exactly the case that distinguishes e1RM records from weight PRs.
+  const workout = {
+    id: 'w1', d: '2026-09-19', start: 1000, end: 2000, routineId: 'r1', name: 'Bunker', bw: null,
+    entries: [{ id: '0025', sets: [{ w: 75, r: 5, done: true }], target: { sets: 1, reps: 5, weight: 75 } }],
+    prs: [],
+  };
+  const res = await callFinish(uid, workout);
+  assert.deepEqual(res.body.prs, [], 'not a raw weight PR — 75 < 80');
+  assert.equal(res.body.e1prs.length, 1, 'the rule itself must still fire — checked via the response, the one place the normal flow ever surfaces it');
+  assert.equal(res.body.e1prs[0].id, '0025');
+  assert.ok(res.body.e1prs[0].est > 80, 'the new estimate must beat the prior 80');
+  assert.equal(res.body.e1prs[0].prev, 80);
+
+  // doFinishWorkout itself never writes e1prs onto a saved workout (it only ever reaches the
+  // finish-summary sheet, in that same render) — Bunker must not introduce persistence the
+  // normal flow doesn't have, even though the rule that PRODUCES the value is identical.
+  const { readState } = await import('../lib/state-store.js');
+  assert.equal(readState(uid).workouts.find(w => w.id === 'w1').e1prs, undefined, 'e1prs must never be persisted on the saved workout');
+});
+
+test('a session with nothing that beats history produces no PRs at all', async () => {
+  const uid = 'u_no_pr';
+  writeState(process.env.DATA_DIR, uid, baseState({
+    workouts: [{ id: 'w0', d: '2026-09-01', entries: [{ id: '0025', sets: [{ w: 100, r: 5, done: true }], target: { sets: 1, reps: 5, weight: 100 } }] }],
+  }));
+  const workout = {
+    id: 'w1', d: '2026-09-19', start: 1000, end: 2000, routineId: 'r1', name: 'Bunker', bw: null,
+    entries: [{ id: '0025', sets: [{ w: 90, r: 5, done: true }], target: { sets: 1, reps: 5, weight: 90 } }],
+  };
+  const res = await callFinish(uid, workout);
+  assert.deepEqual(res.body.prs, []);
+  assert.deepEqual(res.body.e1prs, []);
+});
+
+test('exWeights is raised when the new weight beats it, and left alone when it does not', async () => {
+  const uidUp = 'u_exw_up', uidSame = 'u_exw_same';
+  writeState(process.env.DATA_DIR, uidUp, baseState({ exWeights: { '0025': { w: 50, d: '2026-08-01' } } }));
+  writeState(process.env.DATA_DIR, uidSame, baseState({ exWeights: { '0025': { w: 90, d: '2026-08-01' } } }));
+
+  await callFinish(uidUp, { id: 'w1', d: '2026-09-19', start: 1, end: 2, routineId: 'r1', name: 'x', bw: null,
+    entries: [{ id: '0025', sets: [{ w: 55, r: 5, done: true }], target: {} }] });
+  await callFinish(uidSame, { id: 'w1', d: '2026-09-19', start: 1, end: 2, routineId: 'r1', name: 'x', bw: null,
+    entries: [{ id: '0025', sets: [{ w: 55, r: 5, done: true }], target: {} }] });
+
+  const { readState } = await import('../lib/state-store.js');
+  assert.deepEqual(readState(uidUp).exWeights['0025'], { w: 55, d: '2026-09-19' }, 'a heavier confirmed weight replaces the old one, with the new date');
+  assert.deepEqual(readState(uidSame).exWeights['0025'], { w: 90, d: '2026-08-01' }, 'a lighter session never overwrites a heavier one already on file');
+});
+
+test('integrity: S.active clears, no duplicate workouts, target/sets/cardio/date/id all survive intact', async () => {
+  const uid = 'u_integrity';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [] }));
+  const workout = {
+    id: 'w-integrity-1', d: '2026-09-19', start: 111, end: 222, routineId: 'rX', name: 'Full body', bw: 78.4,
+    entries: [
+      { id: '0025', sets: [{ w: 60, r: 8, done: true }, { w: 60, r: 8, done: false }], target: { sets: 2, reps: 8, weight: 60, mode: 'reps' } },
+      { id: '3220', sets: [{ min: 16, speed: 9.5, done: true }], target: { sets: 1, mode: 'cardio', min: 15, speed: 9 } },
+    ],
+  };
+  await callFinish(uid, structuredClone(workout));
+
+  const { readState } = await import('../lib/state-store.js');
+  const S = readState(uid);
+  assert.equal(S.active, null);
+  assert.equal(S.workouts.length, 1, 'exactly one workout, no duplicates');
+  const w = S.workouts[0];
+  assert.equal(w.id, workout.id);
+  assert.equal(w.d, workout.d);
+  assert.deepEqual(w.entries[0].target, workout.entries[0].target);
+  assert.deepEqual(w.entries[0].sets, workout.entries[0].sets);
+  assert.deepEqual(w.entries[1].sets, [{ min: 16, speed: 9.5, done: true }]);
+  assert.equal(w.entries[1].target.mode, 'cardio');
+});
+
+test('multiuser isolation: finishing for two users concurrently never mixes their PRs, exWeights or workouts', async () => {
+  const uidA = 'u_multi_a', uidB = 'u_multi_b';
+  writeState(process.env.DATA_DIR, uidA, baseState({
+    workouts: [{ id: 'w0', d: '2026-09-01', entries: [{ id: '0025', sets: [{ w: 40, r: 8, done: true }], target: {} }] }],
+    exWeights: { '0025': { w: 40, d: '2026-09-01' } },
+  }));
+  writeState(process.env.DATA_DIR, uidB, baseState({
+    workouts: [{ id: 'w0', d: '2026-09-01', entries: [{ id: '0007', sets: [{ w: 30, r: 8, done: true }], target: {} }] }],
+    exWeights: { '0007': { w: 30, d: '2026-09-01' } },
+  }));
+
+  await Promise.all([
+    callFinish(uidA, { id: 'wA', d: '2026-09-19', start: 1, end: 2, routineId: 'rA', name: 'A', bw: null,
+      entries: [{ id: '0025', sets: [{ w: 45, r: 8, done: true }], target: {} }] }),
+    callFinish(uidB, { id: 'wB', d: '2026-09-19', start: 1, end: 2, routineId: 'rB', name: 'B', bw: null,
+      entries: [{ id: '0007', sets: [{ w: 35, r: 8, done: true }], target: {} }] }),
+  ]);
+
+  const { readState } = await import('../lib/state-store.js');
+  const SA = readState(uidA), SB = readState(uidB);
+  assert.equal(SA.workouts.length, 2);
+  assert.equal(SB.workouts.length, 2);
+  assert.deepEqual(SA.workouts.find(w => w.id === 'wA').prs, ['0025']);
+  assert.deepEqual(SB.workouts.find(w => w.id === 'wB').prs, ['0007']);
+  assert.equal(SA.exWeights['0025'].w, 45);
+  assert.equal(SB.exWeights['0007'].w, 35);
+  // No cross-contamination: A's file never mentions B's exercise/routine, and vice versa.
+  const rawA = JSON.stringify(SA), rawB = JSON.stringify(SB);
+  assert.ok(!rawA.includes('0007') && !rawA.includes('"rB"'));
+  assert.ok(!rawB.includes('0025') && !rawB.includes('"rA"'));
+});

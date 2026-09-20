@@ -96,6 +96,96 @@ label and nowhere else. Stats now answers the question the number was recorded f
   sit higher.
 - Translated into all 12 UI languages.
 
+### Weekly Volume Zones, and Training Zones for a single set
+
+Two questions the app could never answer on its own: *is this muscle group getting enough work
+across the whole week*, and *what percentage of a max should this set actually load*. Both are
+now answered from evidence-based landmarks instead of a guess.
+
+- 📊 **Weekly Volume Zones (MV/MEV/MAV/MRV).** Every exercise in the library carries a resolved
+  muscle group (12 groups); each logged week is tallied into hard sets per group and read
+  against that group's Maintenance / Minimum Effective / Maximum Adaptive / Maximum Recoverable
+  landmarks for your training level (beginner/intermediate/advanced). A group under MEV is
+  under-recovered for growth, one past MRV is past what you can likely recover from — shown as a
+  calibrated bar per muscle group, not a single number.
+- 🎚️ **Calibrate it to you.** Level defaults are a starting point, not a verdict — any landmark
+  can be overridden per muscle group from Settings, and the app remembers which ones you've
+  touched.
+- 🎯 **Training Zones (Z1–Z5).** A per-set %1RM / RIR intensity classification (strength, hypertrophy,
+  endurance, …) so a working set reads as "what kind of stimulus is this", not just a weight and
+  a rep count.
+- Both are opt-in and off by default — a profile that never turns them on sees nothing new.
+
+### The Bunker: a gym-floor kiosk, and the panel that runs it
+
+A shared screen mounted on the gym floor for members who'd rather not pull out a phone mid-set,
+plus the admin side that makes it safe to leave running unattended.
+
+- 🖥️ **Check in with a 4-digit PIN — `/bunker`.** No phone needed: punch in, land on a
+  touch-optimized training panel with a rest timer that stays in sync, and show up on a live,
+  collective room dashboard everyone checked in can see. The PIN mints a short-lived, narrowly
+  scoped bearer token — never a member's real session — so a kiosk left logged in never exposes
+  a full account.
+- 🔐 **Room admin, from the kiosk or from `/admin/bunker`.** A trainer's own fixed code unlocks
+  room controls in place: force-close a session without losing what was logged, pause or resume
+  someone's rest timer, or step in and adjust a live set (Assist/Adjust) — all without breaking
+  that member's own Weekly Volume Zone preferences, which stay strictly per-athlete and never
+  leak between whoever's checked in.
+- ⚙️ **Room settings.** Grid columns (including auto), a rest-end beep with a pulsing highlight,
+  an option to hide weights from the public dashboard view, and an auto-lock timer
+  (15/30/45/60s) so an idle kiosk screen doesn't sit open.
+- 🚪 **A discreet exit.** Triple-tap the kiosk's own logo, enter the admin code, and it's the only
+  way back out of kiosk mode — nothing a member can trigger by accident.
+- QR check-in (a phone-to-kiosk handoff) is deliberately deferred — noted as a follow-up, not a
+  cut corner.
+
+### PWA install, bioimpedance reminders, a real Tanita export, and smarter machine scans
+
+- 📲 **A real "Add to home screen" prompt**, instead of relying on the browser's own — hidden
+  automatically once installed or on the native build.
+- ⏰ **Bioimpedance reminder.** A configurable 15/30-day nudge to log a new body-composition scan,
+  shown on Home and fired as a native notification, computed from your own last scan rather than
+  a separately tracked date that can drift out of sync.
+- 🧾 **Tanita export, done properly.** Measurements reorganized into General / By-limb / Skinfolds
+  tabs with a shared %/kg toggle, plus a branded PDF/Excel export in a dark or a light/printable
+  theme — built for handing to a trainer or keeping for your own records.
+- 🔁 **Machine scans stop duplicating your library.** Scanning a gym machine's photo now matches
+  it against the real exercise library first; only a genuine miss creates a custom exercise. One
+  member confirming a match teaches a gym-wide machine→exercise alias table, so the next person
+  who scans that same machine gets it right immediately.
+
+### The AI Coach reads your zones too
+
+Both the member-facing Coach and the trainer's "Generate with AI" panel now see Weekly Volume
+Zones and Training Zones when a profile has them turned on — previously neither did, so an
+AI-built or AI-reviewed plan could quietly ignore landmarks the rest of the app was already
+enforcing.
+
+- When Weekly Volume Zones are on, the Coach tallies the **plan's** weekly sets per muscle group
+  against your real MV/MEV/MAV/MRV landmarks (including any calibration you've done) — pushing a
+  group under MEV gets a set added, one already at MRV gets volume cut rather than piled onto
+  further, even if it's been trained consistently at that level.
+- Training Zones travel the same way, so a proposed or reviewed set reads against the same Z1–Z5
+  intensity classification you see everywhere else in the app.
+- Off unless you've turned the zone on yourself — a profile with either feature disabled sends
+  the Coach exactly what it always sent.
+
+### Social, reorganized: a real chat, merged routines, a trainer bulletin, and private PRs
+
+- 💬 **Muro is now a chatbox.** Members open a topic and comment on each other's — the default tab
+  when Social opens. Any trainer or admin can remove any topic or comment, not just their own,
+  same as the rest of the gym's moderated spaces; everyone else can only remove their own.
+- 🗂️ **Rutinas merges into one tab**, with public member-published routines and trainer-published
+  ones shown as two clearly labeled sections instead of two separate tabs.
+- 📌 **Entrenadores becomes a bulletin board.** Trainers post news, ideas or tests; posts are
+  read-only by default, with a per-post toggle — trainer/admin only, enforced on the server, not
+  just hidden in the UI — to open comments on a specific announcement.
+- 🔒 **Marcas (PRs) are private by default.** What used to live in Muro — posting a real logged
+  set as a public record — moves under Desafíos y Marcas with a visibility toggle. A new Marca
+  starts private; sharing it publicly is a deliberate choice, and existing Marcas from before this
+  change keep the public visibility they already had, so nothing anyone already shared quietly
+  disappears.
+
 ## v1.2.3 — 2026-07-31
 
 How hard a set was, in whichever of the two scales you already think in — and the ratings your

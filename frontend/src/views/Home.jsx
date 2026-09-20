@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks, setsDoneActive, setsDone } from '../lib/history.js'
-import { fmtDate, fmtDur, fmtVol, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
+import { fmtVol, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, workoutDetailSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
-import BodyMap from '../components/BodyMap.jsx'
+import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
 import BodyWeightCard from '../components/BodyWeightCard.jsx'
 import SegmentBodyDiagram from '../components/SegmentBodyDiagram.jsx'
 import { glyphOf } from '../lib/glyphs.js'
@@ -16,33 +16,56 @@ import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
-import { loadOfWorkouts, muscleOptsOf } from '../lib/muscles.js'
+import { loadOfWorkouts, muscleOptsOf, MUSCLE_NAME } from '../lib/muscles.js'
 import RecoveryCard from '../components/RecoveryCard.jsx'
-import { hasBodyComposition } from '../lib/measurements.js'
+import { hasBodyComposition, daysSinceBioimpedance } from '../lib/measurements.js'
 import { fetchWhoopRecovery, fetchWhoopSleep } from '../lib/whoop-api.js'
 import { mergeSeries } from '../lib/import-csv.js'
 
-// A tap-through summary of the most recently finished workout — duration, sets, volume, and
-// which muscles it hit (the same body map FinishSummary shows right after finishing one).
+// Full-screen expansion of the compact body map below — the same load, just big enough to
+// tap a muscle and read its exact set count, the way Stats.jsx's own Muscle balance card
+// already lets you do for a wider window. Opened as a 'full' sheet (Modals.jsx) since a
+// pinch-to-read body map is exactly the kind of thing a bottom sheet's own max-height cuts off.
+function WorkoutBodyMapModal({ w, S, close }) {
+  const [sel, setSel] = useState(null)
+  const load = loadOfWorkouts([w], null, muscleOptsOf(S))
+  const sets = m => Math.round((load[m] || 0) * 10) / 10
+  return <div className="narrow">
+    <div className="hdr">
+      <button className="iconbtn" onClick={close} aria-label={t('Close')}><Icon name="xmark" /></button>
+      <div style={{ flex: 1, marginLeft: 8 }}><h1>{w.name}</h1></div>
+    </div>
+    <div className="card">
+      <BodyMap className="tappable" load={load} body={S.body} selected={sel}
+        onMuscle={m => setSel(s => (s === m ? null : m))} />
+      <BodyMapLegend />
+      {sel && <div className="mrow" style={{ borderTop: 'var(--hair) solid var(--sep)', marginTop: 4, paddingTop: 10 }}>
+        <span className="nm"><b>{t(MUSCLE_NAME[sel])}</b></span>
+        <span className="v">{sets(sel) ? t('{0} sets', sets(sel)) : t('not trained')}</span>
+      </div>}
+    </div>
+  </div>
+}
+
+// The left half of Home's own 2-column glance row (.home-grid2) — a condensed tap-through to
+// the most recently finished workout: short header, one line of key metrics ("16 series ·
+// 5.653 kg"), and a shrunk body map (index.css's .home-bodymap-sm) that opens its own
+// full-screen detail on tap — stopping the event so that tap doesn't also fire the card's own
+// onClick (which opens the workout detail sheet instead). Same card either half of the grid
+// row got in the previous, full-width layout, just laid out for half the space.
 function LastWorkoutCard({ S }) {
   const w = S.workouts.length ? S.workouts[S.workouts.length - 1] : null
   if (!w) return null
-  const glyph = glyphOf((S.routines.find(r => r.id === w.routineId) || {}).emoji)
-  return <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => workoutDetailSheet(w)}>
-    <div className="row" style={{ gap: 9, marginBottom: 10 }}>
-      <span className="lrow-i" style={{ width: 34, height: 34, borderRadius: 8, fontSize: 19 }}><Icon name={glyph} /></span>
-      <div style={{ minWidth: 0 }}>
-        <div className="lbl2">{t('Last workout')}</div>
-        <div className="ttl">{w.name}</div>
-      </div>
-      <span className="dim small" style={{ marginLeft: 'auto' }}>{fmtDate(w.d, true)}</span>
+  const openMap = e => { e.stopPropagation(); useUI.getState().openSheet(close => <WorkoutBodyMapModal w={w} S={S} close={close} />, { kind: 'full' }) }
+  return <div className="card home-half tappable" style={{ cursor: 'pointer' }} onClick={() => workoutDetailSheet(w)}>
+    <div className="row between" style={{ marginBottom: 6 }}>
+      <div className="home-half-ttl">{t('Last workout')}</div>
+      <Icon name="chevronRight" className="chev" style={{ fontSize: 15 }} />
     </div>
-    <div className="tiles">
-      <div className="tile"><div className="l">{t('Duration')}</div><div className="v">{fmtDur(w.end - w.start)}</div></div>
-      <div className="tile"><div className="l">{t('Sets')}</div><div className="v">{setsDone(w)}</div></div>
-      <div className="tile"><div className="l">{t('Volume')}</div><div className="v">{fmtVol(w.vol, S.unit)}</div></div>
+    <div className="home-half-sub">{t('{0} sets · {1}', setsDone(w), fmtVol(w.vol, S.unit))}</div>
+    <div className="home-bodymap-sm tappable" style={{ cursor: 'pointer' }} onClick={openMap}>
+      <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(S))} body={S.body} />
     </div>
-    <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(S))} body={S.body} />
   </div>
 }
 
@@ -67,6 +90,30 @@ function CoachCard({ nav }) {
         </div>
       </div>
       {ready ? <span className="tag acc">{t('Review')}</span> : <Icon name="chevronRight" className="chev" />}
+    </div>
+  </div>
+}
+
+// Nudges toward a fresh body-composition scan once the member's own chosen cadence (15/30
+// days, Settings → General → Bioimpedance reminder) has passed since the last one. Renders
+// nothing when there's nothing to say — same rule CoachCard follows above — so a brand-new
+// profile with no scan on file yet (daysSinceBioimpedance returns null: nothing is "overdue"
+// when nothing has ever been logged) never sees this ahead of its first one.
+function BioimpedanceReminderCard({ S, nav }) {
+  if (S.enableBioimpedanceReminder === false) return null
+  const days = daysSinceBioimpedance(S)
+  const cadence = S.bioimpedanceReminderDays || 15
+  if (days === null || days < cadence) return null
+  return <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => nav('/measurements')}>
+    <div className="row" style={{ gap: 10 }}>
+      <span className="lrow-i" style={{ background: 'var(--orange)' }}><Icon name="calendar" /></span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="ttl">{t('Time for a new scan')}</div>
+        <div className="muted small" style={{ marginTop: 2 }}>
+          {t('It’s been {0} days since your last body-composition measurement — tap to log a new one.', days)}
+        </div>
+      </div>
+      <Icon name="chevronRight" className="chev" />
     </div>
   </div>
 }
@@ -198,6 +245,8 @@ export default function Home() {
 
     {coachOn && <CoachCard nav={nav} />}
 
+    <BioimpedanceReminderCard S={S} nav={nav} />
+
     {!S.routines.length && !S.active && (
       <div className="card">
         <div className="row" style={{ gap: 10, marginBottom: 6 }}>
@@ -214,9 +263,10 @@ export default function Home() {
       </div>
     )}
 
-    <LastWorkoutCard S={S} />
-
-    <RecoveryCard nav={nav} S={S} />
+    <div className="home-grid2">
+      <LastWorkoutCard S={S} />
+      <RecoveryCard nav={nav} S={S} compact />
+    </div>
 
     <WhoopCard nav={nav} connected={!!user?.whoop} />
 

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
-  readSession, sessionsFor, stallCount, nextPrescription, applyPrescription,
+  readSession, sessionsFor, stallCount, nextPrescription, applyPrescription, buildRoutineEntries,
   policyFor, defaultIncrement, POLICIES_FOR, DELOAD_AFTER
 } from './progression.js'
-import { EXDB } from './exercises.js'
+import { EXDB, setHiddenExercises } from './exercises.js'
 import { pctForReps } from './onerm.js'
 
 const LIFT = EXDB.find(e => e.bp !== 'cardio' && !['upper legs', 'lower legs', 'back', 'hips', 'glutes'].includes(e.bp)).id
@@ -424,5 +424,43 @@ describe('applyPrescription', () => {
   it('adjusts a timed set without inventing a weight', () => {
     const timed = [{ sec: 45, w: 0, done: false }]
     expect(applyPrescription(timed, { kind: 'up', sec: 50 })).toEqual([{ sec: 50, w: 0, done: false }])
+  })
+})
+
+/* Extracted verbatim out of sheets.jsx's beginWorkout()/beginPastWorkout() — the Bunker kiosk
+   (views/Bunker.jsx) is a third caller building "today's session" from a resolved routine, and
+   this is what pins its behaviour to exactly what the phone app already does: hidden exercises
+   left out, a prescription computed per exercise, and buildSets()'s own per-mode set shapes. */
+describe('buildRoutineEntries', () => {
+  const S = { unit: 'kg', workouts: [], exWeights: {}, customEx: [], warmupEnabled: false }
+
+  it('builds one entry per exercise, each with a target snapshot, a plan and prescribed sets', () => {
+    const routine = { id: 'r1', name: 'Full body', ex: [{ id: LIFT, sets: 3, reps: 5, weight: 60, mode: 'reps' }] }
+    const [entry] = buildRoutineEntries(S, routine)
+    expect(entry.id).toBe(LIFT)
+    expect(entry.target).toEqual(routine.ex[0])
+    expect(entry.target).not.toBe(routine.ex[0]) // a snapshot, not the routine's own object
+    expect(entry.plan.kind).toBe('first') // nothing logged yet in S.workouts
+    expect(entry.sets).toHaveLength(3)
+    expect(entry.sets[0]).toMatchObject({ w: 60, r: 5, done: false })
+  })
+
+  it('leaves an exercise the gym has hidden out of the session entirely', () => {
+    setHiddenExercises([LIFT])
+    const routine = { id: 'r1', name: 'Full body', ex: [{ id: LIFT, sets: 3, reps: 5, weight: 60 }, { id: HEAVY, sets: 3, reps: 5, weight: 100 }] }
+    const entries = buildRoutineEntries(S, routine)
+    setHiddenExercises([])
+    expect(entries.map(e => e.id)).toEqual([HEAVY])
+  })
+
+  it('builds cardio-shaped sets (duration + speed, no reps) for a cardio exercise', () => {
+    const routine = { id: 'r1', name: 'Conditioning', ex: [{ id: CARDIO, sets: 1, mode: 'cardio', min: 20, speed: 8 }] }
+    const [entry] = buildRoutineEntries(S, routine)
+    expect(entry.sets[0]).toMatchObject({ min: 20, speed: 8 })
+    expect(entry.sets[0].r).toBeUndefined()
+  })
+
+  it('returns nothing for a null routine, same as an empty freestyle session', () => {
+    expect(buildRoutineEntries(S, null)).toEqual([])
   })
 })

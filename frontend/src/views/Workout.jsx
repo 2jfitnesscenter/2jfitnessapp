@@ -10,6 +10,7 @@ import { t, nameFor } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
 import { startFlow, exercisePicker, alternativesSheet, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet, effortSheet } from '../sheets.jsx'
+import { handoffToBunker } from '../lib/bunker-api.js'
 import Icon from '../components/Icon.jsx'
 import { Button, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
@@ -341,7 +342,7 @@ function ActiveWorkout() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
-  const { startRest, stopRest } = useUI()
+  const { startRest, stopRest, toast } = useUI()
   // Weekly Volume Zones' history half (lib/rp-volume.js) — memoized against S.workouts, not the
   // whole store, so typing into a set doesn't re-scan the week's finished workouts on every
   // keystroke. The still-open session's own contribution is cheap enough to compute fresh in
@@ -493,6 +494,35 @@ function ActiveWorkout() {
     }
   }, [])
 
+  // One-shot, explicit handoff to the Bunker kiosk (V3.1-B) — never the continuous device sync
+  // PUT /api/data still deliberately excludes S.active from. On success this device stops being
+  // a second editable copy of the session: same "s.active = null" the Discard button already
+  // uses, just without discarding the actual progress, which is now the server's copy for the
+  // kiosk to pick up the moment its own PIN is entered.
+  const handoffBunker = force => {
+    handoffToBunker(A, force).then(() => {
+      // push:false is load-bearing here, not a style choice: PUT /api/data always strips
+      // `active` from what it writes, but it still overwrites the REST of the state file with
+      // whatever this device last had — a normal debounced push firing right after this would
+      // race the handoff and, on this device's very next sync, blow away the copy the endpoint
+      // just wrote before the kiosk ever reads it. The server already has the real S.active;
+      // this device has nothing left to tell it.
+      update(s => { s.active = null }, false)
+      stopRest()
+      toast(t('Transferred — enter your PIN at the Bunker to continue there'))
+      nav('/home')
+    }).catch(e => {
+      if (e.status === 409) {
+        confirmSheet({
+          title: t('A different session is already at the Bunker'),
+          message: t('"{0}" is already in progress there. Replace it with this one?', e.data?.existing?.name || t('Workout')),
+          confirmText: t('Replace'), danger: true,
+          onConfirm: () => handoffBunker(true)
+        })
+      } else toast(e.message)
+    })
+  }
+
   return <div className="narrow">
     <div className="hdr">
       <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => { update(s => { s.active = null }); stopRest(); nav('/home') } })}><Icon name="xmark" /></button>
@@ -530,6 +560,10 @@ function ActiveWorkout() {
       s.active.cur = s.active.entries.length - 1
     }), null, S.routines.find(r => r.id === A.routineId)))} icon="plus">{t('Add exercise')}</Button>
     <div style={{ height: 10 }} />
+    {!A.past && <>
+      <Button variant="tinted" icon="dumbbell" onClick={() => handoffBunker(false)}>{t('Transfer to the Bunker')}</Button>
+      <div style={{ height: 10 }} />
+    </>}
     {(() => {
       const exDone = A.entries.filter(e => e.sets.length && e.sets.every(s => s.done)).length
       const allDone = A.entries.length > 0 && exDone === A.entries.length

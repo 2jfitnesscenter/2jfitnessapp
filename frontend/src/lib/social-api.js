@@ -21,6 +21,26 @@ export const deleteWallPost = id => api('/api/social/wall/delete', { method: 'PO
 export const postWallComment = (id, text) => api('/api/social/wall/comment', { method: 'POST', body: JSON.stringify({ id, text }) })
 export const deleteWallComment = (postId, commentId) =>
   api('/api/social/wall/comment/delete', { method: 'POST', body: JSON.stringify({ postId, commentId }) })
+export const setWallVisibility = (id, isPublic) =>
+  api('/api/social/wall/visibility', { method: 'POST', body: JSON.stringify({ id, public: isPublic }) })
+
+// Muro: temas (topics) + comentarios planos, mismo patrón que el Muro/Wall de arriba.
+export const fetchTopics = () => api('/api/social/topics').then(r => r.topics)
+export const publishTopic = topic => api('/api/social/topics', { method: 'POST', body: JSON.stringify(topic) })
+export const deleteTopic = id => api('/api/social/topics/delete', { method: 'POST', body: JSON.stringify({ id }) })
+export const postTopicComment = (id, text) => api('/api/social/topics/comment', { method: 'POST', body: JSON.stringify({ id, text }) })
+export const deleteTopicComment = (topicId, commentId) =>
+  api('/api/social/topics/comment/delete', { method: 'POST', body: JSON.stringify({ topicId, commentId }) })
+
+// Tablón de Entrenadores: solo lectura salvo que el propio autor active comentarios.
+export const fetchBoard = () => api('/api/social/board').then(r => r.board)
+export const publishBoardPost = post => api('/api/social/board', { method: 'POST', body: JSON.stringify(post) })
+export const deleteBoardPost = id => api('/api/social/board/delete', { method: 'POST', body: JSON.stringify({ id }) })
+export const toggleBoardComments = (id, commentsEnabled) =>
+  api('/api/social/board/toggle-comments', { method: 'POST', body: JSON.stringify({ id, commentsEnabled }) })
+export const postBoardComment = (id, text) => api('/api/social/board/comment', { method: 'POST', body: JSON.stringify({ id, text }) })
+export const deleteBoardComment = (postId, commentId) =>
+  api('/api/social/board/comment/delete', { method: 'POST', body: JSON.stringify({ postId, commentId }) })
 
 export const fetchChallenges = () => api('/api/social/challenges').then(r => r.challenges)
 export const fetchChallengeDetail = id => api('/api/social/challenges/detail?id=' + encodeURIComponent(id))
