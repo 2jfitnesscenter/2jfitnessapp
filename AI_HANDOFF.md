@@ -12,47 +12,50 @@ en producción (Contabo VPS, `app.2jfitnesscenter.com`).
 `feat/pwa-tanita-bunker-roadmap`
 
 ## Último commit de código relevante
-`3e4e0b4` — "fix: allow active workout to be discarded safely"
-(anterior: `85b45ad` — V2, `14afe9d` — V1)
+`96533f1` — "feat: V3 (notas en entrenamiento/impresión, versionado de rutinas/programas,
+últimas sesiones, resumen de programación, OpenAI REST)"
+(anterior: `3e4e0b4` — fix active atascado, `85b45ad` — V2, `14afe9d` — V1)
 
-Commits `2eb932d` (handoff), `85b45ad` (V2), `14afe9d` (V1) y `3e4e0b4` (este fix) están
-todos en `origin/feat/pwa-tanita-bunker-roadmap`.
+Commits `2eb932d` (handoff), `85b45ad` (V2), `14afe9d` (V1), `3e4e0b4` (fix active) y
+`96533f1` (V3) están todos en `origin/feat/pwa-tanita-bunker-roadmap`.
 
-**V1, V2 y el fix del active atascado ESTÁN DESPLEGADOS en producción** — V1/V2 desde
-2026-09-20 ~20:45 UTC, el fix desde ~21:05 UTC. Confirmado: `GET
+**V1, V2, el fix del active atascado y V3 ESTÁN DESPLEGADOS en producción** — V1/V2 desde
+2026-09-20 ~20:45 UTC, el fix desde ~21:05 UTC, V3 desde ~21:47 UTC. Confirmado: `GET
 https://app.2jfitnesscenter.com/api/admin/aux-ai` → 401 (V2); `POST
-/api/active/clear` → 401, no 404 (el fix).
+/api/active/clear` → 401, no 404 (el fix); `GET /api/trainer/routine-versions` y
+`/api/trainer/program-versions` → 401, no 404 (V3); `coach.provider` sigue `codex` (no se
+activó OpenAI automáticamente).
 
 ## Objetivo/tarea actual
 Bug de producción prioritario (sesión activa atascada) corregido, testeado, desplegado
 (ver sección propia más abajo) — **pendiente de que el usuario confirme desde su propia
 UI** que su sesión fantasma real ("Espalda & Bíceps - Enfoque Principal") ya no reaparece
-tras pulsar Descartar. Aparte de eso: cierre de V2 completado.
+tras pulsar Descartar. Cierre de V2 completado.
 
-**V3 implementada y testeada, TODAVÍA NO DESPLEGADA NI COMMITEADA** (instrucción
-explícita del usuario: "No hagas commit" hasta finalizar y validar V3 — ver su propia
-sección más abajo para el detalle completo). Working tree con cambios sin commitear en
-19 archivos modificados + 4 nuevos (ver `git status` en "Estado actual").
+**V3 implementada, testeada, commiteada y DESPLEGADA EN PRODUCCIÓN** (autorización
+explícita del usuario: "commitea y despliega todo que funcione, esta semana se probará").
+Ver su propia sección más abajo para el detalle completo. Pendiente: que el usuario y sus
+socios la prueben esta semana en producción (notas, versionado, últimas sesiones, resumen,
+y opcionalmente activar OpenAI como proveedor del Coach desde Admin).
 
 ## Estado actual
-- **Working tree con cambios SIN commitear (V3)**: 19 archivos modificados + 4 nuevos
-  (`api/coach/adapters/openai.js`, `api/test/openai-adapter.test.js`,
-  `api/test/routine-versions.test.js`, `frontend/src/components/PlanSummaryLine.jsx`).
-  Todo lo anterior a V3 (hasta el fix del active, commit `3e4e0b4`) sigue commiteado y
-  empujado a `origin/feat/pwa-tanita-bunker-roadmap`.
-- **Producción desplegada y sana** con el fix incluido: `docker compose ps` →
+- **Working tree limpio, rama al día con origin** — V3 commiteada (`96533f1`) y empujada.
+- **Producción desplegada y sana** con V3 incluida: `docker compose ps` →
   api/web/caddy `Up`, `media` en `Exited (0)` (normal, init container). `curl
-  .../api/health` externo → `{"ok":true,"users":13}` (datos intactos en ambos despliegues
+  .../api/health` externo → `{"ok":true,"users":13}` (datos intactos en todos los despliegues
   de hoy).
-- Backups pre-deploy: `/root/backups/2jfitness-2026-09-20_2041.tar.gz` (V1+V2) y
-  `2026-09-20_2104.tar.gz` (fix del active), además de los nocturnos automáticos.
-- **Incidente en el despliegue de V1+V2 (corregido en el momento, no repetido en el del
-  fix)**: el `chown` post-tar usaba `--exclude`, que no es una opción válida de `chown`, y
-  cambió por error la propiedad de `/opt/2jfitness/data` (debe ser `root:root`) —
-  detectado y revertido antes de reiniciar los contenedores. En el despliegue del fix se
-  usó en su lugar `find /opt/2jfitness -mindepth 1 -maxdepth 1 ! -name data | xargs chown`,
-  que nunca toca `data/` en absoluto — verificado `root:root` antes y después, sin
-  incidente esta vez. Ver "Problemas conocidos".
+- Backups pre-deploy: `/root/backups/2jfitness-2026-09-20_2041.tar.gz` (V1+V2),
+  `2026-09-20_2104.tar.gz` (fix del active) y `2026-09-20_2044.tar.gz` (V3 — nombre por
+  hora del servidor, tomado justo antes del despliegue de V3), además de los nocturnos
+  automáticos.
+- **Incidente en el despliegue de V1+V2 (corregido en el momento, no repetido en ninguno
+  de los siguientes)**: el `chown` post-tar usaba `--exclude`, que no es una opción válida
+  de `chown`, y cambió por error la propiedad de `/opt/2jfitness/data` (debe ser
+  `root:root`) — detectado y revertido antes de reiniciar los contenedores. En los
+  despliegues siguientes (fix del active y V3) se usó en su lugar `find /opt/2jfitness
+  -mindepth 1 -maxdepth 1 ! -name data | xargs chown`, que nunca toca `data/` en
+  absoluto — verificado `root:root` antes y después en ambos, sin incidente. Ver
+  "Problemas conocidos".
 - No hay PR abierto para esta rama (sigue faltando `gh` CLI o sesión de GitHub en este
   entorno).
 
@@ -98,9 +101,9 @@ sección más abajo para el detalle completo). Working tree con cambios sin comm
     foto/PDF de una rutina impresa o manuscrita.
   - `exercise_import_matching`: Ajustes → Datos → "Importar de otra app" → subir un CSV
     con nombres de ejercicio que la biblioteca no reconozca sin alias previo.
-- **V3 ya implementada y testeada** (ver su propia sección más abajo) — pendiente de
-  revisión/autorización del usuario para commit + despliegue. Incluye la migración de
-  `user_trainer` a OpenAI REST directo (adaptador nuevo, sin activar por defecto).
+- **V3 implementada, testeada, commiteada y desplegada** (ver su propia sección más
+  abajo). Incluye la migración de `user_trainer` a OpenAI REST directo (adaptador nuevo,
+  sin activar por defecto — sigue en `codex`).
 
 ## Archivos principales modificados/creados (V1+V2, ambos ya commiteados)
 
@@ -195,11 +198,11 @@ Frontend:
    (comandos de disparo manual en "Trabajo pendiente" arriba).
 4. Crear el PR (`gh pr create` o vía navegador autenticado) — comando ya preparado en el
    historial de la sesión.
-5. **V3 ya implementada y testeada** (ver su propia sección más abajo) — pendiente de que
-   el usuario la revise y autorice explícitamente commit + despliegue, igual que V1/V2.
-   Antes de desplegar: probar el flujo de entrenador (notas, versionado, resumen) con una
-   sesión real de trainer, y si se activa OpenAI como proveedor del Coach, probar el botón
-   "Probar el Coach" en Admin con una API key real.
+5. **V3 desplegada en producción** (ver su propia sección más abajo, commit `96533f1`,
+   ~21:47 UTC 2026-09-20). Pendiente de uso real esta semana: probar el flujo de
+   entrenador (notas, versionado, resumen) con una sesión real de trainer, y si se activa
+   OpenAI como proveedor del Coach, probar el botón "Probar el Coach" en Admin con una API
+   key real.
 
 ## BUG: sesión activa atascada ("Espalda & Bíceps...") — CORREGIDO Y DESPLEGADO
 
@@ -292,12 +295,20 @@ app, más arriesgada que necesaria dado que el propio handler no cambió.
 desde la UI (con su passkey real) y confirmar que ya no reaparece. Resultado esperado:
 Descartar → confirmación → vuelve a Entrenar → `Empezar entrenamiento` (nada atascado).
 
-## V3 — Programación y seguimiento — IMPLEMENTADA Y TESTEADA, SIN COMMITEAR NI DESPLEGAR
+## V3 — Programación y seguimiento — IMPLEMENTADA · TESTEADA · COMMITEADA · DESPLEGADA
 
-**Estado**: todo lo pedido está implementado y con tests en verde (frontend 553/553,
-backend 150/150, build de producción OK). **Sin commit, sin desplegar** — instrucción
-explícita del usuario para V3 era no commitear hasta terminar y validar; el commit/deploy
-en sí necesita una nueva autorización explícita, igual que en V1/V2.
+**Estado**: todo lo pedido está implementado, con tests en verde (frontend 553/553,
+backend 150/150, build de producción OK), commiteado (`96533f1`, empujado a
+`origin/feat/pwa-tanita-bunker-roadmap`) y **desplegado en producción** el 2026-09-20
+~21:47 UTC, autorizado explícitamente por el usuario ("commitea y despliega todo que
+funcione, esta semana se probará"). Backup previo
+`/root/backups/2jfitness-2026-09-20_2044.tar.gz`, mismo procedimiento validado (tar+ssh,
+`chown` con `find ... ! -name data`, `data/` verificado `root:root` antes y después, sin
+incidente). Smoke test post-deploy: `/api/health` interno y externo OK (`users:13`
+intacto), `GET /api/trainer/routine-versions` y `/api/trainer/program-versions` → 401 (no
+404, confirma que las rutas nuevas llegaron), `coach.provider` sigue `codex` (OpenAI no se
+activó automáticamente), logs de `api`/`web`/`caddy` sin errores, app carga visualmente y
+muestra login sin errores de consola.
 
 ### 1-4. Notas de entrenador (ya existían — solo faltaban 2 huecos)
 `routine.ex[i].note` **ya existía completo end-to-end** antes de esta sesión (edición
