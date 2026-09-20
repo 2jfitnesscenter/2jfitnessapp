@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getExerciseAlternatives, QUICK_FILTERS } from './alternatives.js'
+import { setHiddenExercises } from './exercises.js'
 
 const BENCH = '0025'          // barbell bench press — tg: pectorals, eq: barbell
 const DECLINE_BENCH = '0033'   // barbell decline bench press — tg: pectorals, eq: barbell (exact match)
@@ -56,6 +57,16 @@ describe('getExerciseAlternatives', () => {
 
   it('is empty for an unknown exercise id', () => {
     expect(getExerciseAlternatives(baseS(), 'nope-not-real')).toEqual([])
+  })
+
+  // V1.2 — the "Replace exercise" picker must never offer a candidate the gym itself has
+  // hidden (out of equipment, retired from the floor), same rule allExercises() already
+  // enforces for every other picker in the app.
+  it('never offers a candidate the gym has hidden', () => {
+    setHiddenExercises([DECLINE_BENCH])
+    const alts = getExerciseAlternatives(baseS(), BENCH)
+    setHiddenExercises([])
+    expect(alts.some(a => a.ex.id === DECLINE_BENCH)).toBe(false)
   })
 })
 

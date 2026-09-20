@@ -1142,7 +1142,7 @@ export default {
   'Shins': 'Tibiales',
   // --- import from another app ---
   'Import from another app': 'Importar de otra app',
-  'FitNotes, Strong, Hevy — or weight, body composition, steps, sleep and heart rate from Apple Health': 'FitNotes, Strong, Hevy — o peso, composición corporal, pasos, sueño y frecuencia cardíaca de Salud de iOS',
+  'FitNotes, Strong, Hevy, Gravl — or weight, body composition, steps, sleep and heart rate from Apple Health': 'FitNotes, Strong, Hevy, Gravl — o peso, composición corporal, pasos, sueño y frecuencia cardíaca de Salud de iOS',
   'From Apple Health: Settings → your name → Export All Health Data, then open the .zip in Files and pick export.xml from inside it.': 'Desde Salud: Ajustes → tu nombre → Exportar todos los datos de salud, luego abre el .zip en Archivos y elige export.xml de dentro.',
   'Import from {0}': 'Importar de {0}',
   'Import history': 'Importar historial',
@@ -1236,9 +1236,17 @@ export default {
   'Unknown exercise': 'Ejercicio desconocido',
   'Weekly Training Plan': 'Plan de entrenamiento semanal',
   'Made with 2J Fitness Center': 'Hecho con 2J Fitness Center',
-  // Gym-floor sheet export (plan-share.js planPrintHTML) — a blank box per set to log by hand
-  'Target': 'Objetivo',
-  'Set {0}': 'Serie {0}',
+  // V1.4 — adaptive gym-floor sheet export (plan-share.js's dayTableHTML/printShell): one
+  // full-width table per day, a blank box per set under each of 4 weeks to log by hand.
+  'Program': 'Programa',
+  'No.': 'Nº',
+  'Sets & reps': 'Series y rep',
+  'Week {0}': 'Semana {0}',
+  'RPE (Rate of Perceived Exertion)': 'RPE (percepción del esfuerzo)',
+  'Comfortable to finish': 'Cómodo de terminar',
+  'A bit harder, but you finish clean': 'Algo más difícil, pero terminas bien',
+  'Hard — costs real effort to finish': 'Duro — cuesta terminar la serie',
+  'Maximum — no rep left, needs real recovery': 'Máximo — sin repetición extra, necesitas recuperarte bien',
   'Something went wrong': 'Algo ha salido mal',
   'This screen could not be drawn. Your data is safe on this device.': 'Esta pantalla no se ha podido dibujar. Tus datos siguen a salvo en este dispositivo.',
   'Reload 2J Fitness Center': 'Recargar 2J Fitness Center',

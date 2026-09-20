@@ -844,11 +844,11 @@ function AlternativesPicker({ current, onPick, close }) {
       : t('Related muscle')
   return <>
     <h3 className="capitalize">{t('Replace {0}', nameFor(current))}</h3>
-    <div className="chips" style={{ margin: '10px 0' }}>
+    <div className="chips alt-chips" style={{ margin: '10px 0' }}>
       <button className={'chip nocap' + (!filter ? ' on' : '')} onClick={() => setFilter(null)}>{t('All')}</button>
       {QUICK_FILTERS.map(f => <button key={f.key} className={'chip' + (filter === f.key ? ' on' : '')} onClick={() => setFilter(f.key)}>{t(f.label)}</button>)}
     </div>
-    <div className="list">
+    <div className="list alt-list">
       {filtered.length === 0 && <div className="empty">{t('No alternatives found for this filter.')}</div>}
       {filtered.map(a => <div key={a.ex.id} className="item" onClick={() => { close(); onPick(a.ex) }}>
         <Thumb ex={a.ex} />

@@ -561,6 +561,18 @@ h4.sec{
 .chip.chip-select{display:inline-flex;align-items:center;gap:5px}
 .chip.chip-select svg{font-size:calc(11px * var(--text-scale,1))}
 
+/* --- "Replace exercise" (sheets.jsx's AlternativesPicker) — a compact, height-stable card
+   regardless of a foreign exercise name's length, and a match-quality tag that can never grow
+   wide enough to fight the name for space. Scoped to this one sheet (.alt-list/.alt-chips)
+   rather than changing .item/.tag/.chips everywhere else they're used. ---------------------- */
+.alt-list .item{align-items:center}
+.alt-list .tt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alt-list .ss{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alt-list .tag{flex:none;max-width:112px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+/* The chip row already scrolls (see .chips); this just makes that scrollability legible at a
+   glance — a soft fade at the trailing edge reads as "more this way", not as clipped content. */
+.alt-chips{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent)}
+
 /* =========================== CONTROLS ==================================== */
 
 /* --- text field --- */
@@ -1532,23 +1544,36 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .swatch:active{transform:scale(.9)}
 .swatch.on::after{content:'';position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 2px var(--label)}
 
-/* --- supersets --- */
+/* --- supersets ---
+   Each group carries its own color via the --ss-color custom property (lib/superset-colors.js
+   assigns it, by the order groups first appear — never by their own opaque `sg` id), set once
+   on a shared ancestor and read here with a var(--ss-color, var(--acc)) fallback, so anything
+   that isn't handed a group color (or a genuinely solo exercise) still renders exactly as
+   before: the single green accent. */
 .ss-label{
   font-size:calc(12px * var(--text-scale,1));font-weight:600;letter-spacing:-.004em;text-transform:none;
-  color:var(--acc);margin:8px 0 5px 4px;display:flex;align-items:center;gap:5px;
+  color:var(--ss-color, var(--acc));margin:8px 0 5px 4px;display:flex;align-items:center;gap:5px;
 }
 .ss-label .icn{font-size:calc(13px * var(--text-scale,1))}
-.item.in-ss{box-shadow:inset 3px 0 0 var(--acc)}
+.item.in-ss{box-shadow:inset 3px 0 0 var(--ss-color, var(--acc))}
 .ss-card{
   border-radius:var(--r-lg);padding:14px;
-  background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--acc-line);
+  background:var(--surface);box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--ss-color, var(--acc)) 38%, transparent);
 }
 .ss-hd{
-  font-size:calc(12px * var(--text-scale,1));font-weight:600;color:var(--acc);margin-bottom:12px;
+  font-size:calc(12px * var(--text-scale,1));font-weight:600;color:var(--ss-color, var(--acc));margin-bottom:12px;
   text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;
 }
 .ss-ex{position:relative}
-.ss-amp{text-align:center;font-size:calc(15px * var(--text-scale,1));font-weight:600;color:var(--acc);margin:14px 0 8px}
+.ss-amp{text-align:center;font-size:calc(15px * var(--text-scale,1));font-weight:600;color:var(--ss-color, var(--acc));margin:14px 0 8px}
+/* The A1/A2 badge — small, next to the exercise name, never the sole way to tell groups apart
+   (the letter+number reads fine printed in black and white too). */
+.ss-badge{
+  display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;
+  border-radius:6px;font-size:calc(10.5px * var(--text-scale,1));font-weight:700;flex:none;
+  background:color-mix(in srgb, var(--ss-color, var(--acc)) 18%, transparent);color:var(--ss-color, var(--acc));
+  margin-right:5px;
+}
 
 /* --- home: today's session row --- */
 .today-row{

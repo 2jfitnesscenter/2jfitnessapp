@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
 import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, feelFor, effortColor, EFFORT_COLOR_VAR } from '../lib/history.js'
+import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t, nameFor } from '../lib/i18n.js'
@@ -102,7 +103,7 @@ function SetNumBtn({ s, i, sets, achievement, onToggle, onSetType }) {
 }
 
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
-function ExerciseBlock({ entryIdx, compact, rpFinished, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType, onReplace }) {
+function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType, onReplace }) {
   const S = useStore(s => s.S)
   const working = useUI(s => s.work)
   const entry = S.active.entries[entryIdx]
@@ -257,7 +258,7 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, onToggle, onField, onAdd
   return <>
     <Media ex={ex} key={entry.id} compact={compact} minimizable />
     <div className="row between" style={{ marginBottom: 6 }}>
-      <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{nameFor(ex)}</div>
+      <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{ssLabel && <span className="ss-badge">{ssLabel}</span>}{nameFor(ex)}</div>
       <div className="row" style={{ gap: 4, flex: 'none' }}>
         {/* Equipment taken, machine broken, whatever — swap it for today without leaving the
             session. Nothing about the routine changes here; only the finish-time prompt (see
@@ -357,6 +358,7 @@ function ActiveWorkout() {
   const unit = A.entries.length ? unitOf(units, cur) : []
   const unitIdx = units.findIndex(u => u === unit)
   const isSuperset = unit.length > 1
+  const ssInfo = supersetGroupInfo(A.entries)
 
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
   const done = setsDoneActive(A)
@@ -534,11 +536,11 @@ function ActiveWorkout() {
     {A.entries.length ? <>
       <div className="muted small" style={{ marginBottom: 6 }}>{isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
       {isSuperset ? (
-        <div className="ss-card">
+        <div className="ss-card" style={{ '--ss-color': `var(--${ssInfo[unit[0]].token})` }}>
           <div className="ss-hd"><Icon name="link" />{t('Superset · do these back-to-back, rest after both')}</div>
           {unit.map((idx, k) => <div key={idx} className="ss-ex">
             {k > 0 && <div className="ss-amp">+</div>}
-            <ExerciseBlock entryIdx={idx} compact rpFinished={rpFinished}
+            <ExerciseBlock entryIdx={idx} compact rpFinished={rpFinished} ssLabel={supersetLabel(ssInfo[idx])}
               onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} onSetType={i => openSetType(idx, i)} onReplace={() => replaceExercise(idx)} />
           </div>)}
         </div>

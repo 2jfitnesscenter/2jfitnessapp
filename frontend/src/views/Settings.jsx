@@ -303,7 +303,7 @@ export default function Settings() {
           subtitle={t('Strava, Whoop')} accessory="chevron" onClick={() => nav('/connected-apps')} />
       )}
       <Row icon="shuffle" iconTint="var(--teal)" title={t('Import from another app')}
-        subtitle={t('FitNotes, Strong, Hevy — or weight, body composition, steps, sleep and heart rate from Apple Health')}
+        subtitle={t('FitNotes, Strong, Hevy, Gravl — or weight, body composition, steps, sleep and heart rate from Apple Health')}
         accessory="chevron" onClick={() => importRef.current.click()} />
       {/* Health's own export is a .zip — iOS auto-extracts a tapped .zip in Files, so this
           points there rather than adding an in-app unzip step (a multi-year export can run to

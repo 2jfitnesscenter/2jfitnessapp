@@ -6,6 +6,7 @@ import { exOr, isHidden } from '../lib/exercises.js'
 import { uid } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../lib/history.js'
+import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
 import { Thumb } from '../components/Media.jsx'
 import { glyphPicker, exercisePicker, alternativesSheet, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, celebrateBadges } from '../sheets.jsx'
 import { printRoutine } from '../lib/plan-share.js'
@@ -82,6 +83,7 @@ export default function RoutineEdit() {
   const units = supersetUnits(r.ex)
   const unitFirst = new Set(units.filter(u => u.length > 1).map(u => u[0]))
   const inSS = new Set(units.filter(u => u.length > 1).flat())
+  const ssInfo = supersetGroupInfo(r.ex)
 
   return <div className="narrow">
     <div className="hdr">
@@ -134,14 +136,16 @@ export default function RoutineEdit() {
       // could neither see nor delete, but that still turned up in the workout.
       const ex = exOr(e.id)
       const linkedPrev = i > 0 && e.sg && r.ex[i - 1].sg === e.sg
-      return <div key={i}>
+      const info = ssInfo[i]
+      const ssStyle = info ? { '--ss-color': `var(--${info.token})` } : undefined
+      return <div key={i} style={ssStyle}>
         {unitFirst.has(i) && <div className="ss-label"><Icon name="link" />{t('Superset')}</div>}
         <div className={'item' + (inSS.has(i) ? ' in-ss' : '')} onClick={() => {
           exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...cfg } }), () => removeAt(i), r)
         }}>
           <Thumb ex={ex} />
           <div className="grow">
-            <div className="tt capitalize">{nameFor(ex)}</div>
+            <div className="tt capitalize">{info && <span className="ss-badge">{supersetLabel(info)}</span>}{nameFor(ex)}</div>
             <div className="ss">{isHidden(e.id) ? <span style={{ color: 'var(--orange)' }}>{t('Not currently offered — skipped when you start this workout')}</span> : exLine(e, S.unit)}
               {e.dropset && <span className="tag acc" style={{ marginLeft: 6 }}>{t('Dropset')}</span>}</div>
             {e.note && <div className="ss">{e.note}</div>}

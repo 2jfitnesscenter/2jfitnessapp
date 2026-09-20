@@ -10,6 +10,10 @@
 //   FitNotes 2 (iOS)   Date,Exercise,Category,Weight (kg),Weight (lbs),Reps,Distance,Distance Unit,Time,Notes,Kind
 //   Strong             Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
 //   Hevy               title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_kg,reps,distance_km,duration_seconds,rpe
+//   Gravl              Date,Start Date,Workout,Source,Workout Duration (min),Energy,Exercise,Superset,Set,Set Type,Reps,Weight (kg),Distance (km),Set Duration (sec),Incline,Steps,Effort,Workout Notes
+//     — "Start Date" is actually a time-of-day ("14:11"), not a second date; "Date" is
+//     slash-separated and year-first ("2026/06/28"). "Effort" (Ideal/Difícil/Fácil) has no
+//     honest RPE/RIR equivalent and is deliberately left unmapped — see parseWorkoutCSV.
 // Anything else falls through to loose header matching, which covers Lyfta and the
 // spreadsheet round-trips people actually have on disk, as long as the file has a
 // date, an exercise name and something measured.
@@ -59,8 +63,14 @@ const COLUMNS = [
   ['exercise', ['exercise', 'exercise name', 'exercise title']],
   ['date', ['date', 'workout date']],
   ['startTime', ['start time']],
+  // Gravl's own "Start Date" column is a time-of-day ("14:11"), not a second date — its real
+  // date lives in the plain 'date' column above. Kept as its own field (never aliased into
+  // startTime, which every other format uses for a FULL date+time string) so the two are never
+  // confused; parseWorkoutCSV merges it into `when` only when the date column had no time of
+  // its own.
+  ['timeOfDay', ['start date']],
   ['endTime', ['end time']],
-  ['workoutName', ['workout name', 'title']],
+  ['workoutName', ['workout name', 'title', 'workout']],
   ['category', ['category', 'body part', 'muscle group']],
   ['weightKg', ['weight kg']],
   ['weightLb', ['weight lbs', 'weight lb']],
@@ -74,9 +84,13 @@ const COLUMNS = [
   ['distanceKm', ['distance km']],
   ['distance', ['distance']],
   ['distanceUnit', ['distance unit']],
-  ['seconds', ['seconds', 'duration seconds']],
+  ['seconds', ['seconds', 'duration seconds', 'set duration sec']],
   ['time', ['time', 'duration']],
   ['setType', ['set type']],
+  // Same field a "grouped set" comes in under across every format seen so far — Hevy's
+  // superset_id, Gravl's Superset. See parseWorkoutCSV's own comment on the one conservative
+  // rule applied to whatever raw value shows up here, regardless of which app wrote it.
+  ['supersetGroup', ['superset', 'superset id']],
   ['note', ['comment', 'comments', 'notes', 'note']],
 ]
 
@@ -99,6 +113,9 @@ export function detectSource(header) {
   if (h.includes('exercise') && h.includes('kind')) return 'FitNotes (iOS)'
   if (h.includes('exercise') && h.includes('weight unit')) return 'FitNotes'
   if (h.includes('exercise') && h.includes('category')) return 'FitNotes'
+  // "Start Date" being a time-of-day rather than a date is distinctive enough on its own —
+  // paired with "Workout Duration (min)", which nothing else here writes.
+  if (h.includes('start date') && h.includes('workout duration min')) return 'Gravl'
   return null
 }
 
@@ -258,10 +275,15 @@ const LB_TO_KG = 0.45359237
 const p2 = n => String(n).padStart(2, '0')
 const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }
 
-/** "2020-12-30 18:51:52" · "2024-03-07" · "22 Dec 2025, 08:00" · "07/03/2024" -> { d, t } */
+/** "2020-12-30 18:51:52" · "2024-03-07" · "22 Dec 2025, 08:00" · "07/03/2024" · "2026/06/28"
+ *  -> { d, t } */
 export function parseWhen(s) {
   const v = String(s || '').trim()
   let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{2}))?/)
+  if (m) return { d: `${m[1]}-${p2(m[2])}-${p2(m[3])}`, t: hm(m[4], m[5]) }
+  // Year-first but slash-separated (Gravl) — distinct from the hyphenated ISO-ish pattern
+  // above only in its separator, so it needs its own branch rather than a shared one.
+  m = v.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:[T ](\d{1,2}):(\d{2}))?/)
   if (m) return { d: `${m[1]}-${p2(m[2])}-${p2(m[3])}`, t: hm(m[4], m[5]) }
   m = v.match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?\s+(\d{4})(?:,?\s+(\d{1,2}):(\d{2}))?/)
   if (m && MON[m[2].toLowerCase()]) return { d: `${m[3]}-${p2(MON[m[2].toLowerCase()])}-${p2(m[1])}`, t: hm(m[4], m[5]) }
@@ -279,6 +301,12 @@ export function parseWhen(s) {
   return null
 }
 const hm = (h, mi) => (h === undefined ? null : (parseInt(h, 10) || 0) * 3600000 + (parseInt(mi, 10) || 0) * 60000)
+/** "14:11" -> ms since midnight, or null. For a format (Gravl) that splits date and
+ *  time-of-day into two separate columns instead of one combined string. */
+function parseTimeOfDay(s) {
+  const m = String(s || '').trim().match(/^(\d{1,2}):(\d{2})/)
+  return m ? hm(m[1], m[2]) : null
+}
 
 /** "HH:MM:SS" · "MM:SS" · "90" -> minutes */
 function toMinutes(v) {
@@ -326,6 +354,9 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
     const name = cell(r, 'exercise')
     const when = parseWhen(cell(r, dateCol))
     if (!name || !when) { skipped++; continue }
+    // Gravl's own date column carries no time of day at all — pull it from the separate
+    // "Start Date" (really start-TIME) column when the main one didn't already have one.
+    if (when.t == null && map.timeOfDay !== undefined) when.t = parseTimeOfDay(cell(r, 'timeOfDay'))
 
     // explicit kg/lb columns beat a generic column plus a unit column
     let w = 0, rowUnit = ''
@@ -346,7 +377,7 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
       ? num(cell(r, 'distanceKm'))
       : toKm(cell(r, 'distance'), cell(r, 'distanceUnit'))
     if (!w && !reps && !mins && !km) { skipped++; continue }
-    if (/warm/i.test(cell(r, 'setType'))) warmups++
+    if (/warm|calentamiento/i.test(cell(r, 'setType'))) warmups++
 
     const key = keyOf(name)
     let id = resolved.get(key)
@@ -392,6 +423,16 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
     if (!day.ex.has(id)) day.ex.set(id, [])
     day.ex.get(id).push(set)
     sets++
+
+    // Whichever raw value a "grouped set" column carries (Hevy's superset_id, Gravl's
+    // Superset) — resolved into 2J's own adjacent-entries `sg` once the day's full entry
+    // order is known, below. "No" is Gravl's own explicit not-grouped sentinel; an empty
+    // cell means the same for every format.
+    const ssRaw = cell(r, 'supersetGroup')
+    if (ssRaw && ssRaw.toLowerCase() !== 'no') {
+      if (!day.ssRaw) day.ssRaw = new Map()
+      day.ssRaw.set(id, ssRaw)
+    }
   }
 
   // lb -> kg only where a row disagrees with the profile. The app never converts units on
@@ -420,6 +461,27 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
       const mx = Math.max(0, ...conv2.map(s => s.w || 0))
       return { id, sets: conv2, topW: mx || null }
     })
+    // The one conservative grouping rule applied regardless of source app: 2+ DIFFERENT,
+    // ADJACENT exercises sharing the exact same raw superset value are a real superset — the
+    // literal convention Hevy's own superset_id demonstrates. A format whose "grouped set"
+    // column turns out to mean something else (e.g. merely numbering an exercise's own
+    // position in a routine, never repeating that number on a different exercise next to it)
+    // safely produces no groups here rather than a wrong guess — see the module's own header
+    // comment for why this is deliberate, not a gap.
+    if (day.ssRaw && day.ssRaw.size) {
+      let i = 0
+      while (i < entries.length) {
+        const raw = day.ssRaw.get(entries[i].id)
+        if (!raw) { i++; continue }
+        let j = i + 1
+        while (j < entries.length && day.ssRaw.get(entries[j].id) === raw) j++
+        if (j - i > 1) {
+          const localSg = 'imss' + uid()
+          for (let k = i; k < j; k++) entries[k].sg = localSg
+        }
+        i = j
+      }
+    }
     const base = new Date(d + 'T00:00:00').getTime()
     const start = base + (day.start ?? 18 * 3600000)
     const end = day.end != null ? base + day.end : start
