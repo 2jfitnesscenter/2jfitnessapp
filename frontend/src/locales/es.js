@@ -2086,4 +2086,41 @@ export default {
   'Your fixed admin code': 'Tu código fijo de administrador',
   '{0} checked in now': '{0} conectados ahora',
   '{0} copied': '{0} copiado',
+
+  // V2 — auxiliary AI profile (exercise_import_matching), smart CSV import review, and
+  // per-equipment availability.
+  'Auxiliary AI': 'IA auxiliar',
+  'Helps match exercise names from a CSV import (Hevy, Gravl…) against the real library when nothing else resolves them. Always Google Gemini, and completely independent of the AI Coach and the trainer panel AI above — a member never sees this, and it never generates or changes a routine or a workout.':
+    'Ayuda a relacionar nombres de ejercicios de una importación CSV (Hevy, Gravl…) con la biblioteca real cuando nada más los resuelve. Siempre Google Gemini, y completamente independiente del Coach de IA y de la IA del panel de entrenador de arriba — un socio nunca ve esto, y nunca genera ni modifica una rutina o un entrenamiento.',
+  'Off. Import review falls back to manual matching only.': 'Desactivada. La revisión de importación se queda solo con el emparejamiento manual.',
+  '0 = no limit. One call per import batches every unresolved exercise name together, not one call each.': '0 = sin límite. Una llamada por importación agrupa todos los nombres sin resolver, no una por ejercicio.',
+  'Exercise matching': 'Emparejamiento de ejercicios',
+  'Google Gemini API key': 'API key de Google Gemini',
+  'Stored encrypted on this server and passed to the provider runtime only while a job runs. It is never shown again and never leaves the server. This can be the same or a different key than the one connected to the AI Coach above.':
+    'Se guarda cifrada en este servidor y solo se pasa al proveedor mientras se ejecuta una tarea. No vuelve a mostrarse y nunca sale del servidor. Puede ser la misma clave que la del Coach de IA de arriba, u otra distinta.',
+  'Equipment availability': 'Disponibilidad de equipamiento',
+  '{0} of {1} marked unavailable right now. Every exercise that needs it shows the same "not currently offered" notice as an individually hidden exercise, and goes back to normal the moment you restore it here.':
+    '{0} de {1} marcados como no disponibles ahora mismo. Todo ejercicio que lo necesite muestra el mismo aviso de "no disponible ahora mismo" que un ejercicio oculto individualmente, y vuelve a la normalidad en cuanto lo restaures aquí.',
+  'Unavailable': 'No disponible',
+  'Available': 'Disponible',
+  '{0} of {1} marked unavailable.': '{0} de {1} marcados como no disponibles.',
+  'All equipment available.': 'Todo el equipamiento disponible.',
+  'Already imported': 'Ya importados',
+  'Identified': 'Identificados',
+  'Need review': 'Necesitan revisión',
+  'Will be added as your own': 'Se añadirán como propios',
+  '{0} workouts already here and will be left alone.': '{0} entrenamientos ya están aquí y no se tocarán.',
+  'Review {0} equivalences': 'Revisar {0} equivalencias',
+  'Checking for known matches…': 'Buscando coincidencias conocidas…',
+  'Review equivalences': 'Revisar equivalencias',
+  'A confirmed match here is remembered — the same name from {0} resolves on its own next time, with no AI call needed.':
+    'Una equivalencia confirmada aquí se recuerda — el mismo nombre de {0} se resuelve solo la próxima vez, sin necesidad de IA.',
+  'Unknown source': 'Origen desconocido',
+  'AI suggestion': 'Sugerencia de IA',
+  'high confidence': 'confianza alta',
+  'medium confidence': 'confianza media',
+  'low confidence': 'confianza baja',
+  'Create as your own': 'Crear como propio',
+  'Nothing left to review.': 'No queda nada por revisar.',
+  'this app': 'esta app',
 }

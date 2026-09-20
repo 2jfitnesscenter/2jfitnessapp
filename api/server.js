@@ -16,6 +16,8 @@ import { trainerAIRoutes } from './coach/trainer-routes.js';
 import { scanBioimpedanceImage } from './lib/measurements-scan.js';
 import { scanRoutineDocument } from './lib/routine-scan.js';
 import { scanMachineImage } from './lib/machine-scan.js';
+import { auxAIRoutes } from './lib/aux-ai-routes.js';
+import { matchImportExercises } from './lib/import-exercise-match.js';
 import { readState, writeState } from './lib/state-store.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
@@ -74,6 +76,14 @@ db.recoveryRequests = db.recoveryRequests || [];
 // name (see machine-scan.js's norm()) since there's no physical id printed on the equipment
 // itself to key off instead. { key, exId, name, updatedAt }.
 db.machineAliases = db.machineAliases || [];
+// CSV-import exercise aliases (frontend/src/lib/import-match.js) — gym-wide, same reasoning as
+// db.machineAliases just above: once one member confirms "Press inclinado con mancuernas" from
+// Hevy means library id X, every member's next import of a Hevy/Gravl/etc. file with that same
+// external name resolves it instantly, no repeat picker and no repeat Gemini call. Keyed by
+// source+normalised-external-name (not just the name) since the same free-text name can mean
+// different things — or at least isn't guaranteed not to — across different exporting apps.
+// { key, exerciseId, source, externalName, updatedAt }.
+db.importExerciseAliases = db.importExerciseAliases || [];
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
@@ -111,6 +121,18 @@ const hiddenExFile = path.join(DATA, 'hidden-exercises.json');
 let hiddenEx = [];
 try { hiddenEx = JSON.parse(fs.readFileSync(hiddenExFile, 'utf8')); if (!Array.isArray(hiddenEx)) hiddenEx = []; } catch {}
 function saveHiddenEx() { atomicWrite(hiddenExFile, JSON.stringify(hiddenEx)); }
+
+// Equipment this location is temporarily without (a Smith machine out for repair, etc) — a
+// second, orthogonal way an exercise can be unavailable, alongside the per-exercise blacklist
+// above. Same file-per-list, gym-wide, backend-only shape as hiddenEx: a plain array of `eq`
+// string values (exercises-data.js's own equipment vocabulary — see lib/exercises.js's
+// equipmentOf()), never touching the exercise library, routines or programs themselves.
+// Restoring the equipment (removing it from this list) immediately un-blocks every exercise
+// that depends on it — nothing is deleted or rewritten anywhere else.
+const unavailableEqFile = path.join(DATA, 'unavailable-equipment.json');
+let unavailableEq = [];
+try { unavailableEq = JSON.parse(fs.readFileSync(unavailableEqFile, 'utf8')); if (!Array.isArray(unavailableEq)) unavailableEq = []; } catch {}
+function saveUnavailableEq() { atomicWrite(unavailableEqFile, JSON.stringify(unavailableEq)); }
 
 // state-<uid>.json (the member's own workout history, body-weight log and measurements) is
 // encrypted at rest — readState/writeState live in lib/state-store.js, the one place that
@@ -446,7 +468,7 @@ const routes = {
   'GET /api/config': async (req, res) => {
     const coach = coachConfig.publicConfig();
     json(res, 200, {
-      invite_only: INVITE_ONLY, hiddenExercises: hiddenEx, ...(coach ? { coach } : {}),
+      invite_only: INVITE_ONLY, hiddenExercises: hiddenEx, unavailableEquipment: unavailableEq, ...(coach ? { coach } : {}),
       strava: stravaConfig.isConfigured(), whoop: whoopConfig.isConfigured()
     });
   },
@@ -1128,6 +1150,26 @@ const routes = {
     json(res, 200, { ok: true, hidden: hiddenEx });
   },
 
+  // Equipment-level availability (unavailableEq above) — same "ids only, catalogue already
+  // ships in the frontend bundle" shape as the exercise blacklist just above, just keyed by the
+  // `eq` string values exercises-data.js's own catalogue uses instead of exercise ids.
+  'GET /api/admin/equipment/unavailable': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    json(res, 200, { unavailable: unavailableEq });
+  },
+
+  'POST /api/admin/equipment/unavailable': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const eq = String(body.eq || '');
+    if (!eq) return json(res, 400, { error: 'se requiere un equipamiento' });
+    const on = unavailableEq.includes(eq);
+    if (body.unavailable && !on) unavailableEq.push(eq);
+    else if (!body.unavailable && on) unavailableEq = unavailableEq.filter(x => x !== eq);
+    saveUnavailableEq();
+    json(res, 200, { ok: true, unavailable: unavailableEq });
+  },
+
   'POST /api/admin/user/disable': async (req, res) => {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
@@ -1436,6 +1478,51 @@ const routes = {
     else db.machineAliases.push({ key, exId, name, updatedAt: Date.now() });
     saveDb();
     json(res, 200, { ok: true });
+  },
+
+  // Gym-wide CSV-import exercise alias table (db.importExerciseAliases above) — same "first
+  // member to confirm one saves everyone's next import" reasoning as the machine-alias table.
+  // Returned as the whole (bounded, gym-wide) list in one call rather than one lookup per
+  // external name: an import can carry dozens of distinct unresolved names, and this table
+  // never grows large enough for that to matter. frontend/src/lib/import-match.js builds the
+  // per-item key (source + normalised external name) and does the lookup client-side.
+  'GET /api/exercises/import-aliases': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    json(res, 200, { aliases: db.importExerciseAliases });
+  },
+  'POST /api/exercises/import-alias': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const key = String(body.key || '').trim();
+    const exerciseId = String(body.exerciseId || '').trim();
+    const source = String(body.source || '').trim().slice(0, 40);
+    const externalName = String(body.externalName || '').trim().slice(0, 120);
+    if (!key || !exerciseId) return json(res, 400, { error: 'faltan datos' });
+    // A human confirmation always wins over anything stored before it (a prior AI suggestion is
+    // never persisted here at all — see import-exercise-match.js's own header comment — so this
+    // is always either a fresh alias or a deliberate correction of a previous human choice).
+    const existing = db.importExerciseAliases.find(a => a.key === key);
+    if (existing) { existing.exerciseId = exerciseId; existing.source = source; existing.externalName = externalName; existing.updatedAt = Date.now(); }
+    else db.importExerciseAliases.push({ key, exerciseId, source, externalName, updatedAt: Date.now() });
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
+  // Batched Gemini exercise-matching for the CSV importer's review step (auxiliary-AI profile —
+  // see lib/aux-ai-config.js/import-exercise-match.js). Any signed-in user: it only reads
+  // candidate names and returns a suggestion, never writes anything itself — saving a confirmed
+  // equivalence goes through POST /api/exercises/import-alias above once a human accepts it.
+  // body: { items: [{name, source?, equipment?, muscle?, candidates:[{id,name,equipment?,muscles?}]}] }.
+  'POST /api/exercises/import-match': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const items = Array.isArray(body.items) ? body.items : [];
+    const r = await matchImportExercises(items);
+    if (!r.ok) return json(res, 400, { error: r.error });
+    json(res, 200, { results: r.results });
   },
 
   /* ---------- Social: Programs (a named group of routines, published as one unit) ---------- */
@@ -2089,6 +2176,11 @@ const routes = {
   // member-facing Coach and the trainer panel's "Generate with AI" can be configured, connected
   // and even enabled/disabled completely independently of each other.
   ...trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer }),
+
+  /* ---------- IA auxiliar de 2J (siempre Gemini, hoy solo exercise_import_matching) ---------- */
+  // Same factory shape again — its own file (lib/aux-ai-config.js), its own credential, its own
+  // log, no shared state with the Coach or the trainer panel's AI above.
+  ...auxAIRoutes({ json, readBody, requireAdmin }),
 
   /* ---------- Amigos + chat con entrenadores ---------- */
   // Same factory shape as coachRoutes — their own data/friends.json and data/chat.json, no

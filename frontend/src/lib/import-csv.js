@@ -748,6 +748,46 @@ export function parseImport(text, opts) {
   return asWeights.error ? asWorkouts : asWeights
 }
 
+/* ---------------------------------------------------------- antiduplicados ---- */
+// V2: a real per-workout fingerprint, replacing the old "any workout already exists that day ⇒
+// skip the whole day" rule below (still fine for "reimport the exact same file," but it also
+// silently merged two genuinely different sessions that happened to land on the same date —
+// see this file's own header and the session's final report for why that was worth fixing
+// alongside the dedupe work, not a separate redesign).
+//
+// A short, deterministic, non-cryptographic hash (FNV-1a) — good enough to tell "the same
+// workout" from "a different one," not a security primitive. Built from only stable fields: the
+// day, the start time rounded to the minute (tolerates a second of rounding drift between two
+// parses of the same export without merging two sessions a few minutes apart the same day), and
+// the sorted exercise-signature+set-count. Reimporting the exact same file reproduces the exact
+// same fingerprint every time; two real, different sessions on the same day essentially never
+// share all three.
+function fnv1a(str) {
+  let h = 0x811c9dc5
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (h * 0x01000193) >>> 0 }
+  return h.toString(36)
+}
+// An entry's exercise id is NOT stable across two parses of the same file when that exercise
+// isn't in the library: parseWorkoutCSV mints a fresh random customEx id ('im'+uid()) every
+// single time it can't resolve a name, whether or not a human already resolved that exact name
+// via a confirmed alias on a previous import (the alias only gets applied afterward, in
+// import-match.js's applyImportResolutions). Fingerprinting by raw id would make every
+// reimported workout that contains so much as one still-unresolved exercise register as "new"
+// forever. Fingerprinting by NAME instead sidesteps that: a real library id's own name is stable
+// (EXIDX), and an unresolved placeholder's name is exactly the CSV's own exercise-name text —
+// just as stable across re-parses of the same file, unlike its id.
+function entryNameOf(id, customExById) {
+  const custom = customExById && customExById.get(id)
+  if (custom) return custom.n
+  return EXIDX[id]?.n || id
+}
+export function workoutFingerprint(w, customEx) {
+  const customExById = customEx ? new Map(customEx.map(c => [c.id, c])) : null
+  const sig = (w.entries || []).map(e => `${entryNameOf(e.id, customExById)}:${(e.sets || []).length}`).sort().join(',')
+  const startBucket = Math.round((w.start || 0) / 60000)
+  return fnv1a(`${w.d}|${startBucket}|${sig}`)
+}
+
 /* --------------------------------------------------------------- merge ---- */
 
 // Same "existing day wins" de-dupe every kind of import already uses, factored out for the
@@ -758,7 +798,10 @@ export function mergeSeries(existing, fresh) {
   return { list: [...(existing || []), ...add].sort((a, b) => (a.d < b.d ? -1 : 1)), added: add.length }
 }
 
-/** Merge into state. Existing days win — importing twice never duplicates a workout. */
+/** Merge into state. A workout whose fingerprint already exists is skipped — importing the same
+ *  file twice never duplicates a workout, but two real, different sessions on the same day both
+ *  come through (see workoutFingerprint's own comment for why this replaced the old
+ *  date-only rule). */
 export function mergeImport(S, parsed) {
   if (parsed.kind === 'health') {
     const bw = mergeSeries(S.bodyweight, parsed.bodyweight)
@@ -798,8 +841,8 @@ export function mergeImport(S, parsed) {
     S.bodyweight = [...S.bodyweight, ...fresh].sort((a, b) => (a.d < b.d ? -1 : 1))
     return { added: fresh.length, skipped: parsed.bodyweight.length - fresh.length }
   }
-  const have = new Set(S.workouts.map(w => w.d))
-  const fresh = parsed.workouts.filter(w => !have.has(w.d))
+  const have = new Set(S.workouts.map(w => workoutFingerprint(w, S.customEx)))
+  const fresh = parsed.workouts.filter(w => !have.has(workoutFingerprint(w, parsed.customEx)))
   const used = new Set(fresh.flatMap(w => w.entries.map(e => e.id)))
   const customs = parsed.customEx.filter(c => used.has(c.id) && !EXIDX[c.id])
   S.customEx = [...(S.customEx || []), ...customs]

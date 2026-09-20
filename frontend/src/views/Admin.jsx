@@ -12,6 +12,7 @@ import { Button, Segmented, ChipSelect, Switch, Row } from '../components/ui.jsx
 import ScanUpload from '../components/ScanUpload.jsx'
 import AdminCoach from './AdminCoach.jsx'
 import AdminTrainerAI from './AdminTrainerAI.jsx'
+import AdminAuxAI from './AdminAuxAI.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
 import { EXDB, equipmentOf } from '../lib/exercises.js'
 import { MUSCLE_GROUPS, isInMuscleGroup } from '../lib/muscles.js'
@@ -428,6 +429,52 @@ function ExerciseLibraryNav() {
     onClick={() => openSheet(closeFn => <ExerciseLibrarySheet initialHidden={hidden} close={h => { setHidden(h); closeFn() }} />, { wide: true })} />
 }
 
+/* ============================ equipment availability ============================ */
+// A second, orthogonal way an exercise can be unavailable, alongside the per-exercise
+// blacklist above: equipment the room is temporarily without (a Smith machine out for repair)
+// rather than a movement the owner never wants offered. Toggling one straight away affects
+// every exercise that uses it (lib/exercises.js's isUnavailable()) without touching the
+// library, any routine or any program — the same "not a deletion" guarantee ExerciseLibrarySheet
+// already gives for individual exercises.
+const ALL_EQUIPMENT = equipmentOf(EXDB)
+
+function EquipmentAvailabilitySheet({ initialUnavailable, close }) {
+  const toast = useUI(s => s.toast)
+  const [unavailable, setUnavailable] = useState(initialUnavailable)
+  const toggle = (eq, off) => {
+    const next = new Set(unavailable); off ? next.add(eq) : next.delete(eq); setUnavailable(next)   // optimistic
+    api('/api/admin/equipment/unavailable', { method: 'POST', body: JSON.stringify({ eq, unavailable: off }) })
+      .catch(e => { toast(e.message); setUnavailable(unavailable) })   // roll back on failure
+  }
+  return <>
+    <h3>{t('Equipment availability')}</h3>
+    <div className="dim small" style={{ marginBottom: 10 }}>
+      {t('{0} of {1} marked unavailable right now. Every exercise that needs it shows the same "not currently offered" notice as an individually hidden exercise, and goes back to normal the moment you restore it here.', unavailable.size, ALL_EQUIPMENT.length)}
+    </div>
+    <div className="list">
+      {ALL_EQUIPMENT.map(eq => {
+        const off = unavailable.has(eq)
+        return <div key={eq} className="item" onClick={() => toggle(eq, !off)} style={off ? { opacity: .5 } : null}>
+          <div className="grow"><div className="tt capitalize">{t(eq)}</div></div>
+          <span className={'tag' + (off ? '' : ' acc')}>{off ? t('Unavailable') : t('Available')}</span>
+        </div>
+      })}
+    </div>
+    <div style={{ height: 12 }} />
+    <Button variant="primary" onClick={() => close(unavailable)}>{t('Done')}</Button>
+  </>
+}
+
+function EquipmentAvailabilityNav() {
+  const openSheet = useUI(s => s.openSheet)
+  const [unavailable, setUnavailable] = useState(null)
+  useEffect(() => { api('/api/admin/equipment/unavailable').then(d => setUnavailable(new Set(d.unavailable))).catch(() => setUnavailable(new Set())) }, [])
+  if (unavailable === null) return null
+  return <AdminNavCard icon="dumbbell" tint="var(--orange)" title={t('Equipment availability')}
+    sub={unavailable.size ? t('{0} of {1} marked unavailable.', unavailable.size, ALL_EQUIPMENT.length) : t('All equipment available.')}
+    onClick={() => openSheet(closeFn => <EquipmentAvailabilitySheet initialUnavailable={unavailable} close={u => { setUnavailable(u); closeFn() }} />, { wide: true })} />
+}
+
 export default function Admin() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
@@ -507,9 +554,13 @@ export default function Admin() {
 
     <ExerciseLibraryNav />
 
+    <EquipmentAvailabilityNav />
+
     <AdminCoach />
 
     <AdminTrainerAI />
+
+    <AdminAuxAI />
 
     <AdminIntegrations />
   </div>

@@ -19,7 +19,9 @@ import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf,
 import { rankUpsFor, rankEmblemUrl } from './lib/rank.js'
 import { evaluateBadges, evaluateBadgesIn } from './lib/badges.js'
 import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
-import { parseImport, mergeImport } from './lib/import-csv.js'
+import { parseImport, mergeImport, workoutFingerprint } from './lib/import-csv.js'
+import { buildImportPlan, applyImportResolutions, localCandidates } from './lib/import-match.js'
+import { api } from './lib/api.js'
 import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
@@ -368,6 +370,21 @@ function ImportSummary({ parsed, close }) {
   const st = useStore(s => s.S)
   const isBW = parsed.kind === 'bodyweight'
   const isHealth = parsed.kind === 'health'
+  const openSheet = useUI(s => s.openSheet)
+
+  // V2: try to upgrade whatever parseWorkoutCSV couldn't resolve on its own (a gym-wide alias a
+  // human already confirmed, or — failing that — an optional Gemini suggestion) before the user
+  // ever sees the confirm button. Never blocks the screen: it renders the plain V1 numbers
+  // immediately and quietly fills these in once buildImportPlan() resolves, whatever it finds.
+  const [plan, setPlan] = useState(new Map())
+  const [planLoading, setPlanLoading] = useState(!isBW && !isHealth && parsed.customEx?.length > 0)
+  const [confirmed, setConfirmed] = useState(new Map())   // placeholderId -> exerciseId | 'own'
+  useEffect(() => {
+    if (isBW || isHealth || !parsed.customEx?.length) return
+    let live = true
+    buildImportPlan(parsed).then(p => { if (live) setPlan(p) }).finally(() => { if (live) setPlanLoading(false) })
+    return () => { live = false }
+  }, [parsed])
 
   let have, fresh, healthCounts
   if (isHealth) {
@@ -387,14 +404,33 @@ function ImportSummary({ parsed, close }) {
     have = parsed.bodyweight.filter(b => st.bodyweight.some(x => x.d === b.d)).length
     fresh = parsed.bodyweight.length - have
   } else {
-    have = parsed.workouts.filter(w => st.workouts.some(x => x.d === w.d)).length
-    fresh = parsed.workouts.length - have
+    // V2: fingerprint-based, not just "this date already has something" — see
+    // import-csv.js's own workoutFingerprint comment for why that changed. Fingerprinted
+    // AFTER alias/confirmed resolution (not the raw parse): a workout whose only unresolved
+    // exercise was a previously-confirmed alias must compare against its own already-stored
+    // fingerprint using the SAME real exercise id that import used, not a fresh random
+    // placeholder id this second parse just made up — otherwise a genuine reimport would
+    // misread as "new" purely because of that placeholder's own randomness.
+    const finalizedPreview = applyImportResolutions(parsed, plan, confirmed)
+    const haveFp = new Set(st.workouts.map(w => workoutFingerprint(w, st.customEx)))
+    have = finalizedPreview.workouts.filter(w => haveFp.has(workoutFingerprint(w, finalizedPreview.customEx))).length
+    fresh = finalizedPreview.workouts.length - have
   }
+
+  // Derived review counts — recomputed as `confirmed` changes so the tiles reflect exactly what
+  // "Importar" would do right now, before it's clicked (section 6's own preview requirement).
+  const aliasResolved = [...plan.values()].filter(r => r.status === 'alias').length
+  const suggested = [...plan.values()].filter(r => r.status === 'suggested').length
+  const pending = [...plan.values()].filter(r => r.status === 'pending').length
+  const confirmedToReal = [...confirmed.values()].filter(v => v && v !== 'own').length
+  const needsReview = Math.max(0, suggested + pending - confirmed.size)
+  const willBeOwn = Math.max(0, (parsed.customEx?.length || 0) - aliasResolved - confirmedToReal)
 
   const doImport = () => {
     let res, newBadges = []
+    const finalParsed = isBW || isHealth ? parsed : applyImportResolutions(parsed, plan, confirmed)
     update(s => {
-      res = mergeImport(s, parsed)
+      res = mergeImport(s, finalParsed)
       // Retroactive on purpose — an imported history (or a bodyweight-only import, which can
       // newly unlock globalRank's strength-score badges by supplying the bodyweight it needs)
       // can cross a threshold with no live session to hang the evaluation off of. No
@@ -403,6 +439,11 @@ function ImportSummary({ parsed, close }) {
       const badgeRes = evaluateBadges(s)
       s.badges = badgeRes.badges
       newBadges = badgeRes.newlyUnlocked
+    })
+    // Persisted only now that the import this alias came from actually happened (section 5's
+    // "nothing writes before the final confirm") — best-effort, never blocks the import itself.
+    finalParsed.aliasesToSave?.forEach(a => {
+      api('/api/exercises/import-alias', { method: 'POST', body: JSON.stringify(a) }).catch(() => {})
     })
     close()
     toast(isHealth
@@ -432,8 +473,12 @@ function ImportSummary({ parsed, close }) {
       </> : <>
         <div className="tile"><div className="l">{t('Workouts')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{parsed.workouts.length}</div></div>
         <div className="tile"><div className="l">{t('Sets')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{parsed.sets}</div></div>
+        <div className="tile"><div className="l">{t('New')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fresh}</div></div>
+        <div className="tile"><div className="l">{t('Already imported')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{have}</div></div>
         <div className="tile"><div className="l">{t('Exercises matched')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{parsed.matched}</div></div>
-        <div className="tile"><div className="l">{t('Added as your own')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{parsed.created}</div></div>
+        <div className="tile"><div className="l">{t('Identified')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{aliasResolved + confirmedToReal}</div></div>
+        {needsReview > 0 && <div className="tile"><div className="l">{t('Need review')}</div><div className="v" style={{ fontSize: '1.1rem', color: 'var(--yellow)' }}>{needsReview}</div></div>}
+        <div className="tile"><div className="l">{t('Will be added as your own')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{willBeOwn}</div></div>
       </>}
     </div>
 
@@ -452,7 +497,9 @@ function ImportSummary({ parsed, close }) {
       {t('Health has no dedicated muscle-mass reading — this uses its closest one, lean body mass, which also includes bone and water.')}
     </div>}
     {have > 0 && <div className="small dim" style={{ marginBottom: 10 }}>
-      {t('{0} days already have data here and will be left alone.', have)}
+      {isHealth || isBW
+        ? t('{0} days already have data here and will be left alone.', have)
+        : t('{0} workouts already here and will be left alone.', have)}
     </div>}
     {/* The file rated its sets. Say so: the column is off by default, so the ratings would
         otherwise arrive invisibly and look like they had been dropped. */}
@@ -468,11 +515,70 @@ function ImportSummary({ parsed, close }) {
         {parsed.unmatchedNames.slice(0, 12).map(n => <span key={n} className="mchip capitalize">{n}</span>)}
         {parsed.unmatchedNames.length > 12 && <span className="mchip">+{parsed.unmatchedNames.length - 12}</span>}
       </div>
+      {planLoading && <div className="small dim" style={{ marginBottom: 12 }}>{t('Checking for known matches…')}</div>}
+      {!planLoading && needsReview > 0 && <Button style={{ marginBottom: 12 }} onClick={() => openSheet(closeReview =>
+        <ImportMatchReview parsed={parsed} plan={plan} confirmed={confirmed}
+          onDone={next => { setConfirmed(next); closeReview() }} close={closeReview} />, { wide: true })}>
+        {t('Review {0} equivalences', needsReview)}
+      </Button>}
     </>}
 
     <Button variant="primary" onClick={doImport} disabled={!fresh}>
       {fresh ? t('Import') : t('Nothing new to import')}
     </Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
+  </>
+}
+
+// "[Revisar equivalencias]" — every customEx placeholder still open for a human call: a Gemini
+// suggestion (preselected, never applied without landing here — see import-match.js's own
+// finalize-time comment for why) or a genuinely unresolved name with whatever local candidates
+// exist. A deterministic match or a confirmed-alias hit never appears here at all (section 15's
+// own "don't force a review of the safe ones").
+function ImportMatchReview({ parsed, plan, confirmed, onDone, close }) {
+  const items = [...plan.entries()].filter(([, r]) => r.status === 'suggested' || r.status === 'pending')
+  // A Gemini suggestion starts pre-selected (rule: "puede aparecer preseleccionada... el
+  // usuario debe poder cambiarla") — reaching "Done" on this screen without touching it is
+  // itself the human review step; a 'pending' item with no AI opinion starts untouched, always
+  // defaulting to "stays a custom exercise" unless the user actively picks something.
+  const [choices, setChoices] = useState(() => {
+    const init = new Map(confirmed)
+    items.forEach(([id, r]) => { if (r.status === 'suggested' && !init.has(id)) init.set(id, r.exerciseId) })
+    return init
+  })
+
+  const choose = (placeholderId, exerciseId) => setChoices(m => {
+    const next = new Map(m); next.set(placeholderId, exerciseId); return next
+  })
+  const keepOwn = placeholderId => setChoices(m => {
+    const next = new Map(m); next.set(placeholderId, 'own'); return next
+  })
+
+  return <>
+    <h3>{t('Review equivalences')}</h3>
+    <div className="dim small" style={{ marginBottom: 12 }}>
+      {t('A confirmed match here is remembered — the same name from {0} resolves on its own next time, with no AI call needed.', parsed.source || t('this app'))}
+    </div>
+    {items.map(([placeholderId, r]) => {
+      const chosen = choices.get(placeholderId)
+      const candidates = r.candidates.length ? r.candidates : localCandidates(r.name)
+      return <div key={placeholderId} style={{ marginBottom: 16 }}>
+        <div className="small capitalize" style={{ marginBottom: 2 }}>{r.name}</div>
+        <div className="dim small" style={{ marginBottom: 6 }}>{parsed.source || t('Unknown source')}</div>
+        {r.status === 'suggested' && <div className="small" style={{ color: 'var(--acc)', marginBottom: 6 }}>
+          ✨ {t('AI suggestion')} — {r.confidence >= 0.75 ? t('high confidence') : r.confidence >= 0.4 ? t('medium confidence') : t('low confidence')}
+        </div>}
+        <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
+          {candidates.map(c => <button key={c.id}
+            className={'chip capitalize' + (chosen === c.id ? ' on' : '')}
+            onClick={() => choose(placeholderId, c.id)}>{c.name || nameFor(EXIDX[c.id])}</button>)}
+          <button className={'chip dim' + (chosen === 'own' ? ' on' : '')} onClick={() => keepOwn(placeholderId)}>{t('Create as your own')}</button>
+        </div>
+      </div>
+    })}
+    {!items.length && <div className="dim small" style={{ marginBottom: 12 }}>{t('Nothing left to review.')}</div>}
+    <Button variant="primary" onClick={() => onDone(choices)}>{t('Done')}</Button>
     <div style={{ height: 8 }} />
     <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
   </>

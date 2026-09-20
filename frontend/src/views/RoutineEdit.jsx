@@ -2,7 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { exOr, isHidden } from '../lib/exercises.js'
+import { exOr, isUnavailable } from '../lib/exercises.js'
 import { uid } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../lib/history.js'
@@ -146,7 +146,7 @@ export default function RoutineEdit() {
           <Thumb ex={ex} />
           <div className="grow">
             <div className="tt capitalize">{info && <span className="ss-badge">{supersetLabel(info)}</span>}{nameFor(ex)}</div>
-            <div className="ss">{isHidden(e.id) ? <span style={{ color: 'var(--orange)' }}>{t('Not currently offered — skipped when you start this workout')}</span> : exLine(e, S.unit)}
+            <div className="ss">{isUnavailable(ex) ? <span style={{ color: 'var(--orange)' }}>{t('Not currently offered — skipped when you start this workout')}</span> : exLine(e, S.unit)}
               {e.dropset && <span className="tag acc" style={{ marginLeft: 6 }}>{t('Dropset')}</span>}</div>
             {e.note && <div className="ss">{e.note}</div>}
           </div>

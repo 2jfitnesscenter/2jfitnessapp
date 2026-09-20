@@ -17,7 +17,7 @@
 // So a session that fell apart can never advance the load as though it had succeeded.
 
 import { modeOf, workingSets, buildSets, cleanupSg, defaultConfig } from './history.js'
-import { EXIDX, isHidden } from './exercises.js'
+import { EXIDX, isUnavailable } from './exercises.js'
 import { bestTestedOneRM, pctForReps } from './onerm.js'
 
 export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'pct1rm', 'time']
@@ -269,7 +269,7 @@ export function applyPrescription(sets, p) {
 // kiosk building today's session for whoever just checked in) reuses the exact same logic
 // instead of a hand-rolled approximation that quietly skips progression, supersets and cardio.
 export function buildRoutineEntries(S, routine) {
-  const usable = (routine ? routine.ex : []).filter(cfg => !isHidden(cfg.id)).map(cfg => ({ ...cfg }))
+  const usable = (routine ? routine.ex : []).filter(cfg => !isUnavailable(cfg.id)).map(cfg => ({ ...cfg }))
   cleanupSg(usable)
   return usable.map(cfg => {
     const plan = nextPrescription(S, cfg, routine)

@@ -9,11 +9,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import * as cfgStore from '../coach/config.js';
+import * as auxAI from './aux-ai-config.js';
 import { adapterFor } from '../coach/adapters/index.js';
 import { extractJSON } from '../coach/validate.js';
 
 const TIMEOUT_MS = 60000;
+const GEMINI = adapterFor('gemini');
 
 const PROMPT = `This image shows a piece of gym equipment, or someone set up on/using gym equipment. Identify the SINGLE exercise this equipment is for. Reply with EXACTLY this JSON object and nothing else — no markdown fences, no explanation:
 
@@ -29,27 +30,37 @@ If the image does not clearly show gym equipment or a recognisable exercise, rep
  * @returns {Promise<{ok: true, value: {name: string, nameEn: string}} | {ok: false, error: string}>}
  */
 export async function scanMachineImage({ data, mimeType }) {
-  if (!cfgStore.isEnabled() || !cfgStore.isConnected()) {
-    return { ok: false, error: 'el Coach de IA no está configurado en este servidor' };
+  if (!auxAI.isEnabled() || !auxAI.isConnected()) {
+    return { ok: false, error: 'la IA auxiliar no está configurada en este servidor' };
   }
-  const cfg = cfgStore.load();
-  if (cfg.provider !== 'gemini') {
-    return { ok: false, error: 'el escaneo de máquinas solo funciona con Gemini como proveedor del Coach por ahora' };
-  }
-  const adapter = adapterFor(cfg.provider);
-  const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coach-scan-'));
+  const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aux-ai-scan-'));
+  const started = Date.now();
   try {
-    const env = cfgStore.jobEnv(jobDir);
-    const check = await adapter.check(cfg, env);
-    if (!check.ok) return { ok: false, error: check.error || 'el proveedor no está disponible' };
-    const r = await adapter.invoke({ cfg, jobDir, env, model: cfg.model || null, timeoutMs: TIMEOUT_MS, prompt: PROMPT, image: { data, mimeType } });
-    if (r.timedOut) return { ok: false, error: 'el proveedor no respondió a tiempo' };
-    if (r.code !== 0) return { ok: false, error: (r.stderr || r.text || 'el proveedor devolvió un error').trim().slice(0, 300) };
+    const env = auxAI.jobEnv();
+    const check = await GEMINI.check(null, env);
+    if (!check.ok) {
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'machine_scan', outcome: 'failed', errorClass: 'runtime', ms: Date.now() - started });
+      return { ok: false, error: check.error || 'el proveedor no está disponible' };
+    }
+    const r = await GEMINI.invoke({ jobDir, env, model: null, timeoutMs: TIMEOUT_MS, prompt: PROMPT, image: { data, mimeType } });
+    if (r.timedOut) {
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'machine_scan', outcome: 'failed', errorClass: 'timeout', ms: Date.now() - started });
+      return { ok: false, error: 'el proveedor no respondió a tiempo' };
+    }
+    if (r.code !== 0) {
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'machine_scan', outcome: 'failed', errorClass: 'provider', ms: Date.now() - started });
+      return { ok: false, error: (r.stderr || r.text || 'el proveedor devolvió un error').trim().slice(0, 300) };
+    }
     const parsed = extractJSON(r.text);
     if (parsed.error || typeof parsed.value !== 'object' || !parsed.value) {
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'machine_scan', outcome: 'failed', errorClass: 'badjson', ms: Date.now() - started });
       return { ok: false, error: 'el proveedor no devolvió el formato esperado' };
     }
-    if (!parsed.value.name) return { ok: false, error: 'no se reconoció ninguna máquina o ejercicio en la imagen' };
+    if (!parsed.value.name) {
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'machine_scan', outcome: 'nochange', ms: Date.now() - started });
+      return { ok: false, error: 'no se reconoció ninguna máquina o ejercicio en la imagen' };
+    }
+    auxAI.logJob({ at: new Date().toISOString(), kind: 'machine_scan', outcome: 'ready', ms: Date.now() - started });
     return { ok: true, value: { name: String(parsed.value.name), nameEn: String(parsed.value.nameEn || parsed.value.name) } };
   } finally {
     fs.rmSync(jobDir, { recursive: true, force: true });

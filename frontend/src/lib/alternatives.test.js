@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getExerciseAlternatives, QUICK_FILTERS } from './alternatives.js'
-import { setHiddenExercises } from './exercises.js'
+import { setHiddenExercises, setUnavailableEquipment } from './exercises.js'
 
 const BENCH = '0025'          // barbell bench press — tg: pectorals, eq: barbell
 const DECLINE_BENCH = '0033'   // barbell decline bench press — tg: pectorals, eq: barbell (exact match)
@@ -67,6 +67,22 @@ describe('getExerciseAlternatives', () => {
     const alts = getExerciseAlternatives(baseS(), BENCH)
     setHiddenExercises([])
     expect(alts.some(a => a.ex.id === DECLINE_BENCH)).toBe(false)
+  })
+
+  // V2 — a "Machine Smith blocked" style admin action must not offer another Smith exercise
+  // as the "fix" (section 22): the same exclusion isHidden already gets, now also for equipment.
+  it('never offers a candidate whose equipment is currently marked unavailable', () => {
+    setUnavailableEquipment(['barbell'])   // DECLINE_BENCH's own equipment
+    const alts = getExerciseAlternatives(baseS(), BENCH)
+    setUnavailableEquipment([])
+    expect(alts.some(a => a.ex.id === DECLINE_BENCH)).toBe(false)
+  })
+
+  it('an exercise on unaffected equipment is still offered while another equipment is blocked', () => {
+    setUnavailableEquipment(['barbell'])
+    const alts = getExerciseAlternatives(baseS(), BENCH)
+    setUnavailableEquipment([])
+    expect(alts.some(a => a.ex.id === CABLE_BENCH)).toBe(true)
   })
 })
 

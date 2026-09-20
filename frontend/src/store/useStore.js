@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { api } from '../lib/api.js'
 import { localTZ } from '../lib/format.js'
-import { registerCustom, setHiddenExercises } from '../lib/exercises.js'
+import { registerCustom, setHiddenExercises, setUnavailableEquipment } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { MOBILE, nativeLoad, nativeSave, syncReminder, syncBioimpedanceReminder } from '../lib/mobile.js'
 import { daysSinceBioimpedance } from '../lib/measurements.js'
@@ -287,6 +287,7 @@ export const useStore = create((set, get) => {
         const config = await api('/api/config')
         set({ config })
         setHiddenExercises(config.hiddenExercises)
+        setUnavailableEquipment(config.unavailableEquipment)
       } catch (e) { /* offline — assume nothing extra */ }
       try {
         const me = await api('/api/me')
