@@ -1734,6 +1734,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .bk-panel-hd{display:flex;align-items:center;gap:16px;margin-bottom:18px}
 .bk-minimize{background:#1a1a1e;color:#c8c8cc;border-radius:99px;padding:10px 18px;font-size:14px;display:flex;align-items:center;gap:6px}
 .bk-panel-name{flex:1;font-size:20px;font-weight:700;text-align:center}
+.bk-routine-name{color:#73b52e;font-size:14px;font-weight:600;text-align:center;margin:-10px 0 18px}
 .bk-loading{margin:auto;color:#8a8a8e;font-size:18px}
 .bk-exlist{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:18px}
 .bk-extab{

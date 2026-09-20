@@ -16,6 +16,7 @@
  */
 import * as store from './store.js';
 import { readState, writeState } from '../lib/state-store.js';
+import { bestWeightFor, is1RMRecord } from './finish-helpers.js';
 
 const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits in 4 hours
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
@@ -57,9 +58,27 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       name: publicName(uid),
       unit: S.unit || 'kg',
       week: S.week || {},
+      // dayPlan/programs/activeProgramId are what lib/history.js's effectiveRoutine actually
+      // reads to resolve "today's routine" — a flat `week` alone is only half the picture for
+      // anyone whose schedule is driven by a multi-day program, or who has a one-off override
+      // for today. Sending all three is what lets the kiosk use that exact same resolver
+      // instead of a second, poorer one that only ever checked `week`.
+      dayPlan: S.dayPlan || {},
+      programs: S.programs || [],
+      activeProgramId: S.activeProgramId || null,
       routines: S.routines || [],
       customEx: S.customEx || [],
       exWeights: S.exWeights || {},
+      // A deliberate 1RM test (Actions → Start a test session) — read by the 'pct1rm'
+      // progression policy (lib/progression.js's bestTestedOneRM). Without it, an exercise
+      // using that policy would look on the kiosk like it had never been tested, even when it
+      // has been on the member's own phone.
+      tests: S.tests || [],
+      // The two toggles buildSets() itself reads (Settings → Training) — omitting them would
+      // silently ignore a member's own choice to hide "last time" ghosts or warmup ramp-up sets
+      // the moment they train from the kiosk instead of their phone.
+      showPreviousResults: S.showPreviousResults !== false,
+      warmupEnabled: S.warmupEnabled !== false,
       recentWorkouts: (S.workouts || []).slice(-40),
       active: S.active || null,
       // RP Volume Zones — off unless this member turned it on themselves (Settings), matching
@@ -172,6 +191,18 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     // exact same lib/history.js helpers the phone logger uses to finish one; this endpoint just
     // appends it where the server trusts the token's own uid to put it, not wherever the
     // request claims). Clears S.active and the room-dashboard card in the same call.
+    //
+    // PRs and exWeights are computed/updated here, never trusting whatever the client sent for
+    // them (same "server re-derives it" principle as the wall-post anti-spoofing check above) —
+    // ported 1:1 from doFinishWorkout (frontend/src/sheets.jsx) via ./finish-helpers.js, using
+    // the FULL S.workouts this endpoint already has, not the 40-workout window the kiosk's own
+    // GET /session hands the client.
+    //
+    // e1prs (1RM records) is computed and returned in the response for parity-checking, but
+    // deliberately never attached to `w` before it's saved: doFinishWorkout itself never
+    // persists e1prs on a saved workout either (it only ever reaches the finish-summary sheet in
+    // that same React render) — persisting it here would be new, Bunker-only behaviour, not a
+    // match for what the normal flow actually keeps.
     'POST /api/bunker/finish': async (req, res) => {
       const uid = readBunkerToken(req);
       if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
@@ -179,15 +210,40 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       const w = body.workout;
       if (!w || !w.d || !Array.isArray(w.entries)) return json(res, 400, { error: 'entreno no válido' });
       const S = readState(uid) || {};
+      S.exWeights = S.exWeights || {};
+
+      // Computed against the history as it stands BEFORE this workout joins it — same order
+      // doFinishWorkout uses (prs/e1prs are derived first, the push happens after).
+      const prs = [];
+      const e1prs = [];
+      w.entries.forEach(e => {
+        const mx = Math.max(0, ...e.sets.filter(s => s.done).map(s => s.w || 0));
+        if (mx > 0 && mx > bestWeightFor(S, e.id)) prs.push(e.id);
+        const rec = is1RMRecord(S, e.id, e);
+        if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec });
+      });
+      w.prs = prs;
+
       const workouts = [...(S.workouts || [])];
       let i = workouts.length;
       while (i > 0 && workouts[i - 1].d > w.d) i--;
       workouts.splice(i, 0, w);
       S.workouts = workouts;
+
+      // Same exWeights rule as doFinishWorkout: the heaviest done set (topW counts too),
+      // recorded only when it beats whatever was already on file.
+      w.entries.forEach(e => {
+        const mx = Math.max(0, ...e.sets.filter(x => x.done).map(x => x.w || 0), e.topW || 0);
+        if (mx > 0) {
+          const cur = S.exWeights[e.id];
+          if (!cur || mx > cur.w) S.exWeights[e.id] = { w: mx, d: w.d };
+        }
+      });
+
       S.active = null;
       writeState(uid, S);
       store.endSession(uid);
-      json(res, 200, { ok: true });
+      json(res, 200, { ok: true, prs, e1prs });
     },
 
     // Minimizing back to the room dashboard without ending the session — the kiosk just stops

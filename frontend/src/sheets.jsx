@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
-import { EXDB, EXIDX, isCardio, allExercises, equipmentOf, isHidden, exOr } from './lib/exercises.js'
+import { EXDB, EXIDX, isCardio, allExercises, equipmentOf, exOr } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted, EFFORT, stepEffort, feelFor, effortColor, EFFORT_COLOR_VAR } from './lib/history.js'
+import { lastEntryFor, bestWeightFor, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted, EFFORT, stepEffort, feelFor, effortColor, EFFORT_COLOR_VAR } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, nameFor, getLang, dateLocale, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -24,7 +24,7 @@ import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
 import { getExerciseAlternatives, QUICK_FILTERS } from './lib/alternatives.js'
-import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
+import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE, shareImage } from './lib/mobile.js'
 import { buildShareCardData } from './lib/share-card.js'
 import WorkoutShareCard, { CARD_SIZE } from './components/WorkoutShareCard.jsx'
@@ -1506,18 +1506,10 @@ export function beginWorkout(routineId, bw) {
   const r = routineId ? st.routines.find(x => x.id === routineId) : null
   // Exercises the gym has since hidden (out of equipment, retired from the floor) are left
   // out of the session entirely — this is what makes "hide" actually mean "not available",
-  // not just "not offered for new picks". Cloned before cleanupSg (which mutates in place)
-  // so dropping an orphaned superset pairing here never touches the routine's own saved ex[].
-  const usable = (r ? r.ex : []).filter(cfg => !isHidden(cfg.id)).map(cfg => ({ ...cfg }))
-  cleanupSg(usable)
-  const skipped = (r ? r.ex.length : 0) - usable.length
-  // The prescription is applied as the session is built, so you walk up to the bar with the
-  // right weight already on the screen instead of being told about it afterwards. `plan` is
-  // kept on the entry purely so the workout can explain the number it chose.
-  const entries = usable.map(cfg => {
-    const plan = nextPrescription(st, cfg, r)
-    return { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: applyPrescription(buildSets(st, cfg), plan) }
-  })
+  // not just "not offered for new picks" (buildRoutineEntries does this filtering + the
+  // prescription-per-exercise work, shared with beginPastWorkout below and the Bunker kiosk).
+  const entries = buildRoutineEntries(st, r)
+  const skipped = (r ? r.ex.length : 0) - entries.length
   update(s => {
     s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId, name: r ? r.name : t('Freestyle'), bw: bw || null, cur: 0, entries }
   })
@@ -1535,12 +1527,7 @@ export function beginWorkout(routineId, bw) {
 export function beginPastWorkout(routineId, iso, time, durMin) {
   const st = S()
   const r = routineId ? st.routines.find(x => x.id === routineId) : null
-  const usable = (r ? r.ex : []).filter(cfg => !isHidden(cfg.id)).map(cfg => ({ ...cfg }))
-  cleanupSg(usable)
-  const entries = usable.map(cfg => {
-    const plan = nextPrescription(st, cfg, r)
-    return { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: applyPrescription(buildSets(st, cfg), plan) }
-  })
+  const entries = buildRoutineEntries(st, r)
   const start = new Date(iso + 'T' + (time || '12:00') + ':00').getTime()
   const end = start + Math.max(5, Number(durMin) || 45) * 60000
   update(s => {

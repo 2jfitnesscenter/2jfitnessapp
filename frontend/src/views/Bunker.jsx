@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { t, nameFor } from '../lib/i18n.js'
 import { fmtNum, todayISO, uid } from '../lib/format.js'
-import { workoutVolume } from '../lib/history.js'
+import { workoutVolume, effectiveRoutine, modeOf } from '../lib/history.js'
+import { buildRoutineEntries } from '../lib/progression.js'
 import { EXIDX } from '../lib/exercises.js'
 import { musclesOf, MUSCLE_GROUPS } from '../lib/muscles.js'
 import { landmarksFor, weeklyGroupVolume, primaryGroupOf } from '../lib/rp-volume.js'
@@ -139,24 +140,15 @@ function BunkerCheckinPad({ onClose, onSuccess }) {
 }
 
 /* ============================ individual training panel ============================ */
-function todaysRoutine(week, routines) {
-  const wd = new Date().getDay()
-  const rid = week?.[wd]
-  return routines.find(r => r.id === rid) || null
-}
-function buildActive(routine, exWeights) {
+// A brand-new session for `routine`, built with the exact same shared helper the phone app's
+// beginWorkout()/beginPastWorkout() use (lib/progression.js's buildRoutineEntries) — hidden
+// exercises, supersets, progression and buildSets() all behave identically here, because it is
+// the same function, not a second guess at what it does.
+function buildBunkerActive(S, routine) {
   return {
-    id: uid(), d: todayISO(), start: Date.now(), routineId: routine?.id || null,
-    name: routine?.name || t('Freestyle'), bw: null, cur: 0,
-    entries: (routine?.ex || []).map(cfg => ({
-      id: cfg.id,
-      target: { reps: cfg.reps, sec: cfg.sec, mode: cfg.mode || 'reps' },
-      sets: Array.from({ length: cfg.sets || 3 }, () => ({
-        w: cfg.weight || exWeights?.[cfg.id]?.w || 0,
-        r: cfg.mode === 'time' ? (cfg.sec || 30) : (cfg.reps || 10),
-        done: false,
-      })),
-    })),
+    id: uid(), d: todayISO(), start: Date.now(), routineId: routine.id,
+    name: routine.name, bw: null, cur: 0,
+    entries: buildRoutineEntries(S, routine),
   }
 }
 function lastResultFor(recentWorkouts, exId) {
@@ -192,14 +184,31 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
   useEffect(() => {
     fetchBunkerSession(token).then(p => {
       setPlan(p)
-      const routine = todaysRoutine(p.week, p.routines)
-      setActive(p.active || buildActive(routine, p.exWeights))
+      // Same resolver the rest of the app uses for "today's routine" (Home, Stats, the phone
+      // logger) — dayPlan's own override first, then an active program's own week, then the
+      // flat S.week — never a second, poorer guess that only ever checked the flat week.
+      const miniS = {
+        week: p.week, dayPlan: p.dayPlan, programs: p.programs, activeProgramId: p.activeProgramId,
+        routines: p.routines,
+      }
+      const routine = effectiveRoutine(miniS, todayISO())
+      // A session already in progress (started here or on the member's own phone) is resumed
+      // exactly as-is — never rebuilt, never reset. Only a routine with no open session yet
+      // gets a fresh one built from today's plan.
+      setActive(p.active || (routine ? buildBunkerActive({ ...miniS, unit: p.unit, workouts: p.recentWorkouts, exWeights: p.exWeights, tests: p.tests, showPreviousResults: p.showPreviousResults, warmupEnabled: p.warmupEnabled }, routine) : null))
       armIdle(idleMs)
     }).catch(() => onExit())
     return () => { clearTimeout(idleRef.current); clearTimeout(minimizeRef.current) }
   }, [token])
 
-  if (!plan || !active) return <div className="bk-panel"><div className="bk-loading">{t('Loading…')}</div></div>
+  if (!plan) return <div className="bk-panel"><div className="bk-loading">{t('Loading…')}</div></div>
+  if (!active) return <div className="bk-panel">
+    <div className="bk-panel-hd">
+      <button className="bk-minimize" onClick={onExit}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
+      <div className="bk-panel-name">{name}</div>
+    </div>
+    <div className="bk-empty">{t('No routine assigned for this session.')}</div>
+  </div>
 
   const sync = next => {
     setActive(next)
@@ -271,6 +280,7 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
       <div className="bk-panel-name">{name}</div>
       {restEndsAt && <RestRing endsAt={restEndsAt} size={52} />}
     </div>
+    <div className="bk-routine-name">{active.name}</div>
     <div className="bk-exlist">
       {active.entries.map((e, i) => {
         const doneN = e.sets.filter(s => s.done).length
@@ -282,24 +292,45 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
     </div>
     {entry && <div className="bk-sets">
       <div className="bk-exname">{exName(entry.id, plan.customEx)}</div>
+      {/* Same plan.why the phone logger's own .progline shows (lib/progression.js's
+          nextPrescription) — what the routine planned for this exercise and why, kept visibly
+          separate from the editable set rows below (what is actually being done). */}
+      {entry.plan?.why && entry.plan.kind !== 'off' && <div className="bk-last">{t('Planned: {0}', t(...entry.plan.why))}</div>}
       {last && <div className="bk-last">{t('Last time: {0} × {1}', fmtNum(last.w), last.r)}</div>}
       {rpBar && <div className="bk-rpbar">{rpBar}</div>}
-      {entry.sets.map((s, si) => (
-        <div key={si} className={'bk-setrow' + (s.done ? ' done' : '')}>
+      {entry.sets.map((s, si) => {
+        // Cardio sets (lib/history.js's buildSets) carry {min, speed}, never {w, r} — the two
+        // big steppers below switch what they edit by mode, same distinction Workout.jsx's own
+        // ExerciseBlock makes, instead of assuming every set is a weight×reps one.
+        const cardio = modeOf(entry.target || {}) === 'cardio'
+        return <div key={si} className={'bk-setrow' + (s.done ? ' done' : '')}>
           <span className="bk-setn">{si + 1}</span>
-          <div className="bk-bigstp">
-            <button onClick={() => setField(exIdx, si, 'w', -2.5)}>−</button>
-            <span className="bk-bigstp-v">{fmtNum(s.w)}<i>{plan.unit}</i></span>
-            <button onClick={() => setField(exIdx, si, 'w', 2.5)}>+</button>
-          </div>
-          <div className="bk-bigstp">
-            <button onClick={() => setField(exIdx, si, 'r', -1)}>−</button>
-            <span className="bk-bigstp-v">{fmtNum(s.r)}<i>{entry.target?.mode === 'time' ? 's' : t('reps')}</i></span>
-            <button onClick={() => setField(exIdx, si, 'r', 1)}>+</button>
-          </div>
+          {cardio ? <>
+            <div className="bk-bigstp">
+              <button onClick={() => setField(exIdx, si, 'min', -1)}>−</button>
+              <span className="bk-bigstp-v">{fmtNum(s.min)}<i>{t('min')}</i></span>
+              <button onClick={() => setField(exIdx, si, 'min', 1)}>+</button>
+            </div>
+            <div className="bk-bigstp">
+              <button onClick={() => setField(exIdx, si, 'speed', -0.5)}>−</button>
+              <span className="bk-bigstp-v">{fmtNum(s.speed)}<i>{t('km/h')}</i></span>
+              <button onClick={() => setField(exIdx, si, 'speed', 0.5)}>+</button>
+            </div>
+          </> : <>
+            <div className="bk-bigstp">
+              <button onClick={() => setField(exIdx, si, 'w', -2.5)}>−</button>
+              <span className="bk-bigstp-v">{fmtNum(s.w)}<i>{plan.unit}</i></span>
+              <button onClick={() => setField(exIdx, si, 'w', 2.5)}>+</button>
+            </div>
+            <div className="bk-bigstp">
+              <button onClick={() => setField(exIdx, si, 'r', -1)}>−</button>
+              <span className="bk-bigstp-v">{fmtNum(s.r)}<i>{entry.target?.mode === 'time' ? 's' : t('reps')}</i></span>
+              <button onClick={() => setField(exIdx, si, 'r', 1)}>+</button>
+            </div>
+          </>}
           <button className={'bk-check' + (s.done ? ' on' : '')} onClick={() => toggleDone(exIdx, si)} aria-label={t('Done')}><Icon name="check" /></button>
         </div>
-      ))}
+      })}
     </div>}
     <button className="bk-finish" onClick={finish}>{t('Finish workout & exit')}</button>
   </div>
