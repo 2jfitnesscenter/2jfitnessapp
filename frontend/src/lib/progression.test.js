@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   readSession, sessionsFor, stallCount, nextPrescription, applyPrescription, buildRoutineEntries,
-  policyFor, defaultIncrement, POLICIES_FOR, DELOAD_AFTER
+  buildFreeEntry, policyFor, defaultIncrement, POLICIES_FOR, DELOAD_AFTER
 } from './progression.js'
 import { EXDB, setHiddenExercises } from './exercises.js'
 import { pctForReps } from './onerm.js'
@@ -462,5 +462,30 @@ describe('buildRoutineEntries', () => {
 
   it('returns nothing for a null routine, same as an empty freestyle session', () => {
     expect(buildRoutineEntries(S, null)).toEqual([])
+  })
+})
+
+/* Bunker's own "Entrenamiento libre" — the Add exercise action for a session with no routine
+   at all, built the same way Workout.jsx's own mid-session Add exercise button does. */
+describe('buildFreeEntry', () => {
+  const S = { unit: 'kg', workouts: [], exWeights: {}, customEx: [], warmupEnabled: false }
+
+  it('builds a real entry with no routine to inherit anything from', () => {
+    const entry = buildFreeEntry(S, LIFT)
+    expect(entry.id).toBe(LIFT)
+    expect(entry.target).toMatchObject({ id: LIFT, sets: 3, reps: 10, weight: 0 })
+    expect(entry.sets).toHaveLength(3)
+    expect(entry.sets[0]).toMatchObject({ w: 0, r: 10, done: false })
+  })
+
+  it('builds cardio-shaped sets for a cardio exercise, same as a routine would', () => {
+    const entry = buildFreeEntry(S, CARDIO)
+    expect(entry.sets).toHaveLength(1)
+    expect(entry.sets[0]).toMatchObject({ min: 20, speed: 8 })
+    expect(entry.sets[0].r).toBeUndefined()
+  })
+
+  it('carries no sg — a freestyle pick is never part of a superset', () => {
+    expect(buildFreeEntry(S, LIFT).sg).toBeUndefined()
   })
 })

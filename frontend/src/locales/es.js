@@ -2042,6 +2042,10 @@ export default {
   'Working set': 'Serie de trabajo',
   'bar only': 'solo barra',
 
+  /* ---------- Bunker V3.3: fixed top bar + "what to train today" picker (views/Bunker.jsx) ---------- */
+  'What do you want to train today?': '¿Qué quieres entrenar hoy?',
+  'No saved routines yet.': 'Aún no hay rutinas guardadas.',
+
   /* ---------- Bunker V2: room admin panel (views/BunkerAdminPage.jsx) ---------- */
   'Active sessions': 'Sesiones activas',
   'Assist {0}': 'Asistir a {0}',

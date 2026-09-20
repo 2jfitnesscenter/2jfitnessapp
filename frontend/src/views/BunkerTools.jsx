@@ -28,13 +28,14 @@ const CATALOG_S = { customEx: [], excludedEx: [] }
 /* ============================ shared exercise search ============================ */
 // Exported so Bunker.jsx's own "Change exercise" (a session-specific action, not a generic
 // tool) can reuse the exact same real-catalog search instead of a second picker.
-export function ExerciseSearchList({ onPick, excludeId }) {
+export function ExerciseSearchList({ onPick, excludeId, excludeIds }) {
   const [q, setQ] = useState('')
   const [group, setGroup] = useState(null)
   const all = allExercises(CATALOG_S)
   const ql = q.trim().toLowerCase()
   const filtered = all.filter(ex => {
     if (excludeId && ex.id === excludeId) return false
+    if (excludeIds && excludeIds.includes(ex.id)) return false
     if (group && !isInMuscleGroup(ex, group)) return false
     if (!ql) return true
     return nameFor(ex).toLowerCase().includes(ql) || String(ex.eq || '').toLowerCase().includes(ql) || String(ex.tg || '').toLowerCase().includes(ql)
@@ -206,8 +207,15 @@ function WarmupTool() {
   </>
 }
 
-/* ============================ bar + overlay ============================ */
-const TOOLS = [
+/* ============================ fixed top bar (every Bunker screen) ============================ */
+// One navigation surface, always visible, replacing the old wrench-icon-opens-a-modal-hub
+// design: 'training' is this member's own session — or the public board when nobody's checked
+// in on this device yet, Bunker.jsx decides which — and the other five are the same generic
+// tools as before, now tabs instead of a hub grid inside a popup. `tool` itself still lives in
+// Bunker.jsx's root state for the same reason it always did: switching tabs must never remount
+// (and so never lose) the training panel or the timer underneath.
+const TABS = [
+  { key: 'training', label: 'Training', icon: 'dumbbell' },
   { key: 'library', label: 'Library', icon: 'magnifier' },
   { key: 'plates', label: 'Plates', icon: 'plate' },
   { key: 'rm', label: '1RM', icon: 'chartLine' },
@@ -216,35 +224,29 @@ const TOOLS = [
 ]
 const TOOL_TITLE = { library: 'Exercise library', plates: 'Plate calculator', rm: '1RM calculator', timer: 'Timer', warmup: 'Warm-up' }
 
-// The header trigger — a single icon, on purpose (the brief's own "avoid cluttering the
-// header"). Opens the hub below rather than jumping straight into a tool.
-export function BunkerToolsTrigger({ onClick }) {
-  return <button className="bk-admin-btn" aria-label={t('Tools')} onClick={onClick}><Icon name="wrench" /></button>
-}
-
-function ToolsHub({ onPick }) {
-  return <div className="bk-tools-hub">
-    {TOOLS.map(tl => <button key={tl.key} className="bk-tools-hub-btn" onClick={() => onPick(tl.key)}>
-      <Icon name={tl.icon} /><span>{t(tl.label)}</span>
-    </button>)}
+export function BunkerTopBar({ active, onSelect, header, paired, onAdmin, onExitTap }) {
+  return <div className="bk-topbar">
+    <div className="bk-topbar-title" onClick={onExitTap}>{header}</div>
+    {paired && <span className="bk-paired-badge">{paired.label}</span>}
+    <div className="bk-topbar-tabs">
+      {TABS.map(tb => <button key={tb.key} className={'bk-topbar-tab' + (active === tb.key ? ' on' : '')} onClick={() => onSelect(tb.key)}>
+        <Icon name={tb.icon} /><span>{t(tb.label)}</span>
+      </button>)}
+    </div>
+    <button className="bk-admin-btn" aria-label={t('Room admin')} onClick={onAdmin}><Icon name="gear" /></button>
   </div>
 }
 
-// `tool` is one of: null (closed), 'hub' (the 5-icon menu), or one of TOOLS' own keys.
-export function BunkerToolsOverlay({ tool, onSelect, onClose, timer, setTimer }) {
-  if (!tool) return null
-  return <div className="bk-overlay">
-    <div className="bk-pad bk-tools-pad">
-      <button className="bk-close" onClick={onClose} aria-label={t('Close')}><Icon name="xmark" /></button>
-      {tool !== 'hub' && <button className="bk-tool-back bk-tool-back-hub" onClick={() => onSelect('hub')}><Icon name="chevronLeft" />{t('Tools')}</button>}
-      <div className="bk-pad-title">{tool === 'hub' ? t('Tools') : t(TOOL_TITLE[tool])}</div>
-      {tool === 'hub' && <ToolsHub onPick={onSelect} />}
-      {tool === 'library' && <LibraryTool />}
-      {tool === 'plates' && <PlatesTool />}
-      {tool === 'rm' && <RMTool />}
-      {tool === 'timer' && <TimerTool timer={timer} setTimer={setTimer} />}
-      {tool === 'warmup' && <WarmupTool />}
-    </div>
+// The content for any tab but 'training' — plain content now, no modal chrome, since the top
+// bar itself is the way back to another tab (there is nothing left to "close").
+export function BunkerToolPane({ tool, timer, setTimer }) {
+  return <div className="bk-tabpane">
+    <h2 className="bk-tabpane-title">{t(TOOL_TITLE[tool])}</h2>
+    {tool === 'library' && <LibraryTool />}
+    {tool === 'plates' && <PlatesTool />}
+    {tool === 'rm' && <RMTool />}
+    {tool === 'timer' && <TimerTool timer={timer} setTimer={setTimer} />}
+    {tool === 'warmup' && <WarmupTool />}
   </div>
 }
 

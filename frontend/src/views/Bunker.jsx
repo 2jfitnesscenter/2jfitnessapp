@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { t, nameFor } from '../lib/i18n.js'
-import { fmtNum, todayISO, uid } from '../lib/format.js'
+import { fmtNum, todayISO, uid, exCount } from '../lib/format.js'
 import { workoutVolume, effectiveRoutine, modeOf, swapEntryExercise } from '../lib/history.js'
-import { buildRoutineEntries } from '../lib/progression.js'
+import { buildRoutineEntries, buildFreeEntry } from '../lib/progression.js'
 import { EXIDX } from '../lib/exercises.js'
-import { ExerciseSearchList, BunkerToolsTrigger, BunkerToolsOverlay, DEFAULT_TIMER_STATE } from './BunkerTools.jsx'
+import { glyphOf } from '../lib/glyphs.js'
+import { ExerciseSearchList, BunkerTopBar, BunkerToolPane, DEFAULT_TIMER_STATE } from './BunkerTools.jsx'
 import { musclesOf, MUSCLE_GROUPS } from '../lib/muscles.js'
 import { landmarksFor, weeklyGroupVolume, primaryGroupOf } from '../lib/rp-volume.js'
 import RpVolumeBar from '../components/RpVolumeBar.jsx'
@@ -77,17 +78,13 @@ function CardRest({ s, settings }) {
     {pulsing && <i className="bk-card-pulse" />}
   </>
 }
-function BunkerDashboard({ board, settings, paired, onCheckin, onAdmin, onExitTap, onOpenTools }) {
+// Just the "who's here" board + the join button — the header (title, paired badge, admin
+// gear) moved into BunkerTopBar, which every screen shares now, not just this one.
+function BunkerBoard({ board, settings, onCheckin }) {
   const gridStyle = settings.columns === 'auto'
     ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16, flex: 1, alignContent: 'start' }
     : { '--cols': settings.columns || 4 }
   return <div className="bk-dash">
-    <div className="bk-hd">
-      <div className="bk-hd-title" onClick={onExitTap}>{settings.header || '2J Fitness Center'}</div>
-      {paired && <span className="bk-paired-badge">{paired.label}</span>}
-      <BunkerToolsTrigger onClick={onOpenTools} />
-      <button className="bk-admin-btn" aria-label={t('Room admin')} onClick={onAdmin}><Icon name="gear" /></button>
-    </div>
     {board.length === 0 ? (
       <div className="bk-empty">{t('Nobody checked in yet — be the first.')}</div>
     ) : (
@@ -171,12 +168,13 @@ function exName(exId, customEx) {
   return ex ? nameFor(ex) : exId
 }
 
-function BunkerTrainingPanel({ token, name, settings, onExit, onOpenTools }) {
+function BunkerTrainingPanel({ token, name, settings, onExit }) {
   const [plan, setPlan] = useState(null)
   const [active, setActive] = useState(null)
   const [exIdx, setExIdx] = useState(0)
   const [restEndsAt, setRestEndsAt] = useState(null)
   const [showSwap, setShowSwap] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
   const idleRef = useRef(null)
   const minimizeRef = useRef(null)
   const idleMs = (settings?.autoLockSec || 60) * 1000
@@ -196,8 +194,14 @@ function BunkerTrainingPanel({ token, name, settings, onExit, onOpenTools }) {
       }
       const routine = effectiveRoutine(miniS, todayISO())
       // A session already in progress (started here or on the member's own phone) is resumed
-      // exactly as-is — never rebuilt, never reset. Only a routine with no open session yet
-      // gets a fresh one built from today's plan.
+      // exactly as-is — never rebuilt, never reset. A routine with no open session yet gets a
+      // fresh one built from today's plan. Neither of a member's own phone nor an admin picked
+      // anything for today (dayPlan has no override, the active program's own week is empty or
+      // skips today): `active` is left null on purpose — the render below then offers the
+      // "what do you want to train today?" picker instead of guessing, and NOTHING is written
+      // to S.week/dayPlan/programs/activeProgramId either way (see pickRoutine/startFreeTraining
+      // below — both only ever call sync(), which writes S.active alone, same as every other
+      // in-session action here).
       setActive(p.active || (routine ? buildBunkerActive({ ...miniS, unit: p.unit, workouts: p.recentWorkouts, exWeights: p.exWeights, tests: p.tests, showPreviousResults: p.showPreviousResults, warmupEnabled: p.warmupEnabled }, routine) : null))
       armIdle(idleMs)
     }).catch(() => onExit())
@@ -205,20 +209,41 @@ function BunkerTrainingPanel({ token, name, settings, onExit, onOpenTools }) {
   }, [token])
 
   if (!plan) return <div className="bk-panel"><div className="bk-loading">{t('Loading…')}</div></div>
-  if (!active) return <div className="bk-panel">
-    <div className="bk-panel-hd">
-      <button className="bk-minimize" onClick={onExit}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
-      <div className="bk-panel-name">{name}</div>
-    </div>
-    <div className="bk-empty">{t('No routine assigned for this session.')}</div>
-  </div>
 
+  // The same minimal S buildRoutineEntries/buildSets/nextPrescription/buildFreeEntry all need,
+  // rebuilt from the session payload on demand (not just once at mount) so a routine picked or
+  // an exercise added minutes into the session still sees this member's real workouts/exWeights.
+  const sessionS = () => ({
+    week: plan.week, dayPlan: plan.dayPlan, programs: plan.programs, activeProgramId: plan.activeProgramId,
+    routines: plan.routines, unit: plan.unit, workouts: plan.recentWorkouts, exWeights: plan.exWeights,
+    tests: plan.tests, showPreviousResults: plan.showPreviousResults, warmupEnabled: plan.warmupEnabled,
+  })
   const sync = next => {
     setActive(next)
     const entry = next.entries[exIdx]
     const doneN = entry ? entry.sets.filter(s => s.done).length : 0
     postBunkerActive(token, { active: next, exId: entry?.id || null, exName: entry ? exName(entry.id, plan.customEx) : null, setIdx: doneN, setsTotal: entry?.sets.length || 0 }).catch(() => {})
   }
+  // Manual choice for TODAY only — same buildRoutineEntries a normally-scheduled day uses, so a
+  // picked routine behaves identically once it's running. Never touches S.week/dayPlan/programs;
+  // the member's actual weekly plan is exactly as it was before this tap.
+  const pickRoutine = routine => { touch(); sync(buildBunkerActive(sessionS(), routine)); armIdle(idleMs) }
+  // Mirrors Workout.jsx's own beginWorkout(null, …) — a real Freestyle session, just started
+  // from the kiosk: no routine, entries start empty, exercises get added one at a time below.
+  const startFreeTraining = () => {
+    touch()
+    sync({ id: uid(), d: todayISO(), start: Date.now(), routineId: null, name: t('Freestyle'), bw: null, cur: 0, entries: [] })
+    armIdle(idleMs)
+  }
+
+  if (!active) return <div className="bk-panel">
+    <div className="bk-panel-hd">
+      <button className="bk-minimize" onClick={onExit}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
+      <div className="bk-panel-name">{name}</div>
+    </div>
+    <BunkerTodayPicker routines={plan.routines} sessionS={sessionS} onPickRoutine={pickRoutine} onFreeTraining={startFreeTraining} />
+  </div>
+
   const setField = (ei, si, field, delta) => {
     touch()
     const next = { ...active, entries: active.entries.map((e, i) => i !== ei ? e : {
@@ -252,6 +277,25 @@ function BunkerTrainingPanel({ token, name, settings, onExit, onOpenTools }) {
     touch()
     sync({ ...active, entries: swapEntryExercise(active.entries, exIdx, newEx.id) })
     setShowSwap(false)
+  }
+  // Add/remove are only offered on a routineId: null (Freestyle) session — a routine-based one
+  // still only ever gets "Change exercise" (doSwap above), same as the phone: swapping what an
+  // existing slot means is one thing, growing or shrinking the routine itself from the kiosk is
+  // another the brief never asked for. Same per-exercise pipeline buildRoutineEntries runs per
+  // routine exercise (progression.js's buildFreeEntry), just with defaultConfig() standing in
+  // for a routine author's own cfg — mirrors Workout.jsx's own mid-session "Add exercise".
+  const doAdd = ex => {
+    touch()
+    const nextEntries = [...active.entries, buildFreeEntry(sessionS(), ex.id)]
+    sync({ ...active, entries: nextEntries })
+    setExIdx(nextEntries.length - 1)
+    setShowAdd(false)
+  }
+  const doRemove = idx => {
+    touch()
+    const nextEntries = active.entries.filter((_, i) => i !== idx)
+    sync({ ...active, entries: nextEntries })
+    setExIdx(i => Math.min(i, Math.max(0, nextEntries.length - 1)))
   }
 
   const finish = () => {
@@ -289,15 +333,16 @@ function BunkerTrainingPanel({ token, name, settings, onExit, onOpenTools }) {
     }
   }
 
+  const freeTraining = active.routineId === null
+
   return <div className="bk-panel" onClick={touch}>
     <div className="bk-panel-hd">
       <button className="bk-minimize" onClick={onExit}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
       <div className="bk-panel-name">{name}</div>
       {restEndsAt && <RestRing endsAt={restEndsAt} size={52} />}
-      <BunkerToolsTrigger onClick={onOpenTools} />
     </div>
     <div className="bk-routine-name">{active.name}</div>
-    <div className="bk-exlist">
+    {active.entries.length > 0 && <div className="bk-exlist">
       {active.entries.map((e, i) => {
         const doneN = e.sets.filter(s => s.done).length
         return <button key={i} className={'bk-extab' + (i === exIdx ? ' on' : '') + (doneN === e.sets.length ? ' done' : '')}
@@ -305,13 +350,21 @@ function BunkerTrainingPanel({ token, name, settings, onExit, onOpenTools }) {
           {exName(e.id, plan.customEx)}<span className="bk-extab-n">{doneN}/{e.sets.length}</span>
         </button>
       })}
-    </div>
+      {freeTraining && <button className="bk-extab bk-extab-add" onClick={() => { touch(); setShowAdd(true) }} aria-label={t('Add exercise')}><Icon name="plus" /></button>}
+    </div>}
+    {freeTraining && !active.entries.length && <div className="bk-empty">
+      {t('Freestyle workout — add your first exercise.')}
+      <button className="bk-join" style={{ marginTop: 16 }} onClick={() => { touch(); setShowAdd(true) }}><Icon name="plus" />{t('Add exercise')}</button>
+    </div>}
     {entry && <div className="bk-sets">
       <div className="bk-exname-row">
         <div className="bk-exname">{exName(entry.id, plan.customEx)}</div>
         <button className="bk-exchange-btn" onClick={() => { touch(); setShowSwap(true) }}>
           <Icon name="shuffle" />{t('Change exercise')}
         </button>
+        {freeTraining && <button className="bk-exchange-btn bk-exremove-btn" onClick={() => doRemove(exIdx)}>
+          <Icon name="trash" />{t('Remove exercise')}
+        </button>}
       </div>
       {/* Same plan.why the phone logger's own .progline shows (lib/progression.js's
           nextPrescription) — what the routine planned for this exercise and why, kept visibly
@@ -353,7 +406,7 @@ function BunkerTrainingPanel({ token, name, settings, onExit, onOpenTools }) {
         </div>
       })}
     </div>}
-    <button className="bk-finish" onClick={finish}>{t('Finish workout & exit')}</button>
+    {active.entries.length > 0 && <button className="bk-finish" onClick={finish}>{t('Finish workout & exit')}</button>}
     {showSwap && <div className="bk-overlay">
       <div className="bk-pad bk-tools-pad">
         <button className="bk-close" onClick={() => setShowSwap(false)} aria-label={t('Close')}><Icon name="xmark" /></button>
@@ -361,6 +414,38 @@ function BunkerTrainingPanel({ token, name, settings, onExit, onOpenTools }) {
         <ExerciseSearchList excludeId={entry?.id} onPick={doSwap} />
       </div>
     </div>}
+    {showAdd && <div className="bk-overlay">
+      <div className="bk-pad bk-tools-pad">
+        <button className="bk-close" onClick={() => setShowAdd(false)} aria-label={t('Close')}><Icon name="xmark" /></button>
+        <div className="bk-pad-title">{t('Add exercise')}</div>
+        <ExerciseSearchList excludeIds={active.entries.map(e => e.id)} onPick={doAdd} />
+      </div>
+    </div>}
+  </div>
+}
+
+// "¿Qué quieres entrenar hoy?" — shown only when there is neither an S.active already in
+// progress nor a routine scheduled for today (Bunker.jsx's own mount effect leaves `active`
+// null in exactly that case, never auto-building or auto-picking anything). A routine picked
+// here only ever feeds buildBunkerActive/sync(), same as a normally-scheduled day — it writes
+// S.active and nothing else, so it can never bleed into S.week/dayPlan/programs. Routines that
+// would produce zero entries (every exercise in them hidden, or a routine with none at all) are
+// left out — offering one would just be a picker option that goes nowhere.
+function BunkerTodayPicker({ routines, sessionS, onPickRoutine, onFreeTraining }) {
+  const usable = (routines || []).filter(r => buildRoutineEntries(sessionS(), r).length > 0)
+  return <div className="bk-picker">
+    <div className="bk-picker-title">{t('What do you want to train today?')}</div>
+    <div className="bk-picker-list">
+      {usable.map(r => (
+        <button key={r.id} className="bk-tool-exrow" onClick={() => onPickRoutine(r)}>
+          <span className="bk-picker-routine-icon"><Icon name={glyphOf(r.emoji)} /></span>
+          <span className="bk-tool-exname">{r.name}</span>
+          <span className="bk-tool-exmeta">{exCount(r.ex.length)}</span>
+        </button>
+      ))}
+      {!usable.length && <div className="bk-tool-empty">{t('No saved routines yet.')}</div>}
+    </div>
+    <button className="bk-join" onClick={onFreeTraining}><Icon name="shuffle" />{t('Freestyle workout (pick as you go)')}</button>
   </div>
 }
 
@@ -448,11 +533,11 @@ export default function Bunker() {
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [showExitLock, setShowExitLock] = useState(false)
   const [adminToken, setAdminToken] = useState(null)
-  // Generic tools (V3.2) — 'hub' | 'library' | 'plates' | 'rm' | 'timer' | 'warmup' | null.
-  // Root-level on purpose: neither this nor the timer's own running state should reset just
-  // because the dashboard/training-panel branch underneath re-renders or the member switches
-  // which tool they're looking at.
-  const [tool, setTool] = useState(null)
+  // The top bar's active tab — 'training' | 'library' | 'plates' | 'rm' | 'timer' | 'warmup',
+  // never null: the bar always shows one of them, 'training' by default. Root-level on purpose:
+  // neither this nor the timer's own running state should reset just because the member
+  // switches which tab they're looking at.
+  const [tool, setTool] = useState('training')
   const [timer, setTimer] = useState(DEFAULT_TIMER_STATE)
   const tapsRef = useRef([])
   const paired = (() => { try { return JSON.parse(localStorage.getItem(PAIR_KEY) || 'null') } catch { return null } })()
@@ -475,20 +560,26 @@ export default function Bunker() {
     if (tapsRef.current.length >= 3) { tapsRef.current = []; setShowExitLock(true) }
   }
 
-  const toolsOverlay = <BunkerToolsOverlay tool={tool} onSelect={setTool} onClose={() => setTool(null)} timer={timer} setTimer={setTimer} />
-
-  if (adminToken) return <div className="bunker"><BunkerAdminOverlay adminToken={adminToken} onClose={() => setAdminToken(null)} />{toolsOverlay}</div>
-  if (session) return <div className="bunker">
-    <BunkerTrainingPanel token={session.token} name={session.name} settings={settings} onExit={() => setSession(null)} onOpenTools={() => setTool('hub')} />
-    {toolsOverlay}
-  </div>
+  if (adminToken) return <div className="bunker"><BunkerAdminOverlay adminToken={adminToken} onClose={() => setAdminToken(null)} /></div>
 
   return <div className="bunker">
-    <BunkerDashboard board={board} settings={settings} paired={paired}
-      onCheckin={() => setShowCheckin(true)} onAdmin={() => setShowAdminLogin(true)} onExitTap={onExitTap} onOpenTools={() => setTool('hub')} />
+    <BunkerTopBar active={tool} onSelect={setTool} header={settings.header || '2J Fitness Center'} paired={paired}
+      onAdmin={() => setShowAdminLogin(true)} onExitTap={onExitTap} />
+    <div className="bk-tabcontent">
+      {/* Kept mounted and merely hidden while another tab shows, not unmounted — a browsed-away
+          "Entrenamiento" tab must never re-fetch or reset the session (or its own idle timer)
+          just because the member is looking at the plate calculator. The board underneath, when
+          nobody's checked in yet, already polls at the root (below) and has nothing tab-switch
+          could lose either way. */}
+      <div style={{ display: tool === 'training' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        {session
+          ? <BunkerTrainingPanel token={session.token} name={session.name} settings={settings} onExit={() => setSession(null)} />
+          : <BunkerBoard board={board} settings={settings} onCheckin={() => setShowCheckin(true)} />}
+      </div>
+      {tool !== 'training' && <BunkerToolPane tool={tool} timer={timer} setTimer={setTimer} />}
+    </div>
     {showCheckin && <BunkerCheckinPad onClose={() => setShowCheckin(false)} onSuccess={s => { setSession(s); setShowCheckin(false) }} />}
     {showAdminLogin && <BunkerAdminLogin onClose={() => setShowAdminLogin(false)} onSuccess={tok => { setAdminToken(tok); setShowAdminLogin(false) }} />}
     {showExitLock && <BunkerAdminLogin onClose={() => setShowExitLock(false)} onSuccess={() => nav('/home')} />}
-    {toolsOverlay}
   </div>
 }
