@@ -136,6 +136,32 @@ plus the admin side that makes it safe to leave running unattended.
   (15/30/45/60s) so an idle kiosk screen doesn't sit open.
 - 🚪 **A discreet exit.** Triple-tap the kiosk's own logo, enter the admin code, and it's the only
   way back out of kiosk mode — nothing a member can trigger by accident.
+- 📋 **Your real routine, not a placeholder.** The kiosk resolves today's actual assigned routine
+  or program day — the same resolver Home and the phone logger already use — and builds the
+  session with the same progression, superset and set-building logic as a normal workout,
+  instead of a second, poorer approximation.
+- ✅ **Finishing at the kiosk now matches finishing on the phone.** PRs, estimated-1RM records and
+  tracked working weights (`exWeights`) are computed server-side from the exact same logic the
+  phone uses, so a workout logged at the Bunker reads identically in your history to one logged
+  on your own screen.
+- 📲 **Transfer an in-progress phone workout to the Bunker.** Started a session on your phone,
+  then walked over to the gym floor? "Transferir al Bunker" hands off that exact same session —
+  same sets, same progress — for you to check in and continue. A genuinely different session
+  already running for you at the kiosk gets an explicit conflict prompt, never a silent
+  overwrite.
+- 🔀 **Change exercise mid-session, right from the kiosk** — searches the real gym catalogue and
+  keeps every set already logged, including ones marked done, attributed to the new exercise,
+  exactly like swapping an exercise on your phone.
+- 🧰 **A fixed toolbar anyone training can use, checked in or not** — Entrenamiento, Biblioteca,
+  Discos, RM, Temporizador, Calentamiento, always on screen. Nothing outside "Entrenamiento"
+  reads or remembers who's using it: the plate calculator and 1RM estimator are the exact ones
+  the rest of the app already has, the library is the real gym-wide catalogue, and the timer is
+  its own — separate from anyone's personal rest timer — and keeps running while you browse
+  another tab.
+- ❓ **No routine scheduled for today?** The kiosk now asks what you want to train instead of
+  dead-ending on "no routine assigned": any routine already in your profile, or a freestyle
+  session where you add exercises as you go and log sets normally. The choice only shapes
+  today's session — your actual weekly schedule is never touched.
 - QR check-in (a phone-to-kiosk handoff) is deliberately deferred — noted as a follow-up, not a
   cut corner.
 
