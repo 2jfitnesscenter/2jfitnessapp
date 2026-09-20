@@ -2237,6 +2237,12 @@ function doFinishWorkout() {
     s.badges = res.badges
     newBadges = res.newlyUnlocked
   })
+  // The `update()` above only ever clears S.active on THIS device — PUT /api/data's own
+  // preservation of the server's existing `active` (deliberate, for Bunker) means a normal sync
+  // alone hands a "finished" session right back on the next pull. This is the same authorized
+  // clear the Discard button uses (see useStore.js's own comment); a finish needs it too, not
+  // just a discard.
+  useStore.getState().clearActiveOnServer(A.id)
   // No-ops server-side if Strava isn't connected — never surface a failure into this flow.
   sendWorkoutToStrava(w).catch(() => {})
   useUI.getState().stopRest()

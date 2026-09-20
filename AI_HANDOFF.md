@@ -26,15 +26,22 @@ handoff se realizó junto con el resto en el despliegue de hoy.
 (ya no 404); `GET /api/config` incluye `"unavailableEquipment":[]`.
 
 ## Objetivo/tarea actual
-Cierre de V2 completado (despliegue + smoke test de infraestructura). Pendiente de que
-el usuario haga el smoke test autenticado (login/passkey, Admin, panel entrenador, Bunker,
-entrenamiento, IA auxiliar UI) — Claude no tiene passkey de producción y no puede iniciar
-sesión por sí mismo. V3 (notas de programación, versionado, últimas sesiones, resumen de
-rutina, OpenAI REST) fue solicitada en el mismo mensaje pero NO se ha empezado — es un
-alcance grande, pendiente de arrancar en la próxima sesión de trabajo.
+**Bug de producción prioritario corregido localmente, sin commitear ni desplegar
+todavía** (ver sección propia más abajo) — el usuario pidió tratarlo antes de V3 y pidió
+explícitamente ver el resultado antes de desplegar por tocar código adyacente a Bunker.
+Aparte de eso: cierre de V2 completado (despliegue + smoke test de infraestructura).
+Pendiente de que el usuario haga el smoke test autenticado (login/passkey, Admin, panel
+entrenador, Bunker, entrenamiento, IA auxiliar UI) — Claude no tiene passkey de producción.
+V3 (notas de programación, versionado, últimas sesiones, resumen de rutina, OpenAI REST
+— ahora explícitamente API REST directa, NO Codex CLI, ver la propia sección) fue pedida
+pero NO se ha empezado.
 
 ## Estado actual
-- Working tree limpio, rama al día con origin (0 commits de diferencia tras el push).
+- **Working tree con cambios SIN COMMITEAR** (el fix del active atascado — ver más abajo).
+  `git status`: `api/bunker/routes.js`, `frontend/src/sheets.jsx`,
+  `frontend/src/store/useStore.js`, `frontend/src/views/Workout.jsx` modificados;
+  `api/test/active-discard.test.js` nuevo, sin seguimiento.
+- Rama al día con origin en lo ya commiteado (0 commits de diferencia).
 - **Producción desplegada y sana**: `docker compose ps` → api/web/caddy `Up`, `media` en
   `Exited (0)` (normal, es un init container que solo descarga imágenes si faltan — logs
   confirman "ya presentes, se omite descarga"). `curl .../api/health` externo → `{"ok":true,"users":13}`.
@@ -192,9 +199,90 @@ Frontend:
 3. Crear el PR (`gh pr create` o vía navegador autenticado) — comando ya preparado en el
    historial de la sesión.
 4. Empezar V3 (notas de programación + versionado + últimas sesiones + resumen de rutina +
-   investigación OpenAI REST) en una sesión propia, inspeccionando primero el modelo real
-   de `routines`/`programs`/`entries` antes de tocar nada — alcance grande, no intentarlo
+   OpenAI REST) en una sesión propia, inspeccionando primero el modelo real de
+   `routines`/`programs`/`entries` antes de tocar nada — alcance grande, no intentarlo
    de pasada.
+
+## BUG: sesión activa atascada ("Espalda & Bíceps...") — CORREGIDO LOCALMENTE, SIN DESPLEGAR
+
+**Síntoma real reportado**: una sesión de entrenamiento activa reaparecía siempre al
+volver a Entrenar, aunque el usuario la cerrara — mostrando un timer enorme (455:09) y
+0 series hechas.
+
+**Causa exacta (caso B de los propuestos)**: `PUT /api/data` (api/server.js) reinyecta
+deliberadamente el `active` que YA tiene el servidor cada vez que es verdadero — protección
+a propósito para que un sync normal del móvil nunca borre una sesión corriendo en el
+Bunker. Pero eso significa que NINGÚN camino normal (ni Descartar ni Finalizar) podía
+jamás limpiar `active` en servidor: ambos solo hacían `s.active = null` local +
+`pushState()` genérico, y el propio PUT deshacía ese `null` reinyectando lo que ya había
+en disco. Confirmado por inspección de código y reproducido en E2E real (ver abajo) —
+**el mismo bug afectaba también a un Finalizar normal**, no solo a Descartar (nunca
+reportado porque en el mismo dispositivo el usuario rara vez vuelve a arrancar la app
+justo después, pero el "fantasma" queda en disco esperando el próximo pull con `active`
+local vacío).
+
+**Qué hacía la X realmente**: ya estaba correctamente etiquetada "Descartar" con
+confirmación (`Workout.jsx`) — no era un problema de UX/semántica, el botón siempre quiso
+decir "descartar", el problema era 100% de persistencia servidor.
+
+**Solución**: nuevo endpoint `POST /api/active/clear` (en `api/bunker/routes.js`, sesión
+de cookie normal, no token de Bunker) — el único camino autorizado para terminar
+`S.active` de verdad:
+- Body `{ id }`: solo limpia si `S.active.id` coincide (protege contra una carrera —
+  nunca borra una sesión distinta que la haya reemplazado).
+- **Protección extra para Bunker**: si `store.getSession(uid)` dice que el socio está
+  fichado en el Bunker AHORA MISMO, devuelve 409 y no toca nada — cubre el caso de un
+  segundo dispositivo con la sesión pre-handoff todavía abierta intentando descartarla
+  (el `id` por sí solo no lo detecta, porque un handoff no cambia el `id`).
+- Idempotente, nunca cruza cuentas (usa `readSession` → solo el propio usuario).
+- Llamado desde `Workout.jsx` (botón Descartar) y `sheets.jsx`'s `doFinishWorkout`, ambos
+  vía la nueva acción `clearActiveOnServer(id)` en `useStore.js`, que primero hace
+  `pushState()` (para no perder lo que se acaba de finalizar) y LUEGO llama al endpoint;
+  si falla (offline), lo reintenta una vez en el siguiente `boot()` (`localStorage`
+  `gym_pending_active_clear`, mismo patrón que `gym_dirty`).
+
+**Timer 455:09**: no es un bug — `Elapsed` calcula `Date.now() - start`, tal cual. Un
+`active` fantasma de horas de antigüedad produce exactamente ese número. Confirmado.
+
+**Tests**: nuevo `api/test/active-discard.test.js`, 10/10 (servidor real spawneado, mismo
+patrón que `data-active-preserve.test.js`) — cubre discard normal, idempotencia, id
+distinto no borra la sesión correcta, Finalizar sigue limpiando, PUT normal sigue
+preservando un active ajeno (regresión), handoff a Bunker sigue funcionando, aislamiento
+entre usuarios, **rechazo mientras la sesión está viva en el Bunker (409)**, y que vuelve
+a funcionar en cuanto esa sesión del Bunker termina. Suite completa: backend 133/133,
+frontend 538/538 (sin tests de frontend nuevos — `useStore.js` usa `localStorage`
+directamente y este proyecto no tiene jsdom configurado en vitest, así que no es
+testeable ahí sin un cambio de entorno más amplio; cubierto en su lugar por E2E real).
+
+**E2E real** (backend de scratch, estado escrito directamente en disco para simular un
+usuario real con sesión ya persistida — no un usuario nuevo, que esconde el bug por tener
+`readState()===null` la primera vez): reproducido el síntoma exacto ("Espalda & Bíceps -
+Enfoque Principal", "455:1X · 0/1 series") tras un boot limpio; Descartar → boot limpio →
+ya NO reaparece (`Empezar entrenamiento`); Finalizar → guarda el workout con récord
+detectado → boot limpio → tampoco reaparece. Ambos verificados con `active:null` explícito
+en el servidor entre medias.
+
+**Estado**: corregido, testeado, verificado E2E — **NO commiteado, NO desplegado**. Toca
+código adyacente a Bunker (nuevo endpoint en `api/bunker/routes.js`), así que sigue la
+instrucción explícita del usuario de reportar el resultado antes de desplegar. Esperando
+confirmación para commitear + desplegar.
+
+**Archivos modificados**: `api/bunker/routes.js` (nuevo endpoint), `frontend/src/store/useStore.js`
+(`clearActiveOnServer`, retry en `boot()`), `frontend/src/views/Workout.jsx` (botón
+Descartar), `frontend/src/sheets.jsx` (`doFinishWorkout`), `api/test/active-discard.test.js` (nuevo).
+
+## OpenAI REST para el Entrenador IA de socios — pendiente para V3
+
+El usuario ya probó Codex CLI en producción y confirmó que falla
+(`Permission denied (os error 13)` al inicializar `app-server` — problema de permisos del
+contenedor, **no intentar arreglarlo subiendo privilegios**). Instrucción explícita para
+cuando se aborde V3: sustituir el mecanismo `user_trainer` completo por integración REST
+directa (`2J frontend → backend 2J → OpenAI API`), NUNCA Codex CLI/device-code/app-server/
+subprocess. Requisitos: API key desde Administración, cifrada en backend, nunca vuelve al
+frontend, test de conexión, modelo configurable, errores de OpenAI distinguibles de una
+sesión 2J caducada. No tocar Claude staff ni Gemini `auxiliary_ai`. Esto reemplaza (no
+amplía) lo que se había anotado antes sobre "investigar OpenAI REST" — ahora es un
+requisito concreto a implementar en V3, no solo investigar.
 
 ---
 

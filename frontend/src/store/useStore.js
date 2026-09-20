@@ -7,6 +7,10 @@ import { MOBILE, nativeLoad, nativeSave, syncReminder, syncBioimpedanceReminder 
 import { daysSinceBioimpedance } from '../lib/measurements.js'
 
 const KEY = 'gym_state_v1'
+// A discard/finish that couldn't reach POST /api/active/clear (offline, a dropped request)
+// retries once at the next boot — same "don't lose the intent, just the timing" idea as
+// gym_dirty below, its own small key so the two never fight over one flag's meaning.
+const PENDING_CLEAR_KEY = 'gym_pending_active_clear'
 export const DEF = {
   unit: 'kg', restSec: 90, sound: true, keepAwake: true, warmupEnabled: true, lang: 'es',
   // Settings → Training — see lib/equipment.js for the stepping rules these two drive.
@@ -230,6 +234,32 @@ export const useStore = create((set, get) => {
       } catch (e) { /* offline — keep local */ }
     },
 
+    // The one path allowed to actually END S.active — see server.js's POST /api/active/clear
+    // for why this can't just be part of the normal push (that route unconditionally re-injects
+    // whatever `active` the server already has, exactly so a Bunker/handoff session survives an
+    // unrelated phone sync; there has to be a separate, deliberate call for "no, really, end
+    // this one"). Called by Workout.jsx's Discard button and sheets.jsx's doFinishWorkout right
+    // after their own local `s.active = null` mutation — never on its own.
+    //
+    // Flushes the pending local mutation first (the new workout on a finish, or just whatever
+    // was already queued) so it lands before the clear, then asks the server to drop `active` —
+    // scoped to `id` so a stale retry can never wipe a DIFFERENT session that replaced this one
+    // in the meantime (e.g. handed off to the Bunker). A failure (offline) is remembered and
+    // retried once at the next boot, same as gym_dirty does for a missed push, rather than
+    // silently letting the old session come back the next time this device pulls state.
+    async clearActiveOnServer(id) {
+      await get().pushState()
+      try {
+        await api('/api/active/clear', { method: 'POST', body: JSON.stringify({ id: id || null }) })
+        localStorage.removeItem(PENDING_CLEAR_KEY)
+        // Covers the retry path: pullState may have just re-hydrated the very session this call
+        // is ending, before the retry had a chance to run.
+        if (get().S.active && (!id || get().S.active.id === id)) get().update(s => { s.active = null }, false)
+      } catch (e) {
+        localStorage.setItem(PENDING_CLEAR_KEY, id || '__any__')
+      }
+    },
+
     async signOut() {
       try { await get().pushState(); await api('/api/logout', { method: 'POST', body: '{}' }) } catch (e) { /* */ }
       clearLocalSession()
@@ -293,6 +323,13 @@ export const useStore = create((set, get) => {
         const me = await api('/api/me')
         get().setUser(me.user)
         await get().pullState()
+        // A discard/finish whose POST /api/active/clear never reached the server last time
+        // (offline, a dropped request) gets one more try now — see clearActiveOnServer's own
+        // comment. '__any__' means the id wasn't recorded (an older client build); clearing
+        // unconditionally is still correct since the whole point of the flag is "the user
+        // already asked for this," never a guess.
+        const pendingClear = localStorage.getItem(PENDING_CLEAR_KEY)
+        if (pendingClear) get().clearActiveOnServer(pendingClear === '__any__' ? null : pendingClear)
         // Re-stamp the reminder's timezone on every load — keeps it correct if you're travelling,
         // without needing to revisit Settings.
         const tz = localTZ()

@@ -527,7 +527,15 @@ function ActiveWorkout() {
 
   return <div className="narrow">
     <div className="hdr">
-      <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => { update(s => { s.active = null }); stopRest(); nav('/home') } })}><Icon name="xmark" /></button>
+      <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => {
+        const id = A.id
+        update(s => { s.active = null })
+        stopRest(); nav('/home')
+        // The local mutation above only ever clears this device's own view — without this,
+        // the server's own preservation of S.active (PUT /api/data, by design, for Bunker) just
+        // hands the same session right back on the next pull. See useStore.js's own comment.
+        useStore.getState().clearActiveOnServer(id)
+      } })}><Icon name="xmark" /></button>
       <div style={{ textAlign: 'center' }}><div style={{ fontWeight: 600 }}>{A.name}</div><div className="sub">{A.past ? fmtDate(A.d, true) : <Elapsed start={A.start} />} · {t('{0} sets', done + '/' + total)}</div></div>
       <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t(A.past ? 'Save' : 'Finish')} onClick={finishWorkout}><Icon name="check" /></button>
     </div>

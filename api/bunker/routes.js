@@ -134,6 +134,42 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       writeState(me.id, S);
       json(res, 200, { ok: true });
     },
+
+    // The one authorized way for the phone/web app to actually END its own S.active — a normal
+    // Discard or a normal Finish (frontend/src/views/Workout.jsx, sheets.jsx's doFinishWorkout)
+    // call this right after their own local `s.active = null`, instead of trusting PUT
+    // /api/data's generic sync to carry that null through: that PUT unconditionally re-injects
+    // whatever `active` the server already has (server.js's own comment there explains why —
+    // it's what protects a Bunker/handoff session from an unrelated phone sync), so it can never
+    // be how a client legitimately ends one. This is that missing "an operation authorized to do
+    // it" — same direct writeState() a finish/handoff already uses, just for the opposite intent
+    // and reachable from a normal cookie session rather than a bunker token.
+    //
+    // body: { id? } — only clears if it still matches S.active.id, so a stale call (the phone
+    // finishing/discarding a session that has since been replaced — handed off, or a kiosk
+    // started a new one) can never silently wipe whatever is there now; same idempotent-by-id
+    // guard the handoff endpoint above already uses, just in the other direction. Also refuses
+    // outright while the Bunker's own live board shows this member actually checked in right
+    // now (store.getSession) — a handoff alone doesn't change `active.id`, so the id check on
+    // its own can't tell "still only on my phone" from "now running at the kiosk"; this is the
+    // second, independent check that does. A member training normally (never touched the
+    // Bunker) always has no live kiosk session, so this never affects the common case.
+    'POST /api/active/clear': async (req, res) => {
+      const me = readSession(req);
+      if (!me) return json(res, 401, { error: 'no has iniciado sesión' });
+      const body = await readBody(req);
+      const id = body.id ? String(body.id) : null;
+      if (store.getSession(me.id)) {
+        return json(res, 409, { error: 'esta sesión se está ejecutando en el Bunker ahora mismo' });
+      }
+      const S = readState(me.id);
+      if (S && S.active && (!id || S.active.id === id)) {
+        S.active = null;
+        writeState(me.id, S);
+      }
+      json(res, 200, { ok: true });
+    },
+
     // A trainer/admin's own fixed kiosk-unlock code — generated once, never reset (see
     // store.js's own comment on why).
     'GET /api/bunker/admin-code': async (req, res) => {
