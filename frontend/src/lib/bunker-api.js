@@ -20,6 +20,12 @@ export const fetchBunkerPin = () => api('/api/bunker/pin').then(r => r.pin)
 export const resetBunkerPin = () => api('/api/bunker/pin/reset', { method: 'POST', body: '{}' }).then(r => r.pin)
 export const fetchBunkerAdminCode = () => api('/api/bunker/admin-code').then(r => r.code)
 export const fetchBunkerLaunchLink = () => api('/api/bunker/launch-link').then(r => r.key)
+// One-shot handoff of the phone's own S.active onto the server, for the kiosk to pick up — see
+// api/bunker/routes.js's own doc comment on the endpoint. A 409 (someone else's session already
+// in progress) throws with e.status===409 and e.data.existing carrying that session, so the
+// caller can ask "discard it?" before retrying with force:true.
+export const handoffToBunker = (active, force) =>
+  api('/api/bunker/handoff', { method: 'POST', body: JSON.stringify({ active, force: !!force }) })
 
 /* ---------- the shared kiosk screen (no cookie session) ---------- */
 export const fetchBunkerBoard = () => fetch('/api/bunker/board').then(okJson).then(r => r.sessions)

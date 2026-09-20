@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { t, nameFor } from '../lib/i18n.js'
 import { fmtNum, todayISO, uid } from '../lib/format.js'
-import { workoutVolume, effectiveRoutine, modeOf } from '../lib/history.js'
+import { workoutVolume, effectiveRoutine, modeOf, swapEntryExercise } from '../lib/history.js'
 import { buildRoutineEntries } from '../lib/progression.js'
 import { EXIDX } from '../lib/exercises.js'
+import { ExerciseSearchList, BunkerToolsTrigger, BunkerToolsOverlay, DEFAULT_TIMER_STATE } from './BunkerTools.jsx'
 import { musclesOf, MUSCLE_GROUPS } from '../lib/muscles.js'
 import { landmarksFor, weeklyGroupVolume, primaryGroupOf } from '../lib/rp-volume.js'
 import RpVolumeBar from '../components/RpVolumeBar.jsx'
@@ -76,7 +77,7 @@ function CardRest({ s, settings }) {
     {pulsing && <i className="bk-card-pulse" />}
   </>
 }
-function BunkerDashboard({ board, settings, paired, onCheckin, onAdmin, onExitTap }) {
+function BunkerDashboard({ board, settings, paired, onCheckin, onAdmin, onExitTap, onOpenTools }) {
   const gridStyle = settings.columns === 'auto'
     ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16, flex: 1, alignContent: 'start' }
     : { '--cols': settings.columns || 4 }
@@ -84,6 +85,7 @@ function BunkerDashboard({ board, settings, paired, onCheckin, onAdmin, onExitTa
     <div className="bk-hd">
       <div className="bk-hd-title" onClick={onExitTap}>{settings.header || '2J Fitness Center'}</div>
       {paired && <span className="bk-paired-badge">{paired.label}</span>}
+      <BunkerToolsTrigger onClick={onOpenTools} />
       <button className="bk-admin-btn" aria-label={t('Room admin')} onClick={onAdmin}><Icon name="gear" /></button>
     </div>
     {board.length === 0 ? (
@@ -169,11 +171,12 @@ function exName(exId, customEx) {
   return ex ? nameFor(ex) : exId
 }
 
-function BunkerTrainingPanel({ token, name, settings, onExit }) {
+function BunkerTrainingPanel({ token, name, settings, onExit, onOpenTools }) {
   const [plan, setPlan] = useState(null)
   const [active, setActive] = useState(null)
   const [exIdx, setExIdx] = useState(0)
   const [restEndsAt, setRestEndsAt] = useState(null)
+  const [showSwap, setShowSwap] = useState(false)
   const idleRef = useRef(null)
   const minimizeRef = useRef(null)
   const idleMs = (settings?.autoLockSec || 60) * 1000
@@ -239,6 +242,18 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
       minimizeRef.current = setTimeout(onExit, AFTER_SET_MINIMIZE_MS)
     }
   }
+  // Same semantics as Workout.jsx's own replaceExercise (issue tracked in lib/history.js's
+  // swapEntryExercise doc comment): only the id changes. Whatever was already there for this
+  // slot — target, plan, sets, including any already marked done — carries over untouched, so a
+  // set logged before the swap stays exactly as logged, now just attributed to the new exercise.
+  // Bunker has no routine to offer "keep this swap?" against (there's nothing to write it back
+  // into — S.routines/dayPlan are never touched), so unlike the phone this never prompts.
+  const doSwap = newEx => {
+    touch()
+    sync({ ...active, entries: swapEntryExercise(active.entries, exIdx, newEx.id) })
+    setShowSwap(false)
+  }
+
   const finish = () => {
     const w = {
       id: active.id, d: active.d, start: active.start, end: Date.now(), routineId: active.routineId, name: active.name, bw: active.bw,
@@ -279,6 +294,7 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
       <button className="bk-minimize" onClick={onExit}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
       <div className="bk-panel-name">{name}</div>
       {restEndsAt && <RestRing endsAt={restEndsAt} size={52} />}
+      <BunkerToolsTrigger onClick={onOpenTools} />
     </div>
     <div className="bk-routine-name">{active.name}</div>
     <div className="bk-exlist">
@@ -291,7 +307,12 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
       })}
     </div>
     {entry && <div className="bk-sets">
-      <div className="bk-exname">{exName(entry.id, plan.customEx)}</div>
+      <div className="bk-exname-row">
+        <div className="bk-exname">{exName(entry.id, plan.customEx)}</div>
+        <button className="bk-exchange-btn" onClick={() => { touch(); setShowSwap(true) }}>
+          <Icon name="shuffle" />{t('Change exercise')}
+        </button>
+      </div>
       {/* Same plan.why the phone logger's own .progline shows (lib/progression.js's
           nextPrescription) — what the routine planned for this exercise and why, kept visibly
           separate from the editable set rows below (what is actually being done). */}
@@ -333,6 +354,13 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
       })}
     </div>}
     <button className="bk-finish" onClick={finish}>{t('Finish workout & exit')}</button>
+    {showSwap && <div className="bk-overlay">
+      <div className="bk-pad bk-tools-pad">
+        <button className="bk-close" onClick={() => setShowSwap(false)} aria-label={t('Close')}><Icon name="xmark" /></button>
+        <div className="bk-pad-title">{t('Change exercise')}</div>
+        <ExerciseSearchList excludeId={entry?.id} onPick={doSwap} />
+      </div>
+    </div>}
   </div>
 }
 
@@ -420,6 +448,12 @@ export default function Bunker() {
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [showExitLock, setShowExitLock] = useState(false)
   const [adminToken, setAdminToken] = useState(null)
+  // Generic tools (V3.2) — 'hub' | 'library' | 'plates' | 'rm' | 'timer' | 'warmup' | null.
+  // Root-level on purpose: neither this nor the timer's own running state should reset just
+  // because the dashboard/training-panel branch underneath re-renders or the member switches
+  // which tool they're looking at.
+  const [tool, setTool] = useState(null)
+  const [timer, setTimer] = useState(DEFAULT_TIMER_STATE)
   const tapsRef = useRef([])
   const paired = (() => { try { return JSON.parse(localStorage.getItem(PAIR_KEY) || 'null') } catch { return null } })()
 
@@ -441,14 +475,20 @@ export default function Bunker() {
     if (tapsRef.current.length >= 3) { tapsRef.current = []; setShowExitLock(true) }
   }
 
-  if (adminToken) return <div className="bunker"><BunkerAdminOverlay adminToken={adminToken} onClose={() => setAdminToken(null)} /></div>
-  if (session) return <div className="bunker"><BunkerTrainingPanel token={session.token} name={session.name} settings={settings} onExit={() => setSession(null)} /></div>
+  const toolsOverlay = <BunkerToolsOverlay tool={tool} onSelect={setTool} onClose={() => setTool(null)} timer={timer} setTimer={setTimer} />
+
+  if (adminToken) return <div className="bunker"><BunkerAdminOverlay adminToken={adminToken} onClose={() => setAdminToken(null)} />{toolsOverlay}</div>
+  if (session) return <div className="bunker">
+    <BunkerTrainingPanel token={session.token} name={session.name} settings={settings} onExit={() => setSession(null)} onOpenTools={() => setTool('hub')} />
+    {toolsOverlay}
+  </div>
 
   return <div className="bunker">
     <BunkerDashboard board={board} settings={settings} paired={paired}
-      onCheckin={() => setShowCheckin(true)} onAdmin={() => setShowAdminLogin(true)} onExitTap={onExitTap} />
+      onCheckin={() => setShowCheckin(true)} onAdmin={() => setShowAdminLogin(true)} onExitTap={onExitTap} onOpenTools={() => setTool('hub')} />
     {showCheckin && <BunkerCheckinPad onClose={() => setShowCheckin(false)} onSuccess={s => { setSession(s); setShowCheckin(false) }} />}
     {showAdminLogin && <BunkerAdminLogin onClose={() => setShowAdminLogin(false)} onSuccess={tok => { setAdminToken(tok); setShowAdminLogin(false) }} />}
     {showExitLock && <BunkerAdminLogin onClose={() => setShowExitLock(false)} onSuccess={() => nav('/home')} />}
+    {toolsOverlay}
   </div>
 }

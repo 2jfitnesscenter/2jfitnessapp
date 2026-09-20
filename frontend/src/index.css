@@ -1770,6 +1770,102 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   .bk-bigstp button{width:44px;height:48px;font-size:22px}
 }
 
+/* ---------- exercise swap (Bunker.jsx) ---------- */
+.bk-exname-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
+.bk-exname-row .bk-exname{margin-bottom:0}
+.bk-exchange-btn{
+  flex:none;display:flex;align-items:center;gap:6px;background:#1a1a1e;color:#9a9a9e;
+  border-radius:99px;padding:8px 14px;font-size:13px;font-weight:600;
+}
+.bk-exchange-btn:active{background:#232327}
+
+/* ---------- generic tools bar (BunkerTools.jsx) — same dark obsidian/emerald language as the
+   rest of the Bunker, in the wider .bk-tools-pad variant of the existing .bk-pad overlay card
+   (these tools show real lists/tables, not the narrow PIN pad .bk-pad was built for). ---------- */
+.bk-tools-pad{width:min(94vw,560px);max-height:min(88vh,780px);text-align:left;display:flex;flex-direction:column;overflow:hidden}
+.bk-tools-pad .bk-pad-title{text-align:center;flex:none}
+.bk-tools-hub{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.bk-tools-hub-btn{
+  display:flex;flex-direction:column;align-items:center;gap:10px;background:#1a1a1e;color:#e8e8ec;
+  border-radius:16px;padding:22px 8px;font-size:14px;font-weight:600;
+}
+.bk-tools-hub-btn:active{background:#232327}
+.bk-tools-hub-btn svg{width:26px;height:26px}
+.bk-tool-back{
+  align-self:flex-start;display:flex;align-items:center;gap:4px;color:#8a8a8e;font-size:14px;
+  font-weight:600;padding:6px 0;margin-bottom:4px;flex:none;
+}
+.bk-tool-back-hub{position:absolute;top:18px;left:18px}
+.bk-tool-search{
+  width:100%;background:#1e1e22;border-radius:12px;padding:13px 16px;font-size:16px;color:#f2f2f2;
+  margin-bottom:12px;flex:none;
+}
+.bk-tool-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;flex:none}
+.bk-tool-chips-scroll{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+.bk-tool-chip{
+  flex:none;background:#1e1e22;color:#c8c8cc;border-radius:99px;padding:8px 14px;font-size:13px;
+  font-weight:600;white-space:nowrap;
+}
+.bk-tool-chip.on{background:#73b52e;color:#04140b}
+.bk-tool-list{display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1;min-height:0}
+.bk-tool-exrow{
+  display:flex;align-items:center;gap:12px;background:#141417;border-radius:12px;padding:10px 12px;
+  text-align:left;
+}
+.bk-tool-exrow:active{background:#1e1e22}
+.bk-tool-exname{flex:1;font-size:15px;font-weight:600}
+.bk-tool-exmeta{color:#6a6a6e;font-size:12px}
+.bk-tool-empty{color:#6a6a6e;font-size:15px;text-align:center;padding:24px 0}
+.bk-tool-exdetail-title{font-size:20px;font-weight:700;margin:0 0 12px;text-align:center}
+.bk-tool-media{width:100%;border-radius:14px;background:#fff;margin-bottom:12px;display:block}
+.bk-tool-tag{
+  background:#1e1e22;color:#9a9a9e;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;
+}
+.bk-tool-subhead{font-size:14px;font-weight:700;color:#8a8a8e;text-transform:uppercase;letter-spacing:.03em;margin:16px 0 8px}
+.bk-tool-steps{padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:15px;color:#e0e0e4;overflow-y:auto}
+.bk-tool-row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.bk-tool-field{display:flex;flex-direction:column;gap:8px}
+.bk-tool-label{font-size:13px;color:#8a8a8e;font-weight:600}
+.bk-tool-persidelabel{text-align:center;font-size:13px;font-weight:700;color:#8a8a8e;letter-spacing:.06em;margin:16px 0 10px}
+.bk-tool-discs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.bk-tool-disc{
+  display:flex;align-items:center;gap:8px;background:#1e1e22;border-radius:99px;padding:8px 14px;
+  font-size:14px;font-weight:600;
+}
+.bk-tool-disc-dot{width:16px;height:16px;border-radius:50%;flex:none}
+.bk-tool-warn{color:#ffd60a;font-size:13px;text-align:center;margin-top:14px}
+.bk-tool-rmresult{
+  text-align:center;font-size:44px;font-weight:800;color:#73b52e;display:flex;align-items:baseline;
+  justify-content:center;gap:6px;margin:8px 0 6px;
+}
+.bk-tool-rmresult i{font-style:normal;font-size:16px;color:#8a8a8e;font-weight:600}
+.bk-tool-caption{color:#6a6a6e;font-size:13px;text-align:center;margin-bottom:18px}
+.bk-tool-pcttable{display:flex;flex-direction:column;gap:6px}
+.bk-tool-pctrow{
+  display:flex;align-items:center;justify-content:space-between;background:#141417;border-radius:10px;
+  padding:9px 14px;font-size:14px;font-variant-numeric:tabular-nums;
+}
+.bk-tool-pctrow span:first-child{color:#8a8a8e;font-weight:600}
+.bk-tool-timerdisplay{
+  text-align:center;font-size:56px;font-weight:800;font-variant-numeric:tabular-nums;margin:6px 0 18px;
+}
+.bk-tool-timerbtns{display:flex;gap:10px;margin-top:16px}
+.bk-tool-timerbtns .bk-join{margin-top:0;flex:1;padding:14px;font-size:16px}
+.bk-tool-timerbtns .bk-key{flex:none}
+.bk-tool-warmlist{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.bk-tool-warmrow{
+  display:flex;align-items:center;gap:10px;background:#141417;border-radius:12px;padding:12px 14px;
+  font-size:14px;
+}
+.bk-tool-warmwork{box-shadow:inset 0 0 0 2px #73b52e}
+.bk-tool-warmpct{flex:none;width:44px;color:#8a8a8e;font-weight:700;font-size:13px}
+.bk-tool-warmw{flex:none;width:110px;font-weight:700;font-variant-numeric:tabular-nums}
+.bk-tool-warmplates{flex:1;color:#9a9a9e;text-align:right;font-size:13px}
+@media (max-width:520px){
+  .bk-tools-hub{grid-template-columns:repeat(2,1fr)}
+  .bk-tool-row2{grid-template-columns:1fr}
+}
+
 /* ============================================================================
    /admin/bunker — the Bunker's own full admin panel (views/BunkerAdminPage.jsx).
    Its own fixed, always-dark identity per the owner's own brief: matte obsidian

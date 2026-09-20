@@ -254,7 +254,7 @@ const roundToPlate = (w, unit) => {
 // no working weight yet has nothing to compute a ramp from, but the setting still means "show
 // me warmup rows" — so they still appear, blank at 0, exactly like a fresh working set does
 // when nothing is known yet (the profile fills them in the first time they actually do it).
-function warmupSets(workingWeight, unit) {
+export function warmupSets(workingWeight, unit) {
   if (!(workingWeight > 0)) return [
     { w: 0, r: 8, done: false, type: 'warmup' },
     { w: 0, r: 5, done: false, type: 'warmup' },
@@ -263,6 +263,15 @@ function warmupSets(workingWeight, unit) {
     { w: roundToPlate(workingWeight * 0.5, unit), r: 8, done: false, type: 'warmup' },
     { w: roundToPlate(workingWeight * 0.75, unit), r: 5, done: false, type: 'warmup' },
   ]
+}
+// Swaps which exercise one live entry's sets apply to — same semantics as Workout.jsx's own
+// replaceExercise (sheets.jsx's alternativesSheet flow): only the id changes. `target`, `plan`
+// and every set already there — including any already marked done — carry over completely
+// untouched, exactly as the phone does it. Exported (Workout.jsx keeps its own inline version,
+// tied to the store's update()) so the Bunker kiosk, which manages `active` as plain component
+// state rather than through useStore, can reuse the identical rule instead of a second one.
+export function swapEntryExercise(entries, idx, newId) {
+  return entries.map((e, i) => i !== idx ? e : { ...e, id: newId })
 }
 export function workoutVolume(w) {
   let v = 0

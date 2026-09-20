@@ -724,7 +724,17 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'se requiere el estado' });
-    delete body.state.active;              // in-progress workouts stay device-local
+    delete body.state.active;              // the client never has authority over this field
+    // A normal push still never lets the client SET `active` — but until now it also wiped
+    // whatever the server already had there, because this write replaces the whole state file.
+    // That silently erased a session the Bunker (or a V3.1-B handoff) had put there, the moment
+    // the phone synced anything else at all (E2E finding, Bunker V3.1-B). Carry the server's own
+    // current value forward instead of discarding it — not a merge of the rest of the state,
+    // just this one field surviving its own deletion. A finished session already wrote `active:
+    // null` (not absent) via POST /api/bunker/finish, and `null` is falsy, so this never
+    // resurrects one that has already ended.
+    const current = readState(user.id);
+    if (current && current.active) body.state.active = current.active;
     writeState(user.id, body.state);
     json(res, 200, { ok: true, ts: body.state._ts || null });
   },

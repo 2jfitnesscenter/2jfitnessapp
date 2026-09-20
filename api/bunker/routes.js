@@ -103,6 +103,37 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       if (!me) return json(res, 401, { error: 'no has iniciado sesión' });
       json(res, 200, { pin: store.resetPin(me.id) });
     },
+
+    // body: { active, force? } — explicit, one-shot handoff of the phone's OWN in-progress
+    // session onto the server, so the member can pick it up at the kiosk. Deliberately NOT part
+    // of PUT /api/data's continuous sync (which still strips `active` exactly as before) — this
+    // fires once, on a deliberate tap, same trust level as the rest of this section (the
+    // member's own cookie session, never a bunker token: at the moment of asking for this, they
+    // are still on their phone, not at the kiosk yet).
+    //
+    // Idempotent by active.id: re-sending the same session (a retry, a double tap) just
+    // overwrites with the latest copy — safe, since S.active is a single field, never an array
+    // nothing here ever appends to. A genuinely DIFFERENT session already on the server (e.g.
+    // one already started at the kiosk, or a previous handoff never finished) is never silently
+    // replaced — the caller gets a 409 with that existing session, and must retry with
+    // `force: true` once the member has actually chosen to discard it.
+    'POST /api/bunker/handoff': async (req, res) => {
+      const me = readSession(req);
+      if (!me) return json(res, 401, { error: 'no has iniciado sesión' });
+      const body = await readBody(req);
+      const active = body.active;
+      if (!active || typeof active !== 'object' || !active.id || !active.d || !Array.isArray(active.entries)) {
+        return json(res, 400, { error: 'sesión activa no válida' });
+      }
+      const S = readState(me.id) || {};
+      const existing = S.active;
+      if (existing && existing.id !== active.id && !body.force) {
+        return json(res, 409, { error: `Ya tienes otra sesión en curso en el Bunker: "${existing.name || 'Entreno'}"`, existing });
+      }
+      S.active = active;
+      writeState(me.id, S);
+      json(res, 200, { ok: true });
+    },
     // A trainer/admin's own fixed kiosk-unlock code — generated once, never reset (see
     // store.js's own comment on why).
     'GET /api/bunker/admin-code': async (req, res) => {
