@@ -8,7 +8,7 @@ import { t, nameFor } from '../../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../../lib/history.js'
 import { supersetGroupInfo, supersetLabel } from '../../lib/superset-colors.js'
 import { Thumb } from '../../components/Media.jsx'
-import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, ExercisePicker } from '../../sheets.jsx'
+import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, routineVersionsSheet, ExercisePicker } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
 import { Button, SelectRow } from '../../components/ui.jsx'
@@ -165,6 +165,9 @@ export default function TrainerRoutineBuilder() {
     </div>
 
     <div style={{ height: 14 }} />
-    <Button variant="primary" disabled={busy} onClick={save} icon="check">{t('Save')}</Button>
+    <div className="row" style={{ gap: 8 }}>
+      {r.id && <Button icon="clock" onClick={() => routineVersionsSheet(memberId, r.id)}>{t('Version history')}</Button>}
+      <Button variant="primary" disabled={busy} onClick={save} icon="check">{t('Save')}</Button>
+    </div>
   </div>
 }

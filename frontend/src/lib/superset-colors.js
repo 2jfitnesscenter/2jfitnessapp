@@ -13,6 +13,7 @@
 // error/danger; yellow is PR/record. Reusing any of those for a superset group would make that
 // group's color lie about what it means.
 import { supersetUnits } from './history.js'
+import { isUnavailable } from './exercises.js'
 
 export const SUPERSET_COLOR_TOKENS = ['purple', 'teal', 'pink', 'indigo', 'mint', 'blue', 'brown']
 export const SUPERSET_GROUP_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -52,3 +53,14 @@ export function supersetGroupInfo(ex) {
 
 // "A1", "B2"… — the plain-text identifier next to a superset exercise's name.
 export const supersetLabel = info => (info ? `${info.letter}${info.pos}` : '')
+
+// V3 — quick stats for a library/trainer-panel list row that wants to hint at a routine's
+// content without fully opening it: exercise count, distinct superset-group count, and how many
+// of its exercises are currently blocked by equipment availability (V2). Never mutates or
+// resolves the routine itself — read-only, safe to call on every render of a list row.
+export function routineSummaryOf(ex) {
+  const list = ex || []
+  const groups = new Set(supersetGroupInfo(list).filter(Boolean).map(info => info.letter))
+  const unavailable = list.filter(cfg => isUnavailable(cfg.id)).length
+  return { exCount: list.length, superGroups: groups.size, unavailable }
+}

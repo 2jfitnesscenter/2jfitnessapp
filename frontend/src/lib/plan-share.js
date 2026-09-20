@@ -219,11 +219,16 @@ function dayTableHTML(num, weekday, r, ssInfo) {
     const badge = info
       ? `<span class="ss-badge" style="background:${SUPERSET_PRINT_COLORS[info.token]}">${esc(supersetLabel(info))}</span>` : ''
     const rpe = plannedRpe(e)
+    // A trainer's cue, if this prescription has one — truncated hard (a print row's height is
+    // fixed by the density tier, never by content, so a 500-char note can't be allowed to wrap)
+    // and skipped entirely rather than fought over when there's truly no room to spare, per the
+    // brief's own "prioritize the table, abbreviate/omit the note" rule.
+    const note = e.note ? `<div class="ex-note">${esc(e.note.length > 70 ? e.note.slice(0, 69) + '…' : e.note)}</div>` : ''
     const boxes = Array.from({ length: e.sets || 1 }, () => '<span class="box"></span>').join('')
     const weekCell = `<td class="week"><div class="boxes">${boxes}</div></td>`
     return `<tr${info ? ` class="ss-row" style="--ss-color:${SUPERSET_PRINT_COLORS[info.token]}"` : ''}>
       <td class="num">${i + 1}</td>
-      <td><div class="ex-name">${badge}${esc(name)}${part}</div></td>
+      <td><div class="ex-name">${badge}${esc(name)}${part}</div>${note}</td>
       <td class="rpe">${rpe != null ? fmtNum(rpe) : ''}</td>
       <td class="target">${esc(scheme(e))}</td>
       ${weekCell}${weekCell}${weekCell}${weekCell}
@@ -366,6 +371,11 @@ function printShell(heading, fileTitle, meta, logoImg, dayBlocks, weekStripHtml,
   table.log td.rpe { color: #1c1d17; text-align: center; }
   .ex-name { font-weight: 500; text-transform: capitalize; line-height: 1.25; overflow-wrap: break-word; }
   .ex-part { display: block; font-size: .82em; letter-spacing: .02em; text-transform: uppercase; color: #5e6263; margin-top: 1px; }
+  /* A trainer's cue for this prescription (routine.ex[i].note) — never text-transformed like the
+     name above it (it's a sentence, not a label), single line so a long note can never grow a
+     row past what the adaptive density tier already sized it for; truncated to begin with
+     (dayTableHTML) as the first line of defence, this is the second. */
+  .ex-note { display: block; font-size: .82em; font-style: italic; color: #6b6455; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .target { color: #5e6263; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   td.week .boxes { display: flex; gap: 2px; }
   .box { flex: 1; min-width: 0; display: block; height: 10px; border-bottom: 1px solid #c7c0a9; }

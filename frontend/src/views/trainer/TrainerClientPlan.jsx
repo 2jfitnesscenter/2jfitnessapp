@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
-import { exCount, routineCount } from '../../lib/format.js'
 import { glyphOf } from '../../lib/glyphs.js'
+import { RoutineSummaryLine, ProgramSummaryLine } from '../../components/PlanSummaryLine.jsx'
 import { fetchMemberPlan, fetchTrainerMembers } from '../../lib/trainer-api.js'
 import { mediaUrl } from '../../lib/media.js'
 import { Button } from '../../components/ui.jsx'
@@ -52,7 +52,7 @@ export default function TrainerClientPlan() {
       {plan.programs.map(p => <div key={p.id} className="item" onClick={() => nav('/trainer/' + memberId + '/p/' + p.id)}>
         {p.image ? <img src={mediaUrl(p.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
           : <span className="lrow-i"><Icon name={glyphOf(p.emoji)} /></span>}
-        <div className="grow"><div className="tt">{p.name}</div><div className="ss">{routineCount((p.routineIds || []).length)}</div></div>
+        <div className="grow"><div className="tt">{p.name}</div><div className="ss"><ProgramSummaryLine p={p} routines={plan.routines || []} /></div></div>
         <Icon name="chevronRight" className="chev" />
       </div>)}
     </div> : <div className="dim small" style={{ margin: '4px 2px 22px' }}>{t('No programs yet.')}</div>}
@@ -62,7 +62,7 @@ export default function TrainerClientPlan() {
       {loose.map(r => <div key={r.id} className="item" onClick={() => nav('/trainer/' + memberId + '/r/' + r.id)}>
         {r.image ? <img src={mediaUrl(r.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
           : <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>}
-        <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount((r.ex || []).length)}</div></div>
+        <div className="grow"><div className="tt">{r.name}</div><div className="ss"><RoutineSummaryLine r={r} /></div></div>
         <Icon name="chevronRight" className="chev" />
       </div>)}
     </div> : <div className="dim small" style={{ margin: '4px 2px' }}>{t('No loose routines.')}</div>}

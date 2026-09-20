@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, repsLabel, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted, feelFor, effortColor, swapEntryExercise } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, repsLabel, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted, feelFor, effortColor, swapEntryExercise, recentEntriesFor, lastEntryFor } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -449,6 +449,73 @@ describe('insertWorkoutSorted', () => {
     const workouts = [{ id: 'a', d: '2026-01-01' }]
     insertWorkoutSorted(workouts, { id: 'b', d: '2026-01-01' })
     expect(workouts).toHaveLength(1)
+  })
+})
+
+// V3 — "last 3 sessions" quick history (Workout.jsx's Details sheet).
+describe('recentEntriesFor / lastEntryFor', () => {
+  const w = (id, d, sets, over = {}) => ({ id, d, entries: [{ id: LIFT, sets, target: { id: LIFT, ...over } }] })
+
+  it('0 sessions: an empty array, and lastEntryFor stays null', () => {
+    const S = { workouts: [] }
+    expect(recentEntriesFor(S, LIFT, 3)).toEqual([])
+    expect(lastEntryFor(S, LIFT)).toBeNull()
+  })
+
+  it('1 session: one entry, most-recent-first shape preserved for lastEntryFor', () => {
+    const S = { workouts: [w('a', '2026-09-01', [{ w: 60, r: 8, done: true }])] }
+    const recent = recentEntriesFor(S, LIFT, 3)
+    expect(recent).toHaveLength(1)
+    expect(recent[0].d).toBe('2026-09-01')
+    expect(lastEntryFor(S, LIFT)).toEqual(recent[0])
+  })
+
+  it('exactly 3 sessions available: returns all 3, most recent first', () => {
+    const S = { workouts: [
+      w('a', '2026-08-29', [{ w: 75, r: 10, done: true }]),
+      w('b', '2026-09-05', [{ w: 77.5, r: 9, done: true }]),
+      w('c', '2026-09-12', [{ w: 80, r: 8, done: true }]),
+    ] }
+    const recent = recentEntriesFor(S, LIFT, 3)
+    expect(recent.map(r => r.d)).toEqual(['2026-09-12', '2026-09-05', '2026-08-29'])
+  })
+
+  it('more than 3 available: limits to 3, ignores anything older', () => {
+    const S = { workouts: ['2026-08-01', '2026-08-15', '2026-09-01', '2026-09-08', '2026-09-15']
+      .map((d, i) => w('w' + i, d, [{ w: 60 + i, r: 8, done: true }])) }
+    const recent = recentEntriesFor(S, LIFT, 3)
+    expect(recent).toHaveLength(3)
+    expect(recent.map(r => r.d)).toEqual(['2026-09-15', '2026-09-08', '2026-09-01'])
+  })
+
+  it('warmup-only sessions do not count as an appearance — workingSets already excludes them', () => {
+    const S = { workouts: [
+      w('a', '2026-09-01', [{ w: 60, r: 8, done: true }]),
+      w('b', '2026-09-08', [{ w: 20, r: 12, done: true, type: 'warmup' }]),
+    ] }
+    const recent = recentEntriesFor(S, LIFT, 3)
+    expect(recent).toHaveLength(1)
+    expect(recent[0].d).toBe('2026-09-01')
+  })
+
+  it('a prescribed-but-never-done set does not count as an appearance', () => {
+    const S = { workouts: [w('a', '2026-09-01', [{ w: 60, r: 8, done: false }])] }
+    expect(recentEntriesFor(S, LIFT, 3)).toEqual([])
+  })
+
+  it('cardio sessions (min/speed, no w/r) still come back — recentEntriesFor does not assume rep mode', () => {
+    const S = { workouts: [{ id: 'a', d: '2026-09-01', entries: [{ id: CARDIO, sets: [{ min: 20, speed: 8, done: true }], target: { id: CARDIO } }] }] }
+    const recent = recentEntriesFor(S, CARDIO, 3)
+    expect(recent).toHaveLength(1)
+    expect(recent[0].sets[0]).toEqual({ min: 20, speed: 8, done: true })
+  })
+
+  it('a mid-session substitution is a different exercise id — history does not follow it back to the original', () => {
+    const OTHER = EXDB.filter(e => e.bp !== 'cardio')[1].id
+    const S = { workouts: [w('a', '2026-09-01', [{ w: 60, r: 8, done: true }])] } // logged under LIFT
+    // Querying the SUBSTITUTE's id finds nothing — same "exact id, no equivalence" behaviour
+    // the rest of the app (bestWeightFor, alternatives) already has.
+    expect(recentEntriesFor(S, OTHER, 3)).toEqual([])
   })
 })
 

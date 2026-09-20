@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, isCardio, allExercises, equipmentOf, exOr } from './lib/exercises.js'
-import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted, EFFORT, stepEffort, feelFor, effortColor, EFFORT_COLOR_VAR } from './lib/history.js'
+import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, routineCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
+import { lastEntryFor, recentEntriesFor, bestWeightFor, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted, EFFORT, stepEffort, feelFor, effortColor, EFFORT_COLOR_VAR } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, nameFor, getLang, dateLocale, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -41,6 +41,7 @@ import PendingExerciseChoices from './components/PendingExerciseChoices.jsx'
 import { fetchFriendCode, resetFriendCode, sendFriendRequest } from './lib/friends-api.js'
 import { startThread } from './lib/chat-api.js'
 import { sendWorkoutToStrava } from './lib/strava-api.js'
+import { fetchRoutineVersions, fetchProgramVersions } from './lib/trainer-api.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -686,7 +687,15 @@ function OneRM({ ex }) {
 
 function ExerciseDetail({ ex, close }) {
   const st = useStore(s => s.S)
-  const last = lastEntryFor(st, ex.id)
+  // V3 — up to the last 3 real appearances, not just the most recent (recentEntriesFor supersedes
+  // lastEntryFor's own single-result walk; see lib/history.js's own comment on why it's now a
+  // thin wrapper around this instead of a second copy of the same loop). "Last session" keeps
+  // showing unconditionally, exactly as before; anything past that (sessions 2-3) is a quiet
+  // "Previous sessions" toggle below it — never all three sitting open by default.
+  const recent = recentEntriesFor(st, ex.id, 3)
+  const last = recent[0] || null
+  const earlier = recent.slice(1)
+  const [showEarlier, setShowEarlier] = useState(false)
   const best = bestWeightFor(st, ex.id)
   return <>
     <h3 className="capitalize">{nameFor(ex)}</h3>
@@ -706,6 +715,16 @@ function ExerciseDetail({ ex, close }) {
       {last
         ? <div className="small">{last.sets.map(s => setLabel(ex.id, s, last.target)).join(', ')} <span className="dim">· {fmtDate(last.d)}</span></div>
         : <div className="muted small">{t('No sessions logged yet.')}</div>}
+      {earlier.length > 0 && <>
+        <button style={{ marginTop: 8, color: 'var(--acc)', fontSize: 'calc(12.5px * var(--text-scale,1))', fontWeight: 500 }} onClick={() => setShowEarlier(v => !v)}>
+          {showEarlier ? t('Hide previous sessions') : t('Show previous sessions')}
+        </button>
+        {showEarlier && <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {earlier.map((r, i) => <div key={i} className="small">
+            {r.sets.map(s => setLabel(ex.id, s, r.target)).join(', ')} <span className="dim">· {fmtDate(r.d)}</span>
+          </div>)}
+        </div>}
+      </>}
     </div>
     {best > 0 && <div className="small row" style={{ marginBottom: 6, gap: 5 }}><Icon name="trophy" style={{ fontSize: 14, color: 'var(--yellow)' }} />{t('Best:')} <b className="accent">{fmtNum(best)} {st.unit}</b></div>}
     <Button icon="history" style={{ marginBottom: 4 }} trailingIcon="chevronRight" onClick={() => { close(); nav('/stats?ex=' + ex.id) }}>{t('See full history')}</Button>
@@ -1898,6 +1917,38 @@ function ExerciseNotes({ ex, entry, close, onSave }) {
   </>
 }
 export const exerciseNotesSheet = (ex, entry, onSave) => ui().openSheet(close => <ExerciseNotes ex={ex} entry={entry} onSave={onSave} close={close} />)
+
+// V3 — traceability for a trainer-assigned routine/program: past versions, newest first, each
+// just a date and a same-shape summary line (exercise count for a routine, routine count for a
+// program). Read-only on purpose — no restore, no diff, this is "it changed on {date}", not an
+// editor. `kind` picks which fetch/summary shape to use; the two are similar enough not to
+// warrant two near-identical sheets.
+function VersionHistory({ kind, memberId, id, close }) {
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    const fetchFn = kind === 'program' ? fetchProgramVersions : fetchRoutineVersions
+    fetchFn(memberId, id).then(setData).catch(e => setErr(e.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const summaryOf = v => kind === 'program' ? routineCount((v.routineIds || []).length) : exCount((v.ex || []).length)
+  return <>
+    <h3>{t('Version history')}</h3>
+    {err ? <div className="dim small">{err}</div>
+      : !data ? <div className="dim small">{t('Loading…')}</div>
+      : !data.versions.length ? <div className="empty"><div className="ico"><Icon name="clock" /></div>{t('No previous versions yet — a version appears here the next time a meaningful change is saved.')}</div>
+      : <div className="list">{data.versions.map((v, i) => <div key={i} className="item">
+          <span className="lrow-i"><Icon name="clock" /></span>
+          <div className="grow"><div className="tt">{v.name}</div>
+            <div className="ss">{new Date(v.versionedAt).toLocaleString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · {summaryOf(v)}</div>
+          </div>
+        </div>)}</div>}
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" onClick={close}>{t('Close')}</Button>
+  </>
+}
+export const routineVersionsSheet = (memberId, routineId) => ui().openSheet(close => <VersionHistory kind="routine" memberId={memberId} id={routineId} close={close} />)
+export const programVersionsSheet = (memberId, programId) => ui().openSheet(close => <VersionHistory kind="program" memberId={memberId} id={programId} close={close} />)
 
 // Pick any OTHER exercise already in this routine to superset with — the quick link-icon on
 // each row only pairs with the one directly above; this is the flexible version reached from

@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
-import { uid, exCount, routineCount } from '../lib/format.js'
+import { uid } from '../lib/format.js'
+import { RoutineSummaryLine, ProgramSummaryLine } from '../components/PlanSummaryLine.jsx'
 import { t } from '../lib/i18n.js'
 import { loadStarterPlan, planToolsSheet, scanRoutineSheet, celebrateBadges } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -98,7 +99,7 @@ export default function Plan() {
         {p.image
           ? <img src={mediaUrl(p.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
           : <span className="lrow-i"><Icon name={glyphOf(p.emoji)} /></span>}
-        <div className="grow"><div className="tt">{p.name}</div><div className="ss">{routineCount((p.routineIds || []).length)}</div></div>
+        <div className="grow"><div className="tt">{p.name}</div><div className="ss"><ProgramSummaryLine p={p} routines={S.routines} /></div></div>
         {S.activeProgramId === p.id && <span className="tag acc">{t('Active')}</span>}
         <Icon name="chevronRight" className="chev" /></div>)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="folder" /></div>{t('No programs yet.')}<br />{t('Group a few routines together — a whole split, a block, a phase.')}</div>
@@ -124,7 +125,7 @@ export default function Plan() {
           : r.image
             ? <img src={mediaUrl(r.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
             : <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>}
-        <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
+        <div className="grow"><div className="tt">{r.name}</div><div className="ss"><RoutineSummaryLine r={r} /></div></div>
         {!selectMode && <button className="iconbtn" style={{ color: r.fav ? 'var(--yellow)' : 'var(--label-3)' }}
           aria-label={r.fav ? t('Unfavorite') : t('Favorite')} title={r.fav ? t('Unfavorite') : t('Favorite')}
           onClick={ev => toggleFav(ev, r.id)}><Icon name={r.fav ? 'starFill' : 'star'} /></button>}

@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { supersetGroupInfo, supersetLabel, SUPERSET_COLOR_TOKENS, SUPERSET_GROUP_LETTERS } from './superset-colors.js'
+import { describe, it, expect, afterEach } from 'vitest'
+import { supersetGroupInfo, supersetLabel, routineSummaryOf, SUPERSET_COLOR_TOKENS, SUPERSET_GROUP_LETTERS } from './superset-colors.js'
+import { EXDB, setUnavailableEquipment } from './exercises.js'
 
 const sg = (sgId) => sgId ? { sg: sgId } : {}
 
@@ -77,5 +78,37 @@ describe('supersetLabel', () => {
   })
   it('is empty for a non-superset (null) entry', () => {
     expect(supersetLabel(null)).toBe('')
+  })
+})
+
+describe('V3 — routineSummaryOf', () => {
+  afterEach(() => setUnavailableEquipment([]))
+  const LIFT = EXDB.find(e => e.bp !== 'cardio' && e.eq === 'dumbbell')
+  const OTHER_EQ = EXDB.find(e => e.bp !== 'cardio' && e.eq !== LIFT.eq)
+
+  it('counts exercises, with zero superset groups and zero unavailable for a plain routine', () => {
+    const ex = [{ id: LIFT.id }, { id: OTHER_EQ.id }]
+    expect(routineSummaryOf(ex)).toEqual({ exCount: 2, superGroups: 0, unavailable: 0 })
+  })
+
+  it('counts distinct superset groups', () => {
+    const ex = [
+      { id: LIFT.id, sg: 'g1' }, { id: OTHER_EQ.id, sg: 'g1' },
+      { id: LIFT.id, sg: 'g2' }, { id: OTHER_EQ.id, sg: 'g2' },
+    ]
+    expect(routineSummaryOf(ex).superGroups).toBe(2)
+  })
+
+  it('counts exercises currently blocked by equipment availability (V2), without modifying the routine', () => {
+    setUnavailableEquipment([LIFT.eq])
+    const ex = [{ id: LIFT.id }, { id: OTHER_EQ.id }]
+    const before = JSON.stringify(ex)
+    expect(routineSummaryOf(ex).unavailable).toBe(1)
+    expect(JSON.stringify(ex)).toBe(before)
+  })
+
+  it('handles an empty or missing exercise list without throwing', () => {
+    expect(routineSummaryOf([])).toEqual({ exCount: 0, superGroups: 0, unavailable: 0 })
+    expect(routineSummaryOf(undefined)).toEqual({ exCount: 0, superGroups: 0, unavailable: 0 })
   })
 })

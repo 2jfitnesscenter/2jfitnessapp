@@ -102,6 +102,19 @@ function SetNumBtn({ s, i, sets, achievement, onToggle, onSetType }) {
   )
 }
 
+// A trainer's per-prescription note during a live set — one line, ellipsised, tap to read the
+// rest in place (no sheet: it's read-only here, editing stays where it always was, the "…" menu
+// in RoutineEdit/TrainerRoutineBuilder). Collapses again on the next exercise automatically since
+// `open` is local state, not lifted — nothing to reset by hand.
+function ExerciseNoteLine({ note }) {
+  const [open, setOpen] = useState(false)
+  return <div className="small" role="button" tabIndex={0} onClick={() => setOpen(o => !o)}
+    style={{ display: 'flex', gap: 6, alignItems: open ? 'flex-start' : 'center', color: 'var(--label-2)', marginBottom: 4, cursor: 'pointer' }}>
+    <Icon name="clipboard" style={{ fontSize: 13, flex: 'none', marginTop: open ? 2 : 0 }} />
+    <span style={open ? undefined : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note}</span>
+  </div>
+}
+
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
 function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType, onReplace }) {
   const S = useStore(s => s.S)
@@ -276,6 +289,14 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, onToggle, onFie
     {rpGroup && rpLandmarks && <RpVolumeBar
       groupName={t(MUSCLE_GROUPS.find(g => g.key === rpGroup)?.name || rpGroup)}
       sets={rpVolume} landmarks={rpLandmarks} />}
+    {/* A trainer's short instruction on THIS prescription (RoutineEdit/TrainerRoutineBuilder's
+        "Notes" menu item, entry.note — see progression.js's buildRoutineEntries, which copies
+        it into entry.target.note by the same plain spread that already carries every other
+        routine-entry field into a session, no code change needed there). Deliberately its own
+        line, collapsed to one row by default with a tap to read the rest, so a long note never
+        pushes "Last time"/the overload chip/the PR line down the card — those three, and the
+        orange unavailable notice, are never this: a trainer's cue, not a stat. */}
+    {entry.target?.note && <ExerciseNoteLine note={entry.target.note} />}
     {last && <div className="small dim" style={{ marginBottom: 4 }}>{t('Last time')} ({fmtDate(last.d)}): {last.sets.map(s => setLabel(entry.id, s, last.target)).join(', ')}</div>}
     {plan && plan.why && plan.kind !== 'off' && <div className={'progline' + (plan.kind === 'deload' ? ' warn' : '')}>
       <Icon name={plan.kind === 'up' ? 'arrowUp' : plan.kind === 'deload' ? 'arrowDown' : 'lightbulb'} />

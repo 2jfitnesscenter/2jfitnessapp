@@ -39,6 +39,9 @@ export const fmtVol = (v, unit) => fmtNum(v) + ' ' + unit
 // Plural forms are not automatic when the English string is the key.
 export const exCount = n => t(n === 1 ? '{0} exercise' : '{0} exercises', n)
 export const routineCount = n => t(n === 1 ? '{0} routine' : '{0} routines', n)
+export const supersetCount = n => t(n === 1 ? '{0} superset' : '{0} supersets', n)
+export const unavailableCount = n => t(n === 1 ? '{0} exercise unavailable now' : '{0} exercises unavailable now', n)
+export const daysScheduledCount = n => t(n === 1 ? '{0} day scheduled' : '{0} days scheduled', n)
 
 // Same computation as api/coach/payload.js's ageFrom — duplicated there for the same reason as
 // every other admin/api overlap: the admin page and the api server share no build step.

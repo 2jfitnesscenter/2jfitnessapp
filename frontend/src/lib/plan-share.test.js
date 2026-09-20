@@ -36,6 +36,26 @@ describe('V1.4 print — dayTableHTML via routinePrintHTML', () => {
     expect(html).toMatch(/<td class="rpe">8<\/td>/)
   })
 
+  it('prints a trainer note (V3) under the exercise name when the prescription has one', async () => {
+    const html = await routinePrintHTML(routine({ ex: [{ id: LIFT, sets: 3, reps: 8, note: 'Excéntrica controlada' }] }), '')
+    expect(html).toContain('class="ex-note"')
+    expect(html).toContain('Excéntrica controlada')
+  })
+
+  it('prints no note element at all when the prescription has none — the common case is untouched', async () => {
+    const html = await routinePrintHTML(routine(), '')
+    expect(html).not.toContain('class="ex-note"')
+  })
+
+  it('truncates a long note hard rather than letting it wrap and grow the row', async () => {
+    const long = 'x'.repeat(200)
+    const html = await routinePrintHTML(routine({ ex: [{ id: LIFT, sets: 3, reps: 8, note: long }] }), '')
+    const m = html.match(/<div class="ex-note">([^<]*)<\/div>/)
+    expect(m).toBeTruthy()
+    expect(m[1].length).toBeLessThan(long.length)
+    expect(m[1].endsWith('…')).toBe(true)
+  })
+
   it('marks a genuine superset with an A1/A2 badge on adjacent rows sharing one group', async () => {
     const r = routine({ ex: [{ id: LIFT, sets: 3, reps: 8, sg: 'g1' }, { id: LIFT2, sets: 3, reps: 8, sg: 'g1' }] })
     const html = await routinePrintHTML(r, '')

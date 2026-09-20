@@ -27,16 +27,19 @@ https://app.2jfitnesscenter.com/api/admin/aux-ai` → 401 (V2); `POST
 Bug de producción prioritario (sesión activa atascada) corregido, testeado, desplegado
 (ver sección propia más abajo) — **pendiente de que el usuario confirme desde su propia
 UI** que su sesión fantasma real ("Espalda & Bíceps - Enfoque Principal") ya no reaparece
-tras pulsar Descartar. Aparte de eso: cierre de V2 completado. Pendiente de que el
-usuario haga el smoke test autenticado (login/passkey, Admin, panel entrenador, Bunker,
-entrenamiento, IA auxiliar UI) — Claude no tiene passkey de producción.
-**V3 no ha empezado todavía** — es la siguiente tarea de la sesión (notas de programación,
-versionado, últimas sesiones, resumen de rutina, y OpenAI REST — ahora explícitamente API
-REST directa, NO Codex CLI, ver la propia sección).
+tras pulsar Descartar. Aparte de eso: cierre de V2 completado.
+
+**V3 implementada y testeada, TODAVÍA NO DESPLEGADA NI COMMITEADA** (instrucción
+explícita del usuario: "No hagas commit" hasta finalizar y validar V3 — ver su propia
+sección más abajo para el detalle completo). Working tree con cambios sin commitear en
+19 archivos modificados + 4 nuevos (ver `git status` en "Estado actual").
 
 ## Estado actual
-- Working tree limpio, rama al día con origin (todo commiteado y empujado, incluido el
-  fix del active atascado, commit `3e4e0b4`).
+- **Working tree con cambios SIN commitear (V3)**: 19 archivos modificados + 4 nuevos
+  (`api/coach/adapters/openai.js`, `api/test/openai-adapter.test.js`,
+  `api/test/routine-versions.test.js`, `frontend/src/components/PlanSummaryLine.jsx`).
+  Todo lo anterior a V3 (hasta el fix del active, commit `3e4e0b4`) sigue commiteado y
+  empujado a `origin/feat/pwa-tanita-bunker-roadmap`.
 - **Producción desplegada y sana** con el fix incluido: `docker compose ps` →
   api/web/caddy `Up`, `media` en `Exited (0)` (normal, init container). `curl
   .../api/health` externo → `{"ok":true,"users":13}` (datos intactos en ambos despliegues
@@ -95,15 +98,9 @@ REST directa, NO Codex CLI, ver la propia sección).
     foto/PDF de una rutina impresa o manuscrita.
   - `exercise_import_matching`: Ajustes → Datos → "Importar de otra app" → subir un CSV
     con nombres de ejercicio que la biblioteca no reconozca sin alias previo.
-- Migración de `user_trainer` a ChatGPT/OpenAI API real — explícitamente fuera de V2,
-  parte del alcance de V3 (ver más abajo, sección 13 de la petición original).
-- **V3 no iniciada**: notas de programación por ejercicio, versionado de rutinas/programas,
-  vista rápida "últimas 3 sesiones", resumen de rutina/programa en biblioteca, indicador de
-  equipamiento no disponible en el resumen, e investigación (no necesariamente
-  implementación) de OpenAI REST como proveedor de `user_trainer`. Pedida en la misma
-  sesión que el cierre de V2 pero pospuesta para no comprometer el despliegue — empezar
-  inspeccionando el modelo real de `routines`/`programs`/`entries`/`target`/`plan` antes
-  de tocar nada, tal como pide la propia petición.
+- **V3 ya implementada y testeada** (ver su propia sección más abajo) — pendiente de
+  revisión/autorización del usuario para commit + despliegue. Incluye la migración de
+  `user_trainer` a OpenAI REST directo (adaptador nuevo, sin activar por defecto).
 
 ## Archivos principales modificados/creados (V1+V2, ambos ya commiteados)
 
@@ -198,9 +195,11 @@ Frontend:
    (comandos de disparo manual en "Trabajo pendiente" arriba).
 4. Crear el PR (`gh pr create` o vía navegador autenticado) — comando ya preparado en el
    historial de la sesión.
-5. **Empezar V3** (notas de programación + versionado + últimas sesiones + resumen de
-   rutina + OpenAI REST directo) — inspeccionando primero el modelo real de
-   `routines`/`programs`/`entries` antes de tocar nada, alcance grande.
+5. **V3 ya implementada y testeada** (ver su propia sección más abajo) — pendiente de que
+   el usuario la revise y autorice explícitamente commit + despliegue, igual que V1/V2.
+   Antes de desplegar: probar el flujo de entrenador (notas, versionado, resumen) con una
+   sesión real de trainer, y si se activa OpenAI como proveedor del Coach, probar el botón
+   "Probar el Coach" en Admin con una API key real.
 
 ## BUG: sesión activa atascada ("Espalda & Bíceps...") — CORREGIDO Y DESPLEGADO
 
@@ -293,18 +292,156 @@ app, más arriesgada que necesaria dado que el propio handler no cambió.
 desde la UI (con su passkey real) y confirmar que ya no reaparece. Resultado esperado:
 Descartar → confirmación → vuelve a Entrenar → `Empezar entrenamiento` (nada atascado).
 
-## OpenAI REST para el Entrenador IA de socios — pendiente para V3
+## V3 — Programación y seguimiento — IMPLEMENTADA Y TESTEADA, SIN COMMITEAR NI DESPLEGAR
 
-El usuario ya probó Codex CLI en producción y confirmó que falla
-(`Permission denied (os error 13)` al inicializar `app-server` — problema de permisos del
-contenedor, **no intentar arreglarlo subiendo privilegios**). Instrucción explícita para
-cuando se aborde V3: sustituir el mecanismo `user_trainer` completo por integración REST
-directa (`2J frontend → backend 2J → OpenAI API`), NUNCA Codex CLI/device-code/app-server/
-subprocess. Requisitos: API key desde Administración, cifrada en backend, nunca vuelve al
-frontend, test de conexión, modelo configurable, errores de OpenAI distinguibles de una
-sesión 2J caducada. No tocar Claude staff ni Gemini `auxiliary_ai`. Esto reemplaza (no
-amplía) lo que se había anotado antes sobre "investigar OpenAI REST" — ahora es un
-requisito concreto a implementar en V3, no solo investigar.
+**Estado**: todo lo pedido está implementado y con tests en verde (frontend 553/553,
+backend 150/150, build de producción OK). **Sin commit, sin desplegar** — instrucción
+explícita del usuario para V3 era no commitear hasta terminar y validar; el commit/deploy
+en sí necesita una nueva autorización explícita, igual que en V1/V2.
+
+### 1-4. Notas de entrenador (ya existían — solo faltaban 2 huecos)
+`routine.ex[i].note` **ya existía completo end-to-end** antes de esta sesión (edición
+desde "…" → Notas en `RoutineEdit.jsx`/`TrainerRoutineBuilder.jsx`, viaja automáticamente
+a `S.active.entries[].target.note` vía el spread de `progression.js`'s
+`buildRoutineEntries`, y sobrevive a un workout finalizado como snapshot congelado —
+nunca cambia retroactivamente un entrenamiento ya hecho). Los dos huecos reales:
+- **Visible durante el entrenamiento**: nuevo `ExerciseNoteLine` en `Workout.jsx`, línea
+  compacta de una sola línea con "tap para expandir", nunca confundida con la línea de
+  "Last time"/overload/PR/aviso naranja de no-disponible (todas en filas separadas).
+- **Impresión**: `dayTableHTML` (`plan-share.js`) ahora incluye la nota bajo el nombre del
+  ejercicio (`class="ex-note"`), truncada a 70 caracteres con "…" — nunca rompe la
+  densidad adaptativa ni el objetivo de página (2 días≈1 página, 5 días≈2 páginas), sin
+  rediseñar el PDF de V1. 3 tests nuevos en `plan-share.test.js`.
+
+### 5-7. Versionado de rutinas/programas asignados — traceability, no restauración
+Enganchado en el ÚNICO punto de sobrescritura que tienen `POST
+/api/trainer/member-routine`/`member-program` (`api/server.js`): antes de reemplazar una
+rutina/programa YA EXISTENTE (`existingIdx >= 0`), `snapshotVersionIfChanged()` compara el
+contenido real (todo menos `id`) del objeto viejo contra el nuevo — si cambió de verdad,
+guarda el OBJETO VIEJO completo + `versionedAt` en `S.routineVersions[id]` /
+`S.programVersions[id]` (array, más reciente al final, tope de 20 por id). Si es un
+re-guardado idéntico (sin cambios reales), **no crea versión** — nada de spam. Un cambio
+de equipamiento disponible nunca crea versión porque el estado de equipamiento no forma
+parte del objeto rutina/programa en absoluto.
+- Alcance deliberadamente limitado a rutinas/programas **asignados por el entrenador**
+  (los dos endpoints de trainer) — la edición de una rutina propia por el propio socio va
+  por un camino distinto (`PUT /api/data`, sobrescritura completa del estado) y no se
+  tocó; versionar eso habría sido un cambio bastante más grande y no es lo que pide la
+  petición ("rutina o programa asignado").
+- Consulta: `GET /api/trainer/routine-versions`/`program-versions?memberId=&routineId=`
+  (o `programId=`) → `{ current, versions }`, versiones más recientes primero. Sin
+  endpoint de restauración (ni se pidió — "traceability, no editor de diff").
+- UI: botón "Version history" (icono reloj) en `TrainerRoutineBuilder.jsx`/
+  `TrainerProgramBuilder.jsx`, visible solo si la rutina/programa ya tiene id (no en
+  "nueva"), abre una sheet nueva (`routineVersionsSheet`/`programVersionsSheet` en
+  `sheets.jsx`) con fecha+hora y un resumen (nº ejercicios o nº rutinas) por versión.
+- 8 tests nuevos en `api/test/routine-versions.test.js` (creación sin versión, cambio real
+  → 1 versión con el contenido VIEJO, re-guardado idéntico → 0 versiones, varias versiones
+  acumuladas en orden, workouts finalizados nunca tocados, mismo comportamiento para
+  programas, aislamiento no-entrenador en lectura y escritura).
+
+### 8-9. Últimas 3 sesiones — contexto rápido de ejercicio
+`recentEntriesFor(S, exId, n=3)` nuevo en `history.js`, generaliza el `lastEntryFor`
+existente (que ahora es un wrapper de una línea sobre este) — mismo criterio de siempre
+(solo sets reales hechos, excluye warmup/no-hecho, respeta cardio, busca por id exacto así
+que una sustitución mid-sesión no fusiona historiales, comportamiento ya existente sin
+cambios). UI: la sheet `ExerciseDetail` ya existente (icono "Detalles" durante el
+entrenamiento) gana un botón "Mostrar/ocultar sesiones anteriores" colapsado por defecto
+que revela las sesiones 2-3 — la sesión 1 ("Last session") sigue siempre visible igual que
+antes, nunca se muestran 3 sesiones completas de forma permanente. 8 tests nuevos en
+`history.test.js`.
+
+### 10-11. Resumen de rutina/programa en biblioteca/panel de entrenador
+`routineSummaryOf(ex)` nuevo en `superset-colors.js` (import de `isUnavailable` desde
+`exercises.js` — confirmado sin ciclo: `exercises.js` no importa de `history.js` ni de
+`superset-colors.js`) → `{ exCount, superGroups, unavailable }`. Nuevo componente
+compartido `frontend/src/components/PlanSummaryLine.jsx` (`RoutineSummaryLine`,
+`ProgramSummaryLine`) usado en las filas de lista de `views/Plan.jsx` y
+`views/trainer/TrainerClientPlan.jsx`: "N ejercicios · N superseries · N no disponibles
+ahora" (en naranja, mismo tono que el aviso de no-disponible en `RoutineEdit.jsx`), cada
+parte omitida si es 0 — nunca "0 superseries". Para programas también cuenta días
+programados (`Object.keys(week).length`) y ejercicios no disponibles sumados en sus
+rutinas. **Fecha/versión se deja fuera del resumen deliberadamente** — la propia petición
+dice "si existe", y aunque el versionado (sección 5-7) ya existe, mostrarlo en la fila de
+lista habría requerido pasar el conteo de versiones a cada fila (una llamada extra por
+fila) y no se pidió explícitamente ahí; queda disponible vía el botón "Version history"
+dentro del propio builder. No se inventó ninguna duración estimada (no hay fórmula/datos
+fiables). 4 tests nuevos en `superset-colors.test.js`. Verificado visualmente en el
+navegador (modo `VITE_DEMO=1`, temas claro y oscuro) inyectando una superserie de prueba.
+
+### 12. Flujo E2E entrenador → socio
+No hay passkey de producción disponible para un E2E autenticado real de extremo a extremo
+en el navegador. Cubierto en su lugar por: (a) los 8 tests de `routine-versions.test.js`
+que ejercitan el flujo real de guardado del entrenador vía HTTP contra un servidor real
+(crear rutina → editar con cambio real → verificar versión → consultar); (b) el hecho
+demostrado de que notas/últimas-sesiones ya eran (notas) o ahora son (últimas sesiones)
+puramente funciones sobre snapshots ya verificados por sus propios tests unitarios; (c)
+verificación visual en navegador del resumen de rutina. Sin cobertura E2E autenticada real
+del panel de entrenador (`/trainer/*`, requiere sesión + flag `trainer:true`) — pendiente
+de que el usuario lo prueba él mismo o conceda una sesión de prueba.
+
+### 13. OpenAI REST directo para el Entrenador IA de socios — IMPLEMENTADO
+Sustituye la idea de arreglar Codex CLI (que fallaba con `Permission denied (os error 13)`
+por permisos del contenedor — **no se tocaron permisos del contenedor**, tal como se
+instruyó). Nuevo adaptador `api/coach/adapters/openai.js`, calcado de `gemini.js`: una
+petición HTTPS a `POST https://api.openai.com/v1/chat/completions` (Chat Completions,
+`response_format: json_object`), sin CLI/subprocess/device-code/app-server. Registrado en
+`api/coach/adapters/index.js` (`ADAPTERS.openai`) y en `api/coach/config.js`
+(`PROVIDERS.openai = { label: 'OpenAI', runtime: 'OpenAI API', apiKeyEnv:
+'OPENAI_API_KEY', oauthEnv: null }`, mismo patrón exacto que Gemini — sin
+`setupToken`/`deviceLogin`).
+- **Confirmado por inspección de código, no solo por diseño previo**: `jobEnv()`,
+  `isConnected()`, `oauth.js`'s `setApiKey`/`authStatus`/`disconnect`, `jobs.js`'s
+  `testRun()`/clasificación de errores (`errorClass`, regex sobre el texto del error —
+  agnóstica de proveedor), y `coach/routes.js`'s listado de `providers` para el admin son
+  TODOS genéricos por proveedor — **cero cambios adicionales en backend o frontend** más
+  allá del adaptador y las dos entradas de registro. El chip "OpenAI" aparece solo en el
+  panel Admin → Coach con el flujo "Usar una clave de API" ya existente, igual que Gemini.
+- API key: solo desde Administración, cifrada en reposo (mismo `crypto.js` que el resto),
+  **nunca llega al frontend** (el backend solo expone `provider`/`providerLabel` cuando
+  está `enabled && connected`, nunca el valor de la clave). Modelo configurable
+  (`cfg.model`, por defecto `gpt-5.1`). Test de conexión: el botón "Guardar y probar" /
+  "Probar el Coach" ya existente en Admin llama a `testRun()`, que ahora también funciona
+  con `provider: 'openai'` sin cambios.
+- **No se ha cambiado el proveedor activo en producción** (sigue siendo `codex`) — activar
+  OpenAI es una acción del usuario desde Admin cuando quiera, con su propia API key.
+- No toca `staff_trainer` (Claude) ni `auxiliary_ai` (Gemini) — perfiles completamente
+  aislados, confirmado por inspección (cada uno con su propio `config.js`/credencial/log).
+- **"Distinguir errores de OpenAI de una sesión 2J caducada"**: confirmado (ya en la
+  investigación previa a esta sesión) que "sesión 2J caducada" no es un concepto que
+  exista en este flujo — la sesión de cookie de 2J se comprueba en el borde HTTP
+  (`readSession`) antes y de forma completamente separada de cualquier error de proveedor
+  del Coach; un fallo de autenticación de OpenAI (401/403) se clasifica como `errorClass:
+  'auth'` por el propio texto del error ("Incorrect API key..."), un fallo de red/servidor
+  como `'provider'`, un timeout como `'timeout'` — igual que cualquier otro proveedor.
+- 10 tests nuevos: `api/test/openai-adapter.test.js` (check/invoke con fetch mockeado —
+  key ausente, respuesta 200, 401→código 2/auth, 500→código 1, respuesta vacía, timeout,
+  identidad del adaptador) + 1 test en `config.test.js` (registro del proveedor, cifrado,
+  `jobEnv` no toca `CODEX_HOME`) + actualizada la aserción de la lista de proveedores.
+- **No se rediseñaron prompts** (fuera de alcance, tal como se pidió).
+
+### 15. Compatibilidad de datos — verificado
+Todo lo de V3 es aditivo: `S.routineVersions`/`S.programVersions` son campos nuevos que no
+existen en estados antiguos (`(S.routineVersions || {})[id] || []` en todas partes, nunca
+asume que existan); ninguna rutina/programa/workout/active/dayPlan/alias/equipamiento
+existente se toca ni se reescribe; un usuario sin estas versiones simplemente ve un
+historial vacío la primera vez que se le crea. `routineSummaryOf`/`recentEntriesFor` son
+funciones puras de lectura, cero migración. Confirmado con la suite completa contra datos
+de ejemplo ya existentes (`sampleState()` en `helpers.mjs`, sin campos nuevos) — todo
+sigue funcionando sin tocarlos.
+
+### 16. Tests — resumen
+- Frontend: `npx vitest run` → **553/553 OK** (29 archivos).
+- Backend: `node --test` → **150/150 OK**.
+- Build de producción: `npx vite build` → OK (mismo aviso preexistente de chunk >1500kB,
+  no relacionado con V3).
+
+### 14. No implementado (tal como se pidió que no se hiciera)
+Nada de lo explícitamente excluido en la petición de V3 se tocó: sin estadísticas nuevas,
+sin rediseño de Bunker, sin funciones sociales nuevas, sin recomendaciones/chatbot de
+Gemini, sin builder nuevo, sin análisis biométrico, sin logros nuevos, sin cambios de
+superseries, sin rediseño del PDF, sin formatos de CSV nuevos, sin que la IA modifique la
+programación sola, sin editor de diff complejo, sin notificaciones nuevas.
 
 ---
 

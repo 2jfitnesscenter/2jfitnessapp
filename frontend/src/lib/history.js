@@ -145,18 +145,29 @@ export function cleanupSg(ex) {
 // Failure sets are still full working sets and stay in.
 export const workingSets = sets => (sets || []).filter(s => s.type !== 'warmup' && s.type !== 'drop')
 
-export function lastEntryFor(S, exId) {
-  for (let i = S.workouts.length - 1; i >= 0; i--) {
+// V3 — up to `n` past appearances of one exercise, most recent first, for a quick "last few
+// sessions" glance during a live workout. Same walk/filter lastEntryFor already did (front-to-
+// back through S.workouts assuming chronological order — see insertWorkoutSorted's own comment),
+// generalised to collect instead of return-on-first-match, so there is exactly one place that
+// knows how to find "this exercise, historically" rather than two copies drifting apart.
+// Searches by the EXACT exercise id on record for that workout, same as it always has — a
+// mid-session substitution (Workout.jsx's replaceExercise) changes which id future sets log
+// against, so a swapped exercise's own earlier history under its old id doesn't show up here
+// either; that is the existing, unchanged behaviour, not a new gap this introduces.
+export function recentEntriesFor(S, exId, n = 3) {
+  const out = []
+  for (let i = S.workouts.length - 1; i >= 0 && out.length < n; i--) {
     const en = S.workouts[i].entries.find(e => e.id === exId)
     if (!en) continue
     // `target` is what the session prescribed; finished workouts carry it so labels and the
     // progression engine can read a session back the way it was logged. Older workouts have
     // none — modeOf() falls back to the body part for them, which is what they were.
     const sets = workingSets(en.sets).filter(s => s.done)
-    if (sets.length) return { d: S.workouts[i].d, sets, target: en.target || null }
+    if (sets.length) out.push({ d: S.workouts[i].d, sets, target: en.target || null })
   }
-  return null
+  return out
 }
+export const lastEntryFor = (S, exId) => recentEntriesFor(S, exId, 1)[0] || null
 // Inserts a workout by date instead of appending — a workout logged after the fact (see
 // sheets.jsx's beginPastWorkout) can be older than ones already on file. lastEntryFor above,
 // and e1rmSeries/best1RM in onerm.js, all read S.workouts front-to-back assuming chronological

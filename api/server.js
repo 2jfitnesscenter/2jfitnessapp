@@ -401,6 +401,22 @@ function requireTrainer(req, res) {
   if (!isTrainer(user)) { json(res, 403, { error: 'prohibido' }); return null; }
   return user;
 }
+// V3 routine/program versioning — traceability only, hooked into the trainer's explicit
+// "Save" on an existing (id-matched) routine/program, the only overwrite point either one has.
+// Snapshots the OLD object under S[key][id] before it's replaced, but only when the content
+// that actually matters (everything except id) really changed — a re-save with no edits, or an
+// equipment-availability change (never part of a routine/program object to begin with), must
+// not spam a new version. Capped per id so a routine saved often over months doesn't grow the
+// member's state file without bound; the cap only trims the oldest entries, never the live one.
+const VERSION_CAP = 20;
+function snapshotVersionIfChanged(S, key, oldObj, newObj) {
+  const strip = o => { const { id, ...rest } = o; return rest; };
+  if (JSON.stringify(strip(oldObj)) === JSON.stringify(strip(newObj))) return;
+  S[key] = S[key] || {};
+  const list = S[key][oldObj.id] = S[key][oldObj.id] || [];
+  list.push({ ...oldObj, versionedAt: Date.now() });
+  if (list.length > VERSION_CAP) list.splice(0, list.length - VERSION_CAP);
+}
 function sessionCookie(user) {
   return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly;${SECURE} SameSite=Lax`;
 }
@@ -2130,7 +2146,12 @@ const routes = {
     const existingIdx = body.routineId ? S.routines.findIndex(r => r.id === body.routineId) : -1;
     const routine = { id: existingIdx >= 0 ? body.routineId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'dumbbell').slice(0, 20), ex };
     if (body.prog) routine.prog = String(body.prog).slice(0, 20);
-    if (existingIdx >= 0) S.routines[existingIdx] = routine; else S.routines.push(routine);
+    if (existingIdx >= 0) {
+      snapshotVersionIfChanged(S, 'routineVersions', S.routines[existingIdx], routine);
+      S.routines[existingIdx] = routine;
+    } else {
+      S.routines.push(routine);
+    }
     S._ts = Date.now();
     writeState(member.id, S);
     json(res, 200, { ok: true, routineId: routine.id });
@@ -2159,10 +2180,44 @@ const routes = {
     S.programs = S.programs || [];
     const existingIdx = body.programId ? S.programs.findIndex(p => p.id === body.programId) : -1;
     const program = { id: existingIdx >= 0 ? body.programId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'folder').slice(0, 20), routineIds, week };
-    if (existingIdx >= 0) S.programs[existingIdx] = program; else S.programs.push(program);
+    if (existingIdx >= 0) {
+      snapshotVersionIfChanged(S, 'programVersions', S.programs[existingIdx], program);
+      S.programs[existingIdx] = program;
+    } else {
+      S.programs.push(program);
+    }
     S._ts = Date.now();
     writeState(member.id, S);
     json(res, 200, { ok: true, programId: program.id });
+  },
+
+  // GET /api/trainer/routine-versions?memberId=&routineId= — traceability only (V3): the
+  // current (active) routine plus its past versions, newest first. No restore endpoint — the
+  // brief only asks to be able to SEE that a meaningfully-changed assignment used to look
+  // different, not to revert it.
+  'GET /api/trainer/routine-versions': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const q = new URL(req.url, 'http://x').searchParams;
+    const member = db.users.find(x => x.id === (q.get('memberId') || ''));
+    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const S = readState(member.id);
+    const routineId = q.get('routineId') || '';
+    const current = (S?.routines || []).find(r => r.id === routineId) || null;
+    const versions = ((S?.routineVersions || {})[routineId] || []).slice().reverse();
+    json(res, 200, { current, versions });
+  },
+
+  // Same idea for programs.
+  'GET /api/trainer/program-versions': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const q = new URL(req.url, 'http://x').searchParams;
+    const member = db.users.find(x => x.id === (q.get('memberId') || ''));
+    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const S = readState(member.id);
+    const programId = q.get('programId') || '';
+    const current = (S?.programs || []).find(p => p.id === programId) || null;
+    const versions = ((S?.programVersions || {})[programId] || []).slice().reverse();
+    json(res, 200, { current, versions });
   },
 
   /* ---------- AI Coach ---------- */
