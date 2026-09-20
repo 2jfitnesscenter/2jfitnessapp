@@ -17,30 +17,36 @@ disponibilidad de equipamiento)"
 (anterior: `14afe9d` — "feat: V1 de mejoras (colores de superserie, selector de
 sustitución, importación CSV Gravl, impresión adaptativa)")
 
-Ambos commits están incluidos en la referencia local de
-`origin/feat/pwa-tanita-bunker-roadmap` (sin ejecutar fetch en este relevo).
-El commit documental `docs: add AI agent handoff` incorpora este archivo al repositorio
-y queda pendiente de push por indicación del usuario.
-**Ninguno de los dos commits de código está desplegado en producción según el relevo
-de Claude** (`GET /api/admin/aux-ai` devolvía 404; no comprobado de nuevo por Codex).
+Commit `2eb932d` (`docs: add AI agent handoff`, este archivo) más `85b45ad` (V2) y
+`14afe9d` (V1) están incluidos en `origin/feat/pwa-tanita-bunker-roadmap` — el push del
+handoff se realizó junto con el resto en el despliegue de hoy.
+
+**V2 (y V1) ESTÁN DESPLEGADAS en producción** desde 2026-09-20 ~20:45 UTC. Confirmado:
+`GET https://app.2jfitnesscenter.com/api/admin/aux-ai` → 401 "no has iniciado sesión"
+(ya no 404); `GET /api/config` incluye `"unavailableEquipment":[]`.
 
 ## Objetivo/tarea actual
-Sin tarea de código abierta ahora mismo. Relevo validado por el usuario. Última petición:
-incorporar únicamente este archivo al sistema permanente de relevo entre Claude Code y
-Codex mediante un commit local, sin push ni despliegue.
+Cierre de V2 completado (despliegue + smoke test de infraestructura). Pendiente de que
+el usuario haga el smoke test autenticado (login/passkey, Admin, panel entrenador, Bunker,
+entrenamiento, IA auxiliar UI) — Claude no tiene passkey de producción y no puede iniciar
+sesión por sí mismo. V3 (notas de programación, versionado, últimas sesiones, resumen de
+rutina, OpenAI REST) fue solicitada en el mismo mensaje pero NO se ha empezado — es un
+alcance grande, pendiente de arrancar en la próxima sesión de trabajo.
 
 ## Estado actual
-- Antes del commit documental, el único archivo sin seguimiento era `AI_HANDOFF.md`;
-  no había modificaciones en archivos versionados ni cambios preparados. Este commit
-  incorpora únicamente el handoff, sin cambios de código.
-- Rama, commits V1/V2 y código inspeccionado concuerdan con el relevo. El estado de PR,
-  producción y las pruebas siguientes proceden de Claude y no se han vuelto a verificar
-  en esta revisión documental.
-- No hay PR abierto para esta rama (se intentó crear pero no hay `gh` CLI instalado ni
-  sesión de GitHub en el navegador de la sesión — pendiente de que el usuario lo cree
-  manualmente o autorice login).
-- V1 y V2 completas y verificadas localmente (tests + build + E2E en navegador contra un
-  backend de scratch), pero **no desplegadas**.
+- Working tree limpio, rama al día con origin (0 commits de diferencia tras el push).
+- **Producción desplegada y sana**: `docker compose ps` → api/web/caddy `Up`, `media` en
+  `Exited (0)` (normal, es un init container que solo descarga imágenes si faltan — logs
+  confirman "ya presentes, se omite descarga"). `curl .../api/health` externo → `{"ok":true,"users":13}`.
+- Backup pre-deploy realizado: `/root/backups/2jfitness-2026-09-20_2041.tar.gz` en el VPS
+  (además de los backups nocturnos automáticos ya existentes).
+- **Incidente durante el deploy, corregido en el momento**: el comando de `chown` post-tar
+  no soportaba `--exclude` y cambió por error la propiedad de `/opt/2jfitness/data` (debe
+  ser `root:root`, no `2jfitness:2jfitness`) — detectado y revertido antes de reiniciar
+  los contenedores, así que no llegó a afectar al proceso en marcha. Ver "Problemas
+  conocidos".
+- No hay PR abierto para esta rama (sigue faltando `gh` CLI o sesión de GitHub en este
+  entorno).
 
 ## Trabajo completado
 
@@ -69,14 +75,30 @@ Codex mediante un commit local, sin push ni despliegue.
 
 ## Trabajo pendiente
 - **Crear el PR** (rama lista, sin PR abierto — falta `gh` CLI o login de GitHub).
-- **Desplegar V1+V2 a producción** (no desplegado — pendiente de autorización explícita
-  del usuario, no hacerlo sin que lo pida).
-- Migración de `user_trainer` a ChatGPT/OpenAI API real (hoy sigue con Codex CLI vía
-  device-login, sin cambios — explícitamente pospuesto por el usuario, "posteriormente lo
-  cambiaremos").
-- El usuario aún no ha configurado una API key real de Gemini en `auxiliary_ai` en
-  producción (ni puede, porque V2 no está desplegado) — pendiente de que él la añada
-  desde el panel admin una vez desplegado.
+- **Smoke test autenticado en producción** (login/passkey, Admin, panel entrenador,
+  Bunker, entrenamiento normal, historial, importación CSV real) — requiere que el
+  usuario lo haga él mismo o conceda acceso temporal, Claude no tiene passkey.
+- El usuario debe **configurar la API key real de Gemini** en Ajustes → Administración →
+  "IA auxiliar" → Usar una clave de API, para poder probar de verdad
+  `exercise_import_matching`/`machine_scan`/`measurements_scan`/`routine_scan`. Disparo
+  manual de cada capability:
+  - `machine_scan`: Progreso o Ajustes → "Escanear máquina" (según dónde esté montado en
+    la UI del socio) → foto de una máquina/ejercicio.
+  - `measurements_scan`: Ajustes → Medidas/Bioimpedancia → "Escanear informe" → foto/PDF
+    de un informe de báscula de bioimpedancia.
+  - `routine_scan`: Plan → "Escanear rutina" (o desde el panel de entrenador, por socio) →
+    foto/PDF de una rutina impresa o manuscrita.
+  - `exercise_import_matching`: Ajustes → Datos → "Importar de otra app" → subir un CSV
+    con nombres de ejercicio que la biblioteca no reconozca sin alias previo.
+- Migración de `user_trainer` a ChatGPT/OpenAI API real — explícitamente fuera de V2,
+  parte del alcance de V3 (ver más abajo, sección 13 de la petición original).
+- **V3 no iniciada**: notas de programación por ejercicio, versionado de rutinas/programas,
+  vista rápida "últimas 3 sesiones", resumen de rutina/programa en biblioteca, indicador de
+  equipamiento no disponible en el resumen, e investigación (no necesariamente
+  implementación) de OpenAI REST como proveedor de `user_trainer`. Pedida en la misma
+  sesión que el cierre de V2 pero pospuesta para no comprometer el despliegue — empezar
+  inspeccionando el modelo real de `routines`/`programs`/`entries`/`target`/`plan` antes
+  de tocar nada, tal como pide la propia petición.
 
 ## Archivos principales modificados/creados (V1+V2, ambos ya commiteados)
 
@@ -95,15 +117,33 @@ Frontend:
 - `frontend/src/lib/plan-share.js`, `lib/superset-colors.js` — V1 impresión/superseries
 - `frontend/src/locales/es.js` — claves nuevas V1+V2
 
-## Tests y resultado (última ejecución comunicada por Claude)
+## V2: IMPLEMENTADA · TESTEADA · DESPLEGADA
+
+- **Commit desplegado**: `2eb932d` (incluye `85b45ad` V2 y `14afe9d` V1)
+- **Fecha de despliegue**: 2026-09-20, ~20:45 UTC
+- **Procedimiento**: el habitual de `docs/DEPLOY_RAIOLA.md` — copia de árbol (`git
+  ls-files` + tar por SSH, `rsync` no disponible en este entorno) a `/opt/2jfitness`,
+  `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`. `data/`
+  no se tocó (backup previo + incidente de permisos corregido, ver "Problemas conocidos").
+
+## Tests pre-deploy (última ejecución, contra el commit desplegado)
 - Frontend: `npx vitest run` → **538/538 OK**
 - Backend: `node --test` → **123/123 OK**
 - Build producción: `npx vite build` → OK (aviso preexistente de chunk >1500kB, no relacionado)
-- E2E manual en navegador (backend de scratch, cuenta admin real): importación de los 3
-  CSV reales, revisión de equivalencias, antiduplicados, disponibilidad de equipamiento,
-  aislamiento entre los 3 perfiles de IA — todo verificado con pasos reproducibles en el
-  historial de la sesión (no hay script de E2E automatizado, fue manual con el navegador
-  integrado).
+- E2E manual en navegador (backend de scratch, cuenta admin real, sesión previa): importación
+  de los 3 CSV reales, revisión de equivalencias, antiduplicados, disponibilidad de
+  equipamiento, aislamiento entre los 3 perfiles de IA.
+
+## Smoke test post-deploy en producción real
+- Infraestructura (sin sesión, verificado por Claude): `/api/health` interno y externo OK
+  (`users:13`, datos intactos), contenedores `api`/`web`/`caddy` `Up`, `media` `Exited(0)`
+  normal, logs de arranque sin errores, imagen de ejercicio (`/img/...`) sirve 200,
+  `/api/admin/aux-ai` ya no da 404 (ahora 401 correcto), `/api/config` incluye
+  `unavailableEquipment`, app carga visualmente y muestra la pantalla de login sin errores
+  de consola (solo el 401 esperado de `/api/me` sin sesión).
+- **Autenticado (login, Admin, panel entrenador, Bunker, entrenamiento, historial,
+  importación CSV real, panel IA auxiliar): PENDIENTE — requiere passkey real del
+  usuario**, no completado por Claude en esta sesión.
 
 ## Decisiones arquitectónicas importantes para continuar
 
@@ -129,18 +169,32 @@ Frontend:
 
 ## Problemas conocidos
 - No hay PR abierto (falta `gh` CLI / sesión GitHub en este entorno).
-- V1+V2 sin desplegar a producción — producción sigue en el estado anterior (Bunker V3.3).
-- No se ha probado `auxiliary_ai` contra una API key real de Gemini (solo mocks en tests
-  + una prueba de conexión real que falló por clave inválida a propósito).
+- **Incidente de despliegue (corregido, sin impacto real)**: al extraer el tar en el
+  servidor, `chown -R 2jfitness:2jfitness /opt/2jfitness --exclude=data` no es una opción
+  válida de `chown`, y el fallback recursivo cambió por error la propiedad de
+  `/opt/2jfitness/data` de `root:root` a `2jfitness:2jfitness`. Detectado inmediatamente
+  (antes de reiniciar los contenedores) y revertido con `chown -R root:root
+  /opt/2jfitness/data`. **Si vuelves a desplegar por este método (tar+ssh en vez de
+  rsync), haz el `chown` del código ANTES de extraer sobre `data/`, o usa `rsync`
+  directamente si está disponible — nunca un `chown -R` recursivo sobre todo `/opt/2jfitness`.**
+- No se ha probado `auxiliary_ai` contra una API key real de Gemini en producción — el
+  usuario debe añadirla desde el panel admin (ver "Trabajo pendiente").
+- Smoke test autenticado (login, Admin, Bunker, entrenamiento, panel IA auxiliar UI,
+  importación CSV real) sin verificar en producción — pendiente del usuario.
 - String preexistente sin traducir en Admin.jsx (tarjeta "Room admin", línea ~553) — no
   introducido por V1/V2, no tocado.
 
 ## Siguiente acción recomendada
-1. Confirmar con el usuario si quiere desplegar V1+V2 a producción ahora.
-2. Si despliega: verificar `/api/health` y luego que el usuario configure la API key de
-   Gemini en el panel "IA auxiliar" y pruebe los 3 escáneres reales.
+1. El usuario hace el smoke test autenticado en producción (login con su passkey real) y
+   confirma que Admin/panel entrenador/Bunker/entrenamiento/historial funcionan como antes.
+2. El usuario añade su API key de Gemini en "IA auxiliar" y prueba los 4 capabilities
+   (comandos de disparo manual en "Trabajo pendiente" arriba).
 3. Crear el PR (`gh pr create` o vía navegador autenticado) — comando ya preparado en el
    historial de la sesión.
+4. Empezar V3 (notas de programación + versionado + últimas sesiones + resumen de rutina +
+   investigación OpenAI REST) en una sesión propia, inspeccionando primero el modelo real
+   de `routines`/`programs`/`entries` antes de tocar nada — alcance grande, no intentarlo
+   de pasada.
 
 ---
 
