@@ -1,0 +1,5 @@
+51a221d8ef524776334d8d67109fb9102407eff2
+
+This is the oldest runtime that may be used while any production state contains Sync V2 metadata.
+Rollback must use a release archive containing this marker and must never restore application code
+older than this commit over live Sync V2 data.

@@ -905,6 +905,21 @@ a `feat/pwa-tanita-bunker-roadmap`. No mergear PR #10. No se desplegó: antes ha
 un backup nuevo y recuperable de producción y una comprobación explícita del rollback
 con metadata Sync V2 ya escrita.
 
+### CHECKPOINT DE ROLLBACK POST-SYNC — 2026-09-21
+
+`51a221d8ef524776334d8d67109fb9102407eff2` queda fijado como la base mínima de runtime
+para cualquier producción que haya activado Sync V2. Nunca desplegar ni usar como rollback
+`90d98fe` o anterior sobre esos datos. El marcador raíz `SYNC_V2_ROLLBACK_BASE` permite
+rechazar un archivo de release incompatible antes de extraerlo; el procedimiento exacto está
+en `docs/DEPLOY_RAIOLA.md`. El rollback conserva `data/` y cambia solo el código por un
+archivo compatible conocido. Si esa base no arranca, la política es corregir hacia delante.
+
+Test `api/test/rollback-sync-v2.test.js`: parte de revision/generation/receipts/tombstones,
+simula una escritura con el runtime mínimo, verifica que metadata no baja ni desaparece,
+rechaza un cliente stale y bloquea la resurrección de un workout tombstoned.
+Validación local: frontend **576/576**, backend **199/199**, build Vite OK y
+`git diff --check` OK. El aviso de chunks grandes sigue siendo el preexistente.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.
