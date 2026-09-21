@@ -50,13 +50,13 @@ describe('buildShareCardData', () => {
     expect(data.lifts[0]).toMatchObject({ w: 60, r: 12 })
   })
 
-  it('caps lifts at 4, keeping the top ones by volume', () => {
+  it('keeps every completed exercise, ranked by volume', () => {
     const ids = ['0025', '0033', '1274', '0151', '0019']
     const w = baseWorkout({
       entries: ids.map((id, i) => ({ id, sets: [set({ w: 10 * (i + 1), r: 10 })] })),
     })
     const data = buildShareCardData(baseS(), w, [], [], [])
-    expect(data.lifts).toHaveLength(4)
+    expect(data.lifts).toHaveLength(5)
     expect(data.lifts[0].id).toBe('0019')   // heaviest (50kg×10)
   })
 

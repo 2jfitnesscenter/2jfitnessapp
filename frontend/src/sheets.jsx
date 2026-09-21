@@ -27,9 +27,10 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
 import { getExerciseAlternatives, QUICK_FILTERS } from './lib/alternatives.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
-import { MOBILE, shareImage } from './lib/mobile.js'
+import { MOBILE } from './lib/mobile.js'
 import { buildShareCardData } from './lib/share-card.js'
-import WorkoutShareCard, { CARD_SIZE } from './components/WorkoutShareCard.jsx'
+import WorkoutShareCard from './components/WorkoutShareCard.jsx'
+import { capturePng, downloadPng, sharePng } from './lib/share-image.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
 import BioimpedanceFields from './components/BioimpedanceFields.jsx'
 import { resizeImageFile, uploadImage, mediaUrl, scanRoutine, scanMachine, fetchMachineAlias, saveMachineAlias } from './lib/media.js'
@@ -2134,8 +2135,8 @@ function FinishSummary({ w, prs, e1prs = [], rankUps = [], newBadges = [], close
 }
 // A shareable PNG of the just-finished session (or, from the badge celebration's own trigger,
 // still the current `w` closed over there) — 9:16 by default with a 1:1 toggle, rendered
-// off-screen at CARD_SIZE and rasterized with html-to-image, loaded lazily since most sessions
-// never open this sheet and the library has no reason to ride along in the main bundle.
+// at the card's compact preview width and rasterized with html-to-image, loaded lazily since
+// most sessions never open this sheet and the library has no reason to ride along in the main bundle.
 function shareCardSheet(w, prs, e1prs, newBadges) {
   ui().openSheet(close => <WorkoutShareSheet w={w} prs={prs} e1prs={e1prs} newBadges={newBadges} close={close} />)
 }
@@ -2146,14 +2147,9 @@ function WorkoutShareSheet({ w, prs, e1prs, newBadges, close }) {
   const [busy, setBusy] = useState(false)
   const cardRef = useRef(null)
 
-  // pixelRatio 4 against WorkoutShareCard's 270px-wide DOM node is what turns the on-screen
-  // preview into the spec's 1080×1920 (story) / 1080×1080 (square) export — see CARD_SIZE's
-  // own comment. cacheBust appends a timestamp to the crest/badge <img> requests so a stale
-  // service-worker/browser cache can never hand back a half-loaded image mid-capture.
-  const capture = async () => {
-    const { toPng } = await import('html-to-image')
-    return toPng(cardRef.current, { pixelRatio: 4, cacheBust: true })
-  }
+  // The shared capture helper measures the rendered node's full scroll height before using
+  // pixelRatio 4, so a long exercise/record list grows the PNG instead of being clipped.
+  const capture = () => capturePng(cardRef.current)
   const filename = `2J-Workout-${w.d}.png`
   const withCapture = async fn => {
     if (busy) return
@@ -2162,13 +2158,7 @@ function WorkoutShareSheet({ w, prs, e1prs, newBadges, close }) {
     catch (e) { ui().toast(t("Couldn't create the image")) }
     finally { setBusy(false) }
   }
-  const doShare = async dataUrl => {
-    if (MOBILE) { await shareImage(dataUrl.split(',')[1], filename); return }
-    const blob = await (await fetch(dataUrl)).blob()
-    const file = new File([blob], filename, { type: 'image/png' })
-    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: t('My workout') }); return }
-    downloadPng(dataUrl, filename)
-  }
+  const doShare = dataUrl => sharePng(dataUrl, filename, t('My workout'))
   const doDownload = async dataUrl => downloadPng(dataUrl, filename)
   const doCopy = async dataUrl => {
     if (!navigator.clipboard?.write) { ui().toast(t("Copy isn't supported here")); return }
@@ -2193,11 +2183,6 @@ function WorkoutShareSheet({ w, prs, e1prs, newBadges, close }) {
     </div>
     <Button variant="plain" className="dim" style={{ marginTop: 8, width: '100%' }} onClick={close}>{t('Close')}</Button>
   </div>
-}
-function downloadPng(dataUrl, filename) {
-  const a = document.createElement('a')
-  a.href = dataUrl; a.download = filename
-  document.body.appendChild(a); a.click(); a.remove()
 }
 // Shown once, right after finishing a session that had at least one mid-workout exercise swap
 // (Workout.jsx's `replaceExercise`) — a choice per swap between "just applied to today" (the

@@ -135,6 +135,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       // the moment they train from the kiosk instead of their phone.
       showPreviousResults: S.showPreviousResults !== false,
       warmupEnabled: S.warmupEnabled !== false,
+      effort: S.effort ?? (S.showRir ? 'rir' : 'none'),
       recentWorkouts: (S.workouts || []).slice(-40),
       active: S.active || null,
       activeRevision: activeRevision(S),

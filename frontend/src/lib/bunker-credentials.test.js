@@ -23,6 +23,11 @@ describe('purgeStaleCredentials', () => {
     expect(next).toEqual({ a: credentials.a })
   })
 
+  it('keeps several simultaneously open panels through a board timing gap', () => {
+    const credentials = { a: cred('token-a'), b: cred('token-b'), c: cred('token-c') }
+    expect(purgeStaleCredentials(credentials, [], ['a', 'b', 'c'])).toBe(credentials)
+  })
+
   it('keeps A and drops B independently — no cross-user interference', () => {
     const credentials = { a: cred('token-a'), b: cred('token-b') }
     const next = purgeStaleCredentials(credentials, [card('a')], null)

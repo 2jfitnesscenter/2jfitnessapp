@@ -2,11 +2,9 @@ import { t } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
 import BodyMap from './BodyMap.jsx'
 
-// The card's own CSS pixel size at each aspect — deliberately small (a real preview, not a
-// scaled-down mockup) so it's cheap to render live in a sheet. html-to-image rasterizes it at
-// pixelRatio 4 (see sheets.jsx's WorkoutShareSheet), which is exactly what turns these into the
-// spec's 1080×1920 / 1080×1080 minimums — the numbers below and that multiplier must move
-// together.
+// The card's minimum CSS size at each aspect. Content may grow beyond this height; the shared
+// capture helper measures scrollHeight so long sessions remain complete in the exported image.
+// pixelRatio 4 keeps the 270px preview at a 1080px export width.
 export const CARD_SIZE = { story: { w: 270, h: 480 }, square: { w: 270, h: 270 } }
 
 /**
@@ -18,7 +16,7 @@ export const CARD_SIZE = { story: { w: 270, h: 480 }, square: { w: 270, h: 270 }
 export default function WorkoutShareCard({ data, aspect, cardRef }) {
   const size = CARD_SIZE[aspect]
   return (
-    <div ref={cardRef} className="sharecard" data-aspect={aspect} style={{ width: size.w, height: size.h }}>
+    <div ref={cardRef} className="sharecard" data-aspect={aspect} style={{ width: size.w, minHeight: size.h }}>
       <div className="sc-top">
         <img src={data.crest} alt="" className="sc-crest" crossOrigin="anonymous" />
         <div className="sc-brand">{t('2J Fitness Center')}</div>
@@ -48,9 +46,7 @@ export default function WorkoutShareCard({ data, aspect, cardRef }) {
       </div>
 
       {data.lifts.length > 0 && <div className="sc-lifts">
-        {/* Square has no muscle map to absorb the space the story layout gives it, so it only
-            has room for the top 2 lifts, not all 4 — still ranked by volume, just fewer shown. */}
-        {(aspect === 'square' ? data.lifts.slice(0, 2) : data.lifts).map(l => <div key={l.id} className="sc-lift">
+        {data.lifts.map(l => <div key={l.id} className="sc-lift">
           {l.isPR && <Icon name="trophy" />}
           <span className="sc-lift-n">{l.name}</span>
           <span className="sc-lift-v">{l.w}×{l.r}</span>

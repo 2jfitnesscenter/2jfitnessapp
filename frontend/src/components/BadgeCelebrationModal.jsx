@@ -1,13 +1,13 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../lib/i18n.js'
 import { fmtDate, todayISO } from '../lib/format.js'
 import { badgeAccent, ACCENT_COLOR_VAR } from '../lib/badges-data.js'
-import { shareText } from '../lib/mobile.js'
 import { MOBILE } from '../lib/mobile.js'
+import { capturePng, sharePng } from '../lib/share-image.js'
 import { vibrate } from '../lib/sound.js'
-import { useUI } from '../store/useUI.js'
 import Icon from './Icon.jsx'
 import { Button } from './ui.jsx'
+import BadgeShareCard from './BadgeShareCard.jsx'
 
 // A dozen-odd little squares/dots flung out from the badge icon on entry — angle + distance
 // computed once per badge (useMemo keyed on badge.id, not re-rolled on every re-render), and
@@ -37,6 +37,9 @@ function useBurst(seedKey) {
 export default function BadgeCelebrationModal({ badge, remaining, onAdvance }) {
   const accent = ACCENT_COLOR_VAR[badgeAccent(badge)]
   const particles = useBurst(badge.id)
+  const cardRef = useRef(null)
+  const [sharing, setSharing] = useState(false)
+  const dateLabel = fmtDate((badge.unlockedAt || todayISO()).slice(0, 10), true)
 
   // A short, distinct "success" buzz — only on the native app build (a browser tab buzzing a
   // desk phone for a badge would be a strange surprise the web/PWA build never opts into).
@@ -44,10 +47,14 @@ export default function BadgeCelebrationModal({ badge, remaining, onAdvance }) {
   useEffect(() => { if (MOBILE) vibrate([0, 40, 60, 90]) }, [badge.id])
 
   const share = async () => {
+    if (sharing || !cardRef.current) return
+    setSharing(true)
     try {
-      const ok = await shareText(t('I just unlocked the "{0}" badge in 2J Fitness Center 🏅', t(badge.title)))
-      if (!ok) useUI.getState().toast(t('Copied'))
-    } catch (e) { /* share sheet dismissed, or nothing to share to — not worth surfacing */ }
+      const dataUrl = await capturePng(cardRef.current)
+      await sharePng(dataUrl, `2J-Badge-${badge.id}.png`, t(badge.title),
+        t('I just unlocked the "{0}" badge in 2J Fitness Center 🏅', t(badge.title)))
+    } catch (e) { /* share sheet dismissed, or capture unavailable */ }
+    finally { setSharing(false) }
   }
 
   return (
@@ -68,12 +75,13 @@ export default function BadgeCelebrationModal({ badge, remaining, onAdvance }) {
       )}
       <h2 className="badgecel-title">{t(badge.title)}</h2>
       <div className="badgecel-desc">{t(badge.description)}</div>
-      <div className="badgecel-date">{fmtDate(todayISO(), true)}</div>
+      <div className="badgecel-date">{dateLabel}</div>
       <Button variant="primary" onClick={onAdvance} style={{ marginTop: 18 }}>
         {remaining > 0 ? t('Next badge ({0} more)', remaining) : t('Nice!')}
       </Button>
       <div style={{ height: 8 }} />
-      <Button variant="ghost" className="dim" icon="upload" onClick={share}>{t('Share achievement')}</Button>
+      <Button variant="ghost" className="dim" icon="upload" disabled={sharing} onClick={share}>{t('Share achievement')}</Button>
+      <div className="sharecard-capture" aria-hidden="true"><BadgeShareCard badge={badge} dateLabel={dateLabel} cardRef={cardRef} /></div>
     </div>
   )
 }

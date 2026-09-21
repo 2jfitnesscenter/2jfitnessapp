@@ -15,10 +15,11 @@
 // credential; the next tap on that name, if it ever reappears, asks for the PIN again.
 export function purgeStaleCredentials(credentials, board, activeUid) {
   const present = new Set(board.map(s => s.uid))
+  const active = new Set(Array.isArray(activeUid) ? activeUid : (activeUid ? [activeUid] : []))
   let changed = false
   const next = {}
   for (const uid of Object.keys(credentials)) {
-    if (uid === activeUid || present.has(uid)) next[uid] = credentials[uid]
+    if (active.has(uid) || present.has(uid)) next[uid] = credentials[uid]
     else changed = true
   }
   return changed ? next : credentials

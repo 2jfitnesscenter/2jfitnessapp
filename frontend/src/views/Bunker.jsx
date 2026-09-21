@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { t, nameFor } from '../lib/i18n.js'
 import { fmtNum, todayISO, uid, exCount } from '../lib/format.js'
-import { workoutVolume, effectiveRoutine, modeOf, swapEntryExercise } from '../lib/history.js'
+import { workoutVolume, effectiveRoutine, modeOf, swapEntryExercise, supersetUnits, effortOf, stepEffort } from '../lib/history.js'
 import { buildRoutineEntries, buildFreeEntry } from '../lib/progression.js'
-import { EXIDX } from '../lib/exercises.js'
+import { EXIDX, imgSrc } from '../lib/exercises.js'
+import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { ExerciseSearchList, BunkerTopBar, BunkerToolPane, DEFAULT_TIMER_STATE } from './BunkerTools.jsx'
 import { musclesOf, MUSCLE_GROUPS } from '../lib/muscles.js'
@@ -18,6 +19,7 @@ import {
   bunkerAdminCheckin, fetchBunkerAdminSessions, closeBunkerSession, pauseBunkerSession, saveBunkerSettings,
 } from '../lib/bunker-api.js'
 import { purgeStaleCredentials } from '../lib/bunker-credentials.js'
+import { nextAfterBunkerSet } from '../lib/bunker-workout.js'
 
 const BOARD_POLL_MS = 4000
 const REST_SEC = 90
@@ -322,6 +324,20 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
     }) }
     sync(next)
   }
+  const setEffort = (ei, si, kind, dir) => {
+    touch()
+    const next = { ...active, entries: active.entries.map((e, i) => i !== ei ? e : {
+      ...e, sets: e.sets.map((s, j) => {
+        if (j !== si) return s
+        const value = stepEffort(kind, s[kind], dir)
+        const updated = { ...s }
+        if (value == null) delete updated[kind]
+        else updated[kind] = value
+        return updated
+      }),
+    }) }
+    sync(next)
+  }
   const toggleDone = (ei, si) => {
     touch()
     const willBeDone = !active.entries[ei].sets[si].done
@@ -331,11 +347,17 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
     sync(next)
     if (willBeDone) {
       beep(true, 880, 0.15); vibrate(40)
-      const endsAt = Date.now() + REST_SEC * 1000
-      setRestEndsAt(endsAt)
-      postBunkerRest(token, REST_SEC).catch(() => {})
-      clearTimeout(minimizeRef.current)
-      minimizeRef.current = setTimeout(onMinimize, AFTER_SET_MINIMIZE_MS)
+      const progressEntries = active.entries.map((e, idx) => idx !== ei ? e : { ...e, sets: e.sets.map((s, setIdx) => setIdx === si ? { ...s, done: true } : s) })
+      const advance = nextAfterBunkerSet(progressEntries, ei, si)
+      if (advance.rest) {
+        const endsAt = Date.now() + REST_SEC * 1000
+        setRestEndsAt(endsAt)
+        postBunkerRest(token, REST_SEC).catch(() => {})
+        clearTimeout(minimizeRef.current)
+        minimizeRef.current = setTimeout(onMinimize, AFTER_SET_MINIMIZE_MS)
+      } else {
+        setExIdx(advance.nextEntry)
+      }
     }
   }
   // Same semantics as Workout.jsx's own replaceExercise (issue tracked in lib/history.js's
@@ -382,6 +404,9 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
 
   const entry = active.entries[exIdx]
   const last = entry ? lastResultFor(plan.recentWorkouts, entry.id) : null
+  const ssInfo = supersetGroupInfo(active.entries)
+  const currentUnit = supersetUnits(active.entries).find(u => u.includes(exIdx)) || [exIdx]
+  const effortKind = effortOf(plan)
 
   // Per-athlete RP Volume Zones (Fase V2 §2's "hidratación estricta de preferencias
   // individuales") — only ever read from THIS athlete's own session payload, which the server
@@ -419,7 +444,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
         const doneN = e.sets.filter(s => s.done).length
         return <button key={i} className={'bk-extab' + (i === exIdx ? ' on' : '') + (doneN === e.sets.length ? ' done' : '')}
           onClick={() => { touch(); setExIdx(i) }}>
-          {exName(e.id, plan.customEx)}<span className="bk-extab-n">{doneN}/{e.sets.length}</span>
+          <span>{ssInfo[i] && <b className="bk-ssbadge">{supersetLabel(ssInfo[i])}</b>}{exName(e.id, plan.customEx)}</span><span className="bk-extab-n">{doneN}/{e.sets.length}</span>
         </button>
       })}
       {freeTraining && <button className="bk-extab bk-extab-add" onClick={() => { touch(); setShowAdd(true) }} aria-label={t('Add exercise')}><Icon name="plus" /></button>}
@@ -429,8 +454,9 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       <button className="bk-join" style={{ marginTop: 16 }} onClick={() => { touch(); setShowAdd(true) }}><Icon name="plus" />{t('Add exercise')}</button>
     </div>}
     {entry && <div className="bk-sets">
+      {EXIDX[entry.id]?.img && <img className="bk-exmedia" src={imgSrc(EXIDX[entry.id])} alt={exName(entry.id, plan.customEx)} loading="lazy" decoding="async" />}
       <div className="bk-exname-row">
-        <div className="bk-exname">{exName(entry.id, plan.customEx)}</div>
+        <div className="bk-exname">{ssInfo[exIdx] && <span className="bk-ssbadge">{supersetLabel(ssInfo[exIdx])}</span>}{exName(entry.id, plan.customEx)}</div>
         <button className="bk-exchange-btn" onClick={() => { touch(); setShowSwap(true) }}>
           <Icon name="shuffle" />{t('Change exercise')}
         </button>
@@ -438,6 +464,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
           <Icon name="trash" />{t('Remove exercise')}
         </button>}
       </div>
+      {currentUnit.length > 1 && <div className="bk-superset-line"><Icon name="link" />{currentUnit.map(i => `${supersetLabel(ssInfo[i])} ${exName(active.entries[i].id, plan.customEx)}`).join(' + ')}</div>}
       {/* Same plan.why the phone logger's own .progline shows (lib/progression.js's
           nextPrescription) — what the routine planned for this exercise and why, kept visibly
           separate from the editable set rows below (what is actually being done). */}
@@ -474,6 +501,11 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
               <button onClick={() => setField(exIdx, si, 'r', 1)}>+</button>
             </div>
           </>}
+          {!cardio && modeOf(entry.target || {}) === 'reps' && effortKind !== 'none' && <div className="bk-bigstp bk-effort-stp">
+            <button onClick={() => setEffort(exIdx, si, effortKind, -1)}>−</button>
+            <span className="bk-bigstp-v">{s[effortKind] ?? '—'}<i>{effortKind.toUpperCase()}</i></span>
+            <button onClick={() => setEffort(exIdx, si, effortKind, 1)}>+</button>
+          </div>}
           <button className={'bk-check' + (s.done ? ' on' : '')} onClick={() => toggleDone(exIdx, si)} aria-label={t('Done')}><Icon name="check" /></button>
         </div>
       })}
@@ -610,9 +642,9 @@ export default function Bunker() {
   // *access* that's scoped to this device, never the training data itself — S.active stays
   // exactly as safe and persistent as it always was, on the server, independent of this map.
   const [credentials, setCredentials] = useState({})
-  // Which of those credentials (if any) is the one currently shown full-screen — null shows the
-  // community board instead. Minimizing only ever changes this; it never touches `credentials`.
-  const [activeUid, setActiveUid] = useState(null)
+  // Credentials whose compact training panels are currently open. Minimizing only removes one
+  // uid from this list; it never touches that member's in-memory credential.
+  const [activeUids, setActiveUids] = useState([])
   const [showCheckin, setShowCheckin] = useState(false)
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [showExitLock, setShowExitLock] = useState(false)
@@ -625,7 +657,8 @@ export default function Bunker() {
   const [timer, setTimer] = useState(DEFAULT_TIMER_STATE)
   const tapsRef = useRef([])
   const paired = (() => { try { return JSON.parse(localStorage.getItem(PAIR_KEY) || 'null') } catch { return null } })()
-  const current = activeUid ? credentials[activeUid] : null
+  const open = activeUids.map(uid => [uid, credentials[uid]]).filter(([, credential]) => !!credential)
+  const minimized = Object.entries(credentials).filter(([uid]) => !activeUids.includes(uid))
 
   useEffect(() => {
     let alive = true
@@ -639,16 +672,18 @@ export default function Bunker() {
   // "it's the one I'm actively looking at right now" — see lib/bunker-credentials.js's own doc
   // comment for exactly which real-world cases that covers (finish, admin force-close, the
   // 15-minute idle timeout) and why minimizing is never one of them.
-  useEffect(() => { setCredentials(c => purgeStaleCredentials(c, board, activeUid)) }, [board, activeUid])
+  useEffect(() => { setCredentials(c => purgeStaleCredentials(c, board, activeUids)) }, [board, activeUids])
   // A credential that failed to actually resume (GET /session 401'd — the rare case of a token
   // that outlived its own 4h TTL while its card stayed on the board because the member kept
   // training right up to that edge) or that just finished a workout both end the same way here:
   // drop the stale/spent credential and fall back to the board, where the next tap correctly
   // asks for the PIN again instead of silently doing nothing.
-  const releaseActive = () => {
-    setCredentials(c => { if (!activeUid || !(activeUid in c)) return c; const next = { ...c }; delete next[activeUid]; return next })
-    setActiveUid(null)
+  const releaseActive = uid => {
+    setCredentials(c => { if (!(uid in c)) return c; const next = { ...c }; delete next[uid]; return next })
+    setActiveUids(list => list.filter(x => x !== uid))
   }
+  const expand = uid => setActiveUids(list => list.includes(uid) ? list : [...list, uid])
+  const minimize = uid => setActiveUids(list => list.filter(x => x !== uid))
 
   // A discreet way off a public kiosk — three quick taps on the room header, then the same
   // admin code the room-admin overlay already asks for, rather than a visible "exit" button
@@ -671,11 +706,19 @@ export default function Bunker() {
           nobody's checked in yet, already polls at the root (below) and has nothing tab-switch
           could lose either way. */}
       <div style={{ display: tool === 'training' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        {current
-          ? <BunkerTrainingPanel token={current.token} name={current.name} settings={settings}
-              onMinimize={() => setActiveUid(null)} onFinish={releaseActive} onInvalid={releaseActive} />
+        {open.length
+          ? <div className="bk-multi">
+              <div className="bk-multi-actions">
+                {minimized.map(([uid, credential]) => <button key={uid} className="bk-restore" onClick={() => expand(uid)}><Icon name="expand" />{credential.name}</button>)}
+                <button className="bk-join" onClick={() => setShowCheckin(true)}><Icon name="plus" /> {t('Join the Bunker')}</button>
+              </div>
+              <div className="bk-multi-grid">{open.map(([uid, current]) =>
+                <BunkerTrainingPanel key={uid} token={current.token} name={current.name} settings={settings}
+                  onMinimize={() => minimize(uid)} onFinish={() => releaseActive(uid)} onInvalid={() => releaseActive(uid)} />
+              )}</div>
+            </div>
           : <BunkerBoard board={board} settings={settings} credentials={credentials}
-              onCheckin={() => setShowCheckin(true)} onResume={uid => setActiveUid(uid)} />}
+              onCheckin={() => setShowCheckin(true)} onResume={expand} />}
       </div>
       {tool !== 'training' && <BunkerToolPane tool={tool} timer={timer} setTimer={setTimer} />}
     </div>
@@ -685,7 +728,7 @@ export default function Bunker() {
       // so replacing rather than merging keeps this device from ever acting on a token the
       // server itself has already superseded.
       setCredentials(c => ({ ...c, [s.uid]: { token: s.token, name: s.name, exp: s.exp } }))
-      setActiveUid(s.uid)
+      expand(s.uid)
       setShowCheckin(false)
     }} />}
     {showAdminLogin && <BunkerAdminLogin onClose={() => setShowAdminLogin(false)} onSuccess={tok => { setAdminToken(tok); setShowAdminLogin(false) }} />}

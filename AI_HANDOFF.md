@@ -954,6 +954,38 @@ prueba identificados y no se deben alterar usuarios reales. Frontend **576/576**
 **199/199**, build Vite y `git diff --check` estaban verdes antes del deploy. PR #10 sigue
 sin mergear.
 
+### CHECKPOINT — BUNKER V4 + SHARE CARDS — 2026-09-21
+
+Producción continúa en `6c548f7` (`1.3.0`); Sync V2 sigue desplegado y no se modificó su
+arquitectura. Sprint validado y preparado para commit/push, todavía sin desplegar porque el
+SSH de producción requiere contraseña interactiva.
+
+- Bunker V4 mantiene montados paneles independientes para varios usuarios y permite añadir
+  nuevas sesiones sin minimizar las abiertas. El grid se adapta a 1, 2 y aproximadamente 3
+  usuarios en pantalla grande; minimizar afecta solo a ese usuario y conserva su credencial
+  local en memoria.
+- Cada panel conserva la rutina completa desplazable y añade imagen del ejercicio, registro
+  RPE/RIR según la preferencia del socio, cardio, sustitución, finish y etiquetas A1/A2. Las
+  superseries avanzan al compañero sin descanso intermedio y arrancan descanso al completar
+  la ronda. La semántica naranja de equipamiento no disponible no cambió.
+- La exportación de entrenamiento dejó de fijar una altura rígida: mide el `scrollHeight`,
+  amplía el canvas y conserva todos los ejercicios completados, por lo que sesiones largas y
+  varios récords no pierden la parte inferior.
+- Compartir logro genera ahora una tarjeta PNG con emblema, nombre, descripción, fecha y
+  branding 2J. Usa el mismo pipeline de captura/share del entrenamiento; Web Share prioriza
+  el archivo de imagen y el fallback descarga el PNG.
+
+Validación única final: frontend **582/582** (34 archivos), backend **199/199**, build Vite OK
+(permanece el aviso conocido de chunks grandes) y `git diff --check` OK. Tests nuevos cubren
+captura de altura completa, progreso de superserie en Bunker, varios paneles activos y la
+preferencia de esfuerzo aislada por usuario.
+
+Deuda/backlog para el siguiente relevo: desplegar este commit con el procedimiento de
+`docs/DEPLOY_RAIOLA.md` usando SSH interactivo y hacer smoke real con 1/2/3 cuentas de prueba,
+incluida una superserie y compartir ambos PNG. No usar cuentas reales para mutaciones de smoke.
+No mergear PR #10. Producción solo puede volver a un runtime que respete
+`SYNC_V2_ROLLBACK_BASE`; nunca a `90d98fe` ni anterior.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.

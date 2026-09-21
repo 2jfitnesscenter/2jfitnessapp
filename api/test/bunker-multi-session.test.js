@@ -84,7 +84,7 @@ test('both members show up on the board at once, neither displacing the other', 
 });
 
 test('A\'s token can only ever read A\'s own session, never B\'s, however many are checked in', async () => {
-  writeState(process.env.DATA_DIR, 'u_alice', baseState({ unit: 'kg' }));
+  writeState(process.env.DATA_DIR, 'u_alice', baseState({ unit: 'kg', effort: 'rpe' }));
   writeState(process.env.DATA_DIR, 'u_bob', baseState({ unit: 'lb' }));
   const store = await import('../bunker/store.js');
   const a = await call(checkin, { body: { pin: store.pinFor('u_alice') } });
@@ -93,6 +93,7 @@ test('A\'s token can only ever read A\'s own session, never B\'s, however many a
   const res = await call(getSession, { token: a.body.token });
   assert.equal(res.body.name, 'Alice');
   assert.equal(res.body.unit, 'kg', 'never Bob\'s own unit, even though his session is also live right now');
+  assert.equal(res.body.effort, 'rpe', 'the kiosk uses this member\'s own per-set effort scale');
 });
 
 test('alternating writes (A -> B -> A -> B) never mix S.active between the two accounts', async () => {
