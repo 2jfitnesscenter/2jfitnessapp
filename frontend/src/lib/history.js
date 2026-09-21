@@ -299,7 +299,8 @@ export function setsDoneActive(A) {
   if (A) A.entries.forEach(e => e.sets.forEach(s => { if (s.done) n++ }))
   return n
 }
-export const lastBW = S => (S.bodyweight.length ? S.bodyweight[S.bodyweight.length - 1] : null)
+export const lastBW = S => (S.bodyweight || []).reduce((latest, entry) =>
+  !latest || entry.d > latest.d || (entry.d === latest.d && (entry.t || 0) > (latest.t || 0)) ? entry : latest, null)
 // Has the profile weighed in recently enough that the "quick check-in" before a workout would
 // just be nagging? Noon-anchored dates (matching effectiveRoutineId's own convention) so a day
 // count is never off by one across a DST transition.

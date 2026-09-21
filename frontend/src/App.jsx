@@ -95,6 +95,7 @@ function applyPrefs(theme, accent, glass, glassOpacity, glassBlur, textScale) {
 }
 
 function Shell() {
+  const syncStatus = useStore(s => s.syncStatus)
   const navigate = useNavigate()
   const loc = useLocation()
   const { S, user, ready } = useStore()
@@ -223,6 +224,7 @@ function Shell() {
           it without using its own "Skip for now" (which, unlike navigating away, marks
           onboarded so the wizard doesn't reappear). */}
       {!needsOnboarding && <TabBar />}
+      {syncStatus === 'conflict' && <div role="alert" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, background: 'var(--surface)', padding: 12 }}>Hay cambios en conflicto. Tu trabajo está guardado en este dispositivo; no se sobrescribirá el servidor.</div>}
       <RestTimer />
       <ChatWatcher />
       <FriendsWatcher />

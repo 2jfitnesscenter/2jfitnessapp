@@ -16,6 +16,17 @@ import { encrypt, decrypt } from './crypto.js';
 const DATA = process.env.DATA_DIR || '/data';
 const INFO = 'user-state';
 const safe = uid => String(uid).replace(/[^a-zA-Z0-9_-]/g, '');
+const defaultSync = () => ({
+  schemaVersion: 2, revision: 0, generation: 0,
+  tombstones: { workouts: [], routines: [], programs: [] },
+  receipts: {}, enabled: false, activeRevision: 0,
+});
+const normalizeSync = value => ({
+  ...defaultSync(), ...(value || {}),
+  tombstones: { ...defaultSync().tombstones, ...(value?.tombstones || {}) },
+  receipts: value?.receipts || {},
+  activeRevision: Number.isSafeInteger(value?.activeRevision) && value.activeRevision >= 0 ? value.activeRevision : 0,
+});
 
 export const stateFile = uid => path.join(DATA, 'state-' + safe(uid) + '.json');
 
@@ -27,14 +38,40 @@ export const stateFile = uid => path.join(DATA, 'state-' + safe(uid) + '.json');
 // entry, a trainer-assigned routine, ...).
 export function readState(uid) {
   let raw;
-  try { raw = fs.readFileSync(stateFile(uid), 'utf8'); } catch { return null; }
+  try { raw = fs.readFileSync(stateFile(uid), 'utf8'); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
   const trimmed = raw.trim();
-  if (trimmed.startsWith('{')) { try { return JSON.parse(trimmed); } catch { return null; } }
-  return decrypt(trimmed, INFO);
+  let state;
+  try { state = trimmed.startsWith('{') ? JSON.parse(trimmed) : decrypt(trimmed, INFO); } catch { /* corrupt */ }
+  if (!state || typeof state !== 'object' || Array.isArray(state)) {
+    throw Object.assign(new Error('Estado ilegible; se requiere recuperación, no se sobrescribirá.'), { status: 503, code: 'STATE_CORRUPT' });
+  }
+  // Non-enumerable in domain objects: backups/legacy clients cannot import server metadata.
+  const meta = normalizeSync(state._sync);
+  delete state._sync;
+  Object.defineProperty(state, '_sync', { value: meta, writable: true, configurable: true });
+  return state;
 }
 
 export function writeState(uid, state) {
+  const current = readState(uid);
+  const previous = current?._sync;
+  if (state._sync && previous && (state._sync.revision !== previous.revision || state._sync.generation !== previous.generation)) {
+    throw Object.assign(new Error('El estado cambió'), { status: 409, code: 'SYNC_CONFLICT' });
+  }
+  const meta = structuredClone(normalizeSync(state._sync || previous));
+  const replacing = meta.nextGeneration !== undefined;
+  if (replacing) { meta.generation = meta.nextGeneration; delete meta.nextGeneration; meta.tombstones = { workouts: [], routines: [], programs: [] }; }
+  for (const kind of ['workouts', 'routines', 'programs']) {
+    const ids = new Set((state[kind] || []).map(x => x.id));
+    if (!replacing && previous?.enabled && previous.tombstones[kind].some(id => ids.has(id))) {
+      throw Object.assign(new Error('La entidad fue eliminada'), { status: 409, code: 'ENTITY_DELETED' });
+    }
+    meta.tombstones[kind] = [...new Set([...meta.tombstones[kind], ...(current?.[kind] || []).filter(x => !ids.has(x.id)).map(x => x.id)])];
+  }
+  meta.revision = (previous?.revision || 0) + 1;
   const file = stateFile(uid), tmp = file + '.tmp';
-  fs.writeFileSync(tmp, encrypt(state, INFO), { mode: 0o600 });
+  fs.writeFileSync(tmp, encrypt({ ...state, _sync: meta }, INFO), { mode: 0o600 });
   fs.renameSync(tmp, file);
+  delete state._sync;
+  Object.defineProperty(state, '_sync', { value: meta, writable: true, configurable: true });
 }

@@ -13,7 +13,10 @@ const adminHeaders = adminToken => (adminToken ? bearer(adminToken) : jsonHeader
 // never on a 4xx/5xx with a JSON body, so without this an expired admin token or session would
 // resolve "successfully" into {error: '...'} and whatever field the caller expected next
 // (sessions, members, …) would silently be undefined instead of the call failing loudly.
-const okJson = r => r.json().then(d => { if (!r.ok) throw new Error(d.error || 'error'); return d })
+const okJson = r => r.json().then(d => {
+  if (!r.ok) throw Object.assign(new Error(d.error || 'error'), { status: r.status, data: d })
+  return d
+})
 
 /* ---------- a member's own phone (normal session) ---------- */
 export const fetchBunkerPin = () => api('/api/bunker/pin').then(r => r.pin)

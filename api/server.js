@@ -19,6 +19,7 @@ import { scanMachineImage } from './lib/machine-scan.js';
 import { auxAIRoutes } from './lib/aux-ai-routes.js';
 import { matchImportExercises } from './lib/import-exercise-match.js';
 import { readState, writeState } from './lib/state-store.js';
+import { openSync, mutate, directReceipt, saveDirect, trainerReceipt, saveTrainer } from './lib/sync.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
 import { chatRoutes } from './chat/routes.js';
@@ -751,6 +752,24 @@ const routes = {
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
   },
 
+  'GET /api/sync': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const owner = new URL(req.url, 'http://x').searchParams.get('owner');
+    if (owner && owner !== user.id) return json(res, 403, { error: 'La cuenta cambió', code: 'SYNC_ACCOUNT_CHANGED' });
+    json(res, 200, openSync(user.id));
+  },
+  'POST /api/sync': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const op = await readBody(req);
+    if (op.owner && op.owner !== user.id) return json(res, 403, { error: 'La cuenta cambió', code: 'SYNC_ACCOUNT_CHANGED' });
+    try { json(res, 200, mutate(user.id, op)); }
+    catch (e) {
+      if (e.status === 409) return json(res, 409, { error: e.message, code: e.code, ...openSync(user.id) });
+      throw e;
+    }
+  },
   'GET /api/data': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
@@ -797,6 +816,7 @@ const routes = {
     // null` (not absent) via POST /api/bunker/finish, and `null` is falsy, so this never
     // resurrects one that has already ended.
     const current = readState(user.id);
+    if (current?._sync?.enabled) return json(res, 409, { error: 'Actualiza la aplicación: se requiere Sync V2', code: 'SYNC_UPGRADE_REQUIRED' });
     if (current && current.active) body.state.active = current.active;
     // `wipe: true` (Settings → "Reset everything" only) opts OUT of the reconciliation below —
     // the one place a client is deliberately asking for zero workouts/version-history, not
@@ -825,6 +845,7 @@ const routes = {
     const id = String(body.id || '');
     if (!id) return json(res, 400, { error: 'falta el id del entreno' });
     const S = readState(user.id);
+    if (S?._sync?.enabled) return json(res, 409, { error: 'Se requiere una operación Sync V2', code: 'SYNC_UPGRADE_REQUIRED' });
     if (S) {
       S.workouts = (S.workouts || []).filter(w => w.id !== id);
       writeState(user.id, S);
@@ -930,6 +951,7 @@ const routes = {
       user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), trainer: isTrainer(u), invitedBy: u.invitedBy || null },
       unit: S.unit || 'kg',
       lastSync: S._ts || null,
+      sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null,
       // Basic profile — set at registration or edited here, read by the AI Coach too
       // (api/coach/payload.js). birthDate stays a date, never a stored age.
       birthDate: S.birthDate || null,
@@ -942,7 +964,7 @@ const routes = {
       // The two per-member toggles POST /api/admin/user/features can flip remotely.
       enableTrainingZones: S.enableTrainingZones !== false,
       enableRpVolumeZones: !!S.enableRpVolumeZones,
-      latestWeight: bw.length ? bw[bw.length - 1] : null,
+      latestWeight: bw.reduce((latest, entry) => !latest || entry.d > latest.d || (entry.d === latest.d && (entry.t || 0) > (latest.t || 0)) ? entry : latest, null),
       // Latest reading per measurement key — see /api/admin/user/measurements. Full history
       // stays on the member's own device; the admin card only needs "what's the number now".
       measurements: Object.fromEntries(
@@ -963,14 +985,24 @@ const routes = {
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const S = readState(u.id);
+    if (!S) {
+      // No synchronized state exists yet; the roster name is a separate db.json field.
+      if (body.name !== undefined) {
+        const name = String(body.name).trim().slice(0, 60);
+        if (!name) return json(res, 400, { error: 'se requiere un nombre' });
+        u.name = name; saveDb();
+      }
+      return json(res, 200, { ok: true });
+    }
+    const replay = directReceipt(S, body, 'admin-profile');
+    if (replay) return json(res, 200, replay);
     if (body.name !== undefined) {
       const name = String(body.name).trim().slice(0, 60);
       if (!name) return json(res, 400, { error: 'se requiere un nombre' });
       u.name = name;
       saveDb();
     }
-    const S = readState(u.id);
-    if (!S) return json(res, 200, { ok: true }); // never synced yet — nothing to merge the rest into
     if (body.birthDate !== undefined) {
       S.birthDate = body.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(body.birthDate) ? body.birthDate : null;
     }
@@ -989,8 +1021,8 @@ const routes = {
       S.secondaryMuscles = Array.isArray(body.secondaryMuscles) ? body.secondaryMuscles.filter(m => MUSCLES.includes(m)) : [];
     }
     S._ts = Date.now();
-    writeState(u.id, S);
-    json(res, 200, { ok: true });
+    saveDirect(u.id, S, body, 'admin-profile', { ok: true });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // Admin/trainer switching Training zones or Weekly volume zones on or off for one member
@@ -1004,11 +1036,14 @@ const routes = {
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     const S = readState(u.id);
     if (!S) return json(res, 404, { error: 'este socio aún no ha sincronizado ningún dato' });
+    const replay = directReceipt(S, body, 'admin-features');
+    if (replay) return json(res, 200, replay);
     if (typeof body.enableTrainingZones === 'boolean') S.enableTrainingZones = body.enableTrainingZones;
     if (typeof body.enableRpVolumeZones === 'boolean') S.enableRpVolumeZones = body.enableRpVolumeZones;
     S._ts = Date.now();
-    writeState(u.id, S);
-    json(res, 200, { ok: true, enableTrainingZones: S.enableTrainingZones !== false, enableRpVolumeZones: !!S.enableRpVolumeZones });
+    const result = { ok: true, enableTrainingZones: S.enableTrainingZones !== false, enableRpVolumeZones: !!S.enableRpVolumeZones };
+    saveDirect(u.id, S, body, 'admin-features', result);
+    json(res, 200, { ...result, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // Staff entering a bioimpedance scan (this gym's Tanita, typically) straight onto a member's
@@ -1024,6 +1059,8 @@ const routes = {
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde añadir medidas' });
+    const replay = directReceipt(S, body, 'admin-measurements');
+    if (replay) return json(res, 200, replay);
     const KEYS = ['neck', 'shoulders', 'chest', 'bicepsL', 'bicepsR', 'forearmL', 'forearmR', 'waist', 'hips',
       'thighL', 'thighR', 'calfL', 'calfR', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass',
       'segFatArmL', 'segFatArmR', 'segFatLegL', 'segFatLegR', 'segFatTrunk',
@@ -1060,8 +1097,8 @@ const routes = {
     }
     if (!n) return json(res, 400, { error: 'no se han dado valores válidos' });
     S._ts = Date.now();
-    writeState(u.id, S);
-    json(res, 200, { ok: true, saved: n });
+    saveDirect(u.id, S, body, 'admin-measurements', { ok: true, saved: n });
+    json(res, 200, { ok: true, saved: n, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // Applies the same Push/Pull/Legs starter plan "Load starter plan" offers a member, straight
@@ -1079,6 +1116,8 @@ const routes = {
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde añadir un plan' });
+    const replay = directReceipt(S, body, 'admin-starter-plan');
+    if (replay) return json(res, 200, replay);
     // Names hardcoded in Spanish — this admin endpoint has no i18n layer (the frontend's
     // equivalent, frontend/src/lib/starter.js, runs the same English keys through t()).
     const SPEC = [
@@ -1197,8 +1236,8 @@ const routes = {
     S.programs = [...(S.programs || []), program];
     S.activeProgramId = program.id;
     S._ts = Date.now();
-    writeState(u.id, S);
-    json(res, 200, { ok: true });
+    saveDirect(u.id, S, body, 'admin-starter-plan', { ok: true });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // The exercise blacklist itself — ids only. The 1324-exercise catalogue (names, body parts,
@@ -2131,14 +2170,16 @@ const routes = {
     if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = directReceipt(S, body, 'assign-routine');
+    if (replay) return json(res, 200, replay);
     S.customEx = S.customEx || [];
     (post.customExDefs || []).forEach(def => { if (!S.customEx.some(x => x.id === def.id)) S.customEx.push(def); });
     const routine = { id: crypto.randomBytes(9).toString('base64url'), name: post.name, emoji: post.emoji, ex: JSON.parse(JSON.stringify(post.ex)) };
     if (post.prog) routine.prog = post.prog;
     S.routines = [...(S.routines || []), routine];
     S._ts = Date.now();
-    writeState(member.id, S);
-    json(res, 200, { ok: true, routineId: routine.id });
+    saveDirect(member.id, S, body, 'assign-routine', { ok: true, routineId: routine.id });
+    json(res, 200, { ok: true, routineId: routine.id, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // Same as assign-routine, but for a whole Program: every embedded routine lands in the
@@ -2154,6 +2195,8 @@ const routes = {
     if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = directReceipt(S, body, 'assign-program');
+    if (replay) return json(res, 200, replay);
     S.customEx = S.customEx || [];
     const routineIds = [];
     for (const r of post.routines) {
@@ -2165,8 +2208,8 @@ const routes = {
     }
     S.programs = [...(S.programs || []), { id: crypto.randomBytes(9).toString('base64url'), name: post.name, emoji: post.emoji, routineIds }];
     S._ts = Date.now();
-    writeState(member.id, S);
-    json(res, 200, { ok: true });
+    saveDirect(member.id, S, body, 'assign-program', { ok: true });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   /* ---------- Trainer panel (desktop): build/edit a member's plan directly ---------- */
@@ -2181,7 +2224,7 @@ const routes = {
     const member = db.users.find(x => x.id === memberId);
     if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const S = readState(member.id);
-    json(res, 200, { routines: S?.routines || [], programs: S?.programs || [] });
+    json(res, 200, { routines: S?.routines || [], programs: S?.programs || [], sync: S ? { revision: S._sync.revision, generation: S._sync.generation } : null });
   },
 
   // body: { memberId, routineId?, name, emoji, ex, customExDefs?, prog? } — same validation as
@@ -2203,6 +2246,8 @@ const routes = {
       return json(res, 400, { error: 'faltan definiciones de uno o más ejercicios personalizados en esta rutina' });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = trainerReceipt(S, body, 'member-routine');
+    if (replay) return json(res, 200, replay);
     S.customEx = S.customEx || [];
     customExDefs.forEach(def => { if (!S.customEx.some(x => x.id === def.id)) S.customEx.push(def); });
     S.routines = S.routines || [];
@@ -2216,8 +2261,8 @@ const routes = {
       S.routines.push(routine);
     }
     S._ts = Date.now();
-    writeState(member.id, S);
-    json(res, 200, { ok: true, routineId: routine.id });
+    saveTrainer(member.id, S, body, 'member-routine', { ok: true, routineId: routine.id });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation }, routineId: routine.id });
   },
 
   // body: { memberId, programId?, name, emoji, routineIds, week? } — routineIds must already be
@@ -2234,6 +2279,8 @@ const routes = {
     if (!name || !routineIds || !routineIds.length) return json(res, 400, { error: 'un programa necesita un nombre y al menos una rutina' });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = trainerReceipt(S, body, 'member-program');
+    if (replay) return json(res, 200, replay);
     const memberRoutineIds = new Set((S.routines || []).map(r => r.id));
     if (routineIds.some(id => !memberRoutineIds.has(id))) return json(res, 400, { error: 'una de las rutinas no pertenece a este miembro' });
     const week = {};
@@ -2250,8 +2297,8 @@ const routes = {
       S.programs.push(program);
     }
     S._ts = Date.now();
-    writeState(member.id, S);
-    json(res, 200, { ok: true, programId: program.id });
+    saveTrainer(member.id, S, body, 'member-program', { ok: true, programId: program.id });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation }, programId: program.id });
   },
 
   // GET /api/trainer/routine-versions?memberId=&routineId= — traceability only (V3): the
@@ -2344,6 +2391,6 @@ http.createServer(async (req, res) => {
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);
-    if (!res.headersSent) json(res, 500, { error: 'error del servidor' });
+    if (!res.headersSent) json(res, e.status || 500, { error: e.status ? e.message : 'error del servidor', code: e.code });
   }
 }).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));

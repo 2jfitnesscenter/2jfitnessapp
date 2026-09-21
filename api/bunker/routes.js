@@ -15,6 +15,7 @@
  *    one, nothing else.
  */
 import * as store from './store.js';
+import { createHash } from 'node:crypto';
 import { readState, writeState } from '../lib/state-store.js';
 import { bestWeightFor, is1RMRecord } from './finish-helpers.js';
 
@@ -63,6 +64,48 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     return null;
   };
   const publicName = uid => (users().find(u => u.id === uid) || {}).name || 'Socio';
+  const activeRevision = S => S._sync?.activeRevision || 0;
+  const replaceActive = (S, active) => {
+    if (!S._sync) Object.defineProperty(S, '_sync', { value: { activeRevision: 0, receipts: {}, tombstones: { workouts: [], routines: [], programs: [] }, revision: 0, generation: 0, enabled: false }, writable: true, configurable: true });
+    S.active = active;
+    S._sync.activeRevision = activeRevision(S) + 1;
+  };
+  const checkActiveRevision = (res, S, body) => {
+    if ((!body.operationId || body.expectedActiveRevision === undefined) && S._sync?.enabled) {
+      json(res, 409, { error: 'actualiza la aplicación para continuar', code: 'SYNC_UPGRADE_REQUIRED', active: S.active || null, activeRevision: activeRevision(S) });
+      return false;
+    }
+    if (body.expectedActiveRevision === undefined) return true;
+    if (body.expectedActiveRevision !== activeRevision(S)) {
+      json(res, 409, {
+        error: body.expectedActiveRevision === undefined ? 'actualiza la aplicación para continuar' : 'la sesión cambió en otro dispositivo',
+        code: body.expectedActiveRevision === undefined ? 'SYNC_UPGRADE_REQUIRED' : 'ACTIVE_CONFLICT',
+        active: S.active || null,
+        activeRevision: activeRevision(S),
+      });
+      return false;
+    }
+    return true;
+  };
+  const activeReceipt = (res, S, body, kind) => {
+    if (!body.operationId) return null;
+    const key = `bunker:${kind}:${body.operationId}`;
+    const digest = createHash('sha256').update(JSON.stringify(body)).digest('hex');
+    const receipt = S._sync.receipts[key];
+    if (receipt) {
+      if (receipt.digest !== digest) {
+        json(res, 409, { error: 'operación reutilizada', code: 'OPERATION_REUSED' });
+        return { handled: true };
+      }
+      json(res, 200, receipt.result);
+      return { handled: true };
+    }
+    return { handled: false, key, digest };
+  };
+  const saveActive = (uid, S, receipt, result) => {
+    if (receipt?.key) S._sync.receipts[receipt.key] = { digest: receipt.digest, result };
+    writeState(uid, S);
+  };
   // Shared by the member's own GET /session and the admin "assist/adjust" panel — same narrow
   // slice of their real state either way, just reached through a different trust level.
   const sessionPayload = uid => {
@@ -94,6 +137,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       warmupEnabled: S.warmupEnabled !== false,
       recentWorkouts: (S.workouts || []).slice(-40),
       active: S.active || null,
+      activeRevision: activeRevision(S),
       // RP Volume Zones — off unless this member turned it on themselves (Settings), matching
       // the exact fields lib/rp-volume.js's landmarksFor/weeklyGroupVolume read elsewhere.
       enableRpVolumeZones: !!S.enableRpVolumeZones,
@@ -143,9 +187,9 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       if (existing && existing.id !== active.id && !body.force) {
         return json(res, 409, { error: `Ya tienes otra sesión en curso en el Bunker: "${existing.name || 'Entreno'}"`, existing });
       }
-      S.active = active;
+      replaceActive(S, active);
       writeState(me.id, S);
-      json(res, 200, { ok: true });
+      json(res, 200, { ok: true, activeRevision: activeRevision(S) });
     },
 
     // The one authorized way for the phone/web app to actually END its own S.active — a normal
@@ -177,7 +221,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       }
       const S = readState(me.id);
       if (S && S.active && (!id || S.active.id === id)) {
-        S.active = null;
+        replaceActive(S, null);
         writeState(me.id, S);
       }
       json(res, 200, { ok: true });
@@ -256,6 +300,9 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
       const body = await readBody(req);
       const S = readState(uid) || {};
+      const receipt = activeReceipt(res, S, body, 'member');
+      if (receipt?.handled) return;
+      if (!checkActiveRevision(res, S, body)) return;
       // v1.3.1 (A4 fix) — a write that arrives late (a slow mobile-network POST queued right
       // before Finish, landing just after it) must never resurrect a session that has already
       // been saved. Scoped narrowly to "this exact id already finished," never to "is the
@@ -264,13 +311,14 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       // only refuses the one specific case where the workout it's trying to write is already
       // sitting in S.workouts.
       const incomingId = body.active && body.active.id;
-      if (incomingId && (S.workouts || []).some(w => w.id === incomingId)) {
+      if (incomingId && ((S.workouts || []).some(w => w.id === incomingId) || S._sync?.tombstones.workouts.includes(incomingId))) {
         return json(res, 409, { error: 'esta sesión ya se finalizó' });
       }
-      S.active = body.active || null;
-      writeState(uid, S);
+      replaceActive(S, body.active || null);
+      const result = { ok: true, activeRevision: activeRevision(S) };
+      saveActive(uid, S, receipt, result);
       store.touchSession(uid, { exId: body.exId || null, exName: body.exName || null, setIdx: body.setIdx || 0, setsTotal: body.setsTotal || 0 });
-      json(res, 200, { ok: true });
+      json(res, 200, result);
     },
 
     // body: { sec } — starts (or extends) the room dashboard's own rest countdown for this
@@ -319,8 +367,8 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       // in case an earlier attempt died after saving the workout but before either of those.
       const already = (S.workouts || []).find(x => x.id === w.id);
       if (already) {
-        if (S.active && S.active.id === w.id) { S.active = null; writeState(uid, S); }
-        store.endSession(uid);
+        if (S.active && S.active.id === w.id) { replaceActive(S, null); writeState(uid, S); }
+        if (!S.active || S.active.id === w.id) store.endSession(uid);
         return json(res, 200, { ok: true, prs: already.prs || [], e1prs: [] });
       }
 
@@ -352,7 +400,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
         }
       });
 
-      S.active = null;
+      replaceActive(S, null);
       writeState(uid, S);
       store.endSession(uid);
       json(res, 200, { ok: true, prs, e1prs });
@@ -425,10 +473,14 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       const uid = String(body.uid || '');
       if (!uid || !store.getSession(uid)) return json(res, 404, { error: 'esa sesión ya no está activa' });
       const S = readState(uid) || {};
-      S.active = body.active || null;
-      writeState(uid, S);
+      const receipt = activeReceipt(res, S, body, 'admin');
+      if (receipt?.handled) return;
+      if (!checkActiveRevision(res, S, body)) return;
+      replaceActive(S, body.active || null);
+      const result = { ok: true, activeRevision: activeRevision(S) };
+      saveActive(uid, S, receipt, result);
       store.touchSession(uid, { exId: body.exId || null, exName: body.exName || null, setIdx: body.setIdx || 0, setsTotal: body.setsTotal || 0 });
-      json(res, 200, { ok: true });
+      json(res, 200, result);
     },
     // The PIN-management list (Fase V2 §4) — every real member, not just whoever's currently
     // checked in, so an admin can hand out or reset a PIN before someone's first-ever visit.

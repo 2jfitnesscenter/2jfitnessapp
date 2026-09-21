@@ -3,7 +3,7 @@ import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
 import { exLine } from '../../lib/history.js'
 import { exName } from '../../lib/coach.js'
-import { saveMemberRoutine, saveMemberProgram } from '../../lib/trainer-api.js'
+import { fetchMemberPlan, saveMemberRoutine, saveMemberProgram } from '../../lib/trainer-api.js'
 import { applyPendingChoice } from '../../lib/routine-scan.js'
 import { Button, Check, Switch } from '../../components/ui.jsx'
 import PendingExerciseChoices from '../../components/PendingExerciseChoices.jsx'
@@ -30,16 +30,18 @@ export default function PlanReviewCard({ memberId, bundle: initialBundle, onBack
     setSaving(true)
     try {
       const idMap = {}
+      let sync = (await fetchMemberPlan(memberId)).sync
       for (const r of picked) {
         const customExDefs = (b.customEx || []).filter(c => r.ex.some(e => e.id === c.id))
-        const res = await saveMemberRoutine({ memberId, name: r.name, emoji: r.emoji, ex: r.ex, customExDefs, prog: r.prog })
+        const res = await saveMemberRoutine({ sync, memberId, name: r.name, emoji: r.emoji, ex: r.ex, customExDefs, prog: r.prog })
         idMap[r.id] = res.routineId
+        sync = res.sync
       }
       if (schedule && picked.length > 1) {
         const week = {}
         Object.entries(b.week || {}).forEach(([d, rid]) => { if (idMap[rid]) week[d] = idMap[rid] })
         if (Object.keys(week).length) {
-          await saveMemberProgram({ memberId, name: b.name, emoji: 'sparkles', routineIds: Object.values(idMap), week })
+          await saveMemberProgram({ sync, memberId, name: b.name, emoji: 'sparkles', routineIds: Object.values(idMap), week })
         }
       }
       await onSaved()

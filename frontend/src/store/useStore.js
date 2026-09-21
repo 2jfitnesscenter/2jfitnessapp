@@ -1,3 +1,5 @@
+import { SyncClient } from '../lib/sync-client.js'
+import { retryStateActions } from '../lib/state-action.js'
 import { create } from 'zustand'
 import { api } from '../lib/api.js'
 import { localTZ } from '../lib/format.js'
@@ -142,6 +144,27 @@ const hasData = st => !!((st.workouts || []).length || (st.routines || []).lengt
 export const useStore = create((set, get) => {
   let pushTm = null
   let saveTm = null
+  let syncClient = null
+  const syncForUser = () => {
+    const user = get().user
+    if (!user || MOBILE || DEMO) return null
+    if (!syncClient || syncClient.uid !== user.id) {
+      const owner = user.id
+      syncClient = new SyncClient({ uid: owner, api, storage: localStorage, initial: get().S,
+        legacyDirty: localStorage.getItem('gym_dirty') === '1' || !!localStorage.getItem(PENDING_WORKOUT_DELETE_KEY),
+        onChange: (state, syncStatus) => {
+          if (get().user?.id !== owner) return
+          set({ syncStatus })
+          if (!state) return
+          const next = Object.assign(clone(DEF), state)
+          const active = get().S.active
+          if (!next.active && active && !(next.workouts || []).some(w => w.id === active.id)) next.active = active
+          persist(next, false)
+        } })
+      syncClient.uid = owner
+    }
+    return syncClient
+  }
 
   // Mobile build: mirror the state into a file in the app's data directory (survives WebView
   // storage eviction) and keep the native reminder schedule in step with the weekly plan.
@@ -170,7 +193,7 @@ export const useStore = create((set, get) => {
   // same applies to the file mirror — backgrounding is often the last thing before the OS
   // kills the app.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'hidden') return
+    if (document.visibilityState !== 'hidden') { get().pullState(); return }
     if (MOBILE && saveTm) {
       clearTimeout(saveTm)
       saveTm = null
@@ -182,6 +205,11 @@ export const useStore = create((set, get) => {
       get().pushState()
     }
   })
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => get().pullState())
+    window.addEventListener('focus', () => get().pullState())
+  }
 
   // Everything a sign-out leaves behind on this device, whichever way it was triggered.
   const clearLocalSession = () => {
@@ -196,6 +224,7 @@ export const useStore = create((set, get) => {
     S: (() => { const s = loadState(); registerCustom(s.customEx); return s })(),
     user: (() => { try { return JSON.parse(localStorage.getItem('gym_user')) || null } catch { return null } })(),
     ready: false,
+    syncStatus: 'idle',
     // Instance capabilities from GET /api/config. `config.coach` is present only when the
     // owner has both enabled the Coach and connected a provider — every Coach entry point in
     // the app hangs off it, so an unconfigured instance renders exactly what it always did.
@@ -205,6 +234,14 @@ export const useStore = create((set, get) => {
     update(mut, push = true) {
       const S = clone(get().S)
       mut(S)
+      if (push && get().user && !MOBILE && !DEMO) {
+        const deletes = {}
+        for (const kind of ['workouts', 'routines', 'programs']) {
+          const ids = new Set((S[kind] || []).map(x => x.id))
+          deletes[kind] = (get().S[kind] || []).filter(x => !ids.has(x.id)).map(x => x.id)
+        }
+        syncForUser().enqueue('save', S, { deletes })
+      }
       persist(S, push)
     },
     replaceState(S, push = false) { persist(clone(S), push) },
@@ -213,37 +250,18 @@ export const useStore = create((set, get) => {
     setGuest(v) { if (v) localStorage.setItem('gym_guest', '1'); else localStorage.removeItem('gym_guest'); set({}) },
 
     setUser(u) {
+      if (get().user && u && get().user.id !== u.id) { persist(clone(DEF), false); syncClient = null }
       if (u) { localStorage.setItem('gym_user', JSON.stringify(u)); localStorage.removeItem('gym_guest') }
       else localStorage.removeItem('gym_user')
       set({ user: u })
     },
 
-    // `wipe: true` (v1.3.1, A1 fix) — ONLY set by replaceStateOnServer below. It opts this one
-    // push out of the server's own reconciliation (PUT /api/data's own comment) that otherwise
-    // keeps a workout/routineVersions/programVersions the server already has from disappearing
-    // just because this snapshot doesn't mention it — exactly what "Reset everything" wants to
-    // actually do, and the only place in the app that legitimately does.
-    async pushState(wipe = false) {
-      if (!get().user) return
+    // Flush immutable operations after revalidating; the server owns revisions.
+    async pushState() {
       clearTimeout(pushTm)
-      try {
-        await api('/api/data', { method: 'PUT', body: JSON.stringify(wipe ? { state: get().S, wipe: true } : { state: get().S }) })
-        localStorage.removeItem('gym_dirty')
-      } catch (e) { localStorage.setItem('gym_dirty', '1') }
+      await syncForUser()?.sync()
     },
-    async pullState() {
-      try {
-        const { state } = await api('/api/data')
-        const S = get().S
-        const dirty = localStorage.getItem('gym_dirty') === '1'
-        if (state && (!hasData(S) || ((state._ts || 0) >= (S._ts || 0) && !dirty))) {
-          const active = S.active
-          const next = Object.assign(clone(DEF), state)
-          if (active) next.active = active
-          persist(next, false)
-        } else if (hasData(S)) { await get().pushState() }
-      } catch (e) { /* offline — keep local */ }
-    },
+    async pullState() { await syncForUser()?.sync() },
 
     // The one path allowed to actually END S.active — see server.js's POST /api/active/clear
     // for why this can't just be part of the normal push (that route unconditionally re-injects
@@ -260,6 +278,7 @@ export const useStore = create((set, get) => {
     // silently letting the old session come back the next time this device pulls state.
     async clearActiveOnServer(id) {
       await get().pushState()
+      if (get().syncStatus !== 'synced') { localStorage.setItem(PENDING_CLEAR_KEY, id || '__any__'); return }
       try {
         await api('/api/active/clear', { method: 'POST', body: JSON.stringify({ id: id || null }) })
         localStorage.removeItem(PENDING_CLEAR_KEY)
@@ -271,47 +290,22 @@ export const useStore = create((set, get) => {
       }
     },
 
-    // v1.3.1 (A1 fix) — the one authorized way S.workouts actually loses one now that a normal
-    // PUT /api/data union-merges it back in (server.js's own comment on PUT /api/data). Flushes
-    // whatever's already queued first (same reasoning as clearActiveOnServer), then asks the
-    // server to drop this one id explicitly. A failure (offline) queues the id for one retry at
-    // the next boot rather than leaving it silently un-deleted server-side, where the very
-    // protection this fix adds would otherwise bring it right back on the next sync.
+    // Persisted explicit delete; the UI update may already have queued its intent.
     async deleteWorkoutOnServer(id) {
-      await get().pushState()
-      const clearPending = () => {
-        try {
-          const pending = JSON.parse(localStorage.getItem(PENDING_WORKOUT_DELETE_KEY) || '[]').filter(x => x !== id)
-          if (pending.length) localStorage.setItem(PENDING_WORKOUT_DELETE_KEY, JSON.stringify(pending))
-          else localStorage.removeItem(PENDING_WORKOUT_DELETE_KEY)
-        } catch { localStorage.removeItem(PENDING_WORKOUT_DELETE_KEY) }
+      const client = syncForUser()
+      if (!client) return
+      if (!client.record.operations.some(op => op.deletes?.workouts?.includes(id))) {
+        client.enqueue('delete', get().S, { kind: 'workouts', id })
       }
-      try {
-        await api('/api/workouts/delete', { method: 'POST', body: JSON.stringify({ id }) })
-        // boot() may have pulled this workout back before retrying the delete. Persist
-        // its removal locally too, before dropping the intent or allowing another push.
-        get().update(s => { s.workouts = s.workouts.filter(w => w.id !== id) }, false)
-        clearPending()
-      } catch (e) {
-        try {
-          const pending = JSON.parse(localStorage.getItem(PENDING_WORKOUT_DELETE_KEY) || '[]')
-          if (!pending.includes(id)) pending.push(id)
-          localStorage.setItem(PENDING_WORKOUT_DELETE_KEY, JSON.stringify(pending))
-        } catch { localStorage.setItem(PENDING_WORKOUT_DELETE_KEY, JSON.stringify([id])) }
-      }
+      await client.sync()
     },
 
-    // The two places in the app that deliberately want to REPLACE everything, workouts and
-    // version-history included, rather than merely sync a snapshot that happens not to mention
-    // them yet: Settings → "Reset everything" (S is DEF, wiped), and "Import backup" (S is the
-    // backup file's own content — restoring an OLDER backup with fewer workouts than the server
-    // currently has must actually remove the extra ones, not have them silently reappear).
-    // Skips the generic debounced push (which would otherwise still land ~1.5s later, harmlessly
-    // redundant once this one has already landed) and pushes the replacement immediately and
-    // explicitly instead — see pushState's own comment for what `wipe: true` changes server-side.
-    async replaceStateOnServer(S) {
+    // Reset and backup replacement keep their operation type across offline retries.
+    async replaceStateOnServer(S, type = 'replace') {
+      const client = syncForUser()
+      if (client) client.enqueue(type, S)
       get().replaceState(S, false)
-      if (get().user) await get().pushState(true)
+      await client?.sync()
     },
 
     async signOut() {
@@ -325,7 +319,7 @@ export const useStore = create((set, get) => {
     // the sessions elsewhere are all still valid, and wiping this device's copy of the data
     // would sign the user out of the one place the bump didn't reach. Caller reports the error.
     async signOutAll() {
-      await get().pushState()   // never throws — stores gym_dirty and moves on when offline
+      await get().pushState()   // pending operations remain in the account journal when offline
       await api('/api/logout/all', { method: 'POST', body: '{}' })
       clearLocalSession()
     },
@@ -376,6 +370,7 @@ export const useStore = create((set, get) => {
       try {
         const me = await api('/api/me')
         get().setUser(me.user)
+        await retryStateActions()
         await get().pullState()
         // A discard/finish whose POST /api/active/clear never reached the server last time
         // (offline, a dropped request) gets one more try now — see clearActiveOnServer's own
@@ -384,14 +379,6 @@ export const useStore = create((set, get) => {
         // already asked for this," never a guess.
         const pendingClear = localStorage.getItem(PENDING_CLEAR_KEY)
         if (pendingClear) get().clearActiveOnServer(pendingClear === '__any__' ? null : pendingClear)
-        // Same retry for a workout delete that never reached the server (v1.3.1, A1 fix) — see
-        // deleteWorkoutOnServer's own comment.
-        try {
-          const pendingDeletes = JSON.parse(localStorage.getItem(PENDING_WORKOUT_DELETE_KEY) || '[]')
-          // Each retry flushes state first: serialize them so a later flush cannot
-          // carry an earlier deletion's stale snapshot back to the server.
-          for (const id of pendingDeletes) await get().deleteWorkoutOnServer(id)
-        } catch { localStorage.removeItem(PENDING_WORKOUT_DELETE_KEY) }
         // Re-stamp the reminder's timezone on every load — keeps it correct if you're travelling,
         // without needing to revisit Settings.
         const tz = localTZ()

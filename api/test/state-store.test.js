@@ -34,12 +34,13 @@ test('a legacy plaintext file (written before encryption existed) still reads ba
   assert.deepEqual(store.readState('legacy'), S);
 });
 
-test('a tampered file fails closed (null), never garbage or a crash', () => {
+test('a tampered file fails closed and cannot be overwritten as an empty state', () => {
   store.writeState('u3', sampleState());
   const file = path.join(DIR, 'state-u3.json');
   const blob = fs.readFileSync(file, 'utf8');
   fs.writeFileSync(file, blob.slice(0, -4) + 'AAAA'); // flip the tail — corrupts either ciphertext or the auth tag
-  assert.equal(store.readState('u3'), null);
+  assert.throws(() => store.readState('u3'), { code: 'STATE_CORRUPT' });
+  assert.throws(() => store.writeState('u3', {}), { code: 'STATE_CORRUPT' });
 });
 
 test('a missing file reads as null, same as before this feature existed', () => {

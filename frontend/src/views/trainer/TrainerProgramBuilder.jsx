@@ -58,9 +58,11 @@ export default function TrainerProgramBuilder() {
   const [allRoutines, setAllRoutines] = useState([])
   const [p, setP] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [sync, setSync] = useState(null)
 
   useEffect(() => {
     fetchMemberPlan(memberId).then(plan => {
+      setSync(plan.sync)
       setAllRoutines(plan.routines || [])
       if (programId === 'new') { setP(emptyProgram()); return }
       const found = (plan.programs || []).find(x => x.id === programId)
@@ -91,10 +93,11 @@ export default function TrainerProgramBuilder() {
     if (!p.routineIds.length) { toast(t('Add at least one routine first.')); return }
     setBusy(true)
     try {
-      const payload = { memberId, name: p.name.trim(), emoji: p.emoji, routineIds: p.routineIds, week: p.week }
+      const payload = { sync, memberId, name: p.name.trim(), emoji: p.emoji, routineIds: p.routineIds, week: p.week }
       if (p.id) payload.programId = p.id
-      const { programId: savedId } = await saveMemberProgram(payload)
+      const { programId: savedId, sync: savedSync } = await saveMemberProgram(payload)
       setP(cur => ({ ...cur, id: savedId }))
+      setSync(savedSync)
       toast(t('Saved'))
     } catch (e) { toast(e.message) }
     setBusy(false)

@@ -33,10 +33,13 @@ export default function TrainerRoutineBuilder() {
   const toast = useUI(s => s.toast)
   const [r, setR] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [sync, setSync] = useState(null)
 
   useEffect(() => {
-    if (routineId === 'new') { setR(emptyRoutine()); return }
+
     fetchMemberPlan(memberId).then(plan => {
+      setSync(plan.sync)
+      if (routineId === 'new') { setR(emptyRoutine()); return }
       const found = (plan.routines || []).find(x => x.id === routineId)
       if (!found) { toast(t('That routine no longer exists.')); nav('/trainer/' + memberId); return }
       setR(found)
@@ -96,11 +99,12 @@ export default function TrainerRoutineBuilder() {
     if (!r.ex.length) { toast(t('Add at least one exercise first.')); return }
     setBusy(true)
     try {
-      const payload = { memberId, name: r.name.trim(), emoji: r.emoji, ex: r.ex, customExDefs: extractCustomDefs(r, S) }
+      const payload = { sync, memberId, name: r.name.trim(), emoji: r.emoji, ex: r.ex, customExDefs: extractCustomDefs(r, S) }
       if (r.id) payload.routineId = r.id
       if (r.prog) payload.prog = r.prog
-      const { routineId: savedId } = await saveMemberRoutine(payload)
+      const { routineId: savedId, sync: savedSync } = await saveMemberRoutine(payload)
       setR(cur => ({ ...cur, id: savedId }))
+      setSync(savedSync)
       toast(t('Saved'))
     } catch (e) { toast(e.message) }
     setBusy(false)

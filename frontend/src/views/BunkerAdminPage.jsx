@@ -89,7 +89,7 @@ function AssistPanel({ uid, onClose, onSaved }) {
   const save = () => {
     setBusy(true)
     const doneN = entry.sets.filter(s => s.done).length
-    postBunkerAdminEditSet({ uid, active, exId: entry.id, exName: exName(entry.id), setIdx: doneN, setsTotal: entry.sets.length })
+    postBunkerAdminEditSet({ uid, active, operationId: uid + ':' + Date.now(), expectedActiveRevision: session.activeRevision, exId: entry.id, exName: exName(entry.id), setIdx: doneN, setsTotal: entry.sets.length })
       .then(() => { onSaved(); onClose() }).finally(() => setBusy(false))
   }
 

@@ -200,14 +200,53 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
   const [showAdd, setShowAdd] = useState(false)
   const idleRef = useRef(null)
   const minimizeRef = useRef(null)
+  const activeRevisionRef = useRef(0)
+  const pendingRef = useRef([])
+  const drainPromiseRef = useRef(null)
+  const pendingKey = 'gym_bunker_active_queue:' + token.slice(-24)
   const idleMs = (settings?.autoLockSec || 60) * 1000
 
   const armIdle = ms => { clearTimeout(idleRef.current); idleRef.current = setTimeout(onMinimize, ms) }
   const touch = () => armIdle(idleMs)
+  const persistPending = () => {
+    try {
+      if (pendingRef.current.length) localStorage.setItem(pendingKey, JSON.stringify(pendingRef.current))
+      else localStorage.removeItem(pendingKey)
+    } catch { /* the in-memory queue still protects this mounted session */ }
+  }
+  const drainPending = () => {
+    if (drainPromiseRef.current) return drainPromiseRef.current
+    const run = (async () => {
+      while (pendingRef.current.length) {
+        const item = pendingRef.current[0]
+        if (item.expectedActiveRevision === undefined) {
+          item.expectedActiveRevision = activeRevisionRef.current
+          persistPending()
+        }
+        try {
+          const result = await postBunkerActive(token, item)
+          activeRevisionRef.current = result.activeRevision
+          pendingRef.current.shift()
+          persistPending()
+        } catch (e) {
+          if (e.status === 409 && e.data) {
+            activeRevisionRef.current = e.data.activeRevision ?? activeRevisionRef.current
+            pendingRef.current = []
+            persistPending()
+            setActive(e.data.active || null)
+          }
+          break
+        }
+      }
+    })()
+    drainPromiseRef.current = run.finally(() => { drainPromiseRef.current = null })
+    return drainPromiseRef.current
+  }
 
   useEffect(() => {
     fetchBunkerSession(token).then(p => {
       setPlan(p)
+      activeRevisionRef.current = p.activeRevision || 0
       // Same resolver the rest of the app uses for "today's routine" (Home, Stats, the phone
       // logger) — dayPlan's own override first, then an active program's own week, then the
       // flat S.week — never a second, poorer guess that only ever checked the flat week.
@@ -225,10 +264,17 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       // to S.week/dayPlan/programs/activeProgramId either way (see pickRoutine/startFreeTraining
       // below — both only ever call sync(), which writes S.active alone, same as every other
       // in-session action here).
-      setActive(p.active || (routine ? buildBunkerActive({ ...miniS, unit: p.unit, workouts: p.recentWorkouts, exWeights: p.exWeights, tests: p.tests, showPreviousResults: p.showPreviousResults, warmupEnabled: p.warmupEnabled }, routine) : null))
+      let queued = []
+      try { queued = JSON.parse(localStorage.getItem(pendingKey) || '[]') } catch { /* discard malformed local queue */ }
+      pendingRef.current = Array.isArray(queued) ? queued : []
+      const draft = pendingRef.current.at(-1)?.active
+      setActive(draft || p.active || (routine ? buildBunkerActive({ ...miniS, unit: p.unit, workouts: p.recentWorkouts, exWeights: p.exWeights, tests: p.tests, showPreviousResults: p.showPreviousResults, warmupEnabled: p.warmupEnabled }, routine) : null))
+      drainPending()
       armIdle(idleMs)
     }).catch(() => onInvalid())
-    return () => { clearTimeout(idleRef.current); clearTimeout(minimizeRef.current) }
+    const retry = () => drainPending()
+    window.addEventListener('online', retry)
+    return () => { clearTimeout(idleRef.current); clearTimeout(minimizeRef.current); window.removeEventListener('online', retry) }
   }, [token])
 
   if (!plan) return <div className="bk-panel"><div className="bk-loading">{t('Loading…')}</div></div>
@@ -245,7 +291,9 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
     setActive(next)
     const entry = next.entries[exIdx]
     const doneN = entry ? entry.sets.filter(s => s.done).length : 0
-    postBunkerActive(token, { active: next, exId: entry?.id || null, exName: entry ? exName(entry.id, plan.customEx) : null, setIdx: doneN, setsTotal: entry?.sets.length || 0 }).catch(() => {})
+    pendingRef.current.push({ operationId: uid(), active: next, exId: entry?.id || null, exName: entry ? exName(entry.id, plan.customEx) : null, setIdx: doneN, setsTotal: entry?.sets.length || 0 })
+    persistPending()
+    drainPending()
   }
   // Manual choice for TODAY only — same buildRoutineEntries a normally-scheduled day uses, so a
   // picked routine behaves identically once it's running. Never touches S.week/dayPlan/programs;
@@ -321,14 +369,15 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
     setExIdx(i => Math.min(i, Math.max(0, nextEntries.length - 1)))
   }
 
-  const finish = () => {
+  const finish = async () => {
     const w = {
       id: active.id, d: active.d, start: active.start, end: Date.now(), routineId: active.routineId, name: active.name, bw: active.bw,
       entries: active.entries.map(e => ({ id: e.id, sets: e.sets, target: e.target })).filter(e => e.sets.some(s => s.done)),
       prs: [],
     }
     w.vol = workoutVolume(w)
-    postBunkerFinish(token, w).then(onFinish).catch(() => onMinimize())
+    await drainPending()
+    postBunkerFinish(token, w).then(() => { pendingRef.current = []; persistPending(); onFinish() }).catch(() => onMinimize())
   }
 
   const entry = active.entries[exIdx]

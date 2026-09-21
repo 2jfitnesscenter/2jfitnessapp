@@ -785,6 +785,126 @@ Las 10 ausentes en es: `After how many workouts`, `Endurance`,
 Sin commit, push, merge ni deploy. Próximo paso: revisar el bloqueo de wipe offline;
 no continuar automáticamente con Fase 2.
 
+## CURRENT CHECKPOINT — Sync V2 Core — 2026-09-21 — SIN COMMIT
+
+Base `90d98fe` (`fix: preserve workout deletion across retry`), ya commiteado y
+pusheado por autorización expresa. Rama `feat/pwa-tanita-bunker-roadmap`.
+El diseño Sync V2 fue aprobado en conversación: revisión global, concurrencia
+optimista, operationId, generation, tombstones, cola durable; sin CRDT/event sourcing.
+
+**Estado actual: VALIDADO para commit/push.** Sync V2 Core queda cerrado con pruebas de
+integración A/B y todos los escritores secundarios que modifican state bajo revisión,
+generation y recibos idempotentes, o bajo una operación estrecha e idempotente propia.
+No se convirtieron ni invalidaron históricos `{d,w,t}` porque no contienen la unidad de
+origen; esa ambigüedad queda como deuda no bloqueante. `lastBW` usa fecha efectiva y
+desempate por `t`, sin depender del orden del array. Una medición nueva con peso actualiza
+`S.bodyweight`, incrementa revisión y converge por Sync V2.
+
+### Implementado
+
+- `state-store`: metadata `_sync` cifrada (schemaVersion/revision/generation/tombstones/
+  receipts); metadata no enumerable en objetos de dominio para que no viaje en backups.
+  Migración en lectura sin alterar datos. Archivo ilegible lanza STATE_CORRUPT y no puede
+  sobrescribirse como vacío. Toda escritura incrementa revisión y registra eliminaciones.
+- Servicio `api/lib/sync.js`: transacción síncrona sin await read/check/apply/write
+  (serialización efectiva en el único proceso Node actual). Receipts antes del rechazo
+  de revisión para reconocer respuestas perdidas; digest impide reutilizar operationId
+  con contenido distinto. Save conserva active/versiones y exige listas explícitas de
+  eliminaciones; delete/reset/replace mantienen semántica propia. Reset/replace cambian
+  generation; tombstones para workouts/routines/programs.
+- GET/POST /api/sync con autenticación; owner de cola evita envíos a otra cuenta tras
+  cambio de sesión. Conflictos 409 estructurados con estado/revisión canónicos.
+- Activación gradual por usuario: primer GET /api/sync marca enabled. Desde entonces
+  PUT /api/data y DELETE legacy devuelven SYNC_UPGRADE_REQUIRED. Los usuarios que nunca
+  abrieron Sync V2 aún conservan protocolo legacy: no afirmar protección universal
+  antes de activar/migrar sus clientes.
+- Cola PWA/web por usuario en localStorage: base confirmada, operaciones inmutables,
+  borrador y conflicto. Registro adicional por operationId preserva operaciones ante
+  sustitución del journal por otra pestaña. GET antes de vaciar cola, retries con el
+  mismo payload/ID, confirmación canónica antes de retirar la operación.
+- Revalidación startup/login, visible/focus y online. Sin polling periódico.
+  Las copias legacy divergentes se conservan como recuperación/conflicto, no se suben
+  atribuyéndoles arbitrariamente una revisión nueva. Banner de conflicto, sin editor.
+- Trainer member-routine/member-program usa revisión del plan leído, recibos y
+  operationId persistido; builders y PlanReviewCard pasan contexto de revisión.
+- Los escritores admin/trainer de perfil, features, bioimpedancia, starter plan y
+  asignación social de rutina/programa usan revisión del estado y operationId durable.
+  Una respuesta perdida se reintenta con el mismo cuerpo y recibo; un escritor stale
+  recibe conflicto y no sobrescribe el cambio confirmado.
+- Bunker finish avanza revisión por el writer central y es idempotente. Las escrituras
+  de sets usan una `activeRevision` separada, receipt por operationId y una cola serial
+  persistida del kiosco; respuestas perdidas se reconocen una vez y snapshots stale o
+  clientes antiguos se rechazan después de activar V2. La asistencia admin usa la misma
+  precondición. Handoff/clear son operaciones estrechas por id sobre estado fresco y
+  finish deriva el resultado en servidor, por lo que no aceptan snapshots genéricos.
+
+### Validación
+
+Frontend completo **576/576** (32 archivos); backend completo **198/198**;
+build Vite OK (aviso preexistente de chunks grandes); `git diff --check` OK.
+Node local 24.19.0.
+10 tests nuevos frontend y 18 backend, más adaptación de los 6 tests del store.
+Incluyen revisión concurrente, borrado de las tres entidades, respuesta perdida,
+reset/import offline y reload, trainer, Bunker, HTTP/owner, migración/corrupción,
+conflicto conservando borrador, foreground offline sin volver a un draft antiguo,
+y fecha efectiva de peso. La integración HTTP con dos clientes independientes demuestra
+N→N+1, rechazo stale, revalidación y convergencia; también cubre delete sin resurrección,
+Bunker finish sin duplicado y bioimpedancia propagada. No se añadieron llamadas reales
+a proveedores.
+Se repitió frontend/backend/build al detectar y corregir en revisión final dos casos:
+revalidación offline podía reponer draft antiguo sin pendientes; cuenta cambiada durante
+sync necesitaba vincular owner explícitamente al request.
+
+### Límites y deuda
+
+- Peso histórico ambiguo: no hacer conversiones inferidas por magnitud. Los registros
+  nuevos conservan la semántica actual de la cuenta; normalizar históricos requiere una
+  política explícita de unidad por registro.
+- Receipts/tombstones sin poda todavía; snapshots en cola pueden consumir cuota local.
+  El test de crecimiento confirma una entrada por operación aceptada, ninguna adicional
+  por retry y tombstones únicos: crecimiento lineal, no explosivo.
+- No hay resolución interactiva de conflictos; borradores/operaciones se conservan.
+- Serialización es monoproceso, no un lock entre varios procesos o contenedores.
+- La prueba multidispositivo es integración automatizada con dos clientes HTTP simulados,
+  no dos navegadores reales; cubre las garantías de backend sin añadir Playwright.
+- No integrar nativo VITE_MOBILE=1. No Fase 2, infraestructura, traducciones, merge o deploy.
+- CI de traducciones sigue con deuda previa; no se modificaron locales ni workflow.
+
+### Archivos de este cambio
+
+AI_HANDOFF.md
+api/bunker/routes.js
+api/lib/state-store.js
+api/lib/sync.js (nuevo)
+api/server.js
+api/test/bunker-finish.test.js
+api/test/put-data-reconciliation.test.js
+api/test/state-store.test.js
+api/test/sync.test.js (nuevo)
+frontend/src/App.jsx
+frontend/src/lib/bunker-api.js
+frontend/src/lib/history.js
+frontend/src/lib/social-api.js
+frontend/src/lib/state-action.js (nuevo)
+frontend/src/lib/state-action.test.js (nuevo)
+frontend/src/lib/sync-client.js (nuevo)
+frontend/src/lib/sync-client.test.js (nuevo)
+frontend/src/lib/trainer-api.js
+frontend/src/store/useStore.js
+frontend/src/store/useStore.test.js
+frontend/src/views/Admin.jsx
+frontend/src/views/Bunker.jsx
+frontend/src/views/BunkerAdminPage.jsx
+frontend/src/views/Settings.jsx
+frontend/src/views/trainer/PlanReviewCard.jsx
+frontend/src/views/trainer/TrainerProgramBuilder.jsx
+frontend/src/views/trainer/TrainerRoutineBuilder.jsx
+
+Checkpoint preparado para el commit `feat: add conflict-safe multi-device sync` y push
+a `feat/pwa-tanita-bunker-roadmap`. No mergear PR #10. No se desplegó: antes hacen falta
+un backup nuevo y recuperable de producción y una comprobación explícita del rollback
+con metadata Sync V2 ya escrita.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.

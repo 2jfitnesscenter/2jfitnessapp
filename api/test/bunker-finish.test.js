@@ -54,6 +54,20 @@ const baseState = over => ({
   ...over,
 });
 
+test('Sync V2: Bunker finish increments revision, stale mobile conflicts and retry does not duplicate', async () => {
+  const uid = 'v2_finish';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [] }));
+  const { openSync, mutate } = await import('../lib/sync.js');
+  const before = openSync(uid);
+  const workout = { id: 'v2-workout', d: '2026-09-21', start: 1, end: 2, entries: [] };
+  assert.equal((await callFinish(uid, workout)).status, 200);
+  assert.equal((await callFinish(uid, workout)).status, 200);
+  assert.throws(() => mutate(uid, { operationId: 'stale-mobile', type: 'save', revision: before.meta.revision, generation: before.meta.generation, state: before.state }), { code: 'SYNC_CONFLICT' });
+  const after = openSync(uid);
+  assert.equal(after.state.workouts.length, 1);
+  assert.equal(after.meta.revision, before.meta.revision + 1);
+});
+
 test('a weight PR is detected and written to workout.prs, exactly as the normal finish flow would', async () => {
   const uid = 'u_pr_weight';
   writeState(process.env.DATA_DIR, uid, baseState({
@@ -248,4 +262,40 @@ test('A4c) a brand-new session for the SAME member right after finishing is comp
   const { readState } = await import('../lib/state-store.js');
   const S = readState(uid);
   assert.equal(S.active?.id, 'w-new-session');
+});
+
+test('Sync V2 serializes Bunker set snapshots and acknowledges a lost-response retry once', async () => {
+  const uid = 'u_bunker_active_v2';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [], active: { id: 'w-live', d: '2026-09-21', entries: [] } }));
+  const { openSync } = await import('../lib/sync.js');
+  openSync(uid);
+  const { readState } = await import('../lib/state-store.js');
+  const revision = readState(uid)._sync.activeRevision;
+  const active = { id: 'w-live', d: '2026-09-21', entries: [{ id: '0025', sets: [{ w: 50, r: 8, done: true }] }] };
+  const body = { operationId: 'bunker-active-operation-1', expectedActiveRevision: revision, exId: '0025', setIdx: 1, setsTotal: 1 };
+
+  const first = await callPostActive(uid, active, body);
+  const afterFirst = readState(uid);
+  const retry = await callPostActive(uid, active, body);
+  const afterRetry = readState(uid);
+  assert.equal(first.status, 200);
+  assert.deepEqual(retry.body, first.body, 'a retry after a lost response receives its original receipt');
+  assert.equal(afterRetry._sync.revision, afterFirst._sync.revision, 'the retry performs no second write');
+
+  const stale = await callPostActive(uid, { ...active, cur: 1 }, { ...body, operationId: 'bunker-active-operation-2' });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.body.code, 'ACTIVE_CONFLICT');
+  assert.deepEqual(readState(uid).active, active, 'a stale Bunker snapshot cannot overwrite the accepted set state');
+});
+
+test('Sync V2 rejects a legacy Bunker active writer after activation', async () => {
+  const uid = 'u_bunker_active_legacy';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [], active: null }));
+  const { openSync } = await import('../lib/sync.js');
+  openSync(uid);
+  const legacy = await callPostActive(uid, { id: 'legacy', d: '2026-09-21', entries: [] });
+  assert.equal(legacy.status, 409);
+  assert.equal(legacy.body.code, 'SYNC_UPGRADE_REQUIRED');
+  const { readState } = await import('../lib/state-store.js');
+  assert.equal(readState(uid).active, null);
 });

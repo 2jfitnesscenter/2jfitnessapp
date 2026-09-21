@@ -21,6 +21,7 @@ import { GOALS } from '../lib/starter.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 import { MEASUREMENTS, bodyFatBand, visceralFatBand } from '../lib/measurements.js'
 import BioimpedanceFields from '../components/BioimpedanceFields.jsx'
+import { stateAction } from '../lib/state-action.js'
 
 // Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "hypertrophy" means the
 // same rep range whether a member or an admin set it up.
@@ -61,13 +62,10 @@ function ProfileEditForm({ d, onSaved, close }) {
     const n = name.trim()
     if (!n) { toast(t('Name required')); return }
     setBusy(true)
-    api('/api/admin/user/profile', {
-      method: 'POST',
-      body: JSON.stringify({
-        id: d.user.id, name: n, birthDate: birthDate || null, body, height: height === '' ? null : Number(height),
-        priorityMuscles: primary, secondaryMuscles: secondary
-      })
-    }).then(() => { toast(t('Profile saved')); onSaved(); close() }).catch(e => { toast(e.message); setBusy(false) })
+    stateAction('/api/admin/user/profile', {
+      id: d.user.id, name: n, birthDate: birthDate || null, body, height: height === '' ? null : Number(height),
+      priorityMuscles: primary, secondaryMuscles: secondary
+    }, d.sync).then(() => { toast(t('Profile saved')); onSaved(); close() }).catch(e => { toast(e.message); setBusy(false) })
   }
   return <>
     <h3>{t('Edit profile — {0}', d.user.name)}</h3>
@@ -149,7 +147,7 @@ function RecoveryLinkSheet({ u, close }) {
 // one-value-at-a-time (sheets.jsx), which fits a tape-measure reading taken whenever, not a
 // single assessment session. Leaving a field blank keeps whatever that member already had for
 // it — a scan that dropped one reading shouldn't force staff to guess the others.
-function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
+function BioimpedanceSheet({ u, current, latestWeight, sync, onSaved, close }) {
   const toast = useUI(s => s.toast)
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
   const segments = MEASUREMENTS.filter(m => m.group === 'segments')
@@ -177,7 +175,7 @@ function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
     const w = weight !== '' && weight != null ? Number(weight) : undefined
     if (!Object.keys(values).length && w === undefined) { toast(t('Enter at least one value')); return }
     setBusy(true)
-    api('/api/admin/user/measurements', { method: 'POST', body: JSON.stringify({ id: u.id, values, weight: w }) })
+    stateAction('/api/admin/user/measurements', { id: u.id, values, weight: w }, sync)
       .then(() => { toast(t('Measurements saved')); onSaved(); close() })
       .catch(e => { toast(e.message); setBusy(false) })
   }
@@ -201,14 +199,14 @@ function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
   </>
 }
 
-function StarterPlanSheet({ u, onApplied, close }) {
+function StarterPlanSheet({ u, sync, onApplied, close }) {
   const toast = useUI(s => s.toast)
   const [goal, setGoal] = useState('longevity')
   const [days, setDays] = useState(3)
   const [busy, setBusy] = useState(false)
   const apply = () => {
     setBusy(true)
-    api('/api/admin/user/apply-starter-plan', { method: 'POST', body: JSON.stringify({ id: u.id, goal, days }) })
+    stateAction('/api/admin/user/apply-starter-plan', { id: u.id, goal, days }, sync)
       .then(() => { toast(t('Starter plan added')); onApplied(); close() })
       .catch(e => { toast(e.message); setBusy(false) })
   }
@@ -247,10 +245,12 @@ export function UserDetail({ id, onChanged, close }) {
       .then(() => { toast(trainer ? t('Now a trainer') : t('No longer a trainer')); load() })
       .catch(e => toast(e.message))
   }
-  const applyStarterPlan = () => openSheet(close2 => <StarterPlanSheet u={u} onApplied={load} close={close2} />)
+  const applyStarterPlan = () => openSheet(close2 => <StarterPlanSheet u={u} sync={d.sync} onApplied={load} close={close2} />)
   const setFeature = (key, value) => {
     setD(dd => ({ ...dd, [key]: value }))   // optimistic — this member's own toggle already works this way
-    api('/api/admin/user/features', { method: 'POST', body: JSON.stringify({ id: u.id, [key]: value }) }).catch(e => { toast(e.message); load() })
+    stateAction('/api/admin/user/features', { id: u.id, [key]: value }, d.sync)
+      .then(result => setD(dd => ({ ...dd, sync: result.sync })))
+      .catch(e => { toast(e.message); load() })
   }
   const age = ageFrom(d.birthDate)
   return <>
@@ -297,7 +297,7 @@ export function UserDetail({ id, onChanged, close }) {
       {!d.routines.length && <Button style={{ flex: 1 }} icon="sparkles" onClick={applyStarterPlan}>{t('Load PPL plan')}</Button>}
     </div>
     <Button style={{ width: '100%', margin: '0 0 4px' }} icon="chart"
-      onClick={() => openSheet(close2 => <BioimpedanceSheet u={u} current={d.measurements} latestWeight={d.latestWeight?.w} onSaved={load} close={close2} />)}>{t('Log bioimpedance scan')}</Button>
+      onClick={() => openSheet(close2 => <BioimpedanceSheet u={u} current={d.measurements} latestWeight={d.latestWeight?.w} sync={d.sync} onSaved={load} close={close2} />)}>{t('Log bioimpedance scan')}</Button>
     <Button style={{ width: '100%', margin: '0 0 4px' }} icon="key"
       onClick={() => openSheet(close2 => <RecoveryLinkSheet u={u} close={close2} />)}>{t('Recover access (lost device)')}</Button>
     {!u.admin && <Button style={{ width: '100%', margin: '0 0 4px' }} icon="person" variant={u.trainer ? 'tinted' : 'plain'}
