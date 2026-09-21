@@ -986,6 +986,27 @@ incluida una superserie y compartir ambos PNG. No usar cuentas reales para mutac
 No mergear PR #10. Producción solo puede volver a un runtime que respete
 `SYNC_V2_ROLLBACK_BASE`; nunca a `90d98fe` ni anterior.
 
+#### DEPLOY BUNKER V4 COMPLETADO — 2026-09-21
+
+Producción quedó en `c4597e3` con el bundle `assets/index-8qJtiqDW.js`. Backup predeploy nuevo
+y verificado: `/root/backups/2jfitness-predeploy-c4597e3-2026-09-21_223436.tar.gz`;
+rollback compatible conservado en `/root/backups/2jfitness-code-6c548f7.tar.gz`. Health interno
+y externo OK (`users:14`), contenedores api/web/caddy activos, `/api/bunker/board` 200 y
+`/api/sync` sin autenticación 401 esperado.
+
+Smoke no destructivo OK: Home, historial, plan y peso con sesión autenticada; escritorio y
+viewport móvil sin overflow ni errores de consola; manifest, service worker e iconos PWA 200;
+Bunker público carga topbar, dashboard y entrada en ambos tamaños. El bundle desplegado contiene
+Bunker V4, la tarjeta gráfica de insignia y la captura dinámica. No se hizo check-in ni se
+modificaron datos reales. Sigue pendiente únicamente el smoke funcional con 1/2/3 cuentas de
+prueba, superserie real y compartir ambos PNG.
+
+Incidencia operativa: el `scripts/backup-data.sh` almacenado en producción tiene CRLF y modo
+`0644`; ejecutarlo directamente falla y ejecutarlo por tubería pierde el `$0` que usa para
+resolver la raíz. El backup seguro se creó desde `/opt/2jfitness` con el `tar` equivalente sin
+borrar copias. Corregir el script en un cambio futuro antes de volver a depender de su ejecución
+directa o de cron.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.
