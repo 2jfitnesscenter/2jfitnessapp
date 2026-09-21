@@ -920,6 +920,16 @@ rechaza un cliente stale y bloquea la resurrección de un workout tombstoned.
 Validación local: frontend **576/576**, backend **199/199**, build Vite OK y
 `git diff --check` OK. El aviso de chunks grandes sigue siendo el preexistente.
 
+Checkpoint commiteado y pusheado como `437a13c` (`ops: establish Sync V2 rollback
+baseline`). Deploy detenido antes de tocar producción: este entorno no dispone de una
+credencial SSH aceptada por `root@app.2jfitnesscenter.com` ni por
+`2jfitness@app.2jfitnesscenter.com` (ambos devuelven `Permission denied`). Por tanto no se
+creó backup predeploy ni se copió/reinició nada. Producción sigue en el checkpoint anterior
+`ee7c0e5`; health público continúa OK (`users:14` en la comprobación no destructiva).
+Para continuar solo hace falta provisionar en este entorno la clave SSH de producción;
+después ejecutar backup/verificación, crear y conservar el release archive compatible,
+desplegar y hacer smoke tests. Nunca usar `90d98fe` como rollback.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.
