@@ -733,6 +733,58 @@ commit.
 
 ---
 
+## Revisión Codex — retry de borrado A1 — 2026-09-21 (sin commit)
+
+Base: `b22d329`, rama `feat/pwa-tanita-bunker-roadmap`. No se inició Fase 2.
+
+La reproducción se convirtió primero en un test Vitest del store real, con API,
+localStorage y document simulados, sin añadir jsdom. Falló antes del fix:
+delete falla → pending → reinicio/pull recupera workout → retry borra servidor →
+la copia local sobrevive → push resucita workout.
+
+Fix mínimo en `frontend/src/store/useStore.js`: tras confirmar DELETE, eliminar también
+el workout de S y persistir localStorage antes de retirar el pendiente. Los deletes
+pendientes del boot se esperan en serie: cada uno hace push primero y no debe enviar
+una copia anterior al borrado precedente. Sin cambios en la reconciliación del servidor.
+
+Nuevo `frontend/src/store/useStore.test.js`: 6 casos, reproducción exacta, delete online,
+fallo de PUT y DELETE offline, múltiples pendientes con segundo fallo y recuperación,
+reset explícito online e import backup online. Verifica S, localStorage y push posterior.
+Frontend completo 566/566; backend completo 179/179; build Vite OK (aviso previo de
+chunks grandes). Ejecución local Node 24.19.0; workflow conserva Node 22.
+
+A1: stale PUT conserva workouts/versions, DELETE explícito funciona, retry corregido,
+active conserva su protección; tests backend y frontend pasan. A4: doble finish y
+rechazo de active finalizado pasan, nueva sesión de distinto id funciona. X1: escritura
+de import aliases exige trainer/admin. A3: revocación y aislamiento A/B pasan.
+
+**Bloqueo adicional observado al revisar reset/import (no corregido aquí):**
+`replaceStateOnServer` hace `pushState(true)`, pero si falla solo queda `gym_dirty`.
+Un reintento normal usa `pushState()` sin wipe y la unión conserva los workouts antiguos.
+La intención de reemplazo offline no es durable. Reset/import online sí están probados.
+No declarar Fase 1 completamente validada hasta decidir/corregir este camino.
+Además, esta corrección local no introduce tombstones multi-dispositivo: otro cliente
+que todavía envíe explícitamente un workout borrado puede reintroducirlo (limitación
+ya presente en el test backend E1). No se cambió la deuda routines/programs/dayPlan.
+
+X2: dependencias y Node 22 coherentes. PR #10 abierto en b22d329; api/api-image pasan,
+job test falla en `node scripts/check-locales.mjs`. Causa preexistente, no de Fase 1:
+árbol locales idéntico en b22d329 y su padre (50444786a129afd4a048058bb10aae17e60204d4),
+comprobador idéntico (ffc00360abd3786bdc104369744e4beac17aa9c6); tampoco se añadieron
+claves t() en el diff. El check local adicional de library falla solo por CRLF de Windows:
+contenido normalizado a LF coincide exactamente con el generado; no se regeneró el archivo.
+Unión 2135 claves: de/fr/hi/it/ko/pl/pt/ru/tr/zh tienen 805 cada
+uno (1330 ausentes por idioma), es tiene 2125 (10 ausentes). El script enumera cada
+clave exacta. Inventario completo generado fuera del repositorio:
+`C:/Users/juanj/AppData/Local/Temp/2j-fase1-missing-locales.json`.
+Las 10 ausentes en es: `After how many workouts`, `Endurance`,
+`FitNotes, Strong, Hevy — or body weight from Apple Health`, `General fitness`,
+`Get stronger`, `Rest-timer alerts, even if 2J Fitness Center is closed.`,
+`endurance`, `general`, `muscle`, `strength`. No se tocaron traducciones.
+
+Sin commit, push, merge ni deploy. Próximo paso: revisar el bloqueo de wipe offline;
+no continuar automáticamente con Fase 2.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.

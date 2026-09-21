@@ -288,6 +288,9 @@ export const useStore = create((set, get) => {
       }
       try {
         await api('/api/workouts/delete', { method: 'POST', body: JSON.stringify({ id }) })
+        // boot() may have pulled this workout back before retrying the delete. Persist
+        // its removal locally too, before dropping the intent or allowing another push.
+        get().update(s => { s.workouts = s.workouts.filter(w => w.id !== id) }, false)
         clearPending()
       } catch (e) {
         try {
@@ -385,7 +388,9 @@ export const useStore = create((set, get) => {
         // deleteWorkoutOnServer's own comment.
         try {
           const pendingDeletes = JSON.parse(localStorage.getItem(PENDING_WORKOUT_DELETE_KEY) || '[]')
-          pendingDeletes.forEach(id => get().deleteWorkoutOnServer(id))
+          // Each retry flushes state first: serialize them so a later flush cannot
+          // carry an earlier deletion's stale snapshot back to the server.
+          for (const id of pendingDeletes) await get().deleteWorkoutOnServer(id)
         } catch { localStorage.removeItem(PENDING_WORKOUT_DELETE_KEY) }
         // Re-stamp the reminder's timezone on every load — keeps it correct if you're travelling,
         // without needing to revisit Settings.
