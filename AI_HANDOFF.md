@@ -930,6 +930,30 @@ Para continuar solo hace falta provisionar en este entorno la clave SSH de produ
 después ejecutar backup/verificación, crear y conservar el release archive compatible,
 desplegar y hacer smoke tests. Nunca usar `90d98fe` como rollback.
 
+### DEPLOY SYNC V2 COMPLETADO — 2026-09-21
+
+Producción fue actualizada manualmente por SSH interactivo desde `ee7c0e5` al release
+compatible `6c548f7` (`1.3.0`). Antes del deploy se creó y verificó el backup recuperable
+`/root/backups/2jfitness-2026-09-21_2127.tar.gz`; contiene `data/db.json`, `data/secret`
+y los estados de usuario. También quedó verificado en el servidor el release de rollback
+`/root/backups/2jfitness-code-6c548f7.tar.gz`, SHA-256
+`52d3ee9b6481dd3bc425c0bc6b1d25bf30f326b3d82ed257069af68df5901a64`, con el marcador
+`SYNC_V2_ROLLBACK_BASE` que fija `51a221d8ef524776334d8d67109fb9102407eff2` como base
+mínima. No usar `90d98fe` ni código anterior sobre datos que ya contengan metadata V2.
+
+Los contenedores `api`, `web` y `caddy` quedaron activos. Health interno y externo
+respondieron 200 con `{"ok":true}`; `/api/sync` sin autenticación respondió 401 y el board
+de Bunker respondió 200. Smoke web/PWA: portada, manifest, service worker e iconos 192/512
+respondieron 200; el bundle desplegado contiene los identificadores de Sync V2. Con sesión
+autenticada se comprobaron Home, historial, plan y peso en escritorio y viewport móvil,
+sin errores de consola; Bunker público cargó correctamente. No se modificaron datos reales.
+
+La convergencia PC↔móvil continúa respaldada por la prueba automatizada con dos clientes
+HTTP. No se ejecutó una mutación cruzada en producción porque no había una cuenta/datos de
+prueba identificados y no se deben alterar usuarios reales. Frontend **576/576**, backend
+**199/199**, build Vite y `git diff --check` estaban verdes antes del deploy. PR #10 sigue
+sin mergear.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.
