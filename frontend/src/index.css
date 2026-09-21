@@ -1713,9 +1713,18 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .bk-card{
   background:#141417;border-radius:18px;padding:20px;min-height:140px;
   display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;
-  transition:box-shadow .3s;
+  transition:box-shadow .3s,transform .15s;cursor:pointer;
 }
+.bk-card:active{transform:scale(.97)}
 .bk-card.paused{opacity:.6}
+/* Own card, checked in from THIS device, tap to reopen with no PIN — see Bunker.jsx's own
+   module doc comment (V3 fix) for why that's safe: this class only ever appears when this
+   exact kiosk already holds a valid token for that member. */
+.bk-card.resumable{box-shadow:inset 0 0 0 2px rgba(16,185,129,.55)}
+.bk-card-resume{
+  font-size:11px;font-weight:700;color:#10B981;background:rgba(16,185,129,.12);
+  border:1px solid rgba(16,185,129,.3);border-radius:99px;padding:2px 9px;flex:none;
+}
 .bk-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .bk-card-elapsed{font-size:12px;color:#6a6a6e;font-variant-numeric:tabular-nums}
 .bk-card-name{font-size:20px;font-weight:700}

@@ -38,6 +38,14 @@ Ver su propia sección más abajo para el detalle completo. Pendiente: que el us
 socios la prueben esta semana en producción (notas, versionado, últimas sesiones, resumen,
 y opcionalmente activar OpenAI como proveedor del Coach desde Admin).
 
+**Bug reportado en producción tras el despliegue de V3 (usando el Bunker real): "minimizo mi
+sesión para que otro socio entre, y luego no puedo volver a la mía — aparece pero no puedo
+acceder".** Diagnosticado, corregido e implementado (ver su propia sección más abajo) —
+**IMPLEMENTADO Y TESTEADO LOCALMENTE, SIN COMMITEAR NI DESPLEGAR** (instrucción explícita
+del usuario: "NO despliegues todavía"). Working tree con 2 archivos modificados
+(`frontend/src/index.css`, `frontend/src/views/Bunker.jsx`) + 3 nuevos
+(`frontend/src/lib/bunker-credentials.js` y su test, `api/test/bunker-multi-session.test.js`).
+
 ## Estado actual
 - **Working tree limpio, rama al día con origin** — V3 commiteada (`96533f1`) y empujada.
 - **Producción desplegada y sana** con V3 incluida: `docker compose ps` →
@@ -453,6 +461,141 @@ sin rediseño de Bunker, sin funciones sociales nuevas, sin recomendaciones/chat
 Gemini, sin builder nuevo, sin análisis biométrico, sin logros nuevos, sin cambios de
 superseries, sin rediseño del PDF, sin formatos de CSV nuevos, sin que la IA modifique la
 programación sola, sin editor de diff complejo, sin notificaciones nuevas.
+
+---
+
+## BUG: Bunker — no se puede volver a la sesión propia tras minimizar — CORREGIDO, SIN DESPLEGAR
+
+**Síntoma reportado**: "cuando entro al principio perfecto, cuando minimizo mi pantalla para
+que otro usuario entre en la suya ya no me da la opción de regresar a mi plantilla, aparece
+pero no puedo acceder."
+
+**Causa**: la tarjeta de un socio minimizado en el tablero comunitario del Bunker
+(`BunkerBoard`, `frontend/src/views/Bunker.jsx`) nunca tuvo ningún `onClick` — no es una
+regresión, nunca se construyó esa acción (confirmado por `git log -p` del archivo). El
+propio backend documenta la decisión: "Minimizing back to the room dashboard... Nothing to
+do server-side, so there is no endpoint for it" (`api/bunker/routes.js:316-319`). El único
+camino real de vuelta era pulsar el botón genérico "Unirme al Bunker" y volver a teclear el
+PIN — que sí restauraba el entreno correctamente, pero no estaba etiquetado como "continuar",
+así que no se percibía como la opción de volver: la tarjeta "aparecía" (seguía en el tablero,
+con su nombre y tiempo transcurrido) pero tocarla no hacía nada.
+
+**Modelo anterior**: `Bunker.jsx` guardaba una única sesión (`session`, `{token, name}`) en
+estado React de la raíz. Minimizar era literalmente `setSession(null)` — el token se perdía
+sin más, no había ningún sitio donde recuperarlo salvo repetir el checkin con PIN.
+
+**Modelo nuevo — reutiliza el token existente tal cual, sin tocar el backend**:
+inspeccionado primero el token del Bunker (`sign('bunker:' + uid + ':' + exp)`,
+`api/bunker/routes.js`) — es una credencial firmada, sin estado, ya scoped a un único uid;
+`GET /api/bunker/session` no comprueba nada más que la firma y la caducidad. Es decir: el
+backend YA soporta varias credenciales simultáneas sin ningún cambio — bastaba con que el
+frontend dejara de tirar el token al minimizar. **No se ha tocado ni una línea de
+`api/bunker/routes.js` ni `api/bunker/store.js`.**
+
+`Bunker.jsx` pasa de `session` (uno) a:
+- `credentials`: `{ [uid]: { token, name, exp } }` — todos los socios que ESTE dispositivo
+  ha autenticado con PIN durante esta visita.
+- `activeUid`: cuál de esas credenciales está a pantalla completa ahora mismo (o `null` →
+  tablero).
+
+Minimizar (`setActiveUid(null)`) ya NUNCA borra `credentials` — antes sí, por diseño.
+
+**Dónde se guardan las credenciales temporales**: en memoria (estado React), NUNCA en
+`localStorage` ni en ningún sitio que sobreviva a un recargo de página — decisión de
+seguridad explícita, no un descuido (ver punto 8 de la petición): el Bunker es un dispositivo
+físico compartido en medio del gimnasio; dejar credenciales de varios socios legibles desde
+el almacenamiento del navegador tras un recargo es exactamente el tipo de cosa que no debe
+sobrevivir. Ya era así para la única sesión que existía antes de este fix — el cambio no
+introduce una degradación de seguridad, la extiende de 1 a N credenciales con la misma
+política.
+
+**Cuándo se eliminan**: una función pura `purgeStaleCredentials(credentials, board,
+activeUid)` (`frontend/src/lib/bunker-credentials.js`, testeada con 7 tests unitarios) se
+ejecuta en cada refresco del tablero (cada 4s): una credencial sobrevive solo si su tarjeta
+sigue en el tablero (minimizar nunca la retira, ver arriba) o si es la sesión abierta ahora
+mismo (para que una reconciliación del tablero nunca interrumpa un entreno activo). Cubre de
+forma unificada, sin casos especiales por cada motivo: finalizar entreno (`store.endSession`
+retira la tarjeta), cierre forzado por un admin (idem), y el `IDLE_TTL` de 15 min de
+`api/bunker/store.js` (tarjeta no tocada → se purga sola). Además: si al tocar "Continuar" el
+`GET /api/bunker/session` fallara (token realmente caducado — caso raro del límite de 4h,
+`PIN_TOKEN_TTL`), la credencial se autopurga (`onInvalid`) y la tarjeta vuelve a pedir PIN en
+el siguiente toque, en vez de quedarse muerta silenciosamente.
+
+**Comportamiento de las tarjetas**: todas son ahora pulsables (antes ninguna lo era). Si
+`credentials[uid]` existe para esta tarjeta: badge verde "Continuar" + reabre exactamente esa
+sesión sin PIN. Si no: toca igual que el botón genérico "Unirme al Bunker" — abre el teclado
+de PIN normal, nunca asume ni insinúa de quién es el PIN que hay que teclear (evita el caso
+del punto 9: la tarjeta de alguien fichado desde OTRO dispositivo nunca concede acceso).
+
+**Tras refresh/reabrir la PWA**: TODAS las credenciales de este dispositivo se pierden a la
+vez (estado React, no persistido — ver arriba) — verificado en el E2E real (ver abajo).
+Decisión explícita, no arbitraria: es la misma política de seguridad que ya tenía la sesión
+única antes de este fix, aplicada uniformemente a N sesiones en vez de 1. La alternativa
+(persistir en `localStorage`) habría sido un cambio de postura de seguridad real para un
+dispositivo público, no una mejora de UX gratuita.
+
+**Aislamiento A/B**: cada token está firmado con un único uid (`bunker:<uid>:<exp>`); no hay
+ningún endpoint que acepte "para qué uid" además de lo que ya dice el propio token, así que
+es estructuralmente imposible que el token de A lea o escriba el estado de B. Verificado con
+tests backend reales (ver abajo) y con el E2E manual (checkin A → minimizar → checkin B →
+minimizar → tocar A → exactamente su entreno, set ya marcado incluido → tocar B → exactamente
+el suyo, sin rastro de A).
+
+**Interacción con `S.active`/`clearActive`/protección del Bunker**: ninguna — este fix no
+toca `api/bunker/routes.js`, `api/server.js` ni `frontend/src/store/useStore.js`. El fix del
+active atascado (`POST /api/active/clear`, commit `3e4e0b4`) y la protección de `PUT
+/api/data` siguen exactamente igual; suite backend completa (156/156) incluye esos tests sin
+tocarlos y todos siguen en verde.
+
+**Tests**:
+- `frontend/src/lib/bunker-credentials.test.js` (7 tests): sobrevive si la tarjeta sigue en
+  el tablero; se elimina si desaparece; nunca se elimina la del panel activo aunque falte
+  momentáneamente del tablero; A y B se gestionan de forma independiente; alternar A→B→A→B
+  varias veces mantiene ambas credenciales intactas; misma referencia de objeto cuando no
+  cambia nada (evita un re-render innecesario); mapas/tableros vacíos sin excepción.
+- `api/test/bunker-multi-session.test.js` (6 tests, nuevo — mismo patrón in-process que
+  `bunker-finish.test.js`/`bunker-handoff.test.js`, sin servidor HTTP real): dos PIN
+  distintos producen dos tokens independientes; ambos aparecen a la vez en el tablero sin
+  desplazarse; el token de A solo puede leer la sesión de A, nunca la de B, haya quien haya
+  fichado; escrituras alternadas A→B→A→B nunca mezclan `S.active`; A finalizando retira solo
+  su tarjeta, B sigue intacto; un re-checkin del mismo socio nunca invalida un token ya
+  emitido para él. **Este backend NO se modificó** — estos tests bloquean una regresión
+  futura en una propiedad de la que ahora depende directamente el frontend.
+- Suite completa: frontend 560/560, backend 156/156, build de producción OK.
+
+**E2E real** (no simulado): backend local levantado con `DATA_DIR` propio y dos usuarios de
+prueba con PIN conocido (sin necesidad de passkey — el Bunker nunca usa la cookie de sesión
+normal), frontend en modo dev, todo el flujo dirigido de verdad en el navegador: Alice entra
+con PIN → panel propio → minimiza → tarjeta con "Continuar" → Bob entra con PIN → panel
+propio (rutina distinta) → minimiza → dos tarjetas con "Continuar" → toca la de Alice →
+vuelve exactamente a su sesión sin PIN, con el set ya marcado intacto → marca otro set →
+minimiza → el tablero refleja en vivo su ejercicio/serie/descanso mientras la tarjeta de Bob
+sigue sin cambios → toca la de Bob → su sesión exacta, sin rastro de Alice → recarga real de
+página (`window.location.reload()`) → ambas tarjetas pierden el badge "Continuar" → tocar
+cualquiera vuelve a pedir PIN. Los 9 pasos del flujo pedido en el punto 7/17 de la petición
+quedan cubiertos.
+
+**Archivos modificados**: `frontend/src/views/Bunker.jsx` (modelo `credentials`/`activeUid`,
+tarjetas pulsables, `onMinimize`/`onFinish`/`onInvalid` en vez de un único `onExit`),
+`frontend/src/index.css` (`.bk-card` pulsable, `.resumable`, badge `.bk-card-resume`).
+**Archivos nuevos**: `frontend/src/lib/bunker-credentials.js` + su test,
+`api/test/bunker-multi-session.test.js`. **Nada en `api/` fuera del test nuevo.**
+
+**Riesgos/limitaciones conocidas**:
+- El escenario "admin fuerza el cierre de una sesión mientras ese socio la tiene abierta EN
+  ESE MOMENTO en su propio panel" no revoca el token en curso (ya era así antes de este fix
+  — `readBunkerToken` no consulta `store.getSession`) — solo afecta a alguien activamente
+  entrenando cuando un admin lo cierra a la vez, un caso ya preexistente y fuera del alcance
+  de "minimizar/volver" que pedía este fix.
+- No hay test automatizado del `IDLE_TTL` de 15 min en sí (requeriría mockear el reloj) — su
+  efecto sobre `purgeStaleCredentials` (tarjeta ausente → credencial se purga) sí está
+  cubierto; el propio `IDLE_TTL` no se tocó.
+- Sin passkey de producción no se pudo repetir este E2E contra `app.2jfitnesscenter.com`
+  directamente — se hizo con un backend local equivalente, mismo código, mismos PIN reales.
+
+**Considero seguro desplegar esto** cuando el usuario lo autorice: cambio acotado a un solo
+archivo de vista + estilos + una librería pura nueva, cero cambios de backend, suite completa
+en verde, E2E real verificado paso a paso. Sigue **sin desplegar**, tal como se pidió.
 
 ---
 

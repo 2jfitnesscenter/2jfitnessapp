@@ -212,6 +212,81 @@ enforcing.
   change keep the public visibility they already had, so nothing anyone already shared quietly
   disappears.
 
+## v1.3.0 — 2026-09-21
+
+Superset colors, adaptive print, a smarter CSV importer, room equipment awareness, a second
+AI provider for the Coach, trainer-assigned notes with a quiet version trail, and quick
+in-session context — plus two real bugs fixed: a training session that wouldn't actually go
+away, and the Bunker losing track of you the moment someone else needed the screen.
+
+### Supersets get a color, printing gets a brain
+
+- 🎨 **Superset colors and labels (A1/A2, B1/B2…)**, assigned deterministically by
+  first-appearance order — the same group reads as the same color whether you're looking at
+  the routine on screen or the printed sheet.
+- 🖨️ **Adaptive print density.** Page density now scales to how much is actually on a given
+  day: a 2-day routine still fits comfortably on one page, a 5-day plan settles around two,
+  without redesigning the sheet itself.
+- Substitution picker: uniform row heights, horizontal filter scroll instead of a cramped list.
+- CSV import: Gravl format support, and superset grouping on import is more conservative —
+  fewer false groupings from an ambiguous export.
+
+### A second, isolated AI: the room's own assistant
+
+- 🤖 **A new `auxiliary_ai` profile (Gemini)**, completely separate from the member-facing
+  Coach and the trainer panel's own AI — its own credential, its own log, no shared prompt or
+  context with either. It only ever does narrow, mechanical reading: matching an imported
+  exercise name to the right one in your library, reading a machine's ID plate, reading a
+  bioimpedance report, reading a printed or handwritten routine.
+- 📥 **CSV import gained a real review step.** Gym-wide confirmed aliases are tried first,
+  then local candidates, then an optional AI suggestion — never applied without your
+  confirmation — surfaced on a dedicated "Review matches" screen.
+- Antiduplicate detection now fingerprints an imported workout by the exercise's real **name**
+  rather than a random id minted per import, so re-importing the same file twice is correctly
+  recognized as a duplicate instead of doubling your history.
+- 🏋️ **Equipment availability.** Mark a piece of equipment as temporarily out of service and
+  every exercise that needs it is skipped the moment a workout starts — independent of, and
+  layered on top of, the existing per-exercise admin hide.
+
+### The AI Coach can now run on OpenAI, not just Codex
+
+- A direct OpenAI REST option for the member-facing Coach, next to Claude and Gemini — no
+  CLI, no device-code sign-in, no local subprocess, same "paste an API key" flow the Gemini
+  option already used. Off by default; an admin opts a gym into it from the Coach panel, with
+  its own connection test and configurable model.
+
+### Trainer notes, a quiet version trail, and quick context mid-session
+
+- 📝 **A trainer's note on one specific exercise slot** now actually shows up where it's
+  needed: a compact, tap-to-expand line during training, and — space permitting — under the
+  exercise name on the printed sheet, without ever pushing the adaptive page-density targets
+  out of range.
+- 🕓 **Routine/program version history for trainer-assigned plans.** When a trainer
+  meaningfully re-saves a routine or program a member is already using, the previous content
+  is kept — date and all — queryable from the builder's own "Version history". Traceability,
+  not a diff editor: no restore button, and a no-op re-save or a temporary equipment change
+  never adds a version.
+- ⏱️ **"Show previous sessions"** on an exercise's detail view reveals its last three real
+  sessions instead of only the single most recent one — collapsed by default, so the card
+  doesn't grow for everyone just because the data is there.
+- Routine and program rows in the library and the trainer panel now carry a quick summary —
+  exercise and superset counts, scheduled days, and how many of their exercises are currently
+  unavailable — without needing to open them.
+
+### Fixes
+
+- **A finished or discarded training session could keep coming back.** `PUT /api/data`'s own
+  protection for a session running at the Bunker was unconditionally reinjecting whatever
+  `active` the server already had on every sync — which meant neither Discard nor Finish
+  could ever actually clear it server-side, silently, for both. A new, narrowly-scoped
+  endpoint (id-matched, and refused outright while that session is genuinely live at the
+  Bunker right now) is the one authorized way a client can end its own session for real.
+- **The Bunker: minimizing to let someone else train no longer strands you.** Every checked-in
+  member's card on the room board is now tappable. Tapping your own reopens your exact
+  session — mid-set state and all — with no PIN, as long as this same device already checked
+  you in earlier this visit; anyone else's card, or your own checked in from a different
+  device, still asks for the PIN, exactly as before.
+
 ## v1.2.3 — 2026-07-31
 
 How hard a set was, in whichever of the two scales you already think in — and the ratings your

@@ -17,6 +17,7 @@ import {
   postBunkerActive, postBunkerRest, postBunkerFinish,
   bunkerAdminCheckin, fetchBunkerAdminSessions, closeBunkerSession, pauseBunkerSession, saveBunkerSettings,
 } from '../lib/bunker-api.js'
+import { purgeStaleCredentials } from '../lib/bunker-credentials.js'
 
 const BOARD_POLL_MS = 4000
 const REST_SEC = 90
@@ -80,7 +81,14 @@ function CardRest({ s, settings }) {
 }
 // Just the "who's here" board + the join button — the header (title, paired badge, admin
 // gear) moved into BunkerTopBar, which every screen shares now, not just this one.
-function BunkerBoard({ board, settings, onCheckin }) {
+//
+// Every card is tappable now (it never used to be — see Bunker.jsx's own module doc comment).
+// `credentials` is THIS device's own local map of who it already has a valid bunker token for
+// (set on a successful PIN checkin, kept across a minimize, never containing anyone who checked
+// in from a different phone/tablet — see lib/bunker-credentials.js). A card whose uid is in that
+// map reopens that exact session with no PIN; any other card — someone else's, or this member's
+// own but checked in elsewhere — falls through to the normal PIN pad, same as "Join" always did.
+function BunkerBoard({ board, settings, credentials, onCheckin, onResume }) {
   const gridStyle = settings.columns === 'auto'
     ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16, flex: 1, alignContent: 'start' }
     : { '--cols': settings.columns || 4 }
@@ -89,21 +97,28 @@ function BunkerBoard({ board, settings, onCheckin }) {
       <div className="bk-empty">{t('Nobody checked in yet — be the first.')}</div>
     ) : (
       <div className={settings.columns === 'auto' ? undefined : 'bk-grid'} style={gridStyle}>
-        {board.map(s => (
-          <div className={'bk-card' + (s.paused ? ' paused' : '')} key={s.uid}>
-            <div className="bk-card-top">
-              <div className="bk-card-name">{s.name}</div>
-              <span className="bk-card-elapsed">{elapsed(Date.now() - s.checkinAt)}</span>
-            </div>
-            {s.exName ? <>
-              <div className="bk-card-ex">{s.exName}</div>
-              <div className="bk-card-set">
-                {s.paused ? t('Paused') : t('Set {0} of {1}', Math.min(s.setIdx + 1, s.setsTotal || 1), s.setsTotal || 1)}
+        {board.map(s => {
+          const resumable = !!credentials[s.uid]
+          const tap = () => resumable ? onResume(s.uid) : onCheckin()
+          return (
+            <div className={'bk-card' + (s.paused ? ' paused' : '') + (resumable ? ' resumable' : '')} key={s.uid}
+              role="button" tabIndex={0} onClick={tap}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap() } }}>
+              <div className="bk-card-top">
+                <div className="bk-card-name">{s.name}</div>
+                {resumable && <span className="bk-card-resume">{t('Continue')}</span>}
+                <span className="bk-card-elapsed">{elapsed(Date.now() - s.checkinAt)}</span>
               </div>
-            </> : <div className="bk-card-ex dim">{t('Getting ready…')}</div>}
-            <CardRest s={s} settings={settings} />
-          </div>
-        ))}
+              {s.exName ? <>
+                <div className="bk-card-ex">{s.exName}</div>
+                <div className="bk-card-set">
+                  {s.paused ? t('Paused') : t('Set {0} of {1}', Math.min(s.setIdx + 1, s.setsTotal || 1), s.setsTotal || 1)}
+                </div>
+              </> : <div className="bk-card-ex dim">{t('Getting ready…')}</div>}
+              <CardRest s={s} settings={settings} />
+            </div>
+          )
+        })}
       </div>
     )}
     <button className="bk-join" onClick={onCheckin}><Icon name="plus" /> {t('Join the Bunker')}</button>
@@ -168,7 +183,15 @@ function exName(exId, customEx) {
   return ex ? nameFor(ex) : exId
 }
 
-function BunkerTrainingPanel({ token, name, settings, onExit }) {
+// `onMinimize`/`onFinish`/`onInvalid` are three deliberately different endings (V3 fix — see
+// Bunker.jsx's own module doc comment): minimizing (manual button, idle timeout, the brief
+// auto-minimize after a set) keeps this device's local credential for `token`'s uid so tapping
+// their board card later reopens this exact session with no PIN; finishing a workout ends their
+// Bunker presence on purpose, so it also drops the local credential (same as if their card had
+// simply disappeared from the board); and a session that turns out not to load at all (an
+// actually-expired/invalid token) drops the credential too, so a stale card self-heals into
+// asking for the PIN again instead of silently doing nothing on the next tap.
+function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onInvalid }) {
   const [plan, setPlan] = useState(null)
   const [active, setActive] = useState(null)
   const [exIdx, setExIdx] = useState(0)
@@ -179,7 +202,7 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
   const minimizeRef = useRef(null)
   const idleMs = (settings?.autoLockSec || 60) * 1000
 
-  const armIdle = ms => { clearTimeout(idleRef.current); idleRef.current = setTimeout(onExit, ms) }
+  const armIdle = ms => { clearTimeout(idleRef.current); idleRef.current = setTimeout(onMinimize, ms) }
   const touch = () => armIdle(idleMs)
 
   useEffect(() => {
@@ -204,7 +227,7 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
       // in-session action here).
       setActive(p.active || (routine ? buildBunkerActive({ ...miniS, unit: p.unit, workouts: p.recentWorkouts, exWeights: p.exWeights, tests: p.tests, showPreviousResults: p.showPreviousResults, warmupEnabled: p.warmupEnabled }, routine) : null))
       armIdle(idleMs)
-    }).catch(() => onExit())
+    }).catch(() => onInvalid())
     return () => { clearTimeout(idleRef.current); clearTimeout(minimizeRef.current) }
   }, [token])
 
@@ -238,7 +261,7 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
 
   if (!active) return <div className="bk-panel">
     <div className="bk-panel-hd">
-      <button className="bk-minimize" onClick={onExit}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
+      <button className="bk-minimize" onClick={onMinimize}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
       <div className="bk-panel-name">{name}</div>
     </div>
     <BunkerTodayPicker routines={plan.routines} sessionS={sessionS} onPickRoutine={pickRoutine} onFreeTraining={startFreeTraining} />
@@ -264,7 +287,7 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
       setRestEndsAt(endsAt)
       postBunkerRest(token, REST_SEC).catch(() => {})
       clearTimeout(minimizeRef.current)
-      minimizeRef.current = setTimeout(onExit, AFTER_SET_MINIMIZE_MS)
+      minimizeRef.current = setTimeout(onMinimize, AFTER_SET_MINIMIZE_MS)
     }
   }
   // Same semantics as Workout.jsx's own replaceExercise (issue tracked in lib/history.js's
@@ -305,7 +328,7 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
       prs: [],
     }
     w.vol = workoutVolume(w)
-    postBunkerFinish(token, w).then(onExit).catch(() => onExit())
+    postBunkerFinish(token, w).then(onFinish).catch(() => onMinimize())
   }
 
   const entry = active.entries[exIdx]
@@ -337,7 +360,7 @@ function BunkerTrainingPanel({ token, name, settings, onExit }) {
 
   return <div className="bk-panel" onClick={touch}>
     <div className="bk-panel-hd">
-      <button className="bk-minimize" onClick={onExit}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
+      <button className="bk-minimize" onClick={onMinimize}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
       <div className="bk-panel-name">{name}</div>
       {restEndsAt && <RestRing endsAt={restEndsAt} size={52} />}
     </div>
@@ -528,7 +551,19 @@ export default function Bunker() {
   const nav = useNavigate()
   const [board, setBoard] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
-  const [session, setSession] = useState(null)
+  // V3 fix — this device's own local, in-memory map of every member it has already checked in
+  // for THIS visit: { [uid]: { token, name, exp } }. Deliberately never written to localStorage
+  // (or anywhere else that outlives this page load) — the Bunker is a shared physical kiosk in
+  // the middle of the gym floor, and a credential readable from the browser's own storage after
+  // someone has walked away is exactly the kind of thing that must not survive a refresh or a
+  // reopen. A refresh clears everyone's local access at once, same trade-off the single-session
+  // model already made before this fix (see AI_HANDOFF.md for the explicit reasoning). It's
+  // *access* that's scoped to this device, never the training data itself — S.active stays
+  // exactly as safe and persistent as it always was, on the server, independent of this map.
+  const [credentials, setCredentials] = useState({})
+  // Which of those credentials (if any) is the one currently shown full-screen — null shows the
+  // community board instead. Minimizing only ever changes this; it never touches `credentials`.
+  const [activeUid, setActiveUid] = useState(null)
   const [showCheckin, setShowCheckin] = useState(false)
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [showExitLock, setShowExitLock] = useState(false)
@@ -541,6 +576,7 @@ export default function Bunker() {
   const [timer, setTimer] = useState(DEFAULT_TIMER_STATE)
   const tapsRef = useRef([])
   const paired = (() => { try { return JSON.parse(localStorage.getItem(PAIR_KEY) || 'null') } catch { return null } })()
+  const current = activeUid ? credentials[activeUid] : null
 
   useEffect(() => {
     let alive = true
@@ -550,6 +586,20 @@ export default function Bunker() {
     return () => { alive = false; clearInterval(id) }
   }, [])
   useEffect(() => { fetchBunkerSettings().then(setSettings).catch(() => {}) }, [])
+  // Drops a local credential the moment its own card leaves the board for any reason other than
+  // "it's the one I'm actively looking at right now" — see lib/bunker-credentials.js's own doc
+  // comment for exactly which real-world cases that covers (finish, admin force-close, the
+  // 15-minute idle timeout) and why minimizing is never one of them.
+  useEffect(() => { setCredentials(c => purgeStaleCredentials(c, board, activeUid)) }, [board, activeUid])
+  // A credential that failed to actually resume (GET /session 401'd — the rare case of a token
+  // that outlived its own 4h TTL while its card stayed on the board because the member kept
+  // training right up to that edge) or that just finished a workout both end the same way here:
+  // drop the stale/spent credential and fall back to the board, where the next tap correctly
+  // asks for the PIN again instead of silently doing nothing.
+  const releaseActive = () => {
+    setCredentials(c => { if (!activeUid || !(activeUid in c)) return c; const next = { ...c }; delete next[activeUid]; return next })
+    setActiveUid(null)
+  }
 
   // A discreet way off a public kiosk — three quick taps on the room header, then the same
   // admin code the room-admin overlay already asks for, rather than a visible "exit" button
@@ -572,13 +622,23 @@ export default function Bunker() {
           nobody's checked in yet, already polls at the root (below) and has nothing tab-switch
           could lose either way. */}
       <div style={{ display: tool === 'training' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        {session
-          ? <BunkerTrainingPanel token={session.token} name={session.name} settings={settings} onExit={() => setSession(null)} />
-          : <BunkerBoard board={board} settings={settings} onCheckin={() => setShowCheckin(true)} />}
+        {current
+          ? <BunkerTrainingPanel token={current.token} name={current.name} settings={settings}
+              onMinimize={() => setActiveUid(null)} onFinish={releaseActive} onInvalid={releaseActive} />
+          : <BunkerBoard board={board} settings={settings} credentials={credentials}
+              onCheckin={() => setShowCheckin(true)} onResume={uid => setActiveUid(uid)} />}
       </div>
       {tool !== 'training' && <BunkerToolPane tool={tool} timer={timer} setTimer={setTimer} />}
     </div>
-    {showCheckin && <BunkerCheckinPad onClose={() => setShowCheckin(false)} onSuccess={s => { setSession(s); setShowCheckin(false) }} />}
+    {showCheckin && <BunkerCheckinPad onClose={() => setShowCheckin(false)} onSuccess={s => {
+      // A fresh PIN checkin always wins over anything already held locally for that uid — it's
+      // a brand-new token from the server (POST /checkin never checks for one already existing),
+      // so replacing rather than merging keeps this device from ever acting on a token the
+      // server itself has already superseded.
+      setCredentials(c => ({ ...c, [s.uid]: { token: s.token, name: s.name, exp: s.exp } }))
+      setActiveUid(s.uid)
+      setShowCheckin(false)
+    }} />}
     {showAdminLogin && <BunkerAdminLogin onClose={() => setShowAdminLogin(false)} onSuccess={tok => { setAdminToken(tok); setShowAdminLogin(false) }} />}
     {showExitLock && <BunkerAdminLogin onClose={() => setShowExitLock(false)} onSuccess={() => nav('/home')} />}
   </div>
