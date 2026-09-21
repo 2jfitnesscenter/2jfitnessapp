@@ -12,19 +12,23 @@ en producción (Contabo VPS, `app.2jfitnesscenter.com`).
 `feat/pwa-tanita-bunker-roadmap`
 
 ## Último commit de código relevante
-`96533f1` — "feat: V3 (notas en entrenamiento/impresión, versionado de rutinas/programas,
-últimas sesiones, resumen de programación, OpenAI REST)"
-(anterior: `3e4e0b4` — fix active atascado, `85b45ad` — V2, `14afe9d` — V1)
+`ee7c0e5` — "feat: v1.3.0 — Bunker multi-session resume, changelog"
+(anterior: `96533f1` — V3, `3e4e0b4` — fix active atascado, `85b45ad` — V2, `14afe9d` — V1)
 
-Commits `2eb932d` (handoff), `85b45ad` (V2), `14afe9d` (V1), `3e4e0b4` (fix active) y
-`96533f1` (V3) están todos en `origin/feat/pwa-tanita-bunker-roadmap`.
+Commits `2eb932d` (handoff), `85b45ad` (V2), `14afe9d` (V1), `3e4e0b4` (fix active),
+`96533f1` (V3) y `ee7c0e5` (fix Bunker + versión 1.3.0 + changelog) están todos en
+`origin/feat/pwa-tanita-bunker-roadmap`. **Sin PR abierto todavía** — no hay `gh` CLI ni
+sesión de GitHub disponible en este entorno para crearlo (ver "Trabajo pendiente").
 
-**V1, V2, el fix del active atascado y V3 ESTÁN DESPLEGADOS en producción** — V1/V2 desde
-2026-09-20 ~20:45 UTC, el fix desde ~21:05 UTC, V3 desde ~21:47 UTC. Confirmado: `GET
-https://app.2jfitnesscenter.com/api/admin/aux-ai` → 401 (V2); `POST
+**V1, V2, el fix del active atascado, V3 y el fix del Bunker (minimizar/volver) ESTÁN
+DESPLEGADOS en producción** — V1/V2 desde 2026-09-20 ~20:45 UTC, el fix del active desde
+~21:05 UTC, V3 desde ~21:47 UTC, el fix del Bunker + v1.3.0 desde 2026-09-21 ~09:35 UTC.
+Confirmado: `GET https://app.2jfitnesscenter.com/api/admin/aux-ai` → 401 (V2); `POST
 /api/active/clear` → 401, no 404 (el fix); `GET /api/trainer/routine-versions` y
-`/api/trainer/program-versions` → 401, no 404 (V3); `coach.provider` sigue `codex` (no se
-activó OpenAI automáticamente).
+`/api/trainer/program-versions` → 401, no 404 (V3); el bundle en producción contiene el
+código del fix del Bunker (`bk-card-resume`) y la entrada `v1.3.0` del changelog;
+`coach.provider` está en `gemini` (cambiado por el propio usuario entre sesiones, no por
+ningún despliegue de esta sesión).
 
 ## Objetivo/tarea actual
 Bug de producción prioritario (sesión activa atascada) corregido, testeado, desplegado
@@ -34,28 +38,41 @@ tras pulsar Descartar. Cierre de V2 completado.
 
 **V3 implementada, testeada, commiteada y DESPLEGADA EN PRODUCCIÓN** (autorización
 explícita del usuario: "commitea y despliega todo que funcione, esta semana se probará").
-Ver su propia sección más abajo para el detalle completo. Pendiente: que el usuario y sus
-socios la prueben esta semana en producción (notas, versionado, últimas sesiones, resumen,
-y opcionalmente activar OpenAI como proveedor del Coach desde Admin).
+Ver su propia sección más abajo para el detalle completo.
 
 **Bug reportado en producción tras el despliegue de V3 (usando el Bunker real): "minimizo mi
 sesión para que otro socio entre, y luego no puedo volver a la mía — aparece pero no puedo
-acceder".** Diagnosticado, corregido e implementado (ver su propia sección más abajo) —
-**IMPLEMENTADO Y TESTEADO LOCALMENTE, SIN COMMITEAR NI DESPLEGAR** (instrucción explícita
-del usuario: "NO despliegues todavía"). Working tree con 2 archivos modificados
-(`frontend/src/index.css`, `frontend/src/views/Bunker.jsx`) + 3 nuevos
-(`frontend/src/lib/bunker-credentials.js` y su test, `api/test/bunker-multi-session.test.js`).
+acceder".** Diagnosticado, corregido, testeado (unitario + E2E real local) y **DESPLEGADO EN
+PRODUCCIÓN** (autorización explícita: "commitea, publica, despliega y sube todo a github").
+Ver su propia sección más abajo para el detalle completo.
+
+**Versión de la app subida a 1.3.0** (`frontend/package.json`, `api/package.json`) —
+`CHANGELOG.md` y el changelog interno (`frontend/src/lib/changelog.js`, con sus
+traducciones en `es.js`) documentan ahora todo lo entregado desde v1.2.3: V1, V2, el fix
+del active, V3 y el fix del Bunker. Antes de esto, ninguno de esos cinco entregables tenía
+ni una línea en el changelog — es lo que el usuario reportó como "no veo versiones nuevas".
+
+Pendiente: que el usuario y sus socios prueben todo esta semana en producción (notas,
+versionado, últimas sesiones, resumen, Bunker multiusuario, y opcionalmente OpenAI como
+proveedor del Coach desde Admin).
 
 ## Estado actual
-- **Working tree limpio, rama al día con origin** — V3 commiteada (`96533f1`) y empujada.
-- **Producción desplegada y sana** con V3 incluida: `docker compose ps` →
+- **Working tree limpio, rama al día con origin** — todo commiteado y empujado, incluido el
+  fix del Bunker + versión 1.3.0 + changelog (`ee7c0e5`).
+- **Producción desplegada y sana** con todo lo anterior incluido: `docker compose ps` →
   api/web/caddy `Up`, `media` en `Exited (0)` (normal, init container). `curl
   .../api/health` externo → `{"ok":true,"users":13}` (datos intactos en todos los despliegues
-  de hoy).
+  de esta sesión, incluido el de hoy 2026-09-21).
 - Backups pre-deploy: `/root/backups/2jfitness-2026-09-20_2041.tar.gz` (V1+V2),
-  `2026-09-20_2104.tar.gz` (fix del active) y `2026-09-20_2044.tar.gz` (V3 — nombre por
-  hora del servidor, tomado justo antes del despliegue de V3), además de los nocturnos
-  automáticos.
+  `2026-09-20_2104.tar.gz` (fix del active), `2026-09-20_2044.tar.gz` (V3 — nombre por
+  hora del servidor, tomado justo antes del despliegue de V3) y
+  `2026-09-21_0832.tar.gz` (fix del Bunker + v1.3.0), además de los nocturnos automáticos.
+- **Rama por defecto real del repo en GitHub: `2jfitness-dev`, NO `main`** (descubierto al
+  intentar abrir el PR — `main` no existe como rama en este repositorio). Cualquier comando
+  `gh pr create --base main` de sesiones anteriores está mal — usar
+  `--base 2jfitness-dev`. `feat/pwa-tanita-bunker-roadmap` está 11 commits por delante de
+  `2jfitness-dev` y 1 por detrás (confirmado en
+  `github.com/2jfitnesscenter/2jfitnessapp/compare/2jfitness-dev...feat/pwa-tanita-bunker-roadmap`).
 - **Incidente en el despliegue de V1+V2 (corregido en el momento, no repetido en ninguno
   de los siguientes)**: el `chown` post-tar usaba `--exclude`, que no es una opción válida
   de `chown`, y cambió por error la propiedad de `/opt/2jfitness/data` (debe ser
@@ -204,13 +221,21 @@ Frontend:
    entrenador, Bunker, entrenamiento, historial, IA auxiliar UI).
 3. El usuario añade su API key de Gemini en "IA auxiliar" y prueba los 4 capabilities
    (comandos de disparo manual en "Trabajo pendiente" arriba).
-4. Crear el PR (`gh pr create` o vía navegador autenticado) — comando ya preparado en el
-   historial de la sesión.
-5. **V3 desplegada en producción** (ver su propia sección más abajo, commit `96533f1`,
-   ~21:47 UTC 2026-09-20). Pendiente de uso real esta semana: probar el flujo de
-   entrenador (notas, versionado, resumen) con una sesión real de trainer, y si se activa
-   OpenAI como proveedor del Coach, probar el botón "Probar el Coach" en Admin con una API
-   key real.
+4. **Crear el PR** — sigue pendiente, sin `gh` CLI ni sesión de GitHub disponibles en este
+   entorno. Comando exacto para cuando alguien lo tenga a mano (nótese `--base
+   2jfitness-dev`, no `main` — `main` no existe en este repo, descubierto esta sesión):
+   ```
+   gh pr create --base 2jfitness-dev --head feat/pwa-tanita-bunker-roadmap \
+     --title "V1–V3 + fix active + fix Bunker + v1.3.0" \
+     --body "Ver AI_HANDOFF.md y CHANGELOG.md para el detalle completo."
+   ```
+   O abrir directamente:
+   `github.com/2jfitnesscenter/2jfitnessapp/compare/2jfitness-dev...feat/pwa-tanita-bunker-roadmap`
+5. **V1–V3, el fix del active y el fix del Bunker están todos desplegados en producción**
+   (ver sus propias secciones). Pendiente de uso real esta semana: probar el flujo de
+   entrenador (notas, versionado, resumen), el Bunker con varios socios reales a la vez, y
+   si se activa OpenAI como proveedor del Coach, probar el botón "Probar el Coach" en Admin
+   con una API key real y saldo.
 
 ## BUG: sesión activa atascada ("Espalda & Bíceps...") — CORREGIDO Y DESPLEGADO
 
@@ -464,7 +489,7 @@ programación sola, sin editor de diff complejo, sin notificaciones nuevas.
 
 ---
 
-## BUG: Bunker — no se puede volver a la sesión propia tras minimizar — CORREGIDO, SIN DESPLEGAR
+## BUG: Bunker — no se puede volver a la sesión propia tras minimizar — CORREGIDO Y DESPLEGADO
 
 **Síntoma reportado**: "cuando entro al principio perfecto, cuando minimizo mi pantalla para
 que otro usuario entre en la suya ya no me da la opción de regresar a mi plantilla, aparece
@@ -593,9 +618,16 @@ tarjetas pulsables, `onMinimize`/`onFinish`/`onInvalid` en vez de un único `onE
 - Sin passkey de producción no se pudo repetir este E2E contra `app.2jfitnesscenter.com`
   directamente — se hizo con un backend local equivalente, mismo código, mismos PIN reales.
 
-**Considero seguro desplegar esto** cuando el usuario lo autorice: cambio acotado a un solo
-archivo de vista + estilos + una librería pura nueva, cero cambios de backend, suite completa
-en verde, E2E real verificado paso a paso. Sigue **sin desplegar**, tal como se pidió.
+**Desplegado en producción** el 2026-09-21 ~09:35 UTC, commit `ee7c0e5` (junto con la subida
+de versión a 1.3.0 y el changelog). Backup previo `/root/backups/2jfitness-2026-09-21_0832.tar.gz`,
+mismo procedimiento validado (tar+ssh, `chown` con `find ... ! -name data`, `data/` verificado
+`root:root` antes y después). Smoke test: `/api/health` interno y externo OK (`users:13`
+intacto); el bundle nuevo (`index-XZpwaXkv.js`) contiene el código del fix (`bk-card-resume`,
+`resumable`) y la entrada `v1.3.0` del changelog; `https://app.2jfitnesscenter.com/#/bunker`
+carga correctamente en vivo (tablero vacío, sin tocar sesiones reales de socios); logs de
+`api`/`web` sin errores. `coach.provider` en producción ahora está en `gemini` (cambiado por
+el propio usuario en algún punto entre sesiones, no por este despliegue — se preserva
+correctamente en `data/coach.json`, que el deploy nunca toca).
 
 ---
 
