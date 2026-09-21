@@ -757,6 +757,31 @@ const routes = {
     json(res, 200, { state: readState(user.id) });
   },
 
+  // v1.3.1 (A1 fix) — a PUT is a full-file write (`writeState(user.id, body.state)` below), and
+  // until now the only thing protected from a stale client's own snapshot was `active`. A phone
+  // that pulled state before a Bunker finish, or before a trainer re-saved a routine, could sync
+  // anything at all afterward and silently erase what the server had gained since — a real,
+  // reproduced data-loss bug (see the session's own cross-audit report, item A1).
+  //
+  // Fixed for exactly the fields that are provably safe to protect without breaking a real,
+  // legitimate deletion the OWNER intended:
+  //   - workouts: union-merged by id, never shrunk by a normal PUT. A workout the server already
+  //     has and this payload doesn't mention survives — the only two ways one is actually removed
+  //     server-side now are POST /api/workouts/delete (one at a time, explicit) and `wipe: true`
+  //     below (Settings → "Reset everything", a deliberate full wipe). Both are a real signal of
+  //     intent; a plain PUT simply not mentioning an id never again is.
+  //   - routineVersions/programVersions: exactly like `active` — 100% server-authored (only
+  //     POST /api/trainer/member-routine|program ever write them; see snapshotVersionIfChanged),
+  //     so no client build has ever had a legitimate reason to send a different value. The
+  //     server's own copy always wins, full stop.
+  //
+  // routines/programs/dayPlan are deliberately NOT touched here: a member can legitimately edit
+  // or delete their own routine/program/day-override from their phone, and today's single
+  // full-state snapshot gives no reliable way to tell "my own deliberate edit" apart from "my
+  // phone is just stale" for those fields without a real per-record version/timestamp the
+  // schema doesn't have yet — inventing a silent merge there risks the opposite failure (a
+  // trainer's edit looking "stuck" because a member's stale phone keeps winning, or a member's
+  // real deletion never sticking). Left as a known gap — see AI_HANDOFF.md.
   'PUT /api/data': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
@@ -773,8 +798,38 @@ const routes = {
     // resurrects one that has already ended.
     const current = readState(user.id);
     if (current && current.active) body.state.active = current.active;
+    // `wipe: true` (Settings → "Reset everything" only) opts OUT of the reconciliation below —
+    // the one place a client is deliberately asking for zero workouts/version-history, not
+    // merely failing to mention what it doesn't know about yet.
+    if (!body.wipe && current) {
+      const clientWorkoutIds = new Set((body.state.workouts || []).map(w => w.id));
+      const missingWorkouts = (current.workouts || []).filter(w => !clientWorkoutIds.has(w.id));
+      if (missingWorkouts.length) {
+        body.state.workouts = [...(body.state.workouts || []), ...missingWorkouts].sort((a, b) => (a.d < b.d ? -1 : 1));
+      }
+      if (current.routineVersions) body.state.routineVersions = current.routineVersions;
+      if (current.programVersions) body.state.programVersions = current.programVersions;
+    }
     writeState(user.id, body.state);
     json(res, 200, { ok: true, ts: body.state._ts || null });
+  },
+
+  // The one explicit, authorized way S.workouts actually shrinks by one now that a normal PUT
+  // union-merges it back (see PUT /api/data's own comment) — same shape as POST
+  // /api/active/clear: normal cookie session, scoped to the caller's own account, idempotent
+  // (deleting an id that's already gone, or never existed, is a harmless no-op).
+  'POST /api/workouts/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const id = String(body.id || '');
+    if (!id) return json(res, 400, { error: 'falta el id del entreno' });
+    const S = readState(user.id);
+    if (S) {
+      S.workouts = (S.workouts || []).filter(w => w.id !== id);
+      writeState(user.id, S);
+    }
+    json(res, 200, { ok: true });
   },
 
   'GET /api/push/public-key': async (req, res) => json(res, 200, { key: vapid.publicKey }),
@@ -1507,9 +1562,17 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     json(res, 200, { aliases: db.importExerciseAliases });
   },
+  // v1.3.1 (X1 fix) — this table is gym-wide (every member's future import reads it, see the
+  // GET handler's own comment), so writing to it is a trainer/admin action now, not something
+  // any signed-in member can do. A regular member's OWN import still resolves and saves
+  // correctly either way (applyImportResolutions already rewrites THEIR OWN entries' ids before
+  // this call ever fires) — the only thing this actually changes is that a regular member's
+  // confirmation no longer propagates to the shared table for everyone else's future imports;
+  // the frontend's own call already silently swallows a failure here
+  // (`frontend/src/sheets.jsx`'s `.catch(() => {})`), so a member simply sees nothing happen,
+  // same as today's "offline" case — no new user-facing error to handle.
   'POST /api/exercises/import-alias': async (req, res) => {
-    const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    if (!requireTrainer(req, res)) return;
     const body = await readBody(req);
     const key = String(body.key || '').trim();
     const exerciseId = String(body.exerciseId || '').trim();

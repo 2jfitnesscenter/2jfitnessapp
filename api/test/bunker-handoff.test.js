@@ -26,12 +26,16 @@ function verifySig(token) {
 const bunkerToken = uid => sign('bunker:' + uid + ':' + (Date.now() + 3600000));
 
 let currentUser = null; // swapped per test to simulate different/absent cookie sessions
+// v1.3.1 (A3 fix) — readBunkerToken now revalidates the account on every use; this stub answers
+// "yes, real and active" for whatever uid it's asked about, since these tests are about handoff
+// and session-resume, not A3's own disabled-account checks (see bunker-revocation.test.js).
+const users = () => ({ find: () => ({ disabled: false }) });
 const routes = bunkerRoutes({
   json: (res, status, body) => { res.status = status; res.body = body; },
   readBody: async req => req._body,
   readSession: () => currentUser,
   sign, verifySig,
-  users: () => [],
+  users,
   isTrainer: () => false,
 });
 const handoff = routes['POST /api/bunker/handoff'];

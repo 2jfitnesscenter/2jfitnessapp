@@ -635,6 +635,104 @@ correctamente en `data/coach.json`, que el deploy nunca toca).
 
 ---
 
+## CURRENT CHECKPOINT — v1.3.1 stabilization — 2026-09-21
+
+Punto de traspaso explícito Claude → Codex. Este checkpoint resume el estado real tras la
+validación cruzada de dos auditorías independientes sobre v1.3.0/PR #10 y la Fase 1 de
+corrección que siguió. **No sustituye leer las secciones propias de la validación cruzada y
+de esta fase más arriba en este mismo archivo — son la fuente completa de evidencia.**
+
+### FASE 1 COMPLETADA
+
+- **A1 parcialmente resuelto de forma segura** (`PUT /api/data`):
+  - `workouts` protegidos — unión por id, un cliente antiguo ya no puede borrar uno que el
+    servidor ganó después (Bunker, etc.); borrado real solo vía `POST /api/workouts/delete`
+    o `wipe: true` explícito (Reset everything / Import backup).
+  - `routineVersions` protegidos — el servidor siempre gana, igual que `active`.
+  - `programVersions` protegidos — igual.
+  - **`routines`/`programs`/`dayPlan` TODAVÍA SIN PROTECCIÓN** frente a un cliente
+    desactualizado — decisión deliberada de detenerse (autorizada explícitamente), no un
+    olvido: hoy no hay forma segura de distinguir "edición deliberada del socio" de
+    "móvil desactualizado" sin un timestamp por registro que el esquema no tiene.
+- **A4 resuelto**: `POST /api/bunker/finish` idempotente por `workout.id`; `POST
+  /api/bunker/active` rechaza (409) una escritura para un id que ya se finalizó — una
+  sesión terminada ya no puede resucitar por una escritura tardía.
+- **X1 resuelto**: `POST /api/exercises/import-alias` (tabla global de aliases de
+  importación CSV) exige ahora `requireTrainer`. La lectura sigue abierta a cualquier
+  socio; la importación de un socio normal sigue resolviendo bien su propia rutina, solo
+  deja de propagar la confirmación a la tabla compartida del gimnasio.
+- **A3 resuelto**: `readBunkerToken`/`readAdminToken` revalidan `disabled`/`isTrainer` en
+  **cada uso**, no solo al emitir el token — un token criptográficamente válido ya no basta
+  si la cuenta fue desactivada o el trainer fue degradado mientras tanto. Aislamiento A/B
+  del sistema multiusuario verificado sin cambios.
+- **X2 resuelto**: CI instala las dependencias de `api/` que el job `test` (frontend)
+  necesita de verdad (`coach.test.js` importa `api/coach/...` directamente) y que al job
+  `api` le faltaban por completo (comentario obsoleto que ya no era cierto).
+- Lockfiles (`frontend/package-lock.json`, `api/package-lock.json`) sincronizados a 1.3.0.
+- Frontend **560/560**, backend **179/179** (156 previos + 23 nuevos), build OK.
+- E2E real del flujo "Eliminar entrenamiento" (backend local + navegador): confirmado por
+  red y por estado real del servidor que el borrado llega y no vuelve.
+
+### DEUDA NUEVA DESCUBIERTA (durante Fase 1, no corregida todavía)
+
+- `POST /api/exercises/alias` (tabla `db.machineAliases`, aliases de escaneo de máquina)
+  tiene **exactamente el mismo patrón** de escritura global por cualquier socio que tenía
+  `import-alias` antes de X1. No corregido — mismo arreglo (`requireTrainer`) sería
+  aplicable si se decide hacerlo.
+- `coach.test.js` (frontend) mantiene el acoplamiento directo a `api/coach/...` — X2 lo
+  hizo pasar en CI instalando las dependencias correctas, pero no deshizo el acoplamiento
+  en sí (refactor mayor, fuera de alcance de esta fase).
+- `routines`/`programs`/`dayPlan` necesitan una solución explícita de concurrencia/
+  versionado (timestamp por registro, o similar) antes de poder protegerlos como A1 hizo
+  con `workouts`/`routineVersions`/`programVersions` — sin eso, cualquier intento de merge
+  ahí arriesga romper una edición o un borrado legítimos.
+
+### FASE 2 PENDIENTE
+
+A2 (PIN/rate-limit) · A5 (offline Bunker) · A6 (límite IA auxiliar) · A7 (CSV mismo día) ·
+M1 (alias/fingerprint) · M2 (equipment unavailable) · M4 (expiración Bunker) · + revisar
+permisos de `machineAliases` (deuda descubierta arriba).
+
+### FASE 3 PENDIENTE
+
+gzip/Caddy · cache de assets · security headers/CSP · service worker · `invite_only` ·
+deep links (riesgo secundario, ya diagnosticado — ver la sección de validación cruzada) ·
+code splitting (no urgente).
+
+### DECISIONES
+
+- No se aplicaron patches externos.
+- No se usó `git am`.
+- No se introdujo 5/3/1 ni ninguna feature nueva.
+- Prioridad: integridad de datos antes que rendimiento.
+- **PR #10 NO se ha mergeado todavía.**
+- **Fase 1 NO se ha desplegado todavía** — queda pendiente de revisión/continuación,
+  posiblemente con Codex.
+
+### Estado de git en este checkpoint
+
+Rama `feat/pwa-tanita-bunker-roadmap`, comparada contra `origin/2jfitness-dev` (rama por
+defecto real del repo — ver sección del PR #10 más arriba). Commit de esta fase:
+`fix: stabilize sync bunker auth and CI`. Empujado a origin. Working tree limpio tras el
+commit.
+
+### NEXT — para quien continúe (Codex u otra sesión)
+
+1. Leer este checkpoint + la sección de validación cruzada completa antes de tocar nada.
+2. **No mergear el PR #10 sin decisión explícita del usuario.**
+3. **No desplegar Fase 1 sin decisión explícita del usuario** — sigue pendiente aunque
+   esté commiteada y pusheada.
+4. Si se continúa con Fase 2: empezar por A2 (rate-limit del PIN del Bunker) y A7 (CSV
+   mismo día) — son los de menor riesgo de romper algo existente. M1/M2/M4/A5/A6 tocan
+   áreas ya bastante intervenidas esta sesión (importación CSV, Bunker, IA auxiliar);
+   revisar con cuidado antes de tocar de nuevo.
+5. Antes de cualquier cambio: `git status`, confirmar HEAD, releer el diff de Fase 1
+   completo (no solo este resumen) para entender exactamente qué se protegió y qué no.
+6. La deuda de `machineAliases` (mismo patrón que X1) es la corrección más barata y
+   aislada si se quiere adelantar algo de Fase 2 sin abrir alcance nuevo.
+
+---
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.

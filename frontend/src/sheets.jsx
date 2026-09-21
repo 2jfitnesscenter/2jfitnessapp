@@ -1537,7 +1537,14 @@ function WorkoutDetail({ w, close }) {
           <div className="ss">{e.sets.filter(s => s.done).map(s => setLabel(e.id, s, e.target)).join('  ·  ') || t('no sets')}</div></div>
       </div>
     })}
-    <Button variant="danger" onClick={() => confirmSheet({ title: t('Delete workout?'), message: t('This removes it from your history for good.'), confirmText: t('Delete'), danger: true, onConfirm: () => { update(s => { s.workouts = s.workouts.filter(x => x.id !== w.id) }); close(); toast(t('Workout deleted')) } })}>{t('Delete workout')}</Button>
+    <Button variant="danger" onClick={() => confirmSheet({ title: t('Delete workout?'), message: t('This removes it from your history for good.'), confirmText: t('Delete'), danger: true, onConfirm: () => {
+      update(s => { s.workouts = s.workouts.filter(x => x.id !== w.id) })
+      // v1.3.1 (A1 fix) — a normal sync no longer lets a workout actually disappear just
+      // because a PUT doesn't mention it (server.js's own PUT /api/data comment); this explicit
+      // call is the one real signal "delete this one for good."
+      useStore.getState().deleteWorkoutOnServer(w.id)
+      close(); toast(t('Workout deleted'))
+    } })}>{t('Delete workout')}</Button>
   </>
 }
 export const workoutDetailSheet = w => ui().openSheet(close => <WorkoutDetail w={w} close={close} />)

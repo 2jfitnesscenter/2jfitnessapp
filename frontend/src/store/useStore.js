@@ -11,6 +11,10 @@ const KEY = 'gym_state_v1'
 // retries once at the next boot — same "don't lose the intent, just the timing" idea as
 // gym_dirty below, its own small key so the two never fight over one flag's meaning.
 const PENDING_CLEAR_KEY = 'gym_pending_active_clear'
+// Same idea as PENDING_CLEAR_KEY, for POST /api/workouts/delete (v1.3.1, A1 fix) — a JSON array
+// of workout ids since more than one delete can plausibly queue up while offline, retried once
+// at the next boot.
+const PENDING_WORKOUT_DELETE_KEY = 'gym_pending_workout_delete'
 export const DEF = {
   unit: 'kg', restSec: 90, sound: true, keepAwake: true, warmupEnabled: true, lang: 'es',
   // Settings → Training — see lib/equipment.js for the stepping rules these two drive.
@@ -214,11 +218,18 @@ export const useStore = create((set, get) => {
       set({ user: u })
     },
 
-    async pushState() {
+    // `wipe: true` (v1.3.1, A1 fix) — ONLY set by replaceStateOnServer below. It opts this one
+    // push out of the server's own reconciliation (PUT /api/data's own comment) that otherwise
+    // keeps a workout/routineVersions/programVersions the server already has from disappearing
+    // just because this snapshot doesn't mention it — exactly what "Reset everything" wants to
+    // actually do, and the only place in the app that legitimately does.
+    async pushState(wipe = false) {
       if (!get().user) return
       clearTimeout(pushTm)
-      try { await api('/api/data', { method: 'PUT', body: JSON.stringify({ state: get().S }) }); localStorage.removeItem('gym_dirty') }
-      catch (e) { localStorage.setItem('gym_dirty', '1') }
+      try {
+        await api('/api/data', { method: 'PUT', body: JSON.stringify(wipe ? { state: get().S, wipe: true } : { state: get().S }) })
+        localStorage.removeItem('gym_dirty')
+      } catch (e) { localStorage.setItem('gym_dirty', '1') }
     },
     async pullState() {
       try {
@@ -258,6 +269,46 @@ export const useStore = create((set, get) => {
       } catch (e) {
         localStorage.setItem(PENDING_CLEAR_KEY, id || '__any__')
       }
+    },
+
+    // v1.3.1 (A1 fix) — the one authorized way S.workouts actually loses one now that a normal
+    // PUT /api/data union-merges it back in (server.js's own comment on PUT /api/data). Flushes
+    // whatever's already queued first (same reasoning as clearActiveOnServer), then asks the
+    // server to drop this one id explicitly. A failure (offline) queues the id for one retry at
+    // the next boot rather than leaving it silently un-deleted server-side, where the very
+    // protection this fix adds would otherwise bring it right back on the next sync.
+    async deleteWorkoutOnServer(id) {
+      await get().pushState()
+      const clearPending = () => {
+        try {
+          const pending = JSON.parse(localStorage.getItem(PENDING_WORKOUT_DELETE_KEY) || '[]').filter(x => x !== id)
+          if (pending.length) localStorage.setItem(PENDING_WORKOUT_DELETE_KEY, JSON.stringify(pending))
+          else localStorage.removeItem(PENDING_WORKOUT_DELETE_KEY)
+        } catch { localStorage.removeItem(PENDING_WORKOUT_DELETE_KEY) }
+      }
+      try {
+        await api('/api/workouts/delete', { method: 'POST', body: JSON.stringify({ id }) })
+        clearPending()
+      } catch (e) {
+        try {
+          const pending = JSON.parse(localStorage.getItem(PENDING_WORKOUT_DELETE_KEY) || '[]')
+          if (!pending.includes(id)) pending.push(id)
+          localStorage.setItem(PENDING_WORKOUT_DELETE_KEY, JSON.stringify(pending))
+        } catch { localStorage.setItem(PENDING_WORKOUT_DELETE_KEY, JSON.stringify([id])) }
+      }
+    },
+
+    // The two places in the app that deliberately want to REPLACE everything, workouts and
+    // version-history included, rather than merely sync a snapshot that happens not to mention
+    // them yet: Settings → "Reset everything" (S is DEF, wiped), and "Import backup" (S is the
+    // backup file's own content — restoring an OLDER backup with fewer workouts than the server
+    // currently has must actually remove the extra ones, not have them silently reappear).
+    // Skips the generic debounced push (which would otherwise still land ~1.5s later, harmlessly
+    // redundant once this one has already landed) and pushes the replacement immediately and
+    // explicitly instead — see pushState's own comment for what `wipe: true` changes server-side.
+    async replaceStateOnServer(S) {
+      get().replaceState(S, false)
+      if (get().user) await get().pushState(true)
     },
 
     async signOut() {
@@ -330,6 +381,12 @@ export const useStore = create((set, get) => {
         // already asked for this," never a guess.
         const pendingClear = localStorage.getItem(PENDING_CLEAR_KEY)
         if (pendingClear) get().clearActiveOnServer(pendingClear === '__any__' ? null : pendingClear)
+        // Same retry for a workout delete that never reached the server (v1.3.1, A1 fix) — see
+        // deleteWorkoutOnServer's own comment.
+        try {
+          const pendingDeletes = JSON.parse(localStorage.getItem(PENDING_WORKOUT_DELETE_KEY) || '[]')
+          pendingDeletes.forEach(id => get().deleteWorkoutOnServer(id))
+        } catch { localStorage.removeItem(PENDING_WORKOUT_DELETE_KEY) }
         // Re-stamp the reminder's timezone on every load — keeps it correct if you're travelling,
         // without needing to revisit Settings.
         const tz = localTZ()
