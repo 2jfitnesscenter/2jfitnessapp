@@ -16,9 +16,15 @@ en producción (Contabo VPS, `app.2jfitnesscenter.com`).
 (anterior: `96533f1` — V3, `3e4e0b4` — fix active atascado, `85b45ad` — V2, `14afe9d` — V1)
 
 Commits `2eb932d` (handoff), `85b45ad` (V2), `14afe9d` (V1), `3e4e0b4` (fix active),
-`96533f1` (V3) y `ee7c0e5` (fix Bunker + versión 1.3.0 + changelog) están todos en
-`origin/feat/pwa-tanita-bunker-roadmap`. **Sin PR abierto todavía** — no hay `gh` CLI ni
-sesión de GitHub disponible en este entorno para crearlo (ver "Trabajo pendiente").
+`96533f1` (V3), `ee7c0e5` (fix Bunker + versión 1.3.0 + changelog) y `1fb283f` (docs) están
+todos en `origin/feat/pwa-tanita-bunker-roadmap`. **PR #10 abierto** —
+[github.com/2jfitnesscenter/2jfitnessapp/pull/10](https://github.com/2jfitnesscenter/2jfitnessapp/pull/10),
+`feat/pwa-tanita-bunker-roadmap` → `2jfitness-dev` (la rama por defecto real del repo —
+`main` no existe), `MERGEABLE`, 61 archivos. `gh` CLI SÍ está instalado en este entorno,
+solo que no en el `PATH` de la sesión de shell activa — el binario está en
+`C:\Program Files\GitHub CLI\gh.exe`, ya autenticado como `2jfitnesscenter`. Usar la ruta
+completa o `--repo 2jfitnesscenter/2jfitnessapp` explícito: el `remote upstream` de este
+repo (`alexpcosta/opengym`) hace que `gh` sin `--repo` resuelva al fork equivocado.
 
 **V1, V2, el fix del active atascado, V3 y el fix del Bunker (minimizar/volver) ESTÁN
 DESPLEGADOS en producción** — V1/V2 desde 2026-09-20 ~20:45 UTC, el fix del active desde
@@ -81,8 +87,7 @@ proveedor del Coach desde Admin).
   -mindepth 1 -maxdepth 1 ! -name data | xargs chown`, que nunca toca `data/` en
   absoluto — verificado `root:root` antes y después en ambos, sin incidente. Ver
   "Problemas conocidos".
-- No hay PR abierto para esta rama (sigue faltando `gh` CLI o sesión de GitHub en este
-  entorno).
+- PR #10 abierto (ver arriba).
 
 ## Trabajo completado
 
@@ -110,7 +115,7 @@ proveedor del Coach desde Admin).
   ejercicio existente.
 
 ## Trabajo pendiente
-- **Crear el PR** (rama lista, sin PR abierto — falta `gh` CLI o login de GitHub).
+- ~~Crear el PR~~ — hecho, PR #10 abierto.
 - **Smoke test autenticado en producción** (login/passkey, Admin, panel entrenador,
   Bunker, entrenamiento normal, historial, importación CSV real) — requiere que el
   usuario lo haga él mismo o conceda acceso temporal, Claude no tiene passkey.
@@ -198,7 +203,7 @@ Frontend:
    cada uno mantiene su propio prompt/schema — no fusionar los prompts.
 
 ## Problemas conocidos
-- No hay PR abierto (falta `gh` CLI / sesión GitHub en este entorno).
+- PR #10 abierto (ver arriba).
 - **Incidente de despliegue (corregido, sin impacto real)**: al extraer el tar en el
   servidor, `chown -R 2jfitness:2jfitness /opt/2jfitness --exclude=data` no es una opción
   válida de `chown`, y el fallback recursivo cambió por error la propiedad de
@@ -221,16 +226,15 @@ Frontend:
    entrenador, Bunker, entrenamiento, historial, IA auxiliar UI).
 3. El usuario añade su API key de Gemini en "IA auxiliar" y prueba los 4 capabilities
    (comandos de disparo manual en "Trabajo pendiente" arriba).
-4. **Crear el PR** — sigue pendiente, sin `gh` CLI ni sesión de GitHub disponibles en este
-   entorno. Comando exacto para cuando alguien lo tenga a mano (nótese `--base
-   2jfitness-dev`, no `main` — `main` no existe en este repo, descubierto esta sesión):
-   ```
-   gh pr create --base 2jfitness-dev --head feat/pwa-tanita-bunker-roadmap \
-     --title "V1–V3 + fix active + fix Bunker + v1.3.0" \
-     --body "Ver AI_HANDOFF.md y CHANGELOG.md para el detalle completo."
-   ```
-   O abrir directamente:
-   `github.com/2jfitnesscenter/2jfitnessapp/compare/2jfitness-dev...feat/pwa-tanita-bunker-roadmap`
+4. ~~Crear el PR~~ — hecho: PR #10,
+   [github.com/2jfitnesscenter/2jfitnessapp/pull/10](https://github.com/2jfitnesscenter/2jfitnessapp/pull/10),
+   `feat/pwa-tanita-bunker-roadmap` → `2jfitness-dev`, `MERGEABLE`. `gh` SÍ está instalado
+   en este entorno (`C:\Program Files\GitHub CLI\gh.exe`, no en el `PATH` de la sesión de
+   shell activa) y ya autenticado como `2jfitnesscenter` — usar siempre `--repo
+   2jfitnesscenter/2jfitnessapp` explícito, porque el remote `upstream`
+   (`alexpcosta/opengym`) hace que `gh` sin `--repo` resuelva al fork equivocado (y con él,
+   a la rama `main` equivocada). Queda pendiente del usuario: revisar y mergear el PR
+   cuando quiera.
 5. **V1–V3, el fix del active y el fix del Bunker están todos desplegados en producción**
    (ver sus propias secciones). Pendiente de uso real esta semana: probar el flujo de
    entrenador (notas, versionado, resumen), el Bunker con varios socios reales a la vez, y
