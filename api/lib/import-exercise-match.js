@@ -27,6 +27,26 @@ const MAX_ITEMS = 60;          // one import's worth of distinct unresolved name
 const MAX_CANDIDATES = 8;      // per item — the client already narrows to "close enough to matter"
 
 const STATUSES = ['MATCH', 'AMBIGUOUS', 'NO_MATCH'];
+const TRANSIENT_HTTP = new Set([429, 500, 502, 503, 504]);
+
+function failureInfo(r) {
+  const status = Number(r?.providerStatus) || undefined;
+  if (r?.timedOut) return { errorClass: 'timeout', diagnostic: 'timeout', transient: true };
+  if (status === 429) return { errorClass: 'provider', diagnostic: 'rate_limit', transient: true, providerStatus: status };
+  if (TRANSIENT_HTTP.has(status)) return { errorClass: 'provider', diagnostic: 'server_error', transient: true, providerStatus: status };
+  if (status === 401 || status === 403) return { errorClass: 'provider', diagnostic: 'authentication', transient: false, providerStatus: status };
+  if (status) return { errorClass: 'provider', diagnostic: 'request_rejected', transient: false, providerStatus: status };
+  if (r?.networkError) return { errorClass: 'network', diagnostic: 'network', transient: true };
+  return { errorClass: 'provider', diagnostic: 'provider_error', transient: false };
+}
+
+const safeLog = (base, info, attempts) => ({
+  ...base, errorClass: info.errorClass, diagnostic: info.diagnostic, attempts,
+  ...(info.providerStatus ? { providerStatus: info.providerStatus } : {}),
+  ...(info.providerCode ? { providerCode: info.providerCode } : {}),
+});
+
+const wait = ms => ms > 0 ? new Promise(resolve => setTimeout(resolve, ms)) : Promise.resolve();
 
 const PROMPT_HEADER = `You resolve exercise names from a fitness app export to the closest entry in 2J Fitness Center's own exercise library, or say there isn't one. You do NOT invent exercises, translate freely, guess biomechanics, or pick a "close enough" candidate when you are not confident — a wrong match silently mislabels someone's training history, which is worse than leaving it unresolved.
 
@@ -112,25 +132,31 @@ export async function matchImportExercises(items, uid) {
       return { ok: false, error: check.error || 'el proveedor no está disponible' };
     }
     const prompt = PROMPT_HEADER + JSON.stringify(payload);
-    const r = await adapter.invoke({ jobDir, env, model: null, timeoutMs: TIMEOUT_MS, prompt });
-    if (r.timedOut) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'exercise_import_matching', outcome: 'failed', errorClass: 'timeout', ms: Date.now() - started });
-      return { ok: false, error: 'el proveedor no respondió a tiempo' };
-    }
+    let r;
+    let attempts = 0;
+    let failure;
+    do {
+      attempts += 1;
+      r = await adapter.invoke({ jobDir, env, model: null, timeoutMs: TIMEOUT_MS, prompt });
+      if (r.code === 0) break;
+      failure = { ...failureInfo(r), providerCode: r.providerCode };
+      if (!failure.transient || attempts >= 2) break;
+      await wait(Math.min(2000, Math.max(0, Number(r.retryAfterMs) || 0)));
+    } while (attempts < 2);
     if (r.code !== 0) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'exercise_import_matching', outcome: 'failed', errorClass: 'provider', ms: Date.now() - started });
-      return { ok: false, error: (r.stderr || r.text || 'el proveedor devolvió un error').trim().slice(0, 300) };
+      auxAI.logJob(safeLog({ at: new Date().toISOString(), kind: 'exercise_import_matching', outcome: 'failed', ms: Date.now() - started }, failure, attempts));
+      return { ok: false, error: failure.diagnostic === 'timeout' ? 'el proveedor no respondió a tiempo' : 'el proveedor no pudo completar el emparejamiento' };
     }
     const parsed = extractJSON(r.text);
     if (parsed.error || typeof parsed.value !== 'object' || !Array.isArray(parsed.value?.results)) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'exercise_import_matching', outcome: 'failed', errorClass: 'badjson', ms: Date.now() - started });
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'exercise_import_matching', outcome: 'failed', errorClass: 'badjson', diagnostic: 'invalid_response', attempts, ms: Date.now() - started });
       return { ok: false, error: 'el proveedor no devolvió el formato esperado' };
     }
     // Match results back to items by externalName (never by array position alone — a model
     // that drops or reorders one entry must not silently misalign the rest).
     const byName = new Map(parsed.value.results.map(r => [String(r?.externalName || ''), r]));
     const results = payload.map(item => sanitizeResult(item, byName.get(item.name)));
-    auxAI.logJob({ at: new Date().toISOString(), kind: 'exercise_import_matching', outcome: 'ready', ms: Date.now() - started, detail: `${results.length} items` });
+    auxAI.logJob({ at: new Date().toISOString(), kind: 'exercise_import_matching', outcome: 'ready', attempts, ms: Date.now() - started, detail: `${results.length} items` });
     return { ok: true, results };
   } catch (e) {
     auxAI.logJob({ at: new Date().toISOString(), kind: 'exercise_import_matching', outcome: 'failed', errorClass: 'exception', ms: Date.now() - started });

@@ -20,6 +20,13 @@ const rel = ts => {
   return t('{0}d ago', Math.floor(s / 86400))
 }
 
+const failureDetail = e => [
+  e.diagnostic || e.errorClass,
+  e.providerStatus ? `HTTP ${e.providerStatus}` : null,
+  e.providerCode || null,
+  e.attempts > 1 ? t('{0} attempts', e.attempts) : null,
+].filter(Boolean).join(' · ')
+
 export default function AdminAuxAI() {
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
@@ -94,11 +101,11 @@ export default function AdminAuxAI() {
       <label className="small muted">{t('Whole instance / day')}
         <input className="num" type="number" min="0" max="2000" defaultValue={d.caps.instanceDaily} style={{ width: 70, marginLeft: 8 }}
           onBlur={e => patch({ caps: { instanceDaily: +e.target.value } })} /></label>
-      <div className="dim small" style={{ margin: '4px 0 10px' }}>{t('0 = no limit. One call per import batches every unresolved exercise name together, not one call each.')}</div>
+      <div className="dim small" style={{ margin: '4px 0 10px' }}>{t('0 = no limit. One matching job batches every unresolved name. A transient failure may add one retry.')}</div>
 
       {d.lastError && <>
         <h4 className="sec">{t('Last failure')}</h4>
-        <div className="small" style={{ color: 'var(--red)' }}>{d.lastError.errorClass}</div>
+        <div className="small" style={{ color: 'var(--red)' }}>{failureDetail(d.lastError)}</div>
         <div className="dim" style={{ fontSize: '.72rem' }}>{rel(d.lastError.at)}</div>
       </>}
 
@@ -108,6 +115,7 @@ export default function AdminAuxAI() {
           <span className="small">{t('Exercise matching')}</span>
           <span className="dim" style={{ fontSize: '.72rem' }}>
             <span style={{ color: e.outcome === 'failed' ? 'var(--red)' : 'var(--acc)' }}>{e.outcome}</span>
+            {e.outcome === 'failed' ? ' · ' + failureDetail(e) : (e.attempts > 1 ? ' · ' + t('{0} attempts', e.attempts) : '')}
             {e.ms ? ' · ' + t('{0}s', Math.round(e.ms / 1000)) : ''} · {rel(e.at)}
           </span>
         </div>)}

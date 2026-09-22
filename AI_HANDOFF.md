@@ -12,8 +12,8 @@ en producción (Contabo VPS, `app.2jfitnesscenter.com`).
 `feat/pwa-tanita-bunker-roadmap`
 
 ## Último commit de código relevante
-`ab3c7dc` — "docs: update phase 2 handoff". Código de estabilización más reciente:
-`f106a0e` — "fix: make Bunker and imports resilient" y `edd8a6a` —
+`6c5c46d` — "feat: improve social dates workout mobile and Bunker live". Código de
+estabilización anterior: `f106a0e` — "fix: make Bunker and imports resilient" y `edd8a6a` —
 "fix: harden Bunker access and session expiry". Infraestructura de producción:
 `56cecdc` — "perf: harden web caching and deploy backups".
 
@@ -26,21 +26,22 @@ solo que no en el `PATH` de la sesión de shell activa — el binario está en
 completa o `--repo 2jfitnesscenter/2jfitnessapp` explícito: el `remote upstream` de este
 repo (`alexpcosta/opengym`) hace que `gh` sin `--repo` resuelva al fork equivocado.
 
-**Producción está en `ab3c7dc`**. El deploy final confirmó `SMOKE`, `BUNKER`, `SYNC`, `PWA`,
-`DATA`, `GZIP`, `CACHE` y `HEADERS` en estado OK. Sync V2 y la resolución de conflictos se
-validaron además en un móvil real.
+**Producción está en `6c5c46df09dcee57bea0a531c328d3a066b8d076`**. El despliegue
+confirmó health, data/sync, Bunker, PWA, gzip/cache/headers, Social y los assets nuevos.
+Sync V2 y la resolución de conflictos se validaron además en un móvil real.
 
 ## Objetivo/tarea actual
-Sprint de estabilización v1.3.x cerrado y desplegado. No hay un bloqueo crítico conocido.
-La siguiente tarea debe salir únicamente de la deuda real enumerada en el checkpoint final
-de 2026-09-22; no reabrir A2/A5/M4/A6/A7/M1/M2, permisos de aliases ni Sync V2 sin una
-regresión demostrada.
+Segundo mini-sprint de fiabilidad de IA auxiliar/importación, Cambiar ejercicio V2 y densidad
+multiusuario del Bunker implementado y validado localmente; pendiente únicamente su commit/push.
+No desplegar este checkpoint sin una orden posterior. No reabrir A2/A5/M4/A6/A7/M1/M2,
+permisos de aliases ni Sync V2 sin una regresión demostrada.
 
 ## Estado actual
-- **Rama al día con origin hasta `ab3c7dc`** antes de este cierre documental.
-- **Producción `ab3c7dc`, sana**: health OK; api/web/caddy activos; datos preservados;
-  Bunker, Sync, PWA, gzip, cache y headers verificados por el deploy final.
-- Validación final previa al deploy: frontend **594/594**, backend **209/209**, build Vite OK.
+- **Rama al día con origin hasta `6c5c46d`** antes del checkpoint local de este mini-sprint.
+- **Producción `6c5c46df09dcee57bea0a531c328d3a066b8d076`, sana**: health OK;
+  api/web/caddy activos; datos preservados; Bunker, Sync, PWA, gzip, cache, headers, Social
+  y assets verificados por el despliegue anterior.
+- Validación local de este checkpoint: frontend **604/604**, backend **216/216**, build Vite OK.
 - Backups pre-deploy: `/root/backups/2jfitness-2026-09-20_2041.tar.gz` (V1+V2),
   `2026-09-20_2104.tar.gz` (fix del active), `2026-09-20_2044.tar.gz` (V3 — nombre por
   hora del servidor, tomado justo antes del despliegue de V3) y
@@ -1086,6 +1087,43 @@ exacto de PR de Bunker Live.
 Pendiente operativo: desplegar este checkpoint únicamente cuando se autorice y hacer smoke no
 destructivo en producción de Wall/Entrenadores, una sesión móvil estrecha y el estado vacío/lleno
 de PRs de hoy con cuentas de prueba. La deuda ya inventariada para v1.3.x permanece sin cambios.
+
+### CHECKPOINT — IA AUXILIAR + CAMBIAR EJERCICIO V2 + BUNKER DENSO — 2026-09-22
+
+Base de producción: `6c5c46df09dcee57bea0a531c328d3a066b8d076`. Este checkpoint no se
+ha desplegado y no modifica Sync V2, autenticación Bunker, privacidad Social ni persistencia.
+
+- IA auxiliar: el diagnóstico anterior perdía `status` y código seguro del proveedor en el
+  adaptador y registraba todos los fallos no-timeout como `provider`. Por ello no es posible
+  reconstruir retrospectivamente si los fallos observados fueron 429, 5xx, autenticación o red;
+  no hay evidencia para atribuirlos a una causa concreta. El modelo configurado sigue siendo el
+  mismo. Los nuevos registros guardan solo clasificación, HTTP status, código normalizado y
+  número de intentos, nunca respuesta, prompt, nombres ni credenciales. Una tarea sigue agrupando
+  todos los nombres y reservando una sola unidad del cap diario; solo red, timeout, 429 y
+  500/502/503/504 admiten un segundo y último intento. 4xx permanentes y JSON inválido no se
+  reintentan. Cualquier fallo conserva candidatos deterministas y continúa en revisión manual.
+- Cambiar ejercicio V2: el selector común ofrece Recomendados, Mismo músculo/relacionados y
+  Todos los ejercicios. La última vista reutiliza `allExercises`, búsqueda por nombre/objetivo/
+  equipamiento/descripción y los filtros existentes; permite cualquier elección y etiqueta
+  discretamente `Movimiento diferente` cuando no está en el conjunto relacionado. La semántica
+  de `swapEntryExercise` conserva sets, objetivo y estado. Bunker usa ahora este mismo selector.
+  La resolución manual de importaciones continúa guardando equivalencias en `importAliases`, sin
+  sistema paralelo ni cambio de IDs.
+- Bunker: 1 sesión se centra con ancho máximo de 900 px; 2 sesiones usan dos columnas; 3 usan
+  tres columnas en monitor grande, cada panel con scroll vertical propio. A 1024 px, tres paneles
+  pasan a dos columnas, sin overflow global. Imágenes y filas son compactas pero conservan áreas
+  táctiles. La navegación horizontal muestra código A1/A2/B1/B2 o índice, nombre legible en dos
+  líneas, progreso y estado activo destacado; se impidió que flex la comprimiera a altura cero.
+- Bunker Live / Hoy en 2J es una franja global bajo el área de sesiones, incluida cuando hay
+  paneles abiertos. Conserva exactamente el polling, fuente y filtrado de privacidad existentes.
+
+Validación final: frontend **604/604** (36 archivos), backend **216/216**, build Vite OK (solo
+el aviso conocido de chunks grandes), locales OK bajo la política actual (es 100%; idiomas
+heredados parciales), `git diff --check` OK. Tests nuevos: retry 429→éxito con una sola reserva,
+4xx sin retry ni datos sensibles, 503 con máximo dos intentos y los tres niveles de sustitución
+incluido un ejercicio no relacionado. Verificación visual local con estilos reales: 1/2/3
+usuarios a 1280×720 y tres usuarios en viewport interno 1024×700; sin overflow horizontal,
+paneles independientes y franja Live visible. No se hicieron llamadas reales a Gemini.
 
 ## Protocolo de relevo
 

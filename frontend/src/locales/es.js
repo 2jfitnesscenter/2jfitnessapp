@@ -479,6 +479,10 @@ export default {
   '{0} exercises with animations': '{0} ejercicios con animaciones',
   'By muscle': 'Por músculo',
   'All exercises': 'Todos los ejercicios',
+  'Recommended': 'Recomendados',
+  'Same muscle / related': 'Mismo músculo / relacionados',
+  'Different movement': 'Movimiento diferente',
+  '{0} attempts': '{0} intentos',
   'Back muscles': 'Espalda',
   'Arms': 'Brazos',
   'Legs': 'Piernas',
@@ -2118,7 +2122,7 @@ export default {
   'Helps match exercise names from a CSV import (Hevy, Gravl…) against the real library when nothing else resolves them. Always Google Gemini, and completely independent of the AI Coach and the trainer panel AI above — a member never sees this, and it never generates or changes a routine or a workout.':
     'Ayuda a relacionar nombres de ejercicios de una importación CSV (Hevy, Gravl…) con la biblioteca real cuando nada más los resuelve. Siempre Google Gemini, y completamente independiente del Coach de IA y de la IA del panel de entrenador de arriba — un socio nunca ve esto, y nunca genera ni modifica una rutina o un entrenamiento.',
   'Off. Import review falls back to manual matching only.': 'Desactivada. La revisión de importación se queda solo con el emparejamiento manual.',
-  '0 = no limit. One call per import batches every unresolved exercise name together, not one call each.': '0 = sin límite. Una llamada por importación agrupa todos los nombres sin resolver, no una por ejercicio.',
+  '0 = no limit. One matching job batches every unresolved name. A transient failure may add one retry.': '0 = sin límite. Una tarea agrupa todos los nombres sin resolver. Un fallo transitorio puede añadir un reintento.',
   'Exercise matching': 'Emparejamiento de ejercicios',
   'Google Gemini API key': 'API key de Google Gemini',
   'Stored encrypted on this server and passed to the provider runtime only while a job runs. It is never shown again and never leaves the server. This can be the same or a different key than the one connected to the AI Coach above.':

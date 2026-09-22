@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getExerciseAlternatives, QUICK_FILTERS } from './alternatives.js'
+import { getExerciseAlternatives, getReplacementGroups, QUICK_FILTERS } from './alternatives.js'
 import { setHiddenExercises, setUnavailableEquipment } from './exercises.js'
 
 const BENCH = '0025'          // barbell bench press — tg: pectorals, eq: barbell
@@ -89,5 +89,23 @@ describe('getExerciseAlternatives', () => {
 describe('QUICK_FILTERS', () => {
   it('covers the four pills the brief asks for', () => {
     expect(QUICK_FILTERS.map(f => f.key)).toEqual(['same', 'dumbbell', 'cable', 'machine'])
+  })
+})
+
+describe('getReplacementGroups', () => {
+  it('keeps ranked recommendations and exposes the complete available catalogue', () => {
+    const groups = getReplacementGroups(baseS(), BENCH)
+    expect(groups.recommended.length).toBeGreaterThan(0)
+    expect(groups.recommended.length).toBeLessThanOrEqual(8)
+    expect(groups.related.length).toBeGreaterThanOrEqual(groups.recommended.length)
+    expect(groups.all.length).toBeGreaterThan(groups.related.length)
+    expect(groups.all.some(a => a.ex.id === BENCH)).toBe(false)
+  })
+
+  it('allows a deliberately unrelated exercise and labels it for a discreet warning', () => {
+    const groups = getReplacementGroups(baseS(), BENCH)
+    const unrelated = groups.all.find(a => !groups.relatedIds.has(a.ex.id))
+    expect(unrelated).toBeTruthy()
+    expect(unrelated.matchKey).toBe('unrelated')
   })
 })

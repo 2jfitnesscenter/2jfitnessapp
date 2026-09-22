@@ -27,8 +27,12 @@ function stubGemini(bodyOrText) {
 }
 
 function connectAux() {
-  auxAI.save({ enabled: true });
+  auxAI.save({ enabled: true, log: [], caps: { instanceDaily: 1000 } });
   auxAI.setApiKey('test-gemini-key');
+}
+
+function providerResponse(status, body = {}, headers = {}) {
+  return { ok: status >= 200 && status < 300, status, headers: { get: key => headers[key.toLowerCase()] }, json: async () => body };
 }
 
 test('not enabled at all: refuses cleanly, no fetch attempted', async () => {
@@ -130,6 +134,55 @@ test('a missing "results" array is treated the same as invalid JSON', async () =
   stubGemini({ somethingElse: true });
   const r = await matchImportExercises([{ name: 'Press banca', source: 'hevy', candidates: CANDS }]);
   assert.equal(r.ok, false);
+});
+
+test('a transient 429 is retried once and then succeeds without reserving a second daily job', async () => {
+  connectAux();
+  const before = auxAI.jobsToday();
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls === 1) return providerResponse(429, { error: { status: 'RESOURCE_EXHAUSTED', message: 'quota' } });
+    return providerResponse(200, { candidates: [{ content: { parts: [{ text: JSON.stringify({ results: [{ externalName: 'Press banca', status: 'MATCH', exerciseId: '0025', confidence: .9, reason: 'same lift' }] }) }] }, finishReason: 'STOP' }] });
+  };
+  const r = await matchImportExercises([{ name: 'Press banca', source: 'hevy', candidates: CANDS }], 'retry-user');
+  assert.equal(r.ok, true);
+  assert.equal(calls, 2);
+  assert.equal(auxAI.jobsToday(), before + 1, 'retry belongs to the same reserved import job');
+  const log = auxAI.load().log.at(-1);
+  assert.equal(log.outcome, 'ready');
+  assert.equal(log.attempts, 2);
+});
+
+test('a permanent provider rejection is not retried and logs only safe diagnostics', async () => {
+  connectAux();
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return providerResponse(400, { error: { status: 'INVALID_ARGUMENT', message: 'request details that must not enter the log' } });
+  };
+  const r = await matchImportExercises([{ name: 'Press banca', source: 'hevy', candidates: CANDS }], 'permanent-user');
+  assert.equal(r.ok, false);
+  assert.equal(calls, 1);
+  const log = auxAI.load().log.at(-1);
+  assert.equal(log.diagnostic, 'request_rejected');
+  assert.equal(log.providerStatus, 400);
+  assert.equal(log.providerCode, 'INVALID_ARGUMENT');
+  assert.equal(log.attempts, 1);
+  assert.ok(!JSON.stringify(log).includes('request details'));
+});
+
+test('a transient 503 is attempted at most twice and retains the final safe status', async () => {
+  connectAux();
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return providerResponse(503, { error: { status: 'UNAVAILABLE' } }); };
+  const r = await matchImportExercises([{ name: 'Press banca', source: 'hevy', candidates: CANDS }], 'failed-retry-user');
+  assert.equal(r.ok, false);
+  assert.equal(calls, 2);
+  const log = auxAI.load().log.at(-1);
+  assert.equal(log.diagnostic, 'server_error');
+  assert.equal(log.providerStatus, 503);
+  assert.equal(log.attempts, 2);
 });
 
 test('the request body carries only the exercise name/source/candidates — never a uid, workout or history', async () => {

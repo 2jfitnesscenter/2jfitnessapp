@@ -25,7 +25,7 @@ import { api } from './lib/api.js'
 import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
-import { getExerciseAlternatives, QUICK_FILTERS } from './lib/alternatives.js'
+import { getReplacementGroups, QUICK_FILTERS } from './lib/alternatives.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { MOBILE } from './lib/mobile.js'
 import { buildShareCardData } from './lib/share-card.js'
@@ -959,33 +959,51 @@ export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker 
 // no movement-pattern field to rank by.
 function AlternativesPicker({ current, onPick, close }) {
   const st = useStore(s => s.S)
+  const [scope, setScope] = useState('recommended')
   const [filter, setFilter] = useState(null)
-  const alts = getExerciseAlternatives(st, current.id)
+  const [q, setQ] = useState('')
+  const [shown, setShown] = useState(50)
+  const groups = getReplacementGroups(st, current.id)
+  const alts = groups[scope]
   const activeFilter = QUICK_FILTERS.find(f => f.key === filter)
-  const filtered = !activeFilter ? alts
+  const byEquipment = !activeFilter ? alts
     : filter === 'same' ? alts.filter(a => a.ex.eq === current.eq)
       : alts.filter(a => activeFilter.eq.includes(a.ex.eq))
+  const query = q.trim().toLowerCase()
+  const filtered = byEquipment.filter(a => !query || [a.ex.n, nameFor(a.ex), a.ex.tg, a.ex.bp, a.ex.eq, a.ex.desc]
+    .some(value => String(value || '').toLowerCase().includes(query)))
   const labelFor = a => a.matchKey === 'exact' ? t('Exact replacement')
     : a.matchKey === 'sameMuscle' ? t('Alternative with {0}', t(a.ex.eq))
-      : t('Related muscle')
+      : a.matchKey === 'related' ? t('Related muscle') : t('Different movement')
+  const changeScope = next => { setScope(next); setFilter(null); setQ(''); setShown(50) }
   return <>
     <h3 className="capitalize">{t('Replace {0}', nameFor(current))}</h3>
+    <div className="seg" style={{ margin: '10px 0' }}>
+      {[['recommended', 'Recommended'], ['related', 'Same muscle / related'], ['all', 'All exercises']].map(([key, label]) =>
+        <button key={key} className={scope === key ? 'on' : ''} onClick={() => changeScope(key)}>{t(label)}</button>)}
+    </div>
+    {scope === 'all' && <div className="search" style={{ marginBottom: 10 }}>
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+      <input className="input" value={q} placeholder={t('Search {0} exercises…', groups.all.length)}
+        onChange={e => { setQ(e.target.value); setShown(50) }} />
+    </div>}
     <div className="chips alt-chips" style={{ margin: '10px 0' }}>
-      <button className={'chip nocap' + (!filter ? ' on' : '')} onClick={() => setFilter(null)}>{t('All')}</button>
-      {QUICK_FILTERS.map(f => <button key={f.key} className={'chip' + (filter === f.key ? ' on' : '')} onClick={() => setFilter(f.key)}>{t(f.label)}</button>)}
+      <button className={'chip nocap' + (!filter ? ' on' : '')} onClick={() => { setFilter(null); setShown(50) }}>{t('All')}</button>
+      {QUICK_FILTERS.map(f => <button key={f.key} className={'chip' + (filter === f.key ? ' on' : '')} onClick={() => { setFilter(f.key); setShown(50) }}>{t(f.label)}</button>)}
     </div>
     <div className="list alt-list">
       {filtered.length === 0 && <div className="empty">{t('No alternatives found for this filter.')}</div>}
-      {filtered.map(a => <div key={a.ex.id} className="item" onClick={() => { close(); onPick(a.ex) }}>
+      {filtered.slice(0, shown).map(a => <div key={a.ex.id} className="item" onClick={() => { close(); onPick(a.ex) }}>
         <Thumb ex={a.ex} />
         <div className="grow">
           <div className="tt capitalize">{nameFor(a.ex)}</div>
           <div className="ss capitalize">{t(a.ex.tg || a.ex.bp)} · {t(a.ex.eq)}</div>
         </div>
-        <span className={'tag nocap' + (a.matchKey === 'exact' ? ' acc' : '')}>{labelFor(a)}</span>
+        <span className={'tag nocap' + (a.matchKey === 'exact' ? ' acc' : '') + (a.matchKey === 'unrelated' ? ' dim' : '')}>{labelFor(a)}</span>
         <Icon name="chevronRight" className="chev" />
       </div>)}
     </div>
+    {filtered.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(n => n + 50)}>{t('Show more')}</Button></>}
   </>
 }
 export const alternativesSheet = (current, onPick) => ui().openSheet(close => <AlternativesPicker current={current} onPick={onPick} close={close} />)

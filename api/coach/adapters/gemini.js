@@ -50,7 +50,12 @@ async function callGemini({ apiKey, model, prompt, image, timeoutMs }) {
     const body = await res.json().catch(() => null);
     if (!res.ok) {
       const msg = body?.error?.message || `HTTP ${res.status}`;
-      return { ok: false, error: msg, status: res.status };
+      const providerCode = typeof body?.error?.status === 'string'
+        ? body.error.status.replace(/[^A-Z0-9_]/gi, '').slice(0, 48) : undefined;
+      const retryAfter = res.headers?.get?.('retry-after');
+      const retryAfterMs = retryAfter && /^\d+(?:\.\d+)?$/.test(retryAfter)
+        ? Math.min(2000, Math.max(0, Number(retryAfter) * 1000)) : 0;
+      return { ok: false, error: msg, status: res.status, providerCode, retryAfterMs };
     }
     const candidate = body?.candidates?.[0];
     const blockReason = body?.promptFeedback?.blockReason;
@@ -63,7 +68,7 @@ async function callGemini({ apiKey, model, prompt, image, timeoutMs }) {
     return { ok: true, text };
   } catch (e) {
     if (e.name === 'AbortError') return { ok: false, error: 'timed out', timedOut: true };
-    return { ok: false, error: e.message || String(e) };
+    return { ok: false, error: e.message || String(e), networkError: true };
   } finally {
     clearTimeout(timer);
   }
@@ -85,7 +90,12 @@ export default {
     if (!apiKey) return { code: -1, text: '', stderr: 'no Gemini API key connected', timedOut: false, spawnError: true };
     const r = await callGemini({ apiKey, model: model || DEFAULT_MODEL, prompt, image, timeoutMs });
     if (!r.ok) {
-      return { code: r.status === 401 || r.status === 403 ? 2 : 1, text: '', stderr: r.error, timedOut: !!r.timedOut, spawnError: false };
+      return {
+        code: r.status === 401 || r.status === 403 ? 2 : 1,
+        text: '', stderr: r.error, timedOut: !!r.timedOut, spawnError: false,
+        providerStatus: r.status, providerCode: r.providerCode,
+        retryAfterMs: r.retryAfterMs || 0, networkError: !!r.networkError,
+      };
     }
     return { code: 0, text: r.text, stderr: '', timedOut: false, spawnError: false };
   }

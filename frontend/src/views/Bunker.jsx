@@ -21,6 +21,7 @@ import {
 import { purgeStaleCredentials } from '../lib/bunker-credentials.js'
 import { nextAfterBunkerSet } from '../lib/bunker-workout.js'
 import { retryPendingFinish, stagePendingFinish } from '../lib/bunker-persistence.js'
+import { alternativesSheet } from '../sheets.jsx'
 
 const BOARD_POLL_MS = 4000
 const REST_SEC = 90
@@ -91,8 +92,8 @@ function CardRest({ s, settings }) {
 // in from a different phone/tablet — see lib/bunker-credentials.js). A card whose uid is in that
 // map reopens that exact session with no PIN; any other card — someone else's, or this member's
 // own but checked in elsewhere — falls through to the normal PIN pad, same as "Join" always did.
-function TodayPrs({ prs }) {
-  return <section className="bk-live-prs" aria-label={t('PRs today')}>
+function TodayPrs({ prs, compact = false }) {
+  return <section className={'bk-live-prs' + (compact ? ' compact' : '')} aria-label={t('PRs today')}>
     <div className="bk-live-prs-head">
       <div><span aria-hidden="true">🔥</span> {t('Today at 2J')}</div>
       {!!prs.length && <strong>{t(prs.length === 1 ? '{0} new PR today' : '{0} new PRs today', prs.length)}</strong>}
@@ -109,7 +110,7 @@ function TodayPrs({ prs }) {
   </section>
 }
 
-function BunkerBoard({ board, todayPrs, settings, credentials, onCheckin, onResume }) {
+function BunkerBoard({ board, settings, credentials, onCheckin, onResume }) {
   const gridStyle = settings.columns === 'auto'
     ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16, flex: 1, alignContent: 'start' }
     : { '--cols': settings.columns || 4 }
@@ -143,7 +144,6 @@ function BunkerBoard({ board, todayPrs, settings, credentials, onCheckin, onResu
       </div>
     )}
     <button className="bk-join" onClick={onCheckin}><Icon name="plus" /> {t('Join the Bunker')}</button>
-    <TodayPrs prs={todayPrs} />
   </div>
 }
 
@@ -218,7 +218,6 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
   const [active, setActive] = useState(null)
   const [exIdx, setExIdx] = useState(0)
   const [restEndsAt, setRestEndsAt] = useState(null)
-  const [showSwap, setShowSwap] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const idleRef = useRef(null)
   const minimizeRef = useRef(null)
@@ -413,7 +412,6 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
   const doSwap = newEx => {
     touch()
     sync({ ...active, entries: swapEntryExercise(active.entries, exIdx, newEx.id) })
-    setShowSwap(false)
   }
   // Add/remove are only offered on a routineId: null (Freestyle) session — a routine-based one
   // still only ever gets "Change exercise" (doSwap above), same as the phone: swapping what an
@@ -489,7 +487,8 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
         const doneN = e.sets.filter(s => s.done).length
         return <button key={i} className={'bk-extab' + (i === exIdx ? ' on' : '') + (doneN === e.sets.length ? ' done' : '')}
           onClick={() => { touch(); setExIdx(i) }}>
-          <span>{ssInfo[i] && <b className="bk-ssbadge">{supersetLabel(ssInfo[i])}</b>}{exName(e.id, plan.customEx)}</span><span className="bk-extab-n">{doneN}/{e.sets.length}</span>
+          <span className="bk-extab-title"><b className="bk-extab-code">{ssInfo[i] ? supersetLabel(ssInfo[i]) : i + 1}</b><span className="bk-extab-name">{exName(e.id, plan.customEx)}</span></span>
+          <span className="bk-extab-n">{doneN}/{e.sets.length}</span>
         </button>
       })}
       {freeTraining && <button className="bk-extab bk-extab-add" onClick={() => { touch(); setShowAdd(true) }} aria-label={t('Add exercise')}><Icon name="plus" /></button>}
@@ -502,7 +501,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       {EXIDX[entry.id]?.img && <img className="bk-exmedia" src={imgSrc(EXIDX[entry.id])} alt={exName(entry.id, plan.customEx)} loading="lazy" decoding="async" />}
       <div className="bk-exname-row">
         <div className="bk-exname">{ssInfo[exIdx] && <span className="bk-ssbadge">{supersetLabel(ssInfo[exIdx])}</span>}{exName(entry.id, plan.customEx)}</div>
-        <button className="bk-exchange-btn" onClick={() => { touch(); setShowSwap(true) }}>
+        <button className="bk-exchange-btn" onClick={() => { touch(); alternativesSheet(EXIDX[entry.id] || { id: entry.id, n: exName(entry.id, plan.customEx), eq: 'custom' }, doSwap) }}>
           <Icon name="shuffle" />{t('Change exercise')}
         </button>
         {freeTraining && <button className="bk-exchange-btn bk-exremove-btn" onClick={() => doRemove(exIdx)}>
@@ -556,13 +555,6 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       })}
     </div>}
     {active.entries.length > 0 && <button className="bk-finish" onClick={finish}>{t('Finish workout & exit')}</button>}
-    {showSwap && <div className="bk-overlay">
-      <div className="bk-pad bk-tools-pad">
-        <button className="bk-close" onClick={() => setShowSwap(false)} aria-label={t('Close')}><Icon name="xmark" /></button>
-        <div className="bk-pad-title">{t('Change exercise')}</div>
-        <ExerciseSearchList excludeId={entry?.id} onPick={doSwap} />
-      </div>
-    </div>}
     {showAdd && <div className="bk-overlay">
       <div className="bk-pad bk-tools-pad">
         <button className="bk-close" onClick={() => setShowAdd(false)} aria-label={t('Close')}><Icon name="xmark" /></button>
@@ -762,13 +754,14 @@ export default function Bunker() {
                 {minimized.map(([uid, credential]) => <button key={uid} className="bk-restore" onClick={() => expand(uid)}><Icon name="expand" />{credential.name}</button>)}
                 <button className="bk-join" onClick={() => setShowCheckin(true)}><Icon name="plus" /> {t('Join the Bunker')}</button>
               </div>
-              <div className="bk-multi-grid">{open.map(([uid, current]) =>
+              <div className={`bk-multi-grid users-${Math.min(open.length, 3)}`}>{open.map(([uid, current]) =>
                 <BunkerTrainingPanel key={uid} token={current.token} name={current.name} settings={settings}
                   onMinimize={() => minimize(uid)} onFinish={() => releaseActive(uid)} onInvalid={() => releaseActive(uid)} />
               )}</div>
             </div>
-          : <BunkerBoard board={board} todayPrs={todayPrs} settings={settings} credentials={credentials}
+          : <BunkerBoard board={board} settings={settings} credentials={credentials}
               onCheckin={() => setShowCheckin(true)} onResume={expand} />}
+        <TodayPrs prs={todayPrs} compact={open.length > 0} />
       </div>
       {tool !== 'training' && <BunkerToolPane tool={tool} timer={timer} setTimer={setTimer} />}
     </div>

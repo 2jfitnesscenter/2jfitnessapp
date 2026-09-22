@@ -51,6 +51,23 @@ export function getExerciseAlternatives(S, exerciseId) {
   return results.map(({ ex, matchKey, sameEquipment }) => ({ ex, matchKey, sameEquipment }))
 }
 
+/** The three user-facing levels in Change exercise V2. The complete catalogue is always the
+ * same allExercises() source used everywhere else; relatedIds lets the UI warn discreetly when
+ * someone deliberately chooses a movement outside the biomechanical suggestions. */
+export function getReplacementGroups(S, exerciseId) {
+  const alternatives = getExerciseAlternatives(S, exerciseId)
+  const relatedById = new Map(alternatives.map(a => [a.ex.id, a]))
+  const relatedIds = new Set(relatedById.keys())
+  return {
+    recommended: alternatives.slice(0, 8),
+    related: alternatives,
+    all: allExercises(S)
+      .filter(ex => ex.id !== exerciseId && !isUnavailable(ex))
+      .map(ex => ({ ex, matchKey: relatedById.get(ex.id)?.matchKey || 'unrelated' })),
+    relatedIds,
+  }
+}
+
 // The four quick filter pills the brief asks for. 'same' is resolved against the reference
 // exercise's own `eq` at call time (see sheets.jsx); the other three are fixed equipment
 // buckets — 'machine' covers both a leverage machine and a Smith machine, the two the catalogue
