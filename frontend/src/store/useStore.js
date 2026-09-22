@@ -152,9 +152,9 @@ export const useStore = create((set, get) => {
       const owner = user.id
       syncClient = new SyncClient({ uid: owner, api, storage: localStorage, initial: get().S,
         legacyDirty: localStorage.getItem('gym_dirty') === '1' || !!localStorage.getItem(PENDING_WORKOUT_DELETE_KEY),
-        onChange: (state, syncStatus) => {
+        onChange: (state, syncStatus, syncConflict) => {
           if (get().user?.id !== owner) return
-          set({ syncStatus })
+          set({ syncStatus, syncConflict })
           if (!state) return
           const next = Object.assign(clone(DEF), state)
           const active = get().S.active
@@ -225,6 +225,7 @@ export const useStore = create((set, get) => {
     user: (() => { try { return JSON.parse(localStorage.getItem('gym_user')) || null } catch { return null } })(),
     ready: false,
     syncStatus: 'idle',
+    syncConflict: null,
     // Instance capabilities from GET /api/config. `config.coach` is present only when the
     // owner has both enabled the Coach and connected a provider — every Coach entry point in
     // the app hangs off it, so an unconfigured instance renders exactly what it always did.
@@ -262,6 +263,14 @@ export const useStore = create((set, get) => {
       await syncForUser()?.sync()
     },
     async pullState() { await syncForUser()?.sync() },
+    async resolveSyncConflict(choice) {
+      const client = syncForUser()
+      if (!client) return
+      set({ syncResolving: true })
+      try { await client.resolveConflict(choice) }
+      finally { set({ syncResolving: false }) }
+    },
+    syncResolving: false,
 
     // The one path allowed to actually END S.active — see server.js's POST /api/active/clear
     // for why this can't just be part of the normal push (that route unconditionally re-injects

@@ -16,6 +16,7 @@ import RestTimer from './components/RestTimer.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
 import FriendsWatcher from './components/FriendsWatcher.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
+import SyncConflictDialog from './components/SyncConflictDialog.jsx'
 import Login from './views/Login.jsx'
 import Home from './views/Home.jsx'
 import Plan from './views/Plan.jsx'
@@ -224,7 +225,7 @@ function Shell() {
           it without using its own "Skip for now" (which, unlike navigating away, marks
           onboarded so the wizard doesn't reappear). */}
       {!needsOnboarding && <TabBar />}
-      {syncStatus === 'conflict' && <div role="alert" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999, background: 'var(--surface)', padding: 12 }}>Hay cambios en conflicto. Tu trabajo está guardado en este dispositivo; no se sobrescribirá el servidor.</div>}
+      {syncStatus === 'conflict' && <SyncConflictDialog />}
       <RestTimer />
       <ChatWatcher />
       <FriendsWatcher />
