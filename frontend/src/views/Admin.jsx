@@ -14,7 +14,7 @@ import AdminCoach from './AdminCoach.jsx'
 import AdminTrainerAI from './AdminTrainerAI.jsx'
 import AdminAuxAI from './AdminAuxAI.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
-import { EXDB, equipmentOf } from '../lib/exercises.js'
+import { EXDB, equipmentOf, setUnavailableEquipment } from '../lib/exercises.js'
 import { MUSCLE_GROUPS, isInMuscleGroup } from '../lib/muscles.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
@@ -443,8 +443,9 @@ function EquipmentAvailabilitySheet({ initialUnavailable, close }) {
   const [unavailable, setUnavailable] = useState(initialUnavailable)
   const toggle = (eq, off) => {
     const next = new Set(unavailable); off ? next.add(eq) : next.delete(eq); setUnavailable(next)   // optimistic
+    setUnavailableEquipment([...next])
     api('/api/admin/equipment/unavailable', { method: 'POST', body: JSON.stringify({ eq, unavailable: off }) })
-      .catch(e => { toast(e.message); setUnavailable(unavailable) })   // roll back on failure
+      .catch(e => { toast(e.message); setUnavailable(unavailable); setUnavailableEquipment([...unavailable]) })   // roll back on failure
   }
   return <>
     <h3>{t('Equipment availability')}</h3>

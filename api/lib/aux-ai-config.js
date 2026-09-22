@@ -32,7 +32,8 @@ const DEFAULTS = {
   enabled: false,
   auth: null,                          // { type:'apikey', connectedAt, data:<encrypted {token}> }
   caps: { instanceDaily: 200 },        // 0 = unlimited — a batch call per import, not per exercise
-  log: []
+  log: [],
+  usage: null,
 };
 const LOG_MAX = 100;
 
@@ -104,6 +105,23 @@ export function logJob(entry) {
   save({ log });
 }
 const todayISO = () => new Date().toISOString().slice(0, 10);
-export function jobsToday() { return (load().log || []).filter(e => (e.at || '').slice(0, 10) === todayISO()).length; }
+export function jobsToday() {
+  const cfg = load();
+  return cfg.usage?.date === todayISO() ? Number(cfg.usage.total) || 0 : 0;
+}
+export function reserveDaily(uid = 'unknown') {
+  const cfg = load();
+  const date = todayISO();
+  const usage = cfg.usage?.date === date
+    ? { date, total: Number(cfg.usage.total) || 0, byUser: { ...(cfg.usage.byUser || {}) } }
+    : { date, total: 0, byUser: {} };
+  const limit = Number(cfg.caps?.instanceDaily) || 0;
+  if (limit > 0 && usage.total >= limit) return { allowed: false, used: usage.total, limit };
+  usage.total++;
+  const key = String(uid || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || 'unknown';
+  usage.byUser[key] = (Number(usage.byUser[key]) || 0) + 1;
+  save({ usage });
+  return { allowed: true, used: usage.total, limit };
+}
 export const lastError = () => [...(load().log || [])].reverse().find(e => e.outcome === 'failed') || null;
 export const lastSuccess = () => [...(load().log || [])].reverse().find(e => e.outcome === 'ready') || null;

@@ -240,6 +240,25 @@ describe('mergeImport — fingerprint-based antiduplicados (V2)', () => {
     expect(S.workouts).toHaveLength(1)
   })
 
+  it('a later alias resolution cannot change an imported workout identity', () => {
+    const firstCustom = customExOf('imFirst', 'press banca externo')
+    const first = {
+      id: 'iwFirst', d: '2026-06-01', start: 1000, end: 1000, routineId: null, name: 'x',
+      entries: [{ id: firstCustom.id, sets: [{ w: 60, r: 8, done: true }], topW: 60 }], prs: [], vol: 480,
+    }
+    const S = { workouts: [], customEx: [], exWeights: {} }
+    mergeImport(S, { kind: 'workouts', workouts: [first], customEx: [firstCustom] })
+
+    const laterCustom = customExOf('imLater', 'press banca externo')
+    const reparsed = {
+      ...first, id: 'iwLater', importFingerprint: workoutFingerprint({ ...first, id: 'iwLater', entries: [{ ...first.entries[0], id: laterCustom.id }] }, [laterCustom]),
+      entries: [{ ...first.entries[0], id: LIFT.id }],
+    }
+    const result = mergeImport(S, { kind: 'workouts', workouts: [reparsed], customEx: [] })
+    expect(result.added).toBe(0)
+    expect(S.workouts).toHaveLength(1)
+  })
+
   it('workoutFingerprint is stable for identical content and differs when the exercise set differs', () => {
     const a = mkWorkout('x1', '2026-06-01', 1000, LIFT.id, 3)
     const b = mkWorkout('x2', '2026-06-01', 1000, LIFT.id, 3)   // same content, different id

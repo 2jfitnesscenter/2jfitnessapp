@@ -42,9 +42,12 @@ Use null for anything not found or not legible (nameEn is the one exception — 
  * @param {{data: string, mimeType: string}} image — base64 payload (no `data:` prefix) + its mime type.
  * @returns {Promise<{ok: true, value: object} | {ok: false, error: string}>}
  */
-export async function scanRoutineDocument({ data, mimeType }) {
+export async function scanRoutineDocument({ data, mimeType, uid }) {
   if (!auxAI.isEnabled() || !auxAI.isConnected()) {
     return { ok: false, error: 'la IA auxiliar no está configurada en este servidor' };
+  }
+  if (!auxAI.reserveDaily(uid).allowed) {
+    return { ok: false, code: 'DAILY_CAP', error: 'se alcanzó el límite diario de IA auxiliar' };
   }
   const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aux-ai-scan-'));
   const started = Date.now();

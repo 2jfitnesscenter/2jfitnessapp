@@ -92,10 +92,13 @@ function sanitizeResult(item, raw) {
  * @param {Array<{name:string, source?:string, equipment?:string, muscle?:string, candidates:Array<{id:string,name:string,equipment?:string,muscles?:string[]}>}>} items
  * @returns {Promise<{ok:true, results:Array} | {ok:false, error:string}>}
  */
-export async function matchImportExercises(items) {
+export async function matchImportExercises(items, uid) {
   if (!Array.isArray(items) || !items.length) return { ok: true, results: [] };
   if (!auxAI.isEnabled() || !auxAI.isConnected()) {
     return { ok: false, error: 'la IA auxiliar no está configurada en este servidor' };
+  }
+  if (!auxAI.reserveDaily(uid).allowed) {
+    return { ok: false, code: 'DAILY_CAP', error: 'se alcanzó el límite diario de IA auxiliar' };
   }
   const payload = buildPayload(items);
   const adapter = adapterFor('gemini');

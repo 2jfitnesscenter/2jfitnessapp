@@ -29,9 +29,12 @@ If the image does not clearly show gym equipment or a recognisable exercise, rep
  * @param {{data: string, mimeType: string}} image — base64 payload (no `data:` prefix) + its mime type.
  * @returns {Promise<{ok: true, value: {name: string, nameEn: string}} | {ok: false, error: string}>}
  */
-export async function scanMachineImage({ data, mimeType }) {
+export async function scanMachineImage({ data, mimeType, uid }) {
   if (!auxAI.isEnabled() || !auxAI.isConnected()) {
     return { ok: false, error: 'la IA auxiliar no está configurada en este servidor' };
+  }
+  if (!auxAI.reserveDaily(uid).allowed) {
+    return { ok: false, code: 'DAILY_CAP', error: 'se alcanzó el límite diario de IA auxiliar' };
   }
   const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aux-ai-scan-'));
   const started = Date.now();

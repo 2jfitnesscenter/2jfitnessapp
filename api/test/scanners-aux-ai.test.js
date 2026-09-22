@@ -147,3 +147,23 @@ test('C) the three profiles keep fully separate credentials even while all three
   assert.equal(auxAI.jobEnv().GEMINI_API_KEY, 'aux-test-key');
   assert.notEqual(auxAI.jobEnv().GEMINI_API_KEY, 'coach-gemini-key');
 });
+
+test('daily auxiliary cap is reserved before Gemini is called and resets on a new date bucket', async () => {
+  connectAux();
+  auxAI.save({ caps: { instanceDaily: 1 }, usage: null });
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ name: 'sentadilla', nameEn: 'squat' }) }] }, finishReason: 'STOP' }] }) };
+  };
+
+  assert.equal((await scanMachineImage({ data: 'x', mimeType: 'image/png', uid: 'member-a' })).ok, true);
+  const capped = await scanMachineImage({ data: 'x', mimeType: 'image/png', uid: 'member-b' });
+  assert.equal(capped.ok, false);
+  assert.equal(capped.code, 'DAILY_CAP');
+  assert.match(capped.error, /límite diario/);
+  assert.equal(calls, 1, 'the capped request must not reach Gemini');
+  assert.equal(auxAI.jobsToday(), 1);
+
+  auxAI.save({ caps: { instanceDaily: 200 }, usage: null });
+});

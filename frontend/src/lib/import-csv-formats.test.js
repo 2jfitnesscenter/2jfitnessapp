@@ -41,6 +41,16 @@ describe('Hevy (workout_data.csv)', () => {
       'Pull,"27 may 2024, 11:08","27 may 2024, 11:56",,Seated Row (Cable),,,0,normal,30,12,,0,')
     expect(p.workouts[0].entries.every(e => e.sg === undefined)).toBe(true)
   })
+
+  it('keeps two sessions on the same day separate when their start times differ', () => {
+    const p = rows(HEVY,
+      'Morning,"28 may 2024, 08:00","28 may 2024, 08:45",,Bench Press,,,0,normal,60,8,,0,',
+      'Morning,"28 may 2024, 08:00","28 may 2024, 08:45",,Bench Press,,,1,normal,60,8,,0,',
+      'Evening,"28 may 2024, 19:30","28 may 2024, 20:00",,Squat,,,0,normal,100,5,,0,')
+    expect(p.workouts).toHaveLength(2)
+    expect(p.workouts.map(w => w.name)).toEqual(['Morning', 'Evening'])
+    expect(p.workouts[0].start).not.toBe(p.workouts[1].start)
+  })
 })
 
 // ------------------------------------------------------------------------------- Gravl -----
@@ -141,6 +151,14 @@ describe('unnamed format (export983335809966994502.csv)', () => {
 
 // --------------------------------------------------------------------- safety / robustness --
 describe('CSV import safety', () => {
+  it('keeps the historical one-workout-per-day fallback when the CSV has no time', () => {
+    const p = rows('Date,Exercise,Weight,Reps',
+      '2026-08-20,Bench Press,60,8',
+      '2026-08-20,Squat,100,5')
+    expect(p.workouts).toHaveLength(1)
+    expect(p.workouts[0].entries).toHaveLength(2)
+  })
+
   it('skips a malformed row instead of corrupting the import', () => {
     const p = rows(HEVY,
       'Push,"12 Jan 2026, 18:00","12 Jan 2026, 19:00",,Bench Press,,,,normal,60,10,,0,',

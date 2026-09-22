@@ -1513,8 +1513,8 @@ const routes = {
       return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
     }
     if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
-    const r = await scanBioimpedanceImage({ data: b64, mimeType });
-    if (!r.ok) return json(res, 400, { error: r.error });
+    const r = await scanBioimpedanceImage({ data: b64, mimeType, uid: user.id });
+    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
     json(res, 200, { values: r.values });
   },
 
@@ -1537,8 +1537,8 @@ const routes = {
       return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
     }
     if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
-    const r = await scanRoutineDocument({ data: b64, mimeType });
-    if (!r.ok) return json(res, 400, { error: r.error });
+    const r = await scanRoutineDocument({ data: b64, mimeType, uid: user.id });
+    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
     json(res, 200, { routine: r.value });
   },
 
@@ -1559,14 +1559,13 @@ const routes = {
       return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
     }
     if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
-    const r = await scanMachineImage({ data: b64, mimeType });
-    if (!r.ok) return json(res, 400, { error: r.error });
+    const r = await scanMachineImage({ data: b64, mimeType, uid: user.id });
+    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
     json(res, 200, { name: r.value.name, nameEn: r.value.nameEn });
   },
 
-  // Gym-wide machine→exercise alias lookup/save (db.machineAliases above) — any signed-in
-  // member can read or write one, since the whole point is that the first member to resolve a
-  // given machine saves everyone else the same picker next time.
+  // Gym-wide machine→exercise alias lookup/save (db.machineAliases above). Any member can read
+  // it, while only trainer/admin may change a mapping used by everybody in the gym.
   'GET /api/exercises/alias': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
@@ -1576,8 +1575,7 @@ const routes = {
     json(res, 200, { exId: alias ? alias.exId : null });
   },
   'POST /api/exercises/alias': async (req, res) => {
-    const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    if (!requireTrainer(req, res)) return;
     const body = await readBody(req);
     const key = String(body.key || '').trim();
     const exId = String(body.exId || '').trim();
@@ -1638,8 +1636,8 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const items = Array.isArray(body.items) ? body.items : [];
-    const r = await matchImportExercises(items);
-    if (!r.ok) return json(res, 400, { error: r.error });
+    const r = await matchImportExercises(items, user.id);
+    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
     json(res, 200, { results: r.results });
   },
 

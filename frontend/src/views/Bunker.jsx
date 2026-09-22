@@ -20,6 +20,7 @@ import {
 } from '../lib/bunker-api.js'
 import { purgeStaleCredentials } from '../lib/bunker-credentials.js'
 import { nextAfterBunkerSet } from '../lib/bunker-workout.js'
+import { retryPendingFinish, stagePendingFinish } from '../lib/bunker-persistence.js'
 
 const BOARD_POLL_MS = 4000
 const REST_SEC = 90
@@ -205,7 +206,10 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
   const activeRevisionRef = useRef(0)
   const pendingRef = useRef([])
   const drainPromiseRef = useRef(null)
+  const finishPromiseRef = useRef(null)
+  const pendingFinishRef = useRef(null)
   const pendingKey = 'gym_bunker_active_queue:' + token.slice(-24)
+  const finishKey = 'gym_bunker_finish_queue:' + token.slice(-24)
   const idleMs = (settings?.autoLockSec || 60) * 1000
 
   const armIdle = ms => { clearTimeout(idleRef.current); idleRef.current = setTimeout(onMinimize, ms) }
@@ -237,12 +241,33 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
             persistPending()
             setActive(e.data.active || null)
           }
-          break
+          return false
         }
       }
+      return true
     })()
     drainPromiseRef.current = run.finally(() => { drainPromiseRef.current = null })
     return drainPromiseRef.current
+  }
+  const drainFinish = () => {
+    if (finishPromiseRef.current) return finishPromiseRef.current
+    const run = retryPendingFinish({
+      storage: localStorage,
+      key: finishKey,
+      workout: pendingFinishRef.current,
+      drainActive: drainPending,
+      send: workout => postBunkerFinish(token, workout),
+    }).then(result => {
+      if (result.completed) {
+        pendingFinishRef.current = null
+        pendingRef.current = []
+        persistPending()
+        onFinish()
+      }
+      return result
+    })
+    finishPromiseRef.current = run.finally(() => { finishPromiseRef.current = null })
+    return finishPromiseRef.current
   }
 
   useEffect(() => {
@@ -271,10 +296,10 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       pendingRef.current = Array.isArray(queued) ? queued : []
       const draft = pendingRef.current.at(-1)?.active
       setActive(draft || p.active || (routine ? buildBunkerActive({ ...miniS, unit: p.unit, workouts: p.recentWorkouts, exWeights: p.exWeights, tests: p.tests, showPreviousResults: p.showPreviousResults, warmupEnabled: p.warmupEnabled }, routine) : null))
-      drainPending()
+      drainFinish()
       armIdle(idleMs)
     }).catch(() => onInvalid())
-    const retry = () => drainPending()
+    const retry = () => drainFinish()
     window.addEventListener('online', retry)
     return () => { clearTimeout(idleRef.current); clearTimeout(minimizeRef.current); window.removeEventListener('online', retry) }
   }, [token])
@@ -398,8 +423,9 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       prs: [],
     }
     w.vol = workoutVolume(w)
-    await drainPending()
-    postBunkerFinish(token, w).then(() => { pendingRef.current = []; persistPending(); onFinish() }).catch(() => onMinimize())
+    pendingFinishRef.current = stagePendingFinish(localStorage, finishKey, w)
+    const result = await drainFinish()
+    if (!result.completed) onMinimize()
   }
 
   const entry = active.entries[exIdx]

@@ -342,6 +342,9 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
 
   const resolved = new Map()          // exercise name -> dataset id | null, resolved once
   const byDate = new Map()
+  // A real time-of-day is sufficient session identity across Hevy/Strong/Gravl and generic
+  // exports. Historical files containing only a date retain the legacy one-workout-per-day
+  // fallback; no arbitrary split is inferred from row order or exercise names.
   const created = new Map()
   const unmatched = new Set()
   let sets = 0, skipped = 0, matched = 0, warmups = 0, rpeSets = 0, rirSets = 0
@@ -412,10 +415,11 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
       else if (rpe != null) { set.rpe = rpe; rpeSets++ }
     }
 
-    let day = byDate.get(when.d)
+    const sessionKey = when.t != null ? `${when.d}|${when.t}` : when.d
+    let day = byDate.get(sessionKey)
     if (!day) {
-      day = { ex: new Map(), name: cell(r, 'workoutName') || '', start: when.t, end: null }
-      byDate.set(when.d, day)
+      day = { d: when.d, ex: new Map(), name: cell(r, 'workoutName') || '', start: when.t, end: null }
+      byDate.set(sessionKey, day)
     }
     if (!day.name) day.name = cell(r, 'workoutName') || ''
     if (map.endTime !== undefined) { const e = parseWhen(cell(r, 'endTime')); if (e && e.t != null) day.end = e.t }
@@ -453,9 +457,9 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
   }
   const converted = (!!fileUnit && fileUnit !== unit) || mixedUnits
 
-  const dates = [...byDate.keys()].sort()
-  const workouts = dates.map(d => {
-    const day = byDate.get(d)
+  const sessions = [...byDate.values()].sort((a, b) => a.d.localeCompare(b.d) || (a.start ?? 0) - (b.start ?? 0))
+  const workouts = sessions.map(day => {
+    const d = day.d
     const entries = [...day.ex.entries()].map(([id, ss]) => {
       const conv2 = ss.map(({ u, ...s }) => (s.w !== undefined ? { ...s, w: convRow({ ...s, u }) } : s))
       const mx = Math.max(0, ...conv2.map(s => s.w || 0))
@@ -490,6 +494,9 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
       routineId: null, name: day.name || 'Imported', entries, prs: [],
     }
     w.vol = entries.reduce((a, e) => a + e.sets.reduce((b, s) => b + (s.w || 0) * (s.r || 0), 0), 0)
+    // Capture source identity before a later alias replaces a temporary custom id. Otherwise
+    // the same CSV can acquire a different fingerprint merely because the alias now exists.
+    w.importFingerprint = workoutFingerprint(w, [...created.values()])
     return w
   })
 
@@ -501,7 +508,7 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
     matchedSets: matched,
     created: created.size, unmatchedNames: [...unmatched].sort(),
     sets, skipped, warmups, fileUnit, mixedUnits, converted, rpeSets, rirSets,
-    from: dates[0] || null, to: dates[dates.length - 1] || null,
+    from: sessions[0]?.d || null, to: sessions.at(-1)?.d || null,
   }
 }
 
@@ -841,8 +848,16 @@ export function mergeImport(S, parsed) {
     S.bodyweight = [...S.bodyweight, ...fresh].sort((a, b) => (a.d < b.d ? -1 : 1))
     return { added: fresh.length, skipped: parsed.bodyweight.length - fresh.length }
   }
-  const have = new Set(S.workouts.map(w => workoutFingerprint(w, S.customEx)))
-  const fresh = parsed.workouts.filter(w => !have.has(workoutFingerprint(w, parsed.customEx)))
+  const have = new Set()
+  S.workouts.forEach(w => {
+    if (w.importFingerprint) have.add(w.importFingerprint)
+    have.add(workoutFingerprint(w, S.customEx))
+  })
+  const fresh = parsed.workouts.filter(w => {
+    const sourceFingerprint = w.importFingerprint || workoutFingerprint(w, parsed.customEx)
+    const resolvedFingerprint = workoutFingerprint(w, parsed.customEx)
+    return !have.has(sourceFingerprint) && !have.has(resolvedFingerprint)
+  })
   const used = new Set(fresh.flatMap(w => w.entries.map(e => e.id)))
   const customs = parsed.customEx.filter(c => used.has(c.id) && !EXIDX[c.id])
   S.customEx = [...(S.customEx || []), ...customs]

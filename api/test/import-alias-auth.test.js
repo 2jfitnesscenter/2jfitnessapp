@@ -59,6 +59,8 @@ async function req(method, p, { body, uid } = {}) {
 }
 const getAliases = uid => req('GET', '/api/exercises/import-aliases', { uid }).then(r => r.body.aliases);
 const postAlias = (payload, uid) => req('POST', '/api/exercises/import-alias', { body: payload, uid });
+const getMachineAlias = (key, uid) => req('GET', '/api/exercises/alias?key=' + encodeURIComponent(key), { uid });
+const postMachineAlias = (payload, uid) => req('POST', '/api/exercises/alias', { body: payload, uid });
 
 test('a regular member cannot write a new gym-wide alias', async () => {
   const res = await postAlias({ key: 'hevy|press banca', exerciseId: '0025', source: 'Hevy', externalName: 'Press banca' }, 'member1');
@@ -100,6 +102,20 @@ test('reading the alias table is still open to any signed-in member — import b
   assert.equal(res.status, 200);
   assert.ok(Array.isArray(res.body.aliases));
   assert.ok(res.body.aliases.some(a => a.key === 'hevy|press banca'), 'a member can still read (and thus benefit from) aliases trainers have confirmed');
+});
+
+test('machine aliases are readable by members but writable only by trainer/admin', async () => {
+  const denied = await postMachineAlias({ key: 'machine|leg-press', exId: '0010', name: 'Prensa' }, 'member1');
+  assert.equal(denied.status, 403);
+  assert.equal((await getMachineAlias('machine|leg-press', 'member1')).body.exId, null);
+
+  const saved = await postMachineAlias({ key: 'machine|leg-press', exId: '0010', name: 'Prensa' }, 'trainer1');
+  assert.equal(saved.status, 200);
+  assert.equal((await getMachineAlias('machine|leg-press', 'member1')).body.exId, '0010');
+
+  const overwrite = await postMachineAlias({ key: 'machine|leg-press', exId: '9999', name: 'Wrong' }, 'member1');
+  assert.equal(overwrite.status, 403);
+  assert.equal((await getMachineAlias('machine|leg-press', 'trainer1')).body.exId, '0010');
 });
 
 test.after(() => { child.kill(); });
