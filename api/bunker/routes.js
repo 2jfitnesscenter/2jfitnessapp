@@ -24,6 +24,20 @@ const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits i
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
 
 export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer, rateLimiters = bunkerLimiters() }) {
+  const credentialKey = (kind, value) => createHash('sha256').update(kind + ':' + String(value)).digest('hex');
+  const limitAttempt = (kind, ip, value) => {
+    const ipLimiter = rateLimiters[kind];
+    const credentialLimiter = rateLimiters[kind + 'Credential'];
+    const secretKey = credentialKey(kind, value);
+    const checks = [ipLimiter?.check(ip), credentialLimiter?.check(secretKey)].filter(Boolean);
+    const blocked = checks.find(x => !x.allowed);
+    return {
+      allowed: !blocked,
+      retryAfter: blocked ? Math.max(...checks.filter(x => !x.allowed).map(x => x.retryAfter || 1)) : null,
+      fail() { ipLimiter?.fail(ip); credentialLimiter?.fail(secretKey); },
+      success() { ipLimiter?.success(ip); credentialLimiter?.success(secretKey); },
+    };
+  };
   const bearer = req => {
     const h = req.headers.authorization || '';
     return h.startsWith('Bearer ') ? h.slice(7) : '';
@@ -265,20 +279,20 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     // changes on the shared gym kiosk remain smooth. No PIN/code is retained by the limiter.
     'POST /api/bunker/checkin': async (req, res) => {
       const rateKey = bunkerClientIp(req);
-      const allowed = rateLimiters.pin.check(rateKey);
-      if (!allowed.allowed) return json(res, 429, { error: 'demasiados intentos; espera un momento' }, { 'Retry-After': String(allowed.retryAfter) });
       const body = await readBody(req);
       const pin = String(body.pin || '').trim();
+      const attempt = limitAttempt('pin', rateKey, pin);
+      if (!attempt.allowed) return json(res, 429, { error: 'demasiados intentos; espera un momento' }, { 'Retry-After': String(attempt.retryAfter) });
       const uid = store.userIdForPin(pin);
-      if (!uid) { rateLimiters.pin.fail(rateKey); return json(res, 400, { error: 'PIN incorrecto' }); }
+      if (!uid) { attempt.fail(); return json(res, 400, { error: 'PIN incorrecto' }); }
       // v1.3.1 (A3 fix) — same "PIN incorrecto" either way: a disabled account's PIN must not
       // even mint a token in the first place (readBunkerToken would refuse it on the very next
       // use anyway, see this file's own comment there), and the error stays generic on purpose
       // so it never confirms to whoever is standing at the kiosk that this PIN belongs to a
       // real, disabled account rather than no account at all.
       const account = users().find(u => u.id === uid);
-      if (!account || account.disabled) { rateLimiters.pin.fail(rateKey); return json(res, 400, { error: 'PIN incorrecto' }); }
-      rateLimiters.pin.success(rateKey);
+      if (!account || account.disabled) { attempt.fail(); return json(res, 400, { error: 'PIN incorrecto' }); }
+      attempt.success();
       const name = publicName(uid);
       store.startSession(uid, name);
       const exp = Date.now() + PIN_TOKEN_TTL;
@@ -420,19 +434,19 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     /* ---------- room admin — a trainer's phone, or the kiosk's own admin-code overlay ---------- */
     'POST /api/bunker/admin-checkin': async (req, res) => {
       const rateKey = bunkerClientIp(req);
-      const allowed = rateLimiters.admin.check(rateKey);
-      if (!allowed.allowed) return json(res, 429, { error: 'demasiados intentos; espera un momento' }, { 'Retry-After': String(allowed.retryAfter) });
       const body = await readBody(req);
       const code = String(body.code || '').trim();
+      const attempt = limitAttempt('admin', rateKey, code);
+      if (!attempt.allowed) return json(res, 429, { error: 'demasiados intentos; espera un momento' }, { 'Retry-After': String(attempt.retryAfter) });
       const uid = store.userIdForAdminCode(code);
-      if (!uid) { rateLimiters.admin.fail(rateKey); return json(res, 400, { error: 'código incorrecto' }); }
+      if (!uid) { attempt.fail(); return json(res, 400, { error: 'código incorrecto' }); }
       // v1.3.1 (A3 fix) — the code itself is fixed forever (store.js's own comment on
       // adminCodeFor), but the trainer/admin role it once matched isn't: a demoted or disabled
       // account's old code must not mint a working admin token anymore, generic error either
       // way for the same reason as checkin's own comment above.
       const account = users().find(u => u.id === uid);
-      if (!account || account.disabled || !isTrainer(account)) { rateLimiters.admin.fail(rateKey); return json(res, 400, { error: 'código incorrecto' }); }
-      rateLimiters.admin.success(rateKey);
+      if (!account || account.disabled || !isTrainer(account)) { attempt.fail(); return json(res, 400, { error: 'código incorrecto' }); }
+      attempt.success();
       const exp = Date.now() + ADMIN_TOKEN_TTL;
       json(res, 200, { token: sign('bunker-admin:' + uid + ':' + exp), exp });
     },

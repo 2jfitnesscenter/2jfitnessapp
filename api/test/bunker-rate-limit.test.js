@@ -11,7 +11,9 @@ const { AttemptLimiter, bunkerClientIp } = await import('../bunker/rate-limit.js
 let now = 1000
 const limiters = () => ({
   pin: new AttemptLimiter({ limit: 3, windowMs: 60000, blockMs: 30000, now: () => now }),
+  pinCredential: new AttemptLimiter({ limit: 3, windowMs: 60000, blockMs: 30000, now: () => now }),
   admin: new AttemptLimiter({ limit: 2, windowMs: 60000, blockMs: 60000, now: () => now }),
+  adminCredential: new AttemptLimiter({ limit: 2, windowMs: 60000, blockMs: 60000, now: () => now }),
 })
 const people = [{ id: 'member', name: 'Member' }, { id: 'trainer', name: 'Trainer', trainer: true }]
 const sign = payload => payload + '.' + crypto.createHash('sha256').update(payload).digest('hex')
@@ -44,6 +46,41 @@ test('limits are isolated by real client IP and a successful shared-kiosk change
   await call(checkin, { pin: 'bad' }, '198.51.100.10')
   assert.equal((await call(checkin, { pin }, '198.51.100.10')).status, 200)
   assert.equal((await call(checkin, { pin }, '198.51.100.10')).status, 200)
+})
+
+test('distributed guesses of one PIN are blocked by the credential bucket', async () => {
+  now = 1000
+  const routes = factory(limiters()), checkin = routes['POST /api/bunker/checkin']
+  for (let i = 0; i < 3; i++) {
+    assert.equal((await call(checkin, { pin: 'same-wrong-pin' }, '198.51.100.' + (20 + i))).status, 400)
+  }
+  const blocked = await call(checkin, { pin: 'same-wrong-pin' }, '198.51.100.99')
+  assert.equal(blocked.status, 429)
+  assert.equal(blocked.body.error, 'demasiados intentos; espera un momento')
+})
+
+test('concurrent legitimate members behind one NAT remain independent', async () => {
+  now = 1000
+  const routes = factory(limiters()), checkin = routes['POST /api/bunker/checkin']
+  const memberPin = store.pinFor('member')
+  const trainerPin = store.pinFor('trainer')
+  await call(checkin, { pin: '1111' }, '198.51.100.50')
+  await call(checkin, { pin: '2222' }, '198.51.100.50')
+  assert.equal((await call(checkin, { pin: memberPin }, '198.51.100.50')).status, 200)
+  assert.equal((await call(checkin, { pin: trainerPin }, '198.51.100.50')).status, 200)
+})
+
+test('repeated blocks back off progressively and a later success resets them', () => {
+  now = 1000
+  const limiter = new AttemptLimiter({ limit: 1, windowMs: 60000, blockMs: 1000, maxBlockMs: 8000, now: () => now })
+  limiter.fail('x')
+  assert.equal(limiter.check('x').retryAfter, 1)
+  now += 1001
+  limiter.fail('x')
+  assert.equal(limiter.check('x').retryAfter, 2)
+  now += 2001
+  limiter.success('x')
+  assert.deepEqual(limiter.check('x'), { allowed: true })
 })
 
 test('admin unlock has its own stricter bucket and does not block member check-in', async () => {

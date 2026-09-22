@@ -45,8 +45,11 @@ export class AttemptLimiter {
 }
 
 export const bunkerLimiters = () => ({
-  // Enough room for several people sharing one kiosk to mistype, while making a 10,000-value
-  // online PIN sweep impractical. Admin codes are longer and used less often, so tighter.
-  pin: new AttemptLimiter({ limit: 12, windowMs: 60000, blockMs: 30000 }),
-  admin: new AttemptLimiter({ limit: 6, windowMs: 60000, blockMs: 60000 }),
+  // The IP buckets slow broad sweeps without punishing a gym NAT for one typo. Credential
+  // buckets also stop a distributed attack against one guessed PIN/code. Their keys are
+  // one-way fingerprints created by routes.js; the limiter never retains the credential.
+  pin: new AttemptLimiter({ limit: 20, windowMs: 60000, blockMs: 30000 }),
+  pinCredential: new AttemptLimiter({ limit: 5, windowMs: 60000, blockMs: 30000 }),
+  admin: new AttemptLimiter({ limit: 10, windowMs: 60000, blockMs: 60000 }),
+  adminCredential: new AttemptLimiter({ limit: 4, windowMs: 60000, blockMs: 60000 }),
 })

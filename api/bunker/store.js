@@ -62,8 +62,14 @@ export function resetPin(userId) {
   return pin;
 }
 export function userIdForPin(pin) {
-  const entry = store.pins.find(p => p.pin === pin);
-  return entry ? entry.userId : null;
+  const candidate = crypto.createHash('sha256').update(String(pin)).digest();
+  let matched = null;
+  // Walk every entry so a miss and a late match perform the same number of comparisons.
+  for (const entry of store.pins) {
+    const digest = crypto.createHash('sha256').update(String(entry.pin)).digest();
+    if (crypto.timingSafeEqual(candidate, digest)) matched = entry.userId;
+  }
+  return matched;
 }
 
 // A trainer/admin's own kiosk-unlock code — generated once on first read and never reset
@@ -81,8 +87,13 @@ export function adminCodeFor(userId) {
   return entry.code;
 }
 export function userIdForAdminCode(code) {
-  const entry = store.adminCodes.find(c => c.code === code);
-  return entry ? entry.userId : null;
+  const candidate = crypto.createHash('sha256').update(String(code)).digest();
+  let matched = null;
+  for (const entry of store.adminCodes) {
+    const digest = crypto.createHash('sha256').update(String(entry.code)).digest();
+    if (crypto.timingSafeEqual(candidate, digest)) matched = entry.userId;
+  }
+  return matched;
 }
 
 // The single room-pairing key behind /bunker/launch?token=... — one shared screen's worth of
@@ -116,6 +127,15 @@ export function setSettings(patch) {
 const sessions = new Map();
 const IDLE_TTL = 15 * 60000; // a session nobody has touched in 15 minutes is treated as abandoned
 
+function liveSession(uid, now = Date.now()) {
+  const s = sessions.get(uid);
+  if (s && now - s.lastActivityAt > IDLE_TTL) {
+    sessions.delete(uid);
+    return null;
+  }
+  return s || null;
+}
+
 export function startSession(uid, name) {
   const s = {
     uid, name, checkinAt: Date.now(), exId: null, exName: null, setIdx: 0, setsTotal: 0,
@@ -124,9 +144,10 @@ export function startSession(uid, name) {
   sessions.set(uid, s);
   return s;
 }
-export function getSession(uid) { return sessions.get(uid) || null; }
+// Expiry is enforced at every access, not only when somebody happens to poll the public board.
+export function getSession(uid) { return liveSession(uid); }
 export function touchSession(uid, patch) {
-  const s = sessions.get(uid);
+  const s = liveSession(uid);
   if (!s) return null;
   Object.assign(s, patch, { lastActivityAt: Date.now() });
   return s;
@@ -135,7 +156,7 @@ export function touchSession(uid, patch) {
 // pausing their own phone. Pausing banks however many seconds were left so resuming picks up
 // exactly where it stopped, instead of the countdown silently continuing to run out unseen.
 export function pauseSession(uid) {
-  const s = sessions.get(uid);
+  const s = liveSession(uid);
   if (!s || s.paused) return s;
   s.paused = true;
   s.pausedLeftSec = s.restEndsAt ? Math.max(0, Math.round((s.restEndsAt - Date.now()) / 1000)) : null;
@@ -144,7 +165,7 @@ export function pauseSession(uid) {
   return s;
 }
 export function resumeSession(uid) {
-  const s = sessions.get(uid);
+  const s = liveSession(uid);
   if (!s || !s.paused) return s;
   s.paused = false;
   s.restEndsAt = s.pausedLeftSec ? Date.now() + s.pausedLeftSec * 1000 : null;
@@ -155,6 +176,6 @@ export function resumeSession(uid) {
 export function endSession(uid) { sessions.delete(uid); }
 export function listSessions() {
   const now = Date.now();
-  for (const [uid, s] of sessions) if (now - s.lastActivityAt > IDLE_TTL) sessions.delete(uid);
+  for (const uid of sessions.keys()) liveSession(uid, now);
   return [...sessions.values()].sort((a, b) => a.checkinAt - b.checkinAt);
 }
