@@ -12,7 +12,8 @@ en producción (Contabo VPS, `app.2jfitnesscenter.com`).
 `feat/pwa-tanita-bunker-roadmap`
 
 ## Último commit de código relevante
-`6c5c46d` — "feat: improve social dates workout mobile and Bunker live". Código de
+`23226f635c1508600a17afafafb5f8bb31a79180` — "feat: improve import matching and Bunker layout".
+Release anterior: `6c5c46d` — "feat: improve social dates workout mobile and Bunker live". Código de
 estabilización anterior: `f106a0e` — "fix: make Bunker and imports resilient" y `edd8a6a` —
 "fix: harden Bunker access and session expiry". Infraestructura de producción:
 `56cecdc` — "perf: harden web caching and deploy backups".
@@ -26,21 +27,27 @@ solo que no en el `PATH` de la sesión de shell activa — el binario está en
 completa o `--repo 2jfitnesscenter/2jfitnessapp` explícito: el `remote upstream` de este
 repo (`alexpcosta/opengym`) hace que `gh` sin `--repo` resuelva al fork equivocado.
 
-**Producción está en `6c5c46df09dcee57bea0a531c328d3a066b8d076`**. El despliegue
-confirmó health, data/sync, Bunker, PWA, gzip/cache/headers, Social y los assets nuevos.
+**Producción estable y validada está en `23226f635c1508600a17afafafb5f8bb31a79180`**
+(confirmación del usuario, 22 Sep 2026). Deployment y smoke completos correctos; el usuario
+confirmó también el funcionamiento manual correcto en producción. No hay deployment pendiente
+de `23226f6`. El despliegue confirmó health, data/sync, Bunker, PWA, gzip/cache/headers,
+Social, IA auxiliar/importación y los assets nuevos.
 Sync V2 y la resolución de conflictos se validaron además en un móvil real.
 
 ## Objetivo/tarea actual
-Segundo mini-sprint de fiabilidad de IA auxiliar/importación, Cambiar ejercicio V2 y densidad
-multiusuario del Bunker implementado y validado localmente; pendiente únicamente su commit/push.
-No desplegar este checkpoint sin una orden posterior. No reabrir A2/A5/M4/A6/A7/M1/M2,
-permisos de aliases ni Sync V2 sin una regresión demostrada.
+Segundo mini-sprint cerrado, commiteado, pusheado y desplegado como `23226f6`.
+Próximo paso: uso normal de producción y acumulación de bugs/pulido visual para un único
+sprint agrupado. Después, revisión Profile/Settings y roadmap visual v1.4 / Mi 2J.
+Revisar importación/IA auxiliar con casos reales si vuelve a fallar. No tocar infraestructura
+salvo incidencia real. No iniciar todavía Health V2, Library V2, Gym Profiles, rankings/records
+generales, challenges avanzados, CSP ni cambios grandes de Sync V2.
+No reabrir A2/A5/M4/A6/A7/M1/M2 ni permisos de aliases sin una regresión demostrada.
 
 ## Estado actual
-- **Rama al día con origin hasta `6c5c46d`** antes del checkpoint local de este mini-sprint.
-- **Producción `6c5c46df09dcee57bea0a531c328d3a066b8d076`, sana**: health OK;
+- **Código del mini-sprint en `23226f6`**, desplegado y validado.
+- **Producción `23226f635c1508600a17afafafb5f8bb31a79180`, sana**: health OK;
   api/web/caddy activos; datos preservados; Bunker, Sync, PWA, gzip, cache, headers, Social
-  y assets verificados por el despliegue anterior.
+  y assets verificados por el despliegue final del 22 Sep 2026.
 - Validación local de este checkpoint: frontend **604/604**, backend **216/216**, build Vite OK.
 - Backups pre-deploy: `/root/backups/2jfitness-2026-09-20_2041.tar.gz` (V1+V2),
   `2026-09-20_2104.tar.gz` (fix del active), `2026-09-20_2044.tar.gz` (V3 — nombre por
@@ -88,10 +95,11 @@ permisos de aliases ni Sync V2 sin una regresión demostrada.
   ejercicio existente.
 
 ## Trabajo pendiente
+- Prioridad actual: uso normal y sprint agrupado de incidencias; después Profile/Settings
+  y Mi 2J. Las notas históricas posteriores no reabren deployments ya completados.
 - ~~Crear el PR~~ — hecho, PR #10 abierto.
-- **Smoke test autenticado en producción** (login/passkey, Admin, panel entrenador,
-  Bunker, entrenamiento normal, historial, importación CSV real) — requiere que el
-  usuario lo haga él mismo o conceda acceso temporal, Claude no tiene passkey.
+- **Validación manual de producción confirmada por el usuario para `23226f6`**.
+  Esto no implica haber probado exhaustivamente cada capability de IA con proveedores reales.
 - El usuario debe **configurar la API key real de Gemini** en Ajustes → Administración →
   "IA auxiliar" → Usar una clave de API, para poder probar de verdad
   `exercise_import_matching`/`machine_scan`/`measurements_scan`/`routine_scan`. Disparo
@@ -1059,7 +1067,8 @@ convergencia del contenedor/proxy e imprime los valores recibidos. El check aisl
 
 ### CHECKPOINT — SOCIAL DATES + WORKOUT MOBILE + BUNKER LIVE — 2026-09-22
 
-Producción continúa en `ab3c7dc`; este checkpoint no está desplegado. Rama de trabajo:
+Nota histórica: este checkpoint se desplegó como `6c5c46d` y ya está incluido en la producción
+actual `23226f6`. Rama de trabajo:
 `feat/pwa-tanita-bunker-roadmap`, partiendo de `a20dbda`.
 
 - Social: el formateador común ya admite fechas de calendario `YYYY-MM-DD`, timestamps en
@@ -1084,14 +1093,14 @@ aviso conocido de chunks grandes), check de locales OK bajo la política actual 
 de fecha actuales/legacy/inválidos y la selección pública/privada, fecha, estado ausente y valor
 exacto de PR de Bunker Live.
 
-Pendiente operativo: desplegar este checkpoint únicamente cuando se autorice y hacer smoke no
-destructivo en producción de Wall/Entrenadores, una sesión móvil estrecha y el estado vacío/lleno
-de PRs de hoy con cuentas de prueba. La deuda ya inventariada para v1.3.x permanece sin cambios.
+Despliegue de este checkpoint completado; no hay deployment pendiente. La confirmación final
+de producción y las prioridades vigentes figuran en el cierre de `23226f6` más abajo.
 
 ### CHECKPOINT — IA AUXILIAR + CAMBIAR EJERCICIO V2 + BUNKER DENSO — 2026-09-22
 
-Base de producción: `6c5c46df09dcee57bea0a531c328d3a066b8d076`. Este checkpoint no se
-ha desplegado y no modifica Sync V2, autenticación Bunker, privacidad Social ni persistencia.
+Base anterior de producción: `6c5c46df09dcee57bea0a531c328d3a066b8d076`.
+Este checkpoint está desplegado y validado como `23226f635c1508600a17afafafb5f8bb31a79180`;
+no modifica Sync V2, autenticación Bunker, privacidad Social ni persistencia.
 
 - IA auxiliar: el diagnóstico anterior perdía `status` y código seguro del proveedor en el
   adaptador y registraba todos los fallos no-timeout como `provider`. Por ello no es posible
@@ -1124,6 +1133,54 @@ heredados parciales), `git diff --check` OK. Tests nuevos: retry 429→éxito co
 incluido un ejercicio no relacionado. Verificación visual local con estilos reales: 1/2/3
 usuarios a 1280×720 y tres usuarios en viewport interno 1024×700; sin overflow horizontal,
 paneles independientes y franja Live visible. No se hicieron llamadas reales a Gemini.
+
+### CIERRE DE DEPLOYMENT — 23226f6 — 2026-09-22
+
+**ESTABLE / VALIDADO EN PRODUCCIÓN**, según el log final y la confirmación manual del usuario.
+`DEPLOY_OK=23226f635c1508600a17afafafb5f8bb31a79180` en
+`https://app.2jfitnesscenter.com`. No hay deployment pendiente ni bloqueo abierto del script
+para este release. Esta confirmación sustituye los estados pendientes de checkpoints históricos.
+
+- Log final: `/root/backups/deploy-23226f6-2026-09-22_212900.log`.
+- Backup predeploy verificado: `/root/backups/2jfitness-predeploy-23226f6-2026-09-22_212900.tar.gz`.
+- Rollback conocido compatible Sync V2: `6c5c46df09dcee57bea0a531c328d3a066b8d076`.
+- Validación previa: frontend **604/604**, backend **216/216**, build, locales y diff checks OK;
+  visual Bunker 1/2/3 usuarios y tablet OK. No se repitieron tests para este cierre documental.
+- Smoke final: health interno/externo 200; Data/Sync 401 esperado; Bunker board/settings 200;
+  Social y Aux AI/import 401 esperado; PWA manifest/SW/icons y JS/CSS principales 200.
+  Gzip, cache headers, security headers y servicios API/Web/Caddy OK.
+- Assets: `/assets/index-C6djyxuc.js` y `/assets/index-Dqcih6L8.css`.
+- Validación manual posterior: el usuario confirma funcionamiento correcto en producción.
+
+Procedimiento utilizado: SCP/SSH interactivo con transferencia binaria, SHA-256 local/remoto
+antes de modificar producción, comprobación técnica del release de origen, backup verificado,
+rollback de código compatible Sync V2, instalación del commit exacto, Compose build/up y smoke
+estricto con retries. Rollback automático únicamente desde el shell principal ante fallo real.
+
+Incidencias del script resueltas (no eran defectos funcionales del release):
+
+1. `curl 56` durante arranque era transitorio, no la causa del rollback del intento investigado.
+   Readiness reintenta cada 2 segundos hasta 120 segundos; smoke hasta 45 segundos, con
+   peticiones acotadas y validación final estricta.
+2. `on_error()` podía ejecutar rollback dentro de command substitution y después otra vez en
+   el padre. Corregido: los subshells propagan el fallo; solo el shell principal hace rollback.
+3. `wait_services()` calculaba el deadline antes de inicializar `timeout`. Declaraciones separadas.
+4. El fallo real del intento anterior fue `main-asset-smoke`, `[[ "$ASSET_READY" == 1 ]]`:
+   buscaba `users-3` en JavaScript, aunque el selector estaba en CSS y ambos assets devolvían
+   200. Corregido: selector comprobado en CSS; textos/componente en JS. Gzip/cache/security
+   headers permanecen como comprobaciones separadas y estrictas.
+5. Errores transitorios DNS/transport (`curl 28`, `curl 56`) se toleran mediante retry.
+   El deploy final confirmó curl 56 en intentos 1–3 y health 200 en el cuarto; manifest pasó
+   de curl 28 a 200 en el segundo intento y el deployment terminó correctamente.
+
+Pruebas locales del script: 56 → 503 → 200 sin rollback; timeout real de 120 segundos con
+un solo rollback simulado; assets válidos aceptados y CSS sin selector rechazado aunque
+HTTP fuera 200; dos errores 28 seguidos de 200 aceptados. Sintaxis PowerShell/Bash validada.
+No simplificar estas protecciones ni permitir nuevamente rollback desde subshells.
+
+Próxima fase: uso normal y acumulación de incidencias para sprint agrupado; después
+Profile/Settings y Mi 2J. No iniciar Health V2, Library V2, Gym Profiles ni otros cambios
+grandes. No tocar infraestructura salvo incidencia real. No se ha mergeado PR #10.
 
 ## Protocolo de relevo
 
