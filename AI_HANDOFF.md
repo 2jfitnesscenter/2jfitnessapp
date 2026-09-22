@@ -1007,6 +1007,48 @@ resolver la raíz. El backup seguro se creó desde `/opt/2jfitness` con el `tar`
 borrar copias. Corregir el script en un cambio futuro antes de volver a depender de su ejecución
 directa o de cron.
 
+### CHECKPOINT — FASE 2 BUNKER / IMPORT / IA AUXILIAR — 2026-09-22
+
+Base de producción confirmada por el operador: `56cecdc`. Sync V2 permanece validado y no se
+modificaron sus invariantes ni su arquitectura. Checkpoints nuevos:
+
+- `edd8a6a fix: harden Bunker access and session expiry`
+- `f106a0e fix: make Bunker and imports resilient`
+
+Trabajo cerrado:
+
+- A2: PIN y admin unlock combinan límite por IP real de proxy y fingerprint efímero de la
+  credencial, con bloqueos progresivos, aislamiento entre ambos flujos, recuperación y
+  comparación timing-safe. El limiter no conserva PIN/código y el error sigue siendo genérico.
+- A5: cada snapshot activo del Bunker continúa en cola durable; finish ahora conserva el payload
+  exacto en localStorage antes de enviarlo, espera las escrituras previas y solo lo retira tras
+  confirmación. Un fallo de red, respuesta perdida, minimizar o remontar el panel reintenta el
+  mismo workout idempotente sin pérdida silenciosa.
+- M4: `getSession`, touch, pause y resume purgan por TTL directamente. `clearActive` ya no
+  depende de que alguien consulte board/list para dejar de responder 409 a una sesión caducada.
+- A6: el cap diario configurado de IA auxiliar se reserva atómicamente en servidor antes de
+  cualquier llamada Gemini; al agotarse devuelve `DAILY_CAP`/429. No afecta Coach,
+  Claude/Codex ni IA de staff.
+- A7: los CSV con hora real separan sesiones del mismo día por timestamp; los CSV históricos
+  con solo fecha mantienen el fallback conservador de una sesión diaria.
+- M1: cada workout importado captura un `importFingerprint` basado en la identidad original del
+  CSV antes de aplicar aliases; resolver un alias más tarde no crea duplicados al reimportar.
+- M2: el toggle admin actualiza inmediatamente el registro runtime de equipamiento y revierte
+  también ese registro si falla la petición.
+- `machineAliases`: lectura para socios; escritura/corrección limitada a trainer/admin, igual
+  que import aliases.
+- Backup: ya estaba corregido en `56cecdc`; Git confirma modo `100755`, atributo LF y resolución
+  robusta independiente del cwd. No se reabrió el diseño de deploy.
+
+Validación final única: frontend **594/594** (35 archivos), backend **209/209**, build Vite OK
+(solo el aviso conocido de chunks grandes), check de locales/CI OK bajo su política actual y
+`git diff --check` OK. Los idiomas heredados siguen con cobertura parcial admitida por CI; no
+se hizo traducción masiva. No hay secretos ni archivos temporales añadidos.
+
+Los dos commits están pusheados a `feat/pwa-tanita-bunker-roadmap`. Pendiente operativo:
+un único deploy final de `f106a0e` con backup verificado, rollback compatible Sync V2, health
+y smoke no destructivo. No mergear PR #10.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.
