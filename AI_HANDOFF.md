@@ -12,12 +12,12 @@ en producción (Contabo VPS, `app.2jfitnesscenter.com`).
 `feat/pwa-tanita-bunker-roadmap`
 
 ## Último commit de código relevante
-`ee7c0e5` — "feat: v1.3.0 — Bunker multi-session resume, changelog"
-(anterior: `96533f1` — V3, `3e4e0b4` — fix active atascado, `85b45ad` — V2, `14afe9d` — V1)
+`ab3c7dc` — "docs: update phase 2 handoff". Código de estabilización más reciente:
+`f106a0e` — "fix: make Bunker and imports resilient" y `edd8a6a` —
+"fix: harden Bunker access and session expiry". Infraestructura de producción:
+`56cecdc` — "perf: harden web caching and deploy backups".
 
-Commits `2eb932d` (handoff), `85b45ad` (V2), `14afe9d` (V1), `3e4e0b4` (fix active),
-`96533f1` (V3), `ee7c0e5` (fix Bunker + versión 1.3.0 + changelog) y `1fb283f` (docs) están
-todos en `origin/feat/pwa-tanita-bunker-roadmap`. **PR #10 abierto** —
+Todos están en `origin/feat/pwa-tanita-bunker-roadmap`. **PR #10 abierto** —
 [github.com/2jfitnesscenter/2jfitnessapp/pull/10](https://github.com/2jfitnesscenter/2jfitnessapp/pull/10),
 `feat/pwa-tanita-bunker-roadmap` → `2jfitness-dev` (la rama por defecto real del repo —
 `main` no existe), `MERGEABLE`, 61 archivos. `gh` CLI SÍ está instalado en este entorno,
@@ -26,49 +26,21 @@ solo que no en el `PATH` de la sesión de shell activa — el binario está en
 completa o `--repo 2jfitnesscenter/2jfitnessapp` explícito: el `remote upstream` de este
 repo (`alexpcosta/opengym`) hace que `gh` sin `--repo` resuelva al fork equivocado.
 
-**V1, V2, el fix del active atascado, V3 y el fix del Bunker (minimizar/volver) ESTÁN
-DESPLEGADOS en producción** — V1/V2 desde 2026-09-20 ~20:45 UTC, el fix del active desde
-~21:05 UTC, V3 desde ~21:47 UTC, el fix del Bunker + v1.3.0 desde 2026-09-21 ~09:35 UTC.
-Confirmado: `GET https://app.2jfitnesscenter.com/api/admin/aux-ai` → 401 (V2); `POST
-/api/active/clear` → 401, no 404 (el fix); `GET /api/trainer/routine-versions` y
-`/api/trainer/program-versions` → 401, no 404 (V3); el bundle en producción contiene el
-código del fix del Bunker (`bk-card-resume`) y la entrada `v1.3.0` del changelog;
-`coach.provider` está en `gemini` (cambiado por el propio usuario entre sesiones, no por
-ningún despliegue de esta sesión).
+**Producción está en `ab3c7dc`**. El deploy final confirmó `SMOKE`, `BUNKER`, `SYNC`, `PWA`,
+`DATA`, `GZIP`, `CACHE` y `HEADERS` en estado OK. Sync V2 y la resolución de conflictos se
+validaron además en un móvil real.
 
 ## Objetivo/tarea actual
-Bug de producción prioritario (sesión activa atascada) corregido, testeado, desplegado
-(ver sección propia más abajo) — **pendiente de que el usuario confirme desde su propia
-UI** que su sesión fantasma real ("Espalda & Bíceps - Enfoque Principal") ya no reaparece
-tras pulsar Descartar. Cierre de V2 completado.
-
-**V3 implementada, testeada, commiteada y DESPLEGADA EN PRODUCCIÓN** (autorización
-explícita del usuario: "commitea y despliega todo que funcione, esta semana se probará").
-Ver su propia sección más abajo para el detalle completo.
-
-**Bug reportado en producción tras el despliegue de V3 (usando el Bunker real): "minimizo mi
-sesión para que otro socio entre, y luego no puedo volver a la mía — aparece pero no puedo
-acceder".** Diagnosticado, corregido, testeado (unitario + E2E real local) y **DESPLEGADO EN
-PRODUCCIÓN** (autorización explícita: "commitea, publica, despliega y sube todo a github").
-Ver su propia sección más abajo para el detalle completo.
-
-**Versión de la app subida a 1.3.0** (`frontend/package.json`, `api/package.json`) —
-`CHANGELOG.md` y el changelog interno (`frontend/src/lib/changelog.js`, con sus
-traducciones en `es.js`) documentan ahora todo lo entregado desde v1.2.3: V1, V2, el fix
-del active, V3 y el fix del Bunker. Antes de esto, ninguno de esos cinco entregables tenía
-ni una línea en el changelog — es lo que el usuario reportó como "no veo versiones nuevas".
-
-Pendiente: que el usuario y sus socios prueben todo esta semana en producción (notas,
-versionado, últimas sesiones, resumen, Bunker multiusuario, y opcionalmente OpenAI como
-proveedor del Coach desde Admin).
+Sprint de estabilización v1.3.x cerrado y desplegado. No hay un bloqueo crítico conocido.
+La siguiente tarea debe salir únicamente de la deuda real enumerada en el checkpoint final
+de 2026-09-22; no reabrir A2/A5/M4/A6/A7/M1/M2, permisos de aliases ni Sync V2 sin una
+regresión demostrada.
 
 ## Estado actual
-- **Working tree limpio, rama al día con origin** — todo commiteado y empujado, incluido el
-  fix del Bunker + versión 1.3.0 + changelog (`ee7c0e5`).
-- **Producción desplegada y sana** con todo lo anterior incluido: `docker compose ps` →
-  api/web/caddy `Up`, `media` en `Exited (0)` (normal, init container). `curl
-  .../api/health` externo → `{"ok":true,"users":13}` (datos intactos en todos los despliegues
-  de esta sesión, incluido el de hoy 2026-09-21).
+- **Rama al día con origin hasta `ab3c7dc`** antes de este cierre documental.
+- **Producción `ab3c7dc`, sana**: health OK; api/web/caddy activos; datos preservados;
+  Bunker, Sync, PWA, gzip, cache y headers verificados por el deploy final.
+- Validación final previa al deploy: frontend **594/594**, backend **209/209**, build Vite OK.
 - Backups pre-deploy: `/root/backups/2jfitness-2026-09-20_2041.tar.gz` (V1+V2),
   `2026-09-20_2104.tar.gz` (fix del active), `2026-09-20_2044.tar.gz` (V3 — nombre por
   hora del servidor, tomado justo antes del despliegue de V3) y
@@ -673,31 +645,28 @@ de esta fase más arriba en este mismo archivo — son la fuente completa de evi
 - E2E real del flujo "Eliminar entrenamiento" (backend local + navegador): confirmado por
   red y por estado real del servidor que el borrado llega y no vuelve.
 
-### DEUDA NUEVA DESCUBIERTA (durante Fase 1, no corregida todavía)
+### DEUDA DESCUBIERTA DURANTE FASE 1 — ESTADO FINAL
 
-- `POST /api/exercises/alias` (tabla `db.machineAliases`, aliases de escaneo de máquina)
-  tiene **exactamente el mismo patrón** de escritura global por cualquier socio que tenía
-  `import-alias` antes de X1. No corregido — mismo arreglo (`requireTrainer`) sería
-  aplicable si se decide hacerlo.
+- ~~`POST /api/exercises/alias` permitía escritura global a cualquier socio~~ — **resuelto**:
+  `machineAliases` permite lectura a socios y escritura/corrección solo a trainer/admin.
 - `coach.test.js` (frontend) mantiene el acoplamiento directo a `api/coach/...` — X2 lo
   hizo pasar en CI instalando las dependencias correctas, pero no deshizo el acoplamiento
   en sí (refactor mayor, fuera de alcance de esta fase).
-- `routines`/`programs`/`dayPlan` necesitan una solución explícita de concurrencia/
-  versionado (timestamp por registro, o similar) antes de poder protegerlos como A1 hizo
-  con `workouts`/`routineVersions`/`programVersions` — sin eso, cualquier intento de merge
-  ahí arriesga romper una edición o un borrado legítimos.
+- ~~Concurrencia de `routines`/`programs`/`dayPlan` sin solución~~ — **resuelta por Sync V2**
+  mediante revisión, generation, tombstones y operaciones idempotentes. No reabrir el
+  enfoque legacy salvo que una prueba demuestre una regresión.
 
-### FASE 2 PENDIENTE
+### FASE 2 COMPLETADA Y DESPLEGADA
 
 A2 (PIN/rate-limit) · A5 (offline Bunker) · A6 (límite IA auxiliar) · A7 (CSV mismo día) ·
-M1 (alias/fingerprint) · M2 (equipment unavailable) · M4 (expiración Bunker) · + revisar
-permisos de `machineAliases` (deuda descubierta arriba).
+M1 (alias/fingerprint) · M2 (equipment unavailable) · M4 (expiración Bunker) y permisos
+de `machineAliases`: **todos cerrados, probados y desplegados en `ab3c7dc`**.
 
-### FASE 3 PENDIENTE
+### FASE 3 — ESTADO FINAL
 
-gzip/Caddy · cache de assets · security headers/CSP · service worker · `invite_only` ·
-deep links (riesgo secundario, ya diagnosticado — ver la sección de validación cruzada) ·
-code splitting (no urgente).
+gzip/Caddy, cache de assets, headers de seguridad y service worker/PWA: **activos y
+verificados en producción**. Permanecen como deuda no bloqueante CSP, `invite_only`, deep
+links y code splitting; no forman parte del cierre funcional de este sprint.
 
 ### DECISIONES
 
@@ -1045,9 +1014,47 @@ Validación final única: frontend **594/594** (35 archivos), backend **209/209*
 `git diff --check` OK. Los idiomas heredados siguen con cobertura parcial admitida por CI; no
 se hizo traducción masiva. No hay secretos ni archivos temporales añadidos.
 
-Los dos commits están pusheados a `feat/pwa-tanita-bunker-roadmap`. Pendiente operativo:
-un único deploy final de `f106a0e` con backup verificado, rollback compatible Sync V2, health
-y smoke no destructivo. No mergear PR #10.
+Los dos commits están pusheados a `feat/pwa-tanita-bunker-roadmap`. El deploy final quedó
+completado mediante el checkpoint documental `ab3c7dc`; ver la sección siguiente. No
+mergear PR #10 sin una decisión explícita.
+
+### CIERRE FINAL v1.3.x — PRODUCCIÓN `ab3c7dc` — 2026-09-22
+
+Producción quedó en `ab3c7dc`. El operador confirmó `DEPLOY_OK=ab3c7dc` y smoke final
+`BUNKER=OK`, `SYNC=OK`, `PWA=OK`, `DATA=OK`, `GZIP=OK`, `CACHE=OK` y `HEADERS=OK`.
+La resolución de conflictos Sync V2 fue validada también en un móvil real. Quedan cerrados
+A2, A5, M4, A6, A7, M1, M2 y los permisos globales de `importAliases`/`machineAliases`.
+Validación final previa al despliegue: frontend **594/594** y backend **209/209**; build OK.
+
+El procedimiento operativo que funcionó fue: archivo de release binario transferido por
+SCP, SHA-256 local/remoto idéntico, comprobación del marcador `SYNC_V2_ROLLBACK_BASE`, backup
+predeploy nuevo con gzip/tar y `state-*.json` verificados, rollback de código compatible
+preparado en `/root/backups/2jfitness-code-56cecdc.tar.gz`, extracción que preserva `data/`,
+`docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`, health
+interno/externo y smoke. Si falla después de modificar código, el manejador conserva e
+imprime primero `ORIGINAL_FAIL_STEP`, `ORIGINAL_STATUS` y `ORIGINAL_COMMAND`, después aplica
+el rollback y muestra `ROLLBACK`/`ROLLBACK_HEALTH`.
+
+Incidencias de deploy ya corregidas: transferencia Base64 corrupta sustituida por SCP
+binario con checksum; regex/quoting de detección del asset sustituido por lectura robusta
+del asset real del index; script de backup corregido previamente a modo ejecutable, LF y
+resolución independiente del cwd; el smoke de gzip dejó de depender de pipelines `grep`,
+negocia `Accept-Encoding: gzip`, lee status/headers reales con curl, reintenta durante la
+convergencia del contenedor/proxy e imprime los valores recibidos. El check aislado pasó
+3/3 veces consecutivas contra producción antes del deploy final.
+
+#### Deuda real restante
+
+- **CRÍTICA:** ninguna conocida.
+- **IMPORTANTE:** smoke funcional de Bunker con 1/2/3 cuentas de prueba, superserie real y
+  compartir ambos PNG; probar las capabilities de IA auxiliar con una clave Gemini real;
+  definir poda/retención para receipts, tombstones y snapshots del journal antes de que el
+  crecimiento sostenido sea relevante; no escalar el API a varios procesos sin sustituir
+  la serialización monoproceso de Sync V2 por coordinación compartida.
+- **PUEDE ESPERAR:** normalización de pesos históricos sin unidad de origen; editor más rico
+  de conflictos conservados; traducciones heredadas parciales; CSP, deep links,
+  `invite_only`, code splitting e integración nativa `VITE_MOBILE=1`; revisión/merge de PR
+  #10 cuando el usuario lo decida.
 
 ## Protocolo de relevo
 
