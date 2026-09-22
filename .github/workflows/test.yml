@@ -54,6 +54,13 @@ jobs:
         working-directory: frontend
       - run: node scripts/check-locales.mjs
         working-directory: frontend
+      - name: Upload locale coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: locale-coverage
+          path: frontend/locale-coverage.json
+          if-no-files-found: ignore
 
   api:
     runs-on: ubuntu-latest

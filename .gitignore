@@ -11,6 +11,7 @@ data/
 # Build output / deps
 frontend/dist/
 node_modules/
+frontend/locale-coverage.json
 *.log
 .DS_Store
 

@@ -18,11 +18,12 @@ import * as store from './store.js';
 import { createHash } from 'node:crypto';
 import { readState, writeState } from '../lib/state-store.js';
 import { bestWeightFor, is1RMRecord } from './finish-helpers.js';
+import { bunkerClientIp, bunkerLimiters } from './rate-limit.js';
 
 const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits in 4 hours
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
 
-export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer }) {
+export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer, rateLimiters = bunkerLimiters() }) {
   const bearer = req => {
     const h = req.headers.authorization || '';
     return h.startsWith('Bearer ') ? h.slice(7) : '';
@@ -259,21 +260,25 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       json(res, 200, { ok: store.verifyRoomKey(String(body.token || '')) });
     },
 
-    // body: { pin }. A wrong PIN just fails — no lockout/rate-limit yet (4 digits over a LAN
-    // kiosk, not an internet-facing login; worth revisiting if this ever needs to survive a
-    // hostile network, not just a crowded gym floor).
+    // body: { pin }. Failed guesses are limited by the real public client IP. PIN and admin
+    // code have separate buckets, and a valid entry clears its bucket so ordinary rapid member
+    // changes on the shared gym kiosk remain smooth. No PIN/code is retained by the limiter.
     'POST /api/bunker/checkin': async (req, res) => {
+      const rateKey = bunkerClientIp(req);
+      const allowed = rateLimiters.pin.check(rateKey);
+      if (!allowed.allowed) return json(res, 429, { error: 'demasiados intentos; espera un momento' }, { 'Retry-After': String(allowed.retryAfter) });
       const body = await readBody(req);
       const pin = String(body.pin || '').trim();
       const uid = store.userIdForPin(pin);
-      if (!uid) return json(res, 400, { error: 'PIN incorrecto' });
+      if (!uid) { rateLimiters.pin.fail(rateKey); return json(res, 400, { error: 'PIN incorrecto' }); }
       // v1.3.1 (A3 fix) — same "PIN incorrecto" either way: a disabled account's PIN must not
       // even mint a token in the first place (readBunkerToken would refuse it on the very next
       // use anyway, see this file's own comment there), and the error stays generic on purpose
       // so it never confirms to whoever is standing at the kiosk that this PIN belongs to a
       // real, disabled account rather than no account at all.
       const account = users().find(u => u.id === uid);
-      if (!account || account.disabled) return json(res, 400, { error: 'PIN incorrecto' });
+      if (!account || account.disabled) { rateLimiters.pin.fail(rateKey); return json(res, 400, { error: 'PIN incorrecto' }); }
+      rateLimiters.pin.success(rateKey);
       const name = publicName(uid);
       store.startSession(uid, name);
       const exp = Date.now() + PIN_TOKEN_TTL;
@@ -414,16 +419,20 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
 
     /* ---------- room admin — a trainer's phone, or the kiosk's own admin-code overlay ---------- */
     'POST /api/bunker/admin-checkin': async (req, res) => {
+      const rateKey = bunkerClientIp(req);
+      const allowed = rateLimiters.admin.check(rateKey);
+      if (!allowed.allowed) return json(res, 429, { error: 'demasiados intentos; espera un momento' }, { 'Retry-After': String(allowed.retryAfter) });
       const body = await readBody(req);
       const code = String(body.code || '').trim();
       const uid = store.userIdForAdminCode(code);
-      if (!uid) return json(res, 400, { error: 'código incorrecto' });
+      if (!uid) { rateLimiters.admin.fail(rateKey); return json(res, 400, { error: 'código incorrecto' }); }
       // v1.3.1 (A3 fix) — the code itself is fixed forever (store.js's own comment on
       // adminCodeFor), but the trainer/admin role it once matched isn't: a demoted or disabled
       // account's old code must not mint a working admin token anymore, generic error either
       // way for the same reason as checkin's own comment above.
       const account = users().find(u => u.id === uid);
-      if (!account || account.disabled || !isTrainer(account)) return json(res, 400, { error: 'código incorrecto' });
+      if (!account || account.disabled || !isTrainer(account)) { rateLimiters.admin.fail(rateKey); return json(res, 400, { error: 'código incorrecto' }); }
+      rateLimiters.admin.success(rateKey);
       const exp = Date.now() + ADMIN_TOKEN_TTL;
       json(res, 200, { token: sign('bunker-admin:' + uid + ':' + exp), exp });
     },
