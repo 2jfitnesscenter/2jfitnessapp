@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { t, nameFor } from '../lib/i18n.js'
 import { fmtNum, todayISO, uid, exCount } from '../lib/format.js'
-import { workoutVolume, effectiveRoutine, modeOf, swapEntryExercise, supersetUnits, effortOf, stepEffort } from '../lib/history.js'
+import { workoutVolume, effectiveRoutine, modeOf, swapEntryExercise, supersetUnits, effortOf, stepEffort, setLabel } from '../lib/history.js'
 import { buildRoutineEntries, buildFreeEntry } from '../lib/progression.js'
 import { EXIDX, imgSrc } from '../lib/exercises.js'
 import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
@@ -14,7 +14,7 @@ import RpVolumeBar from '../components/RpVolumeBar.jsx'
 import { beep, vibrate } from '../lib/sound.js'
 import Icon from '../components/Icon.jsx'
 import {
-  fetchBunkerBoard, fetchBunkerSettings, bunkerCheckin, fetchBunkerSession,
+  fetchBunkerSnapshot, fetchBunkerSettings, bunkerCheckin, fetchBunkerSession,
   postBunkerActive, postBunkerRest, postBunkerFinish,
   bunkerAdminCheckin, fetchBunkerAdminSessions, closeBunkerSession, pauseBunkerSession, saveBunkerSettings,
 } from '../lib/bunker-api.js'
@@ -91,7 +91,25 @@ function CardRest({ s, settings }) {
 // in from a different phone/tablet — see lib/bunker-credentials.js). A card whose uid is in that
 // map reopens that exact session with no PIN; any other card — someone else's, or this member's
 // own but checked in elsewhere — falls through to the normal PIN pad, same as "Join" always did.
-function BunkerBoard({ board, settings, credentials, onCheckin, onResume }) {
+function TodayPrs({ prs }) {
+  return <section className="bk-live-prs" aria-label={t('PRs today')}>
+    <div className="bk-live-prs-head">
+      <div><span aria-hidden="true">🔥</span> {t('Today at 2J')}</div>
+      {!!prs.length && <strong>{t(prs.length === 1 ? '{0} new PR today' : '{0} new PRs today', prs.length)}</strong>}
+    </div>
+    {prs.length ? <div className="bk-live-prs-list">{prs.map(pr => <div className="bk-live-pr" key={pr.id}>
+      <div className="bk-live-pr-person">{pr.authorName}</div>
+      <div className="bk-live-pr-mark"><span>{pr.exName}</span><b>{setLabel(pr.exId, pr.value, { mode: pr.mode })}</b></div>
+      {pr.delta > 0 && <div className="bk-live-pr-delta">+{fmtNum(pr.delta)} kg</div>}
+    </div>)}</div> : <div className="bk-live-prs-empty">
+      <Icon name="trophy" />
+      <span>{t('No public PRs yet today.')}</span>
+      <small>{t('Only records members chose to share appear here.')}</small>
+    </div>}
+  </section>
+}
+
+function BunkerBoard({ board, todayPrs, settings, credentials, onCheckin, onResume }) {
   const gridStyle = settings.columns === 'auto'
     ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16, flex: 1, alignContent: 'start' }
     : { '--cols': settings.columns || 4 }
@@ -125,6 +143,7 @@ function BunkerBoard({ board, settings, credentials, onCheckin, onResume }) {
       </div>
     )}
     <button className="bk-join" onClick={onCheckin}><Icon name="plus" /> {t('Join the Bunker')}</button>
+    <TodayPrs prs={todayPrs} />
   </div>
 }
 
@@ -657,6 +676,7 @@ const DEFAULT_SETTINGS = { columns: 4, header: '2J Fitness Center', enableRestEn
 export default function Bunker() {
   const nav = useNavigate()
   const [board, setBoard] = useState([])
+  const [todayPrs, setTodayPrs] = useState([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   // V3 fix — this device's own local, in-memory map of every member it has already checked in
   // for THIS visit: { [uid]: { token, name, exp } }. Deliberately never written to localStorage
@@ -688,7 +708,11 @@ export default function Bunker() {
 
   useEffect(() => {
     let alive = true
-    const poll = () => fetchBunkerBoard().then(s => alive && setBoard(s)).catch(() => {})
+    const poll = () => fetchBunkerSnapshot().then(snapshot => {
+      if (!alive) return
+      setBoard(snapshot.sessions)
+      setTodayPrs(snapshot.todayPrs)
+    }).catch(() => {})
     poll()
     const id = setInterval(poll, BOARD_POLL_MS)
     return () => { alive = false; clearInterval(id) }
@@ -743,7 +767,7 @@ export default function Bunker() {
                   onMinimize={() => minimize(uid)} onFinish={() => releaseActive(uid)} onInvalid={() => releaseActive(uid)} />
               )}</div>
             </div>
-          : <BunkerBoard board={board} settings={settings} credentials={credentials}
+          : <BunkerBoard board={board} todayPrs={todayPrs} settings={settings} credentials={credentials}
               onCheckin={() => setShowCheckin(true)} onResume={expand} />}
       </div>
       {tool !== 'training' && <BunkerToolPane tool={tool} timer={timer} setTimer={setTimer} />}

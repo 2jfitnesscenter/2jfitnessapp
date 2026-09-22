@@ -23,7 +23,7 @@ import { bunkerClientIp, bunkerLimiters } from './rate-limit.js';
 const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits in 4 hours
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
 
-export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer, rateLimiters = bunkerLimiters() }) {
+export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], rateLimiters = bunkerLimiters() }) {
   const credentialKey = (kind, value) => createHash('sha256').update(kind + ':' + String(value)).digest('hex');
   const limitAttempt = (kind, ip, value) => {
     const ipLimiter = rateLimiters[kind];
@@ -264,7 +264,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       json(res, 200, { sessions: store.listSessions().map(s => ({
         uid: s.uid, name: s.name, checkinAt: s.checkinAt, exName: s.exName, setIdx: s.setIdx,
         setsTotal: s.setsTotal, restEndsAt: s.restEndsAt, paused: s.paused,
-      })) });
+      })), todayPrs: todayPrs() });
     },
     'GET /api/bunker/settings': async (req, res) => json(res, 200, store.getSettings()),
     // body: { token } — verifies a /bunker/launch link before the kiosk pairs itself (see

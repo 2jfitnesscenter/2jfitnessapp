@@ -19,8 +19,30 @@ export function initials(name) {
   if (!parts.length) return '?'
   return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
 }
-export function fmtDate(iso, long) {
-  const d = new Date(iso + 'T12:00:00')
+// Dates in the app deliberately coexist in two shapes: calendar-only values (`YYYY-MM-DD`)
+// for workouts/bodyweight, and real timestamps for server-created Social content. Older data
+// can also contain an ISO timestamp or a numeric timestamp serialized as a string. Keep the
+// calendar-only value at local noon (so timezone conversion cannot move it to the previous day),
+// but parse every timestamp as the instant it actually represents.
+export function dateValue(value) {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+  if (typeof value === 'number') {
+    const d = new Date(value)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  if (typeof value !== 'string' || !value.trim()) return null
+  const raw = value.trim()
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(raw + 'T12:00:00')
+    : /^\d{10,16}$/.test(raw)
+      ? new Date(Number(raw))
+      : new Date(raw)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+export const dateSortValue = value => dateValue(value)?.getTime() || 0
+export function fmtDate(value, long) {
+  const d = dateValue(value)
+  if (!d) return '—'
   return d.toLocaleDateString(dateLocale(), long ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short' })
 }
 export function fmtDur(ms) {

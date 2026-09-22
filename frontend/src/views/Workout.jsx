@@ -216,7 +216,11 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, onToggle, onFie
   // Collapsible per exercise, not global — reset whenever the visible exercise changes so a
   // hidden warmup block from the last one doesn't silently carry over to this one.
   const [hideWarmup, setHideWarmup] = useState(false)
-  useEffect(() => { setHideWarmup(false) }, [entryIdx])
+  const [activePlateIdx, setActivePlateIdx] = useState(null)
+  useEffect(() => { setHideWarmup(false); setActivePlateIdx(null) }, [entryIdx])
+  const plateIndexes = entry.sets.map((s, i) => showPlates(s) ? i : -1).filter(i => i >= 0)
+  const plateIdx = plateIndexes.includes(activePlateIdx) ? activePlateIdx : (plateIndexes[0] ?? null)
+  const plateSet = plateIdx == null ? null : entry.sets[plateIdx]
   // Reps step up from 0 with no ceiling, as they always did. Weight instead walks the gym's
   // real rack/pins/plates (or a member's own custom jump) via lib/equipment.js — see
   // Settings → Training. Effort isn't stepped here at all any more — see effortBadge below.
@@ -306,33 +310,43 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, onToggle, onFie
         present) explains what THIS session's prescribed numbers already are and why; this is a
         standing "here's a sane next target" a member can act on with any exercise, prescribed
         or not. */}
-    {suggestion && <div className="overload-chip">
-      <Icon name="target" />
-      <span>{t('Target: {0} {1} × {2}', fmtNum(suggestion.w), S.unit, suggestion.r)}</span>
+    {(suggestion || plateSet) && <div className="exercise-target-row">
+      {suggestion && <div className="overload-chip">
+        <Icon name="target" />
+        <span>{t('Target: {0} {1} × {2}', fmtNum(suggestion.w), S.unit, suggestion.r)}</span>
+      </div>}
+      {plateSet && <button className="exercise-plates-btn" aria-label={t('Plate breakdown')}
+        onClick={() => platesSheet(plateSet.w, S.unit, v => onField(plateIdx, 'w', v))}>
+        <Icon name="barbell" />{t('Plates')}<span>{setBadge(entry.sets, plateIdx)}</span>
+      </button>}
     </div>}
     {bestAchievement && <div className={'progline' + (bestAchievement === 'pr' ? ' pr' : '')}>
       <Icon name={bestAchievement === 'pr' ? 'trophy' : 'arrowUp'} />
       <span>{bestAchievement === 'pr' ? t('New PR this session!') : t('Overload achieved')}</span>
     </div>}
-    <div className="card" style={{ marginTop: 10, marginBottom: 0 }}>
+    <div className="card workout-sets-card" style={{ marginTop: 10, marginBottom: 0 }}>
       {/* the header carries the same eff3 sizing as the rows, or the labels drift off their columns */}
       {(() => {
-        const sethead = <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{col3 && <span className="eff-sp">{col3.hd}</span>}{timed && <span className="ck-sp" />}</div>
-        const row = (s, i) => <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '')}>
+        const sethead = <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{(col3 || showZones) && <span className="setmeta-head">{col3?.hd}</span>}{timed && <span className="ck-sp" />}</div>
+        const row = (s, i) => {
+          const zone = zoneOf(s)
+          return <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '') + (i === plateIdx ? ' plate-active' : '')}
+            onPointerDown={() => { if (showPlates(s)) setActivePlateIdx(i) }}>
           <SetNumBtn s={s} i={i} sets={entry.sets} achievement={achievementOf(s, workPosOf[i])} onToggle={onToggle} onSetType={onSetType} />
           {cell(s, i, col1, 'w', workPosOf[i])}
           {cell(s, i, col2, 'r', workPosOf[i])}
-          {col3 && effortBadge(s, i)}
-          {(() => { const zone = zoneOf(s); return zone && <span className="zonechip" style={{ '--zc': zone.color }}
-            title={zone.short + ' · ' + t(zone.label)} aria-label={zone.short + ' · ' + t(zone.label)}>{zone.short}</span> })()}
-          {showPlates(s) && <button className="platesbtn" aria-label={t('Plate breakdown')}
-            onClick={() => platesSheet(s.w, S.unit, v => onField(i, 'w', v))}><Icon name="barbell" /></button>}
+          {(col3 || showZones) && <div className="setmeta">
+            {col3 && effortBadge(s, i)}
+            {zone && <span className="zonechip" style={{ '--zc': zone.color }}
+              title={zone.short + ' · ' + t(zone.label)} aria-label={zone.short + ' · ' + t(zone.label)}>{zone.short}</span>}
+          </div>}
           {/* A timed set is started, not typed: the timer counts the hold down and checks the
               set off itself. SetNumBtn's own tap-to-toggle still covers anyone who timed it on
               their own watch instead. */}
           {timed && <button className="setgo" aria-label={t('Start set')} disabled={s.done || !!working}
             onClick={() => onStartTimed(i)}><Icon name="play" /></button>}
-        </div>
+          </div>
+        }
         // Only split into two labelled blocks when there's actually a warmup to separate out —
         // an exercise with none (warmups off, or no working weight to ramp up to yet) keeps the
         // single plain list it always had, so nothing changes for the common case.

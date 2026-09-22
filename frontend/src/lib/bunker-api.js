@@ -32,6 +32,10 @@ export const handoffToBunker = (active, force) =>
 
 /* ---------- the shared kiosk screen (no cookie session) ---------- */
 export const fetchBunkerBoard = () => fetch('/api/bunker/board').then(okJson).then(r => r.sessions)
+export const fetchBunkerSnapshot = () => fetch('/api/bunker/board').then(okJson).then(r => ({
+  sessions: Array.isArray(r.sessions) ? r.sessions : [],
+  todayPrs: Array.isArray(r.todayPrs) ? r.todayPrs : [],
+}))
 export const fetchBunkerSettings = () => fetch('/api/bunker/settings').then(okJson)
 export const bunkerCheckin = pin =>
   fetch('/api/bunker/checkin', { method: 'POST', ...jsonHeaders, body: JSON.stringify({ pin }) }).then(okJson)

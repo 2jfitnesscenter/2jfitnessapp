@@ -24,6 +24,7 @@ import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
 import { chatRoutes } from './chat/routes.js';
 import { bunkerRoutes } from './bunker/routes.js';
+import { publicTodayPrs } from './bunker/today-prs.js';
 import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
 import * as whoopConfig from './whoop/config.js';
@@ -2357,7 +2358,10 @@ const routes = {
   // comment for why the live session board itself is in-memory instead, same as `presence`
   // above. sign/verifySig are the exact functions the signed session cookie itself uses, reused
   // for the kiosk's own short-lived, narrowly-scoped tokens (never a full login).
-  ...bunkerRoutes({ json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users }),
+  ...bunkerRoutes({
+    json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users,
+    todayPrs: () => publicTodayPrs({ wall: social.wall, readState }),
+  }),
 
   /* ---------- connected apps: Strava (push workouts), Whoop (pull recovery) ---------- */
   ...stravaRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN }),

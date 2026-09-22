@@ -1056,6 +1056,37 @@ convergencia del contenedor/proxy e imprime los valores recibidos. El check aisl
   `invite_only`, code splitting e integración nativa `VITE_MOBILE=1`; revisión/merge de PR
   #10 cuando el usuario lo decida.
 
+### CHECKPOINT — SOCIAL DATES + WORKOUT MOBILE + BUNKER LIVE — 2026-09-22
+
+Producción continúa en `ab3c7dc`; este checkpoint no está desplegado. Rama de trabajo:
+`feat/pwa-tanita-bunker-roadmap`, partiendo de `a20dbda`.
+
+- Social: el formateador común ya admite fechas de calendario `YYYY-MM-DD`, timestamps en
+  milisegundos, timestamps numéricos serializados e ISO. Los valores ausentes o corruptos
+  muestran `—`, nunca `Invalid Date`; el mismo normalizador ordena las publicaciones mixtas de
+  Rutinas y Entrenadores. La causa era concatenar `T12:00:00` también a `createdAt`, aunque el
+  API guarda ese campo como `Date.now()`.
+- Entrenamiento móvil: se retiró el calculador de discos de cada fila. Los ejercicios compatibles
+  muestran un único botón `Discos` junto al objetivo y lo aplican a la serie activa, que cambia al
+  tocar una fila. A 360 px no hay overflow horizontal; ambas parejas −/+ permanecen visibles junto
+  con RPE/RIR y zona. El calculador abre y aplica sobre la serie indicada.
+- Bunker Live: el board existente incluye `HOY EN 2J / PRs DE HOY` dentro del mismo polling de
+  cuatro segundos, sin petición adicional. La fuente sigue siendo `social.wall` y la lista `prs`
+  persistida por el finish normal del workout. Solo se proyectan publicaciones marcadas
+  explícitamente `public`, correspondientes al día del gimnasio y cuyo valor coincide con una
+  serie real del workout clasificada como PR; los estados privados, ausentes, ordinarios o de otro
+  día no se muestran. No hay ranking y el estado vacío no expone identidades.
+
+Validación final: frontend **602/602** (36 archivos), backend **213/213**, build Vite OK (solo el
+aviso conocido de chunks grandes), check de locales OK bajo la política actual y
+`git diff --check` OK. Verificación visual local a 360 px completada. Tests nuevos cubren formatos
+de fecha actuales/legacy/inválidos y la selección pública/privada, fecha, estado ausente y valor
+exacto de PR de Bunker Live.
+
+Pendiente operativo: desplegar este checkpoint únicamente cuando se autorice y hacer smoke no
+destructivo en producción de Wall/Entrenadores, una sesión móvil estrecha y el estado vacío/lleno
+de PRs de hoy con cuentas de prueba. La deuda ya inventariada para v1.3.x permanece sin cambios.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.

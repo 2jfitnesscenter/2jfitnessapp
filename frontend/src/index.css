@@ -813,7 +813,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .sethead .n-sp{width:36px;flex:none}
 .sethead .w-sp{flex:1.4;text-align:center}
 .sethead .r-sp{flex:1;text-align:center}
-.sethead .eff-sp{text-align:center}
+.setmeta-head{flex:1.1;text-align:center;min-width:0}
 .sethead .ck-sp{width:30px;flex:none}
 .setrow{display:flex;align-items:center;gap:8px;padding:7px 0;position:relative}
 .setrow+.setrow::before{
@@ -838,7 +838,8 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow .n.on.pr{background:var(--yellow);color:#000}
 .setrow .stp.w{flex:1.4;min-width:0}
 .setrow .stp.r{flex:1;min-width:0}
-.setrow .stp.eff{flex:1.1;min-width:0}
+.setrow .stp.eff{flex:1;min-width:0}
+.setmeta{display:flex;align-items:center;justify-content:center;gap:5px;flex:1.1;min-width:0}
 /* Micro +/- buttons (spec: ~20-22px) so the value between them always has room — the value
    area itself (.stp .val, below) has its own min-width floor regardless of how narrow these
    get, which is what actually stops a 3-digit decimal like "102.5" from clipping. */
@@ -860,13 +861,9 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow.eff3,.sethead.eff3{gap:7px}
 .setrow.eff3 .stp.w,.sethead.eff3 .w-sp{flex:1.2}
 .setrow.eff3 .stp.r,.sethead.eff3 .r-sp{flex:1}
-.setrow.eff3 .stp.eff,.sethead.eff3 .eff-sp{flex:.85}
+.setrow.eff3 .setmeta,.sethead.eff3 .setmeta-head{flex:.9}
 .setrow.eff3 .stp.w button,.setrow.eff3 .stp.r button{width:20px}
 .setrow.eff3 .stp .num{font-size:calc(14px * var(--text-scale,1))}
-/* the plate button is a 4th thing competing for the same row once effort tracking is also on —
-   shrink it the same way the RIR/RPE stepper already shrinks, or its value clips (issue: barbell
-   plate calculator felt cramped next to RPE) */
-.setrow.eff3 .platesbtn{width:22px;height:22px;font-size:calc(11px * var(--text-scale,1))}
 .setrow.done{opacity:.45}
 /* The effort column, once it's a tap-to-open badge (EffortSheet) rather than a +/- stepper —
    sits inside the same .stp.eff wrapper so the existing eff3 width rules still size the column,
@@ -898,6 +895,14 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   font-size:calc(12.5px * var(--text-scale,1));font-weight:600;
 }
 .overload-chip svg{width:14px;height:14px}
+.exercise-target-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.exercise-plates-btn{
+  min-height:38px;padding:7px 11px;border-radius:10px;background:var(--surface-2);color:var(--label);
+  display:inline-flex;align-items:center;gap:6px;font-size:calc(13px * var(--text-scale,1));font-weight:600;
+}
+.exercise-plates-btn svg{width:16px;height:16px;color:var(--acc)}
+.exercise-plates-btn span{min-width:20px;padding:1px 5px;border-radius:99px;background:var(--surface-3);font-size:calc(11px * var(--text-scale,1));text-align:center}
+.exercise-plates-btn:active{background:var(--surface-3)}
 
 /* --- weekly volume zones (Workout.jsx's RpVolumeBar, lib/rp-volume.js) --- */
 .rpbar-wrap{margin:2px 0 10px}
@@ -931,15 +936,6 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .setrow .setgo:disabled{opacity:.3;cursor:default}
 .setrow .setgo:not(:disabled):active{background:var(--surface-3)}
-/* opens the plate breakdown (issue: barbell plate calculator) — informational, not a state
-   toggle, so it stays neutral rather than borrowing setgo's accent colour */
-.setrow .platesbtn{
-  width:28px;height:28px;border-radius:50%;flex:none;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--surface-2);color:var(--label-2);font-size:calc(13px * var(--text-scale,1));
-  transition:background var(--fast);
-}
-.setrow .platesbtn:active{background:var(--surface-3)}
 /* --- plate calculator (sheets.jsx's PlatesSheet) --- */
 .platessheet{text-align:center}
 .ps-head{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:2px}
@@ -989,6 +985,24 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   background:var(--zc);color:#fff;font-weight:700;font-size:calc(11px * var(--text-scale,1));
   text-shadow:0 1px 1px rgba(0,0,0,.25);
   letter-spacing:-.01em;
+}
+/* At 360–400px the set card spends less width on padding, while the two +/- controls retain
+   real 32×44px targets. Numeric cells may use the remaining width instead of clipping the +.
+   The per-row plate icon no longer competes for this row; its single replacement sits above. */
+@media (max-width:430px){
+  .workout-sets-card{padding-left:8px;padding-right:8px}
+  .setrow,.sethead{gap:4px}
+  .setrow .n{width:32px;height:40px}
+  .sethead .n-sp{width:32px}
+  .setrow .stp button,.setrow.eff3 .stp.w button,.setrow.eff3 .stp.r button{width:32px;min-height:44px}
+  .setrow .stp .val{min-width:0;padding-left:0;padding-right:0}
+  .setrow .stp.w,.sethead .w-sp{flex:1.25}
+  .setrow .stp.r,.sethead .r-sp{flex:1}
+  .setrow.eff3 .setmeta,.sethead.eff3 .setmeta-head{flex:none;width:70px}
+  .setmeta{gap:3px}
+  .setmeta .zonechip{min-width:23px;padding:0 4px}
+  .setrow.eff3 .effbadge{font-size:calc(11px * var(--text-scale,1));gap:1px}
+  .setrow.eff3 .effbadge .em{display:none}
 }
 /* exercise-config sheet: three steppers side by side on narrow phones */
 .cfgrow{gap:8px}
@@ -1774,6 +1788,22 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   padding:18px 40px;font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px;
 }
 .bk-join:disabled{opacity:.4}
+.bk-live-prs{
+  width:min(100%,980px);margin:26px auto 0;padding:18px 20px;border-radius:18px;
+  background:linear-gradient(135deg,#171719,#101012);border:1px solid #27272b;flex:none;
+}
+.bk-live-prs-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.035em}
+.bk-live-prs-head strong{font-size:13px;color:#ffd60a;background:rgba(255,214,10,.1);border-radius:99px;padding:5px 10px;white-space:nowrap}
+.bk-live-prs-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.bk-live-pr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:11px 13px;border-radius:12px;background:#1d1d20;min-width:0}
+.bk-live-pr-person{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-live-pr-mark{grid-column:1;display:flex;gap:6px;color:#aaaab0;font-size:13px;min-width:0}
+.bk-live-pr-mark span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-live-pr-mark b{color:#f2f2f2;white-space:nowrap}
+.bk-live-pr-delta{grid-column:2;grid-row:1/3;align-self:center;color:#73b52e;font-size:15px;font-weight:800;white-space:nowrap}
+.bk-live-prs-empty{display:flex;align-items:center;justify-content:center;gap:8px;color:#77777d;font-size:14px;padding:8px}
+.bk-live-prs-empty svg{color:#4d4d52}
+.bk-live-prs-empty small{color:#5e5e63}
 
 .bk-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(12px);z-index:2;display:flex;align-items:center;justify-content:center}
 .bk-pad{position:relative;background:#141417;border-radius:24px;padding:36px;width:min(90vw,420px);text-align:center}
@@ -1864,6 +1894,12 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   .bk-topbar-tabs{order:3;flex-basis:100%;width:100%}
   .bk-topbar-tab span{display:none}
   .bk-tabpane{padding:20px 16px}
+  .bk-dash{padding:20px 16px}
+  .bk-live-prs{padding:14px;margin-top:20px}
+  .bk-live-prs-head{font-size:15px}
+  .bk-live-prs-list{grid-template-columns:1fr}
+  .bk-live-prs-empty{flex-wrap:wrap;text-align:center}
+  .bk-live-prs-empty small{flex-basis:100%}
 }
 @media (max-width:1180px){.bk-multi-grid{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));overflow-y:auto}.bk-multi-grid>.bk-panel{min-height:520px}}
 
