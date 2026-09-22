@@ -13,6 +13,9 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci 2>/dev/null || npm install
 COPY frontend/ ./
 RUN npm run build
+# nginx serves a matching .gz file directly through gzip_static, avoiding runtime compression
+# work and guaranteeing JavaScript/CSS ship compressed even under sustained kiosk traffic.
+RUN find dist -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.svg' -o -name '*.html' \) -exec gzip -9 -k {} \;
 
 FROM nginx:alpine
 COPY web/nginx.conf /etc/nginx/conf.d/default.conf
