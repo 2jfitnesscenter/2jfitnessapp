@@ -3,6 +3,164 @@
 > Punto de traspaso entre agentes (Claude Code / Codex). Resumen operativo, no sustituye
 > inspeccionar el repo — ver "Protocolo de relevo" al final.
 
+## RELEVO VIGENTE PARA CLAUDE CODE — 2026-09-23
+
+Esta sección y el cierre de deployment de `23226f6` prevalecen sobre las notas históricas
+del documento. Los antiguos "sin commit", "no desplegado" y bloqueos describen su fecha,
+no tareas que haya que repetir ahora.
+
+### IMPLEMENTADO / PRODUCCIÓN / VALIDADO
+
+- Rama inspeccionada: `feat/pwa-tanita-bunker-roadmap`. HEAD al iniciar este relevo:
+  `8269fa0` (`docs: confirm 23226f6 production deployment and sprint closure`).
+  Al iniciar la revisión no había nuevos commits ni cambios funcionales tracked desde
+  esa actualización. El cierre conserva ahora las herramientas operativas de Codex y sus
+  pruebas en Git; no cambia el código de la aplicación ni el commit desplegado.
+- Último código: `23226f635c1508600a17afafafb5f8bb31a79180`. Producción confirmada por
+  el usuario el 22 Sep 2026 en ese mismo commit, estable y validada manualmente.
+  No se ha consultado ni modificado producción durante este relevo documental.
+- Deployment y smoke completos cerrados: health interno/externo, Data/Sync, Bunker,
+  Social, IA/import, PWA, JS/CSS, gzip/cache/security headers y API/Web/Caddy.
+  Los 401 esperados prueban protección de endpoints, no un flujo autenticado completo.
+  No queda deployment pendiente de `23226f6`.
+- Última validación registrada del release: frontend **604/604**, backend **216/216**,
+  build, locales y diff checks OK. Visual Bunker 1/2/3 usuarios y tablet OK; el usuario
+  confirmó uso correcto en producción y previamente Sync/conflictos en móvil real.
+  Es evidencia del release, no una nueva ejecución de tests el 23 Sep. Los comandos
+  actuales son `npm test` dentro de `frontend/` y `api/`, y `npm run build` en `frontend/`.
+  Ambos package.json conservan versión `1.3.0`: identificar el deployment por commit.
+
+### Trabajo de Codex que no debe rehacerse
+
+| Commit | Implementación / decisión |
+| --- | --- |
+| `90d98fe` | Eliminación explícita de workout conservada tras fallo/retry; no resurrección por push posterior. |
+| `51a221d` | Sync V2 Core con control de conflictos multidispositivo. |
+| `437a13c`, `6c548f7` | Base mínima de rollback compatible Sync V2 y documentación operativa. |
+| `c4597e3` | Bunker multiusuario y tarjetas para compartir. |
+| `e62746c` | Resolución segura de conflictos Sync V2. |
+| `494f375`, `edd8a6a` | Rate limit Bunker, política de locales heredados y revocación/expiración de acceso. |
+| `56cecdc` | Gzip/cache, service worker y backup de producción. |
+| `f106a0e` | Persistencia Bunker resiliente, CSV/aliases/fingerprints, disponibilidad inmediata y cap diario de IA auxiliar. |
+| `6c5c46d` | Fechas Social, calculador de discos móvil y Bunker Live con PR públicos del día. |
+| `23226f6` | Diagnósticos/retry IA de importación, Cambiar ejercicio V2 y layout Bunker compacto. |
+| `8269fa0` | Confirmación documental del deployment final y cierre del sprint. |
+| `b542b74` | Conserva runner corregido de deployment, dos suites de regresión y requisitos de reproducción local; no cambia aplicación ni producción. |
+
+En `23226f6`, Bunker centra una sesión, muestra dos/tres columnas según ancho y mantiene
+scroll por sesión; navegación horizontal con código e identificación del ejercicio en dos
+líneas y Hoy en 2J visible. El selector común de ejercicios ofrece recomendados, relacionados
+y todos, filtros/búsqueda y cambio no equivalente con aviso. Reutiliza aliases existentes.
+IA/importación conserva diagnóstico seguro y hace como máximo un retry ante red/timeout,
+429/500/502/503/504, sin retry por errores permanentes ni JSON inválido; mantiene el cap.
+Referencias: `frontend/src/views/Bunker.jsx`, `frontend/src/index.css`, `frontend/src/sheets.jsx`,
+`frontend/src/lib/alternatives.js`, `api/lib/import-exercise-match.js` y
+`api/coach/adapters/gemini.js`. No se verificaron llamadas reales al proveedor en este relevo.
+
+### Decisiones arquitectónicas y operación
+
+- Conservar revisión/generación, tombstones y receipts de Sync V2. Un snapshot legacy
+  obsoleto no puede sobrescribir estado V2. No volver a código anterior a la base marcada
+  en `SYNC_V2_ROLLBACK_BASE`; `90d98fe` no es un rollback válido sobre datos V2.
+- Sync V2 mantiene coordinación monoproceso; escalar API a varios procesos exige diseño
+  compartido. Retención/poda de receipts, tombstones y journal sigue pendiente de diseño.
+- DELETE explícito es autoritativo; ausencia en un snapshot stale no equivale a DELETE.
+  No reabrir la deuda general de concurrencia de routines/programs/dayPlan sin alcance expreso.
+- Bunker conserva escrituras/finish pendientes y reintenta idempotentemente sin perder sets;
+  expiración se comprueba en acceso, sin depender del board. A2/A5/M4/A6/A7/M1/M2 y permisos
+  globales de aliases están cerrados. Import aliases y machine aliases globales solo admiten
+  escritura trainer/admin. No crear un sistema paralelo de aliases ni alterar IDs/historial.
+- Importación: determinista → aliases/fingerprints → IA auxiliar → revisión manual.
+  Cap reservado antes de proveedor; los diagnósticos no deben exponer prompts ni credenciales.
+- Bunker Live reutiliza polling y PR públicos persistidos, sin ranking ni exposición de privados.
+- Deployment documentado al final: SCP binario + SHA-256, backup verificado, rollback Sync V2,
+  build/up y smoke estricto con retries. SSH requiere contraseña interactiva del operador;
+  no almacenarla ni automatizarla. No mergear PR #10 ni desplegar sin autorización.
+- Los fallos de scripts están resueltos, no son bugs abiertos del release: rollback doble por
+  subshell, inicialización de timeout y selector CSS buscado en JS. Curl 56/28 transitorios
+  reintentan; rollback solo en shell principal. No volver a diagnosticar curl 56 como la causa
+  del rollback observado: el log identificó `main-asset-smoke`.
+
+### Herramientas de Codex conservadas y clasificación de archivos locales
+
+Al iniciar esta actualización no había modificaciones tracked, pero sí cuatro archivos
+**sin seguimiento por Git**: `deploy-23226f6.ps1`, `deploy-6c5c46d.ps1`,
+`scripts/test-deploy-assets.ps1` y `scripts/test-deploy-retry.ps1`.
+Todos fueron creados durante el trabajo de Codex. Clasificación revisada expresamente con
+autorización del usuario para completar el relevo, sin borrar ningún archivo:
+
+- `deploy-23226f6.ps1` — **CONSERVAR EN GIT**: procedimiento corregido de deployment/rollback
+  y smoke. Es referencia fija del paso `6c5c46d` → `23226f6`, no un deploy pendiente ni un
+  script genérico. Conserva guardas de HEAD y producción origen; no ejecutarlo de nuevo
+  sobre el estado actual ni saltarse esas guardas.
+- `scripts/test-deploy-retry.ps1` — **CONSERVAR EN GIT**: regresiones con funciones/caller/traps
+  reales y efectos externos simulados; transient success, timeout de 120 s con rollback único
+  y servicios. No hace SSH ni Docker real.
+- `scripts/test-deploy-assets.ps1` — **CONSERVAR EN GIT**: smoke real con HTTP simulado y assets
+  compilados; positivo, CSS incorrecto y dos fallos DNS transitorios. Ahora descubre los nombres
+  JS/CSS desde `frontend/dist/index.html`, sin depender de hashes del build local anterior.
+- `deploy-6c5c46d.ps1` — **LOCAL-TEMPORAL**, sin seguimiento y sin borrar: runner histórico
+  superado que carece de las correcciones finales. No contiene trabajo funcional único que
+  Claude necesite. No es el mecanismo de rollback actual; este está en el runner conservado.
+
+Requisitos e instrucciones reproducibles tras clonar: `docs/DEPLOY_CHECKPOINT_23226f6.md`.
+Windows PowerShell + Git Bash en C; el test de assets requiere `npm ci` y `npm run build`
+en `frontend/` si no existe el build. No versionar `dist`, releases tar, logs, backups,
+credenciales ni datos runtime. Los resultados de pruebas se guardan solo en `%TEMP%`.
+Estas herramientas se añaden después del release; no se afirma que estén en su tar original.
+
+Verificación de publicación: antes de añadir herramientas, local y origin coincidían en
+`8269fa0ed07371c8613faf8828e9f070f7731a4f` (0 commits de diferencia). Se comprobó con Git que
+los 13 commits enumerados del trabajo Codex son ancestros de la rama remota. No había
+cambios staged ni código funcional sin commit. El cierre publica herramientas y este relevo
+en commits separados; el único archivo local excluido es el runner histórico anterior.
+
+Validación del cierre de herramientas (23 Sep 2026): tres escenarios de retry/rollback/servicios
+OK; timeout real 120,8 s, 59 intentos y exactamente un rollback simulado. Tres escenarios de
+assets OK (positivo, rechazo de CSS sin selector y dos DNS 28 seguidos de éxito). Sintaxis de
+los tres PowerShell y Bash remoto OK; revisión de contenido y diff checks sin secretos,
+backups ni artefactos incorporados. No se repitieron suites de aplicación porque su código
+no cambió; sus últimas cifras verificadas del release siguen siendo 604/604 y 216/216.
+
+### Backlog real y siguiente paso
+
+No hay bloqueo crítico conocido tras la confirmación de producción. Prioridad: uso normal,
+acumular bugs/pulido visual y agruparlos en un sprint; revisar importación/IA con casos reales
+si vuelve a fallar. Después: Profile/Settings y Mi 2J. No tocar infraestructura sin incidencia.
+La validación manual general no demuestra cada capability de IA ni cada caso con cuentas de
+prueba. Mantener como deuda la retención Sync, unidades de pesos históricos, traducciones
+heredadas parciales, y mejoras de edición de conflictos; no convertirlas en trabajo autorizado.
+
+### PLANIFICADO / ROADMAP — NO IMPLEMENTAR EN ESTE RELEVO
+
+Estas son decisiones de producto o propuestas pendientes, no funciones completadas por
+esta actualización. Los módulos actuales con nombres similares no equivalen a sus versiones V2.
+
+- **Health V2:** conexión real entre salud, check-ins, entrenamiento, seguimiento y revisión
+  del entrenador. Los datos recogidos deben influir en entrenamiento/seguimiento, no ser solo visuales.
+- **Composición corporal segmental:** futura valoración verde/naranja/rojo basada en referencias
+  u objetivos adecuados, por definir; ofrecer modo neutral/desactivable desde Ajustes.
+- **Mi 2J:** hacer visibles y celebrar rangos de fuerza, gemas, logros, PR y cambios de rango
+  después del entrenamiento; no confundir esta evolución con elementos ya existentes.
+- **Constructor de Rutinas V2 para entrenadores:** ejercicios → bloques reutilizables →
+  rutinas/programas reutilizables → asignación/personalización. Editor desktop con días
+  simultáneos, biblioteca lateral y drag&drop de ejercicios/bloques.
+- **Asesoramiento/Seguimiento V2:** cuestionarios iniciales configurables, seguimientos
+  periódicos, revisiones, métricas, fotos privadas, preguntas y solicitudes automatizadas
+  al socio. Integrar posteriormente con Health V2, entrenamiento e IA del entrenador.
+- **Social Moderation V1** y **Amigos V2:** el usuario indica que ya están definidos.
+  No se localizó su especificación detallada en los documentos inspeccionados; recuperar
+  esa definición antes de implementarlos, sin inventar alcance ni marcarlos como entregados.
+- **Library V2:** preservar IDs e historial y evolucionar hacia movimiento canónico →
+  variantes → implementación/equipamiento.
+- **Onboarding progresivo:** tutorial visual corto, omisible y repetible desde Ajustes/Ayuda;
+  descubrir funciones avanzadas mediante contexto sin activarlas automáticamente.
+- **Defaults futuros SOLO para cuentas nuevas:** series de calentamiento OFF; recordatorio
+  de bioimpedancia OFF; zonas de entrenamiento OFF; asistente progresivo de sobrecarga OFF;
+  cristal líquido ON. No modificar automáticamente preferencias de usuarios existentes.
+- **No iniciar todavía:** Health V2, Library V2, Gym Profiles, rankings/records generales,
+  challenges avanzados, CSP ni cambios grandes de Sync V2. Roadmap no implica autorización.
+
 ## Proyecto
 2J Fitness Center — app de gimnasio real. Frontend React 19 + Vite + Zustand
 (`frontend/`), backend Node `http`-module sin framework (`api/`), Docker Compose + Caddy
@@ -21,7 +179,9 @@ estabilización anterior: `f106a0e` — "fix: make Bunker and imports resilient"
 Todos están en `origin/feat/pwa-tanita-bunker-roadmap`. **PR #10 abierto** —
 [github.com/2jfitnesscenter/2jfitnessapp/pull/10](https://github.com/2jfitnesscenter/2jfitnessapp/pull/10),
 `feat/pwa-tanita-bunker-roadmap` → `2jfitness-dev` (la rama por defecto real del repo —
-`main` no existe), `MERGEABLE`, 61 archivos. `gh` CLI SÍ está instalado en este entorno,
+`main` no existe según la comprobación histórica). Estado remoto del PR no reconsultado
+en este relevo; no reutilizar como actuales los antiguos datos de mergeabilidad o número
+de archivos. `gh` CLI SÍ está instalado en este entorno,
 solo que no en el `PATH` de la sesión de shell activa — el binario está en
 `C:\Program Files\GitHub CLI\gh.exe`, ya autenticado como `2jfitnesscenter`. Usar la ruta
 completa o `--repo 2jfitnesscenter/2jfitnessapp` explícito: el `remote upstream` de este
@@ -56,9 +216,8 @@ No reabrir A2/A5/M4/A6/A7/M1/M2 ni permisos de aliases sin una regresión demost
 - **Rama por defecto real del repo en GitHub: `2jfitness-dev`, NO `main`** (descubierto al
   intentar abrir el PR — `main` no existe como rama en este repositorio). Cualquier comando
   `gh pr create --base main` de sesiones anteriores está mal — usar
-  `--base 2jfitness-dev`. `feat/pwa-tanita-bunker-roadmap` está 11 commits por delante de
-  `2jfitness-dev` y 1 por detrás (confirmado en
-  `github.com/2jfitnesscenter/2jfitnessapp/compare/2jfitness-dev...feat/pwa-tanita-bunker-roadmap`).
+  `--base 2jfitness-dev`. Los antiguos recuentos de divergencia de ramas eran históricos;
+  recalcularlos si se autoriza trabajar sobre el PR.
 - **Incidente en el despliegue de V1+V2 (corregido en el momento, no repetido en ninguno
   de los siguientes)**: el `chown` post-tar usaba `--exclude`, que no es una opción válida
   de `chown`, y cambió por error la propiedad de `/opt/2jfitness/data` (debe ser
@@ -616,7 +775,7 @@ correctamente en `data/coach.json`, que el deploy nunca toca).
 
 ---
 
-## CURRENT CHECKPOINT — v1.3.1 stabilization — 2026-09-21
+## CHECKPOINT HISTÓRICO — v1.3.1 stabilization — 2026-09-21
 
 Punto de traspaso explícito Claude → Codex. Este checkpoint resume el estado real tras la
 validación cruzada de dos auditorías independientes sobre v1.3.0/PR #10 y la Fase 1 de
@@ -763,7 +922,7 @@ Las 10 ausentes en es: `After how many workouts`, `Endurance`,
 Sin commit, push, merge ni deploy. Próximo paso: revisar el bloqueo de wipe offline;
 no continuar automáticamente con Fase 2.
 
-## CURRENT CHECKPOINT — Sync V2 Core — 2026-09-21 — SIN COMMIT
+## CHECKPOINT HISTÓRICO — Sync V2 Core — 2026-09-21 — previo al commit 51a221d
 
 Base `90d98fe` (`fix: preserve workout deletion across retry`), ya commiteado y
 pusheado por autorización expresa. Rama `feat/pwa-tanita-bunker-roadmap`.
