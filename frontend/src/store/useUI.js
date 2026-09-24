@@ -4,6 +4,7 @@ import { beep, vibrate } from '../lib/sound.js'
 import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { useStore } from './useStore.js'
+import { workoutPrefs } from '../lib/workout-prefs.js'
 
 // Fire-and-forget: lets the server push a "rest over" alert if this tab gets suspended
 // before the local timer completes. No-ops for guests / offline.
@@ -17,7 +18,36 @@ let workInt = null
 let workTick = null
 let workDone = null
 
-export const useUI = create((set, get) => ({
+const restPrefs = () => workoutPrefs(useStore.getState().S)
+const clearRestTick = () => {
+  if (timerInt) clearInterval(timerInt); timerInt = null
+  if (timerTick) document.removeEventListener('visibilitychange', timerTick); timerTick = null
+}
+// The end-of-rest announcement, gated by the three rest switches. Exported for tests.
+export function announceRestOver(P, toast) {
+  if (!P.restAlert) return
+  beep(P.sound, 880, 0.15); beep(P.sound, 880, 0.15, 0.25); beep(P.sound, 1320, 0.4, 0.5)
+  if (P.vibrate) vibrate([200, 100, 200])
+  toast(t('Rest over — next set!'))
+}
+let runRest = () => {}
+
+export const useUI = create((set, get) => {
+  runRest = () => {
+    timerTick = () => {
+      const tm = get().timer
+      if (!tm || tm.paused) return
+      const left = Math.max(0, Math.round((tm.endsAt - Date.now()) / 1000))
+      if (left === tm.left) return
+      const P = restPrefs()
+      if (left <= 0) { announceRestOver(P, get().toast); get().stopRest(); return }
+      if (left <= 3 && P.restAlert) beep(P.sound, 660, 0.1)
+      set({ timer: { ...tm, left } })
+    }
+    timerInt = setInterval(timerTick, 1000)
+    document.addEventListener('visibilitychange', timerTick)
+  }
+  return {
   sheets: [],          // { id, render:(close)=>JSX, kind:'sheet'|'center', locked, wide }
   toastMsg: '',
   timer: null,         // rest countdown between sets — { left, total, endsAt }
@@ -56,26 +86,20 @@ export const useUI = create((set, get) => ({
     toastTm = setTimeout(() => set({ toastMsg: '' }), 2200)
   },
 
+  // Rest between sets (Workout V2): the same countdown, now pausable, and announced according
+  // to the member's rest preferences (lib/workout-prefs.js) read at the moment it matters, so a
+  // switch flipped mid-rest applies at once. What a PWA can promise: while the app is open and
+  // the screen on, the end is announced locally (sound via WebAudio, vibration where the device
+  // supports navigator.vibrate — Android yes, iOS no). In the background or with the screen
+  // locked the browser suspends timers and audio; there the only signal is the server's Web Push
+  // "rest over" (needs notification permission and a connection), which is skipped when the
+  // alert is off. On return the countdown catches up from its end time, never from ticks.
   startRest(sec, exercise) {
     get().stopRest()
     const endsAt = Date.now() + sec * 1000
-    set({ timer: { left: sec, total: sec, endsAt, exercise } })
-    pushRestTimer(sec, exercise)
-    timerTick = () => {
-      const tm = get().timer
-      if (!tm) return
-      const left = Math.max(0, Math.round((tm.endsAt - Date.now()) / 1000))
-      if (left === tm.left) return
-      const snd = useStore.getState().S.sound
-      if (left <= 0) {
-        beep(snd, 880, 0.15); beep(snd, 880, 0.15, 0.25); beep(snd, 1320, 0.4, 0.5)
-        vibrate([200, 100, 200]); get().toast(t('Rest over — next set!')); get().stopRest(); return
-      }
-      if (left <= 3) beep(snd, 660, 0.1)
-      set({ timer: { ...tm, left } })
-    }
-    timerInt = setInterval(timerTick, 1000)
-    document.addEventListener('visibilitychange', timerTick)
+    set({ timer: { left: sec, total: sec, endsAt, exercise, paused: false } })
+    if (restPrefs().restAlert) pushRestTimer(sec, exercise)
+    runRest()
   },
   addRest(sec) {
     const tm = get().timer
@@ -85,11 +109,25 @@ export const useUI = create((set, get) => ({
     // negative duration out of both the progress bar and the server-side push schedule
     if (left <= 0) { get().stopRest(); return }
     set({ timer: { ...tm, left, total: tm.total + sec, endsAt: tm.endsAt + sec * 1000 } })
-    pushRestTimer(left, tm.exercise)
+    if (!tm.paused && restPrefs().restAlert) pushRestTimer(left, tm.exercise)
+  },
+  pauseRest() {
+    const tm = get().timer
+    if (!tm || tm.paused) return
+    clearRestTick()
+    const left = Math.max(1, Math.round((tm.endsAt - Date.now()) / 1000))
+    cancelPushRestTimer()
+    set({ timer: { ...tm, left, paused: true } })
+  },
+  resumeRest() {
+    const tm = get().timer
+    if (!tm || !tm.paused) return
+    set({ timer: { ...tm, paused: false, endsAt: Date.now() + tm.left * 1000 } })
+    if (restPrefs().restAlert) pushRestTimer(tm.left, tm.exercise)
+    runRest()
   },
   stopRest() {
-    if (timerInt) clearInterval(timerInt); timerInt = null
-    if (timerTick) document.removeEventListener('visibilitychange', timerTick); timerTick = null
+    clearRestTick()
     if (get().timer) cancelPushRestTimer()
     set({ timer: null })
   },
@@ -117,7 +155,7 @@ export const useUI = create((set, get) => ({
       const snd = useStore.getState().S.sound
       if (left <= 0) {
         beep(snd, 880, 0.15); beep(snd, 880, 0.15, 0.25); beep(snd, 1320, 0.4, 0.5)
-        vibrate([200, 100, 200])
+        if (restPrefs().vibrate) vibrate([200, 100, 200])
         const done = workDone
         get().stopWork()
         if (done) done(wk.total)
@@ -146,4 +184,5 @@ export const useUI = create((set, get) => ({
     workDone = null
     set({ work: null })
   }
-}))
+}
+})
