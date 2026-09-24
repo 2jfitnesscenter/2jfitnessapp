@@ -2192,4 +2192,7 @@ export default {
   'general': 'general',
   'muscle': 'músculo',
   'strength': 'fuerza',
+  'Offline · Saving on this device': 'Sin conexión · Guardando en este dispositivo',
+  'Syncing…': 'Sincronizando…',
+  'All synced ✓': 'Todo sincronizado ✓',
 }

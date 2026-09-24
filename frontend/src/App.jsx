@@ -12,6 +12,7 @@ import TabBar from './components/TabBar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Modals from './components/Modals.jsx'
 import Toast from './components/Toast.jsx'
+import SyncIndicator from './components/SyncIndicator.jsx'
 import RestTimer from './components/RestTimer.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
 import FriendsWatcher from './components/FriendsWatcher.jsx'
@@ -174,6 +175,8 @@ function Shell() {
     <>
       {/* keyed on the route: a view that throws is contained, and switching tabs
           re-mounts the boundary, so the tab bar is always a way out */}
+      {/* outside the route-keyed #app so its offline → synced state survives navigation */}
+      {authed && <SyncIndicator />}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
           {!authed ? <Login /> : needsOnboarding ? <PhysicalProfileWizard /> : (

@@ -1550,6 +1550,15 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   max-width:88vw;text-align:center;
 }
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* connection pill (components/SyncIndicator.jsx): in the flow above #app, so it never covers
+   a header while a workout is logged offline */
+.sync-pill{
+  display:table;margin:calc(var(--sat) + 6px) auto -2px;padding:3px 11px;border-radius:99px;
+  font-size:calc(12px * var(--text-scale,1));font-weight:500;color:var(--label-2);
+  background:var(--surface-2);
+}
+.sync-pill.synced{color:var(--green)}
+body:has(.sync-pill) #app{padding-top:8px}
 
 /* ---------------------------------------------------------------- misc --- */
 .empty{text-align:center;color:var(--label-2);padding:44px 20px;font-size:calc(15px * var(--text-scale,1));line-height:1.45}
