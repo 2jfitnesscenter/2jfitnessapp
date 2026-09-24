@@ -1341,6 +1341,34 @@ Próxima fase: uso normal y acumulación de incidencias para sprint agrupado; de
 Profile/Settings y Mi 2J. No iniciar Health V2, Library V2, Gym Profiles ni otros cambios
 grandes. No tocar infraestructura salvo incidencia real. No se ha mergeado PR #10.
 
+## Saneamiento + Offline Training V1 — 2026-09-24 (Claude, sin desplegar)
+
+Commits: `484b016` LICENSE AGPL-3.0 oficial restaurada · `cd24a13` audit API (transitivas
+fast-uri/hono/qs, sin majors) · `7c560f5` react-router-dom 7.18.4 · `de29ff9` rate limit
+auth pública · `cc461b3` offline: sesión activa fuera del journal · `887e6f3` pill de conexión.
+Producción sigue en `23226f6`: nada de esto está desplegado.
+
+- **Rate limit** (`api/bunker/rate-limit.js` `authLimiters`, mismo `AttemptLimiter` del Bunker,
+  por IP de cliente): `register|login|recover/options` 30/min (cada una crea challenge) + tope
+  de 10 000 challenges abiertos (503); `*/verify` 20 fallos/min; `recover/request` 5/10 min.
+  429 + `Retry-After`. Test: `api/test/auth-rate-limit.test.js` (puerto 34572).
+- **583 vs 604** (reproducido): con Node 20, `src/lib/import-match.test.js` (21 tests) no carga
+  — `lib/api.js` lee `navigator.userAgent` al importarse y `navigator` global solo existe
+  desde Node 21. 604 − 21 = 583, con 1 archivo fallido. CI y producción usan Node 22 → 604.
+  No es un fallo de la app (en el navegador `navigator` siempre existe); no se tocaron tests.
+- **Offline Training V1**, auditado: SW (`public/sw.js`) sirve `index.html` cacheado offline,
+  `/assets/*` e `/img|/gif` cache-first una vez cargados; Workout va en el bundle principal
+  (sin chunks lazy). `gym_state_v1` guarda `active` en cada cambio; boot offline conserva
+  `gym_user`. Finish → una operación Sync V2 durable e idempotente (receipt por operationId).
+  Hueco corregido: cada serie encolaba un snapshot completo del estado (el servidor descarta
+  `active` en saves) → offline crecía localStorage por serie hasta QuotaExceeded. Ahora un
+  cambio solo de `active` no se encola (`sessionOnlyChange`); un draft antiguo de la misma
+  sesión no pisa series nuevas; el clear pendiente se reintenta también en `online`.
+  Tests: `src/store/offline-training.test.js`, `src/lib/sync-indicator.test.js`.
+- Pendiente: prueba física en Android en modo avión (guion en la entrega de esta sesión).
+  Fuentes Google (Sora) no se cachean: offline cae a la fuente del sistema.
+- Validación: frontend 613/613 (38 archivos), API 222/222, build, check-locales, diff OK.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.
