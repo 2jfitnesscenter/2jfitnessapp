@@ -11,6 +11,16 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Workout V2: choose a Simple view (one exercise, big and clean) or a Detailed one (every set at a glance)',
+      'A new 2J keypad for weight, reps and RPE, stepping with the gym’s real dumbbells, plates and machines',
+      '“Plates” right on barbell sets: what to load on each side, remembering the bar you use',
+      'Progression assistant: before each exercise, a recommendation with its reason and confidence — you decide',
+      'Progression always prescribes loads your equipment can actually make',
+      'Rest timer: pause and resume, and choose the end alert, sound and vibration',
+      'Trainer notes and exercise tips shown apart; images and tips can be turned off',
+      'A visual training guide before your first workout, also available in Settings → Training',
+      'Train without internet: the workout is kept on the device and syncs exactly once when back online',
+      'A discreet connection indicator: offline, syncing, all synced',
       'Smarter "Replace exercise": ranked alternatives instead of a flat list, with equipment filters',
       'Training zones: %1RM/RPE-based intensity zones, shown per set and as a weekly/monthly volume chart',
       'An interactive barbell plate calculator — 9 bar types, edit the target weight, apply it to a set',

@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Workout V2 and offline training
+
+Training got faster, clearer and works without a connection. Deployed on 24 Sep 2026
+(`4fb9369`).
+
+- 🏋️ **Two views of the same workout.** Simple puts one exercise and one set in front of you;
+  Detailed shows every set with your previous numbers. Switch at any moment — nothing you
+  logged changes.
+- 🔢 **The 2J keypad.** Tap weight, reps or RPE and a big keypad opens with the real jumps of
+  the gym's dumbbells, plates and machines. Optional auto-complete never ticks a set with data
+  missing.
+- 🟢 **Plates where you need them.** Barbell sets show what goes on each side and open the
+  calculator on the set's weight and bar.
+- 📈 **A progression assistant that explains itself.** Before an exercise it may suggest
+  keeping the load, adding a rep, adding weight or stepping down — with the reason and its
+  confidence. Using it changes only today's sets; your trainer's routine never changes. Every
+  prescribed load is one your equipment can actually make.
+- ⏱️ **Rest, your way.** Pause/resume, and choose the end alert, sound and vibration.
+- 📝 **Notes vs. tips.** Your trainer's note and the exercise's generic tips are shown apart.
+- 🧭 **A visual guide** before a new member's first workout, replayable from Settings → Training.
+- 📴 **Offline training.** Train, close and reopen the app, finish without internet; the workout
+  syncs exactly once when you are back online, with a discreet indicator of the state.
+
 ### The AI Coach
 
 2J Fitness Center could always progress a plan. It could never *write* one, and it never looked at the
