@@ -31,6 +31,11 @@ export class AttemptLimiter {
   }
   fail(key) {
     const at = this.now()
+    // Keys are client IPs on the public auth routes, so a sweep from many addresses must not
+    // grow this map forever: drop entries that are neither blocked nor inside their window.
+    if (this.entries.size > 10000) {
+      for (const [k, e] of this.entries) if (e.blockedUntil <= at && at - e.windowStarted >= this.windowMs) this.entries.delete(k)
+    }
     let entry = this.entries.get(key)
     if (!entry || at - entry.windowStarted >= this.windowMs) entry = { failures: 0, windowStarted: at, strikes: entry?.strikes || 0, blockedUntil: 0 }
     entry.failures++
@@ -43,6 +48,18 @@ export class AttemptLimiter {
   }
   success(key) { this.entries.delete(key) }
 }
+
+// Public passkey/registration/recovery routes in server.js. Keyed by client IP only (there is
+// no credential to fingerprint before a WebAuthn ceremony) and generous on purpose: the whole
+// gym can reach the app from one public address behind its router.
+export const authLimiters = () => ({
+  // Every options request counts: each one mints a server-side challenge.
+  challenge: new AttemptLimiter({ limit: 30, windowMs: 60000, blockMs: 60000 }),
+  // Only failed verifications count.
+  verify: new AttemptLimiter({ limit: 20, windowMs: 60000, blockMs: 60000 }),
+  // Writes to db.json and pushes every admin, so it is the tightest.
+  recoveryRequest: new AttemptLimiter({ limit: 5, windowMs: 10 * 60000, blockMs: 10 * 60000, maxBlockMs: 60 * 60000 }),
+})
 
 export const bunkerLimiters = () => ({
   // The IP buckets slow broad sweeps without punishing a gym NAT for one typo. Credential

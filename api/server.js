@@ -24,6 +24,7 @@ import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
 import { chatRoutes } from './chat/routes.js';
 import { bunkerRoutes } from './bunker/routes.js';
+import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
 import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
@@ -439,6 +440,30 @@ function takeChallenge(cid) {
 }
 setInterval(() => { for (const [k, v] of challenges) if (v.exp < Date.now()) challenges.delete(k); }, 60000).unref();
 
+// Public auth routes: per-IP limits (bunker/rate-limit.js's authLimiters) plus a hard ceiling on
+// outstanding challenges, so a distributed flood can't grow the map without bound either.
+const authLimits = authLimiters();
+const MAX_OPEN_CHALLENGES = 10000;
+function authGate(req, res, limiter, { countNow = false } = {}) {
+  const ip = bunkerClientIp(req);
+  const attempt = limiter.check(ip);
+  if (!attempt.allowed) { json(res, 429, { error: 'demasiados intentos; espera un momento' }, { 'Retry-After': String(attempt.retryAfter) }); return null; }
+  if (countNow) limiter.fail(ip);
+  return ip;
+}
+function challengeGate(req, res) {
+  if (!authGate(req, res, authLimits.challenge, { countNow: true })) return false;
+  if (challenges.size >= MAX_OPEN_CHALLENGES) { json(res, 503, { error: 'servicio ocupado; inténtalo en un momento' }, { 'Retry-After': '30' }); return false; }
+  return true;
+}
+// Verify routes count only failed attempts (any 4xx/5xx the handler answers with).
+const verifyGate = handler => async (req, res) => {
+  const ip = authGate(req, res, authLimits.verify);
+  if (!ip) return;
+  await handler(req, res);
+  if (res.statusCode >= 400) authLimits.verify.fail(ip);
+};
+
 /* ---------- helpers ---------- */
 function json(res, code, obj, extraHeaders) {
   const body = JSON.stringify(obj);
@@ -542,6 +567,7 @@ const routes = {
   },
 
   'POST /api/register/options': async (req, res) => {
+    if (!challengeGate(req, res)) return;
     const body = await readBody(req);
     const name = String(body.name || '').trim().slice(0, 60);
     if (!name) return json(res, 400, { error: 'se requiere un nombre' });
@@ -560,7 +586,7 @@ const routes = {
     json(res, 200, { cid, options });
   },
 
-  'POST /api/register/verify': async (req, res) => {
+  'POST /api/register/verify': verifyGate(async (req, res) => {
     const body = await readBody(req);
     const c = takeChallenge(body.cid);
     if (!c || !c.uid) return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
@@ -599,9 +625,10 @@ const routes = {
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth
     } }, { 'Set-Cookie': sessionCookie(user) });
-  },
+  }),
 
   'POST /api/login/options': async (req, res) => {
+    if (!challengeGate(req, res)) return;
     const options = await generateAuthenticationOptions({
       rpID: RP_ID, userVerification: 'preferred', allowCredentials: []
     });
@@ -609,7 +636,7 @@ const routes = {
     json(res, 200, { cid, options });
   },
 
-  'POST /api/login/verify': async (req, res) => {
+  'POST /api/login/verify': verifyGate(async (req, res) => {
     const body = await readBody(req);
     const c = takeChallenge(body.cid);
     if (!c) return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
@@ -643,7 +670,7 @@ const routes = {
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth
     } }, { 'Set-Cookie': sessionCookie(user) });
-  },
+  }),
 
   // ---------- admin-assisted account recovery ----------
   // Passkeys have no "forgotten password" — the one gap that leaves is a member who loses
@@ -660,6 +687,7 @@ const routes = {
   // necessity (the whole point is the caller can't sign in), and deliberately answers the same
   // way whether or not the name matches anyone, so this can't be used to probe the member list.
   'POST /api/recover/request': async (req, res) => {
+    if (!authGate(req, res, authLimits.recoveryRequest, { countNow: true })) return;
     const body = await readBody(req);
     const name = String(body.name || '').trim().slice(0, 60);
     if (!name) return json(res, 400, { error: 'escribe tu nombre' });
@@ -679,6 +707,7 @@ const routes = {
   },
 
   'POST /api/recover/options': async (req, res) => {
+    if (!challengeGate(req, res)) return;
     const body = await readBody(req);
     const token = String(body.token || '').trim().toUpperCase();
     const rec = db.recoveries.find(r => r.token === token && !r.usedAt && !r.revoked);
@@ -700,7 +729,7 @@ const routes = {
     json(res, 200, { cid, options, name: user.name });
   },
 
-  'POST /api/recover/verify': async (req, res) => {
+  'POST /api/recover/verify': verifyGate(async (req, res) => {
     const body = await readBody(req);
     const c = takeChallenge(body.cid);
     if (!c || !c.uid || !c.recoveryToken) return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
@@ -737,7 +766,7 @@ const routes = {
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth
     } }, { 'Set-Cookie': sessionCookie(user) });
-  },
+  }),
 
   'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
 
