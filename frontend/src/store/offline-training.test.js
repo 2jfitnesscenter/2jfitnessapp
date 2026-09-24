@@ -137,6 +137,31 @@ test('response lost after the server committed: the retry replays the same opera
   expect(journal()).toEqual([])
 })
 
+test('Workout V2: pad keystrokes, a completed set and an accepted recommendation stay out of the journal', async () => {
+  offline = true
+  start()
+  // what the set pad writes, key by key (8 → 85), then reps, RPE, completion and the
+  // recommendation choice — all live-session changes, all durable in gym_state_v1 only
+  for (const w of [8, 85]) store.getState().update(s => { s.active.entries[0].sets[0].w = w })
+  store.getState().update(s => { s.active.entries[0].sets[0].r = 9 })
+  store.getState().update(s => { s.active.entries[0].sets[0].rpe = 8.5 })
+  store.getState().update(s => { s.active.entries[0].sets[0].done = true })
+  store.getState().update(s => { s.active.entries[0].rec = { kind: 'up', w: 85, r: 8, status: 'accepted' } })
+  expect(journal()).toEqual([])
+  // a view switch is a preference: journaled like any setting, never carrying the session
+  store.getState().update(s => { s.workoutView = 'simple' })
+  expect(journal()).toHaveLength(1)
+  await restart()
+  expect(store.getState().S.active.entries[0].sets[0]).toMatchObject({ w: 85, r: 9, rpe: 8.5, done: true })
+  expect(store.getState().S.workoutView).toBe('simple')
+  offline = false
+  await store.getState().pullState()
+  expect(remote.workoutView).toBe('simple')
+  expect(remote.active).toBeNull()
+  expect(journal()).toEqual([])
+  expect(store.getState().S.active.entries[0].sets[0]).toMatchObject({ w: 85, done: true })
+})
+
 test('an older journal draft never rolls back sets logged after it', async () => {
   offline = true
   start(); logSet(0, 100, 8)
