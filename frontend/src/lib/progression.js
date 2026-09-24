@@ -19,6 +19,7 @@
 import { modeOf, workingSets, buildSets, cleanupSg, defaultConfig } from './history.js'
 import { EXIDX, isUnavailable } from './exercises.js'
 import { bestTestedOneRM, pctForReps } from './onerm.js'
+import { realizableToward, stepWeight } from './equipment.js'
 
 export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'pct1rm', 'time']
 
@@ -83,6 +84,30 @@ function snap(v, step) {
 // nearest step keeps the cut close to the intended 10 %, but on small weights the nearest
 // step can be the weight you started from — so a deload that did not actually reduce
 // anything takes one step down instead. Never goes below a single step.
+// A policy decides the direction and size of a change; the equipment decides which load can
+// actually be put on the bar/rack/stack. Every load a policy prescribes goes through here, with
+// the same increments the set pad and the plate shortcut use (lib/equipment.js): a step up lands
+// on the next realizable load at or above the policy's number, a deload on the realizable load at
+// or below it. Already at the end of the equipment's range (the heaviest dumbbell) it stays
+// there; a load the equipment rules don't describe at all (a custom exercise past a stack's
+// limit) keeps the policy's own number, as before. Routines and the targets of finished workouts
+// are never touched — this only shapes the prescription derived for a session.
+function loadable(S, cfg, from, target) {
+  const eq = EXIDX[cfg.id]?.eq
+  if (from == null) {
+    const up = realizableToward(S, eq, 0, target)
+    if (up == null) return target
+    const down = stepWeight(S, eq, up, -1)
+    return down < up && target - down < up - target ? down : up
+  }
+  const r = realizableToward(S, eq, from, target)
+  if (r != null) return r
+  return stepWeight(S, eq, from, target > from ? 1 : -1) === from ? from : target
+}
+const topOfRange = (policy, w, reps) => ({ policy, kind: 'hold', weight: w, reps,
+  why: ['Heaviest load this equipment offers — same weight, work the reps.'] })
+const delta = (a, b) => Math.round((a - b) * 100) / 100
+
 function deloadTo(cur, step) {
   let next = snap(cur * DELOAD_FACTOR, step)
   if (next >= cur) next = snap(cur - step, step)
@@ -172,7 +197,7 @@ export function nextPrescription(S, cfg, routine) {
     const reps = cfg.reps || 5
     const rir = cfg.targetRIR != null ? cfg.targetRIR : 2
     const pct = pctForReps(reps, rir)
-    const weight = snap(best.est1RM * pct, inc)
+    const weight = loadable(S, cfg, null, snap(best.est1RM * pct, inc))
     return { policy, kind: 'hold', weight, reps, why: ['{0}% of your tested 1RM ({1} {2}) for {3} reps at RIR {4}.', Math.round(pct * 100), best.est1RM, unit, reps, rir] }
   }
 
@@ -209,9 +234,13 @@ export function nextPrescription(S, cfg, routine) {
   if (policy === 'double') {
     const top = cfg.reps || last.goal || 10
     const bottom = Math.min(cfg.repsMin || Math.max(1, top - 2), top)
-    if (last.ok) return { policy, kind: 'up', weight: snap(w + inc, inc), reps: bottom, why: ['Top of the rep range in every set — {0} {1} more, back to {2} reps.', inc, unit, bottom] }
+    if (last.ok) {
+      const up = loadable(S, cfg, w, snap(w + inc, inc))
+      if (up <= w) return topOfRange(policy, w, bottom)
+      return { policy, kind: 'up', weight: up, reps: bottom, why: ['Top of the rep range in every set — {0} {1} more, back to {2} reps.', delta(up, w), unit, bottom] }
+    }
     if (stalls >= deloadAt) {
-      const dw = deloadTo(w, inc)
+      const dw = loadable(S, cfg, w, deloadTo(w, inc))
       return { policy, kind: 'deload', weight: dw, reps: bottom, why: ['Stalled {0} sessions — deload to {1} {2}.', stalls, dw, unit] }
     }
     const aim = Math.min(top, Math.max(bottom, last.low + 1))
@@ -223,16 +252,17 @@ export function nextPrescription(S, cfg, routine) {
     // Greyskull's final set is taken to failure: double the target reps there and you have
     // earned a double jump.
     const dbl = policy === 'greyskull' && last.goal > 0 && last.amrap >= last.goal * 2
-    const step = dbl ? inc * 2 : inc
+    const up = loadable(S, cfg, w, snap(w + (dbl ? inc * 2 : inc), inc))
+    if (up <= w) return topOfRange(policy, w)
     return {
-      policy, kind: 'up', weight: snap(w + step, inc),
+      policy, kind: 'up', weight: up,
       why: dbl
-        ? ['Last set hit {0} reps — twice the target, so take a double jump of {1} {2}.', last.amrap, step, unit]
-        : ['Every rep last time — {0} {1} more.', step, unit]
+        ? ['Last set hit {0} reps — twice the target, so take a double jump of {1} {2}.', last.amrap, delta(up, w), unit]
+        : ['Every rep last time — {0} {1} more.', delta(up, w), unit]
     }
   }
   if (stalls >= deloadAt) {
-    const dw = deloadTo(w, inc)
+    const dw = loadable(S, cfg, w, deloadTo(w, inc))
     return {
       policy, kind: 'deload', weight: dw,
       why: stalls > 1

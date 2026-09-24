@@ -63,6 +63,24 @@ export function stepFlat(current, dir, step) {
   return Math.max(0, Math.round(((current || 0) + dir * step) * 100) / 100)
 }
 
+// The first load a member can actually put on this equipment when moving from `from` toward
+// `target` — walked with the same stepWeight the set pad's −/+ and the plate shortcut use, so a
+// progression can never land on a number the rack/stack/plates can't make (a generic "+2.5 kg"
+// on a 2J barbell becomes the next real 5 kg step). Going up it is the smallest reachable load
+// ≥ target, going down the largest ≤ target. null when the equipment can't get there at all
+// (top of the dumbbell rack, a machine stack's limit) — the caller keeps its own number then.
+export function realizableToward(S, eq, from, target) {
+  const dir = target > from ? 1 : target < from ? -1 : 0
+  let x = from
+  for (let i = 0; i <= 400; i++) {
+    if (dir >= 0 ? x >= target - 1e-9 : x <= target + 1e-9) return x
+    const nx = stepWeight(S, eq, x, dir)
+    if (dir > 0 ? nx <= x : nx >= x) return null
+    x = nx
+  }
+  return null
+}
+
 // The one function Workout.jsx's weight stepper actually calls — dispatches to the right rule
 // for this exercise's equipment, reading the two settings from Settings → Training
 // (use2JRoomEquipment, customIncrements) off the profile passed in.

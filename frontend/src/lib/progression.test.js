@@ -10,10 +10,15 @@ const LIFT = EXDB.find(e => e.bp !== 'cardio' && !['upper legs', 'lower legs', '
 const HEAVY = EXDB.find(e => e.bp === 'upper legs').id
 const CARDIO = EXDB.find(e => e.bp === 'cardio').id
 
+// Equipment that can load any 0.5 kg: every number a policy asks for is realizable, so these
+// tests pin down the policies' own arithmetic. Rounding to real 2J equipment is tested apart
+// ('realizable loads' below).
+const FINE = { use2JRoomEquipment: false, customIncrements: { barbell: 0.5, dumbbell: 0.5, machineOther: 0.5 } }
+
 // Build a state whose history is a list of sessions given as [weight, ...repsPerSet].
 // A rep count of null means "the set was never checked off".
 const hist = (id, rows, target) => ({
-  unit: 'kg',
+  unit: 'kg', ...FINE,
   workouts: rows.map((row, i) => ({
     d: '2026-01-0' + (i + 1),
     entries: [{
@@ -315,7 +320,7 @@ describe('policy "off"', () => {
 })
 
 describe('pct1rm progression', () => {
-  const withTest = (est1RM, extra) => ({ unit: 'kg', workouts: [], tests: [{ id: 't1', type: '1rm', exId: LIFT, d: '2026-01-01', w: est1RM, r: 1, est1RM }], ...extra })
+  const withTest = (est1RM, extra) => ({ unit: 'kg', ...FINE, workouts: [], tests: [{ id: 't1', type: '1rm', exId: LIFT, d: '2026-01-01', w: est1RM, r: 1, est1RM }], ...extra })
 
   it('computes weight straight from the tested 1RM, at the default target RIR of 2', () => {
     const p = nextPrescription(withTest(100), { id: LIFT, sets: 3, reps: 5, prog: 'pct1rm' })
@@ -372,7 +377,7 @@ describe('sessionsFor', () => {
 // their first session after updating — which is exactly what the demo history did.
 describe('history logged before targets were recorded', () => {
   const legacy = rows => ({
-    unit: 'kg',
+    unit: 'kg', ...FINE,
     workouts: rows.map((row, i) => ({
       d: '2026-03-' + String(i + 1).padStart(2, '0'),
       entries: [{ id: LIFT, sets: row.slice(1).map(r => ({ w: row[0], r, done: true })) }]   // no target
@@ -487,5 +492,49 @@ describe('buildFreeEntry', () => {
 
   it('carries no sg — a freestyle pick is never part of a superset', () => {
     expect(buildFreeEntry(S, LIFT).sg).toBeUndefined()
+  })
+})
+
+// A policy's generic increment (chest → +2.5 kg) must land on a load the member's equipment can
+// really make — the same increments the set pad and the plate shortcut use (lib/equipment.js).
+describe('realizable loads', () => {
+  const BENCH = '0025'     // barbell bench press — chest, so the generic policy step is 2.5 kg
+  const DB = '0294'        // dumbbell biceps curl
+  const on2J = (id, rows, over = {}) => ({ ...hist(id, rows), use2JRoomEquipment: true, customIncrements: undefined, ...over })
+  const lin = id => ({ id, sets: 3, reps: 5, weight: 80, prog: 'linear' })
+
+  it('a 2J barbell that only moves in 5 kg steps gets the next real step, not +2.5', () => {
+    expect(defaultIncrement(BENCH, 'kg')).toBe(2.5)
+    const p = nextPrescription(on2J(BENCH, [[80, 5, 5, 5]]), lin(BENCH))
+    expect(p).toMatchObject({ kind: 'up', weight: 85 })
+    expect(p.why).toEqual(['Every rep last time — {0} {1} more.', 5, 'kg'])
+  })
+  it('a deload lands on the heaviest real load at or below the policy’s number', () => {
+    const p = nextPrescription(on2J(BENCH, [[80, 5, 4, 3], [80, 5, 4, 3], [80, 5, 4, 3]]), lin(BENCH))
+    expect(p).toMatchObject({ kind: 'deload', weight: 70 })       // policy 72.5 → 70 on 5 kg steps
+    expect(p.why[2]).toBe(70)
+  })
+  it('dumbbells follow the real rack, including its uneven jumps', () => {
+    expect(nextPrescription(on2J(DB, [[22.5, 5, 5, 5]]), lin(DB)).weight).toBe(25)
+    expect(nextPrescription(on2J(DB, [[6, 5, 5, 5]]), lin(DB)).weight).toBe(8)      // 6 + 2.5 → rack has 8
+    expect(nextPrescription(on2J(DB, [[5, 5, 5, 5]]), { ...lin(DB), inc: 2.5 }).weight).toBe(8)
+  })
+  it('at the heaviest dumbbell it holds the weight and says why instead of inventing one', () => {
+    const p = nextPrescription(on2J(DB, [[40, 5, 5, 5]]), lin(DB))
+    expect(p).toMatchObject({ kind: 'hold', weight: 40 })
+    expect(p.why).toEqual(['Heaviest load this equipment offers — same weight, work the reps.'])
+  })
+  it('a member’s own 2.5 kg barbell increment keeps +2.5', () => {
+    const S = on2J(BENCH, [[80, 5, 5, 5]], { use2JRoomEquipment: false, customIncrements: { barbell: 2.5, dumbbell: 2, machineOther: 5 } })
+    expect(nextPrescription(S, lin(BENCH)).weight).toBe(82.5)
+  })
+  it('the session prescription changes; the routine and the history targets do not', () => {
+    const S = on2J(BENCH, [[80, 5, 5, 5]])
+    const routine = { id: 'r1', name: 'Pecho', ex: [lin(BENCH)] }
+    const before = JSON.stringify({ routine, workouts: S.workouts })
+    const [entry] = buildRoutineEntries({ ...S, exWeights: {}, customEx: [], warmupEnabled: false }, routine)
+    expect(entry.sets.map(s => s.w)).toEqual([85, 85, 85])
+    expect(entry.target.weight).toBe(80)
+    expect(JSON.stringify({ routine, workouts: S.workouts })).toBe(before)
   })
 })

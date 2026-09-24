@@ -1388,6 +1388,12 @@ teclado 2J, Discos contextual, notas/consejos, guía, Ajustes → Entrenamiento 
 - Pendiente de prueba física: flujo completo en Android (teclado, descanso con pantalla
   encendida/bloqueada, vibración, guía en cuenta nueva) y offline con V2.
 - Validación: frontend 646/646 (40 archivos), API 222/222, build, check-locales, diff OK.
+- Cargas realizables: la política de rutina (`nextPrescription`) pasa cada carga por
+  `realizableToward` (`lib/equipment.js`, mismos `stepWeight` que el teclado y Discos): subida →
+  siguiente carga real ≥ la de la política; deload → la real ≤; tope del equipamiento → mantiene
+  peso con explicación. Rutinas y `target` históricos intactos. Tests de aritmética de políticas
+  usan equipamiento de 0,5 kg (`FINE`); el redondeo a 2J se prueba aparte. Validación: frontend
+  653/653, API 222/222, build, locales, diff OK.
 
 ## Protocolo de relevo
 

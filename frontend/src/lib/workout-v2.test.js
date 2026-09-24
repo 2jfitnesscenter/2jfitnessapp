@@ -153,3 +153,16 @@ describe('intelligent progression V1', () => {
     expect(other.rec.status).toBe('kept')
   })
 })
+
+describe('plan and recommendation agree on realizable loads', () => {
+  it('on 2J barbell steps the session plan and the recommendation both say 85, so no card is shown', async () => {
+    const { buildRoutineEntries } = await import('./progression.js')
+    const T = { sets: 3, reps: 10, targetRepsMin: 8, targetRepsMax: 10, mode: 'reps', weight: 80 }
+    const w = logged('2026-09-04', [[80, 10], [80, 10], [80, 10]], T)
+    w.entries[0].id = '0025'                    // the real barbell bench press
+    const S = S0({ workouts: [w], customEx: [], warmupEnabled: false })
+    const [entry] = buildRoutineEntries(S, { id: 'r1', ex: [{ id: '0025', ...T }] })
+    expect(entry.sets.map(s => s.w)).toEqual([85, 85, 85])
+    expect(recommendProgression(S, entry, 'barbell')).toMatchObject({ kind: 'up', w: 85 })
+  })
+})

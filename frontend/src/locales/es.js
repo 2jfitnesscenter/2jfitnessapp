@@ -2239,6 +2239,7 @@ export default {
   'You completed {0} {1} × {2} within the target last time.': 'Completaste {0} {1} × {2} dentro del objetivo la última vez.',
   'Inside the range, but at RPE {0} — same numbers again before pushing.': 'Dentro del rango, pero con RPE {0}: repite los mismos números antes de apretar.',
   'Inside the {0}-{1} range ({2}) — one more rep before adding weight.': 'Dentro del rango {0}-{1} ({2}): una repetición más antes de subir peso.',
+  'Heaviest load this equipment offers — same weight, work the reps.': 'Es la carga más alta de este equipamiento: mismo peso, trabaja las repeticiones.',
   'Progression assistant': 'Asistente de progresión',
   'The recommendation': 'La recomendación',
   'A recommendation for what to aim for next on any exercise you’ve trained before, plus a clear signal the moment you actually beat it.': 'Una recomendación de lo siguiente a buscar en cualquier ejercicio que ya hayas entrenado, y una señal clara en cuanto lo superas.',
