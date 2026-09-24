@@ -139,6 +139,9 @@ function loadState() {
   return clone(DEF)
 }
 
+const withoutSession = st => JSON.stringify({ ...st, active: null, _ts: 0 })
+export const sessionOnlyChange = (before, after) => withoutSession(before) === withoutSession(after)
+
 const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length)
 
 export const useStore = create((set, get) => {
@@ -158,7 +161,9 @@ export const useStore = create((set, get) => {
           if (!state) return
           const next = Object.assign(clone(DEF), state)
           const active = get().S.active
-          if (!next.active && active && !(next.workouts || []).some(w => w.id === active.id)) next.active = active
+          // The live session is this device's own (the server never takes it from a save), so a
+          // journal draft or server copy of the SAME session is at best an older snapshot of it.
+          if (active && (!next.active || next.active.id === active.id) && !(next.workouts || []).some(w => w.id === active.id)) next.active = active
           persist(next, false)
         } })
       syncClient.uid = owner
@@ -207,8 +212,17 @@ export const useStore = create((set, get) => {
   })
 
   if (typeof window !== 'undefined') {
-    window.addEventListener('online', () => get().pullState())
+    window.addEventListener('online', async () => { await get().pullState(); retryPendingClear() })
     window.addEventListener('focus', () => get().pullState())
+  }
+
+  // A discard/finish whose POST /api/active/clear never reached the server (offline, a dropped
+  // request) gets another try at boot and whenever the connection comes back. '__any__' means
+  // the id wasn't recorded (an older client build); clearing unconditionally is still correct
+  // since the whole point of the flag is "the user already asked for this," never a guess.
+  const retryPendingClear = () => {
+    const pendingClear = localStorage.getItem(PENDING_CLEAR_KEY)
+    if (pendingClear && get().user) get().clearActiveOnServer(pendingClear === '__any__' ? null : pendingClear)
   }
 
   // Everything a sign-out leaves behind on this device, whichever way it was triggered.
@@ -235,6 +249,10 @@ export const useStore = create((set, get) => {
     update(mut, push = true) {
       const S = clone(get().S)
       mut(S)
+      // api/lib/sync.js never takes `active` from a save, and gym_state_v1 already holds it
+      // durably: journaling a change confined to the live session would only queue one
+      // full-state snapshot per logged set, which offline can fill localStorage mid-workout.
+      if (push && sessionOnlyChange(get().S, S)) push = false
       if (push && get().user && !MOBILE && !DEMO) {
         const deletes = {}
         for (const kind of ['workouts', 'routines', 'programs']) {
@@ -381,13 +399,7 @@ export const useStore = create((set, get) => {
         get().setUser(me.user)
         await retryStateActions()
         await get().pullState()
-        // A discard/finish whose POST /api/active/clear never reached the server last time
-        // (offline, a dropped request) gets one more try now — see clearActiveOnServer's own
-        // comment. '__any__' means the id wasn't recorded (an older client build); clearing
-        // unconditionally is still correct since the whole point of the flag is "the user
-        // already asked for this," never a guess.
-        const pendingClear = localStorage.getItem(PENDING_CLEAR_KEY)
-        if (pendingClear) get().clearActiveOnServer(pendingClear === '__any__' ? null : pendingClear)
+        retryPendingClear()
         // Re-stamp the reminder's timezone on every load — keeps it correct if you're travelling,
         // without needing to revisit Settings.
         const tz = localTZ()
