@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { todayISO } from '../lib/format.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
+import { applyNewProfileDefaults } from '../lib/workout-prefs.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented, RulerSlider } from '../components/ui.jsx'
 
@@ -56,7 +57,9 @@ export default function PhysicalProfileWizard() {
 
   // `skip` ends the wizard without writing any of the (possibly untouched, default-valued)
   // fields — only "Finish" after actually stepping through commits them, all at once.
-  const skip = () => update(s => { s.onboarded = true })
+  // Either way out is the one moment this profile is provably new — the only place the
+  // roadmap's new-account defaults are written (lib/workout-prefs.js).
+  const skip = () => update(s => { applyNewProfileDefaults(s); s.onboarded = true })
   const finish = () => update(s => {
     s.body = p.sex
     if (p.birthDate) s.birthDate = p.birthDate
@@ -69,6 +72,7 @@ export default function PhysicalProfileWizard() {
     s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
     if (p.primary.length) s.priorityMuscles = p.primary
     if (p.secondary.length) s.secondaryMuscles = p.secondary
+    applyNewProfileDefaults(s)
     s.onboarded = true
   })
 
