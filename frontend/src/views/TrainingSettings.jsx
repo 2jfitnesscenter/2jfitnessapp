@@ -1,26 +1,35 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { wakeLockSupported } from '../lib/wakelock.js'
 import { t } from '../lib/i18n.js'
 import { MOBILE } from '../lib/mobile.js'
+import { effortOf } from '../lib/history.js'
+import { LEVELS } from '../lib/rp-volume.js'
+import { workoutPrefs } from '../lib/workout-prefs.js'
 import { DUMBBELL_WEIGHTS_2J, MACHINE_WEIGHTS_CONFIG, BARBELL_PLATES_2J } from '../lib/equipment.js'
+import { openWorkoutGuide } from '../components/WorkoutGuide.jsx'
+import { effortHelpSheet, trainingZonesHelpSheet, overloadHelpSheet, rpVolumeHelpSheet } from './Settings.jsx'
 import Icon from '../components/Icon.jsx'
-import { Section, Row, Switch, Slider } from '../components/ui.jsx'
+import { Section, Row, SelectRow, Switch, Slider, Segmented } from '../components/ui.jsx'
 
 const DEFAULT_INC = { barbell: 5, dumbbell: 2, machineOther: 5 }
 
-// Settings → Training. Two things live here: whether a fresh set starts pre-filled with a
-// ghost of last time's numbers (lib/history.js's buildSets, views/Workout.jsx's cell()), and
-// what the weight +/- stepper jumps by — the gym's real rack/pins/plates by default
-// (lib/equipment.js's stepWeight), or a member's own flat increment per equipment class once
-// that's switched off.
+// Settings → Training: every preference that shapes the live workout, in the order a member
+// meets them (how it looks, how a set is logged, the rest, progression, the guide). The
+// equipment/stepping details that only matter to a few sit behind "More options". Nothing here
+// touches a routine or a session — they are presentation and behaviour preferences only
+// (lib/workout-prefs.js).
 export default function TrainingSettings() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
+  const prefs = workoutPrefs(S)
+  const [more, setMore] = useState(false)
   const wakeOK = wakeLockSupported()
   const use2J = S.use2JRoomEquipment !== false
   const inc = S.customIncrements || DEFAULT_INC
+  const set = (k, v) => update(s => { s[k] = v })
   const setInc = (k, v) => update(s => { s.customIncrements = { ...(s.customIncrements || DEFAULT_INC), [k]: v } })
 
   return <div className="narrow">
@@ -29,46 +38,133 @@ export default function TrainingSettings() {
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Training')}</h1></div>
     </div>
 
-    <Section title={t('Previous results')}>
-      <Row icon="history" iconTint="var(--blue)" title={t('Show previous results')}
-        subtitle={t('Shows your last mark or reference set in gray while training.')}>
-        <Switch checked={S.showPreviousResults !== false} onChange={v => update(s => { s.showPreviousResults = v })} />
+    <Section title={t('View')} footer={t('Two ways to see the same workout — switch any time, even mid-session.')}>
+      <div className="lrow" style={{ paddingTop: 11, paddingBottom: 11 }}>
+        <Segmented value={prefs.view} onChange={v => set('workoutView', v)}
+          options={[{ value: 'simple', label: t('Simple') }, { value: 'detailed', label: t('Detailed') }]} />
+      </div>
+    </Section>
+
+    <Section title={t('Visual')}>
+      <Row icon="figureStrength" iconTint="var(--blue)" title={t('Show exercise images')}>
+        <Switch checked={prefs.images} onChange={v => set('showExerciseImages', v)} />
+      </Row>
+      <Row icon="lightbulb" iconTint="var(--yellow)" title={t('Show tips')}
+        subtitle={t('The exercise’s general how-to. Your trainer’s notes always show.')}>
+        <Switch checked={prefs.tips} onChange={v => set('showExerciseTips', v)} />
       </Row>
     </Section>
 
-    <Section title={t('Room equipment')}>
-      <Row icon="dumbbell" iconTint="var(--acc)" title={t('2J Fitness Center room mode')}
-        subtitle={t('Adjusts the +/- buttons to this gym’s real dumbbells and machines.')}>
-        <Switch checked={use2J} onChange={v => update(s => { s.use2JRoomEquipment = v })} />
+    <Section title={t('Sets')}>
+      <Row icon="checkCircle" iconTint="var(--acc)" title={t('Complete sets automatically')}
+        subtitle={t('When the last value is entered, the set is ticked off for you. Never with data missing.')}>
+        <Switch checked={prefs.autoComplete} onChange={v => set('autoCompleteSets', v)} />
+      </Row>
+      <Row icon="flame" iconTint="var(--orange)" title={t('Warmup sets')}
+        subtitle={t('Suggest warmup sets before your working sets.')}>
+        <Switch checked={S.warmupEnabled !== false} onChange={v => set('warmupEnabled', v)} />
+      </Row>
+      <Row icon="target" iconTint="var(--purple)" title={t('Effort per set')}>
+        <button className="helpbtn" aria-label={t('What are RIR and RPE?')} onClick={effortHelpSheet}><Icon name="info" /></button>
+        <Segmented className="seg-inline"
+          options={[{ value: 'none', label: t('Off') }, { value: 'rir', label: t('RIR') }, { value: 'rpe', label: t('RPE') }]}
+          value={effortOf(S)} onChange={v => update(s => { s.effort = v; delete s.showRir })} />
+      </Row>
+      <Row icon="barbell" iconTint="var(--blue)" title={t('Plates shortcut')}
+        subtitle={t('Shows “Plates” on barbell sets, with what goes on each side.')}>
+        <Switch checked={S.enablePlateCalculator !== false} onChange={v => set('enablePlateCalculator', v)} />
       </Row>
     </Section>
 
-    <Section title={t('Weight step button')}
-      footer={use2J ? null : t('Applies to every exercise that uses that equipment.')}>
-      {use2J ? <>
-        <Row icon="dumbbell" iconTint="var(--blue)" title={t('Dumbbells')}
-          value={t('{0} to {1} kg', DUMBBELL_WEIGHTS_2J[0], DUMBBELL_WEIGHTS_2J[DUMBBELL_WEIGHTS_2J.length - 1])} />
-        <Row icon="scale" iconTint="var(--teal)" title={t('Machines')}
-          value={t('steps of {0} kg', MACHINE_WEIGHTS_CONFIG.step)} />
-        <Row icon="barbell" iconTint="var(--orange)" title={t('Barbell')}
-          value={t('plates {0} to {1} kg', BARBELL_PLATES_2J[0], BARBELL_PLATES_2J[BARBELL_PLATES_2J.length - 1])} />
-      </> : <div style={{ padding: '2px 2px 12px' }}>
-        <IncrementSlider icon="barbell" tint="var(--orange)" label={t('Barbell')} unit={S.unit}
-          value={inc.barbell} min={1} max={20} step={0.5} onChange={v => setInc('barbell', v)} />
-        <IncrementSlider icon="dumbbell" tint="var(--blue)" label={t('Dumbbell')} unit={S.unit}
-          value={inc.dumbbell} min={0.5} max={10} step={0.5} onChange={v => setInc('dumbbell', v)} />
-        <IncrementSlider icon="scale" tint="var(--teal)" label={t('Machine / cable')} unit={S.unit}
-          value={inc.machineOther} min={1} max={20} step={1} onChange={v => setInc('machineOther', v)} />
-      </div>}
+    <Section title={t('Rest')} footer={t('With the app open and the screen on, the end of a rest is announced on this device (vibration is not available on iPhone). With the screen locked or the app in the background the browser pauses it: then only a notification can arrive, if notifications are on and there is a connection.')}>
+      <SelectRow icon="timer" iconTint="var(--orange)" title={t('Rest timer')}
+        value={S.restSec} onChange={v => set('restSec', v)}
+        options={[60, 90, 120, 150, 180].map(v => ({ value: v, label: v + 's' }))} />
+      <Row icon="bell" iconTint="var(--pink)" title={t('Alert when rest ends')}>
+        <Switch checked={prefs.restAlert} onChange={v => set('restAlert', v)} />
+      </Row>
+      <Row icon="bell" iconTint="var(--pink)" title={t('Sound')} subtitle={t('Also the short beep when you complete a set.')}>
+        <Switch checked={prefs.sound} onChange={v => set('sound', v)} />
+      </Row>
+      <Row icon="bolt" iconTint="var(--pink)" title={t('Vibration')}>
+        <Switch checked={prefs.vibrate} onChange={v => set('restVibrate', v)} />
+      </Row>
     </Section>
 
-    {(wakeOK || !MOBILE) && <Section title={t('Other')}>
-      <Row icon="sun" iconTint="var(--yellow)" title={t('Keep screen awake')}
-        subtitle={wakeOK ? null : t('Not supported in this browser.')}>
-        <Switch checked={wakeOK && S.keepAwake !== false} disabled={!wakeOK}
-          onChange={v => update(s => { s.keepAwake = v })} />
+    <Section title={t('Progression')}>
+      <Row icon="arrowUp" iconTint="var(--green)" title={t('Progression assistant')}
+        subtitle={t('Before each exercise, suggests keeping, adding reps or weight from your real sessions — and says why. You decide.')}>
+        <button className="helpbtn" aria-label={t('What is the overload coach?')} onClick={overloadHelpSheet}><Icon name="info" /></button>
+        <Switch checked={prefs.progression} onChange={v => set('enableProgressiveOverloadCoach', v)} />
       </Row>
-    </Section>}
+      <Row icon="target" iconTint="var(--purple)" title={t('Training zones')}
+        subtitle={t('Calculate and show relative effort, RPE and %1RM while training.')}>
+        <button className="helpbtn" aria-label={t('What are Training zones?')} onClick={trainingZonesHelpSheet}><Icon name="info" /></button>
+        <Switch checked={S.enableTrainingZones !== false} onChange={v => set('enableTrainingZones', v)} />
+      </Row>
+      <Row icon="chartLine" iconTint="var(--orange)" title={t('Weekly volume zones')}
+        subtitle={t('Calculate MV, MEV, MAV and MRV per muscle group and show your weekly progress live.')}>
+        <button className="helpbtn" aria-label={t('What are weekly volume zones?')} onClick={rpVolumeHelpSheet}><Icon name="info" /></button>
+        <Switch checked={!!S.enableRpVolumeZones} onChange={v => set('enableRpVolumeZones', v)} />
+      </Row>
+      {S.enableRpVolumeZones && <SelectRow icon="figureStrength" iconTint="var(--orange)" title={t('Training level')}
+        value={S.trainingLevel || 'intermediate'} onChange={v => set('trainingLevel', v)}
+        options={LEVELS.map(l => ({ value: l, label: t(l[0].toUpperCase() + l.slice(1)) }))} />}
+      {S.enableRpVolumeZones && <Row icon="wrench" iconTint="var(--orange)" title={t('Calibrate per muscle')}
+        subtitle={t('Fine-tune MV, MEV, MAV and MRV thresholds for each of the 12 muscle groups')}
+        accessory="chevron" onClick={() => nav('/settings/rp-volume')} />}
+    </Section>
+
+    <Section title={t('Guide')}>
+      <Row icon="play" iconTint="var(--acc)" title={t('See the training guide again')}
+        accessory="chevron" onClick={() => openWorkoutGuide({ replay: true })} />
+    </Section>
+
+    <button className="more-toggle" aria-expanded={more} onClick={() => setMore(m => !m)}>
+      {t('More options')}<Icon name={more ? 'chevronUp' : 'chevronDown'} />
+    </button>
+    {more && <>
+      <Section title={t('Previous results')}>
+        <Row icon="history" iconTint="var(--blue)" title={t('Show previous results')}
+          subtitle={t('Shows your last mark or reference set in gray while training.')}>
+          <Switch checked={S.showPreviousResults !== false} onChange={v => set('showPreviousResults', v)} />
+        </Row>
+      </Section>
+
+      <Section title={t('Room equipment')}>
+        <Row icon="dumbbell" iconTint="var(--acc)" title={t('2J Fitness Center room mode')}
+          subtitle={t('Adjusts the +/- buttons to this gym’s real dumbbells and machines.')}>
+          <Switch checked={use2J} onChange={v => set('use2JRoomEquipment', v)} />
+        </Row>
+      </Section>
+
+      <Section title={t('Weight step button')}
+        footer={use2J ? null : t('Applies to every exercise that uses that equipment.')}>
+        {use2J ? <>
+          <Row icon="dumbbell" iconTint="var(--blue)" title={t('Dumbbells')}
+            value={t('{0} to {1} kg', DUMBBELL_WEIGHTS_2J[0], DUMBBELL_WEIGHTS_2J[DUMBBELL_WEIGHTS_2J.length - 1])} />
+          <Row icon="scale" iconTint="var(--teal)" title={t('Machines')}
+            value={t('steps of {0} kg', MACHINE_WEIGHTS_CONFIG.step)} />
+          <Row icon="barbell" iconTint="var(--orange)" title={t('Barbell')}
+            value={t('plates {0} to {1} kg', BARBELL_PLATES_2J[0], BARBELL_PLATES_2J[BARBELL_PLATES_2J.length - 1])} />
+        </> : <div style={{ padding: '2px 2px 12px' }}>
+          <IncrementSlider icon="barbell" tint="var(--orange)" label={t('Barbell')} unit={S.unit}
+            value={inc.barbell} min={1} max={20} step={0.5} onChange={v => setInc('barbell', v)} />
+          <IncrementSlider icon="dumbbell" tint="var(--blue)" label={t('Dumbbell')} unit={S.unit}
+            value={inc.dumbbell} min={0.5} max={10} step={0.5} onChange={v => setInc('dumbbell', v)} />
+          <IncrementSlider icon="scale" tint="var(--teal)" label={t('Machine / cable')} unit={S.unit}
+            value={inc.machineOther} min={1} max={20} step={1} onChange={v => setInc('machineOther', v)} />
+        </div>}
+      </Section>
+
+      {(wakeOK || !MOBILE) && <Section title={t('Other')}>
+        <Row icon="sun" iconTint="var(--yellow)" title={t('Keep screen awake')}
+          subtitle={wakeOK ? null : t('Not supported in this browser.')}>
+          <Switch checked={wakeOK && S.keepAwake !== false} disabled={!wakeOK}
+            onChange={v => set('keepAwake', v)} />
+        </Row>
+      </Section>}
+    </>}
   </div>
 }
 

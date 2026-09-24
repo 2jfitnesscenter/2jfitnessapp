@@ -12,7 +12,7 @@ import { MOBILE, shareExport, syncReminder, syncBioimpedanceReminder } from '../
 import { daysSinceBioimpedance } from '../lib/measurements.js'
 import { loadStarterPlan, confirmSheet, importFromApp, platesSheet } from '../sheets.jsx'
 import { ZONES } from '../lib/training-zones.js'
-import { LEVELS, ZONE_ORDER, ZONE_META } from '../lib/rp-volume.js'
+import { ZONE_ORDER, ZONE_META } from '../lib/rp-volume.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import { RankGuideSheet } from './Rank.jsx'
@@ -148,55 +148,14 @@ export default function Settings() {
 
     {/* ---------- during a workout ---------- */}
     <Section title={t('During a workout')}>
+      {/* Everything about how a workout looks and behaves now lives on one ordered screen
+          (views/TrainingSettings.jsx); only the standalone plate tool stays here. */}
       <Row icon="dumbbell" iconTint="var(--acc)" title={t('Training')}
-        subtitle={t('Weight step buttons, room equipment, previous results')}
+        subtitle={t('View, sets, rest, progression and the training guide')}
         accessory="chevron" onClick={() => nav('/settings/training')} />
       <Row icon="barbell" iconTint="var(--blue)" title={t('Plate calculator')}
         subtitle={t('Work out what to load on any bar, outside of a set')}
         accessory="chevron" onClick={() => platesSheet(S.unit === 'lb' ? 45 : 20, S.unit)} />
-      <Row icon="barbell" iconTint="var(--blue)" title={t('Plate calculator quick access')}
-        subtitle={t('Show the quick-access icon to calculate barbell plates on each set.')}>
-        <Switch checked={S.enablePlateCalculator !== false} onChange={v => update(s => { s.enablePlateCalculator = v })} />
-      </Row>
-      <Row icon="target" iconTint="var(--purple)" title={t('Training zones')}
-        subtitle={t('Calculate and show relative effort, RPE and %1RM while training.')}>
-        <button className="helpbtn" aria-label={t('What are Training zones?')} onClick={trainingZonesHelpSheet}><Icon name="info" /></button>
-        <Switch checked={S.enableTrainingZones !== false} onChange={v => update(s => { s.enableTrainingZones = v })} />
-      </Row>
-      <Row icon="arrowUp" iconTint="var(--green)" title={t('Progressive overload coach')}
-        subtitle={t('Show references from your last workout and overload targets on each set.')}>
-        <button className="helpbtn" aria-label={t('What is the overload coach?')} onClick={overloadHelpSheet}><Icon name="info" /></button>
-        <Switch checked={S.enableProgressiveOverloadCoach !== false} onChange={v => update(s => { s.enableProgressiveOverloadCoach = v })} />
-      </Row>
-      <Row icon="chartLine" iconTint="var(--orange)" title={t('Weekly volume zones')}
-        subtitle={t('Calculate MV, MEV, MAV and MRV per muscle group and show your weekly progress live.')}>
-        <button className="helpbtn" aria-label={t('What are weekly volume zones?')} onClick={rpVolumeHelpSheet}><Icon name="info" /></button>
-        <Switch checked={!!S.enableRpVolumeZones} onChange={v => update(s => { s.enableRpVolumeZones = v })} />
-      </Row>
-      {S.enableRpVolumeZones && <SelectRow icon="figureStrength" iconTint="var(--orange)" title={t('Training level')}
-        value={S.trainingLevel || 'intermediate'} onChange={v => update(s => { s.trainingLevel = v })}
-        options={LEVELS.map(l => ({ value: l, label: t(l[0].toUpperCase() + l.slice(1)) }))} />}
-      {S.enableRpVolumeZones && <Row icon="wrench" iconTint="var(--orange)" title={t('Calibrate per muscle')}
-        subtitle={t('Fine-tune MV, MEV, MAV and MRV thresholds for each of the 12 muscle groups')}
-        accessory="chevron" onClick={() => nav('/settings/rp-volume')} />}
-      <SelectRow icon="timer" iconTint="var(--orange)" title={t('Rest timer')}
-        value={S.restSec} onChange={v => update(s => { s.restSec = v })}
-        options={[60, 90, 120, 150, 180].map(v => ({ value: v, label: v + 's' }))} />
-      <Row icon="bell" iconTint="var(--pink)" title={t('Sounds')}>
-        <Switch checked={!!S.sound} onChange={v => update(s => { s.sound = v })} />
-      </Row>
-      <Row icon="flame" iconTint="var(--orange)" title={t('Warmup sets')}
-        subtitle={t('Suggest warmup sets before your working sets.')}>
-        <Switch checked={S.warmupEnabled !== false} onChange={v => update(s => { s.warmupEnabled = v })} />
-      </Row>
-      {/* Two names for the same judgement, so the column asks in the scale you already think in.
-          The (i) sits before the control — you read it on the way to the choice, not after it. */}
-      <Row icon="target" iconTint="var(--purple)" title={t('Effort per set')}>
-        <button className="helpbtn" aria-label={t('What are RIR and RPE?')} onClick={effortHelpSheet}><Icon name="info" /></button>
-        <Segmented className="seg-inline"
-          options={[{ value: 'none', label: t('Off') }, { value: 'rir', label: t('RIR') }, { value: 'rpe', label: t('RPE') }]}
-          value={effortOf(S)} onChange={v => update(s => { s.effort = v; delete s.showRir })} />
-      </Row>
     </Section>
 
     {/* ---------- exercises excluded from your own picker (RoutineEdit's "…" menu) ---------- */}
@@ -346,7 +305,7 @@ const EFFORT_ROWS = [
 // against. Not where the stepper starts; + walks up from the bottom of the scale.
 const EFFORT_TYPICAL = 2
 
-function effortHelpSheet() {
+export function effortHelpSheet() {
   useUI.getState().openSheet(close => <>
     <h3>{t('Effort per set')}</h3>
     <div className="muted small" style={{ lineHeight: 1.5 }}>
@@ -368,7 +327,7 @@ function effortHelpSheet() {
   </>)
 }
 
-function trainingZonesHelpSheet() {
+export function trainingZonesHelpSheet() {
   useUI.getState().openSheet(close => <>
     <h3>{t('Training zones')}</h3>
     <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 12 }}>
@@ -395,15 +354,15 @@ function trainingZonesHelpSheet() {
   </>)
 }
 
-function overloadHelpSheet() {
+export function overloadHelpSheet() {
   useUI.getState().openSheet(close => <>
-    <h3>{t('Progressive overload coach')}</h3>
+    <h3>{t('Progression assistant')}</h3>
     <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 14 }}>
-      {t('A standing suggestion for what to aim for next on any exercise you’ve trained before, plus a clear signal the moment you actually beat it.')}
+      {t('A recommendation for what to aim for next on any exercise you’ve trained before, plus a clear signal the moment you actually beat it.')}
     </div>
-    <h4 className="sec" style={{ marginTop: 0 }}>{t('The target chip')}</h4>
+    <h4 className="sec" style={{ marginTop: 0 }}>{t('The recommendation')}</h4>
     <div className="small dim" style={{ lineHeight: 1.5, marginBottom: 14 }}>
-      {t('If your heaviest set last time hit the top of this exercise’s rep target, the suggestion is more weight, same reps. If it fell short, the suggestion holds the weight and asks for one more rep instead. Either way it’s a suggestion, not something the app changes for you — tap a set’s own “last time” placeholder to fill it in.')}
+      {t('Before the first set it reads your last sessions of that exercise — reps against the target, the RPE you logged and the jumps your equipment allows — and suggests keeping the weight, adding a rep, adding weight or stepping down, with the reason and how sure it is. “Use recommendation” changes only today’s sets; your trainer’s routine never changes.')}
     </div>
     <h4 className="sec">{t('Beating it')}</h4>
     <div className="small dim" style={{ lineHeight: 1.5 }}>
@@ -412,7 +371,7 @@ function overloadHelpSheet() {
   </>)
 }
 
-function rpVolumeHelpSheet() {
+export function rpVolumeHelpSheet() {
   useUI.getState().openSheet(close => <>
     <h3>{t('Weekly volume zones')}</h3>
     <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 12 }}>

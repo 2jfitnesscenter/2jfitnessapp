@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
+import { shouldShowWorkoutGuide } from './lib/workout-prefs.js'
+import { openWorkoutGuide } from './components/WorkoutGuide.jsx'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, isCardio, allExercises, equipmentOf, exOr } from './lib/exercises.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, routineCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
@@ -1646,6 +1648,9 @@ export const actionsSheet = () => ui().openSheet(close => <ActionsSheet close={c
 
 /* ============================ workout lifecycle ============================ */
 export function startFlow(routineId) {
+  // A brand-new member sees the visual training guide once, right before the first real
+  // workout (lib/workout-prefs.js) — then the normal flow continues exactly where it would have.
+  if (shouldShowWorkoutGuide(S())) { openWorkoutGuide({ onDone: () => startFlow(routineId) }); return }
   // The check-in is worth interrupting for when the weight curve is going stale, not every
   // single time — once there's a weigh-in within the last 15 days, walk straight into the
   // workout with whatever weight is already on file.
@@ -1809,10 +1814,12 @@ function barTypeSheet(value, onChange) {
     </div>
   </>)
 }
-function PlatesSheet({ weight: initWeight, unit, barId: initBarId, onApply, close }) {
+function PlatesSheet({ weight: initWeight, unit, barId: initBarId, onApply, onBarChange, close }) {
   const st = useStore(s => s.S)
   const [weight, setWeight] = useState(initWeight)
-  const [barId, setBarId] = useState(initBarId || 'olympic')
+  const [barId, setBarIdLocal] = useState(initBarId || 'olympic')
+  // Opened from a set (Workout.jsx), the bar picked here is remembered for that exercise.
+  const setBarId = id => { setBarIdLocal(id); onBarChange?.(id) }
   // "Fewer changes" (below) only makes sense once the target has actually moved away from
   // where the sheet opened — with nothing to diff against yet it's silently ignored either way.
   const [minChange, setMinChange] = useState(false)
