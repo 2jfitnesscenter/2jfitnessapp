@@ -1369,6 +1369,26 @@ Producción sigue en `23226f6`: nada de esto está desplegado.
   Fuentes Google (Sora) no se cachean: offline cae a la fuente del sistema.
 - Validación: frontend 613/613 (38 archivos), API 222/222, build, check-locales, diff OK.
 
+## Entrenamiento V2 — 2026-09-24 (Claude, sin desplegar)
+
+Commits: `81ec965` modelo de preferencias + reglas del teclado + motor de progresión V1 ·
+`99ece8a` descanso V2 (pausa, aviso/sonido/vibración) · `515c2de` vistas Simple/Detallada,
+teclado 2J, Discos contextual, notas/consejos, guía, Ajustes → Entrenamiento · `91701a8` tests.
+
+- Capas: prescripción = `entry.target` (+ `target.note`) y `entry.plan`; resultado = `entry.sets`;
+  preferencias = claves opcionales en S leídas solo vía `lib/workout-prefs.js` (defaults = el
+  comportamiento previo). `entry.rec` guarda solo la decisión de la recomendación en la sesión;
+  no pasa al workout terminado ni toca la rutina.
+- Defaults de cuenta nueva (`NEW_PROFILE_DEFAULTS`) se escriben únicamente al cerrar el wizard
+  post-registro y solo si no hay workouts; no se modificó `DEF`.
+- Progresión V1 = `recommendProgression` en `lib/overload.js` (reglas y confianza documentadas
+  allí); convive con la política de rutina (`progression.js`), que sigue igual.
+- Teclado: cada tecla escribe con `update()` → `gym_state_v1`; cambios solo de `active` no se
+  encolan (invariante Offline V1, test en `offline-training.test.js`).
+- Pendiente de prueba física: flujo completo en Android (teclado, descanso con pantalla
+  encendida/bloqueada, vibración, guía en cuenta nueva) y offline con V2.
+- Validación: frontend 646/646 (40 archivos), API 222/222, build, check-locales, diff OK.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.
