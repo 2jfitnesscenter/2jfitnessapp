@@ -11,13 +11,13 @@ export const FOCUS = ['glutes', 'quads', 'hamstrings', 'calves', 'chest', 'back'
   'abs', 'posterior', 'lower', 'upper', 'push', 'pull', 'fullbody', 'cardio']
 // Labels are English source strings rendered through t() (Spanish in locales/es.js).
 export const FOCUS_LABEL = {
-  glutes: 'Glutes', quads: 'Quads', hamstrings: 'Hamstrings', calves: 'Calves', chest: 'Chest', back: 'Back',
+  glutes: 'Glutes', quads: 'Quads', hamstrings: 'Hamstrings', calves: 'Calves', chest: 'Chest', back: 'Back muscles',
   shoulders: 'Shoulders', biceps: 'Biceps', triceps: 'Triceps', arms: 'Arms', abs: 'Core', posterior: 'Posterior chain',
   lower: 'Lower body', upper: 'Upper body', push: 'Push', pull: 'Pull', fullbody: 'Full body', cardio: 'Cardio',
 }
 export const GOAL_LABEL = { hypertrophy: 'Hypertrophy', strength: 'Strength', general: 'General', endurance: 'Muscular endurance', power: 'Power', beginner: 'Start / return' }
-export const LEVEL_LABEL = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' }
-export const TYPE_LABEL = { strength: 'Strength', superset: 'Superset', circuit: 'Circuit', cardio: 'Cardio', interval: 'Intervals', hiit: 'HIIT', mobility: 'Mobility' }
+export const LEVEL_LABEL = { beginner: 'Novice', intermediate: 'Intermediate', advanced: 'Advanced' }
+export const TYPE_LABEL = { strength: 'Straight sets', superset: 'Superset', circuit: 'Circuit', cardio: 'Cardio', interval: 'Intervals', hiit: 'HIIT', mobility: 'Mobility' }
 export const STYLE_LABEL = {
   stable: 'Stable', mixed: 'Mixed', unilateral: 'Unilateral', tension: 'Tension', free: 'Free weights', machine: 'Machines',
   isolation: 'Isolation', density: 'Density', heavy: 'Heavy', volume: 'Volume', foundation: 'Foundation', athletic: 'Athletic',

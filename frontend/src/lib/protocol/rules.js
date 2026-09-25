@@ -123,6 +123,10 @@ export const SESSION_EXERCISES = { allow: [1, 14] }
 // Restrictions a trainer/member can declare explicitly. The validator only enforces what is
 // declared; it never infers one from a condition, never diagnoses (2J-HEU-RESTRICTIONS).
 export const RESTRICTIONS = ['no-jumps', 'no-deep-knee-flexion', 'no-overhead', 'no-spinal-loading', 'no-floor']
+export const RESTRICTION_LABEL = {
+  'no-jumps': 'No jumps', 'no-deep-knee-flexion': 'No deep knee flexion', 'no-overhead': 'No overhead work',
+  'no-spinal-loading': 'No spinal loading', 'no-floor': 'No floor exercises',
+}
 export const RESTRICTION_FLAG = {
   'no-jumps': 'jump', 'no-deep-knee-flexion': 'deepKnee', 'no-overhead': 'overhead',
   'no-spinal-loading': 'spinalLoad', 'no-floor': 'floor',

@@ -41,15 +41,16 @@ export default function TrainerClientPlan() {
     </div>
 
     <div className="row" style={{ gap: 8, marginBottom: 20 }}>
-      <Button icon="plus" onClick={() => nav('/trainer/' + memberId + '/r/new')}>{t('New routine')}</Button>
-      <Button icon="plus" variant="tinted" onClick={() => nav('/trainer/' + memberId + '/p/new')}>{t('New program')}</Button>
+      <Button icon="plus" onClick={() => nav('/trainer/' + memberId + '/build/r/new')}>{t('New routine')}</Button>
+      <Button icon="plus" variant="tinted" onClick={() => nav('/trainer/' + memberId + '/build/p/new')}>{t('New program')}</Button>
       <Button icon="sparkles" variant="tinted" onClick={() => nav('/trainer/' + memberId + '/ai')}>{t('Generate with AI')}</Button>
       <Button icon="scan" variant="tinted" onClick={() => nav('/trainer/' + memberId + '/scan')}>{t('Scan a routine')}</Button>
+      <Button icon="list" variant="plain" onClick={() => nav('/trainer/blocks')}>{t('Block library')}</Button>
     </div>
 
     <h4 className="sec">{t('Programs')}</h4>
     {(plan.programs || []).length ? <div className="list" style={{ marginBottom: 22 }}>
-      {plan.programs.map(p => <div key={p.id} className="item" onClick={() => nav('/trainer/' + memberId + '/p/' + p.id)}>
+      {plan.programs.map(p => <div key={p.id} className="item" onClick={() => nav('/trainer/' + memberId + '/build/p/' + p.id)}>
         {p.image ? <img src={mediaUrl(p.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
           : <span className="lrow-i"><Icon name={glyphOf(p.emoji)} /></span>}
         <div className="grow"><div className="tt">{p.name}</div><div className="ss"><ProgramSummaryLine p={p} routines={plan.routines || []} /></div></div>
@@ -59,7 +60,7 @@ export default function TrainerClientPlan() {
 
     <h4 className="sec">{t('Routines')}</h4>
     {loose.length ? <div className="list">
-      {loose.map(r => <div key={r.id} className="item" onClick={() => nav('/trainer/' + memberId + '/r/' + r.id)}>
+      {loose.map(r => <div key={r.id} className="item" onClick={() => nav('/trainer/' + memberId + '/build/r/' + r.id)}>
         {r.image ? <img src={mediaUrl(r.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
           : <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>}
         <div className="grow"><div className="tt">{r.name}</div><div className="ss"><RoutineSummaryLine r={r} /></div></div>

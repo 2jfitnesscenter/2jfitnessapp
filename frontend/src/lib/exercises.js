@@ -37,6 +37,7 @@ export const isHidden = id => hidden.has(id)
 let unavailableEq = new Set()
 export function setUnavailableEquipment(list) { unavailableEq = new Set(list || []) }
 export const isEquipmentUnavailable = eq => !!eq && unavailableEq.has(eq)
+export const unavailableEquipmentList = () => [...unavailableEq]
 
 // Combined "don't offer/use this right now" check — either the exercise itself was hidden by
 // admin, or the equipment it needs currently isn't available. Takes an id or a resolved
