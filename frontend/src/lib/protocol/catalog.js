@@ -1,0 +1,156 @@
+// Curated taxonomy for the exercises the official 2J block library uses — real ids from the
+// exercise library (lib/exercises-data.js), never new records. Anything not listed here is
+// classified by lib/protocol/classify.js's name/equipment heuristics instead, which is good
+// enough for the validator's warnings but not reliable enough to build official blocks from.
+//
+// Tuple: [pattern, class, primary group, secondary groups, flags, variant]
+//   class   cf = compound_free · cs = compound_stable · sec = secondary · iso = isolation
+//   flags   uni (unilateral) · jump · deepKnee · overhead · spinalLoad · floor
+//   variant separates real stimulus differences inside one pattern (angle, grip, length)
+//           so the redundancy check does not flag them; same pattern + same variant is the
+//           "near-duplicate" 2J avoids inside one block.
+// Library gap noted in docs/TRAINING_PROTOCOL_2J.md: there is no barbell hip thrust record,
+// so 2J blocks use the barbell glute bridge (1409) instead of inventing one.
+
+const C = {
+  // ── glutes / hips
+  '1409': ['bridge', 'cf', 'glutes', 'hamstrings', '', ''],
+  '3013': ['bridge', 'sec', 'glutes', 'hamstrings', 'floor', ''],
+  '2286': ['hip-ext', 'iso', 'glutes', '', 'uni', 'standing'],
+  '0228': ['hip-ext', 'iso', 'glutes', '', 'uni', 'standing'],
+  '0593': ['hip-ext', 'iso', 'glutes', 'hamstrings', '', 'reverse-hyper'],
+  '0196': ['hinge', 'sec', 'glutes', 'hamstrings', '', 'pull-through'],
+  '0597': ['abduction', 'iso', 'glutes', '', '', 'seated'],
+  '0710': ['abduction', 'iso', 'glutes', '', 'uni,floor', 'side-lying'],
+  '0598': ['adduction', 'iso', 'adductors', '', '', 'seated'],
+  '0168': ['adduction', 'iso', 'adductors', '', 'uni', 'cable'],
+  // ── quads / squat patterns
+  '0043': ['squat', 'cf', 'quads', 'glutes', 'deepKnee,spinalLoad', 'back'],
+  '0042': ['squat', 'cf', 'quads', 'glutes', 'deepKnee,spinalLoad', 'front'],
+  '1760': ['squat', 'sec', 'quads', 'glutes', 'deepKnee', 'goblet'],
+  '0743': ['squat', 'cs', 'quads', 'glutes', 'deepKnee', 'hack'],
+  '0739': ['leg-press', 'cs', 'quads', 'glutes', 'deepKnee', 'bilateral'],
+  '1425': ['leg-press', 'cs', 'quads', 'glutes', 'deepKnee,uni', 'single'],
+  '0585': ['knee-ext', 'iso', 'quads', '', '', 'machine'],
+  '0410': ['lunge', 'sec', 'quads', 'glutes', 'deepKnee,uni', 'split'],
+  '0768': ['lunge', 'cs', 'quads', 'glutes', 'deepKnee,uni', 'split'],
+  '0336': ['lunge', 'sec', 'quads', 'glutes', 'deepKnee,uni', 'forward'],
+  '0381': ['lunge', 'sec', 'glutes', 'quads', 'deepKnee,uni', 'reverse'],
+  '1460': ['lunge', 'sec', 'quads', 'glutes', 'deepKnee,uni', 'forward'],
+  '0431': ['step-up', 'sec', 'glutes', 'quads', 'uni', 'step'],
+  // ── hamstrings / hinge
+  '0032': ['hinge', 'cf', 'glutes', 'hamstrings,back', 'spinalLoad', 'deadlift'],
+  '0811': ['hinge', 'cf', 'glutes', 'quads,hamstrings', 'spinalLoad', 'deadlift'],
+  '0085': ['hinge', 'cf', 'hamstrings', 'glutes', 'spinalLoad', 'romanian'],
+  '1459': ['hinge', 'sec', 'hamstrings', 'glutes', '', 'romanian'],
+  '1757': ['hinge', 'sec', 'hamstrings', 'glutes', 'uni', 'single-leg'],
+  '0044': ['hinge', 'cf', 'hamstrings', 'glutes', 'spinalLoad', 'good-morning'],
+  '0573': ['back-ext', 'cs', 'hamstrings', 'glutes', '', 'machine'],
+  '0489': ['back-ext', 'sec', 'hamstrings', 'glutes', '', 'bench'],
+  '0586': ['knee-flex', 'iso', 'hamstrings', '', '', 'lying'],
+  '0599': ['knee-flex', 'iso', 'hamstrings', '', '', 'seated'],
+  '0582': ['knee-flex', 'iso', 'hamstrings', '', 'uni', 'kneeling'],
+  '3193': ['knee-flex', 'sec', 'hamstrings', 'glutes', '', 'glute-ham'],
+  // ── calves
+  '0605': ['calf', 'iso', 'calves', '', '', 'standing'],
+  '0594': ['calf', 'iso', 'calves', '', '', 'seated'],
+  '0738': ['calf', 'iso', 'calves', '', '', 'standing'],
+  '0417': ['calf', 'iso', 'calves', '', '', 'standing'],
+  '0409': ['calf', 'iso', 'calves', '', 'uni', 'standing'],
+  // ── chest
+  '0025': ['h-press', 'cf', 'chest', 'triceps,shoulders', '', 'flat'],
+  '0047': ['h-press', 'cf', 'chest', 'shoulders,triceps', '', 'incline'],
+  '0289': ['h-press', 'sec', 'chest', 'triceps', '', 'flat'],
+  '0314': ['h-press', 'sec', 'chest', 'shoulders', '', 'incline'],
+  '0577': ['h-press', 'cs', 'chest', 'triceps', '', 'flat'],
+  '1299': ['h-press', 'cs', 'chest', 'shoulders', '', 'incline'],
+  '0662': ['h-press', 'sec', 'chest', 'triceps', 'floor', 'push-up'],
+  '0308': ['fly', 'iso', 'chest', '', '', 'flat'],
+  '0319': ['fly', 'iso', 'chest', '', '', 'incline'],
+  '0596': ['fly', 'iso', 'chest', '', '', 'flat'],
+  '0227': ['fly', 'iso', 'chest', '', '', 'flat'],
+  '0179': ['fly', 'iso', 'chest', '', '', 'incline'],
+  '0251': ['dip', 'sec', 'chest', 'triceps', '', 'chest'],
+  '0009': ['dip', 'cs', 'chest', 'triceps', '', 'chest'],
+  // ── back
+  '0652': ['v-pull', 'sec', 'back', 'biceps', '', 'wide'],
+  '1326': ['v-pull', 'sec', 'back', 'biceps', '', 'underhand'],
+  '0017': ['v-pull', 'cs', 'back', 'biceps', '', 'wide'],
+  '0198': ['v-pull', 'cs', 'back', 'biceps', '', 'wide'],
+  '0245': ['v-pull', 'cs', 'back', 'biceps', '', 'underhand'],
+  '2616': ['v-pull', 'cs', 'back', 'biceps', '', 'neutral'],
+  '3563': ['v-pull', 'cs', 'back', 'biceps', 'uni', 'neutral'],
+  '0027': ['h-row', 'cf', 'back', 'biceps', 'spinalLoad', 'bent-over'],
+  '3017': ['h-row', 'cf', 'back', 'biceps', 'spinalLoad', 'bent-over'],
+  '0292': ['h-row', 'sec', 'back', 'biceps', 'uni', 'one-arm'],
+  '0327': ['h-row', 'sec', 'back', 'biceps', '', 'chest-supported'],
+  '0861': ['h-row', 'cs', 'back', 'biceps', '', 'seated'],
+  '1350': ['h-row', 'cs', 'back', 'biceps', '', 'seated'],
+  '1349': ['h-row', 'cs', 'back', 'biceps', '', 'bent-over'],
+  '0581': ['h-row', 'cs', 'back', 'biceps', '', 'high'],
+  '0189': ['h-row', 'cs', 'back', 'biceps', 'uni', 'one-arm'],
+  '0499': ['h-row', 'sec', 'back', 'biceps', '', 'inverted'],
+  '0238': ['pullover', 'iso', 'back', '', '', 'cable'],
+  '0375': ['pullover', 'iso', 'back', 'chest', '', 'dumbbell'],
+  '0406': ['shrug', 'iso', 'back', '', '', 'dumbbell'],
+  // ── shoulders
+  '1456': ['v-press', 'cf', 'shoulders', 'triceps', 'overhead,spinalLoad', 'standard'],
+  '0405': ['v-press', 'sec', 'shoulders', 'triceps', 'overhead', 'standard'],
+  '2137': ['v-press', 'sec', 'shoulders', 'triceps', 'overhead', 'standard'],
+  '0603': ['v-press', 'cs', 'shoulders', 'triceps', 'overhead', 'standard'],
+  '0766': ['v-press', 'cs', 'shoulders', 'triceps', 'overhead', 'standard'],
+  '0334': ['lat-raise', 'iso', 'shoulders', '', '', 'standard'],
+  '0178': ['lat-raise', 'iso', 'shoulders', '', '', 'standard'],
+  '0192': ['lat-raise', 'iso', 'shoulders', '', 'uni', 'standard'],
+  '0584': ['lat-raise', 'iso', 'shoulders', '', '', 'standard'],
+  '0602': ['rear-delt', 'iso', 'shoulders', 'back', '', 'fly'],
+  '0383': ['rear-delt', 'iso', 'shoulders', 'back', '', 'fly'],
+  '0203': ['rear-delt', 'iso', 'shoulders', 'back', '', 'row'],
+  '0225': ['rear-delt', 'iso', 'shoulders', 'back', '', 'fly'],
+  '0310': ['front-raise', 'iso', 'shoulders', '', '', 'dumbbell'],
+  // ── biceps
+  '0031': ['curl', 'iso', 'biceps', '', '', 'standard'],
+  '0447': ['curl', 'iso', 'biceps', '', '', 'standard'],
+  '0294': ['curl', 'iso', 'biceps', '', '', 'standard'],
+  '0868': ['curl', 'iso', 'biceps', '', '', 'standard'],
+  '0313': ['curl', 'iso', 'biceps', 'forearms', '', 'hammer'],
+  '0165': ['curl', 'iso', 'biceps', 'forearms', '', 'hammer'],
+  '0318': ['curl', 'iso', 'biceps', '', '', 'incline'],
+  '0070': ['curl', 'iso', 'biceps', '', '', 'preacher'],
+  '0592': ['curl', 'iso', 'biceps', '', '', 'preacher'],
+  '0297': ['curl', 'iso', 'biceps', '', 'uni', 'preacher'],
+  '0454': ['curl', 'iso', 'biceps', '', '', 'preacher'],
+  // ── triceps
+  '0201': ['tri-ext', 'iso', 'triceps', '', '', 'pushdown'],
+  '0200': ['tri-ext', 'iso', 'triceps', '', '', 'pushdown'],
+  '0194': ['tri-ext', 'iso', 'triceps', '', 'overhead', 'overhead'],
+  '1749': ['tri-ext', 'iso', 'triceps', '', 'overhead', 'overhead'],
+  '2188': ['tri-ext', 'iso', 'triceps', '', 'overhead', 'overhead'],
+  '0060': ['tri-ext', 'iso', 'triceps', '', '', 'lying'],
+  '0030': ['h-press', 'cf', 'triceps', 'chest', '', 'close-grip'],
+  '0814': ['dip', 'sec', 'triceps', 'chest', '', 'triceps'],
+  '1451': ['dip', 'cs', 'triceps', 'chest', '', 'triceps'],
+  '0129': ['dip', 'sec', 'triceps', '', '', 'bench'],
+  // ── core
+  '0175': ['core-flex', 'iso', 'abs', '', '', 'crunch'],
+  '1452': ['core-flex', 'iso', 'abs', '', '', 'crunch'],
+  '0872': ['core-flex', 'iso', 'abs', '', 'floor', 'reverse'],
+  '0472': ['core-flex', 'sec', 'abs', '', '', 'hanging'],
+  '0011': ['core-flex', 'sec', 'abs', '', '', 'hanging'],
+  '2963': ['core-flex', 'sec', 'abs', '', '', 'hanging'],
+  '0276': ['anti-ext', 'iso', 'abs', '', 'floor', 'dead-bug'],
+  '2135': ['anti-ext', 'iso', 'abs', '', 'floor', 'plank'],
+  '0857': ['anti-ext', 'sec', 'abs', '', 'floor', 'rollout'],
+  '3544': ['anti-lat', 'iso', 'abs', '', 'floor', 'side-plank'],
+  '2133': ['carry', 'sec', 'abs', 'forearms', '', 'farmer'],
+  '0407': ['lat-flex', 'iso', 'abs', '', '', 'dumbbell'],
+  // ── power
+  '0514': ['jump', 'sec', 'quads', 'glutes', 'jump,deepKnee', 'bodyweight'],
+  '0053': ['jump', 'cf', 'quads', 'glutes', 'jump,deepKnee,spinalLoad', 'barbell'],
+}
+
+const CLS = { cf: 'compound_free', cs: 'compound_stable', sec: 'secondary', iso: 'isolation' }
+export const CATALOG = Object.fromEntries(Object.entries(C).map(([id, [p, c, g, s, f, v]]) => [id, {
+  pattern: p, cls: CLS[c], group: g, secondary: s ? s.split(',') : [],
+  flags: f ? f.split(',') : [], variant: v, uni: f.split(',').includes('uni'),
+}]))
