@@ -265,7 +265,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     'GET /api/bunker/board': async (req, res) => {
       json(res, 200, { sessions: store.listSessions().map(s => ({
         uid: s.uid, name: s.name, checkinAt: s.checkinAt, exName: s.exName, setIdx: s.setIdx,
-        setsTotal: s.setsTotal, restEndsAt: s.restEndsAt, paused: s.paused,
+        setsTotal: s.setsTotal, restEndsAt: s.restEndsAt, restSec: s.restSec || null, paused: s.paused,
       })), todayPrs: todayPrs() });
     },
     'GET /api/bunker/settings': async (req, res) => json(res, 200, store.getSettings()),
@@ -351,7 +351,8 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
       const body = await readBody(req);
       const sec = Math.max(0, Math.min(1800, Number(body.sec) || 0));
-      store.touchSession(uid, { restEndsAt: sec ? Date.now() + sec * 1000 : null });
+      // restSec lets every screen draw the ring against the rest actually prescribed (V2.1).
+      store.touchSession(uid, { restEndsAt: sec ? Date.now() + sec * 1000 : null, restSec: sec || null });
       json(res, 200, { ok: true });
     },
 

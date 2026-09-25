@@ -19,13 +19,16 @@ import {
   bunkerAdminCheckin, fetchBunkerAdminSessions, closeBunkerSession, pauseBunkerSession, saveBunkerSettings,
 } from '../lib/bunker-api.js'
 import { purgeStaleCredentials } from '../lib/bunker-credentials.js'
-import { nextAfterBunkerSet } from '../lib/bunker-workout.js'
+import { nextAfterBunkerSet, bunkerRestSec, BUNKER_REST_FALLBACK } from '../lib/bunker-workout.js'
+import { guidedBlocksOf } from '../lib/guided.js'
+import { TYPE_LABEL } from '../lib/protocol/index.js'
 import { retryPendingFinish, stagePendingFinish } from '../lib/bunker-persistence.js'
 import { alternativesSheet } from '../sheets.jsx'
 
 const BOARD_POLL_MS = 4000
-const REST_SEC = 90
 const AFTER_SET_MINIMIZE_MS = 20000
+// Guided blocks of the running session: its own snapshot, else the routine it came from.
+const guidedOf = (active, routines) => active?.guidedBlocks || guidedBlocksOf((routines || []).find(r => r.id === active?.routineId))
 const PAIR_KEY = 'gym_bunker_screen'
 
 const elapsed = ms => { const m = Math.floor(ms / 60000); return (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm' }
@@ -35,7 +38,7 @@ const MUSCLE_GROUP_NAME = Object.fromEntries(MUSCLE_GROUPS.map(g => [g.key, g.na
 // `onEnd` fires exactly once per countdown, the instant it reaches zero — the room dashboard's
 // hook for the "rest just finished" beep + pulse (settings.enableRestEndBeep/highlightFinishedRest),
 // since that moment only exists client-side (the server just hands out a target timestamp).
-function RestRing({ endsAt, size = 44, paused, onEnd }) {
+function RestRing({ endsAt, total, size = 44, paused, onEnd }) {
   const [left, setLeft] = useState(() => Math.max(0, Math.round((endsAt - Date.now()) / 1000)))
   const endedRef = useRef(false)
   useEffect(() => {
@@ -50,7 +53,8 @@ function RestRing({ endsAt, size = 44, paused, onEnd }) {
   }, [endsAt])
   if (paused) return <div className="bk-ring bk-ring-paused" style={{ width: size, height: size }}><Icon name="pause" /></div>
   if (!endsAt || left <= 0) return null
-  const pct = Math.max(0, Math.min(1, left / REST_SEC))
+  // Proportional to the rest actually prescribed (Constructor V2.1), not a fixed 90 s.
+  const pct = Math.max(0, Math.min(1, left / Math.max(1, total || BUNKER_REST_FALLBACK)))
   const color = pct > 0.5 ? '#10B981' : pct > 0.2 ? '#ffd60a' : '#ff453a'
   const r = size / 2 - 4
   const c = 2 * Math.PI * r
@@ -79,7 +83,7 @@ function CardRest({ s, settings }) {
     if (settings.highlightFinishedRest) { setPulsing(true); setTimeout(() => setPulsing(false), 6000) }
   }
   return <>
-    {s.restEndsAt && <RestRing endsAt={s.restEndsAt} paused={s.paused} onEnd={onRestEnd} />}
+    {s.restEndsAt && <RestRing endsAt={s.restEndsAt} total={s.restSec} paused={s.paused} onEnd={onRestEnd} />}
     {pulsing && <i className="bk-card-pulse" />}
   </>
 }
@@ -185,6 +189,7 @@ function buildBunkerActive(S, routine) {
     id: uid(), d: todayISO(), start: Date.now(), routineId: routine.id,
     name: routine.name, bw: null, cur: 0,
     entries: buildRoutineEntries(S, routine),
+    ...(guidedBlocksOf(routine).length ? { guidedBlocks: guidedBlocksOf(routine) } : {}),
   }
 }
 function lastResultFor(recentWorkouts, exId) {
@@ -218,6 +223,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
   const [active, setActive] = useState(null)
   const [exIdx, setExIdx] = useState(0)
   const [restEndsAt, setRestEndsAt] = useState(null)
+  const [restTotal, setRestTotal] = useState(BUNKER_REST_FALLBACK)
   const [showAdd, setShowAdd] = useState(false)
   const idleRef = useRef(null)
   const minimizeRef = useRef(null)
@@ -393,9 +399,12 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       const progressEntries = active.entries.map((e, idx) => idx !== ei ? e : { ...e, sets: e.sets.map((s, setIdx) => setIdx === si ? { ...s, done: true } : s) })
       const advance = nextAfterBunkerSet(progressEntries, ei, si)
       if (advance.rest) {
-        const endsAt = Date.now() + REST_SEC * 1000
+        // The prescribed rest for this exercise (or pair / guided block); 90 s when none.
+        const restSec = bunkerRestSec(progressEntries, ei, guidedOf(active, plan.routines))
+        const endsAt = Date.now() + restSec * 1000
+        setRestTotal(restSec)
         setRestEndsAt(endsAt)
-        postBunkerRest(token, REST_SEC).catch(() => {})
+        postBunkerRest(token, restSec).catch(() => {})
         clearTimeout(minimizeRef.current)
         minimizeRef.current = setTimeout(onMinimize, AFTER_SET_MINIMIZE_MS)
       } else {
@@ -474,12 +483,13 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
   }
 
   const freeTraining = active.routineId === null
+  const guidedHere = entry?.target?.blk ? (guidedOf(active, plan.routines) || []).find(b => b.iid === entry.target.blk) || null : null
 
   return <div className="bk-panel" onClick={touch}>
     <div className="bk-panel-hd">
       <button className="bk-minimize" onClick={onMinimize}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
       <div className="bk-panel-name">{name}</div>
-      {restEndsAt && <RestRing endsAt={restEndsAt} size={52} />}
+      {restEndsAt && <RestRing endsAt={restEndsAt} total={restTotal} size={52} />}
     </div>
     <div className="bk-routine-name">{active.name}</div>
     {active.entries.length > 0 && <div className="bk-exlist">
@@ -508,6 +518,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
           <Icon name="trash" />{t('Remove exercise')}
         </button>}
       </div>
+      {guidedHere && <div className="bk-guided-note" role="note"><Icon name="timer" /><span>{t('Guided block ({0}): at the Bunker it is logged set by set, resting what its timing says between rounds. The paced timer runs in the app on the phone.', t(guidedHere.timing?.preset === 'tabata' ? 'Tabata' : TYPE_LABEL[guidedHere.type] || guidedHere.type))}</span></div>}
       {currentUnit.length > 1 && <div className="bk-superset-line"><Icon name="link" />{currentUnit.map(i => `${supersetLabel(ssInfo[i])} ${exName(active.entries[i].id, plan.customEx)}`).join(' + ')}</div>}
       {/* Same plan.why the phone logger's own .progline shows (lib/progression.js's
           nextPrescription) — what the routine planned for this exercise and why, kept visibly

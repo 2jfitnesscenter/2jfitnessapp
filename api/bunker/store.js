@@ -139,7 +139,7 @@ function liveSession(uid, now = Date.now()) {
 export function startSession(uid, name) {
   const s = {
     uid, name, checkinAt: Date.now(), exId: null, exName: null, setIdx: 0, setsTotal: 0,
-    restEndsAt: null, paused: false, pausedLeftSec: null, lastActivityAt: Date.now(),
+    restEndsAt: null, restSec: null, paused: false, pausedLeftSec: null, lastActivityAt: Date.now(),
   };
   sessions.set(uid, s);
   return s;
