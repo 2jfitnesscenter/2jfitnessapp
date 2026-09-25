@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Health V2, check-in, follow-up and Fitness V1
+
+Not deployed yet.
+
+- 📈 **Your physical evolution.** Real readings only, each with its source (manual, scan, gym
+  staff, Apple Health), ranges from 1 month to all time, and comparisons between two days that
+  show numbers without calling them better or worse. BMI is a secondary line.
+- 🧍 **Segmental body.** Tap an arm, the trunk or a leg to zoom in on its muscle and fat
+  readings. With no reading it stays neutral.
+- 🙂 **Check-in before training.** Energy, sleep, fatigue and discomfort in a few taps. You can
+  set it to every workout, now and then, or never, and skip it in one tap. It only adds
+  advice in words: it never changes your load, sets or routine.
+- ❤️ **Fitness V1.** Calories, average/max heart rate and zones on a workout, only from real
+  sources: the Apple Health export (including Apple Watch and Zepp), WHOOP (read-only), or a
+  Bluetooth heart-rate strap (experimental; Android and computers). Activities are linked only
+  when the times clearly match; you can choose, skip or unlink them, and sources are never added
+  together.
+- 🗂️ **Gym follow-up.** Staff can pick an assessment template (Basic / Intermediate / Pro /
+  custom) and a review schedule, and get a summary and alerts built from the data. Check-ins
+  are shared only if the member turns it on.
+- 🔒 **Privacy.** Health data never reaches the wall, friends, rankings, share cards or the
+  Bunker screen.
+
 ### Workout V2 and offline training
 
 Training got faster, clearer and works without a connection. Deployed on 24 Sep 2026

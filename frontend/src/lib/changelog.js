@@ -11,6 +11,12 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Health: “Your physical evolution” — real readings with their source, ranges from 1 month to all time, and A/B comparisons',
+      'Tap an arm, the trunk or a leg to see its segmental evolution',
+      'An optional pre-workout check-in: energy, sleep, fatigue and discomfort in a few taps',
+      'Calories, heart rate and zones on your workouts, only from real sources: Apple Health export, WHOOP and Bluetooth sensors',
+      'Live heart rate from a Bluetooth chest strap while training (experimental)',
+      'Gym follow-up: assessment templates, review schedule and a factual summary for staff',
       'Mi 2J: your sporting identity — ranks, achievements, records and constancy in one place',
       'After a workout: one summary of your records, new ranks and achievements, with a celebration when you reach a new rank family',
       'Workout V2: choose a Simple view (one exercise, big and clean) or a Detailed one (every set at a glance)',

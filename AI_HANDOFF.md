@@ -3,6 +3,27 @@
 > Punto de traspaso entre agentes (Claude Code / Codex). Resumen operativo, no sustituye
 > inspeccionar el repo — ver "Protocolo de relevo" al final.
 
+## SPRINT HEALTH V2 + CHECK-IN + SEGUIMIENTO V2 + FITNESS V1 — 2026-09-25 (NO DESPLEGADO)
+
+Producción sigue en `e78f604`. Commits del sprint (rama `feat/pwa-tanita-bunker-roadmap`):
+`7db6176` capa de datos Health/fitness + procedencia `src` · `40db86a` WHOOP workouts
+(`read:workout`) · `f1d2813` UI Health V2, check-in, BLE, FitnessSummary, integraciones ·
+`32581b5` Seguimiento V2 (API) · `e643a59` Bunker sin datos cardio · `d675a50` UI de
+seguimiento, consentimiento y tests · y el commit de documentación que añade este bloque.
+
+- Datos: `frontend/src/lib/health.js` (derivados, sin veredictos), `lib/fitness.js` (mappers
+  WHOOP/Apple/HC/HK, matching conservador, `w.fitness = {primary, others}`, nunca suma fuentes),
+  `lib/checkin.js` (`S.checkins`, `S.checkinMode`, `S.shareCheckins`), `lib/ble-hr.js`.
+- Seguimiento V2: `api/lib/followup.js`. **Solo admin** (el staff que ya ve historial y medidas
+  en `GET /api/admin/user`). Rol trainer puro → 403: no existe relación entrenador↔socio y no
+  se han ampliado permisos. La configuración vive en `db.users[].followUp`, no en el estado
+  sincronizado (no toca Sync V2). Los check-ins entran solo con `S.shareCheckins === true`.
+- Bloqueado y documentado: **fotos de progreso** (las subidas no se cifran y
+  `GET /api/social/media` sirve cualquier id a cualquier sesión → no es seguro). **Health
+  Connect / HealthKit** necesitan código nativo: diseño en `docs/HEALTH_NATIVE_BRIDGE.md`, sin
+  implementar y sin Capacitor. **Silueta evolutiva**: no implementada, porque sería engañosa.
+- Tests del sprint: frontend 690 → 720, API 222 → 229.
+
 ## RELEVO VIGENTE PARA CLAUDE CODE — 2026-09-23
 
 Esta sección y el cierre de deployment de `23226f6` prevalecen sobre las notas históricas

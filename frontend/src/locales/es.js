@@ -2518,4 +2518,10 @@ export default {
   'per week': 'por semana',
   'per week · {0} planned': 'por semana · {0} planificados',
   '{0} days': '{0} días',
+  'Health: “Your physical evolution” — real readings with their source, ranges from 1 month to all time, and A/B comparisons': 'Salud: «Tu evolución física» — mediciones reales con su fuente, periodos de 1 mes a todo, y comparación A/B',
+  'Tap an arm, the trunk or a leg to see its segmental evolution': 'Toca un brazo, el tronco o una pierna para ver su evolución segmental',
+  'An optional pre-workout check-in: energy, sleep, fatigue and discomfort in a few taps': 'Check-in opcional antes de entrenar: energía, sueño, fatiga y molestias en unos toques',
+  'Calories, heart rate and zones on your workouts, only from real sources: Apple Health export, WHOOP and Bluetooth sensors': 'Calorías, pulso y zonas en tus entrenos, solo de fuentes reales: exportación de Apple Salud, WHOOP y sensores Bluetooth',
+  'Live heart rate from a Bluetooth chest strap while training (experimental)': 'Pulso en directo con una banda de pecho Bluetooth mientras entrenas (experimental)',
+  'Gym follow-up: assessment templates, review schedule and a factual summary for staff': 'Seguimiento del gimnasio: plantillas de valoración, calendario de revisiones y un resumen factual para el staff',
 }
