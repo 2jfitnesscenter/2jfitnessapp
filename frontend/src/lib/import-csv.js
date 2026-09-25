@@ -25,6 +25,7 @@
 import { EXDB, EXIDX } from './exercises.js'
 import { uid } from './format.js'
 import { nameFor } from './i18n.js'
+import { matchAll, mapAppleWorkout, attachFitness } from './fitness.js'
 
 /* ----------------------------------------------------------------- CSV ---- */
 
@@ -714,7 +715,35 @@ export function parseAppleHealth(text, { unit = 'kg', workouts = [], maxHR = nul
     })
   }
 
-  const total = bw.size + bodyFat.size + leanMass.size + steps.size + sleep.size + restingHR.size + hrZonesByWorkout.size
+  // Workouts recorded by a watch or another app (Health V2 / Fitness V1): their own calories and
+  // heart-rate statistics, exactly as Health stored them — lib/fitness.js's mapAppleWorkout turns
+  // each into a record, and mergeImport attaches only the ones that clearly match a 2J workout.
+  // Both export formats are read: <WorkoutStatistics sum/average/maximum> (iOS 16+) and the
+  // older totalEnergyBurned attribute on the <Workout> itself.
+  const appleWorkouts = []
+  const WRE = /<Workout\b([^>]*?)(\/>|>([\s\S]*?)<\/Workout>)/g
+  const AT_SOURCE = /\bsourceName="([^"]*)"/, AT_ACT = /\bworkoutActivityType="([^"]*)"/
+  const AT_SUM = /\bsum="([^"]*)"/, AT_AVG = /\baverage="([^"]*)"/, AT_MAX = /\bmaximum="([^"]*)"/
+  const AT_TEB = /\btotalEnergyBurned="([^"]*)"/, AT_TEBU = /\btotalEnergyBurnedUnit="([^"]*)"/
+  const toKcal = (v, u) => v == null ? null : /kj/i.test(u || '') ? v / 4.184 : v   // 'Cal' and 'kcal' are both kilocalories
+  let wm
+  while ((wm = WRE.exec(s))) {
+    const head = wm[1], body = wm[3] || ''
+    const start = parseHKDate(pick(head, AT_START)), end = parseHKDate(pick(head, AT_END))
+    if (start == null || end == null || end <= start) continue
+    let kcal = null, avgHr = null, maxHr = null
+    const SRE = /<WorkoutStatistics\b[^>]*\/?>/g
+    let sm
+    while ((sm = SRE.exec(body))) {
+      const st = sm[0], type = pick(st, AT_TYPE)
+      if (type === 'HKQuantityTypeIdentifierActiveEnergyBurned') kcal = toKcal(pickNum(st, AT_SUM), pick(st, AT_UNIT))
+      else if (type === 'HKQuantityTypeIdentifierHeartRate') { avgHr = pickNum(st, AT_AVG); maxHr = pickNum(st, AT_MAX) }
+    }
+    if (kcal == null) kcal = toKcal(pickNum(head, AT_TEB), pick(head, AT_TEBU))
+    appleWorkouts.push({ start, end, kcal, avgHr, maxHr, sourceName: pick(head, AT_SOURCE), activityType: pick(head, AT_ACT) })
+  }
+
+  const total = bw.size + bodyFat.size + leanMass.size + steps.size + sleep.size + restingHR.size + hrZonesByWorkout.size + appleWorkouts.length
   if (!total) return { error: 'unrecognised' }
 
   const convW = (map, fileUnit) => {
@@ -740,6 +769,7 @@ export function parseAppleHealth(text, { unit = 'kg', workouts = [], maxHR = nul
     sleep: toSeries(sleep),
     restingHR: toSeries(restingHR),
     hrZonesByWorkout,
+    appleWorkouts,
     from: allDates[0] || null, to: allDates[allDates.length - 1] || null,
   }
 }
@@ -811,12 +841,14 @@ export function mergeSeries(existing, fresh) {
  *  date-only rule). */
 export function mergeImport(S, parsed) {
   if (parsed.kind === 'health') {
-    const bw = mergeSeries(S.bodyweight, parsed.bodyweight)
+    // Health V2 keeps where a body reading came from (lib/health.js's SOURCE_LABEL).
+    const fromApple = list => (list || []).map(x => ({ ...x, src: 'apple' }))
+    const bw = mergeSeries(S.bodyweight, fromApple(parsed.bodyweight))
     S.bodyweight = bw.list
     S.measurements = S.measurements || {}
-    const bodyFat = mergeSeries(S.measurements.bodyFat, parsed.measurements.bodyFat)
+    const bodyFat = mergeSeries(S.measurements.bodyFat, fromApple(parsed.measurements.bodyFat))
     S.measurements.bodyFat = bodyFat.list
-    const muscleMass = mergeSeries(S.measurements.muscleMass, parsed.measurements.muscleMass)
+    const muscleMass = mergeSeries(S.measurements.muscleMass, fromApple(parsed.measurements.muscleMass))
     S.measurements.muscleMass = muscleMass.list
     const steps = mergeSeries(S.steps, parsed.steps)
     S.steps = steps.list
@@ -837,9 +869,15 @@ export function mergeImport(S, parsed) {
       })
     }
 
+    // Watch/app workouts with their own calories and HR: attached only on a clear match
+    // (lib/fitness.js's matchActivity), idempotent on reimport, never summed with another source.
+    const fit = matchAll(S.workouts, (parsed.appleWorkouts || []).map(x => mapAppleWorkout(x)))
+    fit.match.forEach(({ rec, workoutId }) => { const w = S.workouts.find(x => x.id === workoutId); if (w) attachFitness(w, rec) })
+
     return {
       bodyweight: bw.added, bodyFat: bodyFat.added, muscleMass: muscleMass.added,
       steps: steps.added, sleep: sleep.added, restingHR: restingHR.added, hrMatched,
+      fitnessLinked: fit.match.length, fitnessAmbiguous: fit.ambiguous.length,
     }
   }
   if (parsed.kind === 'bodyweight') {

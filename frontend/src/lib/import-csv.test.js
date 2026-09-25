@@ -138,7 +138,7 @@ describe('mergeImport for a health import', () => {
   it('merges every series and attaches heart-rate zones to the matching workout', () => {
     const S = freshState()
     const res = mergeImport(S, parsed())
-    expect(res).toEqual({ bodyweight: 1, bodyFat: 1, muscleMass: 0, steps: 1, sleep: 0, restingHR: 0, hrMatched: 1 })
+    expect(res).toEqual({ bodyweight: 1, bodyFat: 1, muscleMass: 0, steps: 1, sleep: 0, restingHR: 0, hrMatched: 1, fitnessLinked: 0, fitnessAmbiguous: 0 })
     expect(S.bodyweight).toHaveLength(1)
     expect(S.measurements.bodyFat).toHaveLength(1)
     expect(S.workouts[0].hrZones).toBeTruthy()
@@ -149,7 +149,7 @@ describe('mergeImport for a health import', () => {
     mergeImport(S, parsed())
     const zonesAfterFirst = S.workouts[0].hrZones
     const res = mergeImport(S, parsed())
-    expect(res).toEqual({ bodyweight: 0, bodyFat: 0, muscleMass: 0, steps: 0, sleep: 0, restingHR: 0, hrMatched: 0 })
+    expect(res).toEqual({ bodyweight: 0, bodyFat: 0, muscleMass: 0, steps: 0, sleep: 0, restingHR: 0, hrMatched: 0, fitnessLinked: 0, fitnessAmbiguous: 0 })
     expect(S.bodyweight).toHaveLength(1)
     expect(S.workouts[0].hrZones).toBe(zonesAfterFirst)   // same object — never overwritten
   })

@@ -168,7 +168,7 @@ function BwSheet({ required, onDone, close }) {
     update(s => {
       const iso = todayISO()
       const ex = s.bodyweight.find(b => b.d === iso)
-      if (ex) { ex.w = n; ex.t = Date.now() } else s.bodyweight.push({ d: iso, w: n, t: Date.now() })
+      if (ex) { ex.w = n; ex.t = Date.now(); ex.src = 'manual' } else s.bodyweight.push({ d: iso, w: n, t: Date.now(), src: 'manual' })
       s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
     })
     close()
@@ -232,7 +232,7 @@ function MeasurementSheet({ mkey, close }) {
       const list = s.measurements[mkey] = s.measurements[mkey] || []
       const iso = todayISO()
       const ex = list.find(x => x.d === iso)
-      if (ex) { ex.v = v; ex.t = Date.now() } else list.push({ d: iso, v, t: Date.now() })
+      if (ex) { ex.v = v; ex.t = Date.now(); ex.src = 'manual' } else list.push({ d: iso, v, t: Date.now(), src: 'manual' })
       list.sort((a, b) => (a.d < b.d ? -1 : 1))
     })
     close()
@@ -289,14 +289,15 @@ function BioimpedanceScanSheet({ close }) {
         const v = Number(vals[m.key])
         const list = s.measurements[m.key] = s.measurements[m.key] || []
         const ex = list.find(x => x.d === iso)
-        if (ex) { ex.v = v; ex.t = Date.now() } else list.push({ d: iso, v, t: Date.now() })
+        const src = scanned ? 'scan' : 'manual'   // read from a report vs typed by the member
+        if (ex) { ex.v = v; ex.t = Date.now(); ex.src = src } else list.push({ d: iso, v, t: Date.now(), src })
         list.sort((a, b) => (a.d < b.d ? -1 : 1))
         n++
       }
       if (weight !== '' && weight != null) {
         const w = Number(weight)
         const ex = s.bodyweight.find(x => x.d === iso)
-        if (ex) { ex.w = w; ex.t = Date.now() } else s.bodyweight.push({ d: iso, w, t: Date.now() })
+        if (ex) { ex.w = w; ex.t = Date.now(); ex.src = scanned ? 'scan' : 'manual' } else s.bodyweight.push({ d: iso, w, t: Date.now(), src: scanned ? 'scan' : 'manual' })
         s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
         n++
       }

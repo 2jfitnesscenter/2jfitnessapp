@@ -1107,7 +1107,7 @@ const routes = {
       if (!Number.isFinite(num) || num <= 0) continue;
       const list = S.measurements[key] = S.measurements[key] || [];
       const ex = list.find(x => x.d === iso);
-      if (ex) { ex.v = num; ex.t = Date.now(); } else list.push({ d: iso, v: num, t: Date.now() });
+      if (ex) { ex.v = num; ex.t = Date.now(); ex.src = 'staff'; } else list.push({ d: iso, v: num, t: Date.now(), src: 'staff' });
       list.sort((a, b) => (a.d < b.d ? -1 : 1));
       n++;
     }
@@ -1120,7 +1120,7 @@ const routes = {
       if (Number.isFinite(w) && w > 0) {
         S.bodyweight = S.bodyweight || [];
         const ex = S.bodyweight.find(x => x.d === iso);
-        if (ex) { ex.w = w; ex.t = Date.now(); } else S.bodyweight.push({ d: iso, w, t: Date.now() });
+        if (ex) { ex.w = w; ex.t = Date.now(); ex.src = 'staff'; } else S.bodyweight.push({ d: iso, w, t: Date.now(), src: 'staff' });
         S.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1));
         n++;
       }

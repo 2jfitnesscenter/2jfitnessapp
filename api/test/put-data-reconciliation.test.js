@@ -241,7 +241,8 @@ test('a new bioimpedance weight uses S.bodyweight and stale clients converge to 
   const stale = structuredClone(mobile.body.state); stale.targetW = 75;
   assert.equal((await req('POST', '/api/sync', { body: { owner: 'u1', operationId: 'stale-after-weight', type: 'save', revision: mobile.body.meta.revision, generation: mobile.body.meta.generation, state: stale } })).status, 409);
   const desktop = await req('GET', '/api/sync');
-  assert.deepEqual(desktop.body.state.bodyweight.at(-1), { d: '2026-09-21', w: 81.4, t: desktop.body.state.bodyweight.at(-1).t });
+  // `src: 'staff'`: Health V2 records where a body reading came from (entered by gym staff here).
+  assert.deepEqual(desktop.body.state.bodyweight.at(-1), { d: '2026-09-21', w: 81.4, t: desktop.body.state.bodyweight.at(-1).t, src: 'staff' });
   assert.equal(desktop.body.state.measurements.bodyFat.at(-1).v, 20);
 });
 

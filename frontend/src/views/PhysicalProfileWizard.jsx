@@ -68,7 +68,7 @@ export default function PhysicalProfileWizard() {
     const iso = todayISO()
     const w = Math.round(p.weight * 10) / 10
     const existing = s.bodyweight.find(b => b.d === iso)
-    if (existing) { existing.w = w; existing.t = Date.now() } else s.bodyweight.push({ d: iso, w, t: Date.now() })
+    if (existing) { existing.w = w; existing.t = Date.now(); existing.src = 'manual' } else s.bodyweight.push({ d: iso, w, t: Date.now(), src: 'manual' })
     s.bodyweight.sort((a, b) => (a.d < b.d ? -1 : 1))
     if (p.primary.length) s.priorityMuscles = p.primary
     if (p.secondary.length) s.secondaryMuscles = p.secondary
