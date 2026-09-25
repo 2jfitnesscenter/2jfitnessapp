@@ -30,6 +30,7 @@ import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
 import * as whoopConfig from './whoop/config.js';
 import { whoopRoutes } from './whoop/routes.js';
+import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
@@ -1129,6 +1130,51 @@ const routes = {
     S._ts = Date.now();
     saveDirect(u.id, S, body, 'admin-measurements', { ok: true, saved: n });
     json(res, 200, { ok: true, saved: n, sync: { revision: S._sync.revision, generation: S._sync.generation } });
+  },
+
+  /* ---------- Seguimiento V2: staff follow-up (api/lib/followup.js has the access rationale) ---------- */
+  // Admin-only, like the rest of /api/admin/user*: it reads nothing GET /api/admin/user doesn't
+  // already show, except check-ins, which are included only when the member shared them. The
+  // follow-up config lives on the roster entry, never in the member's synced state, so it can't
+  // race Sync V2. Nothing here is logged.
+  'GET /api/admin/user/followup': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const id = new URL(req.url, 'http://x').searchParams.get('id');
+    const u = db.users.find(x => x.id === id);
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const today = new Date().toISOString().slice(0, 10);
+    const f = u.followUp || null;
+    const { summary, alerts } = followUpSummary(readState(u.id) || {}, f, today);
+    json(res, 200, { followUp: f && { ...f, keys: templateKeys(f) }, summary, alerts });
+  },
+  // body: { id, template: basic|intermediate|pro|custom, keys?, cadence: weekly|biweekly|monthly|custom, days?, startedAt? } — or { id, stop: true }.
+  'POST /api/admin/user/followup': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    if (body.stop === true) { delete u.followUp; saveDb(); return json(res, 200, { ok: true, followUp: null }); }
+    const r = sanitizeFollowUp(body, u.followUp, new Date().toISOString().slice(0, 10));
+    if (r.error) return json(res, 400, { error: r.error });
+    u.followUp = r.value; saveDb();
+    json(res, 200, { ok: true, followUp: { ...u.followUp, keys: templateKeys(u.followUp) } });
+  },
+  // Marks today's review as done. Measurements themselves go through /api/admin/user/measurements.
+  'POST /api/admin/user/review': async (req, res) => {
+    const staff = requireAdmin(req, res); if (!staff) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    if (!u.followUp) return json(res, 400, { error: 'este miembro no tiene seguimiento activo' });
+    u.followUp = addReview(u.followUp, new Date().toISOString().slice(0, 10), staff.id); saveDb();
+    json(res, 200, { ok: true, followUp: { ...u.followUp, keys: templateKeys(u.followUp) } });
+  },
+  // The member's own view of their follow-up: only the schedule, never who reviewed.
+  'GET /api/followup': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const f = db.users.find(x => x.id === user.id)?.followUp;
+    json(res, 200, f ? { active: true, template: f.template, days: f.days, lastReview: lastReview(f), nextReview: nextReview(f) } : { active: false });
   },
 
   // Applies the same Push/Pull/Legs starter plan "Load starter plan" offers a member, straight
