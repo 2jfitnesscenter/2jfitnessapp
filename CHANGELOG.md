@@ -2,9 +2,39 @@
 
 ## Unreleased
 
+### Constructor V2 and the 2J Training Protocol v1.0
+
+Not deployed yet. **Methodology change:** from now on, 2J prescribes training under the
+**2J Training Protocol v1.0** ([docs/TRAINING_PROTOCOL_2J.md](docs/TRAINING_PROTOCOL_2J.md)).
+Its evidence is in [docs/EVIDENCE.md](docs/EVIDENCE.md), with the ACSM 2026 resistance-training
+position stand as the backbone.
+
+- 🧱 **Constructor V2 for trainers.** Build a program as Program → Day → Blocks → Exercises.
+  - Add a whole block in one tap, then edit every exercise inside the day: replace, remove,
+    reorder by dragging, change sets, reps, RPE and rest, make supersets, add notes.
+  - The block is copied into the day, so the library never changes and old routines keep
+    working untouched.
+- 📚 **Official 2J block library.** 112 validated blocks for glutes, quads, hamstrings, chest,
+  back, shoulders, arms, calves, core, push, pull, lower body, posterior chain and full body.
+  - Goals: hypertrophy, strength, general health, muscular endurance and start/return.
+  - The high-use families get real A/B/C variants per level (stable, mixed, unilateral…).
+  - Trainers can duplicate a block, save their own, and mark favorites.
+- ✅ **Deterministic 2J validator.** Every block, routine and AI plan is checked against the
+  protocol and gets one of three results: fits, fits with a stated reason, or does not fit.
+  - It checks rep zones by exercise type (hypertrophy is no longer "8–12"), the 2J effort
+  scale 4/6/8/10, rest, weekly volume, near-duplicate exercises, supersets, exercise order,
+  equipment and declared restrictions.
+  - Rule ids 2J-RULE-*, evidence ids 2J-EVD-*.
+- 🤖 **AI follows the protocol.** The member Coach and the trainer AI receive the relevant rules
+  and reuse official blocks before inventing. A plan that fails the protocol is never shown or
+  saved.
+- ⏱️ **Prescribed rest and planned effort in the workout.** A trainer's rest per exercise drives
+  the rest timer, and the planned 2J RPE ("RPE 8·8·10") shows next to the target.
+- 🐞 **Fix:** opening the trainer panel from inside the app no longer blanks the screen.
+
 ### Health V2, check-in, follow-up and Fitness V1
 
-Not deployed yet.
+Deployed on 25 Sep 2026 (`81e60e2`).
 
 - 📈 **Your physical evolution.** Real readings only, each with its source (manual, scan, gym
   staff, Apple Health), ranges from 1 month to all time, and comparisons between two days that

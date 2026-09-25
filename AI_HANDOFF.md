@@ -3,9 +3,102 @@
 > Punto de traspaso entre agentes (Claude Code / Codex). Resumen operativo, no sustituye
 > inspeccionar el repo — ver "Protocolo de relevo" al final.
 
-## SPRINT HEALTH V2 + CHECK-IN + SEGUIMIENTO V2 + FITNESS V1 — 2026-09-25 (NO DESPLEGADO)
+## SPRINT CONSTRUCTOR V2 + PROTOCOLO MAESTRO 2J V1 — 2026-09-25 (NO DESPLEGADO)
 
-Producción sigue en `e78f604`. Commits del sprint (rama `feat/pwa-tanita-bunker-roadmap`):
+Producción: `81e60e23179b8dc7ed0ead9d3df23f9dd04412d1` (Health V2, desplegado y estable).
+
+Commits del sprint, en orden:
+
+| Commit | Qué |
+|---|---|
+| `05b1653` | Protocolo, evidencia y validador |
+| `d076b40` | Biblioteca oficial (112 bloques) y API de bloques |
+| `6c832d8` | IA bajo protocolo |
+| `f28c386` | Fix de hooks del Shell (bug previo de `c409542`) |
+| `618f1f8` | Descanso y RPE prescritos en Workout |
+| `918baea` | UI del Constructor V2 |
+| `3772834` | Veredicto del protocolo en revisiones IA |
+| `4d1fd16` | Etiqueta "Objetivo" |
+| — | El commit de documentación que añade este bloque |
+
+### Fuentes de verdad (no deben divergir)
+
+| Fichero | Contenido |
+|---|---|
+| `docs/TRAINING_PROTOCOL_2J.md` | Especificación humana: reglas, jerarquía, escala RPE 2J 4/6/8/10, heurística frente a evidencia |
+| `docs/EVIDENCE.md` | Registros `2J-EVD-*` verificados (troncal ACSM 2026, MSSE 58(4):851–872) |
+| `frontend/src/lib/protocol/` | **Canónico en runtime**: `rules.js`, `catalog.js`, `classify.js`, `prescribe.js`, `validator.js`, `blocks.js` |
+| `api/lib/protocol/` | **Copia generada**; no editar |
+
+- `api/lib/protocol/` se regenera con `node scripts/sync-protocol.mjs`; `--check` lo verifica en los tests de la API.
+- `protocol-docs.test.js` falla si una regla o evidencia del código no está en la documentación.
+
+### Modelo Programa → Día → Bloques → Ejercicios (sin un segundo modelo)
+
+- **Día:** es la rutina del socio de siempre: `ex` plano, que es lo que entrenan Workout, Bunker, Sync y Progressive Overload.
+- **Campos opcionales nuevos en las entradas:** `blk` (instancia de bloque), `rpe` (array por serie en la escala 2J), `rest` (segundos) y `role`.
+- **Campos opcionales en rutina y programa:** `routine.blocks` (etiquetas snapshot `{iid, src, name, type, goal, level, focus, variant, style, v}`) y `routine.meta` / `program.meta` (`{goal, level, restrictions, v}`).
+- **Snapshot:** insertar un bloque copia sus entradas (`instantiateBlock`). El maestro nunca se referencia en vivo, así que borrar o desactivar un bloque no rompe rutinas.
+- **Rutinas antiguas:** se abren como "Ejercicios" sueltos; no hay migración.
+- **Workout:** usa `target.rest` en el temporizador si existe (`restSecondsFor`) y muestra "RPE 8·8·10" en la línea de objetivo.
+- **Bunker:** sin cambios. Mantiene su descanso fijo de 90 s (decisión: no reescribir el kiosk).
+
+### Biblioteca y almacenamiento
+
+- **Matriz revisable:** `scripts/protocol/official-blocks.matrix.mjs`.
+- **Build determinista:** `scripts/build-official-blocks.mjs`, sin LLM. Hace prescribir → validar → comprobar IDs y equipamiento de 2J → comprobar duplicados y diversidad A/B/C, y genera `api/lib/blocks-official.json`. Tiene modo `--check`.
+- **Almacén:** `DATA/blocks.json` global, **nunca** en el estado del socio (no toca Sync V2).
+  - La semilla oficial se lee de la release: idempotente, no se copia al arrancar.
+  - Las ediciones del admin se guardan como capa superpuesta (`overrides`).
+  - Los bloques personales se guardan por entrenador; los favoritos, por usuario.
+- **API** (`api/lib/blocks-routes.js`, `blocks-store.js`) con roles existentes:
+  - `requireTrainer` para leer y gestionar los bloques propios.
+  - Oficiales, solo admin.
+  - Un FAIL nunca se guarda.
+- **Guardado de rutinas y programas:** `member-routine` y `member-program` aceptan `blocks` y `meta`, saneados en `api/lib/plan-meta.js`.
+
+### Validador (`validateAgainst2JProtocol`)
+
+- **Resultados:** PASS / PASS_WITH_REASON / FAIL. Cada incidencia lleva código, parámetros, regla y evidencia.
+- **Qué revisa:** zonas de repeticiones por clase de ejercicio, series, RPE 2J, descanso por demanda, volumen semanal (solo series directas, sin modelo indirecto), duplicados y redundancia, superseries, orden, equipamiento, restricciones declaradas, tamaño y versión.
+- **Heurística de clasificación:** la del catálogo curado es exacta; la del resto de la biblioteca es legible y está marcada `curated:false`.
+
+### IA (`api/coach/protocol-gate.js`)
+
+- **Qué recibe el modelo:** el payload lleva `protocol` (reglas compactas por objetivo y nivel, restricciones y bloques oficiales compatibles).
+- **Creación:** se expanden los `blocks: ["off-…"]` que cite el modelo, luego `validatePlan` y el protocolo sobre el programa.
+- **Revisión:** los cambios se aplican a una copia y no pueden introducir un FAIL nuevo.
+- **Si falla:** una ronda de reparación; si vuelve a fallar, el trabajo falla. Aplica al Coach y a la IA del entrenador.
+- **Prompts:** `create.md` ya no tiene tabla propia de objetivos (hipertrofia 6–12…); remite al protocolo.
+
+### Decisiones y límites
+
+- **Autoridad:** restricciones > seguridad > protocolo > programa > biblioteca > IA. El entrenador puede guardar un FAIL tras confirmar; la IA no.
+- **Hip thrust:** no hay registro de hip thrust con barra en la biblioteca de ejercicios. Se usa el puente de glúteo con barra (1409) en lugar de inventar un registro.
+- **Equipamiento oficial:** solo el que tiene 2J (sin bandas, kettlebells ni rueda abdominal).
+- **Tipos de bloque sin ejecutor guiado:** circuito, intervalos, HIIT y movilidad existen en el modelo, pero no tienen ejecutor guiado (V2.1). Cardio usa el modo cardio existente.
+- **Restricciones que se aplican:** sin saltos, sin flexión profunda de rodilla, sin trabajo por encima de la cabeza, sin carga axial y sin suelo. Solo las declaradas; el marcado de cada ejercicio es heurístico y el texto libre llega a la IA como contexto.
+- **Riesgos:**
+  - El marcado de restricciones de los ejercicios no curados es por nombre.
+  - La biblioteca pesa ~200 KB (gzip ~20 KB) en `GET /api/blocks`.
+  - No hay ejecutor guiado para HIIT ni circuitos.
+
+### Siguientes pasos
+
+- Ejecutor guiado para circuito, HIIT, intervalos y movilidad (reutilizando los temporizadores).
+- Descanso prescrito en el Bunker, con el anillo proporcional.
+- Hip thrust con barra como ejercicio propio 2J.
+- Ampliar el catálogo curado.
+- Un apartado "Metodología 2J" dentro de la app.
+
+### Tests del sprint
+
+- Frontend: 727 → 763.
+- API: 229 → 242.
+
+## SPRINT HEALTH V2 + CHECK-IN + SEGUIMIENTO V2 + FITNESS V1 — 2026-09-25 (DESPLEGADO en `81e60e2`)
+
+Estado en su momento: producción seguía en `e78f604`. Commits del sprint (rama `feat/pwa-tanita-bunker-roadmap`):
 `7db6176` capa de datos Health/fitness + procedencia `src` · `40db86a` WHOOP workouts
 (`read:workout`) · `f1d2813` UI Health V2, check-in, BLE, FitnessSummary, integraciones ·
 `32581b5` Seguimiento V2 (API) · `e643a59` Bunker sin datos cardio · `d675a50` UI de

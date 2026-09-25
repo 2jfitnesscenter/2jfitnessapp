@@ -11,6 +11,10 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Constructor V2 for trainers: build programs by day and block, then edit every exercise',
+      'An official library of 112 blocks built and validated under the 2J Training Protocol v1.0',
+      'Every routine, block and AI plan is checked against the 2J protocol, with the reason when it steps outside',
+      'The trainer’s rest per exercise and the planned 2J effort now show in your workout',
       'Health: “Your physical evolution” — real readings with their source, ranges from 1 month to all time, and A/B comparisons',
       'Tap an arm, the trunk or a leg to see its segmental evolution',
       'An optional pre-workout check-in: energy, sleep, fatigue and discomfort in a few taps',

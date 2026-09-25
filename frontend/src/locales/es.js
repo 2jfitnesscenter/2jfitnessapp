@@ -2757,4 +2757,9 @@ export default {
   'Novice': 'Iniciado',
   // Constructor V2 — training goal
   'Training goal': 'Objetivo',
+  // Changelog — Constructor V2
+  'Constructor V2 for trainers: build programs by day and block, then edit every exercise': 'Constructor V2 para entrenadores: programas por días y bloques, y cada ejercicio editable',
+  'An official library of 112 blocks built and validated under the 2J Training Protocol v1.0': 'Biblioteca oficial de 112 bloques construidos y validados con el Protocolo de Entrenamiento 2J v1.0',
+  'Every routine, block and AI plan is checked against the 2J protocol, with the reason when it steps outside': 'Cada rutina, bloque y plan de IA se valida con el protocolo 2J, con el motivo cuando se sale de lo preferente',
+  'The trainer’s rest per exercise and the planned 2J effort now show in your workout': 'El descanso por ejercicio de tu entrenador y el esfuerzo 2J planificado ya aparecen en tu entreno',
 }
