@@ -5,7 +5,7 @@ import { SOURCE_NAME } from './fitness.js'
 import { PAIN_ZONES } from './checkin.js'
 import { MEASUREMENTS } from './measurements.js'
 
-// check-locales only sees t('literal'). Health, check-in and follow-up render labels held in
+// check-locales only sees literal strings passed to t(). Health, check-in and follow-up render labels held in
 // data tables through t(table[key]) — this keeps those in the Spanish catalogue too.
 it('every label a Health/Fitness/check-in table renders has a Spanish translation', () => {
   const labels = new Set([
