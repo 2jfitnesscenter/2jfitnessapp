@@ -1377,6 +1377,150 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   .badgecel-icon,.badgecel-img,.badgecel-p{animation:none}
 }
 
+/* ================= Mi 2J (views/Mi2J.jsx, Records.jsx, Rank.jsx, components/Mi2JEvents.jsx) ================= */
+.rk-bar{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+.rk-bar i{display:block;height:100%;border-radius:99px;transition:width var(--med) var(--ease)}
+
+/* the carnet */
+.carnet{
+  --carnet:var(--acc);position:relative;overflow:hidden;border-radius:22px;padding:16px;margin-bottom:14px;
+  background:radial-gradient(120% 90% at 100% 0%,color-mix(in srgb,var(--carnet) 26%,transparent),transparent 62%),
+    linear-gradient(160deg,color-mix(in srgb,var(--acc) 14%,var(--surface)),var(--surface) 70%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--carnet) 32%,transparent);
+}
+.carnet-top{display:flex;align-items:center;gap:12px}
+.carnet-id{flex:1;min-width:0}
+.carnet-kicker{font-size:calc(10.5px * var(--text-scale,1));font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}
+.carnet-name{font-size:calc(21px * var(--text-scale,1));font-weight:700;letter-spacing:-.02em;text-transform:capitalize;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carnet-since{font-size:calc(12px * var(--text-scale,1));color:var(--label-2)}
+.carnet-rank{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:72px;text-align:center}
+.carnet-rank img{width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 4px 14px color-mix(in srgb,var(--carnet) 45%,transparent))}
+.carnet-rl{font-size:calc(12px * var(--text-scale,1));font-weight:700;white-space:nowrap}
+.carnet-lock{width:58px;height:58px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--surface-2);color:var(--label-2);font-size:calc(12px * var(--text-scale,1))}
+.carnet-lock .icn{font-size:calc(16px * var(--text-scale,1))}
+.carnet-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.carnet-stats>div{background:color-mix(in srgb,var(--bg) 35%,transparent);border-radius:14px;padding:9px 8px;display:flex;flex-direction:column;gap:1px;min-width:0}
+.carnet-stats b{font-size:calc(20px * var(--text-scale,1));font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:4px}
+.carnet-stats b .icn{color:var(--orange);font-size:calc(17px * var(--text-scale,1))}
+.carnet-stats span{font-size:calc(11px * var(--text-scale,1));color:var(--label-2);line-height:1.25}
+.carnet.compact{margin:0;padding:12px;box-shadow:none;background:none}
+.carnet.compact .carnet-top{justify-content:flex-start}
+.carnet.compact .carnet-rank{flex-direction:row;gap:8px}
+.carnet.compact .carnet-rank img{width:44px;height:44px}
+.carnet.compact .carnet-lock{width:44px;height:44px}
+.carnet.compact .carnet-stats{margin-top:10px}
+.mi2j-entry{
+  display:block;width:100%;text-align:left;border-radius:22px;margin-bottom:22px;padding:12px 4px 4px;
+  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 14%,var(--surface)),var(--surface) 70%);
+  box-shadow:inset 0 0 0 1px var(--acc-line);
+}
+.mi2j-entry-h{display:flex;justify-content:space-between;align-items:center;padding:0 12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;font-size:calc(12px * var(--text-scale,1));color:var(--acc)}
+
+/* Mi 2J tiles and sections */
+.m2-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:6px}
+.m2-tile{background:var(--surface);border-radius:18px;padding:14px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;min-height:118px;min-width:0}
+.m2-tile:active{transform:scale(.98)}
+.m2-art{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--acc-soft);color:var(--acc);font-size:calc(20px * var(--text-scale,1));margin-bottom:4px}
+.m2-art img{width:40px;height:40px;object-fit:contain}
+.m2-t{font-weight:700;font-size:calc(15px * var(--text-scale,1))}
+.m2-s{font-size:calc(12px * var(--text-scale,1));color:var(--label-2);line-height:1.3}
+.m2-ranks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.m2-rank{background:var(--surface);border-radius:16px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;min-width:0}
+.m2-rank img{width:52px;height:52px;object-fit:contain}
+.m2-rank-g{font-size:calc(12px * var(--text-scale,1));color:var(--label-2)}
+.m2-rank-l{font-size:calc(13px * var(--text-scale,1));font-weight:700}
+.m2-badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.m2-badge{background:var(--surface);border-radius:16px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;min-width:0}
+.m2-badge img{width:54px;height:54px;object-fit:contain}
+.m2-badge:not(.on) img{filter:grayscale(1);opacity:.45}
+.m2-badge .icn{font-size:30px;color:var(--label-3)}
+.m2-badge-t{font-size:calc(12px * var(--text-scale,1));font-weight:600;line-height:1.25}
+.m2-badge-s{font-size:calc(11px * var(--text-scale,1));color:var(--label-3)}
+.m2-badge.on .m2-badge-s{color:var(--acc)}
+.m2-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:22px 18px}
+.m2-empty-ic{width:64px;height:64px;border-radius:50%;background:var(--acc-soft);color:var(--acc);display:flex;align-items:center;justify-content:center;font-size:30px}
+.m2-empty .btn{margin-top:6px}
+
+/* my ranks */
+.rk-global{text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:radial-gradient(90% 70% at 50% 0%,color-mix(in srgb,var(--rk,var(--acc)) 22%,transparent),transparent 70%),var(--surface)}
+.rk-emblem{width:112px;height:112px;object-fit:contain;filter:drop-shadow(0 6px 22px color-mix(in srgb,var(--rk) 50%,transparent))}
+.rk-label{font-size:calc(24px * var(--text-scale,1));font-weight:800;letter-spacing:-.02em}
+.rk-lock{width:64px;height:64px;border-radius:50%;background:var(--surface-2);color:var(--label-2);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:6px}
+.rk-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}
+.rk-global .rk-prog{width:100%;max-width:280px;margin-top:10px}
+.rk-prog{margin-top:10px}
+.rk-next{font-size:calc(12px * var(--text-scale,1));color:var(--label-2);margin-top:5px;text-align:right}
+.rk-group-h{display:flex;align-items:center;gap:12px;width:100%;text-align:left}
+.rk-group-em{width:48px;height:48px;object-fit:contain;flex:none}
+.rk-group-em.none{border-radius:50%;background:var(--surface-2);color:var(--label-3);display:flex;align-items:center;justify-content:center;font-size:20px}
+.rk-group-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rk-group-l{font-weight:700;font-size:calc(15px * var(--text-scale,1))}
+.rk-lifts{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;font-size:calc(12px * var(--text-scale,1));color:var(--label-2)}
+
+/* achievements summary */
+.bg-sum{display:flex;flex-direction:column;align-items:center;text-align:center}
+.bg-sum .rk-bar{width:100%;max-width:280px}
+.bg-count b{font-size:calc(32px * var(--text-scale,1));font-weight:800;letter-spacing:-.03em}
+.bg-count span{color:var(--label-2);font-weight:600;margin-left:4px}
+
+/* my records */
+.recs{display:flex;flex-direction:column;gap:10px}
+.rec{background:var(--surface);border-radius:18px;padding:13px 14px;text-align:left;width:100%;display:flex;flex-direction:column;gap:6px}
+.rec-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rec-n{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-main{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.rec-k{display:inline-flex;align-items:center;gap:4px;font-size:calc(11px * var(--text-scale,1));font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--yellow)}
+.rec-k.est{color:var(--label-2)}
+.rec-v{font-size:calc(24px * var(--text-scale,1));font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rec-v small{font-size:.6em;color:var(--label-2);font-weight:600}
+.rec-d{font-size:calc(12px * var(--text-scale,1));color:var(--label-3)}
+.rec-prev{font-size:calc(12.5px * var(--text-scale,1));color:var(--label-2)}
+.rec-prev b{color:var(--acc)}
+.rec-e1{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:calc(13px * var(--text-scale,1));padding-top:6px;border-top:var(--hair) solid var(--sep)}
+
+/* post-workout events */
+.evsum{display:flex;flex-direction:column;gap:6px}
+.evsum-h{font-size:calc(12px * var(--text-scale,1));font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin-bottom:2px}
+.evrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface-2);border-radius:14px;padding:9px 11px;min-height:56px}
+.evrow.major{box-shadow:inset 0 0 0 1.5px var(--acc-line)}
+.evrow:disabled{opacity:1}
+.evrow-art{flex:none;width:42px;height:42px;display:flex;align-items:center;justify-content:center}
+.ev-ic{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--ev);background:color-mix(in srgb,var(--ev) 16%,transparent)}
+.evrow-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.evrow-k{font-size:calc(11px * var(--text-scale,1));font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.evrow-t{font-size:calc(14.5px * var(--text-scale,1));font-weight:600;overflow-wrap:anywhere}
+.evrow-t b{text-transform:none}
+.evrow-d{font-size:calc(12px * var(--text-scale,1));color:var(--label-2);line-height:1.3}
+.rankhero .rankhero-img{width:170px;height:170px;filter:drop-shadow(0 0 26px var(--hero))}
+.rankhero-group{font-size:calc(13px * var(--text-scale,1));font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--label-2);margin-bottom:2px}
+.rankhero .badgecel-title{font-size:calc(30px * var(--text-scale,1))}
+.evacts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.evacts .btn{width:100%}
+.evdetail-art{display:flex;justify-content:center;margin-bottom:14px}
+.evdetail-art .ev-ic{width:96px;height:96px;font-size:44px}
+.evdetail-result{font-size:calc(22px * var(--text-scale,1));font-weight:800;margin-bottom:6px}
+
+/* home */
+.home-week{display:block;width:100%;text-align:left}
+.home-week-k,.home-sec-k{font-size:calc(12px * var(--text-scale,1));font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--label-2)}
+.home-week-streak{display:inline-flex;align-items:center;gap:4px;font-size:calc(13px * var(--text-scale,1));font-weight:600;color:var(--orange);text-align:right}
+.home-week-v{font-size:calc(22px * var(--text-scale,1));font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.home-adv .evrow{background:none;padding:6px 0 0;min-height:0}
+.home-goal{display:block;width:100%;text-align:left}
+.home-goal-r{display:flex;align-items:center;gap:12px;margin-top:8px}
+.home-goal-r img{width:52px;height:52px;object-fit:contain;flex:none}
+.home-goal-r>.icn{font-size:30px;flex:none;color:var(--acc)}
+@media (min-width:700px){
+  .m2-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .m2-ranks{grid-template-columns:repeat(6,minmax(0,1fr))}
+}
+@media (max-width:370px){
+  .carnet-stats b{font-size:calc(17px * var(--text-scale,1))}
+  .carnet-rank{min-width:60px}
+  .carnet-rank img{width:52px;height:52px}
+}
+
 /* --- RIR/RPE conversion table (effort help sheet) ---
    The two scales only click when you see them side by side, so the numbers get fixed-width
    tabular columns you can read straight down, and the words take whatever is left. Built out

@@ -18,9 +18,11 @@ import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avat
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf, isInMuscleGroup, GROUP_TO_BODYPART } from './lib/muscles.js'
-import { rankUpsFor, rankEmblemUrl } from './lib/rank.js'
 import { evaluateBadges, evaluateBadgesIn } from './lib/badges.js'
 import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
+import { postWorkoutEvents, heroEvent } from './lib/mi2j.js'
+import { markPending, markSeen, pendingCelebration } from './lib/celebrations.js'
+import { EventsSummary, RankHero, EventDetail } from './components/Mi2JEvents.jsx'
 import { parseImport, mergeImport, workoutFingerprint } from './lib/import-csv.js'
 import { buildImportPlan, applyImportResolutions, localCandidates } from './lib/import-match.js'
 import { api } from './lib/api.js'
@@ -2128,7 +2130,47 @@ export function celebrateBadges(newBadges) {
   if (wasEmpty) openNextBadgeModal()
 }
 
-function FinishSummary({ w, prs, e1prs = [], rankUps = [], newBadges = [], close }) {
+/* ---- Mi 2J: what a finished workout earned (lib/mi2j.js derives, lib/celebrations.js remembers
+   only whether it was seen). One flow for every surface: an optional hero moment for what changes
+   the member's standing (a new rank family, the overall rank unlocking), then ONE compact list —
+   never a chain of modals. ---- */
+const celebrationUid = () => useStore.getState().user?.id
+const seeFor = ev => ev.type === 'badge' ? '/badges' : ev.type === 'pr' || ev.type === 'e1rm' ? '/records' : ev.type === 'streak' ? '/mi2j' : '/rank'
+export function openEventDetail(ev, date) {
+  ui().openSheet(close => <EventDetail ev={ev} unit={S().unit} date={date} close={close}
+    onSee={ev.type === 'streak' ? null : () => { close(); ui().closeAll(); nav(seeFor(ev)) }} />, { kind: 'center' })
+}
+function withHero(events, w, next) {
+  const hero = heroEvent(events)
+  if (!hero) { next(); return }
+  beep(snd(), 1200, 0.12); beep(snd(), 1500, 0.12, 0.14); beep(snd(), 1900, 0.25, 0.3)
+  const { close } = ui().openSheet(() => <RankHero ev={hero} unit={S().unit} date={w.d}
+    onContinue={() => { close(); next() }}
+    onSeeRanks={() => { close(); markSeen(localStorage, celebrationUid(), w.id); nav('/rank') }} />, { kind: 'center', locked: true })
+}
+// The app was closed before the member saw what their last workout earned (or the summary was
+// never reached): show it once, the next time this device opens the app. Re-derived from S.
+let recapChecked = false
+export function showPendingCelebration() {
+  if (recapChecked) return
+  recapChecked = true
+  const uidNow = celebrationUid()
+  const p = pendingCelebration(localStorage, uidNow)
+  if (!p) return
+  const st = S()
+  const w = (st.workouts || []).find(x => x.id === p.workoutId)
+  const events = w ? postWorkoutEvents(st, w.id, p.badgeIds) : []
+  if (!events.length) { markSeen(localStorage, uidNow, p.workoutId); return }
+  withHero(events, w, () => ui().openSheet(close => <>
+    <h3 style={{ textAlign: 'center' }}>{t('What your last workout earned')}</h3>
+    <div className="muted small" style={{ textAlign: 'center', marginBottom: 10 }}>{w.name} · {fmtDate(w.d, true)}</div>
+    <EventsSummary events={events} unit={st.unit} onOpen={ev => openEventDetail(ev, w.d)} />
+    <div style={{ height: 12 }} />
+    <Button variant="primary" onClick={() => { markSeen(localStorage, uidNow, w.id); close() }}>{t('Continue')}</Button>
+  </>, { kind: 'center', locked: true }))
+}
+
+function FinishSummary({ w, prs, e1prs = [], events = [], newBadges = [], close }) {
   const st = useStore(s => s.S)
   const coachOn = !!useStore(s => s.config)?.coach?.enabled && !!st.coach?.consent?.agreedAt
   return <div style={{ textAlign: 'center', padding: '8px 0' }}>
@@ -2138,24 +2180,23 @@ function FinishSummary({ w, prs, e1prs = [], rankUps = [], newBadges = [], close
       <div className="tile"><div className="l">{t('Duration')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtDur(w.end - w.start)}</div></div>
       <div className="tile"><div className="l">{t('Volume')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtVol(w.vol, st.unit)}</div></div>
       <div className="tile"><div className="l">{t('Sets')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{setsDone(w)}</div></div>
-      <div className="tile"><div className="l">{t('PRs')}</div><div className="v" style={{ fontSize: 20 }}>{prs.length || '—'}</div></div>
+      <div className="tile"><div className="l">{t('PRs')}</div><div className="v" style={{ fontSize: 20 }}>{events.filter(e => e.type === 'pr').length || '—'}</div></div>
     </div>
-    {(prs.length > 0 || e1prs.length > 0 || rankUps.length > 0) && <div style={{ textAlign: 'left', marginBottom: 12 }}>
-      {prs.map(id => <div key={id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="trophy" style={{ fontSize: 13 }} />{t('New PR:')} {EXIDX[id] ? nameFor(EXIDX[id]) : id}</div>)}
-      {e1prs.map(p => <div key={p.id} className="small accent capitalize row" style={{ gap: 5 }}><Icon name="chartLine" style={{ fontSize: 13 }} />{t('Best estimated 1RM:')} {EXIDX[p.id] ? nameFor(EXIDX[p.id]) : p.id} · {fmtNum(p.est)} {st.unit}</div>)}
-      {rankUps.map(u => <div key={u.id} className="small accent capitalize row" style={{ gap: 5 }}><img src={rankEmblemUrl(u.newRank.tier, u.newRank.division)} alt="" style={{ width: 15, height: 15, objectFit: 'contain', flex: 'none' }} />{t('New rank:')} {EXIDX[u.id] ? nameFor(EXIDX[u.id]) : u.id} · {t(u.newRank.tier)}{u.newRank.division ? ' ' + u.newRank.division : ''}</div>)}
-    </div>}
+    {/* Records, ranks, achievements and consistency — one list, derived (lib/mi2j.js). Each row
+        opens the moment on its own, with sharing, without leaving this summary. */}
+    <div style={{ textAlign: 'left', marginBottom: 12 }}>
+      <EventsSummary events={events} unit={st.unit} onOpen={ev => openEventDetail(ev, w.d)} />
+    </div>
     <h4 className="sec" style={{ textAlign: 'left' }}>{t('What you just trained')}</h4>
     <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(st))} body={st.body} />
     {coachOn && <SessionRating w={w} />}
     <div style={{ height: 14 }} />
     <Button variant="tinted" icon="upload" onClick={() => shareCardSheet(w, prs, e1prs, newBadges)}>{t('Share workout')}</Button>
     <div style={{ height: 8 }} />
-    {/* The badge celebration is its own sheet+sound (celebrateBadges) rather than folded in
-        here as another row — a badge unlock needs to work the same way from a CSV/Health
-        import too, which never has a FinishSummary to fold into, so both paths go through
-        the one shared celebration instead of two different treatments. */}
-    <Button variant="primary" onClick={() => { close(); celebrateBadges(newBadges); nav('/home') }}>{t('Nice!')}</Button>
+    {/* Badges unlocked by this workout are rows in the list above (an import, which has no
+        summary, still goes through celebrateBadges). Leaving the summary is what marks the
+        workout's moments as seen on this device. */}
+    <Button variant="primary" onClick={() => { markSeen(localStorage, celebrationUid(), w.id); close(); nav('/home') }}>{t('Nice!')}</Button>
   </div>
 }
 // A shareable PNG of the just-finished session (or, from the badge celebration's own trigger,
@@ -2281,7 +2322,6 @@ function doFinishWorkout() {
     prs
   }
   w.vol = workoutVolume(w)
-  const rankUps = rankUpsFor(st, w)
   // Resolve mid-session swaps (Workout.jsx's `replaceExercise`) against the CURRENT entry ids —
   // A.swaps holds each slot's original id, keyed by position; if that slot still differs from
   // its original, it's a real swap worth asking about below.
@@ -2315,7 +2355,13 @@ function doFinishWorkout() {
   sendWorkoutToStrava(w).catch(() => {})
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
-  const openSummary = () => ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} rankUps={rankUps} newBadges={newBadges} close={close} />, { kind: 'center', locked: true })
+  // Mi 2J: derive what this workout earned from the state that now contains it — the same
+  // derivation a later recap uses — and remember (device-locally) that it hasn't been seen yet,
+  // so closing the app right now can't lose it. Nothing new is synced.
+  const events = postWorkoutEvents(S(), w.id, newBadges.map(b => b.id))
+  if (events.length) markPending(localStorage, celebrationUid(), w.id, newBadges.map(b => b.id))
+  recapChecked = true
+  const openSummary = () => withHero(events, w, () => ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} events={events} newBadges={newBadges} close={close} />, { kind: 'center', locked: true }))
   if (swaps.length && A.routineId) {
     ui().openSheet(close => <SwapKeepSheet swaps={swaps} routineId={A.routineId} onDone={() => { close(); openSummary() }} />, { kind: 'center', locked: true })
   } else {

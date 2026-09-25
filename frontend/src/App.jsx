@@ -40,6 +40,9 @@ import Bunker from './views/Bunker.jsx'
 import BunkerLaunch from './views/BunkerLaunch.jsx'
 import BunkerAdminPage from './views/BunkerAdminPage.jsx'
 import Badges from './views/Badges.jsx'
+import Mi2J from './views/Mi2J.jsx'
+import Records from './views/Records.jsx'
+import { showPendingCelebration } from './sheets.jsx'
 import Profile from './views/Profile.jsx'
 import Friends from './views/Friends.jsx'
 import Chat from './views/Chat.jsx'
@@ -163,6 +166,13 @@ function Shell() {
   // from a backup) is never gated on it, even if `onboarded` itself was never set.
   const hasPhysicalData = S.height || S.birthDate || S.workouts.length > 0
   const needsOnboarding = !!user && !S.onboarded && !hasPhysicalData
+  // Mi 2J: what the last workout earned but this device never got to show (the app was closed
+  // on the summary) — shown once, from local data, whether or not there's a connection.
+  useEffect(() => {
+    if (!ready || !authed || needsOnboarding || S.active) return
+    const tm = setTimeout(showPendingCelebration, 700)
+    return () => clearTimeout(tm)
+  }, [ready, authed, needsOnboarding])
   if (!ready && !authed) return (
     <div id="app">
       <div style={{ paddingTop: '44vh', display: 'flex', justifyContent: 'center', fontSize: 34, color: 'var(--label-3)' }}>
@@ -210,6 +220,8 @@ function Shell() {
               <Route path="/recovery" element={<Recovery />} />
               <Route path="/rank" element={<Rank />} />
               <Route path="/badges" element={<Badges />} />
+              <Route path="/mi2j" element={<Mi2J />} />
+              <Route path="/records" element={<Records />} />
               {/* The Coach screens gate themselves on the instance config; the routes exist
                   unconditionally so a deep link from a notification lands somewhere sane
                   rather than on the catch-all. */}

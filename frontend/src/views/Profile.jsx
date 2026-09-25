@@ -1,4 +1,6 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { rankSnapshot } from '../lib/mi2j.js'
+import { Carnet } from './Mi2J.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useStore, hasData } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -29,7 +31,7 @@ export default function Profile() {
   const friendUnread = useUI(s => s.friendUnread)
   const avatarInput = useRef(null)
   const [avatarBusy, setAvatarBusy] = useState(false)
-  const rank = user ? globalRank(S) : null
+  const snap = useMemo(() => rankSnapshot(S), [S.workouts, S.bodyweight, S.tests, S.body])
 
   const signInHere = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); toast(t('Welcome back, {0}', u.name)) }
@@ -77,10 +79,6 @@ export default function Profile() {
         {user?.created && <div className="dim small">{t('joined {0}', fmtDate(user.created.slice(0, 10)))}</div>}
         {user?.username && <button className="dim small" style={{ marginTop: 2, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={editUsername}>@{user.username}</button>}
       </div>
-      {rank && !rank.locked && <button onClick={() => nav('/rank')} style={{ flex: 'none', textAlign: 'center', border: 'none', background: 'none', padding: 0 }}>
-        <img src={rankEmblemUrl(rank.tier, rank.division)} alt="" style={{ width: 56, height: 56, objectFit: 'contain', display: 'block' }} />
-        <div className="small" style={{ fontWeight: 600, color: TIER_COLOR[rank.tier], marginTop: 2, whiteSpace: 'nowrap' }}>{rankLabel(rank)}</div>
-      </button>}
     </div>
 
     {/* ---------- friends + trainer chat — need a real (non-guest) account, same reasoning as
@@ -127,10 +125,12 @@ export default function Profile() {
     )}
     {!user && !DEMO && !MOBILE && <p className="sect-f" style={{ marginTop: -18, marginBottom: 22 }}>{t('Guest mode — data lives only in this browser.')}</p>}
 
-    <div className="tiles">
-      <div className="tile"><div className="l"><Icon name="dumbbell" />{t('Workouts')}</div><div className="v">{S.workouts.length}</div></div>
-      <div className="tile"><div className="l"><Icon name="flame" />{t('Week streak')}</div><div className="v">{streakWeeks(S)}</div></div>
-    </div>
+    {/* Mi 2J — the member's sporting identity; the full carnet, ranks, achievements and
+        records live one tap away (views/Mi2J.jsx). */}
+    <button className="mi2j-entry" onClick={() => nav('/mi2j')} aria-label={t('My 2J')}>
+      <div className="mi2j-entry-h"><span>{t('My 2J')}</span><Icon name="chevronRight" /></div>
+      <Carnet S={S} user={user} snap={snap} compact onRanks={() => nav('/rank')} />
+    </button>
 
     {/* ---------- basic info — asked at registration, editable here, read by the AI Coach ---------- */}
     <Section title={t('Basic info')} footer={t('Sex uses the Body diagram choice in Settings. Starting weight is your first body-weight log — add or edit it from Home.')}>
@@ -145,10 +145,6 @@ export default function Profile() {
       </Row>
       <Row icon="figureStrength" iconTint="var(--acc)" title={t('Measurements')} subtitle={t('Body composition & tape measurements over time')} accessory="chevron" onClick={() => nav('/measurements')} />
       <Row icon="heart" iconTint="var(--red)" title={t('Health')} subtitle={t('Steps, sleep and heart rate from Apple Health')} accessory="chevron" onClick={() => nav('/health')} />
-      <Row icon="shield" iconTint="var(--acc)" title={t('Strength rank')} subtitle={t('Your lift and muscle ranks, from your logged sets')} accessory="chevron" onClick={() => nav('/rank')} />
-      <Row icon="sparkles" iconTint="var(--yellow)" title={t('Badges')}
-        subtitle={t('{0} unlocked', Object.values(S.badges || {}).filter(x => x.unlockedAt).length)}
-        accessory="chevron" onClick={() => nav('/badges')} />
     </Section>
 
     <BodyWeightCard S={S} />

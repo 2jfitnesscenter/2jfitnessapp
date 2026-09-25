@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { latestAdvance, closestGoal } from '../lib/mi2j.js'
+import { TIER_COLOR, rankLabel, rankEmblemUrl, RANK_GROUP_NAME } from '../lib/rank.js'
+import { EventRow } from '../components/Mi2JEvents.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks, setsDoneActive, setsDone } from '../lib/history.js'
 import { fmtVol, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, workoutDetailSheet } from '../sheets.jsx'
+import { dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, workoutDetailSheet, openEventDetail } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
@@ -188,6 +191,11 @@ export default function Home() {
 
   const wThisWeek = S.workouts.filter(w => weekKey(w.d) === weekKey(todayISO())).length
   const plannedPerWeek = Object.values(activeWeek(S)).filter(Boolean).length
+  const streak = streakWeeks(S)
+  // Mi 2J highlights, derived once per history change (lib/mi2j.js) — Home shows one recent
+  // step forward and one goal that is genuinely close; the full detail lives in Mi 2J.
+  const advance = useMemo(() => latestAdvance(S), [S.workouts, S.bodyweight, S.badges])
+  const goal = useMemo(() => S.workouts.length ? closestGoal(S) : null, [S.workouts, S.bodyweight, S.badges, S.tests, S.body])
 
   // today's session shown right under the week strip
   const todaysWorkouts = S.workouts.filter(w => w.d === todayISO())
@@ -230,18 +238,42 @@ export default function Home() {
       </div>
     </div>
 
-    <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => calendarSheet()}>
-      <div className="row between">
-        <div>
-          <div className="row" style={{ gap: 7, fontSize: 22, fontWeight: 600, letterSpacing: '-.021em' }}>
-            <Icon name="flame" style={{ color: 'var(--orange)' }} />
-            {t('{0} week streak', streakWeeks(S))}
-          </div>
-          <div className="muted small" style={{ marginTop: 2 }}>{wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}</div>
-        </div>
-        <Icon name="calendar" className="chev" style={{ fontSize: 20 }} />
+    {/* Your week + constancy. Never a scolding: a streak that ended simply starts again. */}
+    {S.workouts.length > 0 && <button className="card tappable home-week" onClick={() => calendarSheet()} aria-label={t('Your week')}>
+      <div className="row between" style={{ alignItems: 'baseline' }}>
+        <span className="home-week-k">{t('Your week')}</span>
+        <span className="home-week-streak"><Icon name="flame" />{streak >= 1 ? t(streak === 1 ? '{0} week in a row' : '{0} weeks in a row', streak) : t('A new streak starts with your next workout')}</span>
       </div>
-    </div>
+      <div className="home-week-v">{plannedPerWeek ? t('{0} of {1} workouts', wThisWeek, plannedPerWeek) : t(wThisWeek === 1 ? '{0} workout' : '{0} workouts', wThisWeek)}</div>
+      {plannedPerWeek > 0 && <div className="rk-bar" role="progressbar" aria-valuemin={0} aria-valuemax={plannedPerWeek} aria-valuenow={Math.min(wThisWeek, plannedPerWeek)}>
+        <i style={{ width: Math.min(100, Math.round(wThisWeek / plannedPerWeek * 100)) + '%', background: 'var(--acc)' }} />
+      </div>}
+      <div className="muted small" style={{ marginTop: 6 }}>{t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}</div>
+    </button>}
+
+    {advance && <div className="card home-adv">
+      <div className="home-sec-k">{t('Latest step forward')}</div>
+      <EventRow ev={advance} unit={S.unit} onOpen={() => openEventDetail(advance, advance.d)} />
+    </div>}
+
+    {goal && <button className="card home-goal" onClick={() => nav(goal.type === 'rank' ? '/rank' : '/badges')}>
+      <div className="home-sec-k">{t('Close to')}</div>
+      {goal.type === 'rank' ? <div className="home-goal-r">
+        <img src={rankEmblemUrl(goal.group.next.tier, goal.group.next.division)} alt="" />
+        <div className="grow">
+          <div className="tt">{t(RANK_GROUP_NAME[goal.group.key])}</div>
+          <div className="small">{rankLabel(goal.group.rank)} → <b style={{ color: TIER_COLOR[goal.group.next.tier] }}>{rankLabel(goal.group.next)}</b></div>
+          <div className="rk-bar" style={{ marginTop: 6 }}><i style={{ width: Math.round(goal.group.progress * 100) + '%', background: TIER_COLOR[goal.group.rank.tier] }} /></div>
+        </div>
+      </div> : <div className="home-goal-r">
+        {goal.badge.image ? <img src={goal.badge.image} alt="" /> : <Icon name={goal.badge.icon} />}
+        <div className="grow">
+          <div className="tt">{t(goal.badge.title)}</div>
+          <div className="small muted">{t(goal.badge.description)}</div>
+          <div className="rk-bar" style={{ marginTop: 6 }}><i style={{ width: Math.round(goal.progress * 100) + '%', background: 'var(--acc)' }} /></div>
+        </div>
+      </div>}
+    </button>}
 
     {coachOn && <CoachCard nav={nav} />}
 

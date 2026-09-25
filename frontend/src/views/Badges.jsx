@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { BADGES } from '../lib/badges-data.js'
+import { unlockedBadges, closestBadges } from '../lib/mi2j.js'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
@@ -88,6 +91,7 @@ function MasterBadgeHero() {
 }
 
 export default function Badges() {
+  const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
 
@@ -106,10 +110,33 @@ export default function Badges() {
   const list = BADGES_BY_CATEGORY[cat] || []
   const unlockedCount = list.filter(b => S.badges?.[b.id]?.unlockedAt).length
 
+  const recent = unlockedBadges(S).slice(0, 3)
+  const near = closestBadges(S, 3)
+  const total = BADGES.length
+  const unlockedTotal = Object.values(S.badges || {}).filter(x => x.unlockedAt).length
+
   return <div className="narrow">
-    <div className="hdr"><div><h1>{t('Badges')}</h1></div></div>
+    <div className="hdr">
+      <button className="iconbtn" onClick={() => nav('/mi2j')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
+      <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('My achievements')}</h1></div>
+    </div>
 
     <MasterBadgeHero />
+
+    <div className="card bg-sum">
+      <div className="bg-count"><b>{unlockedTotal}</b><span>/ {total}</span></div>
+      <div className="muted small">{t('achievements unlocked')}</div>
+      <div className="rk-bar" style={{ marginTop: 8 }}><i style={{ width: Math.round(unlockedTotal / total * 100) + '%', background: 'var(--acc)' }} /></div>
+    </div>
+    {recent.length > 0 && <>
+      <h4 className="sec">{t('Unlocked recently')}</h4>
+      <div className="badgegrid">{recent.map(({ badge }) => <BadgeCell key={badge.id} b={badge} state={S.badges?.[badge.id]} />)}</div>
+    </>}
+    {near.length > 0 && <>
+      <h4 className="sec">{t('Close to unlocking')}</h4>
+      <div className="badgegrid">{near.map(({ badge }) => <BadgeCell key={badge.id} b={badge} state={{ ...(S.badges?.[badge.id] || {}), progress: near.find(x => x.badge.id === badge.id).progress }} />)}</div>
+    </>}
+    <h4 className="sec">{t('All achievements')}</h4>
 
     <div className="mstrip">
       {cats.map(c => {

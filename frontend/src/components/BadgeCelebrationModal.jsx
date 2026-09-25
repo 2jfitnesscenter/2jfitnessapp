@@ -14,7 +14,7 @@ import BadgeShareCard from './BadgeShareCard.jsx'
 // resolved to a pixel dx/dy in JS rather than leaned on CSS trig (cos()/sin() in calc() isn't
 // reliable yet across the WebViews this app actually ships in, Capacitor's included).
 const PARTICLES = 14
-function useBurst(seedKey) {
+export function useBurst(seedKey) {
   return useMemo(() => Array.from({ length: PARTICLES }, (_, i) => {
     const angle = (i / PARTICLES) * 360 + (Math.random() * 22 - 11)
     const dist = 58 + Math.random() * 46
