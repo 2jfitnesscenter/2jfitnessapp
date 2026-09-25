@@ -14,6 +14,7 @@ import AdminCoach from './AdminCoach.jsx'
 import AdminTrainerAI from './AdminTrainerAI.jsx'
 import AdminAuxAI from './AdminAuxAI.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
+import AdminFollowUp from './AdminFollowUp.jsx'
 import { EXDB, equipmentOf, setUnavailableEquipment } from '../lib/exercises.js'
 import { MUSCLE_GROUPS, isInMuscleGroup } from '../lib/muscles.js'
 import { Thumb } from '../components/Media.jsx'
@@ -306,6 +307,7 @@ export function UserDetail({ id, onChanged, close }) {
       onClick={() => u.disabled ? setDisabled(false)
         : confirmSheet({ title: t('Disable {0}?', u.name), message: t('They are signed out everywhere and can no longer sync or log in until re-enabled.'), confirmText: t('Disable'), danger: true, onConfirm: () => setDisabled(true) })}>
       {u.disabled ? t('Enable account') : t('Disable account')}</button>}
+    <AdminFollowUp id={u.id} />
     <h4 className="sec">{t('Workout history')}</h4>
     {d.workouts.length ? <div className="list" style={{ gap: 0 }}>
       {d.workouts.slice(0, 60).map(w => <div key={w.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>

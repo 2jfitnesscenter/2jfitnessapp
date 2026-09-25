@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
@@ -11,6 +11,7 @@ import SegmentExplorer from '../components/SegmentExplorer.jsx'
 import CheckInCard from '../components/CheckInCard.jsx'
 import { RANGES, availableMetrics, metricSummary, compareMeasurements, scanDates, hasSegments, bmiOf, weekActivity, SOURCE_LABEL } from '../lib/health.js'
 import { PAIN_ZONE, checkinOn } from '../lib/checkin.js'
+import { api } from '../lib/api.js'
 
 // Health V2 — "your physical evolution". Everything here is derived from what the profile
 // already holds (lib/health.js): measured body readings with their source when known, the
@@ -98,6 +99,9 @@ export default function Health() {
   const bmi = bmiOf(S)
   const week = weekActivity(S)
   const today = checkinOn(S)
+  // The gym's follow-up schedule (Seguimiento V2) — only dates; offline simply shows nothing.
+  const [followUp, setFollowUp] = useState(null)
+  useEffect(() => { let on = true; api('/api/followup').then(r => on && setFollowUp(r)).catch(() => {}); return () => { on = false } }, [])
   const recent = (S.checkins || []).slice(-5).reverse()
   const imported = S.steps.length > 0 || S.sleep.length > 0 || S.restingHR.length > 0
   const nothing = !metrics.length && !S.workouts.length && !imported && !(S.checkins || []).length
@@ -122,6 +126,9 @@ export default function Health() {
         <span className="hv-d">{fmtDate(s.current.d)}{s.current.src ? ' · ' + t(SOURCE_LABEL[s.current.src] || s.current.src) : ''}</span>
       </div>)}
     </div>}
+    {followUp?.active && <div className="hv-fu"><Icon name="calendar" />{followUp.nextReview < new Date().toISOString().slice(0, 10)
+      ? t('Your follow-up review with the gym is due')
+      : t('Next follow-up review with the gym: {0}', fmtDate(followUp.nextReview))}</div>}
     {bmi != null && <div className="dim small hv-bmi">{t('BMI {0} · calculated from your weight and height', fmtNum(bmi))}</div>}
 
     {metrics.length > 0 && <>

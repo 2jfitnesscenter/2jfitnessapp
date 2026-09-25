@@ -29,7 +29,7 @@ export default function CheckInCard({ onDone, compact = false }) {
 
   return <section className={'checkin card' + (compact ? ' compact' : '')} aria-label={t('How do you arrive today?')}>
     <div className="ci-hd">
-      <div><div className="ci-t">{t('How do you arrive today?')}</div><div className="ci-s">{t('A few taps. Only you and your trainer (if you allow it) see this.')}</div></div>
+      <div><div className="ci-t">{t('How do you arrive today?')}</div><div className="ci-s">{t('A few taps. Only you see this, unless you share check-ins with the gym staff in Settings.')}</div></div>
       <button className="iconbtn" aria-label={t('Skip')} onClick={skip}><Icon name="xmark" /></button>
     </div>
     {Object.entries(SCALE_Q).map(([k, q]) => <div key={k} className="ci-row" role="radiogroup" aria-label={t(q.label)}>

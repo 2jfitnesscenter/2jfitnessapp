@@ -98,6 +98,10 @@ export default function TrainingSettings() {
       <SelectRow icon="heart" iconTint="var(--red)" title={t('Max heart rate')}
         value={S.hrMax > 0 ? S.hrMax : 0} onChange={v => set('hrMax', v > 0 ? v : null)}
         options={[{ value: 0, label: t('Estimate (220 − age)') }, ...Array.from({ length: 51 }, (_, i) => 160 + i).map(v => ({ value: v, label: v + ' ' + t('bpm') }))]} />
+      <Row icon="person" iconTint="var(--blue)" title={t('Share check-ins with gym staff')}
+        subtitle={t('Off by default. When on, the staff who run your follow-up see your check-in averages and repeated discomfort — never on the wall, rankings or the Bunker.')}>
+        <Switch checked={S.shareCheckins === true} onChange={v => set('shareCheckins', v)} />
+      </Row>
     </Section>
 
     <Section title={t('Progression')}>
