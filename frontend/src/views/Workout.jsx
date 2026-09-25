@@ -29,6 +29,8 @@ import CheckInCard from '../components/CheckInCard.jsx'
 import { checkinOn, checkinAdvice, shouldAskCheckin, PAIN_ZONE } from '../lib/checkin.js'
 import { bleSupported, useHR, connectHeartRate, reconnectHeartRate, disconnectHeartRate } from '../lib/ble-hr.js'
 import { maxHrFor, zoneCuts, bandFor } from '../lib/fitness.js'
+import { guidedBlockFor } from '../lib/guided.js'
+import GuidedRunner, { GuidedLaunch } from '../components/GuidedRunner.jsx'
 
 // Today's check-in, next to the exercise it concerns — words only: nothing about the load, the
 // exercise or the routine changes because of it (the member or trainer decides).
@@ -497,6 +499,10 @@ function ActiveWorkout() {
 
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
   const done = setsDoneActive(A)
+  // Guided blocks (Constructor V2.1): the run in progress takes the screen; otherwise the block
+  // the member is on offers to run paced, above the normal set logging (which keeps working).
+  const guidedRun = A.guided ? (A.guidedBlocks || []).find(b => b.iid === A.guided.iid) || null : null
+  const guidedHere = A.entries.length ? guidedBlockFor(A, cur) : null
 
   const mutEntry = (idx, fn) => update(s => { fn(s.active.entries[idx]) }, true)
   // Clearing an optional field drops the key rather than storing null, so a set only carries
@@ -696,7 +702,8 @@ function ActiveWorkout() {
         setting, skippable in one tap — the session works the same either way. */}
     {!A.past && done === 0 && shouldAskCheckin(S, { past: A.past }) && <CheckInCard compact />}
 
-    {A.entries.length ? <>
+    {guidedRun ? <GuidedRunner key={guidedRun.iid} block={guidedRun} /> : A.entries.length ? <>
+      {guidedHere && !A.past && <GuidedLaunch key={guidedHere.iid} block={guidedHere} />}
       <div className="wbar">
         <div className="muted small">{isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
         {!A.past && <HeartRateLive S={S} workoutId={A.id} />}
@@ -720,6 +727,7 @@ function ActiveWorkout() {
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 
     <div style={{ height: 12 }} />
+    {!guidedRun && <>
     <div className="row">
       <Button icon="chevronLeft" disabled={unitIdx <= 0} onClick={() => goUnit(-1)}>{t('Prev')}</Button>
       <Button trailingIcon="chevronRight" disabled={unitIdx < 0 || unitIdx >= units.length - 1} onClick={() => goUnit(1)}>{t('Next')}</Button>
@@ -735,6 +743,7 @@ function ActiveWorkout() {
     {!A.past && <>
       <Button variant="tinted" icon="dumbbell" onClick={() => handoffBunker(false)}>{t('Transfer to the Bunker')}</Button>
       <div style={{ height: 10 }} />
+    </>}
     </>}
     {(() => {
       const exDone = A.entries.filter(e => e.sets.length && e.sets.every(s => s.done)).length

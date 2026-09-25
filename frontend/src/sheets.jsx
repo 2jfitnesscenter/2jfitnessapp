@@ -34,6 +34,8 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
 import { getReplacementGroups, QUICK_FILTERS } from './lib/alternatives.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
+import { guidedBlocksOf, buildSteps, summarize } from './lib/guided.js'
+import GuidedSummary from './components/GuidedSummary.jsx'
 import { MOBILE } from './lib/mobile.js'
 import { buildShareCardData } from './lib/share-card.js'
 import WorkoutShareCard from './components/WorkoutShareCard.jsx'
@@ -1562,6 +1564,7 @@ function WorkoutDetail({ w: w0, close }) {
         workout with only the legacy Apple-Health HR summary shows it through the same view. */}
     {fitnessOf(w) ? <FitnessSummary w={w} /> : w.hrZones && <HRZoneBar hrZones={w.hrZones} />}
     <DayHealthSummary d={w.d} S={st} />
+    <GuidedSummary guided={w.guided} />
     {w.entries.map((e, i) => {
       const ex = EXIDX[e.id]
       return <div key={i} className="row" style={{ marginBottom: 12, alignItems: 'flex-start' }}>
@@ -1678,8 +1681,12 @@ export function beginWorkout(routineId, bw) {
   // prescription-per-exercise work, shared with beginPastWorkout below and the Bunker kiosk).
   const entries = buildRoutineEntries(st, r)
   const skipped = (r ? r.ex.length : 0) - entries.length
+  // Guided blocks (circuit/intervals/HIIT/mobility — Constructor V2.1): their labels and timing ride
+  // along so the session can run them paced; everything else about the session is unchanged.
+  const guidedBlocks = guidedBlocksOf(r)
   update(s => {
-    s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId, name: r ? r.name : t('Freestyle'), bw: bw || null, cur: 0, entries }
+    s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId, name: r ? r.name : t('Freestyle'), bw: bw || null, cur: 0, entries,
+      ...(guidedBlocks.length ? { guidedBlocks } : {}) }
   })
   useUI.getState().stopRest()
   nav('/workout')
@@ -2194,6 +2201,7 @@ function FinishSummary({ w, prs, e1prs = [], events = [], newBadges = [], close 
     </div>
     {/* Records, ranks, achievements and consistency — one list, derived (lib/mi2j.js). Each row
         opens the moment on its own, with sharing, without leaving this summary. */}
+    <div style={{ textAlign: 'left' }}><GuidedSummary guided={w.guided} /></div>
     <div style={{ textAlign: 'left', marginBottom: 12 }}>
       <EventsSummary events={events} unit={st.unit} onOpen={ev => openEventDetail(ev, w.d)} />
     </div>
@@ -2331,6 +2339,11 @@ function doFinishWorkout() {
     entries: A.entries.map(e => ({ id: e.id, sets: e.sets, topW: e.topW || null, target: e.target || null })).filter(e => e.sets.some(s => s.done)),
     prs
   }
+  // Guided blocks run in this session: one summary each (a run still open is closed here as it is).
+  const openRun = A.guided && (A.guidedBlocks || []).find(b => b.iid === A.guided.iid)
+  const guided = [...(A.guidedLog || []).filter(g => !openRun || g.iid !== openRun.iid),
+    ...(openRun ? [summarize(A, openRun, A.guided, buildSteps(A, openRun), w.end)] : [])].filter(g => g.bouts > 0)
+  if (guided.length) w.guided = guided
   w.vol = workoutVolume(w)
   // A Bluetooth heart-rate sensor read during this session (lib/ble-hr.js): its measured summary
   // (avg/max and 2J-derived zones — never a stream) becomes the workout's cardio record, and the
