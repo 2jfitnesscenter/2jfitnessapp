@@ -1,0 +1,8752 @@
+{
+ "protocolVersion": "1.0",
+ "seedVersion": 1,
+ "count": 39,
+ "routines": [
+  {
+   "id": "r2j-tabata-start",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "tabata",
+   "name": "Tabata · First steps",
+   "subtitle": "No jumps · no equipment",
+   "description": "Your first 20/10 intervals: steps and wall high knees, easy to keep clean.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "fullbody",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "no-floor",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "k85ec01c9",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k5693d9c8",
+     "role": "main",
+     "src": "off-fullbody-general-beginner-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k85ec01c9",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k5693d9c8",
+     "src": "off-fullbody-general-beginner-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k85ec01c9"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k85ec01c9"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k85ec01c9"
+    },
+    {
+     "id": "3672",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k5693d9c8"
+    },
+    {
+     "id": "3636",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k5693d9c8"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-tabata-nojumps",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "tabata",
+   "name": "Tabata · No jumps",
+   "subtitle": "Three blocks, whole body",
+   "description": "Twelve minutes of 20/10 work for legs, chest and the whole body without a single jump.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "estimatedMinutes": 15,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "low-impact"
+   ],
+   "parts": [
+    {
+     "iid": "kedeb90ef",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kb2d86444",
+     "role": "main",
+     "src": "off-fullbody-general-beginner-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k7e8824c4",
+     "role": "main",
+     "src": "off-lower-general-beginner-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k10e4b9ab",
+     "role": "main",
+     "src": "off-upper-general-intermediate-x-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kedeb90ef",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kb2d86444",
+     "src": "off-fullbody-general-beginner-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k7e8824c4",
+     "src": "off-lower-general-beginner-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k10e4b9ab",
+     "src": "off-upper-general-intermediate-x-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "upper",
+     "variant": null,
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kedeb90ef"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kedeb90ef"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kedeb90ef"
+    },
+    {
+     "id": "3672",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kb2d86444"
+    },
+    {
+     "id": "3636",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kb2d86444"
+    },
+    {
+     "id": "3769",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k7e8824c4"
+    },
+    {
+     "id": "3561",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k7e8824c4"
+    },
+    {
+     "id": "0493",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k10e4b9ab"
+    },
+    {
+     "id": "3360",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k10e4b9ab"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-tabata-fullbody",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "tabata",
+   "name": "Tabata · Full body",
+   "subtitle": "Burpees, jumps and core",
+   "description": "The classic 20/10 format across the whole body: a demanding session in under twenty minutes.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "estimatedMinutes": 15,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-equipment"
+   ],
+   "parts": [
+    {
+     "iid": "k4bf463d1",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kd191286a",
+     "role": "main",
+     "src": "off-fullbody-general-intermediate-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k8066bcda",
+     "role": "main",
+     "src": "off-lower-general-intermediate-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k08bc1e13",
+     "role": "main",
+     "src": "off-abs-general-intermediate-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k4bf463d1",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kd191286a",
+     "src": "off-fullbody-general-intermediate-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k8066bcda",
+     "src": "off-lower-general-intermediate-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "lower",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k08bc1e13",
+     "src": "off-abs-general-intermediate-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "abs",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k4bf463d1"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k4bf463d1"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k4bf463d1"
+    },
+    {
+     "id": "1160",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kd191286a"
+    },
+    {
+     "id": "0630",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kd191286a"
+    },
+    {
+     "id": "0514",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k8066bcda"
+    },
+    {
+     "id": "2368",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k8066bcda"
+    },
+    {
+     "id": "0459",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k08bc1e13"
+    },
+    {
+     "id": "0687",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k08bc1e13"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "featured": 1
+  },
+  {
+   "id": "r2j-tabata-lower",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "tabata",
+   "name": "Tabata · Lower body",
+   "subtitle": "Squats, lunges and bridges",
+   "description": "Two 20/10 blocks for legs and glutes after a short lower-body activation.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "lower",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-equipment",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "kb87e85ea",
+     "role": "warmup",
+     "src": "off-lower-general-beginner-b-mobility",
+     "type": "mobility",
+     "minutes": 2,
+     "exercises": 4,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k5f56d670",
+     "role": "main",
+     "src": "off-lower-general-intermediate-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k7ff12508",
+     "role": "main",
+     "src": "off-lower-general-beginner-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kb87e85ea",
+     "src": "off-lower-general-beginner-b-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "B",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k5f56d670",
+     "src": "off-lower-general-intermediate-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "lower",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k7ff12508",
+     "src": "off-lower-general-beginner-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb87e85ea"
+    },
+    {
+     "id": "0257",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb87e85ea"
+    },
+    {
+     "id": "3533",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb87e85ea"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb87e85ea"
+    },
+    {
+     "id": "0514",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k5f56d670"
+    },
+    {
+     "id": "2368",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k5f56d670"
+    },
+    {
+     "id": "3769",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k7ff12508"
+    },
+    {
+     "id": "3561",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k7ff12508"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-tabata-core",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "tabata",
+   "name": "Tabata · Core",
+   "subtitle": "Two blocks · floor",
+   "description": "Flutter kicks, Russian twists, plank taps and climbers in 20/10.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "core",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "k949b1dd0",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k01f53752",
+     "role": "main",
+     "src": "off-abs-general-intermediate-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k05493322",
+     "role": "main",
+     "src": "off-abs-general-intermediate-b-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k949b1dd0",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k01f53752",
+     "src": "off-abs-general-intermediate-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "abs",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k05493322",
+     "src": "off-abs-general-intermediate-b-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "abs",
+     "variant": "B",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k949b1dd0"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k949b1dd0"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k949b1dd0"
+    },
+    {
+     "id": "0459",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k01f53752"
+    },
+    {
+     "id": "0687",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k01f53752"
+    },
+    {
+     "id": "3665",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k05493322"
+    },
+    {
+     "id": "0630",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k05493322"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-tabata-bike",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "tabata",
+   "name": "Tabata · Bike",
+   "subtitle": "20/10 × 8 on the bike",
+   "description": "Eight 20-second efforts on the stationary bike with 10 seconds easy between them.",
+   "goal": "general",
+   "level": "advanced",
+   "focus": "cardio",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight",
+    "stationary bike"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "kad808544",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "ke951a450",
+     "role": "main",
+     "src": "off-cardio-general-advanced-x-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 8,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k3c92bcca",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kad808544",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "ke951a450",
+     "src": "off-cardio-general-advanced-x-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "advanced",
+     "focus": "cardio",
+     "variant": null,
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 8,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k3c92bcca",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kad808544"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kad808544"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kad808544"
+    },
+    {
+     "id": "2138",
+     "sets": 8,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "ke951a450"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k3c92bcca"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k3c92bcca"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k3c92bcca"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k3c92bcca"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k3c92bcca"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-tabata-elliptical",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "tabata",
+   "name": "Tabata · Elliptical",
+   "subtitle": "20/10 × 8 · low impact",
+   "description": "The 20/10 format on the elliptical: hard efforts without impact on the joints.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "cardio",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight",
+    "elliptical machine"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "kb1b95694",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kd462687b",
+     "role": "main",
+     "src": "off-cardio-general-intermediate-x-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 8,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "kf945e690",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kb1b95694",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kd462687b",
+     "src": "off-cardio-general-intermediate-x-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "cardio",
+     "variant": null,
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 8,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kf945e690",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb1b95694"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb1b95694"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb1b95694"
+    },
+    {
+     "id": "2141",
+     "sets": 8,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kd462687b"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kf945e690"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kf945e690"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kf945e690"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kf945e690"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kf945e690"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-tabata-advanced",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "tabata",
+   "name": "Tabata · Advanced",
+   "subtitle": "Four blocks · jumps",
+   "description": "Four 20/10 blocks with burpees, skater hops, jacks and jump squats. For people who already know the format.",
+   "goal": "general",
+   "level": "advanced",
+   "focus": "fullbody",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-equipment"
+   ],
+   "parts": [
+    {
+     "iid": "k2a3db14b",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k134e9ede",
+     "role": "main",
+     "src": "off-fullbody-general-advanced-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "kea17c29b",
+     "role": "main",
+     "src": "off-fullbody-general-intermediate-b-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k8e539622",
+     "role": "main",
+     "src": "off-lower-general-intermediate-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k1a4ef868",
+     "role": "main",
+     "src": "off-abs-general-intermediate-b-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k2a3db14b",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k134e9ede",
+     "src": "off-fullbody-general-advanced-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "advanced",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kea17c29b",
+     "src": "off-fullbody-general-intermediate-b-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "fullbody",
+     "variant": "B",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k8e539622",
+     "src": "off-lower-general-intermediate-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "lower",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k1a4ef868",
+     "src": "off-abs-general-intermediate-b-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "abs",
+     "variant": "B",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2a3db14b"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2a3db14b"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2a3db14b"
+    },
+    {
+     "id": "1160",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k134e9ede"
+    },
+    {
+     "id": "3361",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k134e9ede"
+    },
+    {
+     "id": "3224",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kea17c29b"
+    },
+    {
+     "id": "0685",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kea17c29b"
+    },
+    {
+     "id": "0514",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k8e539622"
+    },
+    {
+     "id": "2368",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k8e539622"
+    },
+    {
+     "id": "3665",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k1a4ef868"
+    },
+    {
+     "id": "0630",
+     "sets": 4,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k1a4ef868"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-hiit-lowimpact",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "hiit",
+   "name": "HIIT · Low impact",
+   "subtitle": "30 s on / 30 s off",
+   "description": "Steps, wall high knees, incline push-ups and plank taps. Intense without jumping.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "fullbody",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "low-impact"
+   ],
+   "parts": [
+    {
+     "iid": "k683d07e0",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k2c69dd6e",
+     "role": "main",
+     "src": "off-fullbody-general-beginner-b-hiit",
+     "type": "hiit",
+     "minutes": 12,
+     "exercises": 4,
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 30,
+      "rounds": 3,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kb91ad013",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k683d07e0",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k2c69dd6e",
+     "src": "off-fullbody-general-beginner-b-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "B",
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 30,
+      "rounds": 3,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kb91ad013",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k683d07e0"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k683d07e0"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k683d07e0"
+    },
+    {
+     "id": "3671",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2c69dd6e"
+    },
+    {
+     "id": "3636",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2c69dd6e"
+    },
+    {
+     "id": "0493",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2c69dd6e"
+    },
+    {
+     "id": "3239",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2c69dd6e"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb91ad013"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb91ad013"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb91ad013"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb91ad013"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb91ad013"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "featured": 3
+  },
+  {
+   "id": "r2j-hiit-fullbody",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "hiit",
+   "name": "HIIT · Full body",
+   "subtitle": "40 s on / 20 s off",
+   "description": "Jump squats, climbers, skater hops and push-ups: three rounds with a minute between them.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-equipment"
+   ],
+   "parts": [
+    {
+     "iid": "kd804bd16",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kfd3bb04c",
+     "role": "main",
+     "src": "off-fullbody-general-intermediate-c-hiit",
+     "type": "hiit",
+     "minutes": 13,
+     "exercises": 4,
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 60
+     }
+    },
+    {
+     "iid": "k19f2d942",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kd804bd16",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kfd3bb04c",
+     "src": "off-fullbody-general-intermediate-c-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "fullbody",
+     "variant": "C",
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 60
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k19f2d942",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kd804bd16"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kd804bd16"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kd804bd16"
+    },
+    {
+     "id": "0514",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kfd3bb04c"
+    },
+    {
+     "id": "0630",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kfd3bb04c"
+    },
+    {
+     "id": "3361",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kfd3bb04c"
+    },
+    {
+     "id": "0662",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kfd3bb04c"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k19f2d942"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k19f2d942"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k19f2d942"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k19f2d942"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k19f2d942"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-hiit-express",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "hiit",
+   "name": "HIIT · Express with dumbbells",
+   "subtitle": "Strength moves on the clock",
+   "description": "Goblet squats and presses mixed with climbers and steps, 40/20 for three rounds.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "estimatedMinutes": 15,
+   "equipment": [
+    "body weight",
+    "dumbbell"
+   ],
+   "tags": [
+    "no-jumps"
+   ],
+   "parts": [
+    {
+     "iid": "k5d5f402e",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kdbcc1aec",
+     "role": "main",
+     "src": "off-fullbody-general-intermediate-d-hiit",
+     "type": "hiit",
+     "minutes": 13,
+     "exercises": 4,
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 60
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k5d5f402e",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kdbcc1aec",
+     "src": "off-fullbody-general-intermediate-d-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "fullbody",
+     "variant": "D",
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 60
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k5d5f402e"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k5d5f402e"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k5d5f402e"
+    },
+    {
+     "id": "1760",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kdbcc1aec"
+    },
+    {
+     "id": "0630",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kdbcc1aec"
+    },
+    {
+     "id": "0289",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kdbcc1aec"
+    },
+    {
+     "id": "3672",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kdbcc1aec"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-hiit-lower",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "hiit",
+   "name": "HIIT · Lower body, no jumps",
+   "subtitle": "Lunges, bridges, high knees",
+   "description": "Hard lower-body intervals without jumping, finished with hip mobility on the floor.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "lower",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "low-impact"
+   ],
+   "parts": [
+    {
+     "iid": "kc3316289",
+     "role": "warmup",
+     "src": "off-lower-general-beginner-b-mobility",
+     "type": "mobility",
+     "minutes": 2,
+     "exercises": 4,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k6922179c",
+     "role": "main",
+     "src": "off-lower-general-intermediate-b-hiit",
+     "type": "hiit",
+     "minutes": 13,
+     "exercises": 4,
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 60
+     }
+    },
+    {
+     "iid": "kdbee4c5f",
+     "role": "cooldown",
+     "src": "off-lower-general-beginner-c-mobility",
+     "type": "mobility",
+     "minutes": 5,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kc3316289",
+     "src": "off-lower-general-beginner-b-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "B",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k6922179c",
+     "src": "off-lower-general-intermediate-b-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "lower",
+     "variant": "B",
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 60
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kdbee4c5f",
+     "src": "off-lower-general-beginner-c-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "C",
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc3316289"
+    },
+    {
+     "id": "0257",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc3316289"
+    },
+    {
+     "id": "3533",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc3316289"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc3316289"
+    },
+    {
+     "id": "3769",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k6922179c"
+    },
+    {
+     "id": "2368",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k6922179c"
+    },
+    {
+     "id": "3561",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k6922179c"
+    },
+    {
+     "id": "3636",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k6922179c"
+    },
+    {
+     "id": "1424",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kdbee4c5f"
+    },
+    {
+     "id": "3639",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kdbee4c5f"
+    },
+    {
+     "id": "1511",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kdbee4c5f"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-hiit-advanced",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "hiit",
+   "name": "HIIT · Advanced",
+   "subtitle": "45 s on / 15 s off × 4",
+   "description": "Burpees, bear crawls, jump squats and plank taps with short rests, then core and a floor cool-down.",
+   "goal": "general",
+   "level": "advanced",
+   "focus": "fullbody",
+   "estimatedMinutes": 30,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-equipment"
+   ],
+   "parts": [
+    {
+     "iid": "k311bb9ce",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k5fabcc10",
+     "role": "main",
+     "src": "off-fullbody-general-advanced-b-hiit",
+     "type": "hiit",
+     "minutes": 18,
+     "exercises": 4,
+     "timing": {
+      "prep": 10,
+      "work": 45,
+      "rest": 15,
+      "rounds": 4,
+      "roundRest": 60
+     }
+    },
+    {
+     "iid": "kdd1fb996",
+     "role": "main",
+     "src": "off-abs-general-intermediate-a-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 2,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "ka2d88a29",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-b-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k311bb9ce",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k5fabcc10",
+     "src": "off-fullbody-general-advanced-b-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "advanced",
+     "focus": "fullbody",
+     "variant": "B",
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 45,
+      "rest": 15,
+      "rounds": 4,
+      "roundRest": 60
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kdd1fb996",
+     "src": "off-abs-general-intermediate-a-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "abs",
+     "variant": "A",
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 4,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "ka2d88a29",
+     "src": "off-fullbody-general-beginner-b-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "B",
+     "style": "cooldown",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k311bb9ce"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k311bb9ce"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k311bb9ce"
+    },
+    {
+     "id": "1160",
+     "sets": 4,
+     "mode": "time",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k5fabcc10"
+    },
+    {
+     "id": "3360",
+     "sets": 4,
+     "mode": "time",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k5fabcc10"
+    },
+    {
+     "id": "0514",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k5fabcc10"
+    },
+    {
+     "id": "3665",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k5fabcc10"
+    },
+    {
+     "id": "0459",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kdd1fb996"
+    },
+    {
+     "id": "0687",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kdd1fb996"
+    },
+    {
+     "id": "1511",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "ka2d88a29"
+    },
+    {
+     "id": "1424",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "ka2d88a29"
+    },
+    {
+     "id": "3639",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "ka2d88a29"
+    },
+    {
+     "id": "1363",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "ka2d88a29"
+    },
+    {
+     "id": "1346",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "ka2d88a29"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-hiit-machines",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "hiit",
+   "name": "HIIT · Two machines",
+   "subtitle": "Elliptical, then bike",
+   "description": "Two 20/10 blocks: eight efforts on the elliptical and eight on the bike.",
+   "goal": "general",
+   "level": "advanced",
+   "focus": "cardio",
+   "estimatedMinutes": 15,
+   "equipment": [
+    "body weight",
+    "elliptical machine",
+    "stationary bike"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor",
+    "low-impact"
+   ],
+   "parts": [
+    {
+     "iid": "ka2b24b5b",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kb4eb7e48",
+     "role": "main",
+     "src": "off-cardio-general-intermediate-x-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 8,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "k9207526f",
+     "role": "main",
+     "src": "off-cardio-general-advanced-x-hiit",
+     "type": "hiit",
+     "minutes": 4,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 8,
+      "roundRest": 0,
+      "preset": "tabata"
+     }
+    },
+    {
+     "iid": "kbac8b8d1",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "ka2b24b5b",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kb4eb7e48",
+     "src": "off-cardio-general-intermediate-x-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "cardio",
+     "variant": null,
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 8,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k9207526f",
+     "src": "off-cardio-general-advanced-x-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "advanced",
+     "focus": "cardio",
+     "variant": null,
+     "style": "tabata",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 10,
+      "rounds": 8,
+      "roundRest": 0,
+      "preset": "tabata"
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kbac8b8d1",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "ka2b24b5b"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "ka2b24b5b"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "ka2b24b5b"
+    },
+    {
+     "id": "2141",
+     "sets": 8,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "kb4eb7e48"
+    },
+    {
+     "id": "2138",
+     "sets": 8,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "blk": "k9207526f"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kbac8b8d1"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kbac8b8d1"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kbac8b8d1"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kbac8b8d1"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kbac8b8d1"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-circuit-machines-start",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "circuit",
+   "name": "Circuit · Machines, first steps",
+   "subtitle": "Guided machines · 3 rounds",
+   "description": "Leg press, chest press, pulldown and leg curl by reps, with a side plank. A safe way into circuits.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "fullbody",
+   "estimatedMinutes": 25,
+   "equipment": [
+    "body weight",
+    "cable",
+    "leverage machine",
+    "sled machine"
+   ],
+   "tags": [
+    "no-jumps"
+   ],
+   "parts": [
+    {
+     "iid": "k1a5e396e",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k1b90600d",
+     "role": "main",
+     "src": "off-fullbody-general-beginner-x-circuit",
+     "type": "circuit",
+     "minutes": 18,
+     "exercises": 5,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 30,
+      "rounds": 3,
+      "roundRest": 90
+     }
+    },
+    {
+     "iid": "k45a1bef1",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k1a5e396e",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k1b90600d",
+     "src": "off-fullbody-general-beginner-x-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 30,
+      "rounds": 3,
+      "roundRest": 90
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k45a1bef1",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k1a5e396e"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k1a5e396e"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k1a5e396e"
+    },
+    {
+     "id": "0739",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 8,
+     "targetRepsMax": 12,
+     "repsMin": 8,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k1b90600d"
+    },
+    {
+     "id": "1299",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 8,
+     "targetRepsMax": 12,
+     "repsMin": 8,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k1b90600d"
+    },
+    {
+     "id": "0198",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 8,
+     "targetRepsMax": 12,
+     "repsMin": 8,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k1b90600d"
+    },
+    {
+     "id": "0599",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 15,
+     "targetRepsMin": 12,
+     "targetRepsMax": 15,
+     "repsMin": 12,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k1b90600d"
+    },
+    {
+     "id": "3544",
+     "sets": 3,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k1b90600d"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k45a1bef1"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k45a1bef1"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k45a1bef1"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k45a1bef1"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k45a1bef1"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-circuit-machines-time",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "circuit",
+   "name": "Circuit · Machines against the clock",
+   "subtitle": "40 s per machine",
+   "description": "Five machines, forty seconds each, three rounds. Steady, controlled work.",
+   "goal": "endurance",
+   "level": "beginner",
+   "focus": "fullbody",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight",
+    "leverage machine",
+    "sled machine"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor"
+   ],
+   "parts": [
+    {
+     "iid": "k6098c01e",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k5c4e159c",
+     "role": "main",
+     "src": "off-fullbody-endurance-beginner-x-circuit",
+     "type": "circuit",
+     "minutes": 17,
+     "exercises": 5,
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 90
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k6098c01e",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k5c4e159c",
+     "src": "off-fullbody-endurance-beginner-x-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "endurance",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 90
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k6098c01e"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k6098c01e"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k6098c01e"
+    },
+    {
+     "id": "0739",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k5c4e159c"
+    },
+    {
+     "id": "0577",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k5c4e159c"
+    },
+    {
+     "id": "1350",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k5c4e159c"
+    },
+    {
+     "id": "0597",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k5c4e159c"
+    },
+    {
+     "id": "1452",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k5c4e159c"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-circuit-dumbbells",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "circuit",
+   "name": "Circuit · Dumbbells, full body",
+   "subtitle": "Squat, press, row, hinge",
+   "description": "A full-body circuit with dumbbells by reps and a timed plank to close each round.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "estimatedMinutes": 25,
+   "equipment": [
+    "body weight",
+    "dumbbell"
+   ],
+   "tags": [
+    "no-jumps"
+   ],
+   "parts": [
+    {
+     "iid": "kee726da8",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k9260f95e",
+     "role": "main",
+     "src": "off-fullbody-general-intermediate-a-circuit",
+     "type": "circuit",
+     "minutes": 16,
+     "exercises": 5,
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 90
+     }
+    },
+    {
+     "iid": "k923841c0",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kee726da8",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k9260f95e",
+     "src": "off-fullbody-general-intermediate-a-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 90
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k923841c0",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kee726da8"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kee726da8"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kee726da8"
+    },
+    {
+     "id": "1760",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k9260f95e"
+    },
+    {
+     "id": "0289",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k9260f95e"
+    },
+    {
+     "id": "0292",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k9260f95e"
+    },
+    {
+     "id": "1459",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k9260f95e"
+    },
+    {
+     "id": "3665",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k9260f95e"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k923841c0"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k923841c0"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k923841c0"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k923841c0"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k923841c0"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-circuit-bodyweight",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "circuit",
+   "name": "Circuit · No equipment",
+   "subtitle": "Bodyweight · 2 rounds",
+   "description": "Split squats, incline push-ups, bridges, a kneeling plank and ski steps. Only your body.",
+   "goal": "endurance",
+   "level": "beginner",
+   "focus": "fullbody",
+   "estimatedMinutes": 15,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment"
+   ],
+   "parts": [
+    {
+     "iid": "k2e0b77b6",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k252ea09d",
+     "role": "main",
+     "src": "off-fullbody-endurance-beginner-a-circuit",
+     "type": "circuit",
+     "minutes": 12,
+     "exercises": 5,
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 2,
+      "roundRest": 60
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k2e0b77b6",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k252ea09d",
+     "src": "off-fullbody-endurance-beginner-a-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "endurance",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 2,
+      "roundRest": 60
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2e0b77b6"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2e0b77b6"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k2e0b77b6"
+    },
+    {
+     "id": "2368",
+     "sets": 2,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8
+     ],
+     "blk": "k252ea09d"
+    },
+    {
+     "id": "0493",
+     "sets": 2,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8
+     ],
+     "blk": "k252ea09d"
+    },
+    {
+     "id": "3561",
+     "sets": 2,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8
+     ],
+     "blk": "k252ea09d"
+    },
+    {
+     "id": "3239",
+     "sets": 2,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "rpe": [
+      6,
+      8
+     ],
+     "blk": "k252ea09d"
+    },
+    {
+     "id": "3671",
+     "sets": 2,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k252ea09d"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-circuit-lower",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "circuit",
+   "name": "Circuit · Lower body",
+   "subtitle": "Reps and timed bridges",
+   "description": "Split squats, Romanian deadlifts, marching bridges and calf raises, then hip mobility.",
+   "goal": "endurance",
+   "level": "intermediate",
+   "focus": "lower",
+   "estimatedMinutes": 25,
+   "equipment": [
+    "body weight",
+    "dumbbell",
+    "leverage machine"
+   ],
+   "tags": [
+    "no-jumps"
+   ],
+   "parts": [
+    {
+     "iid": "k90a5341b",
+     "role": "warmup",
+     "src": "off-lower-general-beginner-b-mobility",
+     "type": "mobility",
+     "minutes": 2,
+     "exercises": 4,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kc63e5b22",
+     "role": "main",
+     "src": "off-lower-endurance-intermediate-x-circuit",
+     "type": "circuit",
+     "minutes": 16,
+     "exercises": 4,
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 75
+     }
+    },
+    {
+     "iid": "kfd568041",
+     "role": "cooldown",
+     "src": "off-lower-general-beginner-c-mobility",
+     "type": "mobility",
+     "minutes": 5,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k90a5341b",
+     "src": "off-lower-general-beginner-b-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "B",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kc63e5b22",
+     "src": "off-lower-endurance-intermediate-x-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "endurance",
+     "level": "intermediate",
+     "focus": "lower",
+     "variant": null,
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 75
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kfd568041",
+     "src": "off-lower-general-beginner-c-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "C",
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k90a5341b"
+    },
+    {
+     "id": "0257",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k90a5341b"
+    },
+    {
+     "id": "3533",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k90a5341b"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k90a5341b"
+    },
+    {
+     "id": "2368",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kc63e5b22"
+    },
+    {
+     "id": "1459",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kc63e5b22"
+    },
+    {
+     "id": "3561",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kc63e5b22"
+    },
+    {
+     "id": "0605",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kc63e5b22"
+    },
+    {
+     "id": "1424",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kfd568041"
+    },
+    {
+     "id": "3639",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kfd568041"
+    },
+    {
+     "id": "1511",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kfd568041"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-circuit-upper",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "circuit",
+   "name": "Circuit · Upper body",
+   "subtitle": "Push, pull, press, arms",
+   "description": "Five upper-body stations for three rounds, then shoulder mobility.",
+   "goal": "endurance",
+   "level": "intermediate",
+   "focus": "upper",
+   "estimatedMinutes": 30,
+   "equipment": [
+    "body weight",
+    "cable",
+    "dumbbell",
+    "leverage machine"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor"
+   ],
+   "parts": [
+    {
+     "iid": "k51b3a359",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k902a0425",
+     "role": "main",
+     "src": "off-upper-endurance-intermediate-x-circuit",
+     "type": "circuit",
+     "minutes": 21,
+     "exercises": 5,
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 75
+     }
+    },
+    {
+     "iid": "kc2ad7b01",
+     "role": "cooldown",
+     "src": "off-shoulders-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 5,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k51b3a359",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k902a0425",
+     "src": "off-upper-endurance-intermediate-x-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "endurance",
+     "level": "intermediate",
+     "focus": "upper",
+     "variant": null,
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 75
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kc2ad7b01",
+     "src": "off-shoulders-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "shoulders",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k51b3a359"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k51b3a359"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k51b3a359"
+    },
+    {
+     "id": "0493",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k902a0425"
+    },
+    {
+     "id": "1350",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k902a0425"
+    },
+    {
+     "id": "0405",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k902a0425"
+    },
+    {
+     "id": "0294",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k902a0425"
+    },
+    {
+     "id": "0201",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k902a0425"
+    },
+    {
+     "id": "1271",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kc2ad7b01"
+    },
+    {
+     "id": "0669",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kc2ad7b01"
+    },
+    {
+     "id": "1405",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kc2ad7b01"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-circuit-advanced",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "circuit",
+   "name": "Circuit · Advanced full body",
+   "subtitle": "Dumbbells, push-ups, crawls",
+   "description": "A dense full-body circuit mixing reps and timed conditioning, with a floor cool-down.",
+   "goal": "endurance",
+   "level": "advanced",
+   "focus": "fullbody",
+   "estimatedMinutes": 25,
+   "equipment": [
+    "body weight",
+    "dumbbell"
+   ],
+   "tags": [
+    "no-jumps"
+   ],
+   "parts": [
+    {
+     "iid": "ka672c649",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kc99a5f4e",
+     "role": "main",
+     "src": "off-fullbody-endurance-advanced-x-circuit",
+     "type": "circuit",
+     "minutes": 17,
+     "exercises": 5,
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 15,
+      "rounds": 3,
+      "roundRest": 60
+     }
+    },
+    {
+     "iid": "k8b9fa699",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-b-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "ka672c649",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kc99a5f4e",
+     "src": "off-fullbody-endurance-advanced-x-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "endurance",
+     "level": "advanced",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 15,
+      "rounds": 3,
+      "roundRest": 60
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k8b9fa699",
+     "src": "off-fullbody-general-beginner-b-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "B",
+     "style": "cooldown",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "ka672c649"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "ka672c649"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "ka672c649"
+    },
+    {
+     "id": "1760",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kc99a5f4e"
+    },
+    {
+     "id": "0662",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kc99a5f4e"
+    },
+    {
+     "id": "1757",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kc99a5f4e"
+    },
+    {
+     "id": "3360",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc99a5f4e"
+    },
+    {
+     "id": "0630",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc99a5f4e"
+    },
+    {
+     "id": "1511",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k8b9fa699"
+    },
+    {
+     "id": "1424",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k8b9fa699"
+    },
+    {
+     "id": "3639",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k8b9fa699"
+    },
+    {
+     "id": "1363",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k8b9fa699"
+    },
+    {
+     "id": "1346",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k8b9fa699"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-mixed-circuit-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mixed",
+   "name": "Strength + cardio · Circuit and HIIT",
+   "subtitle": "Machines, then dumbbells on the clock",
+   "description": "A machine circuit with cardio bursts, followed by a dumbbell HIIT block.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "estimatedMinutes": 30,
+   "equipment": [
+    "body weight",
+    "dumbbell",
+    "leverage machine",
+    "sled machine"
+   ],
+   "tags": [
+    "no-jumps"
+   ],
+   "parts": [
+    {
+     "iid": "k109f391d",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kf86eb516",
+     "role": "main",
+     "src": "off-fullbody-general-intermediate-b-circuit",
+     "type": "circuit",
+     "minutes": 15,
+     "exercises": 5,
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 90
+     }
+    },
+    {
+     "iid": "k19afeba8",
+     "role": "main",
+     "src": "off-fullbody-general-intermediate-d-hiit",
+     "type": "hiit",
+     "minutes": 13,
+     "exercises": 4,
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 60
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k109f391d",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kf86eb516",
+     "src": "off-fullbody-general-intermediate-b-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "fullbody",
+     "variant": "B",
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 90
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k19afeba8",
+     "src": "off-fullbody-general-intermediate-d-hiit",
+     "name": null,
+     "type": "hiit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "fullbody",
+     "variant": "D",
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 40,
+      "rest": 20,
+      "rounds": 3,
+      "roundRest": 60
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k109f391d"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k109f391d"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k109f391d"
+    },
+    {
+     "id": "0739",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 8,
+     "targetRepsMax": 12,
+     "repsMin": 8,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kf86eb516"
+    },
+    {
+     "id": "3671",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kf86eb516"
+    },
+    {
+     "id": "1350",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 8,
+     "targetRepsMax": 12,
+     "repsMin": 8,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kf86eb516"
+    },
+    {
+     "id": "3636",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kf86eb516"
+    },
+    {
+     "id": "0577",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 8,
+     "targetRepsMax": 12,
+     "repsMin": 8,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "kf86eb516"
+    },
+    {
+     "id": "1760",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k19afeba8"
+    },
+    {
+     "id": "0630",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k19afeba8"
+    },
+    {
+     "id": "0289",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k19afeba8"
+    },
+    {
+     "id": "3672",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k19afeba8"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-mixed-strength-intervals",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mixed",
+   "name": "Strength + cardio · Full body and bike",
+   "subtitle": "Straight sets, then intervals",
+   "description": "A full-body strength block with prescribed rest, then easy bike intervals to finish.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "estimatedMinutes": 45,
+   "equipment": [
+    "body weight",
+    "cable",
+    "dumbbell",
+    "sled machine",
+    "stationary bike"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor"
+   ],
+   "parts": [
+    {
+     "iid": "kea44b815",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k36280132",
+     "role": "main",
+     "src": "off-fullbody-general-intermediate-b",
+     "type": "strength",
+     "minutes": 31,
+     "exercises": 5
+    },
+    {
+     "iid": "kc5443c61",
+     "role": "main",
+     "src": "off-cardio-general-beginner-x-interval",
+     "type": "interval",
+     "minutes": 11,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 60,
+      "rest": 60,
+      "rounds": 6,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kea44b815",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k36280132",
+     "src": "off-fullbody-general-intermediate-b",
+     "name": null,
+     "type": "strength",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "fullbody",
+     "variant": "B",
+     "style": "mixed",
+     "v": "1.0",
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kc5443c61",
+     "src": "off-cardio-general-beginner-x-interval",
+     "name": null,
+     "type": "interval",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "cardio",
+     "variant": null,
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 60,
+      "rest": 60,
+      "rounds": 6,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kea44b815"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kea44b815"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kea44b815"
+    },
+    {
+     "id": "0743",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 8,
+     "targetRepsMax": 12,
+     "repsMin": 8,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "rest": 105,
+     "blk": "k36280132"
+    },
+    {
+     "id": "0405",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "rest": 105,
+     "blk": "k36280132"
+    },
+    {
+     "id": "0652",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "rest": 105,
+     "blk": "k36280132"
+    },
+    {
+     "id": "1757",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "rest": 105,
+     "blk": "k36280132"
+    },
+    {
+     "id": "0175",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 15,
+     "targetRepsMin": 12,
+     "targetRepsMax": 15,
+     "repsMin": 12,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "rest": 75,
+     "blk": "k36280132"
+    },
+    {
+     "id": "2138",
+     "sets": 6,
+     "mode": "time",
+     "sec": 60,
+     "weight": 0,
+     "blk": "kc5443c61"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-core-start",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "core",
+   "name": "Core · First steps",
+   "subtitle": "Floor · 2 rounds",
+   "description": "Dead bugs, a kneeling plank, side planks and crunches: a short, controlled core session.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "core",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "k61fe6345",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "ka558406a",
+     "role": "main",
+     "src": "off-abs-general-beginner-x-circuit",
+     "type": "circuit",
+     "minutes": 7,
+     "exercises": 4,
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 15,
+      "rounds": 2,
+      "roundRest": 45
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k61fe6345",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "ka558406a",
+     "src": "off-abs-general-beginner-x-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "abs",
+     "variant": null,
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 20,
+      "rest": 15,
+      "rounds": 2,
+      "roundRest": 45
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k61fe6345"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k61fe6345"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k61fe6345"
+    },
+    {
+     "id": "0276",
+     "sets": 2,
+     "mode": "reps",
+     "reps": 15,
+     "targetRepsMin": 12,
+     "targetRepsMax": 15,
+     "repsMin": 12,
+     "prog": "double",
+     "rpe": [
+      6,
+      8
+     ],
+     "blk": "ka558406a"
+    },
+    {
+     "id": "3239",
+     "sets": 2,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "rpe": [
+      6,
+      8
+     ],
+     "blk": "ka558406a"
+    },
+    {
+     "id": "3544",
+     "sets": 2,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0,
+     "rpe": [
+      6,
+      8
+     ],
+     "blk": "ka558406a"
+    },
+    {
+     "id": "0274",
+     "sets": 2,
+     "mode": "reps",
+     "reps": 15,
+     "targetRepsMin": 12,
+     "targetRepsMax": 15,
+     "repsMin": 12,
+     "prog": "double",
+     "rpe": [
+      6,
+      8
+     ],
+     "blk": "ka558406a"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-core-circuit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "core",
+   "name": "Core · Circuit",
+   "subtitle": "Cable, plank, side plank",
+   "description": "Cable crunches and dead bugs by reps, planks against the clock, three rounds.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "core",
+   "estimatedMinutes": 15,
+   "equipment": [
+    "body weight",
+    "cable",
+    "weighted"
+   ],
+   "tags": [
+    "no-jumps"
+   ],
+   "parts": [
+    {
+     "iid": "kf16c4c90",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k87d57fb8",
+     "role": "main",
+     "src": "off-abs-general-intermediate-x-circuit",
+     "type": "circuit",
+     "minutes": 12,
+     "exercises": 4,
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 15,
+      "rounds": 3,
+      "roundRest": 60
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kf16c4c90",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k87d57fb8",
+     "src": "off-abs-general-intermediate-x-circuit",
+     "name": null,
+     "type": "circuit",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "abs",
+     "variant": null,
+     "style": "circuit",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 15,
+      "rounds": 3,
+      "roundRest": 60
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kf16c4c90"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kf16c4c90"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kf16c4c90"
+    },
+    {
+     "id": "0175",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 15,
+     "targetRepsMin": 12,
+     "targetRepsMax": 15,
+     "repsMin": 12,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k87d57fb8"
+    },
+    {
+     "id": "0276",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 15,
+     "targetRepsMin": 12,
+     "targetRepsMax": 15,
+     "repsMin": 12,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k87d57fb8"
+    },
+    {
+     "id": "2135",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k87d57fb8"
+    },
+    {
+     "id": "3544",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ],
+     "blk": "k87d57fb8"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-intervals-bike-start",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "interval",
+   "name": "Intervals · Bike, first steps",
+   "subtitle": "1 min on / 1 min easy",
+   "description": "Six one-minute efforts on the bike with a minute easy between them.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "cardio",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight",
+    "stationary bike"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor",
+    "low-impact"
+   ],
+   "parts": [
+    {
+     "iid": "k150bf108",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k77ed1108",
+     "role": "main",
+     "src": "off-cardio-general-beginner-x-interval",
+     "type": "interval",
+     "minutes": 11,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 60,
+      "rest": 60,
+      "rounds": 6,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kd4536e29",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k150bf108",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k77ed1108",
+     "src": "off-cardio-general-beginner-x-interval",
+     "name": null,
+     "type": "interval",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "cardio",
+     "variant": null,
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 60,
+      "rest": 60,
+      "rounds": 6,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kd4536e29",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k150bf108"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k150bf108"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k150bf108"
+    },
+    {
+     "id": "2138",
+     "sets": 6,
+     "mode": "time",
+     "sec": 60,
+     "weight": 0,
+     "blk": "k77ed1108"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kd4536e29"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kd4536e29"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kd4536e29"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kd4536e29"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kd4536e29"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-intervals-incline-walk",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "interval",
+   "name": "Intervals · Incline walk",
+   "subtitle": "3 min on / 1 min easy",
+   "description": "Four three-minute blocks of brisk incline walking on the treadmill.",
+   "goal": "endurance",
+   "level": "beginner",
+   "focus": "cardio",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight",
+    "treadmill"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor",
+    "low-impact"
+   ],
+   "parts": [
+    {
+     "iid": "k26a5fff4",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kc6bc7fbf",
+     "role": "main",
+     "src": "off-cardio-endurance-beginner-x-interval",
+     "type": "interval",
+     "minutes": 15,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 180,
+      "rest": 60,
+      "rounds": 4,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k26a5fff4",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kc6bc7fbf",
+     "src": "off-cardio-endurance-beginner-x-interval",
+     "name": null,
+     "type": "interval",
+     "goal": "endurance",
+     "level": "beginner",
+     "focus": "cardio",
+     "variant": null,
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 180,
+      "rest": 60,
+      "rounds": 4,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k26a5fff4"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k26a5fff4"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k26a5fff4"
+    },
+    {
+     "id": "3666",
+     "sets": 4,
+     "mode": "time",
+     "sec": 180,
+     "weight": 0,
+     "blk": "kc6bc7fbf"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-intervals-elliptical",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "interval",
+   "name": "Intervals · Elliptical",
+   "subtitle": "1 min on / 1 min easy",
+   "description": "Six one-minute pushes on the elliptical, easy recovery between them.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "cardio",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight",
+    "elliptical machine"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor",
+    "low-impact"
+   ],
+   "parts": [
+    {
+     "iid": "k37c1c2cc",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kf5059932",
+     "role": "main",
+     "src": "off-cardio-general-intermediate-x-interval",
+     "type": "interval",
+     "minutes": 11,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 60,
+      "rest": 60,
+      "rounds": 6,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k1a780acf",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k37c1c2cc",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kf5059932",
+     "src": "off-cardio-general-intermediate-x-interval",
+     "name": null,
+     "type": "interval",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "cardio",
+     "variant": null,
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 60,
+      "rest": 60,
+      "rounds": 6,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k1a780acf",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k37c1c2cc"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k37c1c2cc"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k37c1c2cc"
+    },
+    {
+     "id": "2141",
+     "sets": 6,
+     "mode": "time",
+     "sec": 60,
+     "weight": 0,
+     "blk": "kf5059932"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k1a780acf"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k1a780acf"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k1a780acf"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k1a780acf"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k1a780acf"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-intervals-stepmill",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "interval",
+   "name": "Intervals · Stepmill",
+   "subtitle": "2 min on / 1 min easy",
+   "description": "Five two-minute climbs on the stepmill.",
+   "goal": "endurance",
+   "level": "intermediate",
+   "focus": "cardio",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight",
+    "stepmill machine"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor",
+    "low-impact"
+   ],
+   "parts": [
+    {
+     "iid": "kb1d2a416",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k69c8f07b",
+     "role": "main",
+     "src": "off-cardio-endurance-intermediate-x-interval",
+     "type": "interval",
+     "minutes": 14,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 120,
+      "rest": 60,
+      "rounds": 5,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k0fe0f1c6",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kb1d2a416",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k69c8f07b",
+     "src": "off-cardio-endurance-intermediate-x-interval",
+     "name": null,
+     "type": "interval",
+     "goal": "endurance",
+     "level": "intermediate",
+     "focus": "cardio",
+     "variant": null,
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 120,
+      "rest": 60,
+      "rounds": 5,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k0fe0f1c6",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb1d2a416"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb1d2a416"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kb1d2a416"
+    },
+    {
+     "id": "2311",
+     "sets": 5,
+     "mode": "time",
+     "sec": 120,
+     "weight": 0,
+     "blk": "k69c8f07b"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k0fe0f1c6"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k0fe0f1c6"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k0fe0f1c6"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k0fe0f1c6"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k0fe0f1c6"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-intervals-treadmill",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "interval",
+   "name": "Intervals · Treadmill, short",
+   "subtitle": "30 s fast / 90 s easy",
+   "description": "Eight short, fast runs on the treadmill with long easy recoveries.",
+   "goal": "general",
+   "level": "advanced",
+   "focus": "cardio",
+   "estimatedMinutes": 20,
+   "equipment": [
+    "body weight",
+    "treadmill"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor"
+   ],
+   "parts": [
+    {
+     "iid": "k4e6f8ee6",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k5789c484",
+     "role": "main",
+     "src": "off-cardio-general-advanced-x-interval",
+     "type": "interval",
+     "minutes": 15,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 90,
+      "rounds": 8,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k784f5b43",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k4e6f8ee6",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k5789c484",
+     "src": "off-cardio-general-advanced-x-interval",
+     "name": null,
+     "type": "interval",
+     "goal": "general",
+     "level": "advanced",
+     "focus": "cardio",
+     "variant": null,
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 30,
+      "rest": 90,
+      "rounds": 8,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k784f5b43",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k4e6f8ee6"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k4e6f8ee6"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k4e6f8ee6"
+    },
+    {
+     "id": "0684",
+     "sets": 8,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k5789c484"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k784f5b43"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k784f5b43"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k784f5b43"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k784f5b43"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k784f5b43"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-intervals-cross-long",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "interval",
+   "name": "Intervals · Cross trainer, long",
+   "subtitle": "4 min on / 2 min easy",
+   "description": "Four long efforts on the cross trainer for sustained work.",
+   "goal": "endurance",
+   "level": "advanced",
+   "focus": "cardio",
+   "estimatedMinutes": 30,
+   "equipment": [
+    "body weight",
+    "leverage machine"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-floor",
+    "low-impact"
+   ],
+   "parts": [
+    {
+     "iid": "k49962ba9",
+     "role": "warmup",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kd2b15c98",
+     "role": "main",
+     "src": "off-cardio-endurance-advanced-x-interval",
+     "type": "interval",
+     "minutes": 22,
+     "exercises": 1,
+     "timing": {
+      "prep": 10,
+      "work": 240,
+      "rest": 120,
+      "rounds": 4,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k70eac082",
+     "role": "cooldown",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k49962ba9",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "warmup",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kd2b15c98",
+     "src": "off-cardio-endurance-advanced-x-interval",
+     "name": null,
+     "type": "interval",
+     "goal": "endurance",
+     "level": "advanced",
+     "focus": "cardio",
+     "variant": null,
+     "style": "intervals",
+     "v": "1.0",
+     "timing": {
+      "prep": 10,
+      "work": 240,
+      "rest": 120,
+      "rounds": 4,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k70eac082",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "cooldown",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k49962ba9"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k49962ba9"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k49962ba9"
+    },
+    {
+     "id": "2331",
+     "sets": 4,
+     "mode": "time",
+     "sec": 240,
+     "weight": 0,
+     "blk": "kd2b15c98"
+    },
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k70eac082"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k70eac082"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k70eac082"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k70eac082"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k70eac082"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-mobility-fullbody",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mobility",
+   "name": "Mobility · Full body",
+   "subtitle": "Standing, then floor",
+   "description": "A standing flow from hips to shoulders, then hips and hamstrings on the floor.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "fullbody",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "kb0b6bf51",
+     "role": "main",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k7d774a99",
+     "role": "main",
+     "src": "off-lower-general-beginner-c-mobility",
+     "type": "mobility",
+     "minutes": 5,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kb0b6bf51",
+     "src": "off-fullbody-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k7d774a99",
+     "src": "off-lower-general-beginner-c-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "C",
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1604",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb0b6bf51"
+    },
+    {
+     "id": "1365",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb0b6bf51"
+    },
+    {
+     "id": "1271",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb0b6bf51"
+    },
+    {
+     "id": "0794",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb0b6bf51"
+    },
+    {
+     "id": "1377",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kb0b6bf51"
+    },
+    {
+     "id": "1424",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k7d774a99"
+    },
+    {
+     "id": "3639",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k7d774a99"
+    },
+    {
+     "id": "1511",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "k7d774a99"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-mobility-hips",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mobility",
+   "name": "Mobility · Hips",
+   "subtitle": "Floor and standing",
+   "description": "Glutes, hamstrings and hip rotation on the floor, then hips and quads standing.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "lower",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "kac260222",
+     "role": "main",
+     "src": "off-lower-general-beginner-c-mobility",
+     "type": "mobility",
+     "minutes": 5,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k9d2ea32b",
+     "role": "main",
+     "src": "off-lower-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 5,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kac260222",
+     "src": "off-lower-general-beginner-c-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "C",
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k9d2ea32b",
+     "src": "off-lower-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "A",
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1424",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kac260222"
+    },
+    {
+     "id": "3639",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kac260222"
+    },
+    {
+     "id": "1511",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kac260222"
+    },
+    {
+     "id": "2567",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k9d2ea32b"
+    },
+    {
+     "id": "3533",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k9d2ea32b"
+    },
+    {
+     "id": "1604",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k9d2ea32b"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "featured": 2
+  },
+  {
+   "id": "r2j-mobility-ankles",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mobility",
+   "name": "Mobility · Ankles and calves",
+   "subtitle": "Standing · express",
+   "description": "Ankle and knee circles and two calf stretches.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "lower",
+   "estimatedMinutes": 5,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "no-floor",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "kcab81674",
+     "role": "main",
+     "src": "off-calves-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 6,
+     "exercises": 4,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kcab81674",
+     "src": "off-calves-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "calves",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kcab81674"
+    },
+    {
+     "id": "1377",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kcab81674"
+    },
+    {
+     "id": "1398",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kcab81674"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kcab81674"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-mobility-shoulders",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mobility",
+   "name": "Mobility · Shoulders",
+   "subtitle": "Standing · 2 rounds",
+   "description": "Chest opener, front and back of the shoulder, and lats against a bench.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "upper",
+   "estimatedMinutes": 5,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "no-floor",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "ke0e7d3d3",
+     "role": "main",
+     "src": "off-shoulders-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 5,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "ke0e7d3d3",
+     "src": "off-shoulders-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "shoulders",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1271",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "ke0e7d3d3"
+    },
+    {
+     "id": "0669",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "ke0e7d3d3"
+    },
+    {
+     "id": "1405",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "ke0e7d3d3"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-mobility-upper-back",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mobility",
+   "name": "Mobility · Upper back",
+   "subtitle": "Standing and seated",
+   "description": "Upper-back and side stretches, then a seated twist and reach.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "upper",
+   "estimatedMinutes": 5,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "kf24acbca",
+     "role": "main",
+     "src": "off-upper-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 6,
+     "exercises": 4,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kf24acbca",
+     "src": "off-upper-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "upper",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1365",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kf24acbca"
+    },
+    {
+     "id": "0794",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kf24acbca"
+    },
+    {
+     "id": "2329",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kf24acbca"
+    },
+    {
+     "id": "1363",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kf24acbca"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-mobility-pre",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mobility",
+   "name": "Mobility · Before training",
+   "subtitle": "Activation + hips",
+   "description": "A standing activation from feet to shoulders, then hips, before you lift.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "fullbody",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "no-floor",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "k14006c70",
+     "role": "main",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "k2c576760",
+     "role": "main",
+     "src": "off-lower-general-beginner-a-mobility",
+     "type": "mobility",
+     "minutes": 5,
+     "exercises": 3,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "k14006c70",
+     "src": "off-fullbody-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "A",
+     "style": "warmup",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "k2c576760",
+     "src": "off-lower-general-beginner-a-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "lower",
+     "variant": "A",
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k14006c70"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k14006c70"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "k14006c70"
+    },
+    {
+     "id": "2567",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k2c576760"
+    },
+    {
+     "id": "3533",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k2c576760"
+    },
+    {
+     "id": "1604",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "k2c576760"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-mobility-post",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mobility",
+   "name": "Mobility · After training",
+   "subtitle": "Easy · floor",
+   "description": "Slow floor stretches for legs, hips and back, then calves and ankles.",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "fullbody",
+   "estimatedMinutes": 10,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "kb68d789e",
+     "role": "main",
+     "src": "off-fullbody-general-beginner-b-mobility",
+     "type": "mobility",
+     "minutes": 4,
+     "exercises": 5,
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     }
+    },
+    {
+     "iid": "kffe1c1d7",
+     "role": "main",
+     "src": "off-calves-general-beginner-x-mobility",
+     "type": "mobility",
+     "minutes": 6,
+     "exercises": 4,
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kb68d789e",
+     "src": "off-fullbody-general-beginner-b-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "fullbody",
+     "variant": "B",
+     "style": "cooldown",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 45,
+      "rest": 5,
+      "rounds": 1,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    },
+    {
+     "iid": "kffe1c1d7",
+     "src": "off-calves-general-beginner-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "beginner",
+     "focus": "calves",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 40,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1511",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kb68d789e"
+    },
+    {
+     "id": "1424",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kb68d789e"
+    },
+    {
+     "id": "3639",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kb68d789e"
+    },
+    {
+     "id": "1363",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kb68d789e"
+    },
+    {
+     "id": "1346",
+     "sets": 1,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0,
+     "blk": "kb68d789e"
+    },
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kffe1c1d7"
+    },
+    {
+     "id": "1377",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kffe1c1d7"
+    },
+    {
+     "id": "1398",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kffe1c1d7"
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0,
+     "blk": "kffe1c1d7"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  },
+  {
+   "id": "r2j-mobility-express",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "publishedAt": "2026-09-26",
+   "category": "mobility",
+   "name": "Mobility · Express",
+   "subtitle": "Four moves, standing",
+   "description": "A quick standing reset: lunge stretch, chest opener, ankles and side stretch.",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "estimatedMinutes": 5,
+   "equipment": [
+    "body weight"
+   ],
+   "tags": [
+    "no-jumps",
+    "no-equipment",
+    "no-floor",
+    "low-impact",
+    "express"
+   ],
+   "parts": [
+    {
+     "iid": "kc0dbf36e",
+     "role": "main",
+     "src": "off-fullbody-general-intermediate-x-mobility",
+     "type": "mobility",
+     "minutes": 5,
+     "exercises": 4,
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     }
+    }
+   ],
+   "blocks": [
+    {
+     "iid": "kc0dbf36e",
+     "src": "off-fullbody-general-intermediate-x-mobility",
+     "name": null,
+     "type": "mobility",
+     "goal": "general",
+     "level": "intermediate",
+     "focus": "fullbody",
+     "variant": null,
+     "style": "flow",
+     "v": "1.0",
+     "timing": {
+      "prep": 5,
+      "work": 30,
+      "rest": 5,
+      "rounds": 2,
+      "roundRest": 0
+     },
+     "role": "main",
+     "seedVersion": 1
+    }
+   ],
+   "ex": [
+    {
+     "id": "1604",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc0dbf36e"
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc0dbf36e"
+    },
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc0dbf36e"
+    },
+    {
+     "id": "0794",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0,
+     "blk": "kc0dbf36e"
+    }
+   ],
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ]
+  }
+ ],
+ "collections": [
+  {
+   "id": "c2j-start",
+   "name": "Start here",
+   "description": "Short, clear sessions to get to know guided training.",
+   "style": "start",
+   "order": 0,
+   "active": true,
+   "seedVersion": 1,
+   "routineIds": [
+    "r2j-tabata-start",
+    "r2j-hiit-lowimpact",
+    "r2j-circuit-machines-start",
+    "r2j-circuit-bodyweight",
+    "r2j-intervals-bike-start",
+    "r2j-core-start",
+    "r2j-mobility-fullbody"
+   ]
+  },
+  {
+   "id": "c2j-tabata",
+   "name": "2J Tabata",
+   "description": "The 20/10 format, from first steps to advanced.",
+   "style": "tabata",
+   "order": 1,
+   "active": true,
+   "seedVersion": 1,
+   "routineIds": [
+    "r2j-tabata-start",
+    "r2j-tabata-nojumps",
+    "r2j-tabata-fullbody",
+    "r2j-tabata-lower",
+    "r2j-tabata-core",
+    "r2j-tabata-bike",
+    "r2j-tabata-elliptical",
+    "r2j-tabata-advanced"
+   ]
+  },
+  {
+   "id": "c2j-hiit",
+   "name": "2J HIIT",
+   "description": "Hard intervals with their own work and rest.",
+   "style": "hiit",
+   "order": 2,
+   "active": true,
+   "seedVersion": 1,
+   "routineIds": [
+    "r2j-hiit-lowimpact",
+    "r2j-hiit-fullbody",
+    "r2j-hiit-express",
+    "r2j-hiit-lower",
+    "r2j-hiit-advanced",
+    "r2j-hiit-machines",
+    "r2j-mixed-circuit-hiit",
+    "r2j-mixed-strength-intervals"
+   ]
+  },
+  {
+   "id": "c2j-circuits",
+   "name": "2J Circuits",
+   "description": "Stations one after another: machines, dumbbells or no equipment.",
+   "style": "circuit",
+   "order": 3,
+   "active": true,
+   "seedVersion": 1,
+   "routineIds": [
+    "r2j-circuit-machines-start",
+    "r2j-circuit-machines-time",
+    "r2j-circuit-dumbbells",
+    "r2j-circuit-bodyweight",
+    "r2j-circuit-lower",
+    "r2j-circuit-upper",
+    "r2j-circuit-advanced",
+    "r2j-core-start",
+    "r2j-core-circuit"
+   ]
+  },
+  {
+   "id": "c2j-cardio",
+   "name": "2J Cardio",
+   "description": "Intervals on the bike, elliptical, stepmill and treadmill.",
+   "style": "interval",
+   "order": 4,
+   "active": true,
+   "seedVersion": 1,
+   "routineIds": [
+    "r2j-intervals-bike-start",
+    "r2j-intervals-incline-walk",
+    "r2j-intervals-elliptical",
+    "r2j-intervals-stepmill",
+    "r2j-intervals-treadmill",
+    "r2j-intervals-cross-long",
+    "r2j-tabata-bike",
+    "r2j-tabata-elliptical",
+    "r2j-hiit-machines"
+   ]
+  },
+  {
+   "id": "c2j-mobility",
+   "name": "2J Mobility",
+   "description": "Move better before or after training.",
+   "style": "mobility",
+   "order": 5,
+   "active": true,
+   "seedVersion": 1,
+   "routineIds": [
+    "r2j-mobility-fullbody",
+    "r2j-mobility-hips",
+    "r2j-mobility-ankles",
+    "r2j-mobility-shoulders",
+    "r2j-mobility-upper-back",
+    "r2j-mobility-pre",
+    "r2j-mobility-post",
+    "r2j-mobility-express"
+   ]
+  },
+  {
+   "id": "c2j-express",
+   "name": "2J Express",
+   "description": "For when you have ten minutes.",
+   "style": "express",
+   "order": 6,
+   "active": true,
+   "seedVersion": 1,
+   "routineIds": [
+    "r2j-tabata-start",
+    "r2j-tabata-lower",
+    "r2j-tabata-core",
+    "r2j-tabata-bike",
+    "r2j-tabata-elliptical",
+    "r2j-core-start"
+   ]
+  }
+ ]
+}

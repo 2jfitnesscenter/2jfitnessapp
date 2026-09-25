@@ -31,6 +31,7 @@ import { stravaRoutes } from './strava/routes.js';
 import * as whoopConfig from './whoop/config.js';
 import { whoopRoutes } from './whoop/routes.js';
 import { blocksRoutes } from './lib/blocks-routes.js';
+import { guidedRoutes } from './lib/guided-routes.js';
 import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesOf } from './lib/plan-meta.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
 
@@ -2458,7 +2459,9 @@ const routes = {
   ...stravaRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN }),
   ...whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN }),
   /* ---------- Constructor V2: block library (official 2J + personal) ---------- */
-  ...blocksRoutes({ json, readBody, requireTrainer, isAdmin, unavailableEq: () => unavailableEq })
+  ...blocksRoutes({ json, readBody, requireTrainer, isAdmin, unavailableEq: () => unavailableEq }),
+  /* ---------- Entrena con 2J: official guided routines + collections ---------- */
+  ...guidedRoutes({ json, readBody, readSession, requireTrainer, requireAdmin, isAdmin, isTrainer, unavailableEq: () => unavailableEq })
 };
 
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */

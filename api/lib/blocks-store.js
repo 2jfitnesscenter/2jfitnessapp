@@ -75,11 +75,9 @@ export function find(id) {
 const str = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
 const int = (v, lo, hi) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : null; };
 
-/** Whitelist a block coming from a client. Metadata that can be computed is never trusted. */
-export function sanitize(input, customDefs = []) {
-  const b = input && typeof input === 'object' ? input : {};
-  const customIds = new Set((customDefs || []).map(d => d.id));
-  const ex = (Array.isArray(b.ex) ? b.ex : []).slice(0, MAX_EX).map(e => {
+/** Whitelist routine/block entries (also used by guided routines, lib/guided-store.js). */
+export function sanitizeEntries(list, customIds = new Set(), max = MAX_EX) {
+  return (Array.isArray(list) ? list : []).slice(0, max).map(e => {
     if (!e || typeof e.id !== 'string') return null;
     const id = e.id.slice(0, 40);
     if (!lookup(id) && !customIds.has(id)) return null;
@@ -102,6 +100,13 @@ export function sanitize(input, customDefs = []) {
     if (e.why) out.why = str(e.why, 300);
     return out;
   }).filter(Boolean);
+}
+
+/** Whitelist a block coming from a client. Metadata that can be computed is never trusted. */
+export function sanitize(input, customDefs = []) {
+  const b = input && typeof input === 'object' ? input : {};
+  const customIds = new Set((customDefs || []).map(d => d.id));
+  const ex = sanitizeEntries(b.ex, customIds, MAX_EX);
   return {
     name: str(b.name, 60) || null,
     description: str(b.description, 300) || null,
