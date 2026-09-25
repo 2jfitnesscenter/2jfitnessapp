@@ -17,6 +17,10 @@ export function whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb,
   setInterval(() => { const now = Date.now(); for (const [k, v] of states) if (v.exp < now) states.delete(k); }, 60000).unref();
   const recoveryCache = new Map(); // uid -> { data, exp }
   const sleepCache = new Map(); // uid -> { data, exp }
+  const workoutCalls = new Map(); // uid -> last import ms (one import per member every 20 s)
+  const WORKOUT_MIN_INTERVAL_MS = 20000;
+  // Connections made before read:workout was requested carry no `scope`: they must reconnect.
+  const hasWorkoutScope = auth => String(auth?.scope || '').split(' ').includes('read:workout');
 
   const redirectUri = () => `${origin}/api/whoop/callback`;
 
@@ -60,7 +64,7 @@ export function whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb,
       }
       try {
         const tokens = await oauth.exchangeCode(code, redirectUri());
-        user.whoopAuth = { connectedAt: new Date().toISOString(), data: encrypt(tokens, TOKEN_INFO) };
+        user.whoopAuth = { connectedAt: new Date().toISOString(), scope: oauth.SCOPE, data: encrypt(tokens, TOKEN_INFO) };
         saveDb();
         res.writeHead(302, { Location: back + '?whoop=connected' });
       } catch {
@@ -99,6 +103,28 @@ export function whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb,
     // sleep no matter which source it came from. This endpoint only ever reads from Whoop; the
     // client does the actual merging (and so the persisting), the same as every other import in
     // this app — nothing here writes to the member's own state.
+    // Recent WHOOP workouts (calories, avg/max HR, WHOOP's own zone durations) for the client to
+    // match against its own 2J workouts — same read-only, client-merges shape as /sleep: nothing
+    // here writes the member's state. ?days=1..90 (default 30). Rate limited per member.
+    'GET /api/whoop/workouts': async (req, res) => {
+      const user = readSession(req);
+      if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+      if (!user.whoopAuth) return json(res, 200, { connected: false });
+      if (!hasWorkoutScope(user.whoopAuth)) return json(res, 200, { connected: true, needsReconnect: true, workouts: [] });
+      const last = workoutCalls.get(user.id) || 0;
+      if (Date.now() - last < WORKOUT_MIN_INTERVAL_MS) return json(res, 429, { error: 'espera un momento antes de volver a importar' }, { 'Retry-After': '20' });
+      workoutCalls.set(user.id, Date.now());
+      const days = Math.max(1, Math.min(90, parseInt(new URL(req.url, 'http://x').searchParams.get('days'), 10) || 30));
+      const token = await validAccessToken(user);
+      if (!token) return json(res, 200, { connected: false });
+      try {
+        const start = new Date(Date.now() - days * 86400000).toISOString();
+        const r = await client.fetchWorkouts(token, { start });
+        if (r.scopeMissing) return json(res, 200, { connected: true, needsReconnect: true, workouts: [] });
+        json(res, 200, { connected: true, workouts: r.workouts });
+      } catch (e) { json(res, 200, { connected: true, workouts: [], error: e.message }); }
+    },
+
     'GET /api/whoop/sleep': async (req, res) => {
       const user = readSession(req);
       if (!user) return json(res, 401, { error: 'no has iniciado sesión' });

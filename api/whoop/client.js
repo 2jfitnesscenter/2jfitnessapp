@@ -5,6 +5,35 @@
 const RECOVERY_URL = 'https://api.prod.whoop.com/developer/v2/recovery?limit=5';
 const SLEEP_URL = 'https://api.prod.whoop.com/developer/v2/activity/sleep?limit=14';
 
+// Workouts in a window (GET /v2/activity/workout, paginated by next_token, 25 per page). Only
+// the fields 2J uses are passed on — no profile data, nothing else about the member. A 401/403
+// means the token lacks read:workout (an older connection): reported, not thrown.
+const WORKOUT_URL = 'https://api.prod.whoop.com/developer/v2/activity/workout';
+export async function fetchWorkouts(accessToken, { start, end, maxPages = 4, fetchImpl = fetch } = {}) {
+  const out = []
+  let next = null
+  for (let page = 0; page < maxPages; page++) {
+    const q = new URLSearchParams({ limit: '25', start, ...(end ? { end } : {}), ...(next ? { nextToken: next } : {}) })
+    const r = await fetchImpl(`${WORKOUT_URL}?${q}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+    if (r.status === 401 || r.status === 403) return { scopeMissing: true, workouts: [] }
+    if (!r.ok) throw new Error('la solicitud a Whoop falló')
+    const data = await r.json()
+    for (const w of (data.records || [])) {
+      out.push({
+        id: w.id, start: w.start, end: w.end, sport_name: w.sport_name ?? null, score_state: w.score_state,
+        score: w.score ? {
+          strain: w.score.strain ?? null, kilojoule: w.score.kilojoule ?? null,
+          average_heart_rate: w.score.average_heart_rate ?? null, max_heart_rate: w.score.max_heart_rate ?? null,
+          zone_durations: w.score.zone_durations || null,
+        } : null,
+      })
+    }
+    next = data.next_token || null
+    if (!next) break
+  }
+  return { scopeMissing: false, workouts: out }
+}
+
 export async function fetchLatestRecovery(accessToken) {
   const r = await fetch(RECOVERY_URL, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!r.ok) throw new Error('la solicitud a Whoop falló');

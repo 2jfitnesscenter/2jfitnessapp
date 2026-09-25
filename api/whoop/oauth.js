@@ -12,8 +12,11 @@ import * as cfg from './config.js';
 
 const AUTHORIZE_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
 const TOKEN_URL = 'https://api.prod.whoop.com/oauth/oauth2/token';
-// offline is required to receive a refresh token; the rest are read-only recovery/sleep data.
-const SCOPE = 'read:recovery read:sleep read:cycles read:profile offline';
+// offline is required to receive a refresh token; the rest are read-only recovery/sleep data,
+// plus read:workout (Health V2 / Fitness V1: a workout's calories, heart rate and WHOOP zones).
+// A connection made before read:workout was added keeps working for recovery/sleep; it only
+// needs reconnecting to import workouts (see routes.js's hasWorkoutScope).
+export const SCOPE = 'read:recovery read:sleep read:cycles read:workout read:profile offline';
 
 export function authorizeUrl(redirectUri, state) {
   const params = new URLSearchParams({
