@@ -125,6 +125,20 @@ function Shell() {
   useWakeLock(!!S.active && S.keepAwake !== false)
 
   const authed = user || isGuest
+  // Every hook runs before the trainer panel's early return below: an in-app navigation from
+  // /home to /trainer must render the same hooks, or React throws and the shell goes blank.
+  // Profile wizard once, right after registering, instead of Login.jsx's old single-sheet form.
+  // A profile that already has data (existing accounts from before this existed, or one restored
+  // from a backup) is never gated on it, even if `onboarded` itself was never set.
+  const hasPhysicalData = S.height || S.birthDate || S.workouts.length > 0
+  const needsOnboarding = !!user && !S.onboarded && !hasPhysicalData
+  // Mi 2J: what the last workout earned but this device never got to show (the app was closed
+  // on the summary) — shown once, from local data, whether or not there's a connection.
+  useEffect(() => {
+    if (!ready || !authed || needsOnboarding || S.active || loc.pathname.startsWith('/trainer')) return
+    const tm = setTimeout(showPendingCelebration, 700)
+    return () => clearTimeout(tm)
+  }, [ready, authed, needsOnboarding, loc.pathname])
   // The trainer panel is a separate desktop-oriented surface — its own routes, none of the
   // mobile chrome (TabBar/RestTimer/ChatWatcher/FriendsWatcher mean nothing on a screen a
   // trainer is using to build a client's routine), reusing the same session/API and the shared
@@ -162,18 +176,6 @@ function Shell() {
   if (loc.pathname === '/bunker/launch') return <BunkerLaunch />
 
   // A genuinely brand-new profile only — one with no real data at all yet — sees the Physical
-  // Profile wizard once, right after registering, instead of Login.jsx's old single-sheet form.
-  // A profile that already has data (existing accounts from before this existed, or one restored
-  // from a backup) is never gated on it, even if `onboarded` itself was never set.
-  const hasPhysicalData = S.height || S.birthDate || S.workouts.length > 0
-  const needsOnboarding = !!user && !S.onboarded && !hasPhysicalData
-  // Mi 2J: what the last workout earned but this device never got to show (the app was closed
-  // on the summary) — shown once, from local data, whether or not there's a connection.
-  useEffect(() => {
-    if (!ready || !authed || needsOnboarding || S.active) return
-    const tm = setTimeout(showPendingCelebration, 700)
-    return () => clearTimeout(tm)
-  }, [ready, authed, needsOnboarding])
   if (!ready && !authed) return (
     <div id="app">
       <div style={{ paddingTop: '44vh', display: 'flex', justifyContent: 'center', fontSize: 34, color: 'var(--label-3)' }}>
