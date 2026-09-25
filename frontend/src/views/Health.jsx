@@ -48,10 +48,10 @@ function MetricCard({ sum, S }) {
     <div className="hv-mrow">
       <div><div className="hv-k">{t('Now')}</div><div className="hv-v">{fmtNum(current.v)} <small>{unit}</small></div><div className="hv-d">{fmtDate(current.d)}</div></div>
       {start && <div><div className="hv-k">{t('Start of period')}</div><div className="hv-v2">{fmtNum(start.v)} <small>{unit}</small></div><div className="hv-d">{fmtDate(start.d)}</div></div>}
-      {delta != null && <div className="hv-delta"><div className="hv-k">{t('Change')}</div><b>{signed(delta, def.unit === '%' ? t('pts') : unit)}</b>{pct != null && <span>{signed(pct, '%')}</span>}</div>}
+      {delta != null && <div className="hv-delta"><div className="hv-k">{t('Difference')}</div><b>{signed(delta, def.unit === '%' ? t('pts') : unit)}</b>{pct != null && <span>{signed(pct, '%')}</span>}</div>}
     </div>
     {points.length > 1
-      ? <div className="chart"><LineChart points={points.map(p => ({ t: p.t || new Date(p.d).getTime(), y: p.v, d: p.d }))} h={120} unit={unit} /></div>
+      ? <div className="chart"><LineChart points={points.map(p => ({ t: new Date(p.d + 'T12:00:00').getTime(), y: p.v, d: p.d }))} h={120} unit={unit} /></div>
       : <div className="dim small">{points.length ? t('One reading in this period — the chart needs two.') : t('No readings in this period.')}</div>}
     {end && start && def.group === 'composition' && def.key !== 'weight' && <div className="dim small hv-note">{t('Body-composition changes between scans are estimates of the device, not exact measurements.')}</div>}
   </div>
@@ -73,7 +73,7 @@ function CompareCard({ S }) {
       </div>
       {a === b ? <div className="dim small">{t('Choose two different days.')}</div> : !rows.length ? <div className="dim small">{t('These two days have no reading in common.')}</div> :
         <div className="hv-cmp" role="table" aria-label={t('Compare two measurements')}>
-          <div className="hv-cmp-r hv-cmp-h" role="row"><span role="columnheader" /><span role="columnheader">{fmtDate(a <= b ? a : b)}</span><span role="columnheader">{fmtDate(a <= b ? b : a)}</span><span role="columnheader">{t('Change')}</span></div>
+          <div className="hv-cmp-r hv-cmp-h" role="row"><span role="columnheader" /><span role="columnheader">{fmtDate(a <= b ? a : b)}</span><span role="columnheader">{fmtDate(a <= b ? b : a)}</span><span role="columnheader">{t('Difference')}</span></div>
           {rows.map(r => {
             const unit = unitOf(r.def, S)
             return <div key={r.key} className="hv-cmp-r" role="row">

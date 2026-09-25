@@ -1570,7 +1570,9 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .ci-dot{min-height:44px;border-radius:12px;background:var(--surface-2);font-weight:700;font-size:calc(16px * var(--text-scale,1))}
 .ci-dot.on{background:var(--acc);color:var(--on-acc)}
 .ci-yn{display:flex;gap:8px}
-.ci-yn .chip,.ci-zones .chip{min-height:40px}
+.ci-yn .chip,.ci-zones .chip{min-height:40px;padding-left:16px;padding-right:16px;text-transform:none}
+.checkin .chip,.card .ci-zones .chip{background:var(--surface-2)}
+.checkin .chip.on,.card .ci-zones .chip.on{background:var(--acc);color:var(--on-acc)}
 .ci-zones{display:flex;flex-wrap:wrap;gap:6px}
 .ci-note{width:100%}
 .ci-addnote{display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-weight:600;min-height:36px;align-self:flex-start}

@@ -106,7 +106,7 @@ export default function HealthIntegrations() {
 
     <Section title={t('How your watch reaches 2J')}>
       <div className="hi-how">
-        <p><b>Apple Watch</b> → Apple Health → {t('export file today; automatic with the future 2J iPhone app')}.</p>
+        <p><b>Apple Watch</b> → {t('Apple Health')} → {t('export file today; automatic with the future 2J iPhone app')}.</p>
         <p><b>Zepp / Amazfit</b> → {t('on iPhone: Apple Health (enable it in Zepp); on Android: Health Connect, which a web app cannot read — it needs the future 2J Android app')}.</p>
         <p><b>Samsung, Fitbit, Garmin…</b> → Health Connect ({t('Android, future 2J app')}) {t('or Apple Health on iPhone')}.</p>
         <p><b>WHOOP</b> → {t('connected directly, works today')}.</p>

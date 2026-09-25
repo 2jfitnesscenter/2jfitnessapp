@@ -20,7 +20,8 @@ export default function FitnessSummary({ w, editable = true }) {
   const rec = fitnessOf(w)
   if (!rec) return null
   const others = fitnessSources(w).slice(1)
-  const dur = rec.end > rec.start ? rec.end - rec.start : null
+  const span = Number(rec.end) - Number(rec.start)
+  const dur = Number.isFinite(span) && span > 0 ? span : null
   const z = rec.zones?.mins
   const total = z ? z.reduce((a, b) => a + b, 0) : 0
   const offset = rec.zones?.scheme === 'source' ? 0 : 1          // WHOOP counts from zone 0
@@ -32,7 +33,7 @@ export default function FitnessSummary({ w, editable = true }) {
   return <div className="fitsum" aria-label={t('Cardiovascular')}>
     <div className="fitsum-h">{t('Cardiovascular')}</div>
     <div className="fitsum-grid">
-      {dur && <div><span>{t('Duration')}</span><b>{fmtDur(dur)}</b></div>}
+      {dur != null && <div><span>{t('Duration')}</span><b>{fmtDur(dur)}</b></div>}
       {rec.calories > 0 && <div><span>{t('Calories')}</span><b>{fmtNum(rec.calories)} kcal</b></div>}
       {rec.avgHr > 0 && <div><span>{t('Avg HR')}</span><b>{rec.avgHr} {t('bpm')}</b></div>}
       {rec.maxHr > 0 && <div><span>{t('Max HR')}</span><b>{rec.maxHr} {t('bpm')}</b></div>}
