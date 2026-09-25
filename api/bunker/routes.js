@@ -151,7 +151,9 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       showPreviousResults: S.showPreviousResults !== false,
       warmupEnabled: S.warmupEnabled !== false,
       effort: S.effort ?? (S.showRir ? 'rir' : 'none'),
-      recentWorkouts: (S.workouts || []).slice(-40),
+      // Only what "last time" needs: the watch/strap cardio data (Fitness V1 `fitness`, legacy
+      // Apple `hrZones`) is health data and never reaches the shared gym screen.
+      recentWorkouts: (S.workouts || []).slice(-40).map(({ fitness, hrZones, ...w }) => w),
       active: S.active || null,
       activeRevision: activeRevision(S),
       // RP Volume Zones — off unless this member turned it on themselves (Settings), matching
