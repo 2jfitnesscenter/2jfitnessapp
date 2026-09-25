@@ -22,7 +22,7 @@ seguimiento, consentimiento y tests · y el commit de documentación que añade 
   `GET /api/social/media` sirve cualquier id a cualquier sesión → no es seguro). **Health
   Connect / HealthKit** necesitan código nativo: diseño en `docs/HEALTH_NATIVE_BRIDGE.md`, sin
   implementar y sin Capacitor. **Silueta evolutiva**: no implementada, porque sería engañosa.
-- Tests del sprint: frontend 690 → 720, API 222 → 229.
+- Tests del sprint: frontend 690 → 721, API 222 → 229. QA visual: `c378e0f`, `21d817c`.
 
 ## RELEVO VIGENTE PARA CLAUDE CODE — 2026-09-23
 
