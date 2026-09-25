@@ -103,7 +103,9 @@ const blocks = MATRIX.map(buildBlock)
 // ── duplicates and diversity ────────────────────────────────────────────────────────────
 const ids = new Set()
 for (const b of blocks) { if (ids.has(b.id)) errors.push(`duplicate block id ${b.id}`); ids.add(b.id) }
-const sig = b => b.ex.map(e => e.id).sort().join(',')
+// Same exercises in the same format and pace = the same block. A bike Tabata and bike intervals
+// share an exercise but are different sessions, so type and timing are part of the signature.
+const sig = b => [b.type, JSON.stringify(b.timing || null), b.ex.map(e => e.id).sort().join(',')].join('|')
 const seen = new Map()
 for (const b of blocks) {
   if (seen.has(sig(b))) errors.push(`${b.id} has exactly the same exercises as ${seen.get(sig(b))}`)

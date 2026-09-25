@@ -22,7 +22,7 @@ export const STYLE_LABEL = {
   isolation: 'Isolation', density: 'Density', heavy: 'Heavy', volume: 'Volume', foundation: 'Foundation', athletic: 'Athletic',
   pairs: 'Pairs', steady: 'Steady', 'unilateral-isolation': 'Unilateral + isolation', lengthened: 'Long position', 'upper-focus': 'Upper chest',
   vertical: 'Vertical pull', horizontal: 'Horizontal pull', 'hip-dominant': 'Hip dominant', 'knee-dominant': 'Knee dominant', 'low-impact': 'Low impact',
-  circuit: 'Circuit', intervals: 'Intervals', tabata: 'Tabata', flow: 'Mobility flow',
+  circuit: 'Circuit', intervals: 'Intervals', tabata: 'Tabata', flow: 'Mobility flow', warmup: 'Warm-up', cooldown: 'Cool-down',
 }
 
 // ── guided (timed) blocks — Constructor V2.1 ──────────────────────────────────────────────

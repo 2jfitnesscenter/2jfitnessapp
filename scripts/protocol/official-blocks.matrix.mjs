@@ -162,6 +162,52 @@ export const MATRIX = [
   // Mobility flows: standing (no floor) and a lower-body one that uses the floor.
   ['fullbody', 'general', 'beginner', null, 'flow', ['1604', '1365', '1271', '0794', '1377'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 1, roundRest: 0 } }],
   ['lower', 'general', 'intermediate', null, 'flow', ['1511', '1424', '1604', '1377'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 1, roundRest: 0 } }],
+
+  // ───────── GUIDED ROUTINES V1 — only the pieces the official guided routines are composed of
+  // (scripts/protocol/official-routines.matrix.mjs). Warm-ups, cool-downs and mobility: standing
+  // ones stay off the floor on purpose, so a "no floor" member still has options.
+  ['fullbody', 'general', 'beginner', 'A', 'warmup', ['1368', '0257', '1167'], { type: 'mobility', timing: { prep: 5, work: 30, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['fullbody', 'general', 'beginner', 'B', 'cooldown', ['1511', '1424', '3639', '1363', '1346'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 1, roundRest: 0 } }],
+  ['fullbody', 'general', 'intermediate', null, 'flow', ['1604', '1167', '1368', '0794'], { type: 'mobility', timing: { prep: 5, work: 30, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['lower', 'general', 'beginner', 'A', 'flow', ['2567', '3533', '1604'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['lower', 'general', 'beginner', 'B', 'warmup', ['1368', '0257', '3533', '1604'], { type: 'mobility', timing: { prep: 5, work: 30, rest: 5, rounds: 1, roundRest: 0 } }],
+  ['lower', 'general', 'beginner', 'C', 'flow', ['1424', '3639', '1511'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['calves', 'general', 'beginner', null, 'flow', ['1368', '1377', '1398', '0257'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['shoulders', 'general', 'beginner', null, 'flow', ['1271', '0669', '1405'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['upper', 'general', 'beginner', null, 'flow', ['1365', '0794', '2329', '1363'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 2, roundRest: 0 } }],
+  // Tabata format (20 s / 10 s): a pair alternates for 4 rounds = 8 bouts, 4 minutes; a machine
+  // does 8 rounds on its own. Named for the format — see TRAINING_PROTOCOL_2J.md on the name.
+  ['fullbody', 'general', 'beginner', 'A', 'tabata', ['3672', '3636'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],
+  ['fullbody', 'general', 'intermediate', 'A', 'tabata', ['1160', '0630'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],
+  ['fullbody', 'general', 'intermediate', 'B', 'tabata', ['3224', '0685'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],
+  ['fullbody', 'general', 'advanced', 'A', 'tabata', ['1160', '3361'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],
+  ['upper', 'general', 'intermediate', null, 'tabata', ['0493', '3360'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],
+  ['lower', 'general', 'intermediate', 'A', 'tabata', ['0514', '2368'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],
+  ['lower', 'general', 'beginner', 'A', 'tabata', ['3769', '3561'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],
+  ['abs', 'general', 'intermediate', 'A', 'tabata', ['0459', '0687'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],
+  ['abs', 'general', 'intermediate', 'B', 'tabata', ['3665', '0630'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],
+  ['cardio', 'general', 'intermediate', null, 'tabata', ['2141'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 8, roundRest: 0 } }],
+  // HIIT with its own work/rest (not "many reps, little rest"): bouts of a few moves, 3-4 rounds.
+  ['fullbody', 'general', 'beginner', 'B', 'intervals', ['3671', '3636', '0493', '3239'], { type: 'hiit', timing: { prep: 10, work: 30, rest: 30, rounds: 3, roundRest: 0 } }],
+  ['fullbody', 'general', 'intermediate', 'C', 'intervals', ['0514', '0630', '3361', '0662'], { type: 'hiit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 60 } }],
+  ['fullbody', 'general', 'intermediate', 'D', 'intervals', ['1760', '0630', '0289', '3672'], { type: 'hiit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 60 } }],
+  ['fullbody', 'general', 'advanced', 'B', 'intervals', ['1160', '3360', '0514', '3665'], { type: 'hiit', timing: { prep: 10, work: 45, rest: 15, rounds: 4, roundRest: 60 } }],
+  ['lower', 'general', 'intermediate', 'B', 'intervals', ['3769', '2368', '3561', '3636'], { type: 'hiit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 60 } }],
+  // Circuits: each exercise keeps its own mode (reps prescribed by the protocol, or a timed hold).
+  ['fullbody', 'general', 'beginner', null, 'circuit', ['0739', '1299', '0198', '0599', '3544:time=20'], { type: 'circuit', timing: { prep: 10, work: 20, rest: 30, rounds: 3, roundRest: 90 } }],
+  ['fullbody', 'general', 'intermediate', 'A', 'circuit', ['1760', '0289', '0292', '1459', '3665:time=30'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 90 } }],
+  ['fullbody', 'general', 'intermediate', 'B', 'circuit', ['0739', '3671:time=30', '1350', '3636:time=30', '0577'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 90 } }],
+  ['fullbody', 'endurance', 'beginner', 'A', 'circuit', ['2368', '0493', '3561', '3239:time=20', '3671:time=30'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 2, roundRest: 60 } }],
+  ['fullbody', 'endurance', 'advanced', null, 'circuit', ['1760', '0662', '1757', '3360:time=30', '0630:time=30'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 15, rounds: 3, roundRest: 60 } }],
+  ['lower', 'endurance', 'intermediate', null, 'circuit', ['2368', '1459', '3561:time=30', '0605'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 75 } }],
+  ['upper', 'endurance', 'intermediate', null, 'circuit', ['0493', '1350', '0405', '0294', '0201'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 75 } }],
+  ['abs', 'general', 'beginner', null, 'circuit', ['0276', '3239:time=20', '3544:time=20', '0274'], { type: 'circuit', timing: { prep: 10, work: 20, rest: 15, rounds: 2, roundRest: 45 } }],
+  // Cardio intervals on the machines 2J has (bike, stepmill, incline treadmill, treadmill, cross trainer).
+  ['cardio', 'general', 'beginner', null, 'intervals', ['2138'], { type: 'interval', timing: { prep: 10, work: 60, rest: 60, rounds: 6, roundRest: 0 } }],
+  ['cardio', 'endurance', 'beginner', null, 'intervals', ['3666'], { type: 'interval', timing: { prep: 10, work: 180, rest: 60, rounds: 4, roundRest: 0 } }],
+  ['cardio', 'endurance', 'intermediate', null, 'intervals', ['2311'], { type: 'interval', timing: { prep: 10, work: 120, rest: 60, rounds: 5, roundRest: 0 } }],
+  ['cardio', 'general', 'advanced', null, 'intervals', ['0684'], { type: 'interval', timing: { prep: 10, work: 30, rest: 90, rounds: 8, roundRest: 0 } }],
+  ['cardio', 'endurance', 'advanced', null, 'intervals', ['2331'], { type: 'interval', timing: { prep: 10, work: 240, rest: 120, rounds: 4, roundRest: 0 } }],
 ]
 
 // Per-block seed revisions: a block whose content changed after v1 of the seed carries its own

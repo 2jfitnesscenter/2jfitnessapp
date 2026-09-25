@@ -98,18 +98,19 @@ describe('barbell hip thrust (0058)', () => {
 })
 
 describe('the official library after V2.1', () => {
-  it('118 blocks, every one PASS, unique ids; only the two hip-thrust blocks were revised', () => {
-    expect(seed.count).toBe(118)
-    expect(new Set(seed.blocks.map(b => b.id)).size).toBe(118)
+  it('155 blocks (118 + 37 guided for Entrena con 2J), every one PASS, unique ids; only the two hip-thrust blocks were revised', () => {
+    expect(seed.count).toBe(155)
+    expect(new Set(seed.blocks.map(b => b.id)).size).toBe(155)
     expect(seed.blocks.every(b => b.validation.result === 'PASS')).toBe(true)
     const revised = seed.blocks.filter(b => b.seedVersion > 1).map(b => b.id).sort()
     expect(revised).toEqual(['off-glutes-hypertrophy-advanced-a', 'off-glutes-hypertrophy-intermediate-a'])
     for (const id of revised) expect(seed.blocks.find(b => b.id === id).ex.map(e => e.id)).toContain('0058')
     expect(seed.seedVersion).toBe(2)
   })
-  it('six guided blocks with timing, curated or cardio-machine exercises, revalidated here', () => {
+  it('43 guided blocks with timing, curated or cardio-machine exercises, revalidated here', () => {
     const guided = seed.blocks.filter(b => isGuided(b.type))
-    expect(guided.map(b => b.type).sort()).toEqual(['circuit', 'circuit', 'hiit', 'interval', 'mobility', 'mobility'])
+    const n = {}; for (const b of guided) n[b.type] = (n[b.type] || 0) + 1
+    expect(n).toEqual({ circuit: 10, hiit: 16, interval: 6, mobility: 11 })
     for (const b of guided) {
       expect(sanitizeTiming(b.timing, b.type)).toEqual(b.timing)
       for (const e of b.ex) expect(CATALOG[e.id] || byId[e.id].bp === 'cardio').toBeTruthy()
