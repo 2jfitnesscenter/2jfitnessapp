@@ -10,7 +10,9 @@
  * Row:  [focus, goal, level, variant, style, exercises, opts?]
  *   exercises: library ids; a nested array is a superset (done back-to-back);
  *              'id:time=40' = timed hold, 'id:cardio=20@6' = minutes @ speed, 'id:role=metabolic'.
- *   opts.type:  'strength' (default) | 'superset' | 'cardio'
+ *   opts.type:  'strength' (default) | 'superset' | 'cardio' | 'circuit' | 'interval' | 'hiit' | 'mobility'
+ *   opts.timing: guided blocks only — { prep, work, rest, rounds, roundRest, preset? }; the entries
+ *               are shaped to it by the protocol's applyTiming() (rounds = sets, timed bouts = work)
  * Coverage (why these families): the gym's high-use muscle blocks (glutes, quads, chest, back,
  * shoulders) get A/B/C per level; hamstrings/arms get fewer variants; calves and core are short
  * accessory blocks; strength covers the five big lift families at intermediate/advanced (a
@@ -22,10 +24,10 @@ export const MATRIX = [
   ['glutes', 'hypertrophy', 'beginner', 'A', 'stable', ['0739', '1409', '0597', '0586']],
   ['glutes', 'hypertrophy', 'beginner', 'B', 'mixed', ['1459', '0739', '2286', '0597']],
   ['glutes', 'hypertrophy', 'beginner', 'C', 'unilateral', ['0431', '0381', '0228', '0597']],
-  ['glutes', 'hypertrophy', 'intermediate', 'A', 'tension', ['1409', '0085', '0410', '0228', '0597']],
+  ['glutes', 'hypertrophy', 'intermediate', 'A', 'tension', ['0058', '0085', '0410', '0228', '0597']], // V2.1: hip thrust (was 1409)
   ['glutes', 'hypertrophy', 'intermediate', 'B', 'mixed', ['0739', '1409', '1459', '0593', '0597']],
   ['glutes', 'hypertrophy', 'intermediate', 'C', 'unilateral-isolation', ['0381', '1757', '0431', '2286', '0597']],
-  ['glutes', 'hypertrophy', 'advanced', 'A', 'tension', ['1409', '0085', '0768', '0593', '0228', '0597']],
+  ['glutes', 'hypertrophy', 'advanced', 'A', 'tension', ['0058', '0085', '0768', '0593', '0228', '0597']], // V2.1: hip thrust (was 1409)
   ['glutes', 'hypertrophy', 'advanced', 'B', 'heavy', ['0811', '1409', '1425', '0573', '0597']],
   ['glutes', 'hypertrophy', 'advanced', 'C', 'unilateral', ['0381', '1757', '0431', '0196', '2286', '0710']],
   // ───────── QUADS · hypertrophy
@@ -146,4 +148,25 @@ export const MATRIX = [
   ['cardio', 'general', 'beginner', null, 'steady', ['3666:cardio=20@5'], { type: 'cardio' }], // incline walk
   ['cardio', 'general', 'intermediate', null, 'steady', ['0798:cardio=12@22', '2141:cardio=12@8'], { type: 'cardio' }],
   ['cardio', 'endurance', 'intermediate', null, 'low-impact', ['2311:cardio=15@0', '2331:cardio=10@0'], { type: 'cardio' }],
+  // ───────── GUIDED (Constructor V2.1): run by the guided executor, paced by `timing`
+  // Circuit by time on stable machines — a beginner can keep technique while the clock runs.
+  ['fullbody', 'endurance', 'beginner', null, 'circuit', ['0739:time=40', '0577:time=40', '1350:time=40', '0597:time=40', '1452:time=40'],
+    { type: 'circuit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 90 } }],
+  // Core circuit mixing reps and holds: each entry keeps its own mode.
+  ['abs', 'general', 'intermediate', null, 'circuit', ['0175', '0276', '2135:time=30', '3544:time=30'],
+    { type: 'circuit', timing: { prep: 10, work: 30, rest: 15, rounds: 3, roundRest: 60 } }],
+  // Aerobic intervals on a low-impact machine.
+  ['cardio', 'general', 'intermediate', null, 'intervals', ['2141'], { type: 'interval', timing: { prep: 10, work: 60, rest: 60, rounds: 6, roundRest: 0 } }],
+  // Tabata pattern on the bike — 20/10 × 8 as a starting point, editable like any timing.
+  ['cardio', 'general', 'advanced', null, 'tabata', ['2138'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 8, roundRest: 0 } }],
+  // Mobility flows: standing (no floor) and a lower-body one that uses the floor.
+  ['fullbody', 'general', 'beginner', null, 'flow', ['1604', '1365', '1271', '0794', '1377'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 1, roundRest: 0 } }],
+  ['lower', 'general', 'intermediate', null, 'flow', ['1511', '1424', '1604', '1377'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 1, roundRest: 0 } }],
 ]
+
+// Per-block seed revisions: a block whose content changed after v1 of the seed carries its own
+// version, so an admin override of THAT block is flagged `seedChanged` — and no other.
+export const REVISIONS = {
+  'off-glutes-hypertrophy-intermediate-a': 2, // 1409 glute bridge → 0058 barbell hip thrust
+  'off-glutes-hypertrophy-advanced-a': 2,     // 1409 glute bridge → 0058 barbell hip thrust
+}

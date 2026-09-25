@@ -68,11 +68,15 @@ export function expandBlocks(data) {
 }
 
 /** Validate a created plan as a whole program (the week, in order). */
+const typesOf = routines => Object.fromEntries((routines || []).flatMap(r => (Array.isArray(r?.blocks) ? r.blocks : []).filter(x => x && x.iid).map(x => [x.iid, x.type || 'strength'])));
+
 export function gatePlan(bundle, ctx) {
   const byId = new Map(bundle.routines.map(r => [r.id, r]));
   const order = Object.keys(bundle.week || {}).sort().map(d => byId.get(bundle.week[d])).filter(Boolean);
   const days = (order.length ? order : bundle.routines).map(r => r.ex);
-  const v = validateAgainst2JProtocol({ kind: 'program', goal: ctx.goal, level: ctx.level, days, protocolVersion: PROTOCOL_VERSION },
+  // Guided blocks copied from the library (circuit/interval/HIIT/mobility) are judged as what they are.
+  const blockTypes = typesOf(bundle.routines);
+  const v = validateAgainst2JProtocol({ kind: 'program', goal: ctx.goal, level: ctx.level, days, protocolVersion: PROTOCOL_VERSION, blockTypes },
     { lookup: blocks.lookup, restrictions: ctx.restrictions, unavailableEq: ctx.unavailableEq });
   // A model gets no benefit of the doubt on declared restrictions: an exercise that cannot be
   // verified against them (outside the curated catalogue) goes back for a verifiable alternative.
@@ -114,7 +118,7 @@ function simulate(plan, changes) {
  * the trainer's/member's plan (authority 4), not the model's to be blamed for.
  */
 export function gateReview(proposal, plan, ctx) {
-  const run = routines => validateAgainst2JProtocol({ kind: 'program', goal: ctx.goal, level: ctx.level, days: routines.map(r => r.ex) },
+  const run = routines => validateAgainst2JProtocol({ kind: 'program', goal: ctx.goal, level: ctx.level, days: routines.map(r => r.ex), blockTypes: typesOf(routines) },
     { lookup: blocks.lookup, restrictions: ctx.restrictions, unavailableEq: ctx.unavailableEq });
   const sig = i => `${i.code}|${i.params.join('|')}`;
   const before = new Set(run(plan?.routines || []).issues.filter(i => i.severity === 'fail' || i.code === 'restriction_unverified').map(sig));

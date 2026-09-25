@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
-import { validateAgainst2JProtocol, deriveBlockMeta, PROTOCOL_VERSION, BLOCK_TYPES, GOALS, LEVELS, FOCUS, RPE_2J } from './protocol/index.js';
+import { validateAgainst2JProtocol, deriveBlockMeta, PROTOCOL_VERSION, BLOCK_TYPES, GOALS, LEVELS, FOCUS, RPE_2J, sanitizeTiming } from './protocol/index.js';
 
 const require_ = createRequire(import.meta.url);
 const SEED = require_('./blocks-official.json');
@@ -112,6 +112,8 @@ export function sanitize(input, customDefs = []) {
     variant: /^[A-D]$/.test(b.variant || '') ? b.variant : null,
     style: str(b.style, 30) || null,
     reason: str(b.reason, 300) || null,
+    // Guided blocks (Constructor V2.1) keep their pacing; other types never carry one.
+    ...(sanitizeTiming(b.timing, b.type) ? { timing: sanitizeTiming(b.timing, b.type) } : {}),
     ex,
     customExDefs: (customDefs || []).filter(d => d && typeof d.id === 'string' && typeof d.n === 'string' && ex.some(e => e.id === d.id))
       .map(d => ({ id: d.id.slice(0, 40), n: str(d.n, 60), bp: str(d.bp || 'waist', 30), ...(d.desc ? { desc: str(d.desc, 400) } : {}) })),
@@ -242,5 +244,7 @@ export function compatibleOfficial({ goal, level, focus = [], max = 12, unavaila
     .sort((a, b) => (focus.includes(b.focus) ? 1 : 0) - (focus.includes(a.focus) ? 1 : 0))
     .slice(0, max)
     .map(b => ({ id: b.id, focus: b.focus, level: b.level, variant: b.variant, style: b.style, minutes: b.estimatedMinutes,
+      // Guided blocks say so: the app runs them timed, paced by `timing` (never rebuilt by hand).
+      ...(b.type && b.type !== 'strength' ? { type: b.type } : {}), ...(b.timing ? { timing: b.timing } : {}),
       ex: b.ex.map(e => [e.id, lookup(e.id)?.n || e.id, e.sets + 'x' + (e.targetRepsMin ? e.targetRepsMin + '-' + e.targetRepsMax : e.sec ? e.sec + 's' : e.min + 'min'), e.sg || ''].filter(Boolean)) }));
 }

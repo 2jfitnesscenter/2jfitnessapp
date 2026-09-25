@@ -11,7 +11,7 @@
 //                         comes from a model or an official block; a trainer is told why.
 // Every issue carries a code, params, the rule id and the evidence ids behind it.
 import { PROTOCOL_VERSION, GOALS, LEVELS, RPE_2J, SETS, REST, BLOCK_SIZE, SESSION_EXERCISES, WEEKLY_SETS,
-  RESTRICTION_FLAG, MESSAGES, DEFAULT_REASON, MESSAGE_RULE, RULE_BY_ID, BLOCK_TYPES_READY, format } from './rules.js'
+  RESTRICTION_FLAG, MESSAGES, DEFAULT_REASON, MESSAGE_RULE, RULE_BY_ID, BLOCK_TYPES_READY, ROUNDS, ROUND_TYPES, format } from './rules.js'
 import { classify, redundancyKey } from './classify.js'
 import { repRange, unitsOf, roleOf, restDemand, zoneFor, estimateSeconds, roundMinutes, modeOfEntry, REST_DEFAULTS } from './prescribe.js'
 
@@ -31,7 +31,9 @@ function makeIssue(severity, code, params, where, reasons) {
 
 /**
  * @param {object} target { kind:'block'|'routine'|'program', goal, level, type?, protocolVersion?,
- *                          entries? (block/routine), days? (program: array of entry arrays), reasons? }
+ *                          entries? (block/routine), days? (program: array of entry arrays), reasons?,
+ *                          blockTypes? ({ [instance id]: block type } — routine.blocks, so timed blocks
+ *                          inside a day are judged as what they are) }
  * @param {object} ctx    { lookup(id)→{n,bp,tg,eq}|null, nameOf?(id), unavailableEq?, restrictions?, official? }
  */
 export function validateAgainst2JProtocol(target, ctx = {}) {
@@ -51,6 +53,9 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
   const addFor = (cs, sev, code, params, where) => { const s = soft(sev, ...cs); const n = issues.length; add(s, code, params, where); if (s !== sev) issues[n].inferred = true }
 
   const days = target.kind === 'program' ? (target.days || []) : [target.entries || []]
+  // The block type an entry belongs to: the block's own type, or its instance's type in the day.
+  const blockTypes = target.blockTypes || {}
+  const typeOf = e => target.kind === 'block' ? (target.type || 'strength') : (e?.blk && blockTypes[e.blk]) || 'strength'
   if (!days.length || days.every(d => !d?.length)) add('fail', 'empty')
 
   const [major] = String(target.protocolVersion || PROTOCOL_VERSION).split('.')
@@ -85,11 +90,15 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
       const sets = Math.max(1, Number(e.sets) || 1)
       setCount += sets
       if (c.cardio || mode === 'cardio') return
-      if (!custom && c.group) {
+      // Timed bouts of an interval/HIIT block are rounds, and mobility is not training volume
+      // (2J-HEU-INTERVAL-ROUNDS): neither counts as direct weekly sets.
+      const btype = typeOf(e)
+      const rounds = mode === 'time' && ROUND_TYPES.includes(btype)
+      if (!custom && c.group && !rounds && btype !== 'mobility') {
         weekly[c.group] = (weekly[c.group] || 0) + sets
       }
-      const sr = SETS[goal]
-      if (sets < sr.allow[0] || sets > sr.allow[1]) add('fail', 'sets_outside_allowed', [name, sets, fmtRange(sr.allow)], where)
+      const sr = rounds ? ROUNDS : SETS[goal]
+      if (sets < sr.allow[0] || sets > sr.allow[1]) add('fail', rounds ? 'rounds_outside_allowed' : 'sets_outside_allowed', [name, sets, fmtRange(sr.allow)], where)
 
       const role = roles[i]
       if (mode === 'reps' && !custom) {
@@ -148,7 +157,7 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
         // one block holding more than a whole week's envelope for a muscle
         if (goal === 'hypertrophy') {
           const per = {}
-          idxs.forEach(i => { const g = cls[i].group; if (g && !cls[i].cardio) per[g] = (per[g] || 0) + (Number(ex[i].sets) || 1) })
+          idxs.forEach(i => { const g = cls[i].group, bt = typeOf(ex[i]); if (g && !cls[i].cardio && bt !== 'mobility' && !(modeOfEntry(ex[i]) === 'time' && ROUND_TYPES.includes(bt))) per[g] = (per[g] || 0) + (Number(ex[i].sets) || 1) })
           for (const [g, n] of Object.entries(per)) if (n > WEEKLY_SETS[level][1]) add('reason', 'volume_high', [g, n, fmtRange(WEEKLY_SETS[level])])
         }
       }

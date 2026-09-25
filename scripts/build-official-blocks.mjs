@@ -17,7 +17,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const imp = p => import(pathToFileURL(join(root, p)).href)
 const { EXDB } = await imp('frontend/src/lib/exercises-data.js')
 const P = await imp('frontend/src/lib/protocol/index.js')
-const { MATRIX } = await imp('scripts/protocol/official-blocks.matrix.mjs')
+const { MATRIX, REVISIONS = {} } = await imp('scripts/protocol/official-blocks.matrix.mjs')
 
 const OUT = join(root, 'api', 'lib', 'blocks-official.json')
 export const SEED_VERSION = 1
@@ -40,7 +40,9 @@ function parseSpec(spec) {
 
 function buildBlock([focus, goal, level, variant, style, exercises, opts = {}]) {
   const type = opts.type || 'strength'
+  const guided = P.isGuided(type)
   const id = ['off', focus, goal, level, variant || 'x'].join('-').toLowerCase() + (type === 'superset' ? '-ss' : '') + (type === 'cardio' && focus !== 'cardio' ? '-cardio' : '')
+    + (guided ? '-' + type : '')
   const ex = []
   let sgN = 0, position = 0
   const units = exercises.map(u => Array.isArray(u) ? u : [u])
@@ -55,7 +57,10 @@ function buildBlock([focus, goal, level, variant, style, exercises, opts = {}]) 
       if (!c.curated && lookup(s.id).bp !== 'cardio') errors.push(id + ': ' + s.id + ' is not in the curated catalogue')
       if (!GYM_EQ.has(lookup(s.id).eq)) errors.push(`${id}: ${s.id} uses "${lookup(s.id).eq}", not 2J equipment`)
       let e
-      if (s.cardio) {
+      if (guided && lookup(s.id).bp === 'cardio') {
+        // A cardio machine inside a timed block works in bouts (applyTiming sets their length).
+        e = { id: s.id, sets: 1, mode: 'time', sec: 60, weight: 0 }
+      } else if (s.cardio) {
         const [min, speed] = s.cardio.split('@').map(Number)
         e = { id: s.id, sets: 1, min, speed }
       } else if (s.time) {
@@ -73,14 +78,15 @@ function buildBlock([focus, goal, level, variant, style, exercises, opts = {}]) 
       position++
     }
   }
+  const timing = guided ? P.sanitizeTiming(opts.timing, type) : null
   const block = {
-    id, official: true, active: true, seedVersion: SEED_VERSION, protocolVersion: P.PROTOCOL_VERSION,
-    type, goal, level, focus, variant: variant || null, style, ex,
+    id, official: true, active: true, seedVersion: REVISIONS[id] || SEED_VERSION, protocolVersion: P.PROTOCOL_VERSION,
+    type, goal, level, focus, variant: variant || null, style, ex: guided ? P.applyTiming(ex, type, timing) : ex, ...(timing ? { timing } : {}),
     evidence: [...new Set(P.RULES.filter(r => relevantRule(r.id, goal, type)).flatMap(r => r.evidence))].sort(),
     createdBy: '2j', createdAt: '2026-09-25', updatedAt: '2026-09-25',
   }
   Object.assign(block, P.deriveBlockMeta(block, lookup))
-  const v = P.validateAgainst2JProtocol({ kind: 'block', goal, level, type, focus, entries: ex, protocolVersion: block.protocolVersion }, { lookup, official: true })
+  const v = P.validateAgainst2JProtocol({ kind: 'block', goal, level, type, focus, entries: block.ex, protocolVersion: block.protocolVersion }, { lookup, official: true })
   if (v.issues.some(i => i.severity === 'unverified')) errors.push(id + ': has checks that could not be verified')
   if (v.result === 'FAIL') errors.push(`${id}: FAIL — ${v.issues.filter(i => i.severity === 'fail').map(i => i.message).join(' | ')}`)
   block.validation = { result: v.result, reasons: v.issues.filter(i => i.severity === 'reason').map(i => ({ code: i.code, reason: i.reason })) }
@@ -89,6 +95,7 @@ function buildBlock([focus, goal, level, variant, style, exercises, opts = {}]) 
 function relevantRule(rid, goal, type) {
   const g = { hypertrophy: '2J-RULE-REPS-HYP', strength: '2J-RULE-REPS-STR', general: '2J-RULE-REPS-GEN', endurance: '2J-RULE-REPS-END', power: '2J-RULE-POWER', beginner: '2J-RULE-BEGINNER' }[goal]
   return rid === g || rid === '2J-RULE-RPE10' || (type === 'superset' && rid === '2J-RULE-SUPERSET') || (goal === 'hypertrophy' && rid === '2J-RULE-VOLUME')
+    || (['interval', 'hiit', 'mobility'].includes(type) && rid === '2J-HEU-INTERVAL-ROUNDS')
 }
 
 const blocks = MATRIX.map(buildBlock)
@@ -119,7 +126,10 @@ for (const fam of Object.values(families)) for (let i = 0; i < fam.length; i++) 
 
 if (errors.length) { console.error(errors.join('\n')); process.exit(1) }
 
-const json = JSON.stringify({ protocolVersion: P.PROTOCOL_VERSION, seedVersion: SEED_VERSION, count: blocks.length, blocks }, null, 1) + '\n'
+for (const rid of Object.keys(REVISIONS)) if (!ids.has(rid)) { console.error(`REVISIONS names ${rid}, which is not in the matrix`); process.exit(1) }
+// The library's version is its newest block's: a per-block revision moves the seed as a whole.
+const seedVersion = Math.max(SEED_VERSION, ...blocks.map(b => b.seedVersion))
+const json = JSON.stringify({ protocolVersion: P.PROTOCOL_VERSION, seedVersion, count: blocks.length, blocks }, null, 1) + '\n'
 if (process.argv.includes('--check')) {
   let cur = null
   try { cur = readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n') } catch { /* missing = stale */ }

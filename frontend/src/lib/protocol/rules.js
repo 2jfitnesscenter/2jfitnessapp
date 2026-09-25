@@ -32,9 +32,16 @@ export const RPE_LABEL = {
 export const LEVELS = ['beginner', 'intermediate', 'advanced']
 export const GOALS = ['hypertrophy', 'strength', 'general', 'endurance', 'power', 'beginner']
 export const BLOCK_TYPES = ['strength', 'superset', 'circuit', 'cardio', 'interval', 'hiit', 'mobility']
-// Types this version can build, validate and train today; the rest exist in the model so a
-// block is never "musculación-only", but they have no timed runner yet (Constructor V2.1).
-export const BLOCK_TYPES_READY = ['strength', 'superset', 'cardio']
+// Types this version can build, validate and train today. Since Constructor V2.1 every type
+// is trainable: the timed ones run in the guided executor (lib/guided.js).
+export const BLOCK_TYPES_READY = ['strength', 'superset', 'cardio', 'circuit', 'interval', 'hiit', 'mobility']
+// Timed ("guided") block types: their timing lives on the block (lib/protocol/blocks.js timing).
+export const GUIDED_TYPES = ['circuit', 'interval', 'hiit', 'mobility']
+// A timed work bout inside an interval/HIIT block (Tabata included) is a round, not a strength
+// working set: rounds are bounded here instead of by SETS, and never counted as direct weekly
+// sets (2J-HEU-INTERVAL-ROUNDS). Circuits and mobility keep the normal set rules.
+export const ROUNDS = { allow: [1, 10] }
+export const ROUND_TYPES = ['interval', 'hiit']
 
 // Exercise classes the rep zones are keyed on (lib/protocol/classify.js decides them):
 //   compound_free    heavy/technical free-weight multi-joint (barbell squat, bench, deadlift)
@@ -192,6 +199,8 @@ export const RULES = [
     text: 'Fat-loss goals keep strength training for strength and muscle; circuits or cardio may complement it, never replace it, and no specific fat loss is promised.' },
   { id: '2J-RULE-PROGRESSION', kind: 'heuristic', evidence: [],
     text: 'Blocks prescribe; Progressive Overload V1 recommends from real performance. Double progression inside a rep range, using the gym\'s real load steps.' },
+  { id: '2J-HEU-INTERVAL-ROUNDS', kind: 'heuristic', evidence: [],
+    text: 'In interval and HIIT blocks (Tabata included) a timed work bout is a round, not a strength set: 1-10 rounds, and those rounds never count as direct weekly sets. Mobility work never counts as volume either.' },
   { id: '2J-RULE-AUTHORITY', kind: 'heuristic', evidence: [],
     text: 'Authority: 1 explicit restrictions, 2 safety/permissions, 3 the 2J protocol, 4 the existing program, 5 the official library, 6 generative AI.' },
 ]
@@ -208,6 +217,7 @@ export const MESSAGES = {
   reps_outside_allowed: '{0}: {1} reps is outside what {2} allows for this exercise type ({3}).',
   reps_outside_preferred: '{0}: {1} reps is outside the preferred {3} for {2} — fine with a reason.',
   sets_outside_allowed: '{0}: {1} sets is outside the allowed {2}.',
+  rounds_outside_allowed: '{0}: {1} rounds is outside the allowed {2} for an interval block.',
   rpe_not_2j: '{0}: effort {1} is not on the 2J scale (4, 6, 8, 10).',
   rpe10_power: '{0}: power work never goes to RPE 10.',
   rpe10_all: 'Every working set is at RPE 10 — 2J uses 10 selectively.',
@@ -255,7 +265,7 @@ export const DEFAULT_REASON = {
 // Which rules/evidence each message draws on, for "why?" in the UI and for traceability.
 export const MESSAGE_RULE = {
   reps_outside_allowed: '2J-RULE-REPS-HYP', reps_outside_preferred: '2J-RULE-REPS-HYP',
-  sets_outside_allowed: '2J-RULE-VOLUME', rpe_not_2j: '2J-RULE-RPE-SCALE', rpe10_power: '2J-RULE-POWER',
+  sets_outside_allowed: '2J-RULE-VOLUME', rounds_outside_allowed: '2J-HEU-INTERVAL-ROUNDS', rpe_not_2j: '2J-RULE-RPE-SCALE', rpe10_power: '2J-RULE-POWER',
   rpe10_all: '2J-RULE-RPE10', rpe10_share: '2J-RULE-RPE10', rpe10_technical: '2J-RULE-RPE10',
   rpe10_beginner: '2J-RULE-BEGINNER', rpe_too_easy: '2J-RULE-REPS-GEN', rest_outside_allowed: '2J-RULE-REST',
   rest_outside_preferred: '2J-RULE-REST', block_too_big: '2J-RULE-BLOCK-SIZE', block_small: '2J-RULE-BLOCK-SIZE',
@@ -280,6 +290,8 @@ export function compactProtocol(goal, level) {
     reps: REPS[g], setsPerExercise: SETS[g], rest: REST,
     weeklyDirectSetsPerMuscle: g === 'hypertrophy' ? WEEKLY_SETS[lv] : null,
     blockSize: BLOCK_SIZE.pref,
+    // Guided blocks (circuit/interval/HIIT/mobility) are chosen from officialBlocks, timing included.
+    guidedTypes: GUIDED_TYPES, intervalRounds: ROUNDS.allow,
     rules: RULES.filter(r => relevant(r.id, g)).map(r => ({ id: r.id, kind: r.kind, text: r.text })),
   }
 }

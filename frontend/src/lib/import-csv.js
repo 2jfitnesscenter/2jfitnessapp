@@ -192,6 +192,8 @@ const ALIAS_EX = {
   'tricep pushdown': '0241', 'triceps pushdown': '0241', pushdown: '0241',
   skullcrusher: '0060', 'skull crusher': '0060', 'lying triceps extension': '0061',
   lunge: '0054', lunges: '0054', 'cable crossover': '1269', 'cable cross over': '1269',
+  // 0058 is the barbell hip thrust (upper back on a bench); 1409 is the floor glute bridge.
+  'hip thrust': '0058', 'barbell hip thrust': '0058', 'hip thrusts': '0058', 'glute bridge': '1409', 'barbell glute bridge': '1409',
 }
 
 let ALIAS_IDX = null

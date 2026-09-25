@@ -9,12 +9,14 @@
 //   variant separates real stimulus differences inside one pattern (angle, grip, length)
 //           so the redundancy check does not flag them; same pattern + same variant is the
 //           "near-duplicate" 2J avoids inside one block.
-// Library gap noted in docs/TRAINING_PROTOCOL_2J.md: there is no barbell hip thrust record,
-// so 2J blocks use the barbell glute bridge (1409) instead of inventing one.
+// Barbell hip thrust: the library already has it as 0058 ("barbell lying lifting (on hip)" in
+// the source dataset — upper back on a bench, bar on the hips); Constructor V2.1 curates and
+// names it instead of inventing a near-duplicate record. The floor glute bridge (1409) stays.
 
 const C = {
   // ── glutes / hips
   '1409': ['bridge', 'cf', 'glutes', 'hamstrings', '', ''],
+  '0058': ['bridge', 'cf', 'glutes', 'hamstrings', '', 'bench'],
   '3013': ['bridge', 'sec', 'glutes', 'hamstrings', 'floor', ''],
   '2286': ['hip-ext', 'iso', 'glutes', '', 'uni', 'standing'],
   '0228': ['hip-ext', 'iso', 'glutes', '', 'uni', 'standing'],
@@ -144,6 +146,16 @@ const C = {
   '3544': ['anti-lat', 'iso', 'abs', '', 'floor', 'side-plank'],
   '2133': ['carry', 'sec', 'abs', 'forearms', '', 'farmer'],
   '0407': ['lat-flex', 'iso', 'abs', '', '', 'dumbbell'],
+  // ── mobility (guided mobility blocks, V2.1) — no primary group on purpose: a stretch is never
+  // counted as training volume (2J-HEU-INTERVAL-ROUNDS). Patterns are per region, so a flow of
+  // different stretches is not read as one repeated stimulus.
+  '1604': ['mob-hip', 'iso', '', '', 'deepKnee,uni', 'lunge'],
+  '1365': ['mob-tspine', 'iso', '', '', '', 'standing'],
+  '1271': ['mob-chest', 'iso', '', '', '', 'standing'],
+  '0794': ['mob-lat', 'iso', '', '', 'overhead,uni', 'standing'],
+  '1377': ['mob-calf', 'iso', '', '', 'uni', 'wall'],
+  '1511': ['mob-ham', 'iso', '', '', 'floor,uni', 'lying'],
+  '1424': ['mob-glute', 'iso', '', '', 'floor,uni', 'seated'],
   // ── power
   '0514': ['jump', 'sec', 'quads', 'glutes', 'jump,deepKnee', 'bodyweight'],
   '0053': ['jump', 'cf', 'quads', 'glutes', 'jump,deepKnee,spinalLoad', 'barbell'],

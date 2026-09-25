@@ -3,7 +3,8 @@
 export * from './rules.js'
 export { classify, redundancyKey } from './classify.js'
 export { CATALOG } from './catalog.js'
-export { prescribe, repRange, unitsOf, roleOf, restDemand, zoneFor, estimateSeconds, roundMinutes, modeOfEntry, REST_DEFAULTS } from './prescribe.js'
+export { prescribe, repRange, unitsOf, roleOf, restDemand, zoneFor, estimateSeconds, roundMinutes, modeOfEntry, workSeconds, REST_DEFAULTS } from './prescribe.js'
 export { validateAgainst2JProtocol, failuresForRepair, savePolicy, OVERRIDE_REASON_MIN } from './validator.js'
 export { FOCUS, FOCUS_LABEL, GOAL_LABEL, LEVEL_LABEL, TYPE_LABEL, STYLE_LABEL, blockTitle, blockSubtitle, deriveBlockMeta,
-  instantiateBlock, pruneBlocks, segmentsOf, filterBlocks } from './blocks.js'
+  instantiateBlock, pruneBlocks, segmentsOf, filterBlocks, isGuided, TIMING_LIMITS, TIMING_PRESETS, defaultTiming, sanitizeTiming,
+  applyTiming, guidedSeconds, blockTypesOf } from './blocks.js'

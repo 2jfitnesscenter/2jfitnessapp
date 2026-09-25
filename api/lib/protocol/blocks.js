@@ -3,9 +3,9 @@
 // referenced live by a routine — inserting one copies its entries into the day (a snapshot)
 // tagged with an instance id, so editing the day never touches the library and deleting a
 // block never breaks a routine. Pure helpers shared by the builder, the server and the seed.
-import { PROTOCOL_VERSION } from './rules.js'
+import { PROTOCOL_VERSION, GUIDED_TYPES } from './rules.js'
 import { classify } from './classify.js'
-import { estimateSeconds, roundMinutes, restDemand, REST_DEFAULTS } from './prescribe.js'
+import { estimateSeconds, roundMinutes, restDemand, REST_DEFAULTS, modeOfEntry, workSeconds } from './prescribe.js'
 
 export const FOCUS = ['glutes', 'quads', 'hamstrings', 'calves', 'chest', 'back', 'shoulders', 'biceps', 'triceps', 'arms',
   'abs', 'posterior', 'lower', 'upper', 'push', 'pull', 'fullbody', 'cardio']
@@ -23,6 +23,76 @@ export const STYLE_LABEL = {
   isolation: 'Isolation', density: 'Density', heavy: 'Heavy', volume: 'Volume', foundation: 'Foundation', athletic: 'Athletic',
   pairs: 'Pairs', steady: 'Steady', 'unilateral-isolation': 'Unilateral + isolation', lengthened: 'Long position', 'upper-focus': 'Upper chest',
   vertical: 'Vertical pull', horizontal: 'Horizontal pull', 'hip-dominant': 'Hip dominant', 'knee-dominant': 'Knee dominant', 'low-impact': 'Low impact',
+  circuit: 'Circuit', intervals: 'Intervals', tabata: 'Tabata', flow: 'Mobility flow',
+}
+
+// ── guided (timed) blocks — Constructor V2.1 ──────────────────────────────────────────────
+// A guided block keeps the one training model: its entries are ordinary routine entries (a
+// round = one set of each), and `timing` only says how the executor paces them. Timing is UX,
+// not methodology — the protocol still judges the entries (2J-HEU-INTERVAL-ROUNDS for rounds).
+//   prep       countdown before the first exercise (s)
+//   work       default work time for timed entries (s) — copied into each timed entry's `sec`
+//   rest       rest after each work bout (s, 0 = straight on to the next one)
+//   rounds     rounds of the whole block (= sets of every entry)
+//   roundRest  a longer rest between rounds (s); 0 = the normal `rest` applies there too
+//   preset     'tabata' only records where the numbers came from; they stay editable
+export const isGuided = type => GUIDED_TYPES.includes(type)
+export const TIMING_LIMITS = { prep: [0, 60], work: [5, 600], rest: [0, 300], rounds: [1, 10], roundRest: [0, 600] }
+const DEFAULT_TIMING = {
+  circuit: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 60 },
+  interval: { prep: 10, work: 60, rest: 60, rounds: 5, roundRest: 0 },
+  hiit: { prep: 10, work: 30, rest: 30, rounds: 6, roundRest: 0 },
+  mobility: { prep: 5, work: 40, rest: 5, rounds: 1, roundRest: 0 },
+}
+// The classic 20 s on / 10 s off × 8 — a starting point, never the only option.
+export const TIMING_PRESETS = { tabata: { work: 20, rest: 10, rounds: 8, roundRest: 0 } }
+export const defaultTiming = type => isGuided(type) ? { ...DEFAULT_TIMING[type] } : null
+
+/** Whitelist + clamp a block's timing; null for a type that has none. */
+export function sanitizeTiming(t, type) {
+  if (!isGuided(type)) return null
+  const src = t && typeof t === 'object' ? t : {}
+  const out = {}
+  for (const [k, [lo, hi]] of Object.entries(TIMING_LIMITS)) {
+    const n = Math.round(Number(src[k]))
+    out[k] = Number.isFinite(n) && src[k] !== null && src[k] !== '' ? Math.min(hi, Math.max(lo, n)) : DEFAULT_TIMING[type][k]
+  }
+  if (src.preset === 'tabata') out.preset = 'tabata'
+  return out
+}
+
+/**
+ * Shape a guided block's entries to its timing: every entry gets `rounds` sets; interval/HIIT/
+ * mobility entries become timed bouts of `work` seconds; a circuit keeps each entry's own mode
+ * (timed entries take `work`, rep entries keep their reps). Rest between sets is the timing's,
+ * so per-entry `rest` is dropped; a planned RPE array follows the new set count.
+ */
+export function applyTiming(ex, type, timing) {
+  const tm = sanitizeTiming(timing, type)
+  if (!tm) return (ex || []).map(e => ({ ...e }))
+  return (ex || []).map(e => {
+    const out = { ...e, sets: tm.rounds }
+    delete out.rest
+    const toTime = type !== 'circuit' || modeOfEntry(e) === 'time'
+    if (toTime) {
+      out.mode = 'time'; out.sec = tm.work; out.weight = out.weight || 0
+      for (const k of ['reps', 'targetRepsMin', 'targetRepsMax', 'repsMin', 'min', 'speed']) delete out[k]
+    }
+    if (Array.isArray(out.rpe) && out.rpe.length) {
+      if (type === 'hiit' || type === 'interval' || type === 'mobility') delete out.rpe
+      else out.rpe = Array.from({ length: tm.rounds }, (_, i) => e.rpe[i] ?? e.rpe[e.rpe.length - 1])
+    }
+    return out
+  })
+}
+
+/** Honest duration of a guided block: prep + every bout and rest the executor will run. */
+export function guidedSeconds(ex, timing, type) {
+  const tm = sanitizeTiming(timing, type)
+  if (!tm || !(ex || []).length) return 0
+  const bout = e => modeOfEntry(e) === 'time' ? (Number(e.sec) || tm.work) : workSeconds(e)
+  const perRound = ex.reduce((a, e) => a + bout(e), 0) + (ex.length - 1) * tm.rest
+  return tm.prep + tm.rounds * perRound + (tm.rounds - 1) * (tm.roundRest > 0 ? tm.roundRest : tm.rest)
 }
 
 /** "Glúteo · Hipertrofia · Intermedio B" — built from metadata so it follows the UI language. */
@@ -44,7 +114,8 @@ export function deriveBlockMeta(b, lookup) {
     if (c.eq) equipment.add(c.eq)
   })
   const muscles = Object.entries(groups).sort((a, b) => b[1] - a[1]).map(([g]) => g)
-  const seconds = estimateSeconds(ex, e => e.rest ?? REST_DEFAULTS[restDemand(classify(e.id, lookup), b.goal, e.role)])
+  const seconds = isGuided(b.type) ? guidedSeconds(ex, b.timing, b.type)
+    : estimateSeconds(ex, e => e.rest ?? REST_DEFAULTS[restDemand(classify(e.id, lookup), b.goal, e.role)])
   return { muscles, equipment: [...equipment].sort(), exerciseCount: ex.length, estimatedMinutes: roundMinutes(seconds) }
 }
 
@@ -67,8 +138,13 @@ export function instantiateBlock(b, t = s => s, newId = rid) {
     iid, src: b.id || null, name: blockTitle(b, t), type: b.type || 'strength', goal: b.goal || null, level: b.level || null,
     focus: b.focus || null, variant: b.variant || null, style: b.style || null, v: b.protocolVersion || PROTOCOL_VERSION,
   }
+  const timing = sanitizeTiming(b.timing, meta.type)
+  if (timing) meta.timing = timing
   return { meta, ex }
 }
+
+/** { instance id: type } for a day's block labels — what the validator needs to judge a day. */
+export const blockTypesOf = blocks => Object.fromEntries((blocks || []).filter(x => x && x.iid).map(x => [x.iid, x.type || 'strength']))
 
 /** Drop block metadata that no longer has entries (after deletes/moves). */
 export function pruneBlocks(routine) {

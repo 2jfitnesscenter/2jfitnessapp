@@ -13,6 +13,7 @@ Tres fuentes, que no deben divergir:
 `frontend/src/lib/protocol/protocol-docs.test.js` falla si un ID de regla o de evidencia del código no aparece aquí o en EVIDENCE.md.
 
 - **Versión:** 1.0 (2026-09). Los bloques y las rutinas creadas desde bloques guardan la versión con la que se hicieron (`protocolVersion` / `v`). Si el protocolo cambia (1.1, 2.0), **no se reescribe nada automáticamente**: las rutinas históricas quedan como estaban y la biblioteca oficial se regenera de forma explícita.
+- **Revisión Constructor V2.1 (2026-09-25), sin cambio de versión:** solo amplía, no endurece nada de lo que ya pasaba. Añade la heurística 2J-HEU-INTERVAL-ROUNDS (rondas de intervalos/HIIT y movilidad fuera del volumen directo), los bloques guiados, el hip thrust con barra curado (`0058`) y siete estiramientos curados para movilidad. Sin evidencia nueva: EVIDENCE.md no cambia.
 
 ## Evidencia frente a heurística
 
@@ -195,7 +196,8 @@ Se evita la redundancia innecesaria.
   - Cuatro o más → FAIL.
 - Un glúteo bien cubierto combina, según el objetivo del bloque, extensión de cadera, bisagra, un componente unilateral o dominante de rodilla y abducción.
 - No es una "IA biomecánica" ni afirma que exista un "ejercicio perfecto". Son reglas explicables.
-- **Hueco conocido del catálogo:** la biblioteca de ejercicios no tiene hip thrust con barra (solo con banda). Los bloques oficiales usan el puente de glúteo con barra (1409) en lugar de inventar un registro casi duplicado. Si 2J lo necesita, se añade como ejercicio propio desde administración.
+- **Hip thrust con barra (Constructor V2.1):** la biblioteca sí lo tenía, con otro nombre: el registro `0058` ("barbell lying lifting (on hip)" en el dataset de origen; espalda alta apoyada en el banco y barra sobre la cadera). Se corrige su nombre (EN "barbell hip thrust", ES "hip thrust con barra"), se añaden los alias de importación `hip thrust` / `barbell hip thrust` y se cura en `catalog.js` como patrón *puente*, variante *banco*, distinto del puente de glúteo en el suelo (`1409`). No se crea ningún registro nuevo y el historial de `1409` no se toca.
+  - Bloques oficiales que lo usan: glúteo · hipertrofia · intermedio A y avanzado A (antes `1409`), con revisión de semilla 2 solo en esos dos.
 
 ## Progresión (2J-RULE-PROGRESSION)
 
@@ -218,8 +220,19 @@ Se evita la redundancia innecesaria.
 
 - **Estructura:** Programa → Día → Bloques → Ejercicios.
 - **Qué es un bloque:** una plantilla reutilizable y versionada de pocos ejercicios prescritos. Tipos: fuerza, superserie, circuito, cardio, intervalos, HIIT y movilidad.
-  - Fuerza, superserie y cardio se construyen y entrenan hoy.
-  - Circuito, intervalos, HIIT y movilidad existen en el modelo, pero todavía no tienen ejecutor guiado.
+  - Todos se construyen y entrenan. Circuito, intervalos, HIIT (Tabata incluido) y movilidad son **bloques guiados** (Constructor V2.1): se ejecutan con temporizador dentro del entrenamiento normal.
+- **Bloques guiados** — la temporización (`timing`) es UX, no metodología:
+  - `prep` (cuenta atrás), `work` (trabajo por ejercicio con tiempo), `rest` (descanso tras cada trabajo), `rounds` (rondas = series de cada ejercicio) y `roundRest` (descanso más largo entre rondas; 0 = el descanso normal).
+  - Tabata (20/10 × 8) es un **punto de partida** editable, no la única opción.
+  - Los ejercicios siguen siendo entradas normales: el protocolo los juzga igual que cualquier otra, salvo lo que dice 2J-HEU-INTERVAL-ROUNDS.
+  - Un circuito puede ser por tiempo o por repeticiones: cada ejercicio conserva su modo.
+
+### Rondas de intervalos y movilidad (2J-HEU-INTERVAL-ROUNDS) — heurística
+
+- En un bloque de **intervalos o HIIT** (Tabata incluido), cada trabajo con tiempo es una **ronda**, no una serie de fuerza: se permiten 1–10 rondas (en lugar del rango de series del objetivo) y **no cuentan como series directas semanales**.
+- La **movilidad** tampoco cuenta nunca como volumen de entrenamiento (sus ejercicios curados no tienen grupo muscular principal).
+- Los **circuitos** siguen las reglas normales de series y sí cuentan como volumen: son trabajo de fuerza encadenado.
+- Es una decisión de programación 2J para no inflar ni el volumen semanal ni los rangos de series con intervalos cortos; no se apoya en una referencia concreta y por eso es heurística.
 - **Tamaño:** 4–7 ejercicios en bloques musculares estándar, como preferencia de producto. Los de fuerza, potencia y core pueden tener menos. Nunca se rellena por llegar a un número.
 - **Duración:** estimación redondeada a 5 min, mostrada como "~N min". Se calcula con series, repeticiones aproximadas (~3 s cada una), descanso y transiciones (~60 s entre ejercicios y ~15 s entre partes de una superseries).
 - **Bloque ≠ rutina viva:** insertar un bloque **copia** sus ejercicios en el día como instancia editable. Cambiar, quitar o reordenar esos ejercicios no toca el bloque maestro, y borrar o desactivar un maestro no rompe ninguna rutina.
@@ -241,7 +254,7 @@ Se evita la redundancia innecesaria.
 - Un juicio que dependa de ella y fuera a dar FAIL queda como **no verificable** (`unverified`): se muestra y no bloquea.
 - Si fuera a pedir motivo, queda como nota.
 - Los datos de la propia biblioteca de ejercicios (ID, equipamiento, grupo) y la escala 2J sí cuentan siempre.
-- Los 112 bloques oficiales solo usan ejercicios curados; el build falla si no es así o si queda algo no verificable.
+- Los 118 bloques oficiales (112 de V2 + 6 guiados de V2.1) solo usan ejercicios curados o máquinas de cardio; el build falla si no es así o si queda algo no verificable.
 
 **Qué se hace con cada resultado:**
 
