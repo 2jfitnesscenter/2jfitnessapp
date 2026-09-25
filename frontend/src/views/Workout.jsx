@@ -190,9 +190,19 @@ function targetLine(entry, unit) {
   const mode = modeOf({ ...tg, id: entry.id })
   const sets = workingCount(entry.sets) || tg.sets || 1
   if (mode === 'cardio') return `${sets} × ${tg.min || 20} min`
-  if (mode === 'time') return `${sets} × ${fmtSec(tg.sec || 45)}`
+  if (mode === 'time') return `${sets} × ${fmtSec(tg.sec || 45)}` + plannedRpe(tg)
   const reps = tg.targetRepsMin != null && tg.targetRepsMax != null ? `${tg.targetRepsMin}-${tg.targetRepsMax}` : (tg.reps || '')
-  return `${sets} × ${reps} ${t('reps')}` + (tg.targetRIR != null ? ' · RIR ' + fmtNum(tg.targetRIR) : '')
+  return `${sets} × ${reps} ${t('reps')}` + (tg.targetRIR != null ? ' · RIR ' + fmtNum(tg.targetRIR) : plannedRpe(tg))
+}
+// The trainer's planned effort on the 2J scale (4/6/8/10) — "RPE 8" when every set is the same,
+// "RPE 8·8·10" when the last set is meant to go further. Never converted to RIR.
+// Rest after a set: the trainer's prescribed rest for this exercise (Constructor V2 / 2J
+// protocol) when there is one, otherwise the member's own setting — nothing else changes.
+export const restSecondsFor = (entry, S) => entry?.target?.rest > 0 ? entry.target.rest : S.restSec
+const plannedRpe = tg => {
+  const r = Array.isArray(tg?.rpe) ? tg.rpe.filter(v => [4, 6, 8, 10].includes(v)) : []
+  if (!r.length) return ''
+  return ' · RPE ' + (r.every(v => v === r[0]) ? r[0] : r.join('·'))
 }
 
 const perSideLabel = (S, ex, w) => {
@@ -563,7 +573,9 @@ function ActiveWorkout() {
         const isLastExInUnit = idx === unit[unit.length - 1]
         const unitDone = unit.every(ui => (ui === idx ? e : A.entries[ui]).sets.every(x => x.done))
         if (!A.past) {
-          if (isLastExInUnit && !unitDone) startRest(S.restSec, nameFor(exOr(e.id)))
+          // The trainer's prescribed rest for this exercise (Constructor V2 / 2J protocol) wins
+          // over the member's general setting; without one, nothing changes.
+          if (isLastExInUnit && !unitDone) startRest(restSecondsFor(e, S), nameFor(exOr(e.id)))
           else if (unitDone) stopRest()
         }
         if (unitDone && isLastUnit) workoutDone = true

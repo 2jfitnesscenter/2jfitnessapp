@@ -237,3 +237,15 @@ describe('the training guide trigger', () => {
     expect(store.getState().S.active?.routineId).toBe('r1')
   })
 })
+
+describe('Constructor V2 prescriptions reach the workout unchanged', () => {
+  it('the planned 2J effort shows next to the target, and the prescribed rest drives the timer', async () => {
+    write(s => { s.active.entries[0].target = { ...s.active.entries[0].target, rpe: [8, 8, 10], rest: 150 }; s.workoutView = 'simple' })
+    const html = await render()
+    expect(html).toContain('RPE 8·8·10')
+    const { restSecondsFor } = await import('./Workout.jsx')
+    expect(restSecondsFor({ target: { rest: 150 } }, { restSec: 90 })).toBe(150)
+    expect(restSecondsFor({ target: {} }, { restSec: 90 })).toBe(90)          // old routines: the member's setting
+    expect(restSecondsFor({ target: { rest: 0 } }, { restSec: 75 })).toBe(75)
+  })
+})

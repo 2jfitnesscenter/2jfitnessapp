@@ -199,7 +199,12 @@ function scheme(e) {
 // same way). Every other policy prescribes a weight/rep target, never an intensity target, so
 // most rows print this column blank — same as the paper template's own RPE column, meant to
 // be filled in by hand when nothing was actually planned.
-const plannedRpe = e => (e.prog === 'pct1rm' && e.targetRIR != null ? Math.round((10 - e.targetRIR) * 2) / 2 : null)
+// Constructor V2 prescribes it directly on the 2J scale (4/6/8/10, per set): printed as-is.
+const plannedRpe = e => {
+  const r = Array.isArray(e.rpe) ? e.rpe.filter(v => [4, 6, 8, 10].includes(v)) : []
+  if (r.length) return r.every(v => v === r[0]) ? r[0] : r.join('·')
+  return e.prog === 'pct1rm' && e.targetRIR != null ? Math.round((10 - e.targetRIR) * 2) / 2 : null
+}
 
 // One full-width table per day: Nº · Ejercicio · RPE · Series y Rep · Semana 1-4, each week
 // column holding one blank writable box per set — the actual "print + write results by hand
@@ -231,7 +236,7 @@ function dayTableHTML(num, weekday, r, ssInfo) {
     return `<tr${info ? ` class="ss-row" style="--ss-color:${SUPERSET_PRINT_COLORS[info.token]}"` : ''}>
       <td class="num">${i + 1}</td>
       <td><div class="ex-name">${badge}${esc(name)}${part}</div>${note}</td>
-      <td class="rpe">${rpe != null ? fmtNum(rpe) : ''}</td>
+      <td class="rpe">${rpe != null ? (typeof rpe === 'number' ? fmtNum(rpe) : esc(rpe)) : ''}</td>
       <td class="target">${esc(scheme(e))}</td>
       ${weekCell}${weekCell}${weekCell}${weekCell}
     </tr>`
