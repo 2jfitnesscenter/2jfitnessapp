@@ -622,7 +622,7 @@ const addTo = (out, d, v, t) => { const cur = out.get(d); out.set(d, { v: (cur ?
  * a workout window, which are kept (per matched workout only) so zone minutes can be computed
  * from real gaps between consecutive samples once every record has been seen.
  */
-export function parseAppleHealth(text, { unit = 'kg', workouts = [], maxHR = null } = {}) {
+export function parseAppleHealth(text, { unit = 'kg', workouts = [], maxHR = null, maxHRKind = null } = {}) {
   const s = String(text)
   if (!s.includes('HKQuantityTypeIdentifier') && !s.includes('HKCategoryTypeIdentifier')) return { error: 'unrecognised' }
 
@@ -712,6 +712,8 @@ export function parseAppleHealth(text, { unit = 'kg', workouts = [], maxHR = nul
     hrZonesByWorkout.set(wid, {
       avg: Math.round(sum / arr.length), max: Math.round(max),
       z: zoneCuts ? zMs.map(ms => Math.round(ms / 60000)) : null,
+      // Which max HR the split used — 'declared' by the member or the 220 − age 'calculated' estimate.
+      ...(zoneCuts ? { hrMax: Math.round(maxHR), hrMaxKind: maxHRKind || 'calculated' } : {}),
     })
   }
 

@@ -74,7 +74,7 @@ export default function HealthIntegrations() {
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Fitness integrations')}</h1><div className="sub">{t('Calories and heart rate from your watch, linked to your 2J workouts')}</div></div>
     </div>
 
-    <Section title={t('Apple Health (iPhone, Apple Watch)')} footer={t('Export from the Health app (profile → Export All Health Data) and import the file here. Workouts recorded by Apple Watch — or by apps that write to Health, like Zepp — bring their calories and heart rate; they are linked to a 2J workout only when the times clearly match.')}>
+    <Section title={t('Apple Health (iPhone, Apple Watch)')} footer={t('Export from the Health app (profile → Export All Health Data) and import the file here. Workouts recorded by Apple Watch — or by apps that write to Health, like Zepp — bring their calories and heart rate; they are linked to a 2J workout only when the times clearly match. The file comes from an iPhone; you can upload it from any device, but this is a manual file import, not an Android integration.')}>
       <Row icon="upload" iconTint="var(--red)" title={t('Import Apple Health export')}
         subtitle={t('{0} workouts with Apple Health data', countBy(S, 'apple'))} accessory="chevron" onClick={() => fileRef.current?.click()} />
     </Section>

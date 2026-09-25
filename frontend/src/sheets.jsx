@@ -603,8 +603,8 @@ export function importFromApp(file, onDone) {
     // maxHR (220 - age) drives the heart-rate-zone split for any workout a Health export's
     // continuous HR data overlaps — left null (zones simply not computed) if birthDate is unset.
     // Health V2: the member's own max HR (Settings → Training) wins over the 220 − age estimate.
-    const maxHR = maxHrFor(S(), ageFrom)?.value || null
-    try { parsed = parseImport(String(rd.result), { unit: S().unit, workouts: S().workouts, maxHR }) }
+    const ref = maxHrFor(S(), ageFrom)
+    try { parsed = parseImport(String(rd.result), { unit: S().unit, workouts: S().workouts, maxHR: ref?.value || null, maxHRKind: ref?.kind || null }) }
     catch (e) { toast(t('Could not read that file')); return }
     if (parsed.error === 'empty') { toast(t('That file is empty')); return }
     if (parsed.error) { toast(t("That file's columns aren't recognised — see the docs for supported apps.")); return }

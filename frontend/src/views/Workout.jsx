@@ -48,13 +48,14 @@ function CheckinNote({ S, ex }) {
 function HeartRateLive({ S, workoutId }) {
   const { status, bpm } = useHR()
   if (!bleSupported()) return null
-  const max = maxHrFor(S, ageFrom)?.value
+  const ref = maxHrFor(S, ageFrom)
+  const max = ref?.value
   const zone = bpm && max ? bandFor(bpm, zoneCuts(max)) + 1 : null
   if (status === 'live' && bpm) return <button className="hr-pill live" onClick={disconnectHeartRate} aria-label={t('Heart rate {0} bpm. Tap to disconnect the sensor.', bpm)}>
-    <Icon name="heart" /><b>{bpm}</b> <span>{t('bpm')}</span>{zone && <em>Z{zone}</em>}</button>
+    <Icon name="heart" /><b>{bpm}</b> <span>{t('bpm')}</span>{zone && <em title={ref.kind === 'declared' ? t('Zone against the max HR you declared') : t('Zone against an estimated max HR (220 − age)')}>Z{zone}{ref.kind !== 'declared' && ' · ' + t('est.')}</em>}</button>
   if (status === 'lost') return <button className="hr-pill lost" onClick={reconnectHeartRate}><Icon name="heart" />{t('Sensor lost · Reconnect')}</button>
   if (status === 'connecting') return <span className="hr-pill"><Icon name="heart" />{t('Connecting…')}</span>
-  return <button className="hr-pill" onClick={() => connectHeartRate(workoutId, max)} title={t('Experimental · works on this device')}>
+  return <button className="hr-pill" onClick={() => connectHeartRate(workoutId, ref)} title={t('Experimental · works on this device')}>
     <Icon name="heart" />{status === 'denied' ? t('Bluetooth not allowed') : t('HR sensor')}</button>
 }
 

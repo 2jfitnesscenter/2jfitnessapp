@@ -22,7 +22,16 @@ seguimiento, consentimiento y tests · y el commit de documentación que añade 
   `GET /api/social/media` sirve cualquier id a cualquier sesión → no es seguro). **Health
   Connect / HealthKit** necesitan código nativo: diseño en `docs/HEALTH_NATIVE_BRIDGE.md`, sin
   implementar y sin Capacitor. **Silueta evolutiva**: no implementada, porque sería engañosa.
-- Tests del sprint: frontend 690 → 721, API 222 → 229. QA visual: `c378e0f`, `21d817c`.
+- Procedencia de zonas FC (revisión previa al deploy): (A) zonas de la fuente (`scheme:'source'`,
+  WHOOP 0–5); (B) calculadas por 2J con FC máx. declarada (`hrMaxKind:'declared'`); (C) calculadas
+  por 2J con 220 − edad (`hrMaxKind:'calculated'`, que la UI muestra como estimación, nunca como medida).
+  Los imports antiguos de Apple sin campo se leen como (C). "FC máx." de un entreno = máximo de
+  esa sesión ("FC máx. de la sesión"). Ver `zoneOrigin` en `components/FitnessSummary.jsx`.
+- WHOOP workouts: `GET /api/whoop/workouts`, scope `read:workout`; las conexiones previas
+  necesitan reconectar. BLE: experimental, solo Chrome Android/escritorio, no en iOS.
+- Apple Health **no** es una integración Android: el importador procesa manualmente un
+  `export.xml` generado en un iPhone, se suba desde el dispositivo que sea.
+- Tests del sprint: frontend 690 → 727, API 222 → 229. QA visual: `c378e0f`, `21d817c`.
 
 ## RELEVO VIGENTE PARA CLAUDE CODE — 2026-09-23
 

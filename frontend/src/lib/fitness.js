@@ -6,7 +6,13 @@
 //   w.fitness = { primary: Rec, others: [Rec] }      (others: the same session seen by another
 //                                                     source — kept for reference, never summed)
 //   Rec = { source, origin?, externalId?, start, end, calories?, avgHr?, maxHr?,
-//           zones?: { mins: [..], scheme: 'source' | 'hrmax', derived }, kind, importedAt }
+//           zones?: { mins: [..], scheme: 'source' | 'hrmax', derived, hrMax?, hrMaxKind? }, kind, importedAt }
+//
+// Zone provenance is always one of three, and the UI says which (components/FitnessSummary.jsx):
+//   scheme 'source'                         → the source's own zones (WHOOP 0-5), untouched
+//   derived + hrMaxKind 'declared'          → 2J from samples, against the max HR the member set
+//   derived + hrMaxKind 'calculated'        → 2J from samples, against the 220 − age ESTIMATE
+// `maxHr` on a record is the highest reading of THAT session, never the member's max HR.
 //
 // `kind` says what the numbers are: 'imported' (a third party's own figures), 'measured' (read
 // live from a sensor by 2J) — and zones carry `derived: true` whenever 2J computed them from
@@ -38,7 +44,9 @@ export function fitnessOf(w) {
   if (w?.hrZones) {
     // Legacy: the Apple Health import's summary of the watch's HR samples during this workout.
     return { source: 'apple', kind: 'imported', avgHr: w.hrZones.avg, maxHr: w.hrZones.max,
-      zones: w.hrZones.z ? { mins: w.hrZones.z, scheme: 'hrmax', derived: true } : null }
+      zones: w.hrZones.z ? { mins: w.hrZones.z, scheme: 'hrmax', derived: true, hrMax: w.hrZones.hrMax ?? null,
+        // Imports before Health V2 always split against 220 − age (there was no declared value).
+        hrMaxKind: w.hrZones.hrMaxKind || 'calculated' } : null }
   }
   return null
 }
@@ -65,10 +73,14 @@ export function maxHrFor(S, ageOf) {
  * a continuous zone. Same rule the Apple Health import uses.
  */
 const GAP_CAP_MS = 5 * 60000
+// `maxHr` is maxHrFor()'s { value, kind } (preferred, so zones record their basis) or a number.
+const hrRef = m => m && typeof m === 'object' ? (m.value > 0 ? m : null) : (m > 0 ? { value: m, kind: null } : null)
+const zonesOf = (ref, zMs) => ({ mins: zMs.map(ms => Math.round(ms / 60000)), scheme: 'hrmax', derived: true, hrMax: ref.value, hrMaxKind: ref.kind })
 export function summarizeHr(samples, maxHr) {
+  const ref = hrRef(maxHr)
   const arr = [...(samples || [])].filter(s => s.v > 0).sort((a, b) => a.t - b.t)
   if (!arr.length) return null
-  const cuts = zoneCuts(maxHr)
+  const cuts = ref && zoneCuts(ref.value)
   let sum = 0, max = 0
   const zMs = [0, 0, 0, 0, 0]
   arr.forEach(({ t, v }, i) => {
@@ -79,14 +91,15 @@ export function summarizeHr(samples, maxHr) {
   })
   return {
     avgHr: Math.round(sum / arr.length), maxHr: Math.round(max),
-    zones: cuts ? { mins: zMs.map(ms => Math.round(ms / 60000)), scheme: 'hrmax', derived: true } : null,
+    zones: cuts ? zonesOf(ref, zMs) : null,
   }
 }
 
 // A running summary for a live sensor: constant memory however long the session — no stream is
 // ever kept (see lib/ble-hr.js). `add(bpm, t)` per reading, `result()` at the end.
 export function hrAccumulator(maxHr) {
-  const cuts = zoneCuts(maxHr)
+  const ref = hrRef(maxHr)
+  const cuts = ref && zoneCuts(ref.value)
   let n = 0, sum = 0, max = 0, last = null
   const zMs = [0, 0, 0, 0, 0]
   return {
@@ -99,7 +112,7 @@ export function hrAccumulator(maxHr) {
     result() {
       if (!n) return null
       return { avgHr: Math.round(sum / n), maxHr: Math.round(max), samples: n,
-        zones: cuts ? { mins: zMs.map(ms => Math.round(ms / 60000)), scheme: 'hrmax', derived: true } : null }
+        zones: cuts ? zonesOf(ref, zMs) : null }
     },
     get count() { return n },
   }

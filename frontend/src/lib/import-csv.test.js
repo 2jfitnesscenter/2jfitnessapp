@@ -95,6 +95,10 @@ describe('parseAppleHealth', () => {
     // 3 x 5-minute gaps between 4 samples (under the 5-minute cap): 90->Z1, 130->Z2, 150->Z3,
     // the last sample (170) trails nothing
     expect(z1.z).toEqual([5, 5, 5, 0, 0])
+    // Provenance: without a kind the split is the 220 − age estimate, and says so.
+    expect(z1).toMatchObject({ hrMax: 190, hrMaxKind: 'calculated' })
+    expect(parseAppleHealth(xml, { unit: 'kg', workouts: [w1], maxHR: 185, maxHRKind: 'declared' }).hrZonesByWorkout.get('w1'))
+      .toMatchObject({ hrMax: 185, hrMaxKind: 'declared' })
     const z2 = p.hrZonesByWorkout.get('w2')
     expect(z2.avg).toBe(175)
     expect(z2.z).toEqual([0, 0, 0, 0, 0])   // one sample, no gap to attribute
