@@ -13,6 +13,7 @@ import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
 import BodyWeightCard from '../components/BodyWeightCard.jsx'
+import WorkoutCover from '../components/WorkoutCover.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
@@ -236,6 +237,16 @@ export default function Home() {
           : <Icon name="plus" className="chev" />}
       </div>
     </div>
+
+    {/* Entrena con 2J: one discreet way into the official guided routines (no extra tab). */}
+    <button className="card tappable t2-promo" onClick={() => nav('/train2j')}>
+      <WorkoutCover r={{ id: 'home-promo', category: 'tabata' }} shape="square" />
+      <span className="grow">
+        <span className="t2-promo-k">{t('Train with 2J')}</span>
+        <span className="t2-promo-t">{t('Ready-to-start workouts: Tabata, HIIT, circuits, cardio and mobility.')}</span>
+      </span>
+      <Icon name="chevronRight" className="chev" />
+    </button>
 
     {/* Your week + constancy. Never a scolding: a streak that ended simply starts again. */}
     {S.workouts.length > 0 && <button className="card tappable home-week" onClick={() => calendarSheet()} aria-label={t('Your week')}>

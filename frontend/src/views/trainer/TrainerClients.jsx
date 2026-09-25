@@ -28,6 +28,7 @@ export default function TrainerClients() {
         <div className="sub">{t('Build and assign routines for your members.')}</div>
       </div>
       <a className="trainer-back" href="#/trainer/blocks" style={{ marginRight: 10 }}><Icon name="list" />{t('Block library')}</a>
+      <a className="trainer-back" href="#/trainer/guided" style={{ marginRight: 10 }}><Icon name="play" />{t('Train with 2J')}</a>
       <a className="trainer-back" href="#/admin/bunker" style={{ marginRight: 10 }}><Icon name="dumbbell" />{t('Room admin')}</a>
       <a className="trainer-back" href="#/home"><Icon name="chevronLeft" />{t('Back to the app')}</a>
     </div>

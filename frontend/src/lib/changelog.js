@@ -11,6 +11,11 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Train with 2J: 39 official guided workouts — Tabata, HIIT, circuits, intervals, mobility and more',
+      'Start a 2J workout in one tap: it runs with the guided timer and never changes your plan',
+      'Search, quick filters, collections, favourites and a “For you” row that explains itself',
+      'Trainers can assign a 2J workout to a member or duplicate it and edit their own version',
+      'The official block library now has 155 blocks',
       'Guided blocks: circuits, intervals, HIIT, Tabata and mobility run with a timer inside your workout',
       'The block library can switch between a grid and a compact list',
       '2J suggestions point out areas with little direct work and offer compatible blocks',

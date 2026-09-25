@@ -31,6 +31,7 @@ import { bleSupported, useHR, connectHeartRate, reconnectHeartRate, disconnectHe
 import { maxHrFor, zoneCuts, bandFor } from '../lib/fitness.js'
 import { guidedBlockFor } from '../lib/guided.js'
 import GuidedRunner, { GuidedLaunch } from '../components/GuidedRunner.jsx'
+import WorkoutCover from '../components/WorkoutCover.jsx'
 
 // Today's check-in, next to the exercise it concerns — words only: nothing about the load, the
 // exercise or the routine changes because of it (the member or trainer decides).
@@ -84,6 +85,15 @@ function StartChooser() {
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
         <span className="tag acc">{t('Start')}</span></div>)}</div></>}
     {!S.routines.length && <><div style={{ height: 14 }} /><Button variant="primary" onClick={() => nav('/plan')}>{t('Build a plan first')}</Button></>}
+    <h4 className="sec">{t('Or a ready-made one')}</h4>
+    <button className="card tappable t2-promo" onClick={() => nav('/train2j')}>
+      <WorkoutCover r={{ id: 'start-promo', category: 'hiit' }} shape="square" />
+      <span className="grow">
+        <span className="t2-promo-k">{t('Train with 2J')}</span>
+        <span className="t2-promo-t">{t('Official guided workouts, ready to start.')}</span>
+      </span>
+      <Icon name="chevronRight" className="chev" />
+    </button>
   </div>
 }
 
@@ -697,6 +707,9 @@ function ActiveWorkout() {
       <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t(A.past ? 'Save' : 'Finish')} onClick={finishWorkout}><Icon name="check" /></button>
     </div>
     <div className="wprog" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
+    {/* Entrena con 2J: the routine's own artwork carries into the session it started. */}
+    {A.src2j && <div className="t2-inwork"><WorkoutCover r={{ id: A.src2j.id, category: A.src2j.category }} shape="square" />
+      <span><span className="t2-promo-k">{t('Train with 2J')}</span><b>{A.name}</b></span></div>}
 
     {/* Pre-workout check-in (Health V2): offered before the first set only, per the member's
         setting, skippable in one tap — the session works the same either way. */}

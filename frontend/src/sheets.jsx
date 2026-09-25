@@ -35,6 +35,7 @@ import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
 import { getReplacementGroups, QUICK_FILTERS } from './lib/alternatives.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { guidedBlocksOf, buildSteps, summarize } from './lib/guided.js'
+import { routineSnapshot } from './lib/train2j.js'
 import GuidedSummary from './components/GuidedSummary.jsx'
 import { MOBILE } from './lib/mobile.js'
 import { buildShareCardData } from './lib/share-card.js'
@@ -1564,6 +1565,7 @@ function WorkoutDetail({ w: w0, close }) {
         workout with only the legacy Apple-Health HR summary shows it through the same view. */}
     {fitnessOf(w) ? <FitnessSummary w={w} /> : w.hrZones && <HRZoneBar hrZones={w.hrZones} />}
     <DayHealthSummary d={w.d} S={st} />
+    {w.src2j && <div className="t2-done-line left"><Icon name="play" />{t('Train with 2J')} · {t(w.src2j.name)}</div>}
     <GuidedSummary guided={w.guided} />
     {w.entries.map((e, i) => {
       const ex = EXIDX[e.id]
@@ -1687,6 +1689,36 @@ export function beginWorkout(routineId, bw) {
   update(s => {
     s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId, name: r ? r.name : t('Freestyle'), bw: bw || null, cur: 0, entries,
       ...(guidedBlocks.length ? { guidedBlocks } : {}) }
+  })
+  useUI.getState().stopRest()
+  nav('/workout')
+  if (skipped) toast(t('{0} exercise(s) skipped — not currently available', skipped))
+}
+/* ---- Entrena con 2J: an official guided routine, started as a free session from a snapshot ----
+   Same path as beginWorkout (buildRoutineEntries, guided blocks, Workout V2 and the guided runner):
+   nothing about the member's program, week, dayPlan or routines changes. `src2j` remembers which
+   official routine this was, so the finished workout (real history) can say so. */
+export function startOfficialRoutine(r) {
+  const st = S()
+  if (st.active) {
+    confirmSheet({ title: t('You have a workout in progress'), message: t('Finish or discard it before starting another one.'),
+      confirmText: t('Go to the workout'), onConfirm: () => nav('/workout') })
+    return
+  }
+  if (shouldShowWorkoutGuide(st)) { openWorkoutGuide({ onDone: () => startOfficialRoutine(r) }); return }
+  if (hasRecentWeighIn(st)) { beginOfficialWorkout(r, null); return }
+  bwSheet({ required: true, onDone: bw => beginOfficialWorkout(r, bw) })
+}
+export function beginOfficialWorkout(r, bw) {
+  const st = S()
+  const snap = routineSnapshot(r, t)
+  const entries = buildRoutineEntries(st, snap)
+  const skipped = snap.ex.length - entries.length
+  const guidedBlocks = guidedBlocksOf(snap)
+  update(s => {
+    s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId: null, name: snap.name, bw: bw || null, cur: 0, entries,
+      ...(guidedBlocks.length ? { guidedBlocks } : {}),
+      src2j: { id: r.id, name: r.name, category: r.category, v: r.seedVersion || null } }
   })
   useUI.getState().stopRest()
   nav('/workout')
@@ -2193,6 +2225,7 @@ function FinishSummary({ w, prs, e1prs = [], events = [], newBadges = [], close 
   return <div style={{ textAlign: 'center', padding: '8px 0' }}>
     <div style={{ fontSize: 44, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}><Icon name="trophy" /></div>
     <h3 style={{ margin: '8px 0' }}>{t('Workout complete!')}</h3>
+    {w.src2j && <div className="t2-done-line"><Icon name="checkCircle" />{t('2J workout completed')} · {t(w.src2j.name)}</div>}
     <div className="tiles" style={{ textAlign: 'left' }}>
       <div className="tile"><div className="l">{t('Duration')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtDur(w.end - w.start)}</div></div>
       <div className="tile"><div className="l">{t('Volume')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtVol(w.vol, st.unit)}</div></div>
@@ -2344,6 +2377,8 @@ function doFinishWorkout() {
   const guided = [...(A.guidedLog || []).filter(g => !openRun || g.iid !== openRun.iid),
     ...(openRun ? [summarize(A, openRun, A.guided, buildSteps(A, openRun), w.end)] : [])].filter(g => g.bouts > 0)
   if (guided.length) w.guided = guided
+  // Entrena con 2J: which official routine this was (for Recent / Again? / completed counts).
+  if (A.src2j) w.src2j = A.src2j
   w.vol = workoutVolume(w)
   // A Bluetooth heart-rate sensor read during this session (lib/ble-hr.js): its measured summary
   // (avg/max and 2J-derived zones — never a stream) becomes the workout's cardio record, and the

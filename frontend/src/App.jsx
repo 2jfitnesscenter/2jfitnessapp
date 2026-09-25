@@ -67,6 +67,8 @@ import TrainerAIGenerate from './views/trainer/TrainerAIGenerate.jsx'
 import TrainerScanRoutine from './views/trainer/TrainerScanRoutine.jsx'
 import Constructor from './views/trainer/Constructor.jsx'
 import BlockLibrary, { BlockEditor } from './views/trainer/BlockLibrary.jsx'
+import GuidedAdmin, { GuidedEditor } from './views/trainer/GuidedAdmin.jsx'
+import Train2J, { Train2JCollection, Train2JDetail } from './views/Train2J.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -155,6 +157,8 @@ function Shell() {
                 <Route path="/trainer" element={<TrainerClients />} />
                 <Route path="/trainer/blocks" element={<BlockLibrary />} />
                 <Route path="/trainer/blocks/edit/:blockId" element={<BlockEditor />} />
+                <Route path="/trainer/guided" element={<GuidedAdmin />} />
+                <Route path="/trainer/guided/edit/:id" element={<GuidedEditor />} />
                 <Route path="/trainer/:memberId/build/:kind/:id" element={<Constructor />} />
                 <Route path="/trainer/:memberId" element={<TrainerClientPlan />} />
                 <Route path="/trainer/:memberId/ai" element={<TrainerAIGenerate />} />
@@ -204,6 +208,9 @@ function Shell() {
               <Route path="/plan/p/:id" element={<ProgramEdit />} />
               <Route path="/plan/r/:id" element={<RoutineEdit />} />
               <Route path="/workout" element={<Workout />} />
+              <Route path="/train2j" element={<Train2J />} />
+              <Route path="/train2j/c/:id" element={<Train2JCollection />} />
+              <Route path="/train2j/r/:id" element={<Train2JDetail />} />
               <Route path="/stretch" element={<Stretch />} />
               <Route path="/tests" element={<TestSession />} />
               <Route path="/clock" element={<ClockPicker />} />
