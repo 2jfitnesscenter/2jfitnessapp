@@ -177,9 +177,12 @@ function totalSetsFor(S, exId) {
  * hip-flexors, tibialis) are never trained by RANK_LIFTS and will always read null;
  * that's a scope limit of the curated list, not a bug.
  */
-export function muscleRank(S, slug) {
+// `liftRanks` (optional) is allLiftRanks(S) computed once by a caller that needs many muscles
+// or groups at a time (Mi 2J, the post-workout summary) — same result, without rescanning the
+// whole history once per muscle.
+export function muscleRank(S, slug, liftRanks = allLiftRanks(S)) {
   let num = 0, den = 0
-  allLiftRanks(S).forEach(({ id, rank }) => {
+  liftRanks.forEach(({ id, rank }) => {
     if (!rank) return
     const w = (musclesOf(EXIDX[id]) || {})[slug]
     if (!w) return
@@ -210,8 +213,8 @@ export const RANK_GROUP_NAME = { chest: 'Chest', back: 'Back muscles', shoulders
  *  never weights muscles against each other within a region either, so this mirrors that
  *  rather than inventing a second weighting scheme. Null if none of the group's muscles
  *  has any data yet. */
-export function groupRank(S, groupKey) {
-  const vals = (RANK_GROUPS[groupKey] || []).map(slug => muscleRank(S, slug)).filter(Boolean).map(r => r.continuous)
+export function groupRank(S, groupKey, liftRanks = allLiftRanks(S)) {
+  const vals = (RANK_GROUPS[groupKey] || []).map(slug => muscleRank(S, slug, liftRanks)).filter(Boolean).map(r => r.continuous)
   return vals.length ? levelToRank(vals.reduce((a, b) => a + b, 0) / vals.length) : null
 }
 
@@ -221,8 +224,8 @@ export function groupRank(S, groupKey) {
  * lift" literally true. Gated behind GLOBAL_UNLOCK_MIN so 2-3 logged lifts don't produce a
  * misleadingly confident single number.
  */
-export function globalRank(S) {
-  const ranks = allLiftRanks(S).map(x => x.rank).filter(Boolean)
+export function globalRank(S, liftRanks = allLiftRanks(S)) {
+  const ranks = liftRanks.map(x => x.rank).filter(Boolean)
   if (ranks.length < GLOBAL_UNLOCK_MIN) return { locked: true, rankedCount: ranks.length, needed: GLOBAL_UNLOCK_MIN }
   const avg = ranks.reduce((s, r) => s + r.continuous, 0) / ranks.length
   return { locked: false, rankedCount: ranks.length, ...levelToRank(avg) }
