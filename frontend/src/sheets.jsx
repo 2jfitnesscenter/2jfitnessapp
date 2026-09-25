@@ -23,6 +23,9 @@ import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
 import { postWorkoutEvents, heroEvent } from './lib/mi2j.js'
 import { markPending, markSeen, pendingCelebration } from './lib/celebrations.js'
 import { EventsSummary, RankHero, EventDetail } from './components/Mi2JEvents.jsx'
+import FitnessSummary from './components/FitnessSummary.jsx'
+import { fitnessOf, attachFitness, maxHrFor } from './lib/fitness.js'
+import { finishHeartRate } from './lib/ble-hr.js'
 import { parseImport, mergeImport, workoutFingerprint } from './lib/import-csv.js'
 import { buildImportPlan, applyImportResolutions, localCandidates } from './lib/import-match.js'
 import { api } from './lib/api.js'
@@ -455,6 +458,7 @@ function ImportSummary({ parsed, close }) {
     close()
     toast(isHealth
       ? t('{0} health records imported', res.bodyweight + res.bodyFat + res.muscleMass + res.steps + res.sleep + res.restingHR + res.hrMatched)
+        + (res.fitnessLinked ? ' · ' + t('{0} watch workouts linked', res.fitnessLinked) : '')
       : isBW ? t('{0} weigh-ins imported', res.added) : t('{0} workouts imported', res.added))
     celebrateBadges(newBadges)
   }
@@ -598,8 +602,9 @@ export function importFromApp(file, onDone) {
     let parsed
     // maxHR (220 - age) drives the heart-rate-zone split for any workout a Health export's
     // continuous HR data overlaps — left null (zones simply not computed) if birthDate is unset.
-    const age = ageFrom(S().birthDate)
-    try { parsed = parseImport(String(rd.result), { unit: S().unit, workouts: S().workouts, maxHR: age ? 220 - age : null }) }
+    // Health V2: the member's own max HR (Settings → Training) wins over the 220 − age estimate.
+    const maxHR = maxHrFor(S(), ageFrom)?.value || null
+    try { parsed = parseImport(String(rd.result), { unit: S().unit, workouts: S().workouts, maxHR }) }
     catch (e) { toast(t('Could not read that file')); return }
     if (parsed.error === 'empty') { toast(t('That file is empty')); return }
     if (parsed.error) { toast(t("That file's columns aren't recognised — see the docs for supported apps.")); return }
@@ -1546,12 +1551,16 @@ function DayHealthSummary({ d, S }) {
   return <div className="small dim" style={{ marginBottom: 14 }}>{t('That day:')} {parts.join(' · ')}</div>
 }
 
-function WorkoutDetail({ w, close }) {
+function WorkoutDetail({ w: w0, close }) {
   const st = useStore(s => s.S)
+  // Read live: unlinking cardio data below changes the stored workout while this is open.
+  const w = st.workouts.find(x => x.id === w0.id) || w0
   return <>
     <h3>{w.name}</h3>
     <div className="muted small" style={{ marginBottom: 12 }}>{[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, st.unit), ...(w.bw ? [fmtNum(w.bw) + ' ' + st.unit] : [])].join(' · ')}</div>
-    {w.hrZones && <HRZoneBar hrZones={w.hrZones} />}
+    {/* Cardio data from a real source (Health V2 / Fitness V1), apart from the strength log. A
+        workout with only the legacy Apple-Health HR summary shows it through the same view. */}
+    {fitnessOf(w) ? <FitnessSummary w={w} /> : w.hrZones && <HRZoneBar hrZones={w.hrZones} />}
     <DayHealthSummary d={w.d} S={st} />
     {w.entries.map((e, i) => {
       const ex = EXIDX[e.id]
@@ -2323,6 +2332,11 @@ function doFinishWorkout() {
     prs
   }
   w.vol = workoutVolume(w)
+  // A Bluetooth heart-rate sensor read during this session (lib/ble-hr.js): its measured summary
+  // (avg/max and 2J-derived zones — never a stream) becomes the workout's cardio record, and the
+  // sensor is released. Nothing happens for a session without one.
+  const hr = finishHeartRate(A.id)
+  if (hr) attachFitness(w, { source: 'ble', kind: 'measured', start: w.start, end: w.end, avgHr: hr.avgHr, maxHr: hr.maxHr, zones: hr.zones, importedAt: Date.now() })
   // Resolve mid-session swaps (Workout.jsx's `replaceExercise`) against the CURRENT entry ids —
   // A.swaps holds each slot's original id, keyed by position; if that slot still differs from
   // its original, it's a real swap worth asking about below.

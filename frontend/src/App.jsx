@@ -41,6 +41,7 @@ import BunkerLaunch from './views/BunkerLaunch.jsx'
 import BunkerAdminPage from './views/BunkerAdminPage.jsx'
 import Badges from './views/Badges.jsx'
 import Mi2J from './views/Mi2J.jsx'
+import HealthIntegrations from './views/HealthIntegrations.jsx'
 import Records from './views/Records.jsx'
 import { showPendingCelebration } from './sheets.jsx'
 import Profile from './views/Profile.jsx'
@@ -217,6 +218,7 @@ function Shell() {
               <Route path="/measurements/folds" element={<SkinfoldsScreen />} />
               <Route path="/measurements/body" element={<BodyMeasurementsScreen />} />
               <Route path="/health" element={<Health />} />
+              <Route path="/health/integrations" element={<HealthIntegrations />} />
               <Route path="/recovery" element={<Recovery />} />
               <Route path="/rank" element={<Rank />} />
               <Route path="/badges" element={<Badges />} />

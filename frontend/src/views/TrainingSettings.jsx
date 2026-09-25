@@ -91,6 +91,15 @@ export default function TrainingSettings() {
       </Row>
     </Section>
 
+    <Section title={t('Check-in and heart rate')} footer={t('The check-in is a few taps before training, never required. Max heart rate is only used to split heart-rate data into zones; without it 2J uses the 220 − age estimate and says so.')}>
+      <SelectRow icon="heart" iconTint="var(--pink)" title={t('Pre-workout check-in')}
+        value={['ask', 'sometimes', 'off'].includes(S.checkinMode) ? S.checkinMode : 'sometimes'} onChange={v => set('checkinMode', v)}
+        options={[{ value: 'ask', label: t('Before every workout') }, { value: 'sometimes', label: t('Now and then') }, { value: 'off', label: t('Never') }]} />
+      <SelectRow icon="heart" iconTint="var(--red)" title={t('Max heart rate')}
+        value={S.hrMax > 0 ? S.hrMax : 0} onChange={v => set('hrMax', v > 0 ? v : null)}
+        options={[{ value: 0, label: t('Estimate (220 − age)') }, ...Array.from({ length: 51 }, (_, i) => 160 + i).map(v => ({ value: v, label: v + ' ' + t('bpm') }))]} />
+    </Section>
+
     <Section title={t('Progression')}>
       <Row icon="arrowUp" iconTint="var(--green)" title={t('Progression assistant')}
         subtitle={t('Before each exercise, suggests keeping, adding reps or weight from your real sessions — and says why. You decide.')}>

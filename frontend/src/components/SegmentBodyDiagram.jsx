@@ -26,7 +26,7 @@ function displayMuscle(S, muscleKey, entry) {
 // and chest/abs bounding boxes, via getBBox in a throwaway render) — not eyeballed — hand-tuned
 // only for the trunk label, routed out to the right instead of straight down, which is the one
 // direction that doesn't cross the legs starting to splay from the hip.
-const ZONES = [
+export const ZONES = [
   { fatKey: 'segFatArmL', muscleKey: 'segMuscleArmL', dot: [170, 595], via: [60, 595], label: [15, 552], anchor: 'start' },
   { fatKey: 'segFatArmR', muscleKey: 'segMuscleArmR', dot: [560, 595], via: [670, 595], label: [712, 552], anchor: 'end' },
   { fatKey: 'segFatTrunk', muscleKey: 'segMuscleTrunk', dot: [364, 470], via: [600, 470], label: [712, 812], anchor: 'end' },

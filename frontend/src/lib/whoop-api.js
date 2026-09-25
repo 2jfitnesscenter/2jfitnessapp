@@ -5,3 +5,5 @@ export const connectWhoop = () => { window.location.href = '/api/whoop/authorize
 export const disconnectWhoop = () => api('/api/whoop/disconnect', { method: 'POST', body: '{}' })
 export const fetchWhoopRecovery = () => api('/api/whoop/recovery')
 export const fetchWhoopSleep = () => api('/api/whoop/sleep')
+// Recent WHOOP workouts (read-only) for lib/fitness.js to map and match — Health V2 / Fitness V1.
+export const fetchWhoopWorkouts = (days = 30) => api('/api/whoop/workouts?days=' + days)

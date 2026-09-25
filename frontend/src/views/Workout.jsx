@@ -5,7 +5,7 @@ import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
 import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, effortOf, feelFor, effortColor, EFFORT_COLOR_VAR, fmtSec } from '../lib/history.js'
 import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
-import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
+import { fmtNum, fmtDate, todayISO, exCount, DAYN, ageFrom } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t, nameFor, instrFor } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
@@ -25,6 +25,38 @@ import { workoutPrefs } from '../lib/workout-prefs.js'
 import { fieldsFor, currentSetIdx, nextInUnit, platesApply, barFor } from '../lib/set-entry.js'
 import { plateBreakdown, BARBELL_TYPES, DEFAULT_AVAILABLE_KG } from '../components/BarbellPlates.jsx'
 import RpVolumeBar from '../components/RpVolumeBar.jsx'
+import CheckInCard from '../components/CheckInCard.jsx'
+import { checkinOn, checkinAdvice, shouldAskCheckin, PAIN_ZONE } from '../lib/checkin.js'
+import { bleSupported, useHR, connectHeartRate, reconnectHeartRate, disconnectHeartRate } from '../lib/ble-hr.js'
+import { maxHrFor, zoneCuts, bandFor } from '../lib/fitness.js'
+
+// Today's check-in, next to the exercise it concerns — words only: nothing about the load, the
+// exercise or the routine changes because of it (the member or trainer decides).
+function CheckinNote({ S, ex }) {
+  const advice = checkinAdvice(checkinOn(S), ex)
+  if (!advice) return null
+  return <>
+    {advice.zones.length > 0 && <div className="progline warn ci-advice"><Icon name="info" />
+      <span>{t('You said you have discomfort in: {0}. Review this exercise before continuing.', advice.zones.map(z => t(PAIN_ZONE[z].label).toLowerCase()).join(', '))}</span></div>}
+    {advice.tired && <div className="progline warn ci-advice"><Icon name="info" />
+      <span>{t('You said you are tired and slept little: today you could keep the load.')}</span></div>}
+  </>
+}
+
+// Live heart rate from a Bluetooth sensor — offered only where the browser supports it (Chrome
+// on Android/desktop), never on iPhone, and only after an explicit tap.
+function HeartRateLive({ S, workoutId }) {
+  const { status, bpm } = useHR()
+  if (!bleSupported()) return null
+  const max = maxHrFor(S, ageFrom)?.value
+  const zone = bpm && max ? bandFor(bpm, zoneCuts(max)) + 1 : null
+  if (status === 'live' && bpm) return <button className="hr-pill live" onClick={disconnectHeartRate} aria-label={t('Heart rate {0} bpm. Tap to disconnect the sensor.', bpm)}>
+    <Icon name="heart" /><b>{bpm}</b> <span>{t('bpm')}</span>{zone && <em>Z{zone}</em>}</button>
+  if (status === 'lost') return <button className="hr-pill lost" onClick={reconnectHeartRate}><Icon name="heart" />{t('Sensor lost · Reconnect')}</button>
+  if (status === 'connecting') return <span className="hr-pill"><Icon name="heart" />{t('Connecting…')}</span>
+  return <button className="hr-pill" onClick={() => connectHeartRate(workoutId, max)} title={t('Experimental · works on this device')}>
+    <Icon name="heart" />{status === 'denied' ? t('Bluetooth not allowed') : t('HR sensor')}</button>
+}
 
 /* ---------- start chooser (no active workout) ---------- */
 function StartChooser() {
@@ -294,6 +326,7 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, prefs, onToggle
       <Icon name={plan.kind === 'up' ? 'arrowUp' : plan.kind === 'deload' ? 'arrowDown' : 'lightbulb'} />
       <span>{t(...plan.why)}</span>
     </div>}
+    <CheckinNote S={S} ex={ex} />
     {rec && <RecommendationCard rec={rec} unit={S.unit} onAccept={() => onRec(true)} onKeep={() => onRec(false)} />}
     {plateAt >= 0 && <div className="exercise-target-row">
       <button className="exercise-plates-btn" aria-label={t('Plate breakdown')} onClick={() => onPlates(plateAt)}>
@@ -387,6 +420,7 @@ function SimpleExercise({ entryIdx, unitEntries, ssInfo, prefs, onToggle, onPad,
       {/* the trainer's note sits above the set — it is part of what to do right now */}
       <ExerciseCues entry={entry} ex={ex} prefs={prefs} only="note" />
     </div>
+    <CheckinNote S={S} ex={ex} />
     {rec && <RecommendationCard rec={rec} unit={S.unit} onAccept={() => onRec(true)} onKeep={() => onRec(false)} />}
 
     <div className={'sset' + (warm ? ' warm' : '') + (set.done ? ' done' : '')}>
@@ -635,7 +669,7 @@ function ActiveWorkout() {
       <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => {
         const id = A.id
         update(s => { s.active = null })
-        stopRest(); nav('/home')
+        stopRest(); disconnectHeartRate(); nav('/home')
         // The local mutation above only clears this device's view; the server keeps S.active for
         // the Bunker until this explicit clear (see useStore.js's clearActiveOnServer).
         useStore.getState().clearActiveOnServer(id)
@@ -645,9 +679,14 @@ function ActiveWorkout() {
     </div>
     <div className="wprog" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
 
+    {/* Pre-workout check-in (Health V2): offered before the first set only, per the member's
+        setting, skippable in one tap — the session works the same either way. */}
+    {!A.past && done === 0 && shouldAskCheckin(S, { past: A.past }) && <CheckInCard compact />}
+
     {A.entries.length ? <>
       <div className="wbar">
         <div className="muted small">{isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
+        {!A.past && <HeartRateLive S={S} workoutId={A.id} />}
         {/* Two presentations of the same session — switching never touches S.active. */}
         <Segmented className="seg-inline wview" value={prefs.view}
           options={[{ value: 'simple', label: t('Simple') }, { value: 'detailed', label: t('Detailed') }]}
