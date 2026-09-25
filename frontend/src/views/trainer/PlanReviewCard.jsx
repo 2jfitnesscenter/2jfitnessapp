@@ -8,6 +8,7 @@ import { applyPendingChoice } from '../../lib/routine-scan.js'
 import { Button, Check, Switch } from '../../components/ui.jsx'
 import PendingExerciseChoices from '../../components/PendingExerciseChoices.jsx'
 import Topbar from './Topbar.jsx'
+import { AiProtocolNote } from '../../components/constructor/parts.jsx'
 
 // A proposed plan bundle {name, summary?, basedOn?, routines:[{id,name,emoji,ex,why?}], week,
 // customEx, pendingChoices?} — same shape whether it came from the AI-generate job
@@ -54,6 +55,7 @@ export default function PlanReviewCard({ memberId, bundle: initialBundle, onBack
 
   return <div id="trainer-app">
     <Topbar title={t('Review the draft')} onBack={onBack} />
+    <AiProtocolNote protocol={b.protocol} />
 
     {!!b.summary && <div className="card"><div className="muted small" style={{ lineHeight: 1.55 }}>{b.summary}</div>
       {!!b.basedOn && <div className="dim small" style={{ marginTop: 8 }}>{b.basedOn}</div>}</div>}

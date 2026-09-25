@@ -78,7 +78,7 @@ export function gatePlan(bundle, ctx) {
   return {
     ok: true,
     bundle: { ...bundle, protocol: { v: PROTOCOL_VERSION, goal: ctx.goal, level: ctx.level, result: v.result,
-      reasons: v.issues.filter(i => i.severity === 'reason').map(i => ({ code: i.code, message: i.message, reason: i.reason })) } },
+      reasons: v.issues.filter(i => i.severity === 'reason').map(i => ({ code: i.code, params: i.params, message: i.message, reason: i.reason, reasonGiven: i.reasonGiven })) } },
   };
 }
 

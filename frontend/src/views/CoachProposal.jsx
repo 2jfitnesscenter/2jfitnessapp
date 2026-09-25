@@ -8,6 +8,7 @@ import { exLine } from '../lib/history.js'
 import { loadOfRoutine, muscleOptsOf } from '../lib/muscles.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
+import { AiProtocolNote } from '../components/constructor/parts.jsx'
 import {
   markStale, applicable, applyChangeSet, applyCreatedPlan, recordDismissal,
   changeTitle, changeValues, exName, coachAvailable
@@ -84,6 +85,7 @@ function CreatedPlan({ p, S, update, toast, nav, refresh }) {
 
     {!!b.summary && <div className="card"><div className="muted small" style={{ lineHeight: 1.55 }}>{b.summary}</div>
       {!!b.basedOn && <div className="dim small" style={{ marginTop: 8 }}>{b.basedOn}</div>}</div>}
+    <AiProtocolNote protocol={b.protocol} />
 
     {b.routines.map(r => <div key={r.id} className="card">
       <div className="row between" style={{ marginBottom: 4 }}>

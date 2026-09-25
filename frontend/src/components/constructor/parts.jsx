@@ -76,3 +76,10 @@ export function ProtocolReport({ v, dense }) {
     </>}
   </div>
 }
+
+/** The protocol verdict an AI proposal arrived with (api/coach/protocol-gate.js). */
+export function AiProtocolNote({ protocol }) {
+  if (!protocol) return null
+  const v = { result: protocol.result, version: protocol.v, issues: (protocol.reasons || []).map(r => ({ ...r, severity: 'reason' })) }
+  return <div className="cx-ainote"><ProtocolReport v={v} dense /></div>
+}
