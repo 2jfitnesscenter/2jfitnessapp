@@ -2755,4 +2755,6 @@ export default {
   'Equipment expected back before this is trained.': 'Se espera que el equipamiento vuelva antes de entrenarlo.',
   // Constructor V2 — context-specific labels
   'Novice': 'Iniciado',
+  // Constructor V2 — training goal
+  'Training goal': 'Objetivo',
 }

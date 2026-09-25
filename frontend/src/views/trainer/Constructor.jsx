@@ -52,7 +52,7 @@ function SaveAsBlockSheet({ entries, meta, ctx, close }) {
     <p className="dim small">{t('A personal block in your library. The day keeps its own copy.')}</p>
     <label className="cx-field"><span>{t('Name')}</span><input className="input" maxLength={60} value={f.name} onChange={e => setF(x => ({ ...x, name: e.target.value }))} placeholder={t('e.g. Glutes · my Monday')} /></label>
     <div className="cx-form-row">
-      {field('goal', t('Goal'), GOALS.map(g => <option key={g} value={g}>{t(GOAL_LABEL[g])}</option>))}
+      {field('goal', t('Training goal'), GOALS.map(g => <option key={g} value={g}>{t(GOAL_LABEL[g])}</option>))}
       {field('level', t('Level'), LEVELS.map(l => <option key={l} value={l}>{t(LEVEL_LABEL[l])}</option>))}
       {field('focus', t('Muscle / pattern'), [<option key="" value="">—</option>, ...FOCUS.map(x => <option key={x} value={x}>{t(FOCUS_LABEL[x])}</option>)])}
     </div>
@@ -199,7 +199,7 @@ export default function Constructor() {
       <input className="cx-title" value={titleValue} aria-label={p.routineOnly ? t('Routine name') : t('Program name')}
         onChange={e => p.routineOnly ? patchDay({ ...day, name: e.target.value }) : setP(c => ({ ...c, name: e.target.value }))} />
       <div className="cx-top-meta">
-        <select className="cx-chipselect" value={ctx.goal} onChange={e => setMeta({ goal: e.target.value })} aria-label={t('Goal')}>
+        <select className="cx-chipselect" value={ctx.goal} onChange={e => setMeta({ goal: e.target.value })} aria-label={t('Training goal')}>
           {GOALS.map(g => <option key={g} value={g}>{t(GOAL_LABEL[g])}</option>)}</select>
         <select className="cx-chipselect" value={ctx.level} onChange={e => setMeta({ level: e.target.value })} aria-label={t('Level')}>
           {LEVELS.map(l => <option key={l} value={l}>{t(LEVEL_LABEL[l])}</option>)}</select>

@@ -137,7 +137,7 @@ export default function Library({ onAdd, extraActions, defaults = {}, full }) {
       <input id="cx-lib-search" className="input" type="search" placeholder={t('Search: glutes advanced, chest strength, 20 min…')} value={q} onChange={e => setQ(e.target.value)} aria-label={t('Search blocks')} />
     </div>
     <div className="cx-filters">
-      {sel(goal, setGoal, GOALS.map(g => ({ v: g, l: t(GOAL_LABEL[g]) })), t('Goal'), t('Any goal'))}
+      {sel(goal, setGoal, GOALS.map(g => ({ v: g, l: t(GOAL_LABEL[g]) })), t('Training goal'), t('Any goal'))}
       {sel(level, setLevel, LEVELS.map(l => ({ v: l, l: t(LEVEL_LABEL[l]) })), t('Level'), t('Any level'))}
       {sel(focus, setFocus, FOCUS.map(f => ({ v: f, l: t(FOCUS_LABEL[f]) })), t('Muscle / pattern'), t('Any muscle'))}
       <button className={'cx-more' + (more ? ' on' : '')} aria-expanded={more} onClick={() => setMore(x => !x)}><Icon name="list" />{t('More')}</button>

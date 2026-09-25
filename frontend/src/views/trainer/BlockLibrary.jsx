@@ -91,7 +91,7 @@ export function BlockEditor() {
       <aside className="cx-side static">
         <div className="cx-form">
           <div className="cx-form-row">
-            {sel('goal', t('Goal'), GOALS.map(g => <option key={g} value={g}>{t(GOAL_LABEL[g])}</option>))}
+            {sel('goal', t('Training goal'), GOALS.map(g => <option key={g} value={g}>{t(GOAL_LABEL[g])}</option>))}
             {sel('level', t('Level'), LEVELS.map(l => <option key={l} value={l}>{t(LEVEL_LABEL[l])}</option>))}
           </div>
           <div className="cx-form-row">
