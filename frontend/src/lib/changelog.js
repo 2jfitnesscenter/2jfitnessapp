@@ -11,8 +11,14 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Guided blocks: circuits, intervals, HIIT, Tabata and mobility run with a timer inside your workout',
+      'The block library can switch between a grid and a compact list',
+      '2J suggestions point out areas with little direct work and offer compatible blocks',
+      'Barbell hip thrust is now in the exercise library under its own name',
+      'The Bunker uses the rest your trainer prescribed, with a ring that matches it',
+      'Body composition now lives only in Profile → Health / Measurements',
       'Constructor V2 for trainers: build programs by day and block, then edit every exercise',
-      'An official library of 112 blocks built and validated under the 2J Training Protocol v1.0',
+      'An official library of 118 blocks built and validated under the 2J Training Protocol v1.0',
       'Every routine, block and AI plan is checked against the 2J protocol, with the reason when it steps outside',
       'The trainer’s rest per exercise and the planned 2J effort now show in your workout',
       'Health: “Your physical evolution” — real readings with their source, ranges from 1 month to all time, and A/B comparisons',

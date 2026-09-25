@@ -3,9 +3,50 @@
 > Punto de traspaso entre agentes (Claude Code / Codex). Resumen operativo, no sustituye
 > inspeccionar el repo — ver "Protocolo de relevo" al final.
 
-## SPRINT CONSTRUCTOR V2 + PROTOCOLO MAESTRO 2J V1 — 2026-09-25 (NO DESPLEGADO)
+## SPRINT CONSTRUCTOR V2.1 — BLOQUES GUIADOS + UX + DESCANSO BUNKER — 2026-09-25 (NO DESPLEGADO)
 
-Producción: `81e60e23179b8dc7ed0ead9d3df23f9dd04412d1` (Health V2, desplegado y estable).
+Producción: `d0920b8473285aad560d991b730f8e41efdc7045` (Constructor V2 + Protocolo 2J v1.0).
+El runner `deploy-d0920b8.ps1` **no sirve** para este sprint: su probe exige 112 bloques.
+
+### Qué hay
+
+| Tema | Dónde | Notas |
+|---|---|---|
+| Inicio sin composición corporal | `views/Home.jsx` | Sigue en Perfil → Salud / Mediciones; datos intactos |
+| Biblioteca cuadrícula/lista | `components/constructor/Library.jsx` (`BlockRow`, `readLibView`) | `localStorage cx_lib_view:<uid>`; nunca Sync; container queries (≥720 px = columnas) |
+| Modelo temporal | `lib/protocol/blocks.js`: `sanitizeTiming`, `applyTiming`, `guidedSeconds`, `TIMING_PRESETS` | `timing` en `routine.blocks[]` y en bloques maestros; rondas = series |
+| Ejecutor | `lib/guided.js` (puro) + `components/GuidedRunner.jsx` | Integrado en `views/Workout.jsx`; estado en `S.active.guided` |
+| Historial | `w.guided` (resumen por bloque) + `components/GuidedSummary.jsx` | Sin datos por segundo |
+| Editor de temporización | `components/constructor/DayCanvas.jsx` (`TimingSheet`, `setSegmentTiming`) | Circuito/HIIT/Tabata/Intervalos/Movilidad |
+| Recomendador | `lib/block-suggest.js` + `components/constructor/Suggestions.jsx` | Usa `validation.stats.weeklySets` (series directas) |
+| Descanso Bunker | `lib/bunker-workout.js` `bunkerRestSec` + `views/Bunker.jsx` | `restSec` en board; fallback 90 s |
+| Hip thrust | `0058` renombrado (EN/ES), alias import, curado en `catalog.js` | No es registro nuevo |
+
+### Decisiones
+
+- **Un solo modelo:** un bloque guiado son entradas normales del día; `timing` solo marca el ritmo. `S.active.guidedBlocks` (snapshot al empezar), `S.active.guided` (`endsAt` absoluto, se escribe solo en cambios de fase, nunca por tick; local, Sync V2 no toma `active`), `S.active.guidedLog` → `w.guided`.
+- **Fondo/bloqueo/recarga:** `catchUp()` completa en orden los pasos cuyo `endsAt` pasó, cronometrando cada siguiente desde que terminó el anterior; se para en un paso por repeticiones o en pausa; cuenta `background` solo si terminó >2 s antes.
+- **Protocolo (sigue v1.0):** nueva heurística `2J-HEU-INTERVAL-ROUNDS`. En intervalos/HIIT un trabajo con tiempo es una ronda (1–10, `rounds_outside_allowed`) y no cuenta como serie directa; la movilidad nunca cuenta. El validador recibe `blockTypes` (`blockTypesOf(routine.blocks)`) en Constructor, `enforcePlanPolicy` (API) y la puerta IA. `BLOCK_TYPES_READY` = todos.
+- **Biblioteca oficial:** 112 → 118 (+6 guiados). Solo 2 bloques de glúteo cambiados (1409 → 0058) con `seedVersion` 2 por bloque (`REVISIONS` en la matriz). 7 estiramientos curados sin grupo (no son volumen).
+- **IA:** `compatibleOfficial` expone `type`/`timing`; `create.md` explica que los guiados se eligen por id. Política FAIL → reparar/descartar sin cambios.
+- **Bunker:** no es ejecutor guiado; muestra un aviso en entradas de bloques guiados y descansa lo que marca su `timing` entre rondas.
+- **Fix previo:** el Constructor marcaba todos los días como "sin guardar" al abrir (`newDay` pisaba `dirty:false`).
+
+### Límites
+
+- En segundo plano el navegador suspende audio/vibración: no hay push de "fin de intervalo" (solo el catch-up al volver).
+- Bunker no ejecuta bloques guiados (registro serie a serie).
+- El recomendador solo mira series directas; no modela volumen indirecto ni duración por día.
+- Estiramientos no curados siguen sin verificarse frente a restricciones.
+
+### Tests del sprint
+
+- Frontend: 767 → 814. Nuevos: `lib/guided.test.js`, `lib/protocol/guided-protocol.test.js`, `lib/block-suggest.test.js`, `components/constructor/constructor-v21.test.jsx`, `views/GuidedWorkout.test.jsx`, Bunker en `lib/bunker-workout.test.js`.
+- API: 243 → 248 (`test/constructor-v21.test.js`).
+
+## SPRINT CONSTRUCTOR V2 + PROTOCOLO MAESTRO 2J V1 — 2026-09-25 (DESPLEGADO en `d0920b8`)
+
+Producción previa: `81e60e23179b8dc7ed0ead9d3df23f9dd04412d1` (Health V2).
 
 Commits del sprint, en orden:
 

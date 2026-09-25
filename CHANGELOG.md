@@ -2,9 +2,44 @@
 
 ## Unreleased
 
+### Constructor V2.1 — guided blocks, list view, 2J suggestions and Bunker rest
+
+Not deployed yet. **Protocol revision** (still v1.0, it only widens what was allowed): the new
+heuristic **2J-HEU-INTERVAL-ROUNDS** — see [docs/TRAINING_PROTOCOL_2J.md](docs/TRAINING_PROTOCOL_2J.md).
+No new evidence; docs/EVIDENCE.md is unchanged.
+
+- ⏱️ **Guided blocks.** Circuits, intervals, HIIT, Tabata and mobility now run with a timer
+  inside the normal workout: get ready → work → rest → next → next round → done.
+  - Big countdown ring, current exercise with its image, round and progress, what comes next,
+    pause, ±10 s, skip, finish block. Sound and vibration switches reuse your workout settings.
+  - Survives a refresh, a locked screen or a lost connection: the clock resumes from its end time,
+    and bouts that ended in the background are completed in order and flagged in the summary.
+  - Logged sets are the normal ones — nothing to learn, and you can still log by hand.
+  - The finished workout keeps a short summary per block: type, pace, rounds, bouts done, time,
+    and any adjustments or skips. No second-by-second data.
+- 🧭 **Guided timing in the builder.** Any block or group of exercises can be run as a circuit,
+  HIIT, Tabata (20/10 × 8 to start, every number editable), intervals or mobility, with
+  countdown, work, rest, rounds and rest between rounds.
+- 📚 **Six official guided blocks** (the library now has 118): a beginner machine circuit, a core
+  circuit mixing reps and holds, elliptical intervals, a bike Tabata and two mobility flows.
+- 🔲 **Library grid or list.** The block library can switch to a compact list with name, goal,
+  level, variant, exercises, duration, equipment and source. Your choice is remembered on this
+  device.
+- 💡 **2J suggestions.** When a program has a goal and a level, the builder can point out areas
+  with little or no direct work (only direct sets are counted) and show compatible blocks. It
+  never changes the program on its own and can be hidden.
+- 🏋️ **Barbell hip thrust.** It was already in the exercise library under an odd name; it is now
+  "hip thrust con barra", recognised by imports, and used by two official glute blocks. Your
+  glute bridge history is untouched.
+- ⏲️ **Bunker uses the prescribed rest.** The rest after a set is the trainer's rest for that
+  exercise (90 s when there is none), and the ring runs against the real length.
+- 🏠 **Home is lighter.** Body composition no longer repeats on Home; it lives in Profile →
+  Health / Measurements.
+- 🐞 **Fix:** opening a program in the builder no longer marks every day as unsaved.
+
 ### Constructor V2 and the 2J Training Protocol v1.0
 
-Not deployed yet. **Methodology change:** from now on, 2J prescribes training under the
+Deployed on 25 Sep 2026 (`d0920b8`). **Methodology change:** from now on, 2J prescribes training under the
 **2J Training Protocol v1.0** ([docs/TRAINING_PROTOCOL_2J.md](docs/TRAINING_PROTOCOL_2J.md)).
 Its evidence is in [docs/EVIDENCE.md](docs/EVIDENCE.md), with the ACSM 2026 resistance-training
 position stand as the backbone.
