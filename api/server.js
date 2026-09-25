@@ -30,6 +30,8 @@ import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
 import * as whoopConfig from './whoop/config.js';
 import { whoopRoutes } from './whoop/routes.js';
+import { blocksRoutes } from './lib/blocks-routes.js';
+import { sanitizeRoutineBlocks, sanitizePlanMeta } from './lib/plan-meta.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
 
 const PORT = +(process.env.PORT || 3000);
@@ -2328,6 +2330,11 @@ const routes = {
     const existingIdx = body.routineId ? S.routines.findIndex(r => r.id === body.routineId) : -1;
     const routine = { id: existingIdx >= 0 ? body.routineId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'dumbbell').slice(0, 20), ex };
     if (body.prog) routine.prog = String(body.prog).slice(0, 20);
+    // Constructor V2: which blocks the day was built from, and under which goal/level/restrictions.
+    const blocks = sanitizeRoutineBlocks(body.blocks, ex);
+    if (blocks.length) routine.blocks = blocks;
+    const meta = sanitizePlanMeta(body.meta);
+    if (meta) routine.meta = meta;
     if (existingIdx >= 0) {
       snapshotVersionIfChanged(S, 'routineVersions', S.routines[existingIdx], routine);
       S.routines[existingIdx] = routine;
@@ -2364,6 +2371,8 @@ const routes = {
     S.programs = S.programs || [];
     const existingIdx = body.programId ? S.programs.findIndex(p => p.id === body.programId) : -1;
     const program = { id: existingIdx >= 0 ? body.programId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'folder').slice(0, 20), routineIds, week };
+    const programMeta = sanitizePlanMeta(body.meta);
+    if (programMeta) program.meta = programMeta;
     if (existingIdx >= 0) {
       snapshotVersionIfChanged(S, 'programVersions', S.programs[existingIdx], program);
       S.programs[existingIdx] = program;
@@ -2440,7 +2449,9 @@ const routes = {
 
   /* ---------- connected apps: Strava (push workouts), Whoop (pull recovery) ---------- */
   ...stravaRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN }),
-  ...whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN })
+  ...whoopRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN }),
+  /* ---------- Constructor V2: block library (official 2J + personal) ---------- */
+  ...blocksRoutes({ json, readBody, requireTrainer, isAdmin, unavailableEq: () => unavailableEq })
 };
 
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */
