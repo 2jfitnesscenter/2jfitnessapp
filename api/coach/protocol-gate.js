@@ -74,7 +74,11 @@ export function gatePlan(bundle, ctx) {
   const days = (order.length ? order : bundle.routines).map(r => r.ex);
   const v = validateAgainst2JProtocol({ kind: 'program', goal: ctx.goal, level: ctx.level, days, protocolVersion: PROTOCOL_VERSION },
     { lookup: blocks.lookup, restrictions: ctx.restrictions, unavailableEq: ctx.unavailableEq });
-  if (v.result === 'FAIL') return { ok: false, errors: failuresForRepair(v).map(e => 'Protocol 2J: ' + e), validation: v };
+  // A model gets no benefit of the doubt on declared restrictions: an exercise that cannot be
+  // verified against them (outside the curated catalogue) goes back for a verifiable alternative.
+  const unverifiable = v.issues.filter(i => i.code === 'restriction_unverified')
+    .map(i => `Protocol 2J: [restriction_unverified] ${i.message} Use an exercise from the official 2J blocks instead.`);
+  if (v.result === 'FAIL' || unverifiable.length) return { ok: false, errors: [...failuresForRepair(v).map(e => 'Protocol 2J: ' + e), ...unverifiable], validation: v };
   return {
     ok: true,
     bundle: { ...bundle, protocol: { v: PROTOCOL_VERSION, goal: ctx.goal, level: ctx.level, result: v.result,
@@ -113,9 +117,9 @@ export function gateReview(proposal, plan, ctx) {
   const run = routines => validateAgainst2JProtocol({ kind: 'program', goal: ctx.goal, level: ctx.level, days: routines.map(r => r.ex) },
     { lookup: blocks.lookup, restrictions: ctx.restrictions, unavailableEq: ctx.unavailableEq });
   const sig = i => `${i.code}|${i.params.join('|')}`;
-  const before = new Set(run(plan?.routines || []).issues.filter(i => i.severity === 'fail').map(sig));
+  const before = new Set(run(plan?.routines || []).issues.filter(i => i.severity === 'fail' || i.code === 'restriction_unverified').map(sig));
   const after = run(simulate(plan, proposal.changes || []));
-  const introduced = after.issues.filter(i => i.severity === 'fail' && !before.has(sig(i)));
+  const introduced = after.issues.filter(i => (i.severity === 'fail' || i.code === 'restriction_unverified') && !before.has(sig(i)));
   if (introduced.length) return { ok: false, errors: introduced.map(i => `Protocol 2J: [${i.code}] ${i.message}`) };
   return { ok: true, proposal: { ...proposal, protocol: { v: PROTOCOL_VERSION, goal: ctx.goal, level: ctx.level, result: after.result } } };
 }

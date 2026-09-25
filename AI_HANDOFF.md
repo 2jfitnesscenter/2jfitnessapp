@@ -61,7 +61,7 @@ Commits del sprint, en orden:
 
 - **Resultados:** PASS / PASS_WITH_REASON / FAIL. Cada incidencia lleva código, parámetros, regla y evidencia.
 - **Qué revisa:** zonas de repeticiones por clase de ejercicio, series, RPE 2J, descanso por demanda, volumen semanal (solo series directas, sin modelo indirecto), duplicados y redundancia, superseries, orden, equipamiento, restricciones declaradas, tamaño y versión.
-- **Heurística de clasificación:** la del catálogo curado es exacta; la del resto de la biblioteca es legible y está marcada `curated:false`.
+- **Clasificación:** la del catálogo curado es exacta. La del resto de la biblioteca es una inferencia por nombre (`curated:false`) y **nunca da FAIL**: un juicio que dependa de ella pasa a `unverified` (se muestra y no bloquea), y un "con motivo" pasa a nota. Las restricciones sobre ejercicios no curados dan `restriction_unverified`. Los 112 oficiales solo usan ejercicios curados; el build lo exige.
 
 ### IA (`api/coach/protocol-gate.js`)
 
@@ -73,7 +73,12 @@ Commits del sprint, en orden:
 
 ### Decisiones y límites
 
-- **Autoridad:** restricciones > seguridad > protocolo > programa > biblioteca > IA. El entrenador puede guardar un FAIL tras confirmar; la IA no.
+- **Autoridad:** restricciones > seguridad > protocolo > programa > biblioteca > IA.
+- **Política de guardado** (`savePolicy` en el validador; la API la aplica en `member-routine` / `member-program` cuando llega `meta`):
+  - Restricción declarada incumplida por un ejercicio curado: **bloqueado sin override**. Hay que quitar el ejercicio o retirar la restricción.
+  - FAIL metodológico: override consciente con motivo (≥8 caracteres) y confirmación; se guarda en `meta.override`.
+  - IA: un FAIL nunca se guarda (reparación y, si sigue fallando, abortar). Con restricciones, un ejercicio no verificable también va a reparación.
+  - El antiguo "Guardar igualmente" del Constructor (que permitía saltarse restricciones y no guardaba motivo) está eliminado.
 - **Hip thrust:** no hay registro de hip thrust con barra en la biblioteca de ejercicios. Se usa el puente de glúteo con barra (1409) en lugar de inventar un registro.
 - **Equipamiento oficial:** solo el que tiene 2J (sin bandas, kettlebells ni rueda abdominal).
 - **Tipos de bloque sin ejecutor guiado:** circuito, intervalos, HIIT y movilidad existen en el modelo, pero no tienen ejecutor guiado (V2.1). Cardio usa el modo cardio existente.
@@ -93,8 +98,8 @@ Commits del sprint, en orden:
 
 ### Tests del sprint
 
-- Frontend: 727 → 763.
-- API: 229 → 242.
+- Frontend: 727 → 767.
+- API: 229 → 243.
 
 ## SPRINT HEALTH V2 + CHECK-IN + SEGUIMIENTO V2 + FITNESS V1 — 2026-09-25 (DESPLEGADO en `81e60e2`)
 

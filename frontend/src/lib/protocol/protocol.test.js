@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EXIDX } from '../exercises.js'
-import { validateAgainst2JProtocol as validate, prescribe, classify, CATALOG, instantiateBlock, segmentsOf, pruneBlocks,
+import { validateAgainst2JProtocol as validate, savePolicy, prescribe, classify, CATALOG, instantiateBlock, segmentsOf, pruneBlocks,
   filterBlocks, blockTitle, compactProtocol, estimateSeconds, roundMinutes } from './index.js'
 
 const lookup = id => EXIDX[id] || null
@@ -140,4 +140,38 @@ it('the model gets a compact slice, not the whole protocol', () => {
   expect(c.version).toBe('1.0')
   expect(c.rules.some(r => r.id === '2J-RULE-REPS-HYP')).toBe(false)
   expect(JSON.stringify(c).length).toBeLessThan(6000)
+})
+
+// Real library ids that are NOT in the curated catalogue — only a name-based guess exists.
+const SITUP = '0001', DROPJUMP = '3543'
+
+describe('name-based guesses are never presented as certainty', () => {
+  it('an uncurated exercise can warn, but a guessed class never FAILs', () => {
+    expect(classify(SITUP, lookup).curated).toBe(false)
+    const v = V([reps(SITUP, 35, 40)])
+    expect(v.result).not.toBe('FAIL')
+    expect(v.issues[0]).toMatchObject({ severity: 'unverified', code: 'reps_outside_allowed', inferred: true })
+    expect(v.stats.unverified).toBe(1)
+  })
+  it('a restriction on an uncurated exercise is "cannot verify", never a guessed FAIL; a curated one is a FAIL', () => {
+    const guessed = V([reps(DROPJUMP, 3, 5)], {}, { restrictions: ['no-jumps'] })
+    expect(guessed.result).not.toBe('FAIL')
+    expect(codes(guessed)).toContain('restriction_unverified')
+    expect(V([reps(JUMP, 3, 5)], {}, { restrictions: ['no-jumps'] }).issues.find(i => i.code === 'restriction')?.severity).toBe('fail')
+  })
+  it('library facts still count: the 2J scale does not depend on a guess', () => {
+    expect(V([reps(SITUP, 12, 15, { rpe: [7, 7] })]).result).toBe('FAIL')
+  })
+})
+
+describe('manual-save policy', () => {
+  it('restrictions block with no override; methodological FAILs need a reason; unverifiable never blocks', () => {
+    const restr = savePolicy(V([reps(SQUAT, 6, 10)], {}, { restrictions: ['no-deep-knee-flexion'] }))
+    expect(restr).toMatchObject({ needsReason: false, ok: false })
+    expect(restr.blocked.map(i => i.code)).toEqual(['restriction'])
+    const method = savePolicy(V([reps(LEGEXT, 10, 15, { rpe: [10, 10, 10] }), reps(CURL, 10, 12, { rpe: [10, 10, 10] })]))
+    expect(method).toMatchObject({ needsReason: true, ok: false, blocked: [] })
+    expect(savePolicy(V([reps(SITUP, 35, 40)]))).toMatchObject({ ok: true, needsReason: false })
+    expect(savePolicy(V([reps(DROPJUMP, 3, 5)], {}, { restrictions: ['no-jumps'] })).ok).toBe(true)
+  })
 })

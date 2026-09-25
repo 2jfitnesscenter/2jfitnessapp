@@ -17,16 +17,43 @@ import { extractCustomDefs } from '../../lib/exercises.js'
 import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
 import { fetchMemberPlan, fetchTrainerMembers, saveMemberRoutine, saveMemberProgram } from '../../lib/trainer-api.js'
 import { useBlocks, validate, pushRecent } from '../../lib/blocks-api.js'
-import { RESTRICTION_LABEL, instantiateBlock, GOALS, LEVELS, GOAL_LABEL, LEVEL_LABEL, RESTRICTIONS, FOCUS, FOCUS_LABEL, PROTOCOL_VERSION } from '../../lib/protocol/index.js'
+import { RESTRICTION_LABEL, savePolicy, OVERRIDE_REASON_MIN, instantiateBlock, GOALS, LEVELS, GOAL_LABEL, LEVEL_LABEL, RESTRICTIONS, FOCUS, FOCUS_LABEL, PROTOCOL_VERSION } from '../../lib/protocol/index.js'
 import { glyphPicker, confirmSheet, exercisePicker } from '../../sheets.jsx'
 import Library from '../../components/constructor/Library.jsx'
 import DayCanvas, { insertInstance, withEx, prescribedEntry, dayMinutes } from '../../components/constructor/DayCanvas.jsx'
 import { ProtocolPill, ProtocolReport } from '../../components/constructor/parts.jsx'
+import { issueText } from '../../lib/blocks-api.js'
 import Icon from '../../components/Icon.jsx'
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]
 let dayKey = 0
 const newDay = (name, from = {}) => ({ key: 'd' + (++dayKey), id: null, name, emoji: DEFAULT_GLYPH, ex: [], blocks: [], ...from, dirty: true })
+
+/** A declared restriction is broken: no override here — change the plan or the restriction. */
+function BlockedSheet({ issues, close }) {
+  return <div className="cx-form">
+    <h3>{t('This cannot be saved')}</h3>
+    <p className="small">{t('It breaks a restriction declared for this member. Restrictions are never overridden from the builder: remove the exercise, or withdraw the restriction first if it no longer applies.')}</p>
+    <ul className="cx-issues fail">{issues.map((i, k) => <li key={k}>{issueText(i)}</li>)}</ul>
+    <button className="btn primary" onClick={close}>{t('Back to the builder')}</button>
+  </div>
+}
+
+/** A methodological FAIL: the trainer may override it, consciously and with a written reason. */
+function OverrideSheet({ issues, onConfirm, close }) {
+  const [reason, setReason] = useState('')
+  const [sure, setSure] = useState(false)
+  const ok = reason.trim().length >= OVERRIDE_REASON_MIN && sure
+  return <div className="cx-form">
+    <h3>{t('Save outside the 2J protocol?')}</h3>
+    <p className="small">{t('This does not fit the 2J protocol for the chosen goal and level:')}</p>
+    <ul className="cx-issues fail">{issues.map((i, k) => <li key={k}>{issueText(i)}</li>)}</ul>
+    <label className="cx-field"><span>{t('Why this plan is right for this member (saved with it)')}</span>
+      <textarea className="input" rows={3} maxLength={300} value={reason} onChange={e => setReason(e.target.value)} placeholder={t('e.g. Peaking week agreed with the member; back to normal next week.')} /></label>
+    <label className="cx-check"><input type="checkbox" checked={sure} onChange={e => setSure(e.target.checked)} />{t('I understand this is outside the 2J protocol and take responsibility for it.')}</label>
+    <button className="btn danger" disabled={!ok} onClick={() => { close(); onConfirm({ reason: reason.trim(), codes: [...new Set(issues.map(i => i.code))] }) }}>{t('Save with override')}</button>
+  </div>
+}
 
 /** Save-as-block form: name + metadata; the server validates and never stores a FAIL. */
 function SaveAsBlockSheet({ entries, meta, ctx, close }) {
@@ -155,13 +182,13 @@ export default function Constructor() {
     return { ...cur, week }
   })
 
-  const doSave = async () => {
+  const doSave = async (override = null) => {
     if (p.days.some(d => !d.ex.length)) { toast(t('Every day needs at least one exercise.')); return }
     setBusy(true)
     try {
       let sync = plan.sync
       const idByKey = {}
-      const meta = { goal: ctx.goal, level: ctx.level, restrictions }
+      const meta = { goal: ctx.goal, level: ctx.level, restrictions, ...(override ? { override } : {}) }
       for (const d of p.days) {
         if (!d.dirty && d.id) { idByKey[d.key] = d.id; continue }
         const res = await saveMemberRoutine({ sync, memberId, ...(d.id ? { routineId: d.id } : {}), name: (d.name || '').trim() || t('Day'), emoji: d.emoji,
@@ -181,12 +208,14 @@ export default function Constructor() {
     } catch (e) { toast(e.message) }
     setBusy(false)
   }
+  // Manual-save policy (lib/protocol/validator.js savePolicy), over EVERY day, scheduled or not:
+  // restrictions block; a methodological FAIL needs a conscious override with a reason. The
+  // server enforces the same, so nothing here can be skipped by calling the API directly.
   const save = () => {
-    const v = progV || dayV
-    if (v?.result === 'FAIL') confirmSheet({
-      title: t('Save anyway?'), message: t('This does not fit the 2J protocol for the chosen goal and level. As the trainer you can still save it — the member will train exactly what you built.'),
-      confirmText: t('Save anyway'), onConfirm: doSave,
-    })
+    const saveV = validate({ kind: p.routineOnly ? 'routine' : 'program', goal: ctx.goal, level: ctx.level, entries: p.days[0]?.ex || [], days: p.days.map(d => d.ex) }, { restrictions })
+    const pol = savePolicy(saveV)
+    if (pol.blocked.length) openSheet(close => <BlockedSheet issues={pol.blocked} close={close} />)
+    else if (pol.needsReason) openSheet(close => <OverrideSheet issues={pol.override} close={close} onConfirm={o => doSave(o)} />)
     else doSave()
   }
   const dirty = p.days.some(d => d.dirty) || !p.id

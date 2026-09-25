@@ -2,7 +2,8 @@
 // through: official and personal blocks, routines from the builder, and anything a model
 // generates or changes. Same code on the server (api/lib/protocol/, generated copy).
 //
-// Result: PASS            nothing to say
+// Result: PASS            nothing to say ('unverified' issues may still be listed: judgements the
+//                         validator could not make with confidence — shown, never blocking)
 //         PASS_WITH_REASON allowed, but a deliberate choice outside the preferred zone — shown
 //                         with its reason (the one given, or a sensible default)
 //         FAIL            incompatible with the goal/level/restrictions — never saved when it
@@ -42,6 +43,11 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
   const restrictions = (ctx.restrictions || []).filter(r => RESTRICTION_FLAG[r])
   const issues = []
   const add = (sev, code, params = [], where = null) => issues.push(makeIssue(sev, code, params, where, reasons))
+  // A judgement that rests on a name-based guess (an exercise outside the curated catalogue) is
+  // never presented as certain: a would-be FAIL becomes 'unverified' (shown, never blocking) and a
+  // would-be reason becomes a note. Library facts (id, equipment, body part, target) still count.
+  const soft = (sev, ...cs) => cs.every(c => !c || c.curated || c.cardio || !c.known) ? sev : sev === 'fail' ? 'unverified' : sev === 'reason' ? 'note' : sev
+  const addFor = (cs, sev, code, params, where) => { const s = soft(sev, ...cs); const n = issues.length; add(s, code, params, where); if (s !== sev) issues[n].inferred = true }
 
   const days = target.kind === 'program' ? (target.days || []) : [target.entries || []]
   if (!days.length || days.every(d => !d?.length)) add('fail', 'empty')
@@ -68,7 +74,12 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
       const custom = typeof e.id === 'string' && e.id.startsWith('c')
       if (!c.known && !custom) { add('fail', 'unknown_exercise', [e.id], where); return }
       if (c.eq && unavailable.has(c.eq)) add(ctx.official ? 'fail' : 'reason', 'exercise_unavailable', [name], where)
-      for (const r of restrictions) if (c.flags.includes(RESTRICTION_FLAG[r])) add('fail', 'restriction', [name, r], where)
+      // Explicit restrictions: a curated exercise that conflicts is a hard FAIL; one we only know by
+      // name cannot be verified either way and is reported as such — never silently accepted.
+      for (const r of restrictions) {
+        if (c.curated) { if (c.flags.includes(RESTRICTION_FLAG[r])) add('fail', 'restriction', [name, r], where) }
+        else if (!c.cardio && !custom) { const n = issues.length; add('unverified', 'restriction_unverified', [name, r], where); issues[n].inferred = true }
+      }
       const mode = modeOfEntry(e)
       const sets = Math.max(1, Number(e.sets) || 1)
       setCount += sets
@@ -84,9 +95,9 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
         const r = repRange(e), z = zoneFor(c, goal, role)
         if (r && z) {
           const label = r[0] === r[1] ? String(r[0]) : fmtRange(r)
-          if (goal === 'power' && role === 'main' && r[1] > 6) add('fail', 'power_reps', [name], where)
-          else if (outside(r[0], r[1], z.allow)) add('fail', 'reps_outside_allowed', [name, label, goal, fmtRange(z.allow)], where)
-          else if (outside(r[0], r[1], z.pref)) add('reason', 'reps_outside_preferred', [name, label, goal, fmtRange(z.pref)], where)
+          if (goal === 'power' && role === 'main' && r[1] > 6) addFor([c], 'fail', 'power_reps', [name], where)
+          else if (outside(r[0], r[1], z.allow)) addFor([c], 'fail', 'reps_outside_allowed', [name, label, goal, fmtRange(z.allow)], where)
+          else if (outside(r[0], r[1], z.pref)) addFor([c], 'reason', 'reps_outside_preferred', [name, label, goal, fmtRange(z.pref)], where)
         }
       }
       // 2J effort
@@ -97,14 +108,14 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
       workingSets += sets
       if (tens) {
         if (goal === 'power') add('fail', 'rpe10_power', [name], where)
-        else if ((level === 'beginner' || goal === 'beginner') && c.cls === 'compound_free') add('fail', 'rpe10_beginner', [name], where)
-        else if (c.cls === 'compound_free' || role === 'main') add('reason', 'rpe10_technical', [name], where)
+        else if ((level === 'beginner' || goal === 'beginner') && c.cls === 'compound_free') addFor([c], 'fail', 'rpe10_beginner', [name], where)
+        else if (c.cls === 'compound_free' || role === 'main') addFor([c], 'reason', 'rpe10_technical', [name], where)
       }
       // rest (only the last exercise of a superset rests)
       if (e.rest != null && lastInUnit.has(i)) {
         const band = REST[restDemand(c, goal, role)]
         const s = Number(e.rest)
-        if (outside(s, s, band.allow)) add(['heavy', 'power'].includes(restDemand(c, goal, role)) ? 'fail' : 'reason', 'rest_outside_allowed', [name, s, fmtRange(band.allow)], where)
+        if (outside(s, s, band.allow)) addFor([c], ['heavy', 'power'].includes(restDemand(c, goal, role)) ? 'fail' : 'reason', 'rest_outside_allowed', [name, s, fmtRange(band.allow)], where)
         else if (outside(s, s, band.pref)) add('note', 'rest_outside_preferred', [name, s, fmtRange(band.pref)], where)
       }
     })
@@ -120,13 +131,14 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
         if (seen.has(e.id)) add('reason', 'duplicate_exercise', [nameOf(e.id)], { day, index: i, why: e.why })
         else seen.set(e.id, i)
         const k = redundancyKey(c)
-        if (byKey.has(k) && ex[byKey.get(k)].id !== e.id) add('reason', 'redundant_pair', [nameOf(ex[byKey.get(k)].id), nameOf(e.id)], { day, index: i, why: e.why })
+        if (byKey.has(k) && ex[byKey.get(k)].id !== e.id) addFor([c, cls[byKey.get(k)]], 'reason', 'redundant_pair', [nameOf(ex[byKey.get(k)].id), nameOf(e.id)], { day, index: i, why: e.why })
         else if (!byKey.has(k)) byKey.set(k, i)
-        byPattern.set(c.pattern, (byPattern.get(c.pattern) || 0) + 1)
+        byPattern.set(c.pattern, [...(byPattern.get(c.pattern) || []), c])
       }
-      for (const [p, n] of byPattern) {
-        if (n >= 4) add('fail', 'redundant_many', [n, p], { day })
-        else if (n === 3 && !['core-flex', 'curl', 'tri-ext', 'calf', 'lat-raise'].includes(p)) add('reason', 'redundant_many', [n, p], { day })
+      for (const [p, list] of byPattern) {
+        const n = list.length
+        if (n >= 4) addFor(list, 'fail', 'redundant_many', [n, p], { day })
+        else if (n === 3 && !['core-flex', 'curl', 'tri-ext', 'calf', 'lat-raise'].includes(p)) addFor(list, 'reason', 'redundant_many', [n, p], { day })
       }
       const blockSize = idxs.length
       if (target.kind === 'block') {
@@ -147,12 +159,12 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
       for (let a = 0; a < u.length; a++) for (let b = a + 1; b < u.length; b++) {
         const ca = cls[u[a]], cb = cls[u[b]]
         if (ca.cls === 'compound_free' && cb.cls === 'compound_free' && ca.group && ca.group === cb.group)
-          add('reason', 'superset_heavy_same', [nameOf(ex[u[a]].id), nameOf(ex[u[b]].id)], { day, index: u[b], why: ex[u[b]].why })
+          addFor([ca, cb], 'reason', 'superset_heavy_same', [nameOf(ex[u[a]].id), nameOf(ex[u[b]].id)], { day, index: u[b], why: ex[u[b]].why })
       }
     }
     if (goal === 'strength') {
       const main = roles.indexOf('main')
-      if (main > 1) add('reason', 'order_strength', [nameOf(ex[main].id)], { day, index: main, why: ex[main].why })
+      if (main > 1) addFor([cls[main]], 'reason', 'order_strength', [nameOf(ex[main].id)], { day, index: main, why: ex[main].why })
     } else {
       ex.forEach((e, i) => {
         const c = cls[i]
@@ -182,9 +194,25 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
   const result = issues.some(i => i.severity === 'fail') ? 'FAIL' : issues.some(i => i.severity === 'reason') ? 'PASS_WITH_REASON' : 'PASS'
   return {
     result, version: PROTOCOL_VERSION, goal, level, issues,
-    stats: { minutes: roundMinutes(seconds), seconds, exercises: exerciseCount, sets: setCount, weeklySets: weekly },
+    stats: { minutes: roundMinutes(seconds), seconds, exercises: exerciseCount, sets: setCount, weeklySets: weekly, unverified: issues.filter(i => i.severity === 'unverified').length },
   }
 }
 
 /** Compact list for a model's repair round: only what must change, in plain words. */
 export const failuresForRepair = v => v.issues.filter(i => i.severity === 'fail').map(i => `[${i.code}] ${i.message}${i.where?.index != null ? ` (day ${i.where.day}, exercise ${i.where.index})` : ''}`)
+
+/**
+ * What a MANUAL save may do with a validation (trainer builder; the server enforces the same):
+ *   blocked   — explicit restrictions violated by curated exercises: never overridable here;
+ *               the restriction must be withdrawn in the member's context, or the exercise removed.
+ *   override  — methodological FAILs: allowed only with a conscious override and a written reason.
+ *   ok        — nothing that needs either.
+ * AI output never reaches this: any FAIL is repaired or discarded (api/coach/protocol-gate.js).
+ */
+export function savePolicy(v) {
+  const fails = (v?.issues || []).filter(i => i.severity === 'fail')
+  const blocked = fails.filter(i => i.code === 'restriction')
+  const override = fails.filter(i => i.code !== 'restriction' && i.code !== 'empty')
+  return { blocked, override, needsReason: !blocked.length && override.length > 0, ok: !blocked.length && !override.length }
+}
+export const OVERRIDE_REASON_MIN = 8

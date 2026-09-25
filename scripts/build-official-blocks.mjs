@@ -50,6 +50,9 @@ function buildBlock([focus, goal, level, variant, style, exercises, opts = {}]) 
       const s = parseSpec(spec)
       const c = P.classify(s.id, lookup)
       if (!lookup(s.id)) { errors.push(`${id}: unknown exercise ${s.id}`); continue }
+      // Official blocks only use exercises whose taxonomy is curated (lib/protocol/catalog.js) — a
+      // name-based guess is never enough for what the library promises. Cardio is a library fact.
+      if (!c.curated && lookup(s.id).bp !== 'cardio') errors.push(id + ': ' + s.id + ' is not in the curated catalogue')
       if (!GYM_EQ.has(lookup(s.id).eq)) errors.push(`${id}: ${s.id} uses "${lookup(s.id).eq}", not 2J equipment`)
       let e
       if (s.cardio) {
@@ -78,6 +81,7 @@ function buildBlock([focus, goal, level, variant, style, exercises, opts = {}]) 
   }
   Object.assign(block, P.deriveBlockMeta(block, lookup))
   const v = P.validateAgainst2JProtocol({ kind: 'block', goal, level, type, focus, entries: ex, protocolVersion: block.protocolVersion }, { lookup, official: true })
+  if (v.issues.some(i => i.severity === 'unverified')) errors.push(id + ': has checks that could not be verified')
   if (v.result === 'FAIL') errors.push(`${id}: FAIL — ${v.issues.filter(i => i.severity === 'fail').map(i => i.message).join(' | ')}`)
   block.validation = { result: v.result, reasons: v.issues.filter(i => i.severity === 'reason').map(i => ({ code: i.code, reason: i.reason })) }
   return block

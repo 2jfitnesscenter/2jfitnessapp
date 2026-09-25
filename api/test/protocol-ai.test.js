@@ -72,11 +72,21 @@ test('explicit restrictions win over the model and over the library', () => {
   assert.equal(r.ok, false);
   assert.match(r.errors.join(' '), /restriction/);
   assert.equal(gate.expandBlocks({ routines: [{ id: 'r1', blocks: ['off-nope'] }] }).errors.length, 1, 'unknown block ids go to repair');
+  // An exercise the protocol can only guess about is never accepted from a model under a declared
+  // restriction — it goes back for a verifiable alternative (a trainer would only get a warning).
+  const guessed = { name: 'x', routines: [{ id: 'r1', name: 'Jumps', ex: [{ id: '3543', sets: 3, mode: 'reps', reps: 5 }] }], week: { 1: 'r1' } };
+  const g = gate.gatePlan(guessed, { goal: 'general', level: 'intermediate', restrictions: ['no-jumps'], unavailableEq: [] });
+  assert.equal(g.ok, false);
+  assert.match(g.errors.join(' '), /restriction_unverified/);
+  assert.equal(gate.gatePlan(guessed, { goal: 'general', level: 'intermediate', restrictions: [], unavailableEq: [] }).ok, true);
 });
 
 test('a review that would introduce a protocol FAIL is discarded; nothing changes silently', async () => {
   const uid = 'u-review';
-  writeState(DIR, uid, sampleState({ coach: { consent: { agreedAt: new Date().toISOString(), version: 1 }, profile: { goal: 'hypertrophy', daysPerWeek: 3 } } }));
+  // A curated exercise (dumbbell curl): the FAIL is certain. On an uncurated one it would only be
+  // 'unverified' — the validator never fails a plan on a name-based guess.
+  writeState(DIR, uid, sampleState({ coach: { consent: { agreedAt: new Date().toISOString(), version: 1 }, profile: { goal: 'hypertrophy', daysPerWeek: 3 } },
+    routines: [{ id: 'r1', name: 'Arms', emoji: '💪', prog: 'linear', ex: [{ id: '0294', sets: 3, reps: 10, mode: 'reps' }] }] }));
   process.env.FIXTURE_MODE = 'review-protocol-fail';
   jobs.enqueue(uid, { kind: 'review' });
   const s = await settle(uid);

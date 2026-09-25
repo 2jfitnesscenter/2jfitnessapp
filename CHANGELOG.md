@@ -25,6 +25,12 @@ position stand as the backbone.
   scale 4/6/8/10, rest, weekly volume, near-duplicate exercises, supersets, exercise order,
   equipment and declared restrictions.
   - Rule ids 2J-RULE-*, evidence ids 2J-EVD-*.
+  - A restriction declared for a member can never be skipped from the builder: remove the
+    exercise, or withdraw the restriction first.
+  - Any other result that does not fit can only be saved with a conscious override and a written
+    reason, which is stored with the plan. The server enforces both.
+  - Judgements based only on an exercise's name are shown as "could not be verified", never as a
+    failure. The official library uses only curated exercises.
 - 🤖 **AI follows the protocol.** The member Coach and the trainer AI receive the relevant rules
   and reuse official blocks before inventing. A plan that fails the protocol is never shown or
   saved.

@@ -100,4 +100,28 @@ test('a routine keeps its copy of a block and its metadata; Bunker-facing entrie
   assert.deepEqual(routine.ex[0].rpe, [8, 8, 8]);
 });
 
+test('manual-save policy is enforced by the server, not only by the builder', async () => {
+  const save = async (ex, meta) => {
+    const plan = (await req('GET', '/api/trainer/member-plan?id=m1', 't1')).body;
+    return req('POST', '/api/trainer/member-routine', 't1', { memberId: 'm1', sync: plan.sync, name: 'Policy', emoji: 'dumbbell', ex, meta });
+  };
+  const squat = [{ id: '0043', sets: 3, mode: 'reps', reps: 10, targetRepsMin: 6, targetRepsMax: 10, rpe: [8, 8, 8], rest: 150 }];
+  // A declared restriction is never overridable here — not even with an override reason.
+  const restricted = await save(squat, { goal: 'hypertrophy', level: 'intermediate', restrictions: ['no-deep-knee-flexion'], override: { reason: 'I really want to do this anyway', codes: ['restriction'] } });
+  assert.equal(restricted.status, 400);
+  assert.match(restricted.body.error, /restricción declarada/);
+  assert.equal(restricted.body.validation.result, 'FAIL');
+  // A methodological FAIL needs a conscious override with a reason.
+  const allOut = [{ id: '0585', sets: 3, mode: 'reps', reps: 12, rpe: [10, 10, 10] }, { id: '0294', sets: 3, mode: 'reps', reps: 12, rpe: [10, 10, 10] }];
+  assert.equal((await save(allOut, { goal: 'hypertrophy', level: 'intermediate' })).status, 400);
+  assert.equal((await save(allOut, { goal: 'hypertrophy', level: 'intermediate', override: { reason: 'short' } })).status, 400, 'a token reason is not a reason');
+  const ok = await save(allOut, { goal: 'hypertrophy', level: 'intermediate', override: { reason: 'Test week agreed with the member', codes: ['rpe10_all'] } });
+  assert.equal(ok.status, 200);
+  const stored = (await req('GET', '/api/trainer/member-plan?id=m1', 't1')).body.routines.find(r => r.id === ok.body.routineId);
+  assert.equal(stored.meta.override.reason, 'Test week agreed with the member');
+  assert.deepEqual(stored.meta.override.codes, ['rpe10_all']);
+  // Saves without protocol context (older trainer paths) behave as before.
+  assert.equal((await save(allOut, undefined)).status, 200);
+});
+
 test.after(() => { child.kill(); fs.rmSync(dir, { recursive: true, force: true }); });

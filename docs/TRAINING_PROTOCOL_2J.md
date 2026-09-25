@@ -207,8 +207,10 @@ Se evita la redundancia innecesaria.
 ## Dolor, limitaciones y restricciones (2J-RULE-RESTRICTIONS)
 
 - **No se diagnostica.** Las restricciones explícitas del entrenador o del usuario tienen prioridad sobre todo.
-- **Restricciones que la V1 sabe aplicar:** sin saltos, sin flexión profunda de rodilla, sin trabajo por encima de la cabeza, sin carga axial en columna y sin ejercicios en el suelo. Solo se aplican si están declaradas: el validador da FAIL si un ejercicio las incumple.
-- **Límites:** el marcado de cada ejercicio con estas restricciones es una heurística (catálogo más nombre). No se construyen reglas médicas universales a partir de ellas.
+- **Restricciones que la V1 sabe aplicar:** sin saltos, sin flexión profunda de rodilla, sin trabajo por encima de la cabeza, sin carga axial en columna y sin ejercicios en el suelo. Solo se aplican si están declaradas.
+- **Ejercicio del catálogo curado que incumple una restricción declarada:** FAIL. **No admite override desde el constructor** ni desde la API: hay que quitar el ejercicio o retirar antes la restricción del socio.
+- **Ejercicio fuera del catálogo curado:** solo se conoce por su nombre, así que no se puede verificar. Se muestra "no verificable" (`restriction_unverified`) para que el entrenador lo revise, nunca como un FAIL basado en una suposición. A una IA no se le acepta: con restricciones declaradas, debe usar un ejercicio verificable.
+- **Límites:** el marcado de cada ejercicio curado es una decisión 2J revisada, no un dato biomecánico medido. No se construyen reglas médicas universales a partir de ellas.
 - **Texto libre** (por ejemplo, "hernia declarada"): llega a la IA como contexto y el entrenador decide.
 - **Check-in con molestia:** genera un aviso para revisar. **Nunca** elimina ni cambia ejercicios automáticamente.
 
@@ -234,12 +236,22 @@ Se evita la redundancia innecesaria.
 
 **Qué revisa:** objetivo, nivel, restricciones, número de ejercicios, repeticiones, series, RPE, volumen, descanso, equipamiento, IDs, duplicados, redundancia, superseries, orden, duración estimada y versión del protocolo. Cada incidencia lleva la regla y la evidencia que la sostienen.
 
+**Certeza.** Clase, patrón y marcas de restricción solo son fiables en el catálogo curado (`catalog.js`). Para el resto de la biblioteca de ejercicios hay una inferencia legible por nombre y equipamiento que nunca se presenta como certeza:
+
+- Un juicio que dependa de ella y fuera a dar FAIL queda como **no verificable** (`unverified`): se muestra y no bloquea.
+- Si fuera a pedir motivo, queda como nota.
+- Los datos de la propia biblioteca de ejercicios (ID, equipamiento, grupo) y la escala 2J sí cuentan siempre.
+- Los 112 bloques oficiales solo usan ejercicios curados; el build falla si no es así o si queda algo no verificable.
+
 **Qué se hace con cada resultado:**
 
 - **Bloques oficiales:** un FAIL no se publica.
 - **Bloques personales:** un FAIL no se guarda.
-- **Rutinas de un entrenador:** el FAIL se muestra y guardar exige confirmar, porque las decisiones explícitas del entrenador están por encima del protocolo en la jerarquía.
-- **Resultado de una IA:** nunca se guarda un FAIL (véase abajo).
+- **Rutinas de un entrenador** (Constructor V2, aplicado también por la API cuando el guardado lleva contexto del protocolo):
+  - Restricción declarada incumplida: **no se guarda**, sin override.
+  - FAIL metodológico: solo con un **override consciente**. El entrenador ve cada causa, escribe un motivo (mínimo 8 caracteres) y confirma que asume la responsabilidad. Se guarda en `meta.override` como `{reason, codes, at}`. Nunca ocurre en silencio.
+  - No verificable o nota: se muestra y no bloquea.
+- **Resultado de una IA:** un FAIL nunca se guarda ni se aplica. Hay una ronda de reparación y, si sigue fallando, se aborta. Con restricciones declaradas, un ejercicio no verificable también va a reparación (véase abajo).
 
 ## IA
 

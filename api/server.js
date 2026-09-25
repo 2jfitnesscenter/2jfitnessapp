@@ -31,7 +31,7 @@ import { stravaRoutes } from './strava/routes.js';
 import * as whoopConfig from './whoop/config.js';
 import { whoopRoutes } from './whoop/routes.js';
 import { blocksRoutes } from './lib/blocks-routes.js';
-import { sanitizeRoutineBlocks, sanitizePlanMeta } from './lib/plan-meta.js';
+import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy } from './lib/plan-meta.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
 
 const PORT = +(process.env.PORT || 3000);
@@ -2320,6 +2320,10 @@ const routes = {
     const customIds = new Set(customExDefs.map(d => d.id));
     if (ex.some(e => typeof e.id === 'string' && e.id.startsWith('c') && !customIds.has(e.id)))
       return json(res, 400, { error: 'faltan definiciones de uno o más ejercicios personalizados en esta rutina' });
+    // 2J protocol, when the save carries its context (Constructor V2): declared restrictions are
+    // never overridable; a methodological FAIL needs a conscious override with a reason.
+    const policy = enforcePlanPolicy([ex], sanitizePlanMeta(body.meta));
+    if (policy) return json(res, policy.status, { error: policy.error, validation: policy.validation });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
     const replay = trainerReceipt(S, body, 'member-routine');
@@ -2364,6 +2368,8 @@ const routes = {
     if (replay) return json(res, 200, replay);
     const memberRoutineIds = new Set((S.routines || []).map(r => r.id));
     if (routineIds.some(id => !memberRoutineIds.has(id))) return json(res, 400, { error: 'una de las rutinas no pertenece a este miembro' });
+    const programPolicy = enforcePlanPolicy(routineIds.map(id => (S.routines.find(r => r.id === id) || {}).ex || []), sanitizePlanMeta(body.meta));
+    if (programPolicy) return json(res, programPolicy.status, { error: programPolicy.error, validation: programPolicy.validation });
     const week = {};
     if (body.week && typeof body.week === 'object') {
       for (const [d, rid] of Object.entries(body.week)) { if (routineIds.includes(rid)) week[d] = rid; }

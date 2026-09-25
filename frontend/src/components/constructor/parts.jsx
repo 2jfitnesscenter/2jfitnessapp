@@ -65,11 +65,18 @@ export function ProtocolReport({ v, dense }) {
   const fails = v.issues.filter(i => i.severity === 'fail')
   const reasons = v.issues.filter(i => i.severity === 'reason')
   const infos = v.issues.filter(i => i.severity === 'note')
+  // Judgements the validator could not make with confidence (exercise outside the curated
+  // catalogue): stated honestly, never presented as a failure.
+  const unver = v.issues.filter(i => i.severity === 'unverified')
   return <div className={'cx-report' + (dense ? ' dense' : '')}>
     <div className="cx-report-h"><ProtocolPill v={v} /><span className="cx-report-v">v{v.version}</span></div>
     {!v.issues.length && <div className="cx-report-ok">{t('Fits the 2J protocol for this goal and level.')}</div>}
     {fails.length > 0 && <ul className="cx-issues fail">{fails.map((i, k) => <li key={k}>{issueText(i)}</li>)}</ul>}
     {reasons.length > 0 && <ul className="cx-issues why">{reasons.map((i, k) => <li key={k}>{issueText(i)}{reasonText(i) && <em>{t('Reason')}: {reasonText(i)}</em>}</li>)}</ul>}
+    {unver.length > 0 && <>
+      <div className="cx-unver-h">{t('Could not be verified')}</div>
+      <ul className="cx-issues unver">{unver.map((i, k) => <li key={k}>{issueText(i)}</li>)}</ul>
+    </>}
     {infos.length > 0 && <>
       <button className="cx-linkbtn" onClick={() => setNotes(x => !x)}>{notes ? t('Hide notes') : t('{0} notes', infos.length)}</button>
       {notes && <ul className="cx-issues note">{infos.map((i, k) => <li key={k}>{issueText(i)}</li>)}</ul>}

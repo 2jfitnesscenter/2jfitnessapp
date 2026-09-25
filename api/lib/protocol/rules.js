@@ -205,6 +205,7 @@ export const MESSAGES = {
   unknown_exercise: 'Exercise {0} is not in the library.',
   exercise_unavailable: '{0} needs equipment the gym does not have right now.',
   restriction: '{0} conflicts with the declared restriction "{1}".',
+  restriction_unverified: '{0} is not in the curated catalogue: whether it respects "{1}" cannot be verified — check it yourself.',
   reps_outside_allowed: '{0}: {1} reps is outside what {2} allows for this exercise type ({3}).',
   reps_outside_preferred: '{0}: {1} reps is outside the preferred {3} for {2} — fine with a reason.',
   sets_outside_allowed: '{0}: {1} sets is outside the allowed {2}.',
@@ -263,7 +264,7 @@ export const MESSAGE_RULE = {
   redundant_many: '2J-RULE-REDUNDANCY', superset_heavy_same: '2J-RULE-SUPERSET', superset_self: '2J-RULE-SUPERSET',
   order_strength: '2J-RULE-ORDER', order_isolation_first: '2J-RULE-ORDER', volume_high: '2J-RULE-VOLUME',
   volume_absurd: '2J-RULE-VOLUME', volume_low: '2J-RULE-VOLUME', power_reps: '2J-RULE-POWER',
-  restriction: '2J-RULE-RESTRICTIONS', exercise_unavailable: '2J-RULE-RESTRICTIONS',
+  restriction: '2J-RULE-RESTRICTIONS', restriction_unverified: '2J-RULE-RESTRICTIONS', exercise_unavailable: '2J-RULE-RESTRICTIONS',
 }
 
 export function format(template, params = []) {
