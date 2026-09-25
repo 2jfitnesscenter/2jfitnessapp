@@ -1395,6 +1395,23 @@ teclado 2J, Discos contextual, notas/consejos, guía, Ajustes → Entrenamiento 
   usan equipamiento de 0,5 kg (`FINE`); el redondeo a 2J se prueba aparte. Validación: frontend
   653/653, API 222/222, build, locales, diff OK.
 
+## Mi 2J v1.4 — 2026-09-25 (Claude, sin desplegar)
+
+Producción: `4fb9369` (Workout V2 + Offline V1). Commits de este sprint: `773c875` changelog,
+`5603cc2` capa derivada, `c409542` pantallas/eventos, `8fa9e17` tests, y este handoff.
+
+- Fuente de verdad sin cambios: `lib/rank.js` (9 familias × I–III, emblemas
+  `/ranks/*.webp`, 11 ejercicios, global ≥ 6), `S.badges` (42 logros), `w.prs` + `onerm.js`,
+  `streakWeeks`. `lib/mi2j.js` solo deriva; `rank.js` acepta `liftRanks` precalculado.
+- Eventos post-entreno: `postWorkoutEvents(S, workoutId, badgeIds)` (antes = S sin ese
+  workout). Héroe solo para cambio de familia o rango global; resto en un único resumen.
+  Un primer registro no es PR; el rango de un ejercicio se omite si su grupo ya subió.
+- No visto: `lib/celebrations.js`, localStorage `gym_mi2j_pending|seen:<uid>`; no toca S ni
+  Sync V2. Se celebra en el dispositivo que terminó; recap único al reabrir.
+- Rutas nuevas `/mi2j`, `/records`; `/rank` y `/badges` vuelven a Mi 2J.
+- Pendiente: prueba en móvil real; Bunker no celebra (sus datos sí aparecen en Mi 2J).
+- Validación: frontend 673/673 (42 archivos), API 222/222, build, locales, diff OK.
+
 ## Protocolo de relevo
 
 - Git y el código actual son la fuente de verdad.

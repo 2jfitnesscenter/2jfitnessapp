@@ -11,6 +11,8 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Mi 2J: your sporting identity — ranks, achievements, records and constancy in one place',
+      'After a workout: one summary of your records, new ranks and achievements, with a celebration when you reach a new rank family',
       'Workout V2: choose a Simple view (one exercise, big and clean) or a Detailed one (every set at a glance)',
       'A new 2J keypad for weight, reps and RPE, stepping with the gym’s real dumbbells, plates and machines',
       '“Plates” right on barbell sets: what to load on each side, remembering the bar you use',

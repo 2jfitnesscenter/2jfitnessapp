@@ -2305,6 +2305,8 @@ export default {
   '{0} of {1} workouts': '{0} de {1} entrenamientos',
   'Latest step forward': 'Último avance',
   'Close to': 'Cerca de conseguir',
+  'Mi 2J: your sporting identity — ranks, achievements, records and constancy in one place': 'Mi 2J: tu identidad deportiva — rangos, logros, récords y constancia en un solo lugar',
+  'After a workout: one summary of your records, new ranks and achievements, with a celebration when you reach a new rank family': 'Al terminar un entrenamiento: un resumen de tus récords, nuevos rangos y logros, con celebración cuando alcanzas una nueva familia de rango',
   // Changelog — Workout V2 / offline training
   'Workout V2: choose a Simple view (one exercise, big and clean) or a Detailed one (every set at a glance)': 'Entrenamiento V2: elige la vista Simple (un ejercicio, grande y limpio) o la Detallada (todas las series de un vistazo)',
   'A new 2J keypad for weight, reps and RPE, stepping with the gym’s real dumbbells, plates and machines': 'Nuevo teclado 2J para peso, repeticiones y RPE, con los saltos reales de mancuernas, discos y máquinas del gimnasio',
