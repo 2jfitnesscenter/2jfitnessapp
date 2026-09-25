@@ -16,6 +16,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { rpVolumeSnapshot, groupOfTarget } from './rp-volume.js';
 import { ZONES as TRAINING_ZONES } from './training-zones.js';
+import { protocolContext, protocolPayload, readUnavailableEq } from './protocol-gate.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const require_ = createRequire(import.meta.url);
@@ -308,6 +309,10 @@ export function build(S, uid, opts = {}) {
     } : null,
     plan: cleanPlan(S)
   };
+
+  // 2J Training Protocol: only the rules relevant to this goal/level (never the docs), the
+  // explicit restrictions, and official blocks to reuse before inventing (protocol-gate.js).
+  p.protocol = protocolPayload(protocolContext(S, profile, readUnavailableEq()), Array.isArray(S.priorityMuscles) ? S.priorityMuscles : []);
 
   // Weekly Volume Zones (MV/MEV/MAV/MRV per muscle group) — only when the member has this on;
   // the Coach should reason about landmarks a person doesn't have switched on exactly as little

@@ -111,6 +111,19 @@ export function validatePlan(data, ctx = {}) {
       if (isInt(e.repsMin, 1, 100)) clean.repsMin = e.repsMin;
       if (isStr(e.sg)) clean.sg = clampStr(e.sg, 20);
       if (isStr(e.why)) clean.why = clampStr(e.why, 400);
+      // 2J protocol fields (docs/TRAINING_PROTOCOL_2J.md): a rep range, the 2J effort scale
+      // (4/6/8/10 only, per set), prescribed rest, a role, and the block instance it came from.
+      if (clean.mode === 'reps' && isInt(e.targetRepsMin, 1, 100) && isInt(e.targetRepsMax, 1, 100) && e.targetRepsMin <= e.targetRepsMax) {
+        clean.targetRepsMin = e.targetRepsMin; clean.targetRepsMax = e.targetRepsMax; clean.reps = e.targetRepsMax;
+      }
+      if (Array.isArray(e.rpe)) {
+        const rpe = e.rpe.slice(0, 10).map(Number);
+        if (rpe.every(v => [4, 6, 8, 10].includes(v))) clean.rpe = rpe;
+        else errors.push(`${where}.rpe must only use the 2J scale: 4, 6, 8, 10`);
+      }
+      if (isInt(e.rest, 0, 600)) clean.rest = e.rest;
+      if (['main', 'secondary', 'accessory', 'metabolic'].includes(e.role)) clean.role = e.role;
+      if (isStr(e.blk)) clean.blk = clampStr(e.blk, 24);
       ex.push(clean);
     });
     if (!ex.length) errors.push(`routines[${ri}] has no valid exercises`);
@@ -120,6 +133,8 @@ export function validatePlan(data, ctx = {}) {
       emoji: clampStr(r.emoji || '🏋️', 8),
       ...(POLICIES.includes(r.prog) ? { prog: r.prog } : {}),
       ...(isStr(r.why) ? { why: clampStr(r.why, 400) } : {}),
+      // Official blocks the model reused (protocol-gate.js expandBlocks): snapshot labels.
+      ...(Array.isArray(r._blockMeta) && r._blockMeta.length ? { blocks: r._blockMeta } : {}),
       ex
     });
   });

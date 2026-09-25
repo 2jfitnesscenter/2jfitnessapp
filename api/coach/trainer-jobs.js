@@ -23,6 +23,7 @@ import { adapterFor } from './adapters/index.js';
 import * as payloadLib from './payload.js';
 import { buildPrompt, readState } from './jobs.js';
 import { extractJSON, validatePlan, contractOK } from './validate.js';
+import { expandBlocks, gatePlan, ctxFromPayload } from './protocol-gate.js';
 
 export const TIMEOUT_MS = 5 * 60000;
 const MAX_CONCURRENT = 2;
@@ -134,7 +135,11 @@ async function invoke(adapter, payload, jobDir, env, repair) {
   if (parsed.error) return { ok: false, repairable: !repair, errors: [parsed.error], raw: r.text, errorClass: 'unusable' };
   if (!contractOK(parsed.value)) return { ok: false, repairable: !repair, errors: [`coach_contract must be ${payloadLib.CONTRACT}`], raw: r.text, errorClass: 'unusable' };
 
-  const v = validatePlan(parsed.value, { workingWeights: payload.history?.workingWeights, daysPerWeek: payload.coachProfile?.daysPerWeek });
+  const expanded = expandBlocks(parsed.value);
+  let v = expanded.errors.length ? { ok: false, errors: expanded.errors }
+    : validatePlan(expanded.data, { workingWeights: payload.history?.workingWeights, daysPerWeek: payload.coachProfile?.daysPerWeek });
+  // Same 2J protocol gate as the member Coach: a FAIL goes to repair, never to the trainer.
+  if (v.ok) { const g = gatePlan(v.bundle, ctxFromPayload(payload)); v = g.ok ? { ok: true, bundle: g.bundle } : { ok: false, errors: g.errors }; }
   if (!v.ok) return { ok: false, repairable: !repair, errors: v.errors, raw: r.text, errorClass: 'unusable' };
   return { ok: true, bundle: v.bundle };
 }

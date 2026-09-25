@@ -65,3 +65,7 @@ Prefer few, high-conviction changes over many small ones. Never propose more tha
 | `week` | `weekday` | routine id, `"rest"`, or `null` |
 
 `weight` may only appear on an exercise you are **adding** or **swapping in** — never for something they already train. Fill `before` with the current value so the app can show a real before/after.
+
+## Protocol check
+
+Each change you propose is applied to a copy of the plan and validated against `protocol` (reps inside the zone for the exercise class and goal, 2J effort scale 4/6/8/10 only, explicit restrictions, no near-duplicate exercises). A change set that introduces a protocol FAIL the plan did not already have is sent back to you once with the failures, then discarded. Problems that were already in the plan are not yours to be blamed for — but do not make them worse.

@@ -46,6 +46,25 @@ if (MODE === 'nochange' || (kind === 'review' && !(P.window?.workouts || []).len
   out({ coach_contract: 1, nochange: true, reading: 'Not enough new training to read anything into yet — keep logging and ask again in a week.' });
 }
 
+// 2J protocol outcomes: a plan that fails the protocol (every set at RPE 10), one that fails
+// and is repaired, one that reuses an official block, and a review that would break it.
+const protocolFail = MODE === 'protocol-fail' || (MODE === 'protocol-fail-then-valid' && !isRepair);
+if (kind === 'create' && protocolFail) {
+  const id = (P.library || [])[0]?.id || '0294';
+  out({ coach_contract: 1, '2jfitness_plan': 1, name: 'All out', summary: 'Everything to failure.', basedOn: 'n/a', week: { 1: 'r1' },
+    routines: [{ id: 'r1', name: 'Max', emoji: '💥', ex: [{ id, sets: 3, reps: 10, mode: 'reps', rpe: [10, 10, 10] }, { id: (P.library || [])[1]?.id || '0201', sets: 3, reps: 12, mode: 'reps', rpe: [10, 10, 10] }] }], customEx: [] });
+}
+if (kind === 'create' && MODE === 'use-blocks') {
+  const block = (P.protocol?.officialBlocks || [])[0];
+  out({ coach_contract: 1, '2jfitness_plan': 1, name: 'From the 2J library', summary: 'Built from an official 2J block.', basedOn: 'n/a', week: { 1: 'r1' },
+    routines: [{ id: 'r1', name: 'Day A', emoji: '💪', blocks: block ? [block.id] : [], ex: [] }], customEx: [] });
+}
+if (kind === 'review' && MODE === 'review-protocol-fail') {
+  const r = (P.plan?.routines || [])[0], e = r?.ex?.[0];
+  out({ coach_contract: 1, summary: 'Much more.', evidence: {}, notes: [],
+    changes: e ? [{ id: 'c1', type: 'reps', target: { routineId: r.id, exId: e.id }, before: e.reps, after: 60, why: 'More reps.' }] : [] });
+}
+
 if (kind === 'create') {
   const lib = (P.library || []).slice(0, 6);
   const ex = (i) => lib[i % Math.max(1, lib.length)] || { id: 'unknown' };

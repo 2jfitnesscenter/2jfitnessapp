@@ -136,6 +136,8 @@ export function mergePlan(s, bundle, { schedule, asProgram, programName, program
       name: r.name || t('Shared routine'),
       emoji: r.emoji,
       ...(r.prog ? { prog: r.prog } : {}),
+      // Constructor V2 block labels (snapshot metadata for the entries' blk ids), when present.
+      ...(Array.isArray(r.blocks) && r.blocks.length ? { blocks: r.blocks } : {}),
       ex: (r.ex || []).map(e => ({ ...e, id: exIdMap[e.id] || e.id }))
     })
   })

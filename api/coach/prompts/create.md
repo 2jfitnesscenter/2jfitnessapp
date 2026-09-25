@@ -21,18 +21,14 @@ Some things a trainer can do by hand — like a deliberate week-by-week rep tape
 
 - `coachProfile.age`, `sex` and `heightCm` come from their account, not the intake — any of the three may be `null` if they never set it. When present, let them inform exercise selection, starting volume and pacing (e.g. more conservative loading progression and warm-up emphasis for an older lifter, joint-friendly variations where age or limitations suggest it) — never state assumptions about capability from age or sex alone, and never mention them in `why`/`summary` text unless they materially shaped a specific choice.
 - `coachProfile.priorityMuscles` (up to 2) and `secondaryMuscles` (up to 3) are muscle groups the member asked to emphasize, from: `quads`, `glutes`, `hamstrings`, `calves`, `chest`, `back`, `shoulders`, `biceps`, `triceps`, `abs`. Give a `priorityMuscles` entry noticeably more weekly volume than an unlisted muscle — an extra exercise, an extra set, or both, and a dedicated routine of its own on a high-enough day count — `secondaryMuscles` gets a smaller bump, a set or two more than baseline. This is a *bias*, not exclusivity: never drop a muscle group to zero, and never let it crowd out `goal`, `equipment`, `limitations` or `history` — those still decide what's safe and appropriate, priority only decides where the extra volume goes. Both arrays are commonly empty; when they are, give balanced full-body coverage as usual.
-- `coachProfile.goal` sets the default rep range, set count and effort target for the whole plan — deviate per exercise when `history`, `limitations` or an injury reasonably calls for it, but these are the baseline, not a suggestion. There is no schema field for RIR/RPE (sets/reps/weight/time only) — carry the target effort in each exercise's `why` instead (e.g. "3 sets of 6, leave 2 reps in the tank"), so the member sees it even though the app cannot enforce it. Rest between sets is a global app setting, not something this plan sets per exercise — use `sg` (superset) instead to control how dense a session feels:
-  | goal | reps | sets (compound / accessory) | RIR (≈RPE) | notes |
-  |---|---|---|---|---|
-  | `hypertrophy` | 6–12 | 3–4 / 3–4 | 1–3 (7–9) | more exercise variety per muscle group, close to failure on the last set; `double` or `greyskull` progression suits accessories well |
-  | `toning` | 12–20 | 2–3 / 2–3 | 2–4 (6–8) | moderate load, higher reps, shorter rest — visible definition and work capacity over maximal loading |
-  | `fatloss` | 8–15 | 3–4 / 3 | 1–3 (7–9) | keep it resistance training, not cardio circuits — pair accessories with `sg` for density, not lighter loads |
-  | `power` | 1–5 | 4–5 / 3 | 3–5 (5–7) | bar speed is the point, not the burn — stop a set the moment it slows down; longer rest (2–3 min) between sets; favour Olympic-lift variants, jump squats, med-ball throws and other explosive compounds where the library has them |
-  | `plyometrics` | 3–6 | 3–4 / 3 | 3–5 (5–7) | per this gym: plyometrics here means loaded strength moved explosively, not bodyweight jump-contact drills — same barbell/dumbbell compounds as `power`, executed for maximal bar/limb speed on the concentric; generous rest between sets, never taken near failure |
-  | `longevity` | 10–15 | 2–3 / 2–3 | 2–4 (6–8) | joint-friendly variations, balanced full-body coverage across the week, nothing maximal or high-impact |
-  | `padel`/`basketball` | 4–8 (strength) | 3–4 / 2–3 | 2–4 (6–8) | strength work is still the backbone — add rotational-core, lateral/change-of-direction, and technical (not bodyweight-only) plyometric patterns from the library where available; never let sport work replace the compound strength base, only add to it |
-  | `examfitness` | 5–12, mixed with timed/cardio work | 3–4 / 2–3 | 2–4 (6–8) | build toward whatever the target test actually measures (repetitions in a time window, a timed run, a fixed circuit) — pair strength compounds with the timed/cardio modes this schema already supports rather than treating it as pure hypertrophy work |
-- When `rpVolume` is present (see common.md), it governs **how many total weekly sets each muscle group gets** — the table above still sets rep range, RIR and exercise style per goal, but distribute exercises/sets across the week so each group's summed `sets` (via `library[].muscleGroup`) lands in `mev`–`mrvMin` for that group, not just "3-4 sets" repeated identically everywhere regardless of what the member can actually recover from at their level.
+- **The 2J Training Protocol governs the prescription** (`protocol` in the payload: version, goal, level, the relevant rules, rep zones per exercise class, sets, rest bands, the weekly volume envelope and the restrictions). It sits above your judgement: explicit `protocol.restrictions` first, then the protocol, then the existing plan, then the official blocks, then you. Your answer is validated deterministically against it; anything that FAILs comes back to you once with the exact failures, and a second FAIL discards the plan.
+  - **Reps:** stay inside `protocol.reps` for each exercise's class — the *preferred* zone by default; a value only inside *allowed* needs its reason in `why`. Hypertrophy is not "8-12": compound free/technical 5-10, machine compounds 6-12, secondary 8-15, isolation 10-20 are the defaults. Give a range with `targetRepsMin`/`targetRepsMax` (and `repsMin` + `prog: "double"` for double progression) rather than a single number.
+  - **Effort:** prescribe it per set in `rpe` using ONLY the 2J scale 4/6/8/10 (4 comfortable, 6 a bit hard, 8 hard, 10 maximum — no rep left). Mostly 8 for productive work, 6 for early sets and beginners, 10 only selectively (a last set on stable/isolation work) — never every set, never for power, not for beginners on technical lifts. Do not convert it to RIR.
+  - **Rest:** set `rest` (seconds) per exercise from `protocol.rest` by demand (heavy strength 120-300, hypertrophy compounds 120-180, machines 90-150, isolation 60-120, power 120-240, circuits 30-90). In a superset only the last exercise of the pair carries `rest`.
+  - **Reuse 2J curation first:** `protocol.officialBlocks` lists validated official blocks for this goal/level. When one fits a day, put its id in that routine's `blocks` array (they are copied in, in order, before any `ex` you add) instead of rebuilding it exercise by exercise. Only generate from scratch what the library does not cover.
+  - **Selection:** avoid near-duplicates in a day (same pattern, same angle, same laterality under different names — e.g. hip thrust + glute bridge + machine hip thrust). Cover a muscle with different functions instead (hip extension, hinge, knee-dominant/unilateral, abduction for glutes).
+  - Goal notes that still apply on top of the protocol: `fatloss` keeps it resistance training (density with `sg`, never lighter loads or 20-rep circuits by default, no promised fat loss); `power`/`plyometrics` means loaded strength moved explosively, stopped before the reps slow down; `longevity` is joint-friendly but not uselessly light; `padel`/`basketball` keep the compound strength base and add rotational/lateral work; `examfitness` pairs strength with the timed/cardio modes the schema supports.
+- When `rpVolume` is present (see common.md), it governs **how many total weekly sets each muscle group gets** — `protocol` still sets rep zones, effort and exercise style, but distribute exercises/sets across the week so each group's summed `sets` (via `library[].muscleGroup`) lands in `mev`–`mrvMin` for that group, not just "3-4 sets" repeated identically everywhere regardless of what the member can actually recover from at their level.
 - Schedule exactly `coachProfile.daysPerWeek` training days. Use `preferredDays` when given (0 = Sunday … 6 = Saturday).
 - Fit `coachProfile.sessionMin` minutes: roughly 2–3 minutes per straight set including rest. Size *how many exercises* a routine gets from the same number, not just set/rest pacing — as a starting anchor, ~5 exercises for a 30-minute session, ~8 for 60, ~10 for 90, ~12 for 120 (scale linearly between these, adjust down for a lower-volume goal like `power`/`plyometrics` where each set takes longer to execute and rest properly). Reach for supersets (`sg`) whenever the session is on the shorter end (≲45 min) so the exercise count doesn't have to shrink as much to fit — density instead of dropping work, the same lever this app's own quick-plan generator uses for a short session.
 - Only exercises from `library`. Respect `equipment`, `limitations`, and `dislikes` on **every exercise in every routine**, not just the first one you pick — a restriction stated once applies for the whole plan, and a single exercise that violates it makes the whole plan unusable to them. A plan someone will not (or cannot) do is a plan that failed.
@@ -56,12 +52,17 @@ Some things a trainer can do by hand — like a deliberate week-by-week rep tape
       "emoji": "<one emoji>",
       "prog": "linear",
       "why": "<1-2 sentences: what this day is for>",
+      "blocks": ["<optional: official block ids from protocol.officialBlocks, copied in first, in order>"],
       "ex": [
         {
           "id": "<library id>",
           "sets": 3,
           "mode": "reps",
-          "reps": 8,
+          "reps": 10,
+          "targetRepsMin": 8,
+          "targetRepsMax": 10,
+          "rpe": [8, 8, 8],
+          "rest": 150,
           "prog": "linear",
           "inc": 2.5,
           "repsMin": 8,
@@ -77,6 +78,7 @@ Some things a trainer can do by hand — like a deliberate week-by-week rep tape
 
 - `week` keys are weekday numbers as strings, values are `routines[].id` from this same answer.
 - `mode` is `reps` (use `reps`), `time` (use `sec`), or `cardio` (use `min` and `speed`).
+- `rpe` is per set on the 2J scale (4/6/8/10 only); `rest` is seconds after the set (after the pair in a superset); `blocks` may be empty or omitted when nothing in `protocol.officialBlocks` fits.
 - `prog` on a routine is its default; on an exercise it overrides. `inc` is the load step in `meta.unit`; `repsMin` only matters for `double`.
 - `sg`: give two exercises the same short string to superset them. They must be adjacent in the list.
 - `customEx` stays empty unless the library genuinely lacks something the plan needs; then add `{ "id": "cx1", "n": "<name>", "bp": "<body part>", "desc": "<how to do it>" }` and reference `cx1` from a routine.

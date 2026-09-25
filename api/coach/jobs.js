@@ -20,6 +20,7 @@ import * as cfgStore from './config.js';
 import { adapterFor } from './adapters/index.js';
 import * as payloadLib from './payload.js';
 import { extractJSON, validatePlan, validateReview, contractOK } from './validate.js';
+import { expandBlocks, gatePlan, gateReview, ctxFromPayload } from './protocol-gate.js';
 import { readState } from '../lib/state-store.js';
 export { readState };   // re-exported: trainer-jobs.js and cadence.js import it from here
 
@@ -283,9 +284,19 @@ async function invoke(adapter, cfg, payload, jobDir, env, job, repair) {
     return { ok: false, repairable: !repair, errors: [`coach_contract must be ${payloadLib.CONTRACT}`], raw: r.text, errorClass: 'unusable' };
   }
 
-  const v = job.kind === 'review'
-    ? validateReview(parsed.value, payload.plan)
-    : validatePlan(parsed.value, { workingWeights: payload.history?.workingWeights, daysPerWeek: payload.coachProfile?.daysPerWeek });
+  const ctx = ctxFromPayload(payload);
+  let v;
+  if (job.kind === 'review') {
+    v = validateReview(parsed.value, payload.plan);
+    // A review may not introduce a 2J protocol FAIL the plan did not already have.
+    if (v.ok && v.proposal) { const g = gateReview(v.proposal, payload.plan, ctx); v = g.ok ? { ok: true, proposal: g.proposal } : { ok: false, errors: g.errors }; }
+  } else {
+    // Official blocks first (reuse 2J curation), then shape/ids, then the protocol.
+    const expanded = expandBlocks(parsed.value);
+    v = expanded.errors.length ? { ok: false, errors: expanded.errors }
+      : validatePlan(expanded.data, { workingWeights: payload.history?.workingWeights, daysPerWeek: payload.coachProfile?.daysPerWeek });
+    if (v.ok) { const g = gatePlan(v.bundle, ctx); v = g.ok ? { ok: true, bundle: g.bundle } : { ok: false, errors: g.errors }; }
+  }
 
   if (!v.ok) return { ok: false, repairable: !repair, errors: v.errors, raw: r.text, errorClass: 'unusable' };
   if (v.nochange) return { ok: true, nochange: true, reading: v.reading };

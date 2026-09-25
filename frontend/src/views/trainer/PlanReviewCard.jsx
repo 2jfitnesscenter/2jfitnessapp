@@ -33,7 +33,8 @@ export default function PlanReviewCard({ memberId, bundle: initialBundle, onBack
       let sync = (await fetchMemberPlan(memberId)).sync
       for (const r of picked) {
         const customExDefs = (b.customEx || []).filter(c => r.ex.some(e => e.id === c.id))
-        const res = await saveMemberRoutine({ sync, memberId, name: r.name, emoji: r.emoji, ex: r.ex, customExDefs, prog: r.prog })
+        const res = await saveMemberRoutine({ sync, memberId, name: r.name, emoji: r.emoji, ex: r.ex, customExDefs, prog: r.prog, blocks: r.blocks,
+          meta: b.protocol ? { goal: b.protocol.goal, level: b.protocol.level } : undefined })
         idMap[r.id] = res.routineId
         sync = res.sync
       }
