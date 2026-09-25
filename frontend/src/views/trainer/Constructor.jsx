@@ -17,17 +17,21 @@ import { extractCustomDefs } from '../../lib/exercises.js'
 import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
 import { fetchMemberPlan, fetchTrainerMembers, saveMemberRoutine, saveMemberProgram } from '../../lib/trainer-api.js'
 import { useBlocks, validate, pushRecent } from '../../lib/blocks-api.js'
-import { RESTRICTION_LABEL, savePolicy, OVERRIDE_REASON_MIN, instantiateBlock, GOALS, LEVELS, GOAL_LABEL, LEVEL_LABEL, RESTRICTIONS, FOCUS, FOCUS_LABEL, PROTOCOL_VERSION } from '../../lib/protocol/index.js'
+import { RESTRICTION_LABEL, savePolicy, OVERRIDE_REASON_MIN, instantiateBlock, GOALS, LEVELS, GOAL_LABEL, LEVEL_LABEL, RESTRICTIONS, FOCUS, FOCUS_LABEL, PROTOCOL_VERSION, isGuided, blockTypesOf } from '../../lib/protocol/index.js'
 import { glyphPicker, confirmSheet, exercisePicker } from '../../sheets.jsx'
 import Library from '../../components/constructor/Library.jsx'
 import DayCanvas, { insertInstance, withEx, prescribedEntry, dayMinutes } from '../../components/constructor/DayCanvas.jsx'
 import { ProtocolPill, ProtocolReport } from '../../components/constructor/parts.jsx'
+import Suggestions from '../../components/constructor/Suggestions.jsx'
 import { issueText } from '../../lib/blocks-api.js'
 import Icon from '../../components/Icon.jsx'
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]
+// Every day's block types in one map (instance ids are unique) — what the validator judges by.
+const typesOfDays = days => Object.assign({}, ...(days || []).map(d => blockTypesOf(d.blocks)))
 let dayKey = 0
-const newDay = (name, from = {}) => ({ key: 'd' + (++dayKey), id: null, name, emoji: DEFAULT_GLYPH, ex: [], blocks: [], ...from, dirty: true })
+// A new day is unsaved; a day cloned from the member's plan passes dirty: false and stays clean.
+const newDay = (name, from = {}) => ({ key: 'd' + (++dayKey), id: null, name, emoji: DEFAULT_GLYPH, ex: [], blocks: [], dirty: true, ...from })
 
 /** A declared restriction is broken: no override here — change the plan or the restriction. */
 function BlockedSheet({ issues, close }) {
@@ -62,12 +66,13 @@ function SaveAsBlockSheet({ entries, meta, ctx, close }) {
   const [f, setF] = useState({ name: meta?.name || '', goal: meta?.goal || ctx.goal, level: meta?.level || ctx.level, focus: meta?.focus || '', description: '', reason: '' })
   const [busy, setBusy] = useState(false)
   const [v, setV] = useState(null)
-  const type = entries.some(e => e.sg) ? 'superset' : entries.every(e => e.min != null && e.speed != null) ? 'cardio' : 'strength'
+  // A guided block (Constructor V2.1) is saved as what it is, pacing included.
+  const type = isGuided(meta?.type) ? meta.type : entries.some(e => e.sg) ? 'superset' : entries.every(e => e.min != null && e.speed != null) ? 'cardio' : 'strength'
   const submit = async () => {
     if (!f.name.trim()) { toast(t('Give the block a name')); return }
     setBusy(true); setV(null)
     try {
-      await save({ ...f, name: f.name.trim(), type, focus: f.focus || null, ex: entries.map(({ blk, ...e }) => e) })
+      await save({ ...f, name: f.name.trim(), type, focus: f.focus || null, ...(isGuided(type) && meta?.timing ? { timing: meta.timing } : {}), ex: entries.map(({ blk, ...e }) => e) })
       toast(t('Saved to your blocks')); close()
     } catch (e) { toast(e.message); if (e.data?.validation) setV(e.data.validation) }
     setBusy(false)
@@ -97,6 +102,7 @@ export default function Constructor() {
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
   const loadBlocks = useBlocks(s => s.load)
+  const libBlocks = useBlocks(s => s.blocks)
   const [member, setMember] = useState(null)
   const [plan, setPlan] = useState(null)             // { sync, routines, programs }
   const [p, setP] = useState(null)                   // { id, name, emoji, meta, days, week: {weekday: key} }
@@ -134,14 +140,17 @@ export default function Constructor() {
   const restrictions = p?.meta.restrictions || []
   const day = p?.days[active]
 
-  const dayV = useMemo(() => day ? validate({ kind: 'routine', goal: ctx.goal, level: ctx.level, entries: day.ex }, { restrictions }) : null, [day, ctx.goal, ctx.level, restrictions])
+  const dayV = useMemo(() => day ? validate({ kind: 'routine', goal: ctx.goal, level: ctx.level, entries: day.ex, blockTypes: blockTypesOf(day.blocks) }, { restrictions }) : null, [day, ctx.goal, ctx.level, restrictions])
   const weekDays = p ? WEEK_ORDER.map(wd => p.days.find(d => d.key === p.week[wd])).filter(Boolean) : []
-  const progV = useMemo(() => p && !p.routineOnly ? validate({ kind: 'program', goal: ctx.goal, level: ctx.level, days: (weekDays.length ? weekDays : p.days).map(d => d.ex) }, { restrictions }) : null, [p, ctx.goal, ctx.level])
+  const progV = useMemo(() => p && !p.routineOnly ? validate({ kind: 'program', goal: ctx.goal, level: ctx.level, days: (weekDays.length ? weekDays : p.days).map(d => d.ex), blockTypes: typesOfDays(p.days) }, { restrictions }) : null, [p, ctx.goal, ctx.level])
   const issuesAt = useMemo(() => {
     const m = {}
     for (const i of dayV?.issues || []) if (i.where?.index != null && i.severity !== 'note') m[i.where.index] = m[i.where.index] === 'fail' ? 'fail' : (i.severity === 'fail' ? 'fail' : 'why')
     return m
   }, [dayV])
+
+  // Blocks already copied into this plan are not suggested again.
+  const inPlan = useMemo(() => new Set((p?.days || []).flatMap(d => (d.blocks || []).map(b => b.src)).filter(Boolean)), [p])
 
   if (!p) return <div id="trainer-app" />
 
@@ -212,7 +221,7 @@ export default function Constructor() {
   // restrictions block; a methodological FAIL needs a conscious override with a reason. The
   // server enforces the same, so nothing here can be skipped by calling the API directly.
   const save = () => {
-    const saveV = validate({ kind: p.routineOnly ? 'routine' : 'program', goal: ctx.goal, level: ctx.level, entries: p.days[0]?.ex || [], days: p.days.map(d => d.ex) }, { restrictions })
+    const saveV = validate({ kind: p.routineOnly ? 'routine' : 'program', goal: ctx.goal, level: ctx.level, entries: p.days[0]?.ex || [], days: p.days.map(d => d.ex), blockTypes: typesOfDays(p.days) }, { restrictions })
     const pol = savePolicy(saveV)
     if (pol.blocked.length) openSheet(close => <BlockedSheet issues={pol.blocked} close={close} />)
     else if (pol.needsReason) openSheet(close => <OverrideSheet issues={pol.override} close={close} onConfirm={o => doSave(o)} />)
@@ -253,7 +262,7 @@ export default function Constructor() {
           return <div key={d.key} className={'cx-day' + (i === active ? ' on' : '')}>
             <button className="cx-day-b" onClick={() => setActive(i)} aria-current={i === active ? 'true' : undefined}>
               <span className="cx-day-n num">{i + 1}</span>
-              <span className="cx-day-t"><b>{d.name || t('Day')}</b><small>{t('{0} exercises', d.ex.length)} · ~{dayMinutes(d.ex, ctx.goal)} min{d.dirty ? ' · ' + t('unsaved') : ''}</small></span>
+              <span className="cx-day-t"><b>{d.name || t('Day')}</b><small>{t('{0} exercises', d.ex.length)} · ~{dayMinutes(d.ex, ctx.goal, d.blocks)} min{d.dirty ? ' · ' + t('unsaved') : ''}</small></span>
             </button>
             <div className="cx-wk">{WEEK_ORDER.map(wd => <button key={wd} className={'cx-wd' + (wds.includes(wd) ? ' on' : '') + (p.week[wd] && p.week[wd] !== d.key ? ' taken' : '')}
               aria-pressed={wds.includes(wd)} title={t(DAYN[wd])} onClick={() => toggleWeekday(wd, d.key)}>{t(DAYN[wd]).slice(0, 2)}</button>)}</div>
@@ -265,7 +274,7 @@ export default function Constructor() {
       <main className="cx-main">
         <div className="cx-dayhead">
           {!p.routineOnly && <input className="cx-dayname" value={day.name} onChange={e => patchDay({ ...day, name: e.target.value })} aria-label={t('Day name')} />}
-          <span className="cx-daystats num">{t('{0} exercises', day.ex.length)} · {t('{0} sets', day.ex.reduce((a, e) => a + (Number(e.sets) || 1), 0))} · ~{dayMinutes(day.ex, ctx.goal)} min</span>
+          <span className="cx-daystats num">{t('{0} exercises', day.ex.length)} · {t('{0} sets', day.ex.reduce((a, e) => a + (Number(e.sets) || 1), 0))} · ~{dayMinutes(day.ex, ctx.goal, day.blocks)} min</span>
           <span className="grow" />
           {!p.routineOnly && <>
             <button className="cx-icon" title={t('Duplicate day')} aria-label={t('Duplicate day')} onClick={() => dupDay(active)}><Icon name="clipboard" /></button>
@@ -274,6 +283,8 @@ export default function Constructor() {
           {day.ex.length > 0 && <button className="cx-icon" title={t('Save the whole day as a block')} aria-label={t('Save the whole day as a block')} onClick={() => saveAsBlock(day.ex, null)}><Icon name="download" /></button>}
           <button className="btn tinted cx-libbtn" onClick={() => setLibOpen(true)}><Icon name="list" />{t('Library')}</button>
         </div>
+        {(progV || dayV)?.stats?.exercises > 0 && <Suggestions v={progV || dayV} ctx={ctx} days={p.routineOnly ? 1 : (weekDays.length || p.days.filter(d => d.ex.length).length)}
+          blocks={libBlocks} inPlan={inPlan} restrictions={restrictions} onAdd={addBlock} program={!p.routineOnly} />}
         <DayCanvas day={day} ctx={ctx} unit={S.unit} onChange={patchDay} flash={flash} issuesAt={issuesAt}
           onAddBlock={openLibrary} onAddExercise={addExercise} onSaveAsBlock={saveAsBlock} />
         <p className="cx-foot dim small">{t('2J Protocol v{0} · validated as you build. Blocks are copied into the day: editing here never changes the library.', PROTOCOL_VERSION)}</p>

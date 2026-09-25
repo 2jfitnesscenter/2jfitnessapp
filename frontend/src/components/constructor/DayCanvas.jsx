@@ -9,7 +9,9 @@ import { exOr, EXIDX } from '../../lib/exercises.js'
 import { cleanupSg } from '../../lib/history.js'
 import { uid } from '../../lib/format.js'
 import { supersetGroupInfo, supersetLabel } from '../../lib/superset-colors.js'
-import { segmentsOf, pruneBlocks, estimateSeconds, roundMinutes, classify, prescribe, restDemand, REST_DEFAULTS, GOAL_LABEL, LEVEL_LABEL, STYLE_LABEL, modeOfEntry, blockTitle } from '../../lib/protocol/index.js'
+import { segmentsOf, pruneBlocks, estimateSeconds, roundMinutes, classify, prescribe, restDemand, REST_DEFAULTS, GOAL_LABEL, LEVEL_LABEL, STYLE_LABEL, modeOfEntry, blockTitle,
+  isGuided, sanitizeTiming, defaultTiming, applyTiming, guidedSeconds, TIMING_PRESETS, TYPE_LABEL, PROTOCOL_VERSION } from '../../lib/protocol/index.js'
+import { timingLine } from '../../lib/guided.js'
 import { lookup } from '../../lib/blocks-api.js'
 import { exercisePicker, exConfigSheet, exerciseNotesSheet } from '../../sheets.jsx'
 import { Thumb } from '../Media.jsx'
@@ -19,7 +21,10 @@ import { TypeTag, Prescription, rpeOf, restLabel } from './parts.jsx'
 
 const KEEP = ['blk', 'rpe', 'rest', 'role', 'note', 'why', 'sg']
 const restOf = (e, goal) => e.rest ?? REST_DEFAULTS[restDemand(classify(e.id, lookup), goal, e.role)]
-export const dayMinutes = (ex, goal) => roundMinutes(estimateSeconds(ex || [], e => restOf(e, goal)))
+// A guided segment lasts what its timing says; everything else keeps the protocol's estimate.
+const segSeconds = (entries, meta, goal) => meta && isGuided(meta.type) ? guidedSeconds(entries, meta.timing, meta.type) : estimateSeconds(entries, e => restOf(e, goal))
+export const dayMinutes = (ex, goal, blocks) => roundMinutes(segmentsOf({ ex: ex || [], blocks }).reduce((a, s) => a + segSeconds(s.idx.map(i => ex[i]), s.meta, goal), 0))
+export const guidedName = (type, tm) => tm?.preset === 'tabata' ? 'Tabata' : TYPE_LABEL[type] || type
 
 // ── pure day operations (exported for tests) ──────────────────────────────────────────────
 export const withEx = (day, ex) => { cleanupSg(ex); const next = { ...day, ex }; next.blocks = pruneBlocks(next); return next }
@@ -44,6 +49,33 @@ export const ungroupSegment = (day, seg) => withEx(day, day.ex.map((e, i) => { c
 export function insertInstance(day, inst) {
   return withEx({ ...day, blocks: [...(day.blocks || []), inst.meta] }, [...day.ex.map(e => ({ ...e })), ...inst.ex])
 }
+/**
+ * Make a segment a guided block (Constructor V2.1), or retime one: loose exercises get a block
+ * instance of their own; the entries are shaped to the timing (rounds = sets, timed bouts) and
+ * superset links inside it are dropped — a guided block already sets the order.
+ */
+export function setSegmentTiming(day, seg, type, timing, name) {
+  const tm = sanitizeTiming(timing, type)
+  if (!tm) return day
+  const ex = day.ex.map(e => ({ ...e }))
+  let blocks = [...(day.blocks || [])]
+  let iid = seg.blk
+  if (!iid) {
+    iid = 'k' + uid()
+    blocks.push({ iid, src: null, name: name || null, type, goal: null, level: null, focus: null, variant: null, style: null, v: PROTOCOL_VERSION })
+    seg.idx.forEach(k => { ex[k].blk = iid })
+  }
+  const shaped = applyTiming(seg.idx.map(k => ex[k]), type, tm)
+  seg.idx.forEach((k, j) => { ex[k] = shaped[j]; delete ex[k].sg })
+  blocks = blocks.map(b => b.iid === iid ? { ...b, type, timing: tm } : b)
+  return withEx({ ...day, blocks }, ex)
+}
+/** Back to plain sets: the block keeps its exercises (and label), without pacing. */
+export function clearSegmentTiming(day, seg) {
+  if (!seg.blk) return day
+  return withEx({ ...day, blocks: (day.blocks || []).map(b => { if (b.iid !== seg.blk) return b; const c = { ...b, type: 'strength' }; delete c.timing; return c }) }, day.ex.map(e => ({ ...e })))
+}
+
 export function toggleLink(day, i) {
   const ex = day.ex.map(e => ({ ...e }))
   const cur = ex[i], prev = ex[i - 1]
@@ -55,7 +87,7 @@ export function toggleLink(day, i) {
 
 // ── prescription editor ───────────────────────────────────────────────────────────────────
 const RESTS = [45, 60, 75, 90, 120, 150, 180, 240]
-function PrescriptionSheet({ e, ctx, onSave, onMore, close }) {
+function PrescriptionSheet({ e, ctx, onSave, onMore, close, guided }) {
   const [c, setC] = useState(() => ({ ...e }))
   const mode = modeOfEntry(c)
   const sets = Math.max(1, Number(c.sets) || 1)
@@ -83,11 +115,12 @@ function PrescriptionSheet({ e, ctx, onSave, onMore, close }) {
         <span className="num">{i + 1}</span>
         {[4, 6, 8, 10].map(n => <button key={n} className={'cx-rpe-b r' + n + (v === n ? ' on' : '')} aria-pressed={v === n} aria-label={t('Set {0}: RPE {1}', i + 1, n)} onClick={() => setRpe(i, n)}>{n}</button>)}
       </div>)}</div>
+      {guided ? <p className="dim small">{t('Rest comes from the block’s guided timing.')}</p> : <>
       <div className="cx-rxsheet-l">{t('Rest after the set')}</div>
       <div className="cx-chips">
         {RESTS.map(s => <button key={s} className={'chip' + (c.rest === s ? ' on' : '')} aria-pressed={c.rest === s} onClick={() => setC(x => ({ ...x, rest: s }))}>{restLabel(s)}</button>)}
         <button className={'chip' + (c.rest == null ? ' on' : '')} onClick={() => setC(x => { const y = { ...x }; delete y.rest; return y })}>{t('Member setting')}</button>
-      </div>
+      </div></>}
     </>}
     <div className="cx-rxsheet-acts">
       <button className="btn plain" onClick={auto}><Icon name="sparkles" />{t('Prescribe with the 2J protocol')}</button>
@@ -109,6 +142,62 @@ function RowMenu({ e, close, onReplace, onNotes, onMore, onRemove, onVideo }) {
   </div>
 }
 
+// ── guided timing (Constructor V2.1) ──────────────────────────────────────────────────────
+const GUIDED_CHOICES = [
+  { key: 'circuit', type: 'circuit', icon: 'intervals', label: 'Circuit', desc: 'One exercise after another, by time or reps, for several rounds.' },
+  { key: 'hiit', type: 'hiit', icon: 'bolt', label: 'HIIT', desc: 'Hard work bouts with short, fixed rests.' },
+  { key: 'tabata', type: 'hiit', preset: 'tabata', icon: 'bolt', label: 'Tabata', desc: '20 s on, 10 s off, 8 rounds to start — every number stays editable.' },
+  { key: 'interval', type: 'interval', icon: 'timer', label: 'Intervals', desc: 'Work and recovery at set times, usually on a machine.' },
+  { key: 'mobility', type: 'mobility', icon: 'stretch', label: 'Mobility', desc: 'Hold each position for its time, then the next.' },
+]
+const choiceOf = (type, tm) => GUIDED_CHOICES.find(c => c.type === type && (c.preset || null) === (tm?.preset || null)) || GUIDED_CHOICES[0]
+
+function TimingSheet({ seg, entries, onSave, onClear, close }) {
+  const meta = seg.meta
+  const start = isGuided(meta?.type) ? meta.type : 'circuit'
+  const [choice, setChoice] = useState(() => choiceOf(start, meta?.timing).key)
+  const [tm, setTm] = useState(() => sanitizeTiming(meta?.timing, start) || defaultTiming(start))
+  const c = GUIDED_CHOICES.find(x => x.key === choice)
+  const pick = next => {
+    setChoice(next.key)
+    setTm(cur => {
+      const base = { ...defaultTiming(next.type), prep: cur.prep }
+      return next.preset ? { ...base, ...TIMING_PRESETS[next.preset], preset: next.preset } : base
+    })
+  }
+  // Editing a number keeps the Tabata label only while it still is 20/10 × 8.
+  const setK = (k, v) => setTm(cur => {
+    const n = { ...cur, [k]: v }
+    if (n.preset === 'tabata' && !(n.work === 20 && n.rest === 10 && n.rounds === 8)) delete n.preset
+    return n
+  })
+  const clean = sanitizeTiming(tm, c.type)
+  const shaped = applyTiming(entries, c.type, clean)
+  const mins = roundMinutes(guidedSeconds(shaped, clean, c.type))
+  const reps = c.type === 'circuit' && entries.some(e => modeOfEntry(e) !== 'time')
+  return <div className="cx-form cx-timing">
+    <h3>{t('Guided block')}</h3>
+    <p className="dim small">{t('The member runs it with a timer: get ready, work, rest, next — round after round. The exercises stay editable in the day.')}</p>
+    <div className="cx-tchoices" role="radiogroup" aria-label={t('Format')}>
+      {GUIDED_CHOICES.map(x => <button key={x.key} role="radio" aria-checked={choice === x.key} className={'cx-tchoice' + (choice === x.key ? ' on' : '')} onClick={() => pick(x)}>
+        <Icon name={x.icon} /><b>{t(x.label)}</b><small>{t(x.desc)}</small></button>)}
+    </div>
+    <div className="cx-rxsheet-grid cx-tgrid">
+      <Stepper label={t('Get ready (s)')} value={tm.prep} step={5} decimal={false} onChange={v => setK('prep', v)} />
+      <Stepper label={reps ? t('Work per timed exercise (s)') : t('Work (s)')} value={tm.work} step={5} decimal={false} onChange={v => setK('work', v)} />
+      <Stepper label={t('Rest after each (s)')} value={tm.rest} step={5} decimal={false} onChange={v => setK('rest', v)} />
+      <Stepper label={t('Rounds')} value={tm.rounds} step={1} decimal={false} onChange={v => setK('rounds', v)} />
+      {tm.rounds > 1 && <Stepper label={t('Rest between rounds (s)')} value={tm.roundRest} step={15} decimal={false} onChange={v => setK('roundRest', v)} />}
+    </div>
+    {reps && <p className="dim small">{t('Exercises prescribed in reps keep their reps: the member taps Done when finished.')}</p>}
+    <div className="cx-tsum num"><Icon name="timer" />{timingLine(clean)} · ~{mins} min</div>
+    <div className="cx-rxsheet-acts">
+      {onClear && <button className="btn plain" onClick={() => { close(); onClear() }}>{t('Back to normal sets')}</button>}
+      <button className="btn primary" onClick={() => { close(); onSave(c.type, clean, t(c.label)) }}><Icon name="check" />{t('Apply')}</button>
+    </div>
+  </div>
+}
+
 /**
  * @param day       { name, ex, blocks }
  * @param ctx       { goal, level }
@@ -127,7 +216,8 @@ export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddE
   const editRx = i => {
     const e = day.ex[i]
     const more = () => exConfigSheet(exOr(e.id), e, cfg => set(withEx(day, day.ex.map((x, k) => k !== i ? { ...x } : { ...Object.fromEntries(KEEP.filter(f => x[f] != null).map(f => [f, x[f]])), id: x.id, ...cfg }))), () => set(withEx(day, day.ex.filter((_, k) => k !== i).map(x => ({ ...x })))), day)
-    openSheet(close => <PrescriptionSheet e={e} ctx={ctx} close={close} onMore={more}
+    const guided = isGuided(segs.find(s => s.idx.includes(i))?.meta?.type)
+    openSheet(close => <PrescriptionSheet e={e} ctx={ctx} close={close} onMore={more} guided={guided}
       onSave={c => set(withEx(day, day.ex.map((x, k) => k !== i ? { ...x } : c)))} />)
   }
   const rowMenu = i => {
@@ -138,8 +228,12 @@ export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddE
       onMore={() => exConfigSheet(exOr(e.id), e, cfg => set(withEx(day, day.ex.map((x, k) => k !== i ? { ...x } : { ...Object.fromEntries(KEEP.filter(f => x[f] != null).map(f => [f, x[f]])), id: x.id, ...cfg }))), null, day)}
       onRemove={() => set(withEx(day, day.ex.filter((_, k) => k !== i).map(x => ({ ...x }))))} />)
   }
+  const editTiming = seg => openSheet(close => <TimingSheet seg={seg} entries={seg.idx.map(k => day.ex[k])} close={close}
+    onSave={(type, timing, name) => set(setSegmentTiming(day, seg, type, timing, name))}
+    onClear={isGuided(seg.meta?.type) ? () => set(clearSegmentTiming(day, seg)) : null} />)
   const segMenu = (seg, si) => openSheet(close => <div className="cx-menu">
     <h3>{seg.meta?.name || t('Exercises')}</h3>
+    <button onClick={() => { close(); editTiming(seg) }}><Icon name="timer" />{isGuided(seg.meta?.type) ? t('Guided timing') : t('Run as a guided block')}</button>
     {onSaveAsBlock && <button onClick={() => { close(); onSaveAsBlock(seg.idx.map(k => day.ex[k]), seg.meta) }}><Icon name="download" />{t('Save as block')}</button>}
     <button disabled={si === 0} onClick={() => { close(); set(moveSegment(day, si, si - 1)) }}><Icon name="arrowUp" />{t('Move block up')}</button>
     <button disabled={si === segs.length - 1} onClick={() => { close(); set(moveSegment(day, si, si + 1)) }}><Icon name="arrowDown" />{t('Move block down')}</button>
@@ -172,7 +266,8 @@ export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddE
     {segs.map((seg, si) => {
       const entries = seg.idx.map(k => day.ex[k])
       const meta = seg.meta
-      const mins = dayMinutes(entries, ctx.goal)
+      const guided = isGuided(meta?.type)
+      const mins = roundMinutes(segSeconds(entries, meta, ctx.goal))
       const key = 'seg' + si
       return <section key={(seg.blk || 'loose') + si}
         className={'cx-block' + (seg.blk ? '' : ' loose') + (flash && seg.blk === flash ? ' cx-flash' : '') + (over === key ? ' drop' : '') + (drag?.kind === 'seg' && drag.s === si ? ' dragging' : '')}
@@ -182,6 +277,8 @@ export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddE
           <TypeTag type={meta?.type || (entries.some(e => e.sg) ? 'superset' : 'strength')} compact />
           <div className="cx-block-t">
             <div className="cx-block-name">{meta?.name || (seg.blk ? t('Block') : t('Exercises'))}</div>
+            {guided && <button className="cx-tline num" onClick={() => editTiming(seg)} aria-label={t('Guided timing')}>
+              <Icon name="timer" /><b>{t(guidedName(meta.type, meta.timing))}</b>{timingLine(meta.timing)}</button>}
             {meta && <div className="cx-block-sub">
               {[meta.goal && t(GOAL_LABEL[meta.goal]), meta.level && t(LEVEL_LABEL[meta.level]), meta.style && t(STYLE_LABEL[meta.style] || meta.style)].filter(Boolean).join(' · ')}
               {meta.src && <span className="cx-from">{meta.src.startsWith('off-') ? t('from the 2J library') : t('from your blocks')}</span>}
