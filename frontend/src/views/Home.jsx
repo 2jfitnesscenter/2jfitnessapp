@@ -13,7 +13,6 @@ import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
 import BodyWeightCard from '../components/BodyWeightCard.jsx'
-import SegmentBodyDiagram from '../components/SegmentBodyDiagram.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
@@ -21,7 +20,7 @@ import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { loadOfWorkouts, muscleOptsOf, MUSCLE_NAME } from '../lib/muscles.js'
 import RecoveryCard from '../components/RecoveryCard.jsx'
-import { hasBodyComposition, daysSinceBioimpedance } from '../lib/measurements.js'
+import { daysSinceBioimpedance } from '../lib/measurements.js'
 import { fetchWhoopRecovery, fetchWhoopSleep } from '../lib/whoop-api.js'
 import { mergeSeries } from '../lib/import-csv.js'
 
@@ -302,11 +301,8 @@ export default function Home() {
 
     <WhoopCard nav={nav} connected={!!user?.whoop} />
 
+    {/* Body composition lives in Profile → Health / Measurements only (Constructor V2.1): Home
+        used to show the same segment diagram a second time. */}
     <BodyWeightCard S={S} showChart={false} />
-
-    {hasBodyComposition(S) && <>
-      <h4 className="sec">{t('Body composition')}</h4>
-      <SegmentBodyDiagram S={S} showGeneral compact />
-    </>}
   </div>
 }
