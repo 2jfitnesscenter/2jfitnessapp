@@ -126,6 +126,28 @@ describe('post-workout events', () => {
   })
 })
 
+describe('streak celebrations only on milestones', () => {
+  // N consecutive weeks, one workout each, the last one this week (the finish being judged).
+  const weeks = n => {
+    const out = []
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date('2026-09-09T12:00:00'); d.setDate(d.getDate() - i * 7)
+      out.push(wk('w' + i, d.toISOString().slice(0, 10), CURL, [[20, 10]]))
+    }
+    return S0(out, { bodyweight: [] })
+  }
+  const streakEvent = n => postWorkoutEvents(weeks(n), 'w0').find(e => e.type === 'streak') || null
+  it.each([2, 4, 8, 12, 26, 52, 104, 156])('week %i → a streak moment', n => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-09T12:00:00'))
+    expect(streakEvent(n)).toMatchObject({ type: 'streak', data: { weeks: n } })
+  })
+  it.each([1, 3, 5, 6, 9, 13, 27, 53, 60])('week %i → no streak moment, but the streak still shows', n => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-09T12:00:00'))
+    expect(streakEvent(n)).toBeNull()
+    expect(weekSummary(weeks(n), '2026-09-09').streak).toBe(n)
+  })
+})
+
 describe('home and goals', () => {
   it('week summary, latest step forward and a goal only when it is genuinely close', () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-09T12:00:00'))

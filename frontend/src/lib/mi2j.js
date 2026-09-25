@@ -93,6 +93,11 @@ export function personalRecords(S) {
 // family or overall standing: a new tier (e.g. Emerald → Ruby) or the overall rank unlocking.
 export const EVENT_PRIORITY = { pr: 1, e1rm: 1.2, global: 2, rank: 2.1, lift: 2.5, badge: 3, streak: 4 }
 
+// Streak weeks worth a post-workout moment: 2, 4, 8, 12, 26, 52, then every further year
+// (104, 156 …). The streak itself shows as usual everywhere else.
+export const STREAK_MILESTONES = [2, 4, 8, 12, 26, 52]
+export const isStreakMilestone = weeks => STREAK_MILESTONES.includes(weeks) || (weeks > 52 && weeks % 52 === 0)
+
 function heaviestBefore(S, exId) {
   let best = null
   ;(S.workouts || []).forEach(w => (w.entries || []).forEach(e => {
@@ -170,10 +175,10 @@ export function postWorkoutEvents(S, workoutId, badgeIds = []) {
     if (b && state?.unlockedAt) push('badge', id, { badge: b, unlockedAt: state.unlockedAt })
   })
 
-  // Constancy, never blame: only a streak that just grew (the first session of a new week) and
-  // is already two weeks or more.
+  // Constancy, never blame: celebrated only when the streak (streakWeeks, unchanged) has just
+  // grown onto a milestone — not on every first session of a week.
   const s0 = streakWeeks(before), s1 = streakWeeks(S)
-  if (s1 > s0 && s1 >= 2) push('streak', String(s1), { weeks: s1 })
+  if (s1 > s0 && isStreakMilestone(s1)) push('streak', String(s1), { weeks: s1 })
 
   return events.sort((a, b) => a.priority - b.priority)
 }
