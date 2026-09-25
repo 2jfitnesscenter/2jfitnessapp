@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+### Guided Routines V1 — "Entrena con 2J", the official guided workout library
+
+Not deployed yet. No protocol revision (still v1.0) and no new evidence: docs/EVIDENCE.md is
+unchanged. [docs/TRAINING_PROTOCOL_2J.md](docs/TRAINING_PROTOCOL_2J.md) documents how the official
+routines are composed (a product decision, heuristic).
+
+- 🎬 **Entrena con 2J.** A new place with 39 complete guided workouts made by 2J: Tabata, HIIT,
+  circuits, cardio intervals, mobility, core and strength + cardio, from 5 to 45 minutes.
+  - A featured workout up front, then rows for you, your recent ones, collections, favourites and
+    no-equipment sessions.
+  - Search in plain words ("tabata", "20 min", "sin saltos", "movilidad cadera"), quick chips and
+    a Filters sheet by type, duration, level and equipment.
+  - Every workout has its own cover, drawn from what it is — no stock photos.
+- 📄 **A page per workout.** Duration, level, goal and equipment, "Before you start", and the
+  parts in order (warm-up, main work, cool-down) with their timing.
+  - It warns when the workout conflicts with a restriction on your plan, or needs equipment the
+    gym has marked unavailable.
+- ▶️ **Start it in one tap.** It runs in the normal workout with the guided timer. Your program,
+  week and routines are not touched, and the finished workout goes into your history saying which
+  2J workout it was.
+- 💡 **For you.** A short row that only uses what you or your trainer declared (level, goal,
+  restrictions) and your own workouts, with the reason shown on each card. Never health data or
+  check-ins.
+- ❤️ **Favourites** on this device, and "Completed · N times" from your real history.
+- 📴 **Offline.** The last catalogue you opened is kept on the device and can still be started.
+- 🧑‍🏫 **Trainers** can assign a copy to a member (checked against the member's restrictions) or
+  duplicate it into their own routine and edit it in the builder.
+- 🗂️ **Admins** curate the catalogue: featured order, badge, active/inactive, content edits and
+  collections.
+- 🤖 **The AI Coach** receives compatible official routines and prefers 2J's curated sessions.
+- 📚 **37 new official guided blocks** (the library now has 155; the previous 118 are unchanged).
+- 🐞 **Fix:** treadmill exercises are no longer counted as "no equipment".
+
 ### Constructor V2.1 — guided blocks, list view, 2J suggestions and Bunker rest
 
 Not deployed yet. **Protocol revision** (still v1.0, it only widens what was allowed): the new

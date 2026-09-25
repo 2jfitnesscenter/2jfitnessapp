@@ -3,7 +3,49 @@
 > Punto de traspaso entre agentes (Claude Code / Codex). Resumen operativo, no sustituye
 > inspeccionar el repo — ver "Protocolo de relevo" al final.
 
-## SPRINT CONSTRUCTOR V2.1 — BLOQUES GUIADOS + UX + DESCANSO BUNKER — 2026-09-25 (NO DESPLEGADO)
+## SPRINT GUIDED ROUTINES V1 — "ENTRENA CON 2J" — 2026-09-26 (NO DESPLEGADO)
+
+Producción: `c8edb5ab1e7642641286433c4ffe4665769e54fc` (Constructor V2.1). El runner
+`deploy-c8edb5a.ps1` **no sirve** para este sprint: su probe espera 118 bloques y no conoce
+`/api/guided` ni `guided-official.json`. Hay que crear uno nuevo con rollback exacto a `c8edb5a`.
+
+### Qué hay
+
+| Tema | Dónde | Notas |
+|---|---|---|
+| Hechos de una rutina | `lib/protocol/routines.js` (`routineFacts`, `equipmentOf`, `GEAR_OVERRIDE`) | Duración, material, tags y partes calculados, nunca a mano; sincronizado a `api/lib/protocol` (8 ficheros) |
+| Matriz y build | `scripts/protocol/official-routines.matrix.mjs`, `scripts/build-official-routines.mjs` (`--check`) | 39 rutinas, 7 colecciones, 3 destacadas → `api/lib/guided-official.json` (`seedVersion` 1) |
+| Bloques nuevos | `scripts/protocol/official-blocks.matrix.mjs` | 118 → 155 (+37 guiados); los 118 anteriores idénticos; `sig` incluye tipo y timing |
+| Catálogo curado | `lib/protocol/catalog.js` | Movilidad y acondicionamiento con grupo `''` (no son volumen) |
+| API | `api/lib/guided-store.js`, `api/lib/guided-routes.js` | `GET /api/guided` (cualquier sesión) + save/duplicate/active/delete (trainer) + curate/collection (admin); `DATA/guided.json` solo guarda overlays y propias |
+| Cliente | `lib/guided-api.js` (zustand, caché `g2j_catalog:<uid>`, favoritos `g2j_favs:<uid>`), `lib/train2j.js` (puro) | Favoritos locales por dispositivo (decisión V1, no Sync V2) |
+| Escaparate | `views/Train2J.jsx`, `components/train2j/parts.jsx`, `components/WorkoutCover.jsx` | Rutas `/train2j`, `/train2j/c/:id`, `/train2j/r/:id` |
+| Admin | `views/trainer/GuidedAdmin.jsx` | `/trainer/guided`, `/trainer/guided/edit/:id` (reusa DayCanvas + Library) |
+| Inicio | `sheets.jsx` `startOfficialRoutine` / `beginOfficialWorkout` | `routineId: null`, `guidedBlocks`, `src2j` → `w.src2j` en el historial |
+| IA | `api/coach/protocol-gate.js` `officialRoutines` (`compatibleRoutines`) + `prompts/create.md` | Rutinas listadas por sus bloques `off-*`; la IA reusa bloques por id |
+
+### Decisiones
+
+- **Una rutina guiada es una rutina normal** (`ex` + `blocks` con `iid/src/type/timing/role`) más metadatos de catálogo. Empezarla hace un snapshot (`routineSnapshot`) que corre en Workout V2 + GuidedRunner; nunca toca `routines`, `week`, `dayPlan` ni `programs`.
+- **Asignar** = el endpoint existente `POST /api/trainer/member-routine` con la copia (misma política, recibos Sync V2), tras comprobar las restricciones del socio.
+- **Para ti** determinista: solo nivel/objetivo/restricciones declarados (plan o intake del Coach) + historial propio; excluye FAIL por restricción; nunca Salud ni check-in. Sin contexto ni historial → vacío.
+- **Badges** solo reales: NUEVO por `publishedAt` posterior al lanzamiento (≤30 días); no hay POPULAR.
+- **Honestidad**: Tabata = formato 20/10; movilidad con nota "no es un tratamiento"; 0684/3666 (cinta) no cuentan como "sin material".
+- **FAIL nunca se guarda** (`upsert`); oficial solo admin; propias solo su autor (sin IDOR: 404 para otros).
+
+### Límites
+
+- Favoritos por dispositivo; el catálogo offline solo si se abrió antes con esa cuenta.
+- Sin programas multi-semana, pagos ni comunidad. Sin POPULAR (no hay métrica agregada).
+- Los bloques oficiales antiguos con 0684/3666 siguen mostrando su `eq` de la biblioteca en el Constructor.
+- Traducciones: solo ES completo; el resto de idiomas cae a inglés (política actual).
+
+### Tests del sprint
+
+- Frontend: 814 → 832. Nuevos: `lib/train2j.test.js`, `views/Train2J.test.jsx`; `guided-protocol.test.js` actualizado a 155 bloques.
+- API: 248 → 256 (`test/guided.test.js`).
+
+## SPRINT CONSTRUCTOR V2.1 — BLOQUES GUIADOS + UX + DESCANSO BUNKER — 2026-09-25 (DESPLEGADO en `c8edb5a`)
 
 Producción: `d0920b8473285aad560d991b730f8e41efdc7045` (Constructor V2 + Protocolo 2J v1.0).
 El runner `deploy-d0920b8.ps1` **no sirve** para este sprint: su probe exige 112 bloques.

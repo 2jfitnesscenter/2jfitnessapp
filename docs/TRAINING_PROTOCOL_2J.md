@@ -237,6 +237,17 @@ Se evita la redundancia innecesaria.
 - **Duración:** estimación redondeada a 5 min, mostrada como "~N min". Se calcula con series, repeticiones aproximadas (~3 s cada una), descanso y transiciones (~60 s entre ejercicios y ~15 s entre partes de una superseries).
 - **Bloque ≠ rutina viva:** insertar un bloque **copia** sus ejercicios en el día como instancia editable. Cambiar, quitar o reordenar esos ejercicios no toca el bloque maestro, y borrar o desactivar un maestro no rompe ninguna rutina.
 
+## Rutinas guiadas oficiales ("Entrena con 2J") — decisión de producto, heurística
+
+Una rutina guiada oficial es una sesión completa hecha **solo con bloques oficiales**, copiados como instantáneas versionadas. No introduce reglas nuevas: cada rutina pasa el validador como cualquier otra (0 FAIL, 0 PASS_WITH_REASON en la semilla).
+
+- **Estructura:** calentamiento (movilidad) → trabajo principal (uno o varios bloques) → vuelta a la calma opcional (movilidad).
+- **Nivel honesto:** una rutina de iniciación solo contiene bloques de iniciación.
+- **Nombres honestos:** "Tabata" es el formato 20/10; no promete los resultados del estudio original. "Bajo impacto" exige que no haya saltos ni carrera. "Sin material" exige que ningún ejercicio necesite máquina (incluida la cinta).
+- **La movilidad no es terapia:** es para moverse mejor antes o después de entrenar; si algo duele, se para y se consulta.
+- **Diversidad:** no hay dos rutinas con la misma secuencia principal, y dentro de una categoría no se permiten rutinas casi iguales (Jaccard de ejercicios > 0,6).
+- **Catálogo curado:** los ejercicios de acondicionamiento y movilidad añadidos no tienen grupo muscular principal (2J-HEU-INTERVAL-ROUNDS: no son volumen).
+
 ## Validador determinista
 
 `validateAgainst2JProtocol()` en `lib/protocol/validator.js`, con la misma copia en el servidor. Valida bloques, rutinas y programas.
