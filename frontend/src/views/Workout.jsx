@@ -19,6 +19,7 @@ import { nextPrescription, applyPrescription } from '../lib/progression.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { zoneOfSet } from '../lib/training-zones.js'
 import { isOverloadSet, isPotentialPR, recommendationFor, acceptRecommendation, keepPlan } from '../lib/overload.js'
+import { FEELINGS, FEELING_LABEL, feedbackIndex, nextSetSuggestion, setFeeling, acceptSuggestion, keepPlannedLoad } from '../lib/set-feedback.js'
 import { musclesOf, muscleOptsOf, MUSCLE_GROUPS } from '../lib/muscles.js'
 import { weeklyGroupVolumeFinished, weeklyGroupVolumeActive, primaryGroupOf, landmarksFor } from '../lib/rp-volume.js'
 import { workoutPrefs } from '../lib/workout-prefs.js'
@@ -192,6 +193,38 @@ function RecommendationCard({ rec, unit, onAccept, onKeep }) {
       <Button size="sm" variant="primary" onClick={onAccept}>{t('Use recommendation')}</Button>
       <Button size="sm" onClick={onKeep}>{t('Keep plan')}</Button>
     </div>
+  </div>
+}
+
+/* ---------- Series Feedback V1 (lib/set-feedback.js) ---------- */
+// After a finished working set: "how did it feel?" and, when that calls for it, a suggested load
+// for the NEXT set only. Optional and ignorable; nothing changes unless the member accepts.
+function SetFeedback({ entryIdx }) {
+  const S = useStore(s => s.S)
+  const update = useStore(s => s.update)
+  const entry = S.active?.entries[entryIdx]
+  if (!entry || S.active.past) return null
+  const mode = modeOf({ ...(entry.target || {}), id: entry.id })
+  const i = feedbackIndex(entry, mode)
+  if (i < 0) return null
+  const set = entry.sets[i]
+  const sug = nextSetSuggestion(S, entry, i, exOr(entry.id).eq)
+  const mut = fn => update(s => { fn(s.active.entries[entryIdx]) }, true)
+  return <div className="setfb" role="group" aria-label={t('How did that set feel?')}>
+    <div className="setfb-q">{t('How did set {0} feel?', setBadge(entry.sets, i))}</div>
+    <div className="setfb-chips">
+      {FEELINGS.map(f => <button key={f} className={'setfb-chip ' + f + (set.feel === f ? ' on' : '')} aria-pressed={set.feel === f}
+        onClick={() => mut(e => setFeeling(e, i, f))}>{t(FEELING_LABEL[f])}</button>)}
+    </div>
+    {sug && <div className={'setfb-sug ' + sug.kind}>
+      <div className="setfb-h"><Icon name={sug.kind === 'up' ? 'arrowUp' : 'arrowDown'} />
+        {t('Next set: {0} {2} → {1} {2} suggested', fmtNum(sug.from), fmtNum(sug.to), S.unit)}</div>
+      <div className="setfb-why">{t(...sug.why)}</div>
+      <div className="rec-acts">
+        <Button size="sm" variant="primary" onClick={() => mut(e => acceptSuggestion(e, i, sug))}>{t('Accept')}</Button>
+        <Button size="sm" onClick={() => mut(e => keepPlannedLoad(e, i))}>{t('Keep load {0} {1}', fmtNum(sug.from), S.unit)}</Button>
+      </div>
+    </div>}
   </div>
 }
 
@@ -374,6 +407,7 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, prefs, onToggle
         {sethead}
         {workIdx.map(i => row(entry.sets[i], i))}
       </>}
+      <SetFeedback entryIdx={entryIdx} />
       <div style={{ height: 8 }} />
       <div className="row">
         <Button size="sm" icon="minus" disabled={entry.sets.length <= 1} onClick={onRemoveSet}>{t('Remove set')}</Button>
@@ -458,6 +492,7 @@ function SimpleExercise({ entryIdx, unitEntries, ssInfo, prefs, onToggle, onPad,
           onClick={() => setPicked(i)}>{s.done && !s.type ? <Icon name="check" /> : setBadge(entry.sets, i)}</button>)}
         <button className="sdot add" aria-label={t('Add set')} onClick={onAddSet}><Icon name="plus" /></button>
       </div>
+      <SetFeedback entryIdx={entryIdx} />
       {prev && <div className="sprev"><Icon name="history" />{t('Last time')}: {setLabel(entry.id, prev, last.target)}</div>}
       <div className={'stiles n' + fields.length}>{fields.map(tile)}</div>
       {showPlates && <button className="splates" onClick={() => onPlates(setIdx)}>

@@ -249,3 +249,43 @@ describe('Constructor V2 prescriptions reach the workout unchanged', () => {
     expect(restSecondsFor({ target: { rest: 0 } }, { restSec: 75 })).toBe(75)
   })
 })
+
+describe('Series Feedback V1', () => {
+  const doneFirst = extra => write(s => { Object.assign(s.active.entries[0].sets[2], { w: 80, r: 10, done: true }, extra) })
+  it('asks after a finished working set, suggests the next set only, and changes nothing by itself', async () => {
+    doneFirst()
+    let html = await render()
+    expect(html).toContain('class="setfb"')
+    expect(html).not.toContain('setfb-sug')                      // no feeling yet: no suggestion
+    const { setFeeling } = await import('../lib/set-feedback.js')
+    write(s => setFeeling(s.active.entries[0], 2, 'easy'))
+    html = await render()
+    expect(html).toMatch(/setfb-sug up[\s\S]*80 kg → 85 kg/)
+    expect(store.getState().S.active.entries[0].sets.map(x => x.w)).toEqual([40, 60, 80, 80, 80])   // ignored = untouched
+    setView('simple')
+    expect(await render()).toContain('setfb-sug up')
+  })
+  it('accept writes only the next set; the routine and its target stay as they were', async () => {
+    doneFirst({ feel: 'easy' })
+    const routineBefore = clone(store.getState().S.routines)
+    const targetBefore = clone(store.getState().S.active.entries[0].target)
+    const { nextSetSuggestion, acceptSuggestion } = await import('../lib/set-feedback.js')
+    write(s => { const e = s.active.entries[0]; acceptSuggestion(e, 2, nextSetSuggestion(s, e, 2, 'barbell')) })
+    const S = store.getState().S
+    expect(S.active.entries[0].sets.map(x => x.w)).toEqual([40, 60, 80, 85, 80])
+    expect(S.active.entries[0].target).toEqual(targetBefore)
+    expect(S.routines).toEqual(routineBefore)
+    expect(await render()).not.toContain('setfb-sug')
+  })
+  it('the feeling lives in S.active offline, survives a reopen and reaches the finished workout', async () => {
+    doneFirst({ feel: 'hard' })
+    expect(JSON.parse(memory.get('gym_state_v1')).active.entries[0].sets[2].feel).toBe('hard')
+    await boot()                                                   // reopen, still offline
+    expect(store.getState().S.active.entries[0].sets[2].feel).toBe('hard')
+    write(s => { s.active.entries.forEach(e => e.sets.forEach(x => { x.done = true })) })
+    sheets.finishWorkout()
+    const w = store.getState().S.workouts.at(-1)
+    expect(w.entries[0].sets[2].feel).toBe('hard')
+    expect(w.entries[0].sets[3].feel).toBeUndefined()              // optional field, never invented
+  })
+})

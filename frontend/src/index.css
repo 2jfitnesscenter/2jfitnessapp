@@ -940,6 +940,17 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .rec-why{font-size:calc(13.5px * var(--text-scale,1));color:var(--label-2);line-height:1.4;margin:8px 0 10px}
 .rec-acts{display:flex;gap:8px;flex-wrap:wrap}
 .rec-acts .btn{flex:1 1 140px}
+/* Series Feedback V1 */
+.setfb{margin:10px 0 4px;padding:10px 12px;border-radius:14px;background:var(--surface-2,var(--surface));box-shadow:inset 0 0 0 1px var(--sep,var(--acc-line))}
+.setfb-q{font-size:calc(13px * var(--text-scale,1));color:var(--label-2);margin-bottom:8px}
+.setfb-chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.setfb-chip{min-height:36px;border-radius:10px;border:0;background:var(--surface);color:var(--label);font:inherit;font-size:calc(12.5px * var(--text-scale,1));padding:4px 6px;box-shadow:inset 0 0 0 1px var(--sep,var(--acc-line))}
+.setfb-chip.on{background:var(--acc);color:var(--on-acc,#fff);box-shadow:none}
+.setfb-chip.on.hard,.setfb-chip.on.fail{background:var(--orange)}
+.setfb-sug{margin-top:10px}
+.setfb-h{display:flex;align-items:center;gap:6px;font-weight:600;font-variant-numeric:tabular-nums}
+.setfb-sug.down .setfb-h .icn{color:var(--orange)}
+.setfb-why{font-size:calc(12.5px * var(--text-scale,1));color:var(--label-2);margin:4px 0 8px}
 
 /* detailed rows: tap cells instead of +/- steppers */
 .sethead.d .p-sp{flex:1.1;text-align:center;min-width:0}
