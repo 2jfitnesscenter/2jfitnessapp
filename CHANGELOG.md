@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Credits, copyright and attribution
+
+No app behaviour changes. The original project's attribution, removed in an earlier rebrand,
+is restored, and the fork's own work is credited separately.
+
+- 📜 **NOTICE.md** now names the original project — openGym, Copyright (C) 2026 Duarte Santos —
+  and, separately, the modifications and additional development by 2J Fitness Center
+  (Copyright (C) 2026), with a short list of the areas developed here. The license stays
+  **AGPL-3.0-or-later**; LICENSE is the unmodified AGPL text.
+- 👥 **AUTHORS.md**, **THIRD_PARTY_NOTICES.md** (exercise dataset, MuscleMap, AI runtimes,
+  libraries, fonts — moved verbatim from NOTICE.md and completed) and **TRADEMARKS.md** (the
+  2J name and logo are not licensed as marks; the code stays under the AGPL).
+- 🏷️ Source files created in this fork carry a two-line `Copyright (C) 2026 2J Fitness Center`
+  / `SPDX-License-Identifier: AGPL-3.0-or-later` header. Files inherited from openGym were
+  left as they were.
+- ℹ️ **Settings → Legal & credits**: the app, its fork credits, "based on openGym" with the
+  original author, the license, the source code and third parties.
+- 📝 README gains a short "2J Fitness Center fork" section; docs/MOBILE.md no longer claims an
+  app-store exception this fork does not carry.
+
 ### Guided Routines V1 — "Entrena con 2J", the official guided workout library
 
 Not deployed yet. No protocol revision (still v1.0) and no new evidence: docs/EVIDENCE.md is
