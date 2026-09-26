@@ -3086,4 +3086,22 @@ export default {
   'Search, quick filters, collections, favourites and a “For you” row that explains itself': 'Búsqueda, filtros rápidos, colecciones, favoritos y una fila “Para ti” que explica por qué',
   'Trainers can assign a 2J workout to a member or duplicate it and edit their own version': 'Los entrenadores pueden asignar un entrenamiento 2J a un socio o duplicarlo y editar su propia versión',
   'The official block library now has 155 blocks': 'La biblioteca oficial de bloques tiene ahora 155 bloques',
+  // Legal y créditos
+  'Legal & credits': 'Legal y créditos',
+  'based on openGym': 'basada en openGym',
+  'Based on openGym': 'Basada en openGym',
+  'Development and fork modifications: 2J Fitness Center': 'Desarrollo y modificaciones del fork: 2J Fitness Center',
+  'Includes the AI Coach first added in Alex Costa’s fork of openGym, and contributions from the openGym community.': 'Incluye el Coach IA añadido primero en el fork de openGym de Alex Costa, y contribuciones de la comunidad de openGym.',
+  'License': 'Licencia',
+  'Free software under the GNU Affero General Public License v3.0 or later (AGPL). You may use, study, share and modify it; whoever offers a modified version over a network must offer its source code under the same license.': 'Software libre bajo la GNU Affero General Public License v3.0 o posterior (AGPL). Puedes usarlo, estudiarlo, compartirlo y modificarlo; quien ofrezca una versión modificada a través de la red debe ofrecer su código fuente con la misma licencia.',
+  'Read the license (AGPL v3)': 'Leer la licencia (AGPL v3)',
+  'Source code and legal notices': 'Código fuente y avisos legales',
+  'Third parties': 'Terceros',
+  'Exercise data and media: hasaneyldrm/exercises-dataset, under its own terms.': 'Datos e imágenes de ejercicios: hasaneyldrm/exercises-dataset, bajo sus propios términos.',
+  'Body diagram geometry: MuscleMap by Melih Colpan (MIT).': 'Geometría del diagrama corporal: MuscleMap de Melih Colpan (MIT).',
+  'Open-source libraries such as React, React Router, Zustand and Vite, each under its own license.': 'Librerías de código abierto como React, React Router, Zustand y Vite, cada una con su propia licencia.',
+  'Trademarks': 'Marcas',
+  'The 2J Fitness Center name and the 2J logo identify 2J Fitness Center. The software license does not grant permission to use them; the code itself remains free under the AGPL.': 'El nombre 2J Fitness Center y el logotipo 2J identifican a 2J Fitness Center. La licencia del software no concede permiso para usarlos; el código sigue siendo libre bajo la AGPL.',
+  // Legal changelog
+  'Settings → Legal & credits: the original openGym project, this fork, the license and the source code': 'Ajustes → Legal y créditos: el proyecto original openGym, este fork, la licencia y el código fuente',
 }
