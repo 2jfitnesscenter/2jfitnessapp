@@ -1,59 +1,60 @@
-# Third-party notices
+# Notice
 
-2J Fitness Center's own code is licensed under the **GNU AGPL v3.0** (see [LICENSE](LICENSE)).
+**2J Fitness Center App** is a modified version ("fork") of **openGym**. It is free software,
+licensed under the **GNU Affero General Public License v3.0 or later** (`AGPL-3.0-or-later`) —
+see [LICENSE](LICENSE). The full license text is not changed or replaced by this file.
 
-## Bundled AI provider CLI
+## Original project
 
-The api image installs the [**Claude Code CLI**](https://github.com/anthropics/claude-code)
-(`@anthropic-ai/claude-code`, pinned in `api/Dockerfile`) so the optional AI Coach works
-without the instance owner installing anything. 2J Fitness Center invokes it as a separate process at
-runtime and does not link against it or include its source; this is mere aggregation, and
-2J Fitness Center's own AGPL v3.0 licensing is unchanged.
+**openGym** — Copyright (C) 2026 Duarte Santos.
+<https://github.com/DuarteSantos8/openGym> — licensed under the GNU AGPL v3.0 (or later).
 
-The CLI is distributed under its own terms, and using it requires an account with the
-provider. Both are matters between the instance owner and Anthropic — 2J Fitness Center ships no
-credentials and asks its users for none. Instances that would rather not carry it can leave
-the Coach disabled (the default) or set `COACH_DISABLED=1`.
+openGym is the base of this application: the original workout tracker, its React/Vite
+frontend and Node API, passkey sign-in, the exercise library integration, history import,
+localization, the standalone mobile shell and the self-hosting setup. See [AUTHORS.md](AUTHORS.md)
+for the people who contributed to it.
 
-## Body diagram geometry
+This fork descends from openGym through an intermediate fork by **Alex Costa**
+(<https://github.com/alexpcosta/opengym>), which added the optional **AI Coach**.
 
-The muscle outlines the body maps are drawn from (`frontend/src/lib/body-paths.js`) are derived
-from [**MuscleMap**](https://github.com/melihcolpan/MuscleMap) by Melih Colpan, used under the
-**MIT License** and reproduced below. MuscleMap ships its path data as Swift source rather than
-`.svg` files; the paths were converted to a JSON module, its sub-group shapes were dropped, and
-nothing else about the artwork was changed.
+## Modifications and additional development
 
-```
-MIT License
+Modifications and additional development — Copyright (C) 2026 **Juan Jose Perez Sanchez — 2J Fitness Center**,
+licensed under the same terms (`AGPL-3.0-or-later`).
 
-Copyright (c) 2026 Melih Colpan
+Main areas developed for 2J Fitness Center in this fork, as present in this branch (summary,
+not exhaustive):
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+- **Bunker** — the gym-floor screen.
+- **Trainer panel** — member list and plans, AI-assisted routine generation and scanning of
+  printed routines.
+- **Health and measurements** — the health view, body measurements and bioimpedance, training
+  zones and recovery, and the WHOOP and Strava connections.
+- **Training aids** — progressive-overload suggestions, barbell plate loading, the gym clock
+  and stretching.
+- **Social** — social feed, friends and chat, badges and ranks.
+- **Privacy** — members' state encrypted at rest on the server.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The AI Coach itself comes from Alex Costa's fork; 2J Fitness Center extended it (an additional
+provider and the trainer side).
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+Files inherited from openGym keep their original authorship, whether or not they were later
+modified here; the project-level notices above apply to every file in this repository.
 
-## Exercise data & media
+## Keeping these notices
 
-The exercise names, instructions (English in `frontend/src/lib/exercises-data.js`, other
-languages in `frontend/src/instr/`, regenerated via `scripts/build-instructions.mjs`), images
-and animations (fetched into `media/` at build time) come from
-[**hasaneyldrm/exercises-dataset**](https://github.com/hasaneyldrm/exercises-dataset)
-and are **not** covered by 2J Fitness Center's AGPL license — they remain under that dataset's own terms.
-The media files are not distributed in this repository; they are downloaded from the upstream
-source on first run. If you redistribute 2J Fitness Center with the media included, review the upstream
-license first.
+The AGPL requires anyone who conveys this program, or a modified version of it, to keep intact
+the copyright and license notices — including the ones in this file, in [AUTHORS.md](AUTHORS.md)
+and in the source headers — and to make the corresponding source available as the license
+describes (including to users who interact with a modified version over a network, section 13).
+This paragraph only restates the license; it adds no restriction beyond it.
+
+## Also see
+
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — exercise dataset, body diagram geometry,
+  AI provider runtimes and open-source libraries, each under its own terms.
+- [TRADEMARKS.md](TRADEMARKS.md) — the 2J Fitness Center name and logo.
+
+An earlier openGym release granted an additional permission under AGPL section 7 for
+app-store distribution. It is not carried by this fork (section 7 allows removing additional
+permissions when conveying); nothing else about openGym's license changes.
