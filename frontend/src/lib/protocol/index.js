@@ -11,3 +11,4 @@ export { FOCUS, FOCUS_LABEL, GOAL_LABEL, LEVEL_LABEL, TYPE_LABEL, STYLE_LABEL, b
   instantiateBlock, pruneBlocks, segmentsOf, filterBlocks, isGuided, TIMING_LIMITS, TIMING_PRESETS, defaultTiming, sanitizeTiming,
   applyTiming, guidedSeconds, blockTypesOf } from './blocks.js'
 export { ROUTINE_CATEGORIES, CATEGORY_LABEL, PART_ROLES, ROUTINE_TAGS, TAG_LABEL, BADGES, CURATED_TAGS, routineFacts, gearOf } from './routines.js'
+export { MOVEMENTS, MOVEMENT_BY_ID, movementOfPattern, EQUIPMENT, EQUIPMENT_BY_ID, EQUIPMENT_KINDS, EQUIPMENT_OVERRIDE, equipmentIdOf } from './movements.js'
