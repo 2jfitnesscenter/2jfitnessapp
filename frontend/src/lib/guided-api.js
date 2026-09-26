@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // "Entrena con 2J" on the client: /api/guided wrappers, a small store, an offline copy of the
 // catalogue, and favourites.

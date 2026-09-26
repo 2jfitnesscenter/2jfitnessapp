@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Exercise alternatives — "Swap exercise" ranks the catalogue against one reference exercise
 // instead of just browsing everything (see sheets.jsx's ExercisePicker, the plain add-exercise

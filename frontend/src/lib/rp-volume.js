@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Weekly Volume Zones — Renaissance Periodization-style MV/MEV/MAV/MRV landmarks (Israetel et
 // al.'s hypertrophy volume framework), layered onto the same 12 MUSCLE_GROUPS the rest of the

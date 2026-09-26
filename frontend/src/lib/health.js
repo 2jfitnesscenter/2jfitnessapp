@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Health V2 — "your physical evolution", derived. Every number here comes from series the app
 // already keeps (S.bodyweight, S.measurements[key] from lib/measurements.js, workouts, and the

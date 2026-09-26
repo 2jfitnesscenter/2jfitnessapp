@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* Server-side slice of frontend/src/lib/rp-volume.js + lib/muscles.js's target-muscle mapping —
  * duplicated rather than shared, same trade-off payload.js's own modeOf/cleanEx already make

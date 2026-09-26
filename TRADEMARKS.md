@@ -6,7 +6,8 @@ example the files in `brand/` and the app icons derived from them) identify 2J F
 The software license (GNU AGPL v3.0 or later) covers the **code**. Like most free-software
 licenses, it does not grant rights to use a name or logo as a trademark (see AGPL section 7(e)).
 Using the 2J Fitness Center name, the 2J logo or its visual marks — for example to name or
-present another service or app — requires express permission from 2J Fitness Center.
+present another service or app — requires express permission from their holder,
+Juan Jose Perez Sanchez — 2J Fitness Center.
 
 This note does **not** restrict anything the AGPL allows you to do with the code: you may use,
 study, modify and share it under the license's terms. If you publish or run a modified version,

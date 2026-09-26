@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // A drift-corrected timer engine shared by every Reloj mode and the optional reference timer
 // inside a test session (VAM 6', ergometer) — one implementation instead of a bespoke

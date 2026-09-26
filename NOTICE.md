@@ -19,7 +19,7 @@ This fork descends from openGym through an intermediate fork by **Alex Costa**
 
 ## Modifications and additional development
 
-Modifications and additional development — Copyright (C) 2026 **2J Fitness Center**,
+Modifications and additional development — Copyright (C) 2026 **Juan Jose Perez Sanchez — 2J Fitness Center**,
 licensed under the same terms (`AGPL-3.0-or-later`).
 
 Main areas developed for 2J Fitness Center in this fork (summary, not exhaustive):
@@ -50,7 +50,7 @@ providers, the trainer side and the 2J protocol gate).
 Where a source file was created in this fork, it carries a short header:
 
 ```
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 ```
 

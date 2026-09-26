@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* Reading a photo of a single gym machine/exercise into a raw name — the same Gemini-vision
  * approach as routine-scan.js and measurements-scan.js (no OCR, one vision call), just a

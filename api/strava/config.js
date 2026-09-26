@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* Instance-level Strava app credentials — one Client ID/Secret Juanjo (the operator) registers
    once on Strava's own developer portal (https://www.strava.com/settings/api), pasted in via the

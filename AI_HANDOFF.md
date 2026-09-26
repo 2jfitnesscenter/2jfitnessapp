@@ -12,7 +12,7 @@ Sin cambios de funcionalidad. Restaura la atribución original que quitó el reb
 - **Documentos:** `NOTICE.md` (openGym © 2026 Duarte Santos + fork intermedio de Alex Costa + modificaciones © 2026 2J Fitness Center + deber de conservar avisos), `AUTHORS.md`, `THIRD_PARTY_NOTICES.md` (secciones de terceros movidas literalmente desde NOTICE + runtimes IA, librerías, fuentes), `TRADEMARKS.md`.
 - **Cabeceras:** 184 archivos de código creados por el fork (primer commit de Juanjo/2jfitnesscenter según git) + `views/Legal.jsx`/`Legal.test.jsx`. Excluidos: archivos heredados de openGym, `MetricHeatmap.jsx` (deriva de `Heatmap.jsx` de Duarte Santos), datos/generados (`exercises-data`, `instr/`, `names/`, locales, JSON). Las copias `api/lib/protocol/*` heredan la cabecera vía `sync-protocol`.
 - **App:** Ajustes → pie → "Legal y créditos" (`views/Legal.jsx`, hoja como el historial de versiones). Enlaces: licencia en gnu.org, código fuente del fork (repo público), upstream openGym.
-- **Pendiente de Juanjo:** nombre legal completo o entidad titular (TODO en `AUTHORS.md`); hoy figura "Juanjo — 2J Fitness Center" / "2J Fitness Center".
+- **Titular:** "Juan Jose Perez Sanchez — 2J Fitness Center" en AUTHORS, NOTICE, TRADEMARKS, README, pantalla Legal y cabeceras de los archivos propios.
 - **Deploy:** `deploy-59ff471.ps1` queda obsoleto si se despliega un HEAD posterior (exige HEAD exacto y 834 tests frontend; ahora son 836).
 
 ## SPRINT GUIDED ROUTINES V1 — "ENTRENA CON 2J" — 2026-09-26 (NO DESPLEGADO)

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The Bunker Live strip is a projection of the existing Social Wall and the workout's own
 // persisted `prs` list. It never creates a second record feed: a lift appears only when the

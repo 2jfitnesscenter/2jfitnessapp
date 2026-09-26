@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Legal & credits — opened from Settings' footer, next to the version history. Who made what
@@ -20,8 +20,8 @@ export function LegalSheet() {
     <h3>{t('Legal & credits')}</h3>
     <div className="small" style={{ lineHeight: 1.6 }}>
       <div className="tt" style={{ fontWeight: 700 }}>2J Fitness Center App</div>
-      <div className="dim">{t('Development and fork modifications: 2J Fitness Center')}</div>
-      <div className="dim">Copyright (C) 2026 2J Fitness Center</div>
+      <div className="dim">{t('Development and fork modifications: {0}', 'Juan Jose Perez Sanchez — 2J Fitness Center')}</div>
+      <div className="dim">Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center</div>
 
       <H>{t('Based on openGym')}</H>
       <div className="dim">openGym — Copyright (C) 2026 Duarte Santos · <Link href={UPSTREAM_URL}>github.com/DuarteSantos8/openGym</Link></div>

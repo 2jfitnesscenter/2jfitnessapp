@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Pure rules behind the live set-entry pad (components/SetPad.jsx) and both workout views.
 // No state lives here: every value the pad shows is read from S.active and every change is

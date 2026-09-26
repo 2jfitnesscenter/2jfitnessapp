@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -16,8 +16,8 @@ describe('Legal & credits', () => {
   const html = renderToStaticMarkup(<LegalSheet />)
   it('keeps openGym and its author, credits the fork, and links the license and the source', () => {
     expect(html).toContain('openGym — Copyright (C) 2026 Duarte Santos')
-    expect(html).toContain('Copyright (C) 2026 2J Fitness Center')
-    expect(html).toContain('Development and fork modifications: 2J Fitness Center')
+    expect(html).toContain('Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center')
+    expect(html).toContain('Development and fork modifications: Juan Jose Perez Sanchez — 2J Fitness Center')
     expect(html).toContain('Alex Costa')
     expect(html).toContain('GNU Affero General Public License v3.0 or later')
     for (const u of [SOURCE_URL, UPSTREAM_URL, LICENSE_URL]) expect(html).toContain(`href="${u}"`)
@@ -27,7 +27,10 @@ describe('Legal & credits', () => {
   it('the repository notices agree with the screen and the license stays AGPL', () => {
     expect(doc('LICENSE')).toMatch(/^\s*GNU AFFERO GENERAL PUBLIC LICENSE\s+Version 3, 19 November 2007/)
     expect(doc('NOTICE.md')).toContain('openGym** — Copyright (C) 2026 Duarte Santos')
-    expect(doc('NOTICE.md')).toContain('Copyright (C) 2026 **2J Fitness Center**')
+    expect(doc('NOTICE.md')).toContain('Copyright (C) 2026 **Juan Jose Perez Sanchez — 2J Fitness Center**')
+    expect(doc('AUTHORS.md')).toContain('Juan Jose Perez Sanchez — 2J Fitness Center')
+    expect(doc('TRADEMARKS.md')).toContain('Juan Jose Perez Sanchez — 2J Fitness Center')
+    expect(doc('README.md')).not.toContain('AI_Strategy.pdf')
     expect(doc('AUTHORS.md')).toContain('Duarte Santos')
     expect(doc('THIRD_PARTY_NOTICES.md')).toContain('Copyright (c) 2026 Melih Colpan')
     expect(doc('TRADEMARKS.md')).toContain('does **not** restrict anything the AGPL allows')

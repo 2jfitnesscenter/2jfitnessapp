@@ -5,7 +5,7 @@ parties** and stays under **their own licenses and terms**. It is separate from:
 
 - the application's own license — GNU AGPL v3.0 or later, see [LICENSE](LICENSE);
 - the authorship of the original project (openGym, Copyright (C) 2026 Duarte Santos) and of
-  this fork's modifications (Copyright (C) 2026 2J Fitness Center) — see [NOTICE.md](NOTICE.md)
+  this fork's modifications (Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center) — see [NOTICE.md](NOTICE.md)
   and [AUTHORS.md](AUTHORS.md).
 
 Nothing in this file is copyright of 2J Fitness Center.

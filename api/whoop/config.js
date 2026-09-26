@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* Instance-level Whoop app credentials — one Client ID/Secret Juanjo (the operator) registers
    once on Whoop's developer portal (https://developer.whoop.com), pasted in via the admin

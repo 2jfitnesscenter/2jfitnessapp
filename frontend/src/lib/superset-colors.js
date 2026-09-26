@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // One color per superset GROUP, assigned deterministically by the order groups first appear
 // when a routine's (or a live session's) own exercises are read top to bottom — never by the

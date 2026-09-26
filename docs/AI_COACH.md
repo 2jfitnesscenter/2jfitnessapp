@@ -167,10 +167,6 @@ frontend/src/views/AdminCoach.jsx  provider, sign-in, caps, health
 
 ## Design documents
 
-- **[2JFitnessCenter_AI_Strategy.pdf](../2JFitnessCenter_AI_Strategy.pdf)** — the functional description and
-  design rationale for the feature (Implementation Plan v1.3.0), as a slide deck: the problem,
-  the Coach/Engine boundary, persona boundaries, both user journeys, the trust model and the
-  delivery phasing. Read this first for the *why*; read this file for what shipped.
 - **[ai-enablement/functional-plan.md](../ai-enablement/functional-plan.md)** — numbered
   functional requirements (the `FR-xx` ids referenced throughout the code).
 - **[ai-enablement/implementation-plan.md](../ai-enablement/implementation-plan.md)** — the build

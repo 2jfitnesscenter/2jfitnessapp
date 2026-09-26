@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* HTTP surface for Chat con entrenadores — factory taking server.js's own helpers, same
  * reasoning as api/coach/routes.js and api/friends/routes.js.

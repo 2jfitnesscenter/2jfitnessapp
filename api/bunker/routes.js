@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* HTTP surface for the Bunker (gym-floor kiosk). Same factory-of-closures shape as
  * friends/routes.js — server.js's own helpers are passed in rather than imported, so this

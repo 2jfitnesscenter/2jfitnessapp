@@ -14,13 +14,16 @@ is restored, and the fork's own work is credited separately.
 - 👥 **AUTHORS.md**, **THIRD_PARTY_NOTICES.md** (exercise dataset, MuscleMap, AI runtimes,
   libraries, fonts — moved verbatim from NOTICE.md and completed) and **TRADEMARKS.md** (the
   2J name and logo are not licensed as marks; the code stays under the AGPL).
-- 🏷️ Source files created in this fork carry a two-line `Copyright (C) 2026 2J Fitness Center`
+- 🏷️ Source files created in this fork carry a two-line `Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center`
   / `SPDX-License-Identifier: AGPL-3.0-or-later` header. Files inherited from openGym were
   left as they were.
 - ℹ️ **Settings → Legal & credits**: the app, its fork credits, "based on openGym" with the
   original author, the license, the source code and third parties.
 - 📝 README gains a short "2J Fitness Center fork" section; docs/MOBILE.md no longer claims an
   app-store exception this fork does not carry.
+- ✍️ The fork's copyright holder is named in full: **Juan Jose Perez Sanchez — 2J Fitness Center** (NOTICE, AUTHORS, TRADEMARKS,
+  README, the Legal screen and the source headers). Links to the AI strategy slide deck, no
+  longer in the repository, were removed from the README and the docs.
 
 ### Guided Routines V1 — "Entrena con 2J", the official guided workout library
 
@@ -239,7 +242,8 @@ separately from app data and never copied into `coach.json`.
 
 Documented in **[docs/AI_COACH.md](docs/AI_COACH.md)**, with setup walkthroughs for
 [Claude](Claude-setup-instructions.md) and [ChatGPT/Codex](ChatGPT-setup-instructions.md) and
-the design rationale in [2JFitnessCenter_AI_Strategy.pdf](2JFitnessCenter_AI_Strategy.pdf).
+the design rationale in [ai-enablement/implementation-plan.md](ai-enablement/implementation-plan.md)
+(the slide deck that also described it is no longer in the repository).
 
 ### The effort ratings, read back as statistics
 

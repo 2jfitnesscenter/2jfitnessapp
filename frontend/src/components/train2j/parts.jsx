@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // "Entrena con 2J" — shared pieces: routine card, rail, collection tile, the "what you will do"
 // timeline, the filters sheet and the trainer's assign sheet. Styles: .t2-* in index.css.

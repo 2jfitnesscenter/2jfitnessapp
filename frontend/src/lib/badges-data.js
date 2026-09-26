@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The badge catalogue — what exists to unlock, not who has unlocked it (that's S.badges,
 // see lib/badges.js's evaluateBadges). No TypeScript in this project (plain .js/.jsx

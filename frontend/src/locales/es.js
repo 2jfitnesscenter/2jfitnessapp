@@ -3090,7 +3090,7 @@ export default {
   'Legal & credits': 'Legal y créditos',
   'based on openGym': 'basada en openGym',
   'Based on openGym': 'Basada en openGym',
-  'Development and fork modifications: 2J Fitness Center': 'Desarrollo y modificaciones del fork: 2J Fitness Center',
+  'Development and fork modifications: {0}': 'Desarrollo y modificaciones del fork: {0}',
   'Includes the AI Coach first added in Alex Costa’s fork of openGym, and contributions from the openGym community.': 'Incluye el Coach IA añadido primero en el fork de openGym de Alex Costa, y contribuciones de la comunidad de openGym.',
   'License': 'Licencia',
   'Free software under the GNU Affero General Public License v3.0 or later (AGPL). You may use, study, share and modify it; whoever offers a modified version over a network must offer its source code under the same license.': 'Software libre bajo la GNU Affero General Public License v3.0 o posterior (AGPL). Puedes usarlo, estudiarlo, compartirlo y modificarlo; quien ofrezca una versión modificada a través de la red debe ofrecer su código fuente con la misma licencia.',

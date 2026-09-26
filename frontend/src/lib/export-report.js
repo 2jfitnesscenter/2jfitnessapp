@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Body-composition report export — PDF (jsPDF + jspdf-autotable) and Excel (exceljs), both
 // generated entirely client-side (no server round-trip, same "the browser makes the file"

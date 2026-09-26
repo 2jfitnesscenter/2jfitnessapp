@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 2J Training Protocol — public surface. See rules.js for the arrangement of this folder
 // (canonical here, copied verbatim to api/lib/protocol/ by scripts/sync-protocol.mjs).

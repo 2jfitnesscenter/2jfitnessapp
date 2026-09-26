@@ -20,12 +20,8 @@ Contributors to openGym, as recorded in the history this fork inherits:
 
 ## 2J Fitness Center fork
 
-- **Juanjo — 2J Fitness Center** — development, product direction and the modifications of
-  this fork (Copyright (C) 2026 2J Fitness Center). See [NOTICE.md](NOTICE.md) for a summary of
-  the areas developed here.
-
-<!-- TODO(2J): replace "Juanjo — 2J Fitness Center" with the full legal name of the person or the
-     legal entity that holds the copyright, and use the same wording in NOTICE.md, TRADEMARKS.md
-     and frontend/src/views/Legal.jsx. -->
+- **Juan Jose Perez Sanchez — 2J Fitness Center** — development, product direction and the modifications of this fork
+  (Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center). See [NOTICE.md](NOTICE.md) for a summary of the areas developed
+  here.
 
 Automated dependency updates (Dependabot) are not listed as authors.

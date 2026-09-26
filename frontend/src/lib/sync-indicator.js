@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // What the discreet connection pill shows, derived from the store's existing Sync V2 status
 // (lib/sync-client.js) plus the browser's online flag. Nothing here tracks data of its own.

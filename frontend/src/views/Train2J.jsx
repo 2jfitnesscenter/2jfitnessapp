@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // "Entrena con 2J" — the member's catalogue of official guided routines. An editorial front page
 // (one hero, then rows that only appear when they have something real in them), collections, a

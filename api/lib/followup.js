@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Seguimiento V2 — staff follow-up of one member: which readings an assessment collects, how
 // often it is reviewed, and a deterministic "since the last review" summary with factual alerts.

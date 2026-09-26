@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* HTTP surface for the Whoop connection — factory taking server.js's own helpers, same shape as
  * api/strava/routes.js and api/coach/routes.js. Per-member tokens live encrypted on

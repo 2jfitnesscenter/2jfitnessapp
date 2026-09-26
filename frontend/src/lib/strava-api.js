@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Talking to /api/strava/* — same shape as lib/friends-api.js. Connecting is a full-page
 // redirect (Strava's own consent screen), not a fetch — there's nothing to await.

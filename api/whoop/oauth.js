@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* Standard OAuth2 authorization-code + refresh-token grant against Whoop's public API
  * (https://developer.whoop.com). One Whoop app (Client ID/Secret, ./config.js) is registered

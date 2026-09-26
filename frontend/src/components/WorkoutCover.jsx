@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 2J covers — every guided routine gets its own artwork from its metadata, no photographs and no
 // images to host: a graphite ground, the 2J emerald, gold used sparingly, and one graphic idea

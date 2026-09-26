@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Constructor V2 — the block library panel: search, filters, sections, cards and preview.
 // Rendered as the builder's right column on desktop and as a drawer on narrow screens; the

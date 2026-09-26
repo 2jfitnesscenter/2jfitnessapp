@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The badge evaluator — turns a profile's real history into unlock/progress state for every
 // badge in badges-data.js. Every conditionType except 'first_action'-by-superset is a pure

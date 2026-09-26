@@ -1,4 +1,4 @@
-// Copyright (C) 2026 2J Fitness Center
+// Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* Gemini's ONE job in the CSV importer: given an external exercise name (from Hevy/Gravl/
  * whatever) and a short list of real 2J library candidates already narrowed down client-side

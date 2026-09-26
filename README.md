@@ -31,8 +31,7 @@ No account on someone else's server, no subscription, no ads. Just `docker compo
 >
 > **→ [What it does and how to use it](docs/AI_COACH.md)** ·
 > [Claude setup](Claude-setup-instructions.md) ·
-> [ChatGPT / Codex setup](ChatGPT-setup-instructions.md) ·
-> [design deck (PDF)](2JFitnessCenter_AI_Strategy.pdf)
+> [ChatGPT / Codex setup](ChatGPT-setup-instructions.md)
 
 <br>
 
@@ -220,7 +219,7 @@ if you run a modified version as a network service, you must offer that version'
 the same license. Nobody can turn this app into a closed, proprietary product.
 
 openGym — Copyright (C) 2026 Duarte Santos. Modifications and additional development —
-Copyright (C) 2026 2J Fitness Center. Details in [NOTICE.md](NOTICE.md) and [AUTHORS.md](AUTHORS.md);
+Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center. Details in [NOTICE.md](NOTICE.md) and [AUTHORS.md](AUTHORS.md);
 please keep these notices in any copy or modified version, as the AGPL requires.
 
 Exercise images/GIFs are fetched from the upstream dataset and keep their own terms — see
