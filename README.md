@@ -25,14 +25,26 @@ No account on someone else's server, no subscription, no ads. Just `docker compo
 
 > ### 🤖 Now with an AI Coach
 >
-> 2J Fitness Center adds one optional feature on top of the core tracker: an AI that
-> **designs** your training plan and **revises it from what you actually log**, running on
-> your own server under your own provider account.
+> This version includes an optional AI Coach (first added in Alex Costa's fork of openGym and
+> extended here): an AI that **designs** your training plan and **revises it from what you
+> actually log**, running on your own server under your own provider account.
 >
 > **→ [What it does and how to use it](docs/AI_COACH.md)** ·
 > [Claude setup](Claude-setup-instructions.md) ·
-> [ChatGPT / Codex setup](ChatGPT-setup-instructions.md) ·
-> [design deck (PDF)](2JFitnessCenter_AI_Strategy.pdf)
+> [ChatGPT / Codex setup](ChatGPT-setup-instructions.md)
+
+<br>
+
+## 2J Fitness Center fork
+
+This is the **2J Fitness Center** edition of [**openGym**](https://github.com/DuarteSantos8/openGym),
+the self-hosted tracker created by **Duarte Santos**. On top of openGym it adds features
+developed for 2J Fitness Center — among them a trainer panel, the Bunker gym screen, health and
+measurement tracking with WHOOP and Strava connections, social features and gym tools.
+
+It stays free software under the same license. **[LICENSE](LICENSE)** (AGPL v3.0 or later) ·
+**[NOTICE.md](NOTICE.md)** (original project and modifications) · **[AUTHORS.md](AUTHORS.md)** ·
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) · [TRADEMARKS.md](TRADEMARKS.md)
 
 <br>
 
@@ -201,8 +213,14 @@ If it replaced a paid tracker for you, a bug report or a PR is worth just as muc
 
 ## License
 
-[GNU AGPL v3.0](LICENSE) — free and open source. You can self-host, use, modify and share it;
+[GNU AGPL v3.0 or later](LICENSE) — free and open source. You can self-host, use, modify and share it;
 if you run a modified version as a network service, you must offer that version's source under
-the same license. Nobody can turn 2J Fitness Center into a closed, proprietary product.
+the same license. Nobody can turn this app into a closed, proprietary product.
 
-Exercise images/GIFs are fetched from the upstream dataset and keep their own terms — see [NOTICE.md](NOTICE.md).
+openGym — Copyright (C) 2026 Duarte Santos. Modifications and additional development —
+Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center. Details in [NOTICE.md](NOTICE.md) and [AUTHORS.md](AUTHORS.md);
+please keep these notices in any copy or modified version, as the AGPL requires.
+
+Exercise images/GIFs are fetched from the upstream dataset and keep their own terms — see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The 2J Fitness Center name and logo are not
+covered by the software license — see [TRADEMARKS.md](TRADEMARKS.md).
