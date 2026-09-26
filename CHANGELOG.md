@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Series Feedback V1 — "¿Cómo fue?" after each set
+
+- After a finished working set (reps mode), the workout asks *Muy fácil / Bien / Difícil / No pude*
+  in both views. Optional and ignorable.
+- A deterministic, conservative suggestion for the NEXT set only ("80 kg → 85 kg sugeridos",
+  [Aceptar] [Mantener 80 kg]). Very easy with every rep done means one real step up, unless a
+  logged RPE ≥ 9 or RIR ≤ 1 says otherwise. Good means keep. Hard means keep, and one step down
+  only below the rep range. Couldn't means about 10 % lighter, at least one step.
+- Loads come from `lib/equipment.js` (2J dumbbell rack, machine stack, custom increments). Never
+  automatic. It never touches the routine, the target, the program or future workouts.
+- The optional `set.feel` field lives in `S.active` (offline, same sync) and is kept in history
+  on finish. No migration; RPE/RIR are not replaced or mapped. `lib/set-feedback.js`.
+- Bunker: postponed.
+
 ### Exercise Library V2 — canonical movements, variants, equipment and discovery
 
 Not deployed yet. No exercise id changed, nothing was deleted and no history, PR or routine was

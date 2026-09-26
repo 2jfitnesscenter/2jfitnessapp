@@ -144,6 +144,15 @@ superseries; sustitución V2; herramientas; Health nunca visible en la sala; blo
 ejecutan como player completo en el Bunker (aviso). `views/Bunker.jsx`, `lib/bunker-workout.js`,
 `api/bunker/*`.
 
+## 10b. Series Feedback V1 (sin desplegar)
+
+`lib/set-feedback.js` + componente `SetFeedback` en `views/Workout.jsx` (ambas vistas). Tras
+una serie de trabajo hecha, las opciones son easy/good/hard/fail y se guardan en `set.feel`
+(opcional). La sugerencia es solo para la siguiente serie, usa `stepWeight`/`realizableToward` y
+nunca es automática. Aceptar cambia solo `sets[next].w`; `fbDone` cierra la fila. No toca la
+rutina ni el target. RPE ≥ 9 / RIR ≤ 1 frena "muy fácil". No se muestra en logs pasados ni en el
+Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
+
 ## 11. Deploy
 
 - Último runner exitoso: `deploy-a9b6453.ps1` (**no versionado**; los `deploy-*.ps1` se quedan
