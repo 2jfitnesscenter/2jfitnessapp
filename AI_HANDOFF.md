@@ -3,7 +3,49 @@
 > Punto de traspaso entre agentes (Claude Code / Codex). Resumen operativo, no sustituye
 > inspeccionar el repo — ver "Protocolo de relevo" al final.
 
-## CRÉDITOS / COPYRIGHT / ATRIBUCIÓN — 2026-09-26 (NO DESPLEGADO)
+## SPRINT EXERCISE LIBRARY V2 — 2026-09-26 (NO DESPLEGADO)
+
+Producción: `4aab27eaed769505c70d7d742be8de99e4052e5f`. **No se migró historial**: ningún id cambió,
+nada se borró, workouts / PR / snapshots de rutinas intactos. Protocolo sigue en 1.0.
+Documento: `docs/EXERCISE_LIBRARY_V2.md`; métricas: `docs/EXERCISE_LIBRARY_AUDIT.md` (generado).
+
+### Qué hay
+
+| Tema | Dónde | Notas |
+|---|---|---|
+| Taxonomía | `lib/protocol/movements.js` (`MOVEMENTS` 35, `EQUIPMENT` 28, `EQUIPMENT_OVERRIDE`, `equipmentIdOf`) | Protocolo ahora **9 archivos** sincronizados a `api/lib/protocol` |
+| Clasificador | `lib/protocol/classify.js` | Reglas nuevas: estiramientos → mobility (sin grupo), muñeca, olímpicos, rotación de hombro, side bridge/plank, escalador, fallback por target |
+| Capa 2J | `lib/library/overrides.js` | `DEPRECATED` (11), `EXTRA_RECOMMENDED`, `MOVEMENT_OVERRIDE`, `ALIASES` (79), `REVIEWED_VARIANTS` (7) |
+| Núcleo | `lib/library/core.js` | `facetsOf`, `RECOMMENDED` (179), `preferredOf`, `similarVariants`, `checkLibrary` |
+| App | `lib/library/index.js` | búsqueda, familias, favoritos (`S.favEx`), recientes, `scopeList`, `prioritize` |
+| UI | `views/Library.jsx`, `sheets.jsx` (ExercisePicker, AlternativesPicker, ExerciseDetail, ExerciseFamily, ExerciseBrowser), `views/Admin.jsx` | DayCanvas y TrainerRoutineBuilder reemplazan vía `alternativesSheet` |
+| Datos | `exercises-data.js` (14 nombres EN), `names/es.js` (12 ES) | Solo `n`; ids/media/instrucciones intactos |
+| Imports | `lib/import-csv.js` | alias 2J + nombre traducido exacto; deprecated → preferido; empates = candidatos |
+| IA | `scripts/build-coach-library.mjs` (`mv`, `rec`, `pref`), `api/coach/payload.js` `librarySlice`, `prompts/common.md` | Sin deprecated, recomendados primero |
+| Validador | `validator.js` `high_overlap` (nota) | No cambia PASS; semillas oficiales intactas |
+| Scripts | `scripts/check-exercise-library.mjs`, `scripts/audit-exercise-library.mjs --check` | El próximo runner debería ejecutarlos |
+
+### Decisiones
+
+- Duplicado real (A) solo con evidencia visual del dataset (cámara, modelo, accesorio trivial) → `deprecated → preferredId`. Nombre igual ≠ duplicado: 7 pares eran ejercicios distintos y se renombraron. Posibles duplicados (C, 24 grupos "v. N") solo se reportan.
+- El `eq` del dataset no se toca (rutinas oficiales y disponibilidad del gimnasio lo leen); la precisión va en la capa canónica.
+- Favoritos en `S.favEx` con `update()` como `excludedEx` (sin sync nueva).
+
+### Límites
+
+- 71 ejercicios sin movimiento (solo máster). `leverage machine` sigue genérico salvo evidencia.
+- Admin revisa (filtros), no edita metadata en la app: las decisiones se versionan en código.
+- El runner `deploy-4aab27e.ps1` no vale para este HEAD (espera 8 archivos de protocolo y 836/257 tests).
+
+### Tests del sprint
+
+- Frontend: 836 → 864 (`lib/library/library.test.js`, `views/Library.test.jsx`, `alternatives.test.js` ajustado). API: 257 → 260 (`test/library-v2.test.js`).
+
+### Siguiente paso sugerido
+
+Gym Profiles V1 sobre `EQUIPMENT`/kinds; revisar visualmente los 24 grupos C; afinar los 71 sin movimiento si aportan.
+
+## CRÉDITOS / COPYRIGHT / ATRIBUCIÓN — 2026-09-26 (DESPLEGADO en `4aab27e`)
 
 Sin cambios de funcionalidad. Restaura la atribución original que quitó el rebrand `b248843`
 (2026-09-12) y separa la autoría del fork.
@@ -15,7 +57,7 @@ Sin cambios de funcionalidad. Restaura la atribución original que quitó el reb
 - **Titular:** "Juan Jose Perez Sanchez — 2J Fitness Center" en AUTHORS, NOTICE, TRADEMARKS, README, pantalla Legal y cabeceras de los archivos propios.
 - **Deploy:** `deploy-59ff471.ps1` queda obsoleto si se despliega un HEAD posterior (exige HEAD exacto y 834 tests frontend; ahora son 836).
 
-## SPRINT GUIDED ROUTINES V1 — "ENTRENA CON 2J" — 2026-09-26 (NO DESPLEGADO)
+## SPRINT GUIDED ROUTINES V1 — "ENTRENA CON 2J" — 2026-09-26 (DESPLEGADO en `59ff471`)
 
 Producción: `c8edb5ab1e7642641286433c4ffe4665769e54fc` (Constructor V2.1). El runner
 `deploy-c8edb5a.ps1` **no sirve** para este sprint: su probe espera 118 bloques y no conoce

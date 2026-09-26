@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### Exercise Library V2 — canonical movements, variants, equipment and discovery
+
+Not deployed yet. No exercise id changed, nothing was deleted and no history, PR or routine was
+migrated. Protocol version stays 1.0 (no methodology change). Details in
+[docs/EXERCISE_LIBRARY_V2.md](docs/EXERCISE_LIBRARY_V2.md); numbers in the generated
+[docs/EXERCISE_LIBRARY_AUDIT.md](docs/EXERCISE_LIBRARY_AUDIT.md).
+
+- 🧭 **Canonical movements and equipment.** Every exercise gets a movement (35, derived from the
+  patterns 2J really uses — squat, hinge, hip thrust, row…) and a normalised equipment (28 ids in
+  six kinds). Stretches no longer count as training volume; wrist curls are no longer biceps curls.
+- ⭐ **2J exercises vs the full library.** Plan › Exercises opens the 179 Recommended 2J exercises
+  grouped by movement family; the full 1324-exercise library is one tap away.
+- 🔎 **Search in plain words**, Spanish or English: name, alias, movement, muscle, equipment
+  ("remo máquina", "glúteo barra", "bisagra", "treadmill").
+- 🔁 **Smarter swaps.** Replacing an exercise shows similar variants of the same movement first,
+  with the reason ("Same pattern · Same equipment"), in the workout, routines, the Constructor and
+  the Bunker.
+- ❤️ **Favourite exercises**, and recents from your own workouts.
+- 🧹 **Duplicates handled safely.** 11 exercises that were the same one filmed twice point to a
+  preferred version: hidden from normal search, still working in your history. 7 pairs that shared
+  a name but are different exercises now have distinct names; 4 broken names fixed.
+- 📥 **Imports** understand Spanish names and aliases, keep historical names, and ask when a name
+  is ambiguous.
+- 🤖 **AI and validator.** The Coach is offered Recommended 2J first and never a duplicate; the
+  validator notes two exercises of the same movement on the same equipment (a note, not a failure).
+- 🛠️ **Admin** can review the library metadata (recommended, duplicates, without a movement,
+  corrected by 2J). New checks: `scripts/check-exercise-library.mjs`,
+  `scripts/audit-exercise-library.mjs`.
+
 ### Credits, copyright and attribution
 
 No app behaviour changes. The original project's attribution, removed in an earlier rebrand,

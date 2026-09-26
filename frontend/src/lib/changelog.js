@@ -13,6 +13,10 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      '2J exercises: the recommended catalogue grouped by movement, with the full library one tap away',
+      'Search exercises by name, movement, muscle or equipment, in Spanish or English',
+      'Swapping an exercise shows similar variants of the same movement first, with the reason',
+      'Favourite exercises, and duplicates tidied without touching your history',
       'Settings → Legal & credits: the original openGym project, this fork, the license and the source code',
       'Train with 2J: 39 official guided workouts — Tabata, HIIT, circuits, intervals, mobility and more',
       'Start a 2J workout in one tap: it runs with the guided timer and never changes your plan',
