@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import GymProfile, { GymCompatibility } from '../components/GymProfile.jsx'
+import { gymExerciseList } from '../lib/gym-profiles.js'
 import { useStore } from '../store/useStore.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { exerciseBrowserSheet, exerciseDetailSheet, exerciseFamilySheet } from '../sheets.jsx'
@@ -21,6 +23,7 @@ function ExerciseRow({ ex, fav }) {
     <div className="grow">
       <div className="tt capitalize">{nameFor(ex)}{isRecommended(ex.id) && <span className="lib-2j">2J</span>}</div>
       <div className="ss capitalize">{[variantLabel(ex), t(ex.tg || ex.bp)].filter(Boolean).join(' · ')}</div>
+      <GymCompatibility ex={ex} />
     </div>
     {fav && <span className="tag acc"><Icon name="heart" /></span>}
     <Icon name="chevronRight" className="chev" />
@@ -35,21 +38,25 @@ export default function Library() {
   const [move, setMove] = useState('')
   const [kind, setKind] = useState('')
   const [shown, setShown] = useState(40)
+  const [available, setAvailable] = useState(false)
   const all = allExercises(S)
   const two = useMemo(() => scopeList(all, '2j'), [all])
   const families = useMemo(() => familiesOf(two), [two])
   const fav = favSetOf(S)
   const recent = recentIdsOf(S)
-  const filtering = !!(q.trim() || view || muscle || move || kind)
+  const filtering = !!(q.trim() || view || muscle || move || kind || available)
 
   let list = view === 'fav' ? all.filter(e => fav.has(e.id)) : view === 'recent' ? recent.map(id => EXIDX[id]).filter(Boolean) : two
   if (muscle) list = list.filter(e => muscle === 'cardio' ? e.bp === 'cardio' : isInMuscleGroup(e, muscle))
   if (move) list = list.filter(e => facets(e)?.movement === move)
   if (kind) list = list.filter(e => facets(e)?.kind === kind)
   if (q.trim()) list = searchExercises(list, q)
-  const reset = () => { setQ(''); setView(''); setMuscle(''); setMove(''); setKind(''); setShown(40) }
+  list = gymExerciseList(S, list, available)
+  const reset = () => { setQ(''); setView(''); setMuscle(''); setMove(''); setKind(''); setShown(40); setAvailable(false) }
 
   return <>
+    <GymProfile />
+    <button className={'chip' + (available ? ' on' : '')} aria-pressed={available} onClick={() => setAvailable(!available)}>{t('Compatible with this place')}</button>
     <div className="lib-head">
       <div>
         <h4 className="sec" style={{ margin: 0 }}>{t('2J exercises')}</h4>
@@ -83,7 +90,7 @@ export default function Library() {
         <h4 className="sec">{t(label)}</h4>
         <div className="lib-fams">
           {fams.map(f => <button key={f.movement} className="lib-fam" onClick={() => exerciseFamilySheet(f.movement)}>
-            <span className="lib-fam-thumbs">{f.recommended.slice(0, 3).map(e => <Thumb key={e.id} ex={e} />)}</span>
+            <span className="lib-fam-thumbs">{gymExerciseList(S, f.recommended).slice(0, 3).map(e => <Thumb key={e.id} ex={e} />)}</span>
             <span className="lib-fam-t">{t(f.label)}</span>
             <span className="lib-fam-s">{t('{0} exercises', f.recommended.length)}</span>
           </button>)}

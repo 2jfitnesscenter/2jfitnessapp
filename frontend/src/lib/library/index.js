@@ -155,7 +155,7 @@ export function scopeList(list, scope) {
 }
 
 /** Similar variants for a swap, translated reasons included; unavailable ones left out. */
-export function variantsFor(ref, candidates, limit = 12) {
-  return similarVariants(ref, candidates, { lookup, exclude: ex => isUnavailable(ex), limit })
+export function variantsFor(ref, candidates, limit = 12, exclude = isUnavailable) {
+  return similarVariants(ref, candidates, { lookup, exclude, limit })
     .map(v => ({ ...v, reasonLabels: v.reasons.map(r => t(REASONS[r])) }))
 }

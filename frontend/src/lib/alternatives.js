@@ -14,9 +14,10 @@
 // `eq` (equipment) never gates a result out — a exercise on different equipment for the same
 // muscle is exactly the "alternative with dumbbells" case the brief asks for — but it does
 // break score ties and label the match.
-import { EXIDX, allExercises, isUnavailable } from './exercises.js'
+import { EXIDX, allExercises } from './exercises.js'
 import { musclesOf, muscleOptsOf } from './muscles.js'
 import { variantsFor, isDeprecated } from './library/index.js'
+import { compatibleWithGym, unavailableAtGym } from './gym-profiles.js'
 
 // 'variant' — Exercise Library V2: same canonical movement (lib/library/core.js similarVariants),
 //             shown first with the reasons that matched ("Same movement · Same equipment")
@@ -41,7 +42,7 @@ export function getExerciseAlternatives(S, exerciseId) {
   const refMuscles = musclesOf(ref, muscleOpts)
   const results = []
   allExercises(S).forEach(e => {
-    if (e.id === exerciseId || isUnavailable(e)) return
+    if (e.id === exerciseId || unavailableAtGym(S, e)) return
     const sameTarget = !!ref.tg && e.tg === ref.tg
     const sameEquipment = e.eq === ref.eq
     let overlap = 0
@@ -64,18 +65,19 @@ export function getReplacementGroups(S, exerciseId) {
   const alternatives = getExerciseAlternatives(S, exerciseId).filter(a => !isDeprecated(a.ex.id))
   const ref = EXIDX[exerciseId]
   const pool = allExercises(S).filter(ex => ex.id !== exerciseId && !isDeprecated(ex.id))
-  const variants = ref ? variantsFor(ref, pool, 6).map(v => ({ ex: v.ex, matchKey: 'variant', reasons: v.reasonLabels, sameEquipment: v.ex.eq === ref.eq })) : []
+  const variants = ref ? variantsFor(ref, pool, pool.length, ex => unavailableAtGym(S, ex)).map(v => ({ ex: v.ex, matchKey: 'variant', reasons: v.reasonLabels, sameEquipment: v.ex.eq === ref.eq })) : []
   const variantIds = new Set(variants.map(v => v.ex.id))
   const relatedById = new Map([...alternatives, ...variants].map(a => [a.ex.id, a]))
   const relatedIds = new Set(relatedById.keys())
+  const rank = list => [...list].sort((a, b) => Number(compatibleWithGym(S, b.ex)) - Number(compatibleWithGym(S, a.ex)))
   return {
     // Similar variants of the same movement first, then muscle-based alternatives to fill.
-    recommended: [...variants, ...alternatives.filter(a => !variantIds.has(a.ex.id))].slice(0, 8),
-    variants,
-    related: alternatives,
-    all: pool
-      .filter(ex => !isUnavailable(ex))
-      .map(ex => ({ ex, matchKey: relatedById.get(ex.id)?.matchKey || 'unrelated' })),
+    recommended: rank([...variants, ...alternatives.filter(a => !variantIds.has(a.ex.id))]).slice(0, 8),
+    variants: rank(variants).slice(0, 8),
+    related: rank(alternatives),
+    all: rank(pool
+      .filter(ex => !unavailableAtGym(S, ex))
+      .map(ex => ({ ex, matchKey: relatedById.get(ex.id)?.matchKey || 'unrelated' }))),
     relatedIds,
   }
 }

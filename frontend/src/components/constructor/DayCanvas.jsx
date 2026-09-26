@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { useUI } from '../../store/useUI.js'
 import { t, nameFor } from '../../lib/i18n.js'
+import { GymCompatibility } from '../GymProfile.jsx'
 import { exOr, EXIDX } from '../../lib/exercises.js'
 import { cleanupSg } from '../../lib/history.js'
 import { uid } from '../../lib/format.js'
@@ -306,6 +307,7 @@ export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddE
               <Thumb ex={ex} />
               <div className="cx-row-main">
                 <div className="cx-ex-name capitalize">{nameFor(ex)}</div>
+                <GymCompatibility ex={ex} />
                 {e.note && <div className="cx-row-note">{e.note}</div>}
               </div>
               <Prescription e={e} onClick={() => editRx(i)} />

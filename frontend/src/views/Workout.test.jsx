@@ -70,6 +70,18 @@ const count = (html, needle) => html.split(needle).length - 1
 const setView = v => write(s => { s.workoutView = v })
 
 beforeEach(async () => { vi.clearAllMocks(); await fresh() })
+it('Gym Profile persists offline through the real store and rendering never swaps or edits targets/history', async () => {
+  const { selectGymProfile, saveGymProfile } = await import('../lib/gym-profiles.js')
+  const before = clone(store.getState().S)
+  write(s => { saveGymProfile(s, { id: 'home', availableEquipment: [] }); selectGymProfile(s, 'home') })
+  expect(JSON.parse(memory.get('gym_state_v1')).gymProfiles.activeId).toBe('home')
+  const html = await render()
+  expect(store.getState().S.gymProfiles.overrides.home).toEqual([])
+  expect(store.getState().S.active).toEqual(before.active)
+  expect(store.getState().S.workouts).toEqual(before.workouts)
+  expect(store.getState().S.routines).toEqual(before.routines)
+  expect(html).toContain('Equipment not confirmed here')
+})
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('two views of one session', () => {

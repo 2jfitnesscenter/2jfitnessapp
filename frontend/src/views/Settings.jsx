@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import GymProfile from '../components/GymProfile.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useStore, DEF } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -76,6 +77,7 @@ export default function Settings() {
   })
 
   return <div className="narrow">
+    <GymProfile editable />
     <div className="hdr">
       <div><h1>{t('Settings')}</h1></div>
     </div>

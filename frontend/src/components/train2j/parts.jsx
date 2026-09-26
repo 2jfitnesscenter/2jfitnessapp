@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useUI } from '../../store/useUI.js'
 import { useStore } from '../../store/useStore.js'
+import { gymRoutineCompatibility } from '../../lib/gym-profiles.js'
 import { t, nameFor } from '../../lib/i18n.js'
 import { EXIDX } from '../../lib/exercises.js'
 import { useGuided } from '../../lib/guided-api.js'
@@ -46,6 +47,8 @@ export function Heart({ id, className = '' }) {
 
 /** The catalogue card: artwork with type and time, then name and a quiet meta line. */
 export function RoutineCard({ r, stats, isNewRoutine, reasons, onOpen, wide }) {
+  const gymState = useStore(s => s.S)
+  const gymMatch = gymRoutineCompatibility(gymState, r)
   const nav = useNavigate()
   const open = onOpen || (() => nav('/train2j/r/' + r.id))
   const badges = cardBadges(r, { isNewRoutine })
@@ -58,6 +61,7 @@ export function RoutineCard({ r, stats, isNewRoutine, reasons, onOpen, wide }) {
       <div className="t2-card-b">
         <h3 className="t2-card-t">{t(r.name)}</h3>
         <div className="t2-card-m">{t(LEVEL_LABEL[r.level])} · {gearText(r)}</div>
+        <div className="small dim">{gymMatch.compatible ? t('Compatible with this place') : t('Equipment not confirmed here')}</div>
         {(badges.length > 0 || stats?.count > 0 || reasons) && <div className="t2-card-f">
           {reasons ? reasons.slice(0, 2).map(([k, ...p], i) => <span key={i} className="t2-why">{t(k, ...p.map(v => typeof v === 'string' ? t(v).toLowerCase() : v))}</span>)
             : badges.map(b => <span key={b.key} className={'t2-badge' + (b.strong ? ' strong' : '')}>{t(b.label)}</span>)}

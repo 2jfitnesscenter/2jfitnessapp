@@ -513,7 +513,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       {EXIDX[entry.id]?.img && <img className="bk-exmedia" src={imgSrc(EXIDX[entry.id])} alt={exName(entry.id, plan.customEx)} loading="lazy" decoding="async" />}
       <div className="bk-exname-row">
         <div className="bk-exname">{ssInfo[exIdx] && <span className="bk-ssbadge">{supersetLabel(ssInfo[exIdx])}</span>}{exName(entry.id, plan.customEx)}</div>
-        <button className="bk-exchange-btn" onClick={() => { touch(); alternativesSheet(EXIDX[entry.id] || { id: entry.id, n: exName(entry.id, plan.customEx), eq: 'custom' }, doSwap) }}>
+        <button className="bk-exchange-btn" onClick={() => { touch(); alternativesSheet(EXIDX[entry.id] || { id: entry.id, n: exName(entry.id, plan.customEx), eq: 'custom' }, doSwap, true) }}>
           <Icon name="shuffle" />{t('Change exercise')}
         </button>
         {freeTraining && <button className="bk-exchange-btn bk-exremove-btn" onClick={() => doRemove(exIdx)}>

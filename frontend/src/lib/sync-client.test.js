@@ -65,6 +65,19 @@ test('response lost after commit: retry sends identical operation, revision adva
   expect(f.calls[0]).toEqual(f.calls[1])
   expect(f.envelope().meta.revision).toBe(2)
 })
+test('Gym Profiles use the existing offline save journal without changing revision/generation semantics', async () => {
+  const f = fixture(), c = f.client(); await c.sync()
+  f.offline(true)
+  const state = { workouts: [{ id: 'historic', entries: [] }], gymProfiles: { activeId: 'home', overrides: { home: ['dumbbell'] } } }
+  c.enqueue('save', state); const operation = structuredClone(c.record.operations[0]); await c.sync()
+  const reopened = f.client(); expect(reopened.record.draft).toEqual(state)
+  f.offline(false); await reopened.sync()
+  expect(f.calls[0]).toEqual(operation)
+  expect(f.envelope().state.gymProfiles).toEqual(state.gymProfiles)
+  expect(f.envelope().state.workouts).toEqual(state.workouts)
+  expect(f.envelope().meta.generation).toBe(0)
+  expect(f.envelope().meta.revision).toBe(2)
+})
 test('remote edit conflicts with pending draft; fresh pull never blesses stale payload', async () => {
   const f = fixture(), c = f.client(); await c.sync()
   c.enqueue('save', { workouts: [{ id: 'local' }] })

@@ -17,6 +17,7 @@ import { CATEGORY_LABEL, LEVEL_LABEL, GOAL_LABEL, TAG_LABEL, RESTRICTION_LABEL }
 import { startOfficialRoutine } from '../sheets.jsx'
 import { issueText } from '../lib/blocks-api.js'
 import WorkoutCover from '../components/WorkoutCover.jsx'
+import GymProfile from '../components/GymProfile.jsx'
 import Icon from '../components/Icon.jsx'
 import { RoutineCard, Rail, CollectionTile, PartsTimeline, FiltersSheet, AssignSheet, CurateSheet, Heart, gearText, lookup } from '../components/train2j/parts.jsx'
 
@@ -74,6 +75,7 @@ export default function Train2J() {
   const favList = ordered.filter(r => favs.has(r.id))
 
   return <div className="t2 t2-page">
+    <GymProfile />
     <Header offline={offline} />
     {h && <Hero r={h} featured={featured} index={hero} onIndex={setHero} />}
 

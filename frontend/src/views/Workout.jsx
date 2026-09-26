@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
+import GymProfile, { GymCompatibility } from '../components/GymProfile.jsx'
+import { compatibleWithGym } from '../lib/gym-profiles.js'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
 import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, effortOf, feelFor, effortColor, EFFORT_COLOR_VAR, fmtSec } from '../lib/history.js'
@@ -367,6 +369,7 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, prefs, onToggle
         <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
       </div>
     </div>
+    {!S.active?.past && !compatibleWithGym(S, ex) && <button className="chip" onClick={onReplace}><GymCompatibility ex={ex} /> · {t('Change exercise')}</button>}
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
       {cardio && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
       <span className="tag nocap">{targetLine(entry, S.unit)}</span>
@@ -469,6 +472,7 @@ function SimpleExercise({ entryIdx, unitEntries, ssInfo, prefs, onToggle, onPad,
         <h2 className="exname">{nameFor(ex)}</h2>
         <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
       </div>
+      {!S.active?.past && !compatibleWithGym(S, ex) && <button className="chip" onClick={onReplace}><GymCompatibility ex={ex} /> · {t('Change exercise')}</button>}
       <div className="shero-meta">
         {mode === 'cardio' && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
         <span className="tag nocap"><Icon name="target" />{targetLine(entry, S.unit)}</span>
@@ -729,6 +733,7 @@ function ActiveWorkout() {
   })
 
   return <div className="narrow workout">
+    {!A.past && <GymProfile />}
     <div className="hdr">
       <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => {
         const id = A.id

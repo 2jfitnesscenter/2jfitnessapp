@@ -17,6 +17,8 @@ import { createRequire } from 'node:module';
 import { rpVolumeSnapshot, groupOfTarget } from './rp-volume.js';
 import { ZONES as TRAINING_ZONES } from './training-zones.js';
 import { protocolContext, protocolPayload, readUnavailableEq } from './protocol-gate.js';
+import { gymEquipmentContext } from '../lib/gym-profiles.js';
+import { equipmentIdOf } from '../lib/protocol/movements.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const require_ = createRequire(import.meta.url);
@@ -162,7 +164,9 @@ export function librarySlice(S, equipment) {
   // would leave the Coach unable to propose anything at all, which is worse than a bigger payload.
   const base = wanted.length ? visible.filter(e => wanted.includes((e.eq || '').toLowerCase())) : visible;
   const chosen = base.length ? base : visible;
-  const ranked = [...chosen.filter(e => e.rec), ...chosen.filter(e => !e.rec)];
+  const gym = gymEquipmentContext(S);
+  const ranked = [...chosen.filter(e => e.rec), ...chosen.filter(e => !e.rec)]
+    .sort((a, b) => S.gymProfiles ? Number(gym.availableEquipment.includes(equipmentIdOf(b))) - Number(gym.availableEquipment.includes(equipmentIdOf(a))) : 0);
   return [...customs, ...ranked].map(withGroup);
 }
 export const libraryHas = id => LIB_BY_ID.has(id);
@@ -281,6 +285,7 @@ export function build(S, uid, opts = {}) {
   const profile = opts.intake || coach.profile || null;
   const p = {
     coach_contract: CONTRACT,
+    gymProfile: gymEquipmentContext(S),
     task: opts.kind === 'review' ? 'review' : 'create',
     meta: {
       profile: handle(uid),

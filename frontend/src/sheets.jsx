@@ -33,6 +33,8 @@ import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
 import { getReplacementGroups, QUICK_FILTERS } from './lib/alternatives.js'
+import { gymExerciseList } from './lib/gym-profiles.js'
+import GymProfile, { GymCompatibility } from './components/GymProfile.jsx'
 import { searchExercises, prioritize, scopeList, facets, movementLabel, equipmentLabel, variantLabel, isRecommended, isDeprecated, familiesOf,
   preferredOf, variantsFor, favSetOf, toggleFav } from './lib/library/index.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
@@ -942,6 +944,7 @@ function usageMap(st) {
 // Exported (not just the sheet-opener below) so the desktop trainer panel can render it inline
 // as a persistent side panel instead of a modal sheet — same search/filter logic either way.
 export function ExercisePicker({ onPick, close }) {
+  const [available, setAvailable] = useState(false)
   const st = useStore(s => s.S)
   const usage = usageMap(st)
   const [q, setQ] = useState('')
@@ -961,12 +964,14 @@ export function ExercisePicker({ onPick, close }) {
   const eqOpts = equipmentOf(base)
   // Drop the equipment filter if the search narrowed it away, so you never hit a dead end.
   const eqOn = eqOpts.includes(eq) ? eq : ''
-  const f = eqOn ? base.filter(e => e.eq === eqOn) : base
+  const f = gymExerciseList(st, eqOn ? base.filter(e => e.eq === eqOn) : base, available)
   const chosenCount = Object.keys(usage).length
   // A search with nothing in Recommended 2J offers the master library instead of a dead end.
   const masterHits = scope === '2j' && q.trim() && f.length === 0 ? searchExercises(all, q).length : 0
   return <>
     <h3>{t('Add exercise')}</h3>
+    <GymProfile />
+    <button className={'chip' + (available ? ' on' : '')} onClick={() => setAvailable(!available)}>{t('Compatible with this place')}</button>
     <div className="seg lib-scope" style={{ margin: '0 0 10px' }}>
       <button className={scope === '2j' ? 'on' : ''} onClick={() => { setScope('2j'); setShown(50) }}>{t('2J exercises')}</button>
       <button className={scope === 'all' ? 'on' : ''} onClick={() => { setScope('all'); setShown(50) }}>{t('Full library')}</button>
@@ -996,7 +1001,7 @@ export function ExercisePicker({ onPick, close }) {
       {f.slice(0, shown).map(e => <div key={e.id} className="item" onClick={() => { close(); onPick(e) }}>
         <Thumb ex={e} /><div className="grow">
           <div className="tt capitalize">{nameFor(e)}{isRecommended(e.id) && <span className="lib-2j">2J</span>}</div>
-          <div className="ss capitalize">{t(e.tg || e.bp)} · {variantLabel(e) || t(e.eq)}</div></div>
+          <div className="ss capitalize">{t(e.tg || e.bp)} · {variantLabel(e) || t(e.eq)}</div><GymCompatibility ex={e} /></div>
         {isDeprecated(e.id) && <span className="tag nocap dim">{t('Duplicated')}</span>}
         {fav.has(e.id) && <span className="tag acc"><Icon name="heart" /></span>}
         {usage[e.id] && <span className="tag acc"><Icon name="starFill" /></span>}<Icon name="plus" className="chev" />
@@ -1016,8 +1021,9 @@ export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker 
 // Unlike ExercisePicker above (a flat "browse everything" list), this ranks the catalogue
 // against the exercise actually being replaced — see lib/alternatives.js for how, and why there's
 // no movement-pattern field to rank by.
-function AlternativesPicker({ current, onPick, close }) {
-  const st = useStore(s => s.S)
+function AlternativesPicker({ current, onPick, close, room = false }) {
+  const stored = useStore(s => s.S)
+  const st = room ? { ...stored, gymProfiles: { activeId: '2j' } } : stored
   const [scope, setScope] = useState('recommended')
   const [filter, setFilter] = useState(null)
   const [q, setQ] = useState('')
@@ -1039,6 +1045,7 @@ function AlternativesPicker({ current, onPick, close }) {
   const changeScope = next => { setScope(next); setFilter(null); setQ(''); setShown(50) }
   return <>
     <h3 className="capitalize">{t('Replace {0}', nameFor(current))}</h3>
+    {!room && <GymProfile />}
     <div className="seg" style={{ margin: '10px 0' }}>
       {[['recommended', 'Recommended'], ['related', 'Same muscle / related'], ['all', 'All exercises']].map(([key, label]) =>
         <button key={key} className={scope === key ? 'on' : ''} onClick={() => changeScope(key)}>{t(label)}</button>)}
@@ -1062,6 +1069,7 @@ function AlternativesPicker({ current, onPick, close }) {
           <div className="grow">
             <div className="tt capitalize">{nameFor(a.ex)}{isRecommended(a.ex.id) && <span className="lib-2j">2J</span>}</div>
             <div className="ss capitalize">{t(a.ex.tg || a.ex.bp)} · {variantLabel(a.ex) || t(a.ex.eq)}</div>
+            <GymCompatibility ex={a.ex} context={st} />
           </div>
           <span className={'tag nocap' + (a.matchKey === 'exact' || a.matchKey === 'variant' ? ' acc' : '') + (a.matchKey === 'unrelated' ? ' dim' : '')}>{labelFor(a)}</span>
           <Icon name="chevronRight" className="chev" />
@@ -1071,7 +1079,7 @@ function AlternativesPicker({ current, onPick, close }) {
     {filtered.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(n => n + 50)}>{t('Show more')}</Button></>}
   </>
 }
-export const alternativesSheet = (current, onPick) => ui().openSheet(close => <AlternativesPicker current={current} onPick={onPick} close={close} />)
+export const alternativesSheet = (current, onPick, room = false) => ui().openSheet(close => <AlternativesPicker current={current} onPick={onPick} close={close} room={room} />)
 
 /* ============================ exercise browser (by muscle, photo grid) ============================ */
 // Plan > Exercises opens this as its own sheet per muscle (or unfiltered) instead of filtering
@@ -1115,7 +1123,7 @@ function ExerciseBrowser({ initial }) {
   // Master library: everything, searched with Exercise Library V2 (alias, movement, muscle,
   // equipment); Recommended 2J first and deprecated duplicates last when not searching.
   const inMuscle = allExercises(st).filter(byMuscle)
-  const base = ql ? searchExercises(inMuscle, q) : prioritize(inMuscle, st)
+  const base = gymExerciseList(st, ql ? searchExercises(inMuscle, q) : prioritize(inMuscle, st))
   const eqOpts = equipmentOf(base)
   // Drop the equipment filter if switching muscle (or searching) narrowed it away.
   const eqOn = eqOpts.includes(eq) ? eq : ''
@@ -1146,7 +1154,7 @@ function ExerciseBrowser({ initial }) {
             {isRecommended(e.id) && <span className="excard-2j">2J</span>}
           </div>
           <div className="excard-b"><div className="excard-t capitalize">{nameFor(e)}</div>
-            <div className="excard-s capitalize">{isDeprecated(e.id) ? t('Duplicated') : (variantLabel(e) || t(e.tg || e.bp))}</div></div>
+            <div className="excard-s capitalize">{isDeprecated(e.id) ? t('Duplicated') : (variantLabel(e) || t(e.tg || e.bp))}</div><GymCompatibility ex={e} /></div>
         </div>
       })}
     </div>
@@ -1168,18 +1176,18 @@ function ExerciseFamily({ movement }) {
   const row = e => <div key={e.id} className="item" onClick={() => exerciseDetailSheet(e)}>
     <Thumb ex={e} />
     <div className="grow"><div className="tt capitalize">{nameFor(e)}{isRecommended(e.id) && <span className="lib-2j">2J</span>}</div>
-      <div className="ss capitalize">{[variantLabel(e), t(e.tg || e.bp)].filter(Boolean).join(' · ')}</div></div>
+      <div className="ss capitalize">{[variantLabel(e), t(e.tg || e.bp)].filter(Boolean).join(' · ')}</div><GymCompatibility ex={e} /></div>
     {fav.has(e.id) && <span className="tag acc"><Icon name="heart" /></span>}
     <Icon name="chevronRight" className="chev" />
   </div>
   return <>
     <h3>{t(fam.label)}</h3>
-    {fam.recommended.length > 0 && <><div className="lib-sec">{t('2J recommended')}</div><div className="list">{fam.recommended.map(row)}</div></>}
+    {fam.recommended.length > 0 && <><div className="lib-sec">{t('2J recommended')}</div><div className="list">{gymExerciseList(st, fam.recommended).map(row)}</div></>}
     {fam.more.length > 0 && <>
       <button className="lib-more" onClick={() => setMore(v => !v)}>
         {more ? t('Hide other variants') : t('More variants ({0})', fam.more.length)}<Icon name={more ? 'chevronUp' : 'chevronDown'} />
       </button>
-      {more && <div className="list">{fam.more.map(row)}</div>}
+      {more && <div className="list">{gymExerciseList(st, fam.more).map(row)}</div>}
     </>}
   </>
 }

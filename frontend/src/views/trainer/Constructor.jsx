@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../../store/useStore.js'
+import GymProfile from '../../components/GymProfile.jsx'
 import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
 import { DAYN } from '../../lib/format.js'
@@ -233,6 +234,7 @@ export default function Constructor() {
   const titleValue = p.routineOnly ? day.name : p.name
 
   return <div className="cx-shell">
+    <GymProfile />
     <header className="cx-top">
       <a className="trainer-back" href={'#/trainer/' + memberId}><Icon name="chevronLeft" />{member?.name || t('Member')}</a>
       <button className="cx-glyph" aria-label={t('Pick an icon')} onClick={() => glyphPicker(p.routineOnly ? day.emoji : p.emoji, g => p.routineOnly ? patchDay({ ...day, emoji: g }) : setP(c => ({ ...c, emoji: g })))}><Icon name={glyphOf(p.routineOnly ? day.emoji : p.emoji)} /></button>
