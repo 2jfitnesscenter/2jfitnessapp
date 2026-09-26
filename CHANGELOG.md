@@ -32,8 +32,11 @@ routines are composed (a product decision, heuristic).
 - 🗂️ **Admins** curate the catalogue: featured order, badge, active/inactive, content edits and
   collections.
 - 🤖 **The AI Coach** receives compatible official routines and prefers 2J's curated sessions.
-- 📚 **37 new official guided blocks** (the library now has 155; the previous 118 are unchanged).
-- 🐞 **Fix:** treadmill exercises are no longer counted as "no equipment".
+- 📚 **37 new official master blocks** for these workouts (the block library now has 155 master
+  blocks: the previous 118 plus 37). Workouts copy blocks; they never add blocks of their own.
+- 🐞 **Fix:** "run (equipment)" and "walking on incline treadmill" are now listed with their real
+  equipment, the treadmill — in the builder, in Entrena con 2J and in the equipment filters. Same
+  exercises, same history.
 
 ### Constructor V2.1 — guided blocks, list view, 2J suggestions and Bunker rest
 

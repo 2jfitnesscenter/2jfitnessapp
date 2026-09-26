@@ -49,6 +49,14 @@ test('every signed-in person reads the catalogue; anonymous does not', async () 
   assert.equal(fs.existsSync(path.join(dir, 'guided.json')), false);
 });
 
+test('/api/blocks serves exactly the official masters — routines add no blocks', async () => {
+  const LIB = JSON.parse(fs.readFileSync(path.resolve('lib/blocks-official.json'), 'utf8'));
+  const blocks = (await req('GET', '/api/blocks', 't1')).body.blocks;
+  assert.equal(blocks.length, LIB.blocks.length);
+  assert.equal(blocks.length, 155);
+  assert.ok(!blocks.some(b => /^r2j/.test(b.id) || SEED.routines.some(r => r.blocks.some(x => x.iid === b.id))));
+});
+
 test('members cannot write anything', async () => {
   const r = SEED.routines[0];
   for (const [p, b] of [['/api/guided/save', { routine: { ...r, id: undefined } }], ['/api/guided/duplicate', { id: r.id }], ['/api/guided/active', { id: r.id, active: false }],

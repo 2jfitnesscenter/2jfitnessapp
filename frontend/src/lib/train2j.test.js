@@ -16,7 +16,7 @@ const SEED = JSON.parse(readFileSync(join(here, '..', '..', '..', 'api', 'lib', 
 const LIB = JSON.parse(readFileSync(join(here, '..', '..', '..', 'api', 'lib', 'blocks-official.json'), 'utf8'))
 const R = SEED.routines
 const get = id => R.find(r => r.id === id)
-const GYM_EQ = new Set(['barbell', 'dumbbell', 'cable', 'leverage machine', 'smith machine', 'ez barbell', 'body weight', 'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine'])
+const GYM_EQ = new Set(['barbell', 'dumbbell', 'cable', 'leverage machine', 'smith machine', 'ez barbell', 'body weight', 'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill'])
 
 describe('the official catalogue', () => {
   it('39 routines across 7 formats, 7 collections, 3 featured — every one validated and honest', () => {
@@ -33,11 +33,31 @@ describe('the official catalogue', () => {
       expect(new Set(r.ex.map(e => e.id)).size, r.id + ' repeats an exercise').toBe(r.ex.length)
       // composed of official blocks, as versioned snapshots — never exercises of its own
       for (const b of r.blocks) expect(LIB.blocks.some(x => x.id === b.src), b.src).toBe(true)
+      for (const b of r.blocks) expect(LIB.blocks.some(x => x.id === b.iid), 'a copy is not a master').toBe(false)
       expect(r.ex.every(e => r.blocks.some(b => b.iid === e.blk))).toBe(true)
       // duration/equipment/tags are the shared facts, not typed by hand
       const f = routineFacts(r, lookup, r.tags.includes('low-impact') ? ['low-impact'] : [])
       expect([f.minutes, f.equipment, f.tags]).toEqual([r.estimatedMinutes, r.equipment, r.tags])
     }
+  })
+  it('routines compose master blocks, never add them: every master added for them is used, no two masters are the same', () => {
+    const used = new Set(R.flatMap(r => r.blocks.map(b => b.src)))
+    // 43 distinct masters: 37 added for the routines + 6 that already existed (one of them strength)
+    expect(used.size).toBe(43)
+    expect([...used].every(id => LIB.blocks.some(b => b.id === id))).toBe(true)
+    // every guided master but one mobility flow of V2.1 is used by some routine
+    expect(LIB.blocks.filter(b => ['circuit', 'hiit', 'interval', 'mobility'].includes(b.type) && !used.has(b.id))).toHaveLength(1)
+    const sig = b => b.type + '|' + JSON.stringify(b.timing || null) + '|' + b.ex.map(e => e.id).join(',')
+    expect(new Set(LIB.blocks.map(sig)).size).toBe(LIB.blocks.length)
+    const ids = [...LIB.blocks.map(b => b.id), ...R.map(r => r.id), ...SEED.collections.map(c => c.id)]
+    expect(new Set(ids).size).toBe(ids.length)
+    const iids = R.flatMap(r => r.blocks.map(b => b.iid))
+    expect(new Set(iids).size).toBe(iids.length)
+  })
+  it('treadmill exercises carry their real equipment in the library itself', () => {
+    expect([lookup('0684').eq, lookup('3666').eq]).toEqual(['treadmill', 'treadmill'])
+    expect(filterRoutines(R, { gear: 'none' }, { t, lookup }).some(r => r.ex.some(e => ['0684', '3666'].includes(e.id)))).toBe(false)
+    for (const b of LIB.blocks.filter(x => x.ex.some(e => ['0684', '3666'].includes(e.id)))) expect(b.equipment).toContain('treadmill')
   })
   it('names are unique and have Spanish; no two routines are the same workout under another name', () => {
     expect(new Set(R.map(r => r.name)).size).toBe(R.length)

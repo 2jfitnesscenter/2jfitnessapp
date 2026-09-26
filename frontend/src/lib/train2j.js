@@ -4,7 +4,7 @@
 // only the goal/level/restrictions a trainer declared on the member's plan (or the member told the
 // Coach), the member's own workouts and favourites. Health readings, weight, body fat, pain and
 // check-ins are never used here.
-import { validateAgainst2JProtocol, blockTypesOf, equipmentOf, CATEGORY_LABEL, TAG_LABEL, TYPE_LABEL, FOCUS_LABEL, LEVEL_LABEL, GOAL_LABEL, LEVELS } from './protocol/index.js'
+import { validateAgainst2JProtocol, blockTypesOf, CATEGORY_LABEL, TAG_LABEL, TYPE_LABEL, FOCUS_LABEL, LEVEL_LABEL, GOAL_LABEL, LEVELS } from './protocol/index.js'
 
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const LOWER = new Set(['glutes', 'quads', 'hamstrings', 'calves', 'adductors', 'abductors'])
@@ -17,7 +17,7 @@ export function gearKinds(r, lookup) {
   for (const e of r.ex || []) {
     const x = lookup(e.id)
     if (!x) continue
-    const eq = equipmentOf(e.id, lookup)
+    const eq = x.eq
     if (CARDIO_EQ.has(eq) || (x.bp === 'cardio' && eq !== 'body weight')) kinds.add('cardio')
     else if (MACHINE_EQ.has(eq)) kinds.add('machines')
     else if (eq === 'dumbbell') kinds.add('dumbbells')

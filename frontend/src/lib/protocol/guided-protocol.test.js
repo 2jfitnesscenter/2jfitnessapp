@@ -98,9 +98,13 @@ describe('barbell hip thrust (0058)', () => {
 })
 
 describe('the official library after V2.1', () => {
-  it('155 blocks (118 + 37 guided for Entrena con 2J), every one PASS, unique ids; only the two hip-thrust blocks were revised', () => {
-    expect(seed.count).toBe(155)
-    expect(new Set(seed.blocks.map(b => b.id)).size).toBe(155)
+  // MASTER blocks only (api/lib/blocks-official.json = what /api/blocks serves): the 118 of
+  // Constructor V2.1 plus the 37 guided masters that the official guided routines are made of.
+  // Routines never add masters: they hold copies (snapshots) inside api/lib/guided-official.json.
+  const MASTERS_V21 = 118, MASTERS_ADDED_FOR_ROUTINES = 37, MASTERS = MASTERS_V21 + MASTERS_ADDED_FOR_ROUTINES
+  it('155 official MASTER blocks (118 of V2.1 + 37 guided masters for Entrena con 2J), every one PASS, unique ids; only the two hip-thrust blocks were revised', () => {
+    expect(seed.count).toBe(MASTERS)
+    expect(new Set(seed.blocks.map(b => b.id)).size).toBe(MASTERS)
     expect(seed.blocks.every(b => b.validation.result === 'PASS')).toBe(true)
     const revised = seed.blocks.filter(b => b.seedVersion > 1).map(b => b.id).sort()
     expect(revised).toEqual(['off-glutes-hypertrophy-advanced-a', 'off-glutes-hypertrophy-intermediate-a'])

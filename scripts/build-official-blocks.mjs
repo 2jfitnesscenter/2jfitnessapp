@@ -25,7 +25,7 @@ export const SEED_VERSION = 1
 // (lib/equipment.js models its dumbbells, plates and machines). Bands, kettlebells, balls
 // and other kit are left out rather than assumed.
 const GYM_EQ = new Set(['barbell', 'dumbbell', 'cable', 'leverage machine', 'smith machine', 'ez barbell', 'body weight',
-  'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine'])
+  'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill'])
 
 const byId = Object.fromEntries(EXDB.map(e => [e.id, e]))
 const lookup = id => byId[id] || null

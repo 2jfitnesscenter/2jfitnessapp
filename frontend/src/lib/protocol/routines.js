@@ -16,10 +16,6 @@ export const TAG_LABEL = { 'no-jumps': 'No jumps', 'no-equipment': 'No equipment
 export const BADGES = ['new', 'featured', 'express', 'no-equipment', 'no-jumps']
 // A curated tag an admin may set that the facts must support (the build and the store verify it).
 export const CURATED_TAGS = ['low-impact']
-// The exercise library files a few machine exercises under "body weight" (its source dataset
-// does); a routine built on them must never be sold as "no equipment".
-export const GEAR_OVERRIDE = { '0684': 'treadmill', '3666': 'treadmill' }
-export const equipmentOf = (id, lookup) => GEAR_OVERRIDE[id] || lookup(id)?.eq
 
 /**
  * Duration, equipment, tags and parts of a routine, from its entries and block labels.
@@ -41,7 +37,7 @@ export function routineFacts(r, lookup, curated = []) {
   const cls = ex.map(e => classify(e.id, lookup))
   const noJumps = cls.every(c => !c.flags.includes('jump'))
   const running = cls.some(c => c.pattern === 'cond-run')
-  const equipment = [...new Set(ex.map(e => equipmentOf(e.id, lookup)).filter(Boolean))].sort()
+  const equipment = [...new Set(ex.map(e => lookup(e.id)?.eq).filter(Boolean))].sort()
   const minutes = roundMinutes(seconds)
   const tags = [
     ...(noJumps ? ['no-jumps'] : []),

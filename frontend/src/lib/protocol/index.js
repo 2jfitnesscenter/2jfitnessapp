@@ -8,4 +8,4 @@ export { validateAgainst2JProtocol, failuresForRepair, savePolicy, OVERRIDE_REAS
 export { FOCUS, FOCUS_LABEL, GOAL_LABEL, LEVEL_LABEL, TYPE_LABEL, STYLE_LABEL, blockTitle, blockSubtitle, deriveBlockMeta,
   instantiateBlock, pruneBlocks, segmentsOf, filterBlocks, isGuided, TIMING_LIMITS, TIMING_PRESETS, defaultTiming, sanitizeTiming,
   applyTiming, guidedSeconds, blockTypesOf } from './blocks.js'
-export { ROUTINE_CATEGORIES, CATEGORY_LABEL, PART_ROLES, ROUTINE_TAGS, TAG_LABEL, BADGES, CURATED_TAGS, GEAR_OVERRIDE, equipmentOf, routineFacts, gearOf } from './routines.js'
+export { ROUTINE_CATEGORIES, CATEGORY_LABEL, PART_ROLES, ROUTINE_TAGS, TAG_LABEL, BADGES, CURATED_TAGS, routineFacts, gearOf } from './routines.js'

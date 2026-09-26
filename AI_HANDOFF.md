@@ -13,9 +13,10 @@ Producción: `c8edb5ab1e7642641286433c4ffe4665769e54fc` (Constructor V2.1). El r
 
 | Tema | Dónde | Notas |
 |---|---|---|
-| Hechos de una rutina | `lib/protocol/routines.js` (`routineFacts`, `equipmentOf`, `GEAR_OVERRIDE`) | Duración, material, tags y partes calculados, nunca a mano; sincronizado a `api/lib/protocol` (8 ficheros) |
+| Hechos de una rutina | `lib/protocol/routines.js` (`routineFacts`) | Duración, material, tags y partes calculados, nunca a mano; sincronizado a `api/lib/protocol` (8 ficheros) |
 | Matriz y build | `scripts/protocol/official-routines.matrix.mjs`, `scripts/build-official-routines.mjs` (`--check`) | 39 rutinas, 7 colecciones, 3 destacadas → `api/lib/guided-official.json` (`seedVersion` 1) |
-| Bloques nuevos | `scripts/protocol/official-blocks.matrix.mjs` | 118 → 155 (+37 guiados); los 118 anteriores idénticos; `sig` incluye tipo y timing |
+| Bloques maestros | `scripts/protocol/official-blocks.matrix.mjs` | 155 = 118 de V2.1 + 37 maestros guiados nuevos (todos usados por rutinas). Las rutinas guardan **copias** (`iid` propio) en `guided-official.json`; `/api/blocks` sirve solo los 155 maestros |
+| Cinta | `lib/exercises-data.js` | `0684` (body weight → treadmill) y `3666` (leverage machine → treadmill), corregido en la fuente; ids, nombres, media e historial intactos |
 | Catálogo curado | `lib/protocol/catalog.js` | Movilidad y acondicionamiento con grupo `''` (no son volumen) |
 | API | `api/lib/guided-store.js`, `api/lib/guided-routes.js` | `GET /api/guided` (cualquier sesión) + save/duplicate/active/delete (trainer) + curate/collection (admin); `DATA/guided.json` solo guarda overlays y propias |
 | Cliente | `lib/guided-api.js` (zustand, caché `g2j_catalog:<uid>`, favoritos `g2j_favs:<uid>`), `lib/train2j.js` (puro) | Favoritos locales por dispositivo (decisión V1, no Sync V2) |
@@ -30,20 +31,20 @@ Producción: `c8edb5ab1e7642641286433c4ffe4665769e54fc` (Constructor V2.1). El r
 - **Asignar** = el endpoint existente `POST /api/trainer/member-routine` con la copia (misma política, recibos Sync V2), tras comprobar las restricciones del socio.
 - **Para ti** determinista: solo nivel/objetivo/restricciones declarados (plan o intake del Coach) + historial propio; excluye FAIL por restricción; nunca Salud ni check-in. Sin contexto ni historial → vacío.
 - **Badges** solo reales: NUEVO por `publishedAt` posterior al lanzamiento (≤30 días); no hay POPULAR.
-- **Honestidad**: Tabata = formato 20/10; movilidad con nota "no es un tratamiento"; 0684/3666 (cinta) no cuentan como "sin material".
+- **Honestidad**: Tabata = formato 20/10; movilidad con nota "no es un tratamiento"; 0684/3666 son cinta en la biblioteca misma, así que nunca cuentan como "sin material".
 - **FAIL nunca se guarda** (`upsert`); oficial solo admin; propias solo su autor (sin IDOR: 404 para otros).
 
 ### Límites
 
 - Favoritos por dispositivo; el catálogo offline solo si se abrió antes con esa cuenta.
 - Sin programas multi-semana, pagos ni comunidad. Sin POPULAR (no hay métrica agregada).
-- Los bloques oficiales antiguos con 0684/3666 siguen mostrando su `eq` de la biblioteca en el Constructor.
+- Si un gimnasio marcó "leverage machine" como no disponible para excluir la cinta, ahora debe marcar "treadmill" (lista derivada de la biblioteca).
 - Traducciones: solo ES completo; el resto de idiomas cae a inglés (política actual).
 
 ### Tests del sprint
 
-- Frontend: 814 → 832. Nuevos: `lib/train2j.test.js`, `views/Train2J.test.jsx`; `guided-protocol.test.js` actualizado a 155 bloques.
-- API: 248 → 256 (`test/guided.test.js`).
+- Frontend: 814 → 834. Nuevos: `lib/train2j.test.js`, `views/Train2J.test.jsx`; `guided-protocol.test.js` cuenta 155 bloques **maestros** (118 + 37, constantes con nombre).
+- API: 248 → 257 (`test/guided.test.js`, incluye que `/api/blocks` devuelve exactamente los 155 maestros).
 
 ## SPRINT CONSTRUCTOR V2.1 — BLOQUES GUIADOS + UX + DESCANSO BUNKER — 2026-09-25 (DESPLEGADO en `c8edb5a`)
 
