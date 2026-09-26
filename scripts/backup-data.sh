@@ -5,14 +5,27 @@
 # instance; a backup that only lives on this same machine doesn't protect against the machine
 # itself failing, so copy $BACKUP_DIR off the server every so often too.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
 
 OUT_DIR="${BACKUP_DIR:-$HOME/backups}"
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"
 mkdir -p "$OUT_DIR"
 
-stamp="$(date +%F_%H%M)"
-tar czf "$OUT_DIR/2jfitness-$stamp.tar.gz" data
+stamp="$(date +%F_%H%M%S)"
+archive="$OUT_DIR/2jfitness-$stamp.tar.gz"
+tmp="$archive.tmp"
+listing="$archive.list.tmp"
+trap 'rm -f "$tmp" "$listing"' EXIT
+tar czf "$tmp" data
+test -s "$tmp"
+gzip -t "$tmp"
+tar -tzf "$tmp" > "$listing"
+grep -Fxq 'data/' "$listing"
+if find data -maxdepth 1 -type f -name 'state-*.json' -print -quit | grep -q .; then
+  grep -Eq '^data/state-.*\.json$' "$listing"
+fi
+mv "$tmp" "$archive"
 find "$OUT_DIR" -name '2jfitness-*.tar.gz' -mtime "+$KEEP_DAYS" -delete
 
-echo "✓ backup saved: $OUT_DIR/2jfitness-$stamp.tar.gz"
+echo "✓ backup saved: $archive"

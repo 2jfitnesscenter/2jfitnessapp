@@ -10,6 +10,10 @@
 //   FitNotes 2 (iOS)   Date,Exercise,Category,Weight (kg),Weight (lbs),Reps,Distance,Distance Unit,Time,Notes,Kind
 //   Strong             Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
 //   Hevy               title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_kg,reps,distance_km,duration_seconds,rpe
+//   Gravl              Date,Start Date,Workout,Source,Workout Duration (min),Energy,Exercise,Superset,Set,Set Type,Reps,Weight (kg),Distance (km),Set Duration (sec),Incline,Steps,Effort,Workout Notes
+//     — "Start Date" is actually a time-of-day ("14:11"), not a second date; "Date" is
+//     slash-separated and year-first ("2026/06/28"). "Effort" (Ideal/Difícil/Fácil) has no
+//     honest RPE/RIR equivalent and is deliberately left unmapped — see parseWorkoutCSV.
 // Anything else falls through to loose header matching, which covers Lyfta and the
 // spreadsheet round-trips people actually have on disk, as long as the file has a
 // date, an exercise name and something measured.
@@ -59,8 +63,14 @@ const COLUMNS = [
   ['exercise', ['exercise', 'exercise name', 'exercise title']],
   ['date', ['date', 'workout date']],
   ['startTime', ['start time']],
+  // Gravl's own "Start Date" column is a time-of-day ("14:11"), not a second date — its real
+  // date lives in the plain 'date' column above. Kept as its own field (never aliased into
+  // startTime, which every other format uses for a FULL date+time string) so the two are never
+  // confused; parseWorkoutCSV merges it into `when` only when the date column had no time of
+  // its own.
+  ['timeOfDay', ['start date']],
   ['endTime', ['end time']],
-  ['workoutName', ['workout name', 'title']],
+  ['workoutName', ['workout name', 'title', 'workout']],
   ['category', ['category', 'body part', 'muscle group']],
   ['weightKg', ['weight kg']],
   ['weightLb', ['weight lbs', 'weight lb']],
@@ -74,9 +84,13 @@ const COLUMNS = [
   ['distanceKm', ['distance km']],
   ['distance', ['distance']],
   ['distanceUnit', ['distance unit']],
-  ['seconds', ['seconds', 'duration seconds']],
+  ['seconds', ['seconds', 'duration seconds', 'set duration sec']],
   ['time', ['time', 'duration']],
   ['setType', ['set type']],
+  // Same field a "grouped set" comes in under across every format seen so far — Hevy's
+  // superset_id, Gravl's Superset. See parseWorkoutCSV's own comment on the one conservative
+  // rule applied to whatever raw value shows up here, regardless of which app wrote it.
+  ['supersetGroup', ['superset', 'superset id']],
   ['note', ['comment', 'comments', 'notes', 'note']],
 ]
 
@@ -99,6 +113,9 @@ export function detectSource(header) {
   if (h.includes('exercise') && h.includes('kind')) return 'FitNotes (iOS)'
   if (h.includes('exercise') && h.includes('weight unit')) return 'FitNotes'
   if (h.includes('exercise') && h.includes('category')) return 'FitNotes'
+  // "Start Date" being a time-of-day rather than a date is distinctive enough on its own —
+  // paired with "Workout Duration (min)", which nothing else here writes.
+  if (h.includes('start date') && h.includes('workout duration min')) return 'Gravl'
   return null
 }
 
@@ -258,10 +275,15 @@ const LB_TO_KG = 0.45359237
 const p2 = n => String(n).padStart(2, '0')
 const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }
 
-/** "2020-12-30 18:51:52" · "2024-03-07" · "22 Dec 2025, 08:00" · "07/03/2024" -> { d, t } */
+/** "2020-12-30 18:51:52" · "2024-03-07" · "22 Dec 2025, 08:00" · "07/03/2024" · "2026/06/28"
+ *  -> { d, t } */
 export function parseWhen(s) {
   const v = String(s || '').trim()
   let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{2}))?/)
+  if (m) return { d: `${m[1]}-${p2(m[2])}-${p2(m[3])}`, t: hm(m[4], m[5]) }
+  // Year-first but slash-separated (Gravl) — distinct from the hyphenated ISO-ish pattern
+  // above only in its separator, so it needs its own branch rather than a shared one.
+  m = v.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:[T ](\d{1,2}):(\d{2}))?/)
   if (m) return { d: `${m[1]}-${p2(m[2])}-${p2(m[3])}`, t: hm(m[4], m[5]) }
   m = v.match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?\s+(\d{4})(?:,?\s+(\d{1,2}):(\d{2}))?/)
   if (m && MON[m[2].toLowerCase()]) return { d: `${m[3]}-${p2(MON[m[2].toLowerCase()])}-${p2(m[1])}`, t: hm(m[4], m[5]) }
@@ -279,6 +301,12 @@ export function parseWhen(s) {
   return null
 }
 const hm = (h, mi) => (h === undefined ? null : (parseInt(h, 10) || 0) * 3600000 + (parseInt(mi, 10) || 0) * 60000)
+/** "14:11" -> ms since midnight, or null. For a format (Gravl) that splits date and
+ *  time-of-day into two separate columns instead of one combined string. */
+function parseTimeOfDay(s) {
+  const m = String(s || '').trim().match(/^(\d{1,2}):(\d{2})/)
+  return m ? hm(m[1], m[2]) : null
+}
 
 /** "HH:MM:SS" · "MM:SS" · "90" -> minutes */
 function toMinutes(v) {
@@ -314,6 +342,9 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
 
   const resolved = new Map()          // exercise name -> dataset id | null, resolved once
   const byDate = new Map()
+  // A real time-of-day is sufficient session identity across Hevy/Strong/Gravl and generic
+  // exports. Historical files containing only a date retain the legacy one-workout-per-day
+  // fallback; no arbitrary split is inferred from row order or exercise names.
   const created = new Map()
   const unmatched = new Set()
   let sets = 0, skipped = 0, matched = 0, warmups = 0, rpeSets = 0, rirSets = 0
@@ -326,6 +357,9 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
     const name = cell(r, 'exercise')
     const when = parseWhen(cell(r, dateCol))
     if (!name || !when) { skipped++; continue }
+    // Gravl's own date column carries no time of day at all — pull it from the separate
+    // "Start Date" (really start-TIME) column when the main one didn't already have one.
+    if (when.t == null && map.timeOfDay !== undefined) when.t = parseTimeOfDay(cell(r, 'timeOfDay'))
 
     // explicit kg/lb columns beat a generic column plus a unit column
     let w = 0, rowUnit = ''
@@ -346,7 +380,7 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
       ? num(cell(r, 'distanceKm'))
       : toKm(cell(r, 'distance'), cell(r, 'distanceUnit'))
     if (!w && !reps && !mins && !km) { skipped++; continue }
-    if (/warm/i.test(cell(r, 'setType'))) warmups++
+    if (/warm|calentamiento/i.test(cell(r, 'setType'))) warmups++
 
     const key = keyOf(name)
     let id = resolved.get(key)
@@ -381,10 +415,11 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
       else if (rpe != null) { set.rpe = rpe; rpeSets++ }
     }
 
-    let day = byDate.get(when.d)
+    const sessionKey = when.t != null ? `${when.d}|${when.t}` : when.d
+    let day = byDate.get(sessionKey)
     if (!day) {
-      day = { ex: new Map(), name: cell(r, 'workoutName') || '', start: when.t, end: null }
-      byDate.set(when.d, day)
+      day = { d: when.d, ex: new Map(), name: cell(r, 'workoutName') || '', start: when.t, end: null }
+      byDate.set(sessionKey, day)
     }
     if (!day.name) day.name = cell(r, 'workoutName') || ''
     if (map.endTime !== undefined) { const e = parseWhen(cell(r, 'endTime')); if (e && e.t != null) day.end = e.t }
@@ -392,6 +427,16 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
     if (!day.ex.has(id)) day.ex.set(id, [])
     day.ex.get(id).push(set)
     sets++
+
+    // Whichever raw value a "grouped set" column carries (Hevy's superset_id, Gravl's
+    // Superset) — resolved into 2J's own adjacent-entries `sg` once the day's full entry
+    // order is known, below. "No" is Gravl's own explicit not-grouped sentinel; an empty
+    // cell means the same for every format.
+    const ssRaw = cell(r, 'supersetGroup')
+    if (ssRaw && ssRaw.toLowerCase() !== 'no') {
+      if (!day.ssRaw) day.ssRaw = new Map()
+      day.ssRaw.set(id, ssRaw)
+    }
   }
 
   // lb -> kg only where a row disagrees with the profile. The app never converts units on
@@ -412,14 +457,35 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
   }
   const converted = (!!fileUnit && fileUnit !== unit) || mixedUnits
 
-  const dates = [...byDate.keys()].sort()
-  const workouts = dates.map(d => {
-    const day = byDate.get(d)
+  const sessions = [...byDate.values()].sort((a, b) => a.d.localeCompare(b.d) || (a.start ?? 0) - (b.start ?? 0))
+  const workouts = sessions.map(day => {
+    const d = day.d
     const entries = [...day.ex.entries()].map(([id, ss]) => {
       const conv2 = ss.map(({ u, ...s }) => (s.w !== undefined ? { ...s, w: convRow({ ...s, u }) } : s))
       const mx = Math.max(0, ...conv2.map(s => s.w || 0))
       return { id, sets: conv2, topW: mx || null }
     })
+    // The one conservative grouping rule applied regardless of source app: 2+ DIFFERENT,
+    // ADJACENT exercises sharing the exact same raw superset value are a real superset — the
+    // literal convention Hevy's own superset_id demonstrates. A format whose "grouped set"
+    // column turns out to mean something else (e.g. merely numbering an exercise's own
+    // position in a routine, never repeating that number on a different exercise next to it)
+    // safely produces no groups here rather than a wrong guess — see the module's own header
+    // comment for why this is deliberate, not a gap.
+    if (day.ssRaw && day.ssRaw.size) {
+      let i = 0
+      while (i < entries.length) {
+        const raw = day.ssRaw.get(entries[i].id)
+        if (!raw) { i++; continue }
+        let j = i + 1
+        while (j < entries.length && day.ssRaw.get(entries[j].id) === raw) j++
+        if (j - i > 1) {
+          const localSg = 'imss' + uid()
+          for (let k = i; k < j; k++) entries[k].sg = localSg
+        }
+        i = j
+      }
+    }
     const base = new Date(d + 'T00:00:00').getTime()
     const start = base + (day.start ?? 18 * 3600000)
     const end = day.end != null ? base + day.end : start
@@ -428,6 +494,9 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
       routineId: null, name: day.name || 'Imported', entries, prs: [],
     }
     w.vol = entries.reduce((a, e) => a + e.sets.reduce((b, s) => b + (s.w || 0) * (s.r || 0), 0), 0)
+    // Capture source identity before a later alias replaces a temporary custom id. Otherwise
+    // the same CSV can acquire a different fingerprint merely because the alias now exists.
+    w.importFingerprint = workoutFingerprint(w, [...created.values()])
     return w
   })
 
@@ -439,7 +508,7 @@ export function parseWorkoutCSV(text, { unit = 'kg' } = {}) {
     matchedSets: matched,
     created: created.size, unmatchedNames: [...unmatched].sort(),
     sets, skipped, warmups, fileUnit, mixedUnits, converted, rpeSets, rirSets,
-    from: dates[0] || null, to: dates[dates.length - 1] || null,
+    from: sessions[0]?.d || null, to: sessions.at(-1)?.d || null,
   }
 }
 
@@ -686,6 +755,46 @@ export function parseImport(text, opts) {
   return asWeights.error ? asWorkouts : asWeights
 }
 
+/* ---------------------------------------------------------- antiduplicados ---- */
+// V2: a real per-workout fingerprint, replacing the old "any workout already exists that day ⇒
+// skip the whole day" rule below (still fine for "reimport the exact same file," but it also
+// silently merged two genuinely different sessions that happened to land on the same date —
+// see this file's own header and the session's final report for why that was worth fixing
+// alongside the dedupe work, not a separate redesign).
+//
+// A short, deterministic, non-cryptographic hash (FNV-1a) — good enough to tell "the same
+// workout" from "a different one," not a security primitive. Built from only stable fields: the
+// day, the start time rounded to the minute (tolerates a second of rounding drift between two
+// parses of the same export without merging two sessions a few minutes apart the same day), and
+// the sorted exercise-signature+set-count. Reimporting the exact same file reproduces the exact
+// same fingerprint every time; two real, different sessions on the same day essentially never
+// share all three.
+function fnv1a(str) {
+  let h = 0x811c9dc5
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (h * 0x01000193) >>> 0 }
+  return h.toString(36)
+}
+// An entry's exercise id is NOT stable across two parses of the same file when that exercise
+// isn't in the library: parseWorkoutCSV mints a fresh random customEx id ('im'+uid()) every
+// single time it can't resolve a name, whether or not a human already resolved that exact name
+// via a confirmed alias on a previous import (the alias only gets applied afterward, in
+// import-match.js's applyImportResolutions). Fingerprinting by raw id would make every
+// reimported workout that contains so much as one still-unresolved exercise register as "new"
+// forever. Fingerprinting by NAME instead sidesteps that: a real library id's own name is stable
+// (EXIDX), and an unresolved placeholder's name is exactly the CSV's own exercise-name text —
+// just as stable across re-parses of the same file, unlike its id.
+function entryNameOf(id, customExById) {
+  const custom = customExById && customExById.get(id)
+  if (custom) return custom.n
+  return EXIDX[id]?.n || id
+}
+export function workoutFingerprint(w, customEx) {
+  const customExById = customEx ? new Map(customEx.map(c => [c.id, c])) : null
+  const sig = (w.entries || []).map(e => `${entryNameOf(e.id, customExById)}:${(e.sets || []).length}`).sort().join(',')
+  const startBucket = Math.round((w.start || 0) / 60000)
+  return fnv1a(`${w.d}|${startBucket}|${sig}`)
+}
+
 /* --------------------------------------------------------------- merge ---- */
 
 // Same "existing day wins" de-dupe every kind of import already uses, factored out for the
@@ -696,7 +805,10 @@ export function mergeSeries(existing, fresh) {
   return { list: [...(existing || []), ...add].sort((a, b) => (a.d < b.d ? -1 : 1)), added: add.length }
 }
 
-/** Merge into state. Existing days win — importing twice never duplicates a workout. */
+/** Merge into state. A workout whose fingerprint already exists is skipped — importing the same
+ *  file twice never duplicates a workout, but two real, different sessions on the same day both
+ *  come through (see workoutFingerprint's own comment for why this replaced the old
+ *  date-only rule). */
 export function mergeImport(S, parsed) {
   if (parsed.kind === 'health') {
     const bw = mergeSeries(S.bodyweight, parsed.bodyweight)
@@ -736,8 +848,16 @@ export function mergeImport(S, parsed) {
     S.bodyweight = [...S.bodyweight, ...fresh].sort((a, b) => (a.d < b.d ? -1 : 1))
     return { added: fresh.length, skipped: parsed.bodyweight.length - fresh.length }
   }
-  const have = new Set(S.workouts.map(w => w.d))
-  const fresh = parsed.workouts.filter(w => !have.has(w.d))
+  const have = new Set()
+  S.workouts.forEach(w => {
+    if (w.importFingerprint) have.add(w.importFingerprint)
+    have.add(workoutFingerprint(w, S.customEx))
+  })
+  const fresh = parsed.workouts.filter(w => {
+    const sourceFingerprint = w.importFingerprint || workoutFingerprint(w, parsed.customEx)
+    const resolvedFingerprint = workoutFingerprint(w, parsed.customEx)
+    return !have.has(sourceFingerprint) && !have.has(resolvedFingerprint)
+  })
   const used = new Set(fresh.flatMap(w => w.entries.map(e => e.id)))
   const customs = parsed.customEx.filter(c => used.has(c.id) && !EXIDX[c.id])
   S.customEx = [...(S.customEx || []), ...customs]

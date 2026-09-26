@@ -98,6 +98,7 @@ describe('evaluateBadges', () => {
     expect(badges.workouts_1.unlockedAt).toBeTruthy()
     expect(badges.workouts_1.progress).toBe(1)
     expect(newlyUnlocked.map(b => b.id)).toContain('workouts_1')
+    expect(newlyUnlocked.find(b => b.id === 'workouts_1').unlockedAt).toBe(badges.workouts_1.unlockedAt)
     // Not reached yet — tracked with partial progress, not unlocked.
     expect(badges.workouts_5.unlockedAt).toBeNull()
     expect(badges.workouts_5.progress).toBeCloseTo(0.2)

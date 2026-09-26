@@ -18,7 +18,7 @@ export function buildShareCardData(S, w, prs = [], e1prs = [], newBadges = []) {
     if (!done.length) return null
     const best = done.reduce((a, b) => b.w * b.r > a.w * a.r ? b : a, done[0])
     return { id: e.id, name: EXIDX[e.id] ? nameFor(EXIDX[e.id]) : e.id, w: best.w, r: best.r, vol: best.w * best.r, isPR: prIds.has(e.id) }
-  }).filter(Boolean).sort((a, b) => b.vol - a.vol).slice(0, 4)
+  }).filter(Boolean).sort((a, b) => b.vol - a.vol)
 
   const totalReps = (w.entries || []).reduce((n, e) =>
     n + (e.sets || []).filter(s => s.done && s.type !== 'warmup').reduce((m, s) => m + (s.r || 0), 0), 0)

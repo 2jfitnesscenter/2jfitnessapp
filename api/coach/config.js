@@ -33,6 +33,11 @@ export const PROVIDERS = {
   // A free-tier-eligible option (a Google AI Studio API key, no card required) — no
   // setupToken/deviceLogin, so the existing generic "Use an API key" admin flow covers it as-is.
   gemini: { label: 'Google Gemini', runtime: 'Gemini API', apiKeyEnv: 'GEMINI_API_KEY', oauthEnv: null },
+  // V3: replaces the earlier Codex-CLI path for members who want ChatGPT specifically — direct
+  // REST to OpenAI, never the CLI/device-code/app-server flow (that one needs container
+  // filesystem permissions this instance doesn't grant). Same generic "Use an API key" admin
+  // flow as Gemini above — no setupToken/deviceLogin here either.
+  openai: { label: 'OpenAI', runtime: 'OpenAI API', apiKeyEnv: 'OPENAI_API_KEY', oauthEnv: null },
   // Test-only: drives the in-repo fixture CLI. Selectable so an instance can be exercised
   // end-to-end (and demoed) without any AI account at all.
   fixture: { label: 'Fixture (testing)', runtime: 'Fixture', apiKeyEnv: null, oauthEnv: null }

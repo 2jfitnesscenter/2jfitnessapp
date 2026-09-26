@@ -66,7 +66,7 @@ test('a retired Custom command configuration resets to unconfigured Claude', () 
   });
   cfg.reset();
   const current = cfg.load();
-  assert.deepEqual(Object.keys(cfg.PROVIDERS).sort(), ['claude', 'codex', 'fixture', 'gemini']);
+  assert.deepEqual(Object.keys(cfg.PROVIDERS).sort(), ['claude', 'codex', 'fixture', 'gemini', 'openai']);
   assert.equal(current.provider, 'claude');
   assert.equal(current.auth, null);
   assert.equal(Object.hasOwn(current, 'customCommand'), false);
@@ -83,6 +83,20 @@ test('Gemini is a live provider, not a retired one — its config round-trips no
   const current = cfg.load();
   assert.equal(current.provider, 'gemini');
   assert.equal(cfg.isConnected(), true);
+});
+
+// V3: OpenAI direct REST — same family as Gemini above (plain HTTPS API adapter, generic
+// apikey auth, no local command-execution surface), added specifically to replace the earlier
+// Codex-CLI path for members who want ChatGPT, without needing container filesystem permissions.
+test('OpenAI is a live provider using the generic apikey auth path, same as Gemini', () => {
+  cfg.save({ enabled: true, provider: 'openai', auth: { type: 'apikey', data: cfg.encrypt({ token: 'openai-key' }) } });
+  cfg.reset();
+  const current = cfg.load();
+  assert.equal(current.provider, 'openai');
+  assert.equal(cfg.isConnected(), true);
+  const env = cfg.jobEnv('/tmp/jobdir');
+  assert.equal(env.OPENAI_API_KEY, 'openai-key');
+  assert.equal(env.CODEX_HOME, undefined, 'never touches Codex\'s own credential cache');
 });
 
 test('Codex uses its own ChatGPT CLI cache and never receives an API key', () => {

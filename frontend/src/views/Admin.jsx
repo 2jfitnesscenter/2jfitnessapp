@@ -12,14 +12,16 @@ import { Button, Segmented, ChipSelect, Switch, Row } from '../components/ui.jsx
 import ScanUpload from '../components/ScanUpload.jsx'
 import AdminCoach from './AdminCoach.jsx'
 import AdminTrainerAI from './AdminTrainerAI.jsx'
+import AdminAuxAI from './AdminAuxAI.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
-import { EXDB, equipmentOf } from '../lib/exercises.js'
+import { EXDB, equipmentOf, setUnavailableEquipment } from '../lib/exercises.js'
 import { MUSCLE_GROUPS, isInMuscleGroup } from '../lib/muscles.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 import { MEASUREMENTS, bodyFatBand, visceralFatBand } from '../lib/measurements.js'
 import BioimpedanceFields from '../components/BioimpedanceFields.jsx'
+import { stateAction } from '../lib/state-action.js'
 
 // Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "hypertrophy" means the
 // same rep range whether a member or an admin set it up.
@@ -60,13 +62,10 @@ function ProfileEditForm({ d, onSaved, close }) {
     const n = name.trim()
     if (!n) { toast(t('Name required')); return }
     setBusy(true)
-    api('/api/admin/user/profile', {
-      method: 'POST',
-      body: JSON.stringify({
-        id: d.user.id, name: n, birthDate: birthDate || null, body, height: height === '' ? null : Number(height),
-        priorityMuscles: primary, secondaryMuscles: secondary
-      })
-    }).then(() => { toast(t('Profile saved')); onSaved(); close() }).catch(e => { toast(e.message); setBusy(false) })
+    stateAction('/api/admin/user/profile', {
+      id: d.user.id, name: n, birthDate: birthDate || null, body, height: height === '' ? null : Number(height),
+      priorityMuscles: primary, secondaryMuscles: secondary
+    }, d.sync).then(() => { toast(t('Profile saved')); onSaved(); close() }).catch(e => { toast(e.message); setBusy(false) })
   }
   return <>
     <h3>{t('Edit profile — {0}', d.user.name)}</h3>
@@ -148,7 +147,7 @@ function RecoveryLinkSheet({ u, close }) {
 // one-value-at-a-time (sheets.jsx), which fits a tape-measure reading taken whenever, not a
 // single assessment session. Leaving a field blank keeps whatever that member already had for
 // it — a scan that dropped one reading shouldn't force staff to guess the others.
-function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
+function BioimpedanceSheet({ u, current, latestWeight, sync, onSaved, close }) {
   const toast = useUI(s => s.toast)
   const composition = MEASUREMENTS.filter(m => m.group === 'composition')
   const segments = MEASUREMENTS.filter(m => m.group === 'segments')
@@ -176,7 +175,7 @@ function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
     const w = weight !== '' && weight != null ? Number(weight) : undefined
     if (!Object.keys(values).length && w === undefined) { toast(t('Enter at least one value')); return }
     setBusy(true)
-    api('/api/admin/user/measurements', { method: 'POST', body: JSON.stringify({ id: u.id, values, weight: w }) })
+    stateAction('/api/admin/user/measurements', { id: u.id, values, weight: w }, sync)
       .then(() => { toast(t('Measurements saved')); onSaved(); close() })
       .catch(e => { toast(e.message); setBusy(false) })
   }
@@ -200,14 +199,14 @@ function BioimpedanceSheet({ u, current, latestWeight, onSaved, close }) {
   </>
 }
 
-function StarterPlanSheet({ u, onApplied, close }) {
+function StarterPlanSheet({ u, sync, onApplied, close }) {
   const toast = useUI(s => s.toast)
   const [goal, setGoal] = useState('longevity')
   const [days, setDays] = useState(3)
   const [busy, setBusy] = useState(false)
   const apply = () => {
     setBusy(true)
-    api('/api/admin/user/apply-starter-plan', { method: 'POST', body: JSON.stringify({ id: u.id, goal, days }) })
+    stateAction('/api/admin/user/apply-starter-plan', { id: u.id, goal, days }, sync)
       .then(() => { toast(t('Starter plan added')); onApplied(); close() })
       .catch(e => { toast(e.message); setBusy(false) })
   }
@@ -246,10 +245,12 @@ export function UserDetail({ id, onChanged, close }) {
       .then(() => { toast(trainer ? t('Now a trainer') : t('No longer a trainer')); load() })
       .catch(e => toast(e.message))
   }
-  const applyStarterPlan = () => openSheet(close2 => <StarterPlanSheet u={u} onApplied={load} close={close2} />)
+  const applyStarterPlan = () => openSheet(close2 => <StarterPlanSheet u={u} sync={d.sync} onApplied={load} close={close2} />)
   const setFeature = (key, value) => {
     setD(dd => ({ ...dd, [key]: value }))   // optimistic — this member's own toggle already works this way
-    api('/api/admin/user/features', { method: 'POST', body: JSON.stringify({ id: u.id, [key]: value }) }).catch(e => { toast(e.message); load() })
+    stateAction('/api/admin/user/features', { id: u.id, [key]: value }, d.sync)
+      .then(result => setD(dd => ({ ...dd, sync: result.sync })))
+      .catch(e => { toast(e.message); load() })
   }
   const age = ageFrom(d.birthDate)
   return <>
@@ -296,7 +297,7 @@ export function UserDetail({ id, onChanged, close }) {
       {!d.routines.length && <Button style={{ flex: 1 }} icon="sparkles" onClick={applyStarterPlan}>{t('Load PPL plan')}</Button>}
     </div>
     <Button style={{ width: '100%', margin: '0 0 4px' }} icon="chart"
-      onClick={() => openSheet(close2 => <BioimpedanceSheet u={u} current={d.measurements} latestWeight={d.latestWeight?.w} onSaved={load} close={close2} />)}>{t('Log bioimpedance scan')}</Button>
+      onClick={() => openSheet(close2 => <BioimpedanceSheet u={u} current={d.measurements} latestWeight={d.latestWeight?.w} sync={d.sync} onSaved={load} close={close2} />)}>{t('Log bioimpedance scan')}</Button>
     <Button style={{ width: '100%', margin: '0 0 4px' }} icon="key"
       onClick={() => openSheet(close2 => <RecoveryLinkSheet u={u} close={close2} />)}>{t('Recover access (lost device)')}</Button>
     {!u.admin && <Button style={{ width: '100%', margin: '0 0 4px' }} icon="person" variant={u.trainer ? 'tinted' : 'plain'}
@@ -428,6 +429,53 @@ function ExerciseLibraryNav() {
     onClick={() => openSheet(closeFn => <ExerciseLibrarySheet initialHidden={hidden} close={h => { setHidden(h); closeFn() }} />, { wide: true })} />
 }
 
+/* ============================ equipment availability ============================ */
+// A second, orthogonal way an exercise can be unavailable, alongside the per-exercise
+// blacklist above: equipment the room is temporarily without (a Smith machine out for repair)
+// rather than a movement the owner never wants offered. Toggling one straight away affects
+// every exercise that uses it (lib/exercises.js's isUnavailable()) without touching the
+// library, any routine or any program — the same "not a deletion" guarantee ExerciseLibrarySheet
+// already gives for individual exercises.
+const ALL_EQUIPMENT = equipmentOf(EXDB)
+
+function EquipmentAvailabilitySheet({ initialUnavailable, close }) {
+  const toast = useUI(s => s.toast)
+  const [unavailable, setUnavailable] = useState(initialUnavailable)
+  const toggle = (eq, off) => {
+    const next = new Set(unavailable); off ? next.add(eq) : next.delete(eq); setUnavailable(next)   // optimistic
+    setUnavailableEquipment([...next])
+    api('/api/admin/equipment/unavailable', { method: 'POST', body: JSON.stringify({ eq, unavailable: off }) })
+      .catch(e => { toast(e.message); setUnavailable(unavailable); setUnavailableEquipment([...unavailable]) })   // roll back on failure
+  }
+  return <>
+    <h3>{t('Equipment availability')}</h3>
+    <div className="dim small" style={{ marginBottom: 10 }}>
+      {t('{0} of {1} marked unavailable right now. Every exercise that needs it shows the same "not currently offered" notice as an individually hidden exercise, and goes back to normal the moment you restore it here.', unavailable.size, ALL_EQUIPMENT.length)}
+    </div>
+    <div className="list">
+      {ALL_EQUIPMENT.map(eq => {
+        const off = unavailable.has(eq)
+        return <div key={eq} className="item" onClick={() => toggle(eq, !off)} style={off ? { opacity: .5 } : null}>
+          <div className="grow"><div className="tt capitalize">{t(eq)}</div></div>
+          <span className={'tag' + (off ? '' : ' acc')}>{off ? t('Unavailable') : t('Available')}</span>
+        </div>
+      })}
+    </div>
+    <div style={{ height: 12 }} />
+    <Button variant="primary" onClick={() => close(unavailable)}>{t('Done')}</Button>
+  </>
+}
+
+function EquipmentAvailabilityNav() {
+  const openSheet = useUI(s => s.openSheet)
+  const [unavailable, setUnavailable] = useState(null)
+  useEffect(() => { api('/api/admin/equipment/unavailable').then(d => setUnavailable(new Set(d.unavailable))).catch(() => setUnavailable(new Set())) }, [])
+  if (unavailable === null) return null
+  return <AdminNavCard icon="dumbbell" tint="var(--orange)" title={t('Equipment availability')}
+    sub={unavailable.size ? t('{0} of {1} marked unavailable.', unavailable.size, ALL_EQUIPMENT.length) : t('All equipment available.')}
+    onClick={() => openSheet(closeFn => <EquipmentAvailabilitySheet initialUnavailable={unavailable} close={u => { setUnavailable(u); closeFn() }} />, { wide: true })} />
+}
+
 export default function Admin() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
@@ -507,9 +555,13 @@ export default function Admin() {
 
     <ExerciseLibraryNav />
 
+    <EquipmentAvailabilityNav />
+
     <AdminCoach />
 
     <AdminTrainerAI />
+
+    <AdminAuxAI />
 
     <AdminIntegrations />
   </div>

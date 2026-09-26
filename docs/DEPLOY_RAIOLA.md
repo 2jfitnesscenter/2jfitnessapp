@@ -142,3 +142,26 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 `./data` y las imágenes de ejercicios no se tocan al actualizar.
+
+## Rollback después de activar Sync V2
+
+`51a221d8ef524776334d8d67109fb9102407eff2` es la base mínima de runtime una vez que
+producción haya abierto Sync V2. No se puede volver a `90d98fe` ni a ningún paquete que no
+contenga `SYNC_V2_ROLLBACK_BASE`: esos servidores aceptan PUT legacy y podrían reemplazar
+revision, generation, tombstones y receipts con un snapshot antiguo.
+
+Cada despliegue se prepara como un archivo de release creado con `git archive`. Conserva en
+`/root/backups/` el archivo del último checkpoint compatible que funcionó. Antes de extraer un
+rollback, comprueba el marcador sin tocar `data/`:
+
+```bash
+tar -xOf /root/backups/2jfitness-code-<commit-compatible>.tar.gz SYNC_V2_ROLLBACK_BASE \
+  | grep -q 51a221d8ef524776334d8d67109fb9102407eff2
+tar -xzf /root/backups/2jfitness-code-<commit-compatible>.tar.gz -C /opt/2jfitness
+cd /opt/2jfitness
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+El rollback cambia solo el código. No restaura `data/`, no reduce metadata y no reabre el
+protocolo legacy. Si ningún archivo compatible conocido arranca, se corrige hacia delante desde
+esta base; restaurar código anterior sobre los state V2 queda prohibido.

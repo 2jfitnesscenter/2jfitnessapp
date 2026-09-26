@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { getExerciseAlternatives, QUICK_FILTERS } from './alternatives.js'
+import { getExerciseAlternatives, getReplacementGroups, QUICK_FILTERS } from './alternatives.js'
+import { setHiddenExercises, setUnavailableEquipment } from './exercises.js'
 
 const BENCH = '0025'          // barbell bench press — tg: pectorals, eq: barbell
 const DECLINE_BENCH = '0033'   // barbell decline bench press — tg: pectorals, eq: barbell (exact match)
@@ -57,10 +58,54 @@ describe('getExerciseAlternatives', () => {
   it('is empty for an unknown exercise id', () => {
     expect(getExerciseAlternatives(baseS(), 'nope-not-real')).toEqual([])
   })
+
+  // V1.2 — the "Replace exercise" picker must never offer a candidate the gym itself has
+  // hidden (out of equipment, retired from the floor), same rule allExercises() already
+  // enforces for every other picker in the app.
+  it('never offers a candidate the gym has hidden', () => {
+    setHiddenExercises([DECLINE_BENCH])
+    const alts = getExerciseAlternatives(baseS(), BENCH)
+    setHiddenExercises([])
+    expect(alts.some(a => a.ex.id === DECLINE_BENCH)).toBe(false)
+  })
+
+  // V2 — a "Machine Smith blocked" style admin action must not offer another Smith exercise
+  // as the "fix" (section 22): the same exclusion isHidden already gets, now also for equipment.
+  it('never offers a candidate whose equipment is currently marked unavailable', () => {
+    setUnavailableEquipment(['barbell'])   // DECLINE_BENCH's own equipment
+    const alts = getExerciseAlternatives(baseS(), BENCH)
+    setUnavailableEquipment([])
+    expect(alts.some(a => a.ex.id === DECLINE_BENCH)).toBe(false)
+  })
+
+  it('an exercise on unaffected equipment is still offered while another equipment is blocked', () => {
+    setUnavailableEquipment(['barbell'])
+    const alts = getExerciseAlternatives(baseS(), BENCH)
+    setUnavailableEquipment([])
+    expect(alts.some(a => a.ex.id === CABLE_BENCH)).toBe(true)
+  })
 })
 
 describe('QUICK_FILTERS', () => {
   it('covers the four pills the brief asks for', () => {
     expect(QUICK_FILTERS.map(f => f.key)).toEqual(['same', 'dumbbell', 'cable', 'machine'])
+  })
+})
+
+describe('getReplacementGroups', () => {
+  it('keeps ranked recommendations and exposes the complete available catalogue', () => {
+    const groups = getReplacementGroups(baseS(), BENCH)
+    expect(groups.recommended.length).toBeGreaterThan(0)
+    expect(groups.recommended.length).toBeLessThanOrEqual(8)
+    expect(groups.related.length).toBeGreaterThanOrEqual(groups.recommended.length)
+    expect(groups.all.length).toBeGreaterThan(groups.related.length)
+    expect(groups.all.some(a => a.ex.id === BENCH)).toBe(false)
+  })
+
+  it('allows a deliberately unrelated exercise and labels it for a discreet warning', () => {
+    const groups = getReplacementGroups(baseS(), BENCH)
+    const unrelated = groups.all.find(a => !groups.relatedIds.has(a.ex.id))
+    expect(unrelated).toBeTruthy()
+    expect(unrelated.matchKey).toBe('unrelated')
   })
 })

@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
 import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, EFFORT, effortOf, feelFor, effortColor, EFFORT_COLOR_VAR } from '../lib/history.js'
+import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t, nameFor } from '../lib/i18n.js'
@@ -101,8 +102,21 @@ function SetNumBtn({ s, i, sets, achievement, onToggle, onSetType }) {
   )
 }
 
+// A trainer's per-prescription note during a live set — one line, ellipsised, tap to read the
+// rest in place (no sheet: it's read-only here, editing stays where it always was, the "…" menu
+// in RoutineEdit/TrainerRoutineBuilder). Collapses again on the next exercise automatically since
+// `open` is local state, not lifted — nothing to reset by hand.
+function ExerciseNoteLine({ note }) {
+  const [open, setOpen] = useState(false)
+  return <div className="small" role="button" tabIndex={0} onClick={() => setOpen(o => !o)}
+    style={{ display: 'flex', gap: 6, alignItems: open ? 'flex-start' : 'center', color: 'var(--label-2)', marginBottom: 4, cursor: 'pointer' }}>
+    <Icon name="clipboard" style={{ fontSize: 13, flex: 'none', marginTop: open ? 2 : 0 }} />
+    <span style={open ? undefined : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note}</span>
+  </div>
+}
+
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
-function ExerciseBlock({ entryIdx, compact, rpFinished, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType, onReplace }) {
+function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSetType, onReplace }) {
   const S = useStore(s => s.S)
   const working = useUI(s => s.work)
   const entry = S.active.entries[entryIdx]
@@ -202,7 +216,11 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, onToggle, onField, onAdd
   // Collapsible per exercise, not global — reset whenever the visible exercise changes so a
   // hidden warmup block from the last one doesn't silently carry over to this one.
   const [hideWarmup, setHideWarmup] = useState(false)
-  useEffect(() => { setHideWarmup(false) }, [entryIdx])
+  const [activePlateIdx, setActivePlateIdx] = useState(null)
+  useEffect(() => { setHideWarmup(false); setActivePlateIdx(null) }, [entryIdx])
+  const plateIndexes = entry.sets.map((s, i) => showPlates(s) ? i : -1).filter(i => i >= 0)
+  const plateIdx = plateIndexes.includes(activePlateIdx) ? activePlateIdx : (plateIndexes[0] ?? null)
+  const plateSet = plateIdx == null ? null : entry.sets[plateIdx]
   // Reps step up from 0 with no ceiling, as they always did. Weight instead walks the gym's
   // real rack/pins/plates (or a member's own custom jump) via lib/equipment.js — see
   // Settings → Training. Effort isn't stepped here at all any more — see effortBadge below.
@@ -257,7 +275,7 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, onToggle, onField, onAdd
   return <>
     <Media ex={ex} key={entry.id} compact={compact} minimizable />
     <div className="row between" style={{ marginBottom: 6 }}>
-      <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{nameFor(ex)}</div>
+      <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{ssLabel && <span className="ss-badge">{ssLabel}</span>}{nameFor(ex)}</div>
       <div className="row" style={{ gap: 4, flex: 'none' }}>
         {/* Equipment taken, machine broken, whatever — swap it for today without leaving the
             session. Nothing about the routine changes here; only the finish-time prompt (see
@@ -275,6 +293,14 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, onToggle, onField, onAdd
     {rpGroup && rpLandmarks && <RpVolumeBar
       groupName={t(MUSCLE_GROUPS.find(g => g.key === rpGroup)?.name || rpGroup)}
       sets={rpVolume} landmarks={rpLandmarks} />}
+    {/* A trainer's short instruction on THIS prescription (RoutineEdit/TrainerRoutineBuilder's
+        "Notes" menu item, entry.note — see progression.js's buildRoutineEntries, which copies
+        it into entry.target.note by the same plain spread that already carries every other
+        routine-entry field into a session, no code change needed there). Deliberately its own
+        line, collapsed to one row by default with a tap to read the rest, so a long note never
+        pushes "Last time"/the overload chip/the PR line down the card — those three, and the
+        orange unavailable notice, are never this: a trainer's cue, not a stat. */}
+    {entry.target?.note && <ExerciseNoteLine note={entry.target.note} />}
     {last && <div className="small dim" style={{ marginBottom: 4 }}>{t('Last time')} ({fmtDate(last.d)}): {last.sets.map(s => setLabel(entry.id, s, last.target)).join(', ')}</div>}
     {plan && plan.why && plan.kind !== 'off' && <div className={'progline' + (plan.kind === 'deload' ? ' warn' : '')}>
       <Icon name={plan.kind === 'up' ? 'arrowUp' : plan.kind === 'deload' ? 'arrowDown' : 'lightbulb'} />
@@ -284,33 +310,43 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, onToggle, onField, onAdd
         present) explains what THIS session's prescribed numbers already are and why; this is a
         standing "here's a sane next target" a member can act on with any exercise, prescribed
         or not. */}
-    {suggestion && <div className="overload-chip">
-      <Icon name="target" />
-      <span>{t('Target: {0} {1} × {2}', fmtNum(suggestion.w), S.unit, suggestion.r)}</span>
+    {(suggestion || plateSet) && <div className="exercise-target-row">
+      {suggestion && <div className="overload-chip">
+        <Icon name="target" />
+        <span>{t('Target: {0} {1} × {2}', fmtNum(suggestion.w), S.unit, suggestion.r)}</span>
+      </div>}
+      {plateSet && <button className="exercise-plates-btn" aria-label={t('Plate breakdown')}
+        onClick={() => platesSheet(plateSet.w, S.unit, v => onField(plateIdx, 'w', v))}>
+        <Icon name="barbell" />{t('Plates')}<span>{setBadge(entry.sets, plateIdx)}</span>
+      </button>}
     </div>}
     {bestAchievement && <div className={'progline' + (bestAchievement === 'pr' ? ' pr' : '')}>
       <Icon name={bestAchievement === 'pr' ? 'trophy' : 'arrowUp'} />
       <span>{bestAchievement === 'pr' ? t('New PR this session!') : t('Overload achieved')}</span>
     </div>}
-    <div className="card" style={{ marginTop: 10, marginBottom: 0 }}>
+    <div className="card workout-sets-card" style={{ marginTop: 10, marginBottom: 0 }}>
       {/* the header carries the same eff3 sizing as the rows, or the labels drift off their columns */}
       {(() => {
-        const sethead = <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{col3 && <span className="eff-sp">{col3.hd}</span>}{timed && <span className="ck-sp" />}</div>
-        const row = (s, i) => <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '')}>
+        const sethead = <div className={'sethead' + (col3 ? ' eff3' : '')}><span className="n-sp" /><span className="w-sp">{col1.hd}</span><span className="r-sp">{col2.hd}</span>{(col3 || showZones) && <span className="setmeta-head">{col3?.hd}</span>}{timed && <span className="ck-sp" />}</div>
+        const row = (s, i) => {
+          const zone = zoneOf(s)
+          return <div key={i} className={'setrow' + (s.done ? ' done' : '') + (col3 ? ' eff3' : '') + (i === plateIdx ? ' plate-active' : '')}
+            onPointerDown={() => { if (showPlates(s)) setActivePlateIdx(i) }}>
           <SetNumBtn s={s} i={i} sets={entry.sets} achievement={achievementOf(s, workPosOf[i])} onToggle={onToggle} onSetType={onSetType} />
           {cell(s, i, col1, 'w', workPosOf[i])}
           {cell(s, i, col2, 'r', workPosOf[i])}
-          {col3 && effortBadge(s, i)}
-          {(() => { const zone = zoneOf(s); return zone && <span className="zonechip" style={{ '--zc': zone.color }}
-            title={zone.short + ' · ' + t(zone.label)} aria-label={zone.short + ' · ' + t(zone.label)}>{zone.short}</span> })()}
-          {showPlates(s) && <button className="platesbtn" aria-label={t('Plate breakdown')}
-            onClick={() => platesSheet(s.w, S.unit, v => onField(i, 'w', v))}><Icon name="barbell" /></button>}
+          {(col3 || showZones) && <div className="setmeta">
+            {col3 && effortBadge(s, i)}
+            {zone && <span className="zonechip" style={{ '--zc': zone.color }}
+              title={zone.short + ' · ' + t(zone.label)} aria-label={zone.short + ' · ' + t(zone.label)}>{zone.short}</span>}
+          </div>}
           {/* A timed set is started, not typed: the timer counts the hold down and checks the
               set off itself. SetNumBtn's own tap-to-toggle still covers anyone who timed it on
               their own watch instead. */}
           {timed && <button className="setgo" aria-label={t('Start set')} disabled={s.done || !!working}
             onClick={() => onStartTimed(i)}><Icon name="play" /></button>}
-        </div>
+          </div>
+        }
         // Only split into two labelled blocks when there's actually a warmup to separate out —
         // an exercise with none (warmups off, or no working weight to ramp up to yet) keeps the
         // single plain list it always had, so nothing changes for the common case.
@@ -357,6 +393,7 @@ function ActiveWorkout() {
   const unit = A.entries.length ? unitOf(units, cur) : []
   const unitIdx = units.findIndex(u => u === unit)
   const isSuperset = unit.length > 1
+  const ssInfo = supersetGroupInfo(A.entries)
 
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
   const done = setsDoneActive(A)
@@ -525,7 +562,15 @@ function ActiveWorkout() {
 
   return <div className="narrow">
     <div className="hdr">
-      <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => { update(s => { s.active = null }); stopRest(); nav('/home') } })}><Icon name="xmark" /></button>
+      <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => {
+        const id = A.id
+        update(s => { s.active = null })
+        stopRest(); nav('/home')
+        // The local mutation above only ever clears this device's own view — without this,
+        // the server's own preservation of S.active (PUT /api/data, by design, for Bunker) just
+        // hands the same session right back on the next pull. See useStore.js's own comment.
+        useStore.getState().clearActiveOnServer(id)
+      } })}><Icon name="xmark" /></button>
       <div style={{ textAlign: 'center' }}><div style={{ fontWeight: 600 }}>{A.name}</div><div className="sub">{A.past ? fmtDate(A.d, true) : <Elapsed start={A.start} />} · {t('{0} sets', done + '/' + total)}</div></div>
       <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t(A.past ? 'Save' : 'Finish')} onClick={finishWorkout}><Icon name="check" /></button>
     </div>
@@ -534,11 +579,11 @@ function ActiveWorkout() {
     {A.entries.length ? <>
       <div className="muted small" style={{ marginBottom: 6 }}>{isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
       {isSuperset ? (
-        <div className="ss-card">
+        <div className="ss-card" style={{ '--ss-color': `var(--${ssInfo[unit[0]].token})` }}>
           <div className="ss-hd"><Icon name="link" />{t('Superset · do these back-to-back, rest after both')}</div>
           {unit.map((idx, k) => <div key={idx} className="ss-ex">
             {k > 0 && <div className="ss-amp">+</div>}
-            <ExerciseBlock entryIdx={idx} compact rpFinished={rpFinished}
+            <ExerciseBlock entryIdx={idx} compact rpFinished={rpFinished} ssLabel={supersetLabel(ssInfo[idx])}
               onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} onSetType={i => openSetType(idx, i)} onReplace={() => replaceExercise(idx)} />
           </div>)}
         </div>

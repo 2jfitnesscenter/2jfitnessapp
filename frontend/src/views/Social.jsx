@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t, nameFor } from '../lib/i18n.js'
-import { fmtDate, fmtNum, uid, exCount, routineCount } from '../lib/format.js'
+import { dateSortValue, fmtDate, fmtNum, uid, exCount, routineCount } from '../lib/format.js'
 import { setLabel, modeOf, exLine, bestWeightFor, lastBW } from '../lib/history.js'
 import { exOr, extractCustomDefs, mergeCustomDefs } from '../lib/exercises.js'
 import { glyphOf } from '../lib/glyphs.js'
@@ -961,7 +961,7 @@ export default function Social() {
 
   const feed = routines === null || programs === null ? null :
     [...routines.map(r => ({ ...r, kind: 'routine' })), ...programs.map(p => ({ ...p, kind: 'program' }))]
-      .sort((a, b) => b.createdAt - a.createdAt)
+      .sort((a, b) => dateSortValue(b.createdAt) - dateSortValue(a.createdAt))
   const memberFeed = feed ? feed.filter(p => p.authorKind !== 'trainer') : null
   const trainerFeed = feed ? feed.filter(p => p.authorKind === 'trainer') : null
 

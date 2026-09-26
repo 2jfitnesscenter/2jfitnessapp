@@ -12,7 +12,7 @@
 // `eq` (equipment) never gates a result out — a exercise on different equipment for the same
 // muscle is exactly the "alternative with dumbbells" case the brief asks for — but it does
 // break score ties and label the match.
-import { EXIDX, allExercises, isHidden } from './exercises.js'
+import { EXIDX, allExercises, isUnavailable } from './exercises.js'
 import { musclesOf, muscleOptsOf } from './muscles.js'
 
 // 'exact' — same primary muscle AND same equipment (a true drop-in replacement)
@@ -23,7 +23,9 @@ export const MATCH_KEYS = ['exact', 'sameMuscle', 'related']
 
 /**
  * Ranked alternatives for `exerciseId`, best match first. Excludes the exercise itself and
- * anything gym-wide hidden (lib/exercises.js's isHidden). Each result is
+ * anything unavailable right now — gym-wide hidden by admin, or needing equipment currently
+ * marked unavailable (lib/exercises.js's isUnavailable — a Smith-machine block must not offer
+ * another Smith-machine exercise as the "fix"). Each result is
  * `{ ex, matchKey, sameEquipment }` — matchKey is one of MATCH_KEYS, sameEquipment tells the UI
  * whether to phrase a 'sameMuscle' result as "alternative with {equipment}".
  */
@@ -34,7 +36,7 @@ export function getExerciseAlternatives(S, exerciseId) {
   const refMuscles = musclesOf(ref, muscleOpts)
   const results = []
   allExercises(S).forEach(e => {
-    if (e.id === exerciseId || isHidden(e.id)) return
+    if (e.id === exerciseId || isUnavailable(e)) return
     const sameTarget = !!ref.tg && e.tg === ref.tg
     const sameEquipment = e.eq === ref.eq
     let overlap = 0
@@ -47,6 +49,23 @@ export function getExerciseAlternatives(S, exerciseId) {
   })
   results.sort((a, b) => b.score - a.score)
   return results.map(({ ex, matchKey, sameEquipment }) => ({ ex, matchKey, sameEquipment }))
+}
+
+/** The three user-facing levels in Change exercise V2. The complete catalogue is always the
+ * same allExercises() source used everywhere else; relatedIds lets the UI warn discreetly when
+ * someone deliberately chooses a movement outside the biomechanical suggestions. */
+export function getReplacementGroups(S, exerciseId) {
+  const alternatives = getExerciseAlternatives(S, exerciseId)
+  const relatedById = new Map(alternatives.map(a => [a.ex.id, a]))
+  const relatedIds = new Set(relatedById.keys())
+  return {
+    recommended: alternatives.slice(0, 8),
+    related: alternatives,
+    all: allExercises(S)
+      .filter(ex => ex.id !== exerciseId && !isUnavailable(ex))
+      .map(ex => ({ ex, matchKey: relatedById.get(ex.id)?.matchKey || 'unrelated' })),
+    relatedIds,
+  }
 }
 
 // The four quick filter pills the brief asks for. 'same' is resolved against the reference

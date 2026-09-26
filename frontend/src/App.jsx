@@ -16,6 +16,7 @@ import RestTimer from './components/RestTimer.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
 import FriendsWatcher from './components/FriendsWatcher.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
+import SyncConflictDialog from './components/SyncConflictDialog.jsx'
 import Login from './views/Login.jsx'
 import Home from './views/Home.jsx'
 import Plan from './views/Plan.jsx'
@@ -95,6 +96,7 @@ function applyPrefs(theme, accent, glass, glassOpacity, glassBlur, textScale) {
 }
 
 function Shell() {
+  const syncStatus = useStore(s => s.syncStatus)
   const navigate = useNavigate()
   const loc = useLocation()
   const { S, user, ready } = useStore()
@@ -223,6 +225,7 @@ function Shell() {
           it without using its own "Skip for now" (which, unlike navigating away, marks
           onboarded so the wizard doesn't reappear). */}
       {!needsOnboarding && <TabBar />}
+      {syncStatus === 'conflict' && <SyncConflictDialog />}
       <RestTimer />
       <ChatWatcher />
       <FriendsWatcher />

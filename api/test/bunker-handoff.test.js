@@ -6,6 +6,7 @@ import { tempData, writeState } from './helpers.mjs';
 tempData();
 const { bunkerRoutes } = await import('../bunker/routes.js');
 const { readState } = await import('../lib/state-store.js');
+const bunkerStore = await import('../bunker/store.js');
 
 /* Same factory-of-closures exercise pattern as bunker-finish.test.js — no real HTTP server, a
    minimal sign/verifySig pair for the bunker-token half (GET /session, used here only to prove
@@ -26,12 +27,16 @@ function verifySig(token) {
 const bunkerToken = uid => sign('bunker:' + uid + ':' + (Date.now() + 3600000));
 
 let currentUser = null; // swapped per test to simulate different/absent cookie sessions
+// v1.3.1 (A3 fix) — readBunkerToken now revalidates the account on every use; this stub answers
+// "yes, real and active" for whatever uid it's asked about, since these tests are about handoff
+// and session-resume, not A3's own disabled-account checks (see bunker-revocation.test.js).
+const users = () => ({ find: () => ({ disabled: false }) });
 const routes = bunkerRoutes({
   json: (res, status, body) => { res.status = status; res.body = body; },
   readBody: async req => req._body,
   readSession: () => currentUser,
   sign, verifySig,
-  users: () => [],
+  users,
   isTrainer: () => false,
 });
 const handoff = routes['POST /api/bunker/handoff'];
@@ -146,4 +151,21 @@ test('multiuser isolation: two handoffs in parallel never cross uids', async () 
   const rawA = JSON.stringify(SA), rawB = JSON.stringify(SB);
   assert.ok(!rawA.includes('sess-b') && !rawA.includes('"0007"') && !rawA.includes('222'));
   assert.ok(!rawB.includes('sess-a') && !rawB.includes('"0025"') && !rawB.includes('111'));
+});
+
+test('an idle-expired Bunker session is purged by clearActive itself, without a board poll', async () => {
+  const uid = 'u_handoff_expired';
+  const active = sampleActive('sess-expired');
+  writeState(process.env.DATA_DIR, uid, baseState({ active }));
+  const live = bunkerStore.startSession(uid, 'Expired member');
+  live.lastActivityAt = Date.now() - 16 * 60000;
+
+  currentUser = { id: uid };
+  const req = { headers: {}, _body: { id: active.id } };
+  const res = {};
+  await routes['POST /api/active/clear'](req, res);
+
+  assert.equal(res.status, 200);
+  assert.equal(readState(uid).active, null);
+  assert.equal(bunkerStore.getSession(uid), null);
 });

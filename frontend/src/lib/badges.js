@@ -149,8 +149,9 @@ export function evaluateBadges(S, { justFinishedLiveEntries } = {}) {
     const { value, target, unlocked } = evalCondition(b, S, { justFinishedLiveEntries })
     const progress = target > 0 ? Math.max(0, Math.min(1, value / target)) : (unlocked ? 1 : 0)
     if (unlocked) {
-      next[b.id] = { badgeId: b.id, unlockedAt: new Date().toISOString(), progress: 1 }
-      newlyUnlocked.push(b)
+      const unlockedAt = new Date().toISOString()
+      next[b.id] = { badgeId: b.id, unlockedAt, progress: 1 }
+      newlyUnlocked.push({ ...b, unlockedAt })
     } else if (progress !== (prev[b.id]?.progress || 0)) {
       next[b.id] = { badgeId: b.id, unlockedAt: null, progress }
     }

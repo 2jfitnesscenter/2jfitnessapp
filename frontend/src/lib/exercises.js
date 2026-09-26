@@ -31,6 +31,23 @@ let hidden = new Set()
 export function setHiddenExercises(ids) { hidden = new Set(ids || []) }
 export const isHidden = id => hidden.has(id)
 
+// Equipment the gym is temporarily without (from GET /api/config's unavailableEquipment, same
+// boot-time wiring as hidden above) — a second, orthogonal way an exercise can be unavailable.
+// Values are exercises-data.js's own `eq` strings (equipmentOf() enumerates them).
+let unavailableEq = new Set()
+export function setUnavailableEquipment(list) { unavailableEq = new Set(list || []) }
+export const isEquipmentUnavailable = eq => !!eq && unavailableEq.has(eq)
+
+// Combined "don't offer/use this right now" check — either the exercise itself was hidden by
+// admin, or the equipment it needs currently isn't available. Takes an id or a resolved
+// exercise object (same dual-accept idiom as isCardio below), since callers have one or the
+// other on hand depending on where they sit.
+export const isUnavailable = idOrEx => {
+  const ex = typeof idOrEx === 'string' ? EXIDX[idOrEx] : idOrEx
+  if (!ex) return false
+  return isHidden(ex.id) || isEquipmentUnavailable(ex.eq)
+}
+
 // Full searchable catalogue — customs first so your own exercises are easy to find. Customs
 // are the member's own and are never affected by the gym's blacklist. `excludedEx` is the
 // member's own "don't recommend me this" list (RoutineEdit's exercise menu) — unlike `hidden`

@@ -16,11 +16,15 @@ import { trainerAIRoutes } from './coach/trainer-routes.js';
 import { scanBioimpedanceImage } from './lib/measurements-scan.js';
 import { scanRoutineDocument } from './lib/routine-scan.js';
 import { scanMachineImage } from './lib/machine-scan.js';
+import { auxAIRoutes } from './lib/aux-ai-routes.js';
+import { matchImportExercises } from './lib/import-exercise-match.js';
 import { readState, writeState } from './lib/state-store.js';
+import { openSync, mutate, directReceipt, saveDirect, trainerReceipt, saveTrainer } from './lib/sync.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
 import { chatRoutes } from './chat/routes.js';
 import { bunkerRoutes } from './bunker/routes.js';
+import { publicTodayPrs } from './bunker/today-prs.js';
 import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
 import * as whoopConfig from './whoop/config.js';
@@ -74,6 +78,14 @@ db.recoveryRequests = db.recoveryRequests || [];
 // name (see machine-scan.js's norm()) since there's no physical id printed on the equipment
 // itself to key off instead. { key, exId, name, updatedAt }.
 db.machineAliases = db.machineAliases || [];
+// CSV-import exercise aliases (frontend/src/lib/import-match.js) — gym-wide, same reasoning as
+// db.machineAliases just above: once one member confirms "Press inclinado con mancuernas" from
+// Hevy means library id X, every member's next import of a Hevy/Gravl/etc. file with that same
+// external name resolves it instantly, no repeat picker and no repeat Gemini call. Keyed by
+// source+normalised-external-name (not just the name) since the same free-text name can mean
+// different things — or at least isn't guaranteed not to — across different exporting apps.
+// { key, exerciseId, source, externalName, updatedAt }.
+db.importExerciseAliases = db.importExerciseAliases || [];
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
@@ -111,6 +123,18 @@ const hiddenExFile = path.join(DATA, 'hidden-exercises.json');
 let hiddenEx = [];
 try { hiddenEx = JSON.parse(fs.readFileSync(hiddenExFile, 'utf8')); if (!Array.isArray(hiddenEx)) hiddenEx = []; } catch {}
 function saveHiddenEx() { atomicWrite(hiddenExFile, JSON.stringify(hiddenEx)); }
+
+// Equipment this location is temporarily without (a Smith machine out for repair, etc) — a
+// second, orthogonal way an exercise can be unavailable, alongside the per-exercise blacklist
+// above. Same file-per-list, gym-wide, backend-only shape as hiddenEx: a plain array of `eq`
+// string values (exercises-data.js's own equipment vocabulary — see lib/exercises.js's
+// equipmentOf()), never touching the exercise library, routines or programs themselves.
+// Restoring the equipment (removing it from this list) immediately un-blocks every exercise
+// that depends on it — nothing is deleted or rewritten anywhere else.
+const unavailableEqFile = path.join(DATA, 'unavailable-equipment.json');
+let unavailableEq = [];
+try { unavailableEq = JSON.parse(fs.readFileSync(unavailableEqFile, 'utf8')); if (!Array.isArray(unavailableEq)) unavailableEq = []; } catch {}
+function saveUnavailableEq() { atomicWrite(unavailableEqFile, JSON.stringify(unavailableEq)); }
 
 // state-<uid>.json (the member's own workout history, body-weight log and measurements) is
 // encrypted at rest — readState/writeState live in lib/state-store.js, the one place that
@@ -379,6 +403,22 @@ function requireTrainer(req, res) {
   if (!isTrainer(user)) { json(res, 403, { error: 'prohibido' }); return null; }
   return user;
 }
+// V3 routine/program versioning — traceability only, hooked into the trainer's explicit
+// "Save" on an existing (id-matched) routine/program, the only overwrite point either one has.
+// Snapshots the OLD object under S[key][id] before it's replaced, but only when the content
+// that actually matters (everything except id) really changed — a re-save with no edits, or an
+// equipment-availability change (never part of a routine/program object to begin with), must
+// not spam a new version. Capped per id so a routine saved often over months doesn't grow the
+// member's state file without bound; the cap only trims the oldest entries, never the live one.
+const VERSION_CAP = 20;
+function snapshotVersionIfChanged(S, key, oldObj, newObj) {
+  const strip = o => { const { id, ...rest } = o; return rest; };
+  if (JSON.stringify(strip(oldObj)) === JSON.stringify(strip(newObj))) return;
+  S[key] = S[key] || {};
+  const list = S[key][oldObj.id] = S[key][oldObj.id] || [];
+  list.push({ ...oldObj, versionedAt: Date.now() });
+  if (list.length > VERSION_CAP) list.splice(0, list.length - VERSION_CAP);
+}
 function sessionCookie(user) {
   return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly;${SECURE} SameSite=Lax`;
 }
@@ -446,7 +486,7 @@ const routes = {
   'GET /api/config': async (req, res) => {
     const coach = coachConfig.publicConfig();
     json(res, 200, {
-      invite_only: INVITE_ONLY, hiddenExercises: hiddenEx, ...(coach ? { coach } : {}),
+      invite_only: INVITE_ONLY, hiddenExercises: hiddenEx, unavailableEquipment: unavailableEq, ...(coach ? { coach } : {}),
       strava: stravaConfig.isConfigured(), whoop: whoopConfig.isConfigured()
     });
   },
@@ -713,12 +753,55 @@ const routes = {
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
   },
 
+  'GET /api/sync': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const owner = new URL(req.url, 'http://x').searchParams.get('owner');
+    if (owner && owner !== user.id) return json(res, 403, { error: 'La cuenta cambió', code: 'SYNC_ACCOUNT_CHANGED' });
+    json(res, 200, openSync(user.id));
+  },
+  'POST /api/sync': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const op = await readBody(req);
+    if (op.owner && op.owner !== user.id) return json(res, 403, { error: 'La cuenta cambió', code: 'SYNC_ACCOUNT_CHANGED' });
+    try { json(res, 200, mutate(user.id, op)); }
+    catch (e) {
+      if (e.status === 409) return json(res, 409, { error: e.message, code: e.code, ...openSync(user.id) });
+      throw e;
+    }
+  },
   'GET /api/data': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     json(res, 200, { state: readState(user.id) });
   },
 
+  // v1.3.1 (A1 fix) — a PUT is a full-file write (`writeState(user.id, body.state)` below), and
+  // until now the only thing protected from a stale client's own snapshot was `active`. A phone
+  // that pulled state before a Bunker finish, or before a trainer re-saved a routine, could sync
+  // anything at all afterward and silently erase what the server had gained since — a real,
+  // reproduced data-loss bug (see the session's own cross-audit report, item A1).
+  //
+  // Fixed for exactly the fields that are provably safe to protect without breaking a real,
+  // legitimate deletion the OWNER intended:
+  //   - workouts: union-merged by id, never shrunk by a normal PUT. A workout the server already
+  //     has and this payload doesn't mention survives — the only two ways one is actually removed
+  //     server-side now are POST /api/workouts/delete (one at a time, explicit) and `wipe: true`
+  //     below (Settings → "Reset everything", a deliberate full wipe). Both are a real signal of
+  //     intent; a plain PUT simply not mentioning an id never again is.
+  //   - routineVersions/programVersions: exactly like `active` — 100% server-authored (only
+  //     POST /api/trainer/member-routine|program ever write them; see snapshotVersionIfChanged),
+  //     so no client build has ever had a legitimate reason to send a different value. The
+  //     server's own copy always wins, full stop.
+  //
+  // routines/programs/dayPlan are deliberately NOT touched here: a member can legitimately edit
+  // or delete their own routine/program/day-override from their phone, and today's single
+  // full-state snapshot gives no reliable way to tell "my own deliberate edit" apart from "my
+  // phone is just stale" for those fields without a real per-record version/timestamp the
+  // schema doesn't have yet — inventing a silent merge there risks the opposite failure (a
+  // trainer's edit looking "stuck" because a member's stale phone keeps winning, or a member's
+  // real deletion never sticking). Left as a known gap — see AI_HANDOFF.md.
   'PUT /api/data': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
@@ -734,9 +817,41 @@ const routes = {
     // null` (not absent) via POST /api/bunker/finish, and `null` is falsy, so this never
     // resurrects one that has already ended.
     const current = readState(user.id);
+    if (current?._sync?.enabled) return json(res, 409, { error: 'Actualiza la aplicación: se requiere Sync V2', code: 'SYNC_UPGRADE_REQUIRED' });
     if (current && current.active) body.state.active = current.active;
+    // `wipe: true` (Settings → "Reset everything" only) opts OUT of the reconciliation below —
+    // the one place a client is deliberately asking for zero workouts/version-history, not
+    // merely failing to mention what it doesn't know about yet.
+    if (!body.wipe && current) {
+      const clientWorkoutIds = new Set((body.state.workouts || []).map(w => w.id));
+      const missingWorkouts = (current.workouts || []).filter(w => !clientWorkoutIds.has(w.id));
+      if (missingWorkouts.length) {
+        body.state.workouts = [...(body.state.workouts || []), ...missingWorkouts].sort((a, b) => (a.d < b.d ? -1 : 1));
+      }
+      if (current.routineVersions) body.state.routineVersions = current.routineVersions;
+      if (current.programVersions) body.state.programVersions = current.programVersions;
+    }
     writeState(user.id, body.state);
     json(res, 200, { ok: true, ts: body.state._ts || null });
+  },
+
+  // The one explicit, authorized way S.workouts actually shrinks by one now that a normal PUT
+  // union-merges it back (see PUT /api/data's own comment) — same shape as POST
+  // /api/active/clear: normal cookie session, scoped to the caller's own account, idempotent
+  // (deleting an id that's already gone, or never existed, is a harmless no-op).
+  'POST /api/workouts/delete': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const id = String(body.id || '');
+    if (!id) return json(res, 400, { error: 'falta el id del entreno' });
+    const S = readState(user.id);
+    if (S?._sync?.enabled) return json(res, 409, { error: 'Se requiere una operación Sync V2', code: 'SYNC_UPGRADE_REQUIRED' });
+    if (S) {
+      S.workouts = (S.workouts || []).filter(w => w.id !== id);
+      writeState(user.id, S);
+    }
+    json(res, 200, { ok: true });
   },
 
   'GET /api/push/public-key': async (req, res) => json(res, 200, { key: vapid.publicKey }),
@@ -837,6 +952,7 @@ const routes = {
       user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), trainer: isTrainer(u), invitedBy: u.invitedBy || null },
       unit: S.unit || 'kg',
       lastSync: S._ts || null,
+      sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null,
       // Basic profile — set at registration or edited here, read by the AI Coach too
       // (api/coach/payload.js). birthDate stays a date, never a stored age.
       birthDate: S.birthDate || null,
@@ -849,7 +965,7 @@ const routes = {
       // The two per-member toggles POST /api/admin/user/features can flip remotely.
       enableTrainingZones: S.enableTrainingZones !== false,
       enableRpVolumeZones: !!S.enableRpVolumeZones,
-      latestWeight: bw.length ? bw[bw.length - 1] : null,
+      latestWeight: bw.reduce((latest, entry) => !latest || entry.d > latest.d || (entry.d === latest.d && (entry.t || 0) > (latest.t || 0)) ? entry : latest, null),
       // Latest reading per measurement key — see /api/admin/user/measurements. Full history
       // stays on the member's own device; the admin card only needs "what's the number now".
       measurements: Object.fromEntries(
@@ -870,14 +986,24 @@ const routes = {
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const S = readState(u.id);
+    if (!S) {
+      // No synchronized state exists yet; the roster name is a separate db.json field.
+      if (body.name !== undefined) {
+        const name = String(body.name).trim().slice(0, 60);
+        if (!name) return json(res, 400, { error: 'se requiere un nombre' });
+        u.name = name; saveDb();
+      }
+      return json(res, 200, { ok: true });
+    }
+    const replay = directReceipt(S, body, 'admin-profile');
+    if (replay) return json(res, 200, replay);
     if (body.name !== undefined) {
       const name = String(body.name).trim().slice(0, 60);
       if (!name) return json(res, 400, { error: 'se requiere un nombre' });
       u.name = name;
       saveDb();
     }
-    const S = readState(u.id);
-    if (!S) return json(res, 200, { ok: true }); // never synced yet — nothing to merge the rest into
     if (body.birthDate !== undefined) {
       S.birthDate = body.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(body.birthDate) ? body.birthDate : null;
     }
@@ -896,8 +1022,8 @@ const routes = {
       S.secondaryMuscles = Array.isArray(body.secondaryMuscles) ? body.secondaryMuscles.filter(m => MUSCLES.includes(m)) : [];
     }
     S._ts = Date.now();
-    writeState(u.id, S);
-    json(res, 200, { ok: true });
+    saveDirect(u.id, S, body, 'admin-profile', { ok: true });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // Admin/trainer switching Training zones or Weekly volume zones on or off for one member
@@ -911,11 +1037,14 @@ const routes = {
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     const S = readState(u.id);
     if (!S) return json(res, 404, { error: 'este socio aún no ha sincronizado ningún dato' });
+    const replay = directReceipt(S, body, 'admin-features');
+    if (replay) return json(res, 200, replay);
     if (typeof body.enableTrainingZones === 'boolean') S.enableTrainingZones = body.enableTrainingZones;
     if (typeof body.enableRpVolumeZones === 'boolean') S.enableRpVolumeZones = body.enableRpVolumeZones;
     S._ts = Date.now();
-    writeState(u.id, S);
-    json(res, 200, { ok: true, enableTrainingZones: S.enableTrainingZones !== false, enableRpVolumeZones: !!S.enableRpVolumeZones });
+    const result = { ok: true, enableTrainingZones: S.enableTrainingZones !== false, enableRpVolumeZones: !!S.enableRpVolumeZones };
+    saveDirect(u.id, S, body, 'admin-features', result);
+    json(res, 200, { ...result, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // Staff entering a bioimpedance scan (this gym's Tanita, typically) straight onto a member's
@@ -931,6 +1060,8 @@ const routes = {
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde añadir medidas' });
+    const replay = directReceipt(S, body, 'admin-measurements');
+    if (replay) return json(res, 200, replay);
     const KEYS = ['neck', 'shoulders', 'chest', 'bicepsL', 'bicepsR', 'forearmL', 'forearmR', 'waist', 'hips',
       'thighL', 'thighR', 'calfL', 'calfR', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass',
       'segFatArmL', 'segFatArmR', 'segFatLegL', 'segFatLegR', 'segFatTrunk',
@@ -967,8 +1098,8 @@ const routes = {
     }
     if (!n) return json(res, 400, { error: 'no se han dado valores válidos' });
     S._ts = Date.now();
-    writeState(u.id, S);
-    json(res, 200, { ok: true, saved: n });
+    saveDirect(u.id, S, body, 'admin-measurements', { ok: true, saved: n });
+    json(res, 200, { ok: true, saved: n, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // Applies the same Push/Pull/Legs starter plan "Load starter plan" offers a member, straight
@@ -986,6 +1117,8 @@ const routes = {
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde añadir un plan' });
+    const replay = directReceipt(S, body, 'admin-starter-plan');
+    if (replay) return json(res, 200, replay);
     // Names hardcoded in Spanish — this admin endpoint has no i18n layer (the frontend's
     // equivalent, frontend/src/lib/starter.js, runs the same English keys through t()).
     const SPEC = [
@@ -1104,8 +1237,8 @@ const routes = {
     S.programs = [...(S.programs || []), program];
     S.activeProgramId = program.id;
     S._ts = Date.now();
-    writeState(u.id, S);
-    json(res, 200, { ok: true });
+    saveDirect(u.id, S, body, 'admin-starter-plan', { ok: true });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // The exercise blacklist itself — ids only. The 1324-exercise catalogue (names, body parts,
@@ -1126,6 +1259,26 @@ const routes = {
     else if (!body.hidden && on) hiddenEx = hiddenEx.filter(x => x !== id);
     saveHiddenEx();
     json(res, 200, { ok: true, hidden: hiddenEx });
+  },
+
+  // Equipment-level availability (unavailableEq above) — same "ids only, catalogue already
+  // ships in the frontend bundle" shape as the exercise blacklist just above, just keyed by the
+  // `eq` string values exercises-data.js's own catalogue uses instead of exercise ids.
+  'GET /api/admin/equipment/unavailable': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    json(res, 200, { unavailable: unavailableEq });
+  },
+
+  'POST /api/admin/equipment/unavailable': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const eq = String(body.eq || '');
+    if (!eq) return json(res, 400, { error: 'se requiere un equipamiento' });
+    const on = unavailableEq.includes(eq);
+    if (body.unavailable && !on) unavailableEq.push(eq);
+    else if (!body.unavailable && on) unavailableEq = unavailableEq.filter(x => x !== eq);
+    saveUnavailableEq();
+    json(res, 200, { ok: true, unavailable: unavailableEq });
   },
 
   'POST /api/admin/user/disable': async (req, res) => {
@@ -1361,8 +1514,8 @@ const routes = {
       return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
     }
     if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
-    const r = await scanBioimpedanceImage({ data: b64, mimeType });
-    if (!r.ok) return json(res, 400, { error: r.error });
+    const r = await scanBioimpedanceImage({ data: b64, mimeType, uid: user.id });
+    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
     json(res, 200, { values: r.values });
   },
 
@@ -1385,8 +1538,8 @@ const routes = {
       return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
     }
     if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
-    const r = await scanRoutineDocument({ data: b64, mimeType });
-    if (!r.ok) return json(res, 400, { error: r.error });
+    const r = await scanRoutineDocument({ data: b64, mimeType, uid: user.id });
+    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
     json(res, 200, { routine: r.value });
   },
 
@@ -1407,14 +1560,13 @@ const routes = {
       return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
     }
     if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
-    const r = await scanMachineImage({ data: b64, mimeType });
-    if (!r.ok) return json(res, 400, { error: r.error });
+    const r = await scanMachineImage({ data: b64, mimeType, uid: user.id });
+    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
     json(res, 200, { name: r.value.name, nameEn: r.value.nameEn });
   },
 
-  // Gym-wide machine→exercise alias lookup/save (db.machineAliases above) — any signed-in
-  // member can read or write one, since the whole point is that the first member to resolve a
-  // given machine saves everyone else the same picker next time.
+  // Gym-wide machine→exercise alias lookup/save (db.machineAliases above). Any member can read
+  // it, while only trainer/admin may change a mapping used by everybody in the gym.
   'GET /api/exercises/alias': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
@@ -1424,8 +1576,7 @@ const routes = {
     json(res, 200, { exId: alias ? alias.exId : null });
   },
   'POST /api/exercises/alias': async (req, res) => {
-    const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    if (!requireTrainer(req, res)) return;
     const body = await readBody(req);
     const key = String(body.key || '').trim();
     const exId = String(body.exId || '').trim();
@@ -1436,6 +1587,59 @@ const routes = {
     else db.machineAliases.push({ key, exId, name, updatedAt: Date.now() });
     saveDb();
     json(res, 200, { ok: true });
+  },
+
+  // Gym-wide CSV-import exercise alias table (db.importExerciseAliases above) — same "first
+  // member to confirm one saves everyone's next import" reasoning as the machine-alias table.
+  // Returned as the whole (bounded, gym-wide) list in one call rather than one lookup per
+  // external name: an import can carry dozens of distinct unresolved names, and this table
+  // never grows large enough for that to matter. frontend/src/lib/import-match.js builds the
+  // per-item key (source + normalised external name) and does the lookup client-side.
+  'GET /api/exercises/import-aliases': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    json(res, 200, { aliases: db.importExerciseAliases });
+  },
+  // v1.3.1 (X1 fix) — this table is gym-wide (every member's future import reads it, see the
+  // GET handler's own comment), so writing to it is a trainer/admin action now, not something
+  // any signed-in member can do. A regular member's OWN import still resolves and saves
+  // correctly either way (applyImportResolutions already rewrites THEIR OWN entries' ids before
+  // this call ever fires) — the only thing this actually changes is that a regular member's
+  // confirmation no longer propagates to the shared table for everyone else's future imports;
+  // the frontend's own call already silently swallows a failure here
+  // (`frontend/src/sheets.jsx`'s `.catch(() => {})`), so a member simply sees nothing happen,
+  // same as today's "offline" case — no new user-facing error to handle.
+  'POST /api/exercises/import-alias': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const body = await readBody(req);
+    const key = String(body.key || '').trim();
+    const exerciseId = String(body.exerciseId || '').trim();
+    const source = String(body.source || '').trim().slice(0, 40);
+    const externalName = String(body.externalName || '').trim().slice(0, 120);
+    if (!key || !exerciseId) return json(res, 400, { error: 'faltan datos' });
+    // A human confirmation always wins over anything stored before it (a prior AI suggestion is
+    // never persisted here at all — see import-exercise-match.js's own header comment — so this
+    // is always either a fresh alias or a deliberate correction of a previous human choice).
+    const existing = db.importExerciseAliases.find(a => a.key === key);
+    if (existing) { existing.exerciseId = exerciseId; existing.source = source; existing.externalName = externalName; existing.updatedAt = Date.now(); }
+    else db.importExerciseAliases.push({ key, exerciseId, source, externalName, updatedAt: Date.now() });
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
+  // Batched Gemini exercise-matching for the CSV importer's review step (auxiliary-AI profile —
+  // see lib/aux-ai-config.js/import-exercise-match.js). Any signed-in user: it only reads
+  // candidate names and returns a suggestion, never writes anything itself — saving a confirmed
+  // equivalence goes through POST /api/exercises/import-alias above once a human accepts it.
+  // body: { items: [{name, source?, equipment?, muscle?, candidates:[{id,name,equipment?,muscles?}]}] }.
+  'POST /api/exercises/import-match': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    const items = Array.isArray(body.items) ? body.items : [];
+    const r = await matchImportExercises(items, user.id);
+    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
+    json(res, 200, { results: r.results });
   },
 
   /* ---------- Social: Programs (a named group of routines, published as one unit) ---------- */
@@ -1965,14 +2169,16 @@ const routes = {
     if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = directReceipt(S, body, 'assign-routine');
+    if (replay) return json(res, 200, replay);
     S.customEx = S.customEx || [];
     (post.customExDefs || []).forEach(def => { if (!S.customEx.some(x => x.id === def.id)) S.customEx.push(def); });
     const routine = { id: crypto.randomBytes(9).toString('base64url'), name: post.name, emoji: post.emoji, ex: JSON.parse(JSON.stringify(post.ex)) };
     if (post.prog) routine.prog = post.prog;
     S.routines = [...(S.routines || []), routine];
     S._ts = Date.now();
-    writeState(member.id, S);
-    json(res, 200, { ok: true, routineId: routine.id });
+    saveDirect(member.id, S, body, 'assign-routine', { ok: true, routineId: routine.id });
+    json(res, 200, { ok: true, routineId: routine.id, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   // Same as assign-routine, but for a whole Program: every embedded routine lands in the
@@ -1988,6 +2194,8 @@ const routes = {
     if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = directReceipt(S, body, 'assign-program');
+    if (replay) return json(res, 200, replay);
     S.customEx = S.customEx || [];
     const routineIds = [];
     for (const r of post.routines) {
@@ -1999,8 +2207,8 @@ const routes = {
     }
     S.programs = [...(S.programs || []), { id: crypto.randomBytes(9).toString('base64url'), name: post.name, emoji: post.emoji, routineIds }];
     S._ts = Date.now();
-    writeState(member.id, S);
-    json(res, 200, { ok: true });
+    saveDirect(member.id, S, body, 'assign-program', { ok: true });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
 
   /* ---------- Trainer panel (desktop): build/edit a member's plan directly ---------- */
@@ -2015,7 +2223,7 @@ const routes = {
     const member = db.users.find(x => x.id === memberId);
     if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const S = readState(member.id);
-    json(res, 200, { routines: S?.routines || [], programs: S?.programs || [] });
+    json(res, 200, { routines: S?.routines || [], programs: S?.programs || [], sync: S ? { revision: S._sync.revision, generation: S._sync.generation } : null });
   },
 
   // body: { memberId, routineId?, name, emoji, ex, customExDefs?, prog? } — same validation as
@@ -2037,16 +2245,23 @@ const routes = {
       return json(res, 400, { error: 'faltan definiciones de uno o más ejercicios personalizados en esta rutina' });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = trainerReceipt(S, body, 'member-routine');
+    if (replay) return json(res, 200, replay);
     S.customEx = S.customEx || [];
     customExDefs.forEach(def => { if (!S.customEx.some(x => x.id === def.id)) S.customEx.push(def); });
     S.routines = S.routines || [];
     const existingIdx = body.routineId ? S.routines.findIndex(r => r.id === body.routineId) : -1;
     const routine = { id: existingIdx >= 0 ? body.routineId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'dumbbell').slice(0, 20), ex };
     if (body.prog) routine.prog = String(body.prog).slice(0, 20);
-    if (existingIdx >= 0) S.routines[existingIdx] = routine; else S.routines.push(routine);
+    if (existingIdx >= 0) {
+      snapshotVersionIfChanged(S, 'routineVersions', S.routines[existingIdx], routine);
+      S.routines[existingIdx] = routine;
+    } else {
+      S.routines.push(routine);
+    }
     S._ts = Date.now();
-    writeState(member.id, S);
-    json(res, 200, { ok: true, routineId: routine.id });
+    saveTrainer(member.id, S, body, 'member-routine', { ok: true, routineId: routine.id });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation }, routineId: routine.id });
   },
 
   // body: { memberId, programId?, name, emoji, routineIds, week? } — routineIds must already be
@@ -2063,6 +2278,8 @@ const routes = {
     if (!name || !routineIds || !routineIds.length) return json(res, 400, { error: 'un programa necesita un nombre y al menos una rutina' });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = trainerReceipt(S, body, 'member-program');
+    if (replay) return json(res, 200, replay);
     const memberRoutineIds = new Set((S.routines || []).map(r => r.id));
     if (routineIds.some(id => !memberRoutineIds.has(id))) return json(res, 400, { error: 'una de las rutinas no pertenece a este miembro' });
     const week = {};
@@ -2072,10 +2289,44 @@ const routes = {
     S.programs = S.programs || [];
     const existingIdx = body.programId ? S.programs.findIndex(p => p.id === body.programId) : -1;
     const program = { id: existingIdx >= 0 ? body.programId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'folder').slice(0, 20), routineIds, week };
-    if (existingIdx >= 0) S.programs[existingIdx] = program; else S.programs.push(program);
+    if (existingIdx >= 0) {
+      snapshotVersionIfChanged(S, 'programVersions', S.programs[existingIdx], program);
+      S.programs[existingIdx] = program;
+    } else {
+      S.programs.push(program);
+    }
     S._ts = Date.now();
-    writeState(member.id, S);
-    json(res, 200, { ok: true, programId: program.id });
+    saveTrainer(member.id, S, body, 'member-program', { ok: true, programId: program.id });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation }, programId: program.id });
+  },
+
+  // GET /api/trainer/routine-versions?memberId=&routineId= — traceability only (V3): the
+  // current (active) routine plus its past versions, newest first. No restore endpoint — the
+  // brief only asks to be able to SEE that a meaningfully-changed assignment used to look
+  // different, not to revert it.
+  'GET /api/trainer/routine-versions': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const q = new URL(req.url, 'http://x').searchParams;
+    const member = db.users.find(x => x.id === (q.get('memberId') || ''));
+    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const S = readState(member.id);
+    const routineId = q.get('routineId') || '';
+    const current = (S?.routines || []).find(r => r.id === routineId) || null;
+    const versions = ((S?.routineVersions || {})[routineId] || []).slice().reverse();
+    json(res, 200, { current, versions });
+  },
+
+  // Same idea for programs.
+  'GET /api/trainer/program-versions': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const q = new URL(req.url, 'http://x').searchParams;
+    const member = db.users.find(x => x.id === (q.get('memberId') || ''));
+    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const S = readState(member.id);
+    const programId = q.get('programId') || '';
+    const current = (S?.programs || []).find(p => p.id === programId) || null;
+    const versions = ((S?.programVersions || {})[programId] || []).slice().reverse();
+    json(res, 200, { current, versions });
   },
 
   /* ---------- AI Coach ---------- */
@@ -2090,6 +2341,11 @@ const routes = {
   // and even enabled/disabled completely independently of each other.
   ...trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer }),
 
+  /* ---------- IA auxiliar de 2J (siempre Gemini, hoy solo exercise_import_matching) ---------- */
+  // Same factory shape again — its own file (lib/aux-ai-config.js), its own credential, its own
+  // log, no shared state with the Coach or the trainer panel's AI above.
+  ...auxAIRoutes({ json, readBody, requireAdmin }),
+
   /* ---------- Amigos + chat con entrenadores ---------- */
   // Same factory shape as coachRoutes — their own data/friends.json and data/chat.json, no
   // per-member/per-trainer assignment concept to hook into (trainer status is global, see
@@ -2102,7 +2358,10 @@ const routes = {
   // comment for why the live session board itself is in-memory instead, same as `presence`
   // above. sign/verifySig are the exact functions the signed session cookie itself uses, reused
   // for the kiosk's own short-lived, narrowly-scoped tokens (never a full login).
-  ...bunkerRoutes({ json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users }),
+  ...bunkerRoutes({
+    json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users,
+    todayPrs: () => publicTodayPrs({ wall: social.wall, readState }),
+  }),
 
   /* ---------- connected apps: Strava (push workouts), Whoop (pull recovery) ---------- */
   ...stravaRoutes({ json, readBody, readSession, requireAdmin, saveDb, origin: ORIGIN }),
@@ -2134,6 +2393,6 @@ http.createServer(async (req, res) => {
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);
-    if (!res.headersSent) json(res, 500, { error: 'error del servidor' });
+    if (!res.headersSent) json(res, e.status || 500, { error: e.status ? e.message : 'error del servidor', code: e.code });
   }
 }).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));

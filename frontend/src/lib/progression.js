@@ -16,8 +16,8 @@
 //   · fewer sets than prescribed                       → miss
 // So a session that fell apart can never advance the load as though it had succeeded.
 
-import { modeOf, workingSets, buildSets, cleanupSg } from './history.js'
-import { EXIDX, isHidden } from './exercises.js'
+import { modeOf, workingSets, buildSets, cleanupSg, defaultConfig } from './history.js'
+import { EXIDX, isUnavailable } from './exercises.js'
 import { bestTestedOneRM, pctForReps } from './onerm.js'
 
 export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'pct1rm', 'time']
@@ -269,10 +269,22 @@ export function applyPrescription(sets, p) {
 // kiosk building today's session for whoever just checked in) reuses the exact same logic
 // instead of a hand-rolled approximation that quietly skips progression, supersets and cardio.
 export function buildRoutineEntries(S, routine) {
-  const usable = (routine ? routine.ex : []).filter(cfg => !isHidden(cfg.id)).map(cfg => ({ ...cfg }))
+  const usable = (routine ? routine.ex : []).filter(cfg => !isUnavailable(cfg.id)).map(cfg => ({ ...cfg }))
   cleanupSg(usable)
   return usable.map(cfg => {
     const plan = nextPrescription(S, cfg, routine)
     return { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: applyPrescription(buildSets(S, cfg), plan) }
   })
+}
+
+// One exercise picked ad hoc — no routine slot to inherit sets/reps/weight from, so it starts
+// from defaultConfig() instead of a routine author's own cfg. Same per-exercise pipeline
+// buildRoutineEntries runs for each of a routine's exercises (nextPrescription already treats a
+// missing routine as "no routine-level policy to fall back on", not an error — see policyFor).
+// Mirrors Workout.jsx's own mid-session "Add exercise" (the only other place this shape gets
+// built by hand) so a freestyle Bunker session and a freestyle phone session prescribe alike.
+export function buildFreeEntry(S, exId, routine) {
+  const cfg = { id: exId, ...defaultConfig(exId) }
+  const plan = nextPrescription(S, cfg, routine || null)
+  return { id: cfg.id, target: { ...cfg }, plan, sets: applyPrescription(buildSets(S, cfg), plan) }
 }

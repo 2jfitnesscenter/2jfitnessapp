@@ -34,6 +34,24 @@ export const CHANGELOG = [
     ]
   },
   {
+    version: 'v1.3.0', date: '2026-09-21',
+    items: [
+      'Superset colors and labels (A1/A2, B1/B2…), consistent on screen and in print',
+      'Adaptive print density — a 2-day routine fits one page, a 5-day plan around two',
+      'CSV import: Gravl format support, more conservative superset grouping',
+      'A separate, isolated AI profile for machine/report/routine scanning and CSV matching',
+      'CSV import: a review screen for exercise matches, with optional AI suggestions',
+      'Equipment availability — mark gear temporarily out of service, matching exercises are skipped when a workout starts',
+      'AI Coach: a direct OpenAI option, alongside Claude and Gemini',
+      'Trainer notes on a routine exercise, shown during training and in print',
+      'Routine/program version history for trainer-assigned plans',
+      '"Show previous sessions" — an exercise’s last three real sessions, on demand',
+      'Routine/program rows show a quick summary — exercises, supersets, days, unavailable count',
+      'Fixed: a finished or discarded training session could keep reappearing',
+      'Fixed: minimizing at the Bunker to let someone else train could strand your own session'
+    ]
+  },
+  {
     version: 'v1.2.3', date: '2026-07-31',
     items: [
       'Keep the screen awake during a workout',

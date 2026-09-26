@@ -25,15 +25,21 @@ function verifySig(token) {
 }
 const bunkerToken = uid => sign('bunker:' + uid + ':' + (Date.now() + 3600000));
 
+// v1.3.1 (A3 fix) — readBunkerToken now revalidates the account on every use, so this stub
+// answers "yes, real and active" for whatever uid it's asked about — these tests are about
+// finish's own logic, not A3's disabled/demoted-account checks (see bunker-revocation.test.js
+// for those).
+const users = () => ({ find: () => ({ disabled: false }) });
 const routes = bunkerRoutes({
   json: (res, status, body) => { res.status = status; res.body = body; },
   readBody: async req => req._body,
   readSession: () => null,
   sign, verifySig,
-  users: () => [],
+  users,
   isTrainer: () => false,
 });
 const finish = routes['POST /api/bunker/finish'];
+const postActive = routes['POST /api/bunker/active'];
 
 async function callFinish(uid, workout) {
   const req = { headers: { authorization: 'Bearer ' + bunkerToken(uid) }, _body: { workout } };
@@ -46,6 +52,20 @@ const baseState = over => ({
   unit: 'kg', routines: [], programs: [], week: {}, dayPlan: {}, workouts: [], customEx: [],
   exWeights: {}, bodyweight: [], tests: [], badges: {}, active: { id: 'should-be-cleared' },
   ...over,
+});
+
+test('Sync V2: Bunker finish increments revision, stale mobile conflicts and retry does not duplicate', async () => {
+  const uid = 'v2_finish';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [] }));
+  const { openSync, mutate } = await import('../lib/sync.js');
+  const before = openSync(uid);
+  const workout = { id: 'v2-workout', d: '2026-09-21', start: 1, end: 2, entries: [] };
+  assert.equal((await callFinish(uid, workout)).status, 200);
+  assert.equal((await callFinish(uid, workout)).status, 200);
+  assert.throws(() => mutate(uid, { operationId: 'stale-mobile', type: 'save', revision: before.meta.revision, generation: before.meta.generation, state: before.state }), { code: 'SYNC_CONFLICT' });
+  const after = openSync(uid);
+  assert.equal(after.state.workouts.length, 1);
+  assert.equal(after.meta.revision, before.meta.revision + 1);
 });
 
 test('a weight PR is detected and written to workout.prs, exactly as the normal finish flow would', async () => {
@@ -178,4 +198,104 @@ test('multiuser isolation: finishing for two users concurrently never mixes thei
   const rawA = JSON.stringify(SA), rawB = JSON.stringify(SB);
   assert.ok(!rawA.includes('0007') && !rawA.includes('"rB"'));
   assert.ok(!rawB.includes('0025') && !rawB.includes('"rA"'));
+});
+
+/* ------------------------------------------------------------------------------------------
+ * v1.3.1 — A4 fix: finish is now idempotent by workout id, and a write to S.active for an id
+ * that has already been finished is refused instead of resurrecting it.
+ * ------------------------------------------------------------------------------------------ */
+
+async function callPostActive(uid, active, extra = {}) {
+  const req = { headers: { authorization: 'Bearer ' + bunkerToken(uid) }, _body: { active, ...extra } };
+  const res = {};
+  await postActive(req, res);
+  return res;
+}
+
+test('A4a) finishing the exact same workout twice never produces a second one', async () => {
+  const uid = 'u_double_finish';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [] }));
+  const workout = { id: 'w-double', d: '2026-09-21', start: 1, end: 2, routineId: null, name: 'x', bw: null,
+    entries: [{ id: '0025', sets: [{ w: 60, r: 8, done: true }], target: {} }] };
+
+  const first = await callFinish(uid, structuredClone(workout));
+  const second = await callFinish(uid, structuredClone(workout));
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+
+  const { readState } = await import('../lib/state-store.js');
+  const S = readState(uid);
+  assert.equal(S.workouts.filter(w => w.id === 'w-double').length, 1, 'exactly one workout, never two');
+  assert.deepEqual(second.body.prs, first.body.prs, 'the retry reports the same PRs the real save got, not a re-derived (and wrong) empty/self-referential set');
+});
+
+test('A4b) a POST /active write for an id that already finished is refused, not resurrected', async () => {
+  const uid = 'u_late_active';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [], active: { id: 'w-race', d: '2026-09-21', entries: [] } }));
+  const workout = { id: 'w-race', d: '2026-09-21', start: 1, end: 2, routineId: null, name: 'x', bw: null,
+    entries: [{ id: '0025', sets: [{ w: 50, r: 8, done: true }], target: {} }] };
+
+  const fin = await callFinish(uid, workout);
+  assert.equal(fin.status, 200);
+
+  // A write that was already in flight for the SAME session id, arriving after finish.
+  const late = await callPostActive(uid, { id: 'w-race', d: '2026-09-21', entries: [] }, { exId: '0025', exName: 'x', setIdx: 1, setsTotal: 1 });
+  assert.equal(late.status, 409, 'refused, not silently accepted');
+
+  const { readState } = await import('../lib/state-store.js');
+  const S = readState(uid);
+  assert.equal(S.active, null, 'the finished session must not come back');
+  assert.equal(S.workouts.filter(w => w.id === 'w-race').length, 1);
+});
+
+test('A4c) a brand-new session for the SAME member right after finishing is completely unaffected', async () => {
+  const uid = 'u_new_after_finish';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [] }));
+  const finished = { id: 'w-old', d: '2026-09-21', start: 1, end: 2, routineId: null, name: 'x', bw: null, entries: [] };
+  await callFinish(uid, finished);
+
+  // A genuinely new workout (a different id) writing to /active must work normally — the A4
+  // fix only ever refuses a write for an id that is ALREADY in S.workouts, never a new one.
+  const started = await callPostActive(uid, { id: 'w-new-session', d: '2026-09-21', entries: [] }, { exId: '0025', exName: 'x', setIdx: 0, setsTotal: 3 });
+  assert.equal(started.status, 200);
+
+  const { readState } = await import('../lib/state-store.js');
+  const S = readState(uid);
+  assert.equal(S.active?.id, 'w-new-session');
+});
+
+test('Sync V2 serializes Bunker set snapshots and acknowledges a lost-response retry once', async () => {
+  const uid = 'u_bunker_active_v2';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [], active: { id: 'w-live', d: '2026-09-21', entries: [] } }));
+  const { openSync } = await import('../lib/sync.js');
+  openSync(uid);
+  const { readState } = await import('../lib/state-store.js');
+  const revision = readState(uid)._sync.activeRevision;
+  const active = { id: 'w-live', d: '2026-09-21', entries: [{ id: '0025', sets: [{ w: 50, r: 8, done: true }] }] };
+  const body = { operationId: 'bunker-active-operation-1', expectedActiveRevision: revision, exId: '0025', setIdx: 1, setsTotal: 1 };
+
+  const first = await callPostActive(uid, active, body);
+  const afterFirst = readState(uid);
+  const retry = await callPostActive(uid, active, body);
+  const afterRetry = readState(uid);
+  assert.equal(first.status, 200);
+  assert.deepEqual(retry.body, first.body, 'a retry after a lost response receives its original receipt');
+  assert.equal(afterRetry._sync.revision, afterFirst._sync.revision, 'the retry performs no second write');
+
+  const stale = await callPostActive(uid, { ...active, cur: 1 }, { ...body, operationId: 'bunker-active-operation-2' });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.body.code, 'ACTIVE_CONFLICT');
+  assert.deepEqual(readState(uid).active, active, 'a stale Bunker snapshot cannot overwrite the accepted set state');
+});
+
+test('Sync V2 rejects a legacy Bunker active writer after activation', async () => {
+  const uid = 'u_bunker_active_legacy';
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [], active: null }));
+  const { openSync } = await import('../lib/sync.js');
+  openSync(uid);
+  const legacy = await callPostActive(uid, { id: 'legacy', d: '2026-09-21', entries: [] });
+  assert.equal(legacy.status, 409);
+  assert.equal(legacy.body.code, 'SYNC_UPGRADE_REQUIRED');
+  const { readState } = await import('../lib/state-store.js');
+  assert.equal(readState(uid).active, null);
 });

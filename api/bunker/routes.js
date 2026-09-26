@@ -15,22 +15,49 @@
  *    one, nothing else.
  */
 import * as store from './store.js';
+import { createHash } from 'node:crypto';
 import { readState, writeState } from '../lib/state-store.js';
 import { bestWeightFor, is1RMRecord } from './finish-helpers.js';
+import { bunkerClientIp, bunkerLimiters } from './rate-limit.js';
 
 const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits in 4 hours
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
 
-export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer }) {
+export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], rateLimiters = bunkerLimiters() }) {
+  const credentialKey = (kind, value) => createHash('sha256').update(kind + ':' + String(value)).digest('hex');
+  const limitAttempt = (kind, ip, value) => {
+    const ipLimiter = rateLimiters[kind];
+    const credentialLimiter = rateLimiters[kind + 'Credential'];
+    const secretKey = credentialKey(kind, value);
+    const checks = [ipLimiter?.check(ip), credentialLimiter?.check(secretKey)].filter(Boolean);
+    const blocked = checks.find(x => !x.allowed);
+    return {
+      allowed: !blocked,
+      retryAfter: blocked ? Math.max(...checks.filter(x => !x.allowed).map(x => x.retryAfter || 1)) : null,
+      fail() { ipLimiter?.fail(ip); credentialLimiter?.fail(secretKey); },
+      success() { ipLimiter?.success(ip); credentialLimiter?.success(secretKey); },
+    };
+  };
   const bearer = req => {
     const h = req.headers.authorization || '';
     return h.startsWith('Bearer ') ? h.slice(7) : '';
   };
+  // v1.3.1 (A3 fix) — a cryptographically valid token alone used to be enough for the rest of
+  // this token's 4h/30min TTL, even if the account it names got disabled (or, for the admin
+  // token, demoted from trainer) the very next second. Both readers now revalidate the account
+  // on every single use, not just at checkin/admin-checkin — a disabled/demoted account loses
+  // Bunker access immediately, the same way it already loses everywhere else in the app
+  // (server.js's own `if (user.disabled) return null;`), instead of keeping whatever token it
+  // grabbed until that token expires on its own. This only ever narrows who a token still
+  // authenticates as — it never changes which uid a token names, so the per-device credential
+  // map (frontend/src/lib/bunker-credentials.js) and its A/B isolation are untouched.
   const readBunkerToken = req => {
     const payload = verifySig(bearer(req));
     if (!payload) return null;
     const [kind, uid, exp] = payload.split(':');
     if (kind !== 'bunker' || Date.now() > Number(exp)) return null;
+    const user = users().find(u => u.id === uid);
+    if (!user || user.disabled) return null;
     return uid;
   };
   const readAdminToken = req => {
@@ -38,6 +65,8 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     if (!payload) return null;
     const [kind, uid, exp] = payload.split(':');
     if (kind !== 'bunker-admin' || Date.now() > Number(exp)) return null;
+    const user = users().find(u => u.id === uid);
+    if (!user || user.disabled || !isTrainer(user)) return null;
     return uid;
   };
   // The two ways to reach the admin endpoints: the trainer's own phone (normal cookie), or the
@@ -50,6 +79,48 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     return null;
   };
   const publicName = uid => (users().find(u => u.id === uid) || {}).name || 'Socio';
+  const activeRevision = S => S._sync?.activeRevision || 0;
+  const replaceActive = (S, active) => {
+    if (!S._sync) Object.defineProperty(S, '_sync', { value: { activeRevision: 0, receipts: {}, tombstones: { workouts: [], routines: [], programs: [] }, revision: 0, generation: 0, enabled: false }, writable: true, configurable: true });
+    S.active = active;
+    S._sync.activeRevision = activeRevision(S) + 1;
+  };
+  const checkActiveRevision = (res, S, body) => {
+    if ((!body.operationId || body.expectedActiveRevision === undefined) && S._sync?.enabled) {
+      json(res, 409, { error: 'actualiza la aplicación para continuar', code: 'SYNC_UPGRADE_REQUIRED', active: S.active || null, activeRevision: activeRevision(S) });
+      return false;
+    }
+    if (body.expectedActiveRevision === undefined) return true;
+    if (body.expectedActiveRevision !== activeRevision(S)) {
+      json(res, 409, {
+        error: body.expectedActiveRevision === undefined ? 'actualiza la aplicación para continuar' : 'la sesión cambió en otro dispositivo',
+        code: body.expectedActiveRevision === undefined ? 'SYNC_UPGRADE_REQUIRED' : 'ACTIVE_CONFLICT',
+        active: S.active || null,
+        activeRevision: activeRevision(S),
+      });
+      return false;
+    }
+    return true;
+  };
+  const activeReceipt = (res, S, body, kind) => {
+    if (!body.operationId) return null;
+    const key = `bunker:${kind}:${body.operationId}`;
+    const digest = createHash('sha256').update(JSON.stringify(body)).digest('hex');
+    const receipt = S._sync.receipts[key];
+    if (receipt) {
+      if (receipt.digest !== digest) {
+        json(res, 409, { error: 'operación reutilizada', code: 'OPERATION_REUSED' });
+        return { handled: true };
+      }
+      json(res, 200, receipt.result);
+      return { handled: true };
+    }
+    return { handled: false, key, digest };
+  };
+  const saveActive = (uid, S, receipt, result) => {
+    if (receipt?.key) S._sync.receipts[receipt.key] = { digest: receipt.digest, result };
+    writeState(uid, S);
+  };
   // Shared by the member's own GET /session and the admin "assist/adjust" panel — same narrow
   // slice of their real state either way, just reached through a different trust level.
   const sessionPayload = uid => {
@@ -79,8 +150,10 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       // the moment they train from the kiosk instead of their phone.
       showPreviousResults: S.showPreviousResults !== false,
       warmupEnabled: S.warmupEnabled !== false,
+      effort: S.effort ?? (S.showRir ? 'rir' : 'none'),
       recentWorkouts: (S.workouts || []).slice(-40),
       active: S.active || null,
+      activeRevision: activeRevision(S),
       // RP Volume Zones — off unless this member turned it on themselves (Settings), matching
       // the exact fields lib/rp-volume.js's landmarksFor/weeklyGroupVolume read elsewhere.
       enableRpVolumeZones: !!S.enableRpVolumeZones,
@@ -130,10 +203,46 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       if (existing && existing.id !== active.id && !body.force) {
         return json(res, 409, { error: `Ya tienes otra sesión en curso en el Bunker: "${existing.name || 'Entreno'}"`, existing });
       }
-      S.active = active;
+      replaceActive(S, active);
       writeState(me.id, S);
+      json(res, 200, { ok: true, activeRevision: activeRevision(S) });
+    },
+
+    // The one authorized way for the phone/web app to actually END its own S.active — a normal
+    // Discard or a normal Finish (frontend/src/views/Workout.jsx, sheets.jsx's doFinishWorkout)
+    // call this right after their own local `s.active = null`, instead of trusting PUT
+    // /api/data's generic sync to carry that null through: that PUT unconditionally re-injects
+    // whatever `active` the server already has (server.js's own comment there explains why —
+    // it's what protects a Bunker/handoff session from an unrelated phone sync), so it can never
+    // be how a client legitimately ends one. This is that missing "an operation authorized to do
+    // it" — same direct writeState() a finish/handoff already uses, just for the opposite intent
+    // and reachable from a normal cookie session rather than a bunker token.
+    //
+    // body: { id? } — only clears if it still matches S.active.id, so a stale call (the phone
+    // finishing/discarding a session that has since been replaced — handed off, or a kiosk
+    // started a new one) can never silently wipe whatever is there now; same idempotent-by-id
+    // guard the handoff endpoint above already uses, just in the other direction. Also refuses
+    // outright while the Bunker's own live board shows this member actually checked in right
+    // now (store.getSession) — a handoff alone doesn't change `active.id`, so the id check on
+    // its own can't tell "still only on my phone" from "now running at the kiosk"; this is the
+    // second, independent check that does. A member training normally (never touched the
+    // Bunker) always has no live kiosk session, so this never affects the common case.
+    'POST /api/active/clear': async (req, res) => {
+      const me = readSession(req);
+      if (!me) return json(res, 401, { error: 'no has iniciado sesión' });
+      const body = await readBody(req);
+      const id = body.id ? String(body.id) : null;
+      if (store.getSession(me.id)) {
+        return json(res, 409, { error: 'esta sesión se está ejecutando en el Bunker ahora mismo' });
+      }
+      const S = readState(me.id);
+      if (S && S.active && (!id || S.active.id === id)) {
+        replaceActive(S, null);
+        writeState(me.id, S);
+      }
       json(res, 200, { ok: true });
     },
+
     // A trainer/admin's own fixed kiosk-unlock code — generated once, never reset (see
     // store.js's own comment on why).
     'GET /api/bunker/admin-code': async (req, res) => {
@@ -155,7 +264,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       json(res, 200, { sessions: store.listSessions().map(s => ({
         uid: s.uid, name: s.name, checkinAt: s.checkinAt, exName: s.exName, setIdx: s.setIdx,
         setsTotal: s.setsTotal, restEndsAt: s.restEndsAt, paused: s.paused,
-      })) });
+      })), todayPrs: todayPrs() });
     },
     'GET /api/bunker/settings': async (req, res) => json(res, 200, store.getSettings()),
     // body: { token } — verifies a /bunker/launch link before the kiosk pairs itself (see
@@ -165,14 +274,25 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       json(res, 200, { ok: store.verifyRoomKey(String(body.token || '')) });
     },
 
-    // body: { pin }. A wrong PIN just fails — no lockout/rate-limit yet (4 digits over a LAN
-    // kiosk, not an internet-facing login; worth revisiting if this ever needs to survive a
-    // hostile network, not just a crowded gym floor).
+    // body: { pin }. Failed guesses are limited by the real public client IP. PIN and admin
+    // code have separate buckets, and a valid entry clears its bucket so ordinary rapid member
+    // changes on the shared gym kiosk remain smooth. No PIN/code is retained by the limiter.
     'POST /api/bunker/checkin': async (req, res) => {
+      const rateKey = bunkerClientIp(req);
       const body = await readBody(req);
       const pin = String(body.pin || '').trim();
+      const attempt = limitAttempt('pin', rateKey, pin);
+      if (!attempt.allowed) return json(res, 429, { error: 'demasiados intentos; espera un momento' }, { 'Retry-After': String(attempt.retryAfter) });
       const uid = store.userIdForPin(pin);
-      if (!uid) return json(res, 400, { error: 'PIN incorrecto' });
+      if (!uid) { attempt.fail(); return json(res, 400, { error: 'PIN incorrecto' }); }
+      // v1.3.1 (A3 fix) — same "PIN incorrecto" either way: a disabled account's PIN must not
+      // even mint a token in the first place (readBunkerToken would refuse it on the very next
+      // use anyway, see this file's own comment there), and the error stays generic on purpose
+      // so it never confirms to whoever is standing at the kiosk that this PIN belongs to a
+      // real, disabled account rather than no account at all.
+      const account = users().find(u => u.id === uid);
+      if (!account || account.disabled) { attempt.fail(); return json(res, 400, { error: 'PIN incorrecto' }); }
+      attempt.success();
       const name = publicName(uid);
       store.startSession(uid, name);
       const exp = Date.now() + PIN_TOKEN_TTL;
@@ -200,10 +320,25 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
       const body = await readBody(req);
       const S = readState(uid) || {};
-      S.active = body.active || null;
-      writeState(uid, S);
+      const receipt = activeReceipt(res, S, body, 'member');
+      if (receipt?.handled) return;
+      if (!checkActiveRevision(res, S, body)) return;
+      // v1.3.1 (A4 fix) — a write that arrives late (a slow mobile-network POST queued right
+      // before Finish, landing just after it) must never resurrect a session that has already
+      // been saved. Scoped narrowly to "this exact id already finished," never to "is the
+      // ephemeral board session still live" — an idle-purged-but-still-open panel (nobody
+      // polled the board in 15+ min, see store.js's IDLE_TTL) must keep working normally; this
+      // only refuses the one specific case where the workout it's trying to write is already
+      // sitting in S.workouts.
+      const incomingId = body.active && body.active.id;
+      if (incomingId && ((S.workouts || []).some(w => w.id === incomingId) || S._sync?.tombstones.workouts.includes(incomingId))) {
+        return json(res, 409, { error: 'esta sesión ya se finalizó' });
+      }
+      replaceActive(S, body.active || null);
+      const result = { ok: true, activeRevision: activeRevision(S) };
+      saveActive(uid, S, receipt, result);
       store.touchSession(uid, { exId: body.exId || null, exName: body.exName || null, setIdx: body.setIdx || 0, setsTotal: body.setsTotal || 0 });
-      json(res, 200, { ok: true });
+      json(res, 200, result);
     },
 
     // body: { sec } — starts (or extends) the room dashboard's own rest countdown for this
@@ -243,6 +378,20 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       const S = readState(uid) || {};
       S.exWeights = S.exWeights || {};
 
+      // v1.3.1 (A4 fix) — idempotent by workout id: a retried finish (double-tap, a client that
+      // never saw the first response and retries once back online) must never create a second
+      // workout. Re-deriving PRs at this point would also be wrong — the history already
+      // includes this exact workout, so it would be compared against itself. Treat it as already
+      // succeeded: report the PRs it was actually saved with, and still make sure `active`/the
+      // room-board presence are the same "finished" state a first-time success leaves them in,
+      // in case an earlier attempt died after saving the workout but before either of those.
+      const already = (S.workouts || []).find(x => x.id === w.id);
+      if (already) {
+        if (S.active && S.active.id === w.id) { replaceActive(S, null); writeState(uid, S); }
+        if (!S.active || S.active.id === w.id) store.endSession(uid);
+        return json(res, 200, { ok: true, prs: already.prs || [], e1prs: [] });
+      }
+
       // Computed against the history as it stands BEFORE this workout joins it — same order
       // doFinishWorkout uses (prs/e1prs are derived first, the push happens after).
       const prs = [];
@@ -271,7 +420,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
         }
       });
 
-      S.active = null;
+      replaceActive(S, null);
       writeState(uid, S);
       store.endSession(uid);
       json(res, 200, { ok: true, prs, e1prs });
@@ -284,10 +433,20 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
 
     /* ---------- room admin — a trainer's phone, or the kiosk's own admin-code overlay ---------- */
     'POST /api/bunker/admin-checkin': async (req, res) => {
+      const rateKey = bunkerClientIp(req);
       const body = await readBody(req);
       const code = String(body.code || '').trim();
+      const attempt = limitAttempt('admin', rateKey, code);
+      if (!attempt.allowed) return json(res, 429, { error: 'demasiados intentos; espera un momento' }, { 'Retry-After': String(attempt.retryAfter) });
       const uid = store.userIdForAdminCode(code);
-      if (!uid) return json(res, 400, { error: 'código incorrecto' });
+      if (!uid) { attempt.fail(); return json(res, 400, { error: 'código incorrecto' }); }
+      // v1.3.1 (A3 fix) — the code itself is fixed forever (store.js's own comment on
+      // adminCodeFor), but the trainer/admin role it once matched isn't: a demoted or disabled
+      // account's old code must not mint a working admin token anymore, generic error either
+      // way for the same reason as checkin's own comment above.
+      const account = users().find(u => u.id === uid);
+      if (!account || account.disabled || !isTrainer(account)) { attempt.fail(); return json(res, 400, { error: 'código incorrecto' }); }
+      attempt.success();
       const exp = Date.now() + ADMIN_TOKEN_TTL;
       json(res, 200, { token: sign('bunker-admin:' + uid + ':' + exp), exp });
     },
@@ -338,10 +497,14 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       const uid = String(body.uid || '');
       if (!uid || !store.getSession(uid)) return json(res, 404, { error: 'esa sesión ya no está activa' });
       const S = readState(uid) || {};
-      S.active = body.active || null;
-      writeState(uid, S);
+      const receipt = activeReceipt(res, S, body, 'admin');
+      if (receipt?.handled) return;
+      if (!checkActiveRevision(res, S, body)) return;
+      replaceActive(S, body.active || null);
+      const result = { ok: true, activeRevision: activeRevision(S) };
+      saveActive(uid, S, receipt, result);
       store.touchSession(uid, { exId: body.exId || null, exName: body.exName || null, setIdx: body.setIdx || 0, setsTotal: body.setsTotal || 0 });
-      json(res, 200, { ok: true });
+      json(res, 200, result);
     },
     // The PIN-management list (Fase V2 §4) — every real member, not just whoever's currently
     // checked in, so an admin can hand out or reset a PIN before someone's first-ever visit.

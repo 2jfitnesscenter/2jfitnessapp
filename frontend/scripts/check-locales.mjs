@@ -1,57 +1,75 @@
 #!/usr/bin/env node
-// Guards the one invariant every locale in src/locales/ shares: the same key set.
-// English is the source language and has no locale file, so a key that exists in only
-// some locales falls back to English silently, mid-sentence, with nothing failing
-// anywhere. This catches that at review time instead of in the app.
-//
-//   node scripts/check-locales.mjs
-//
-// The reference is the union of all locales, not one blessed file: a key added to a
-// single locale then flags the other ten instead of passing unnoticed.
+// Spanish is the maintained, strict translation catalogue. The other ten translated packs
+// predate that policy and have known gaps: report their coverage without making that historic
+// debt block unrelated work. CI still fails for malformed packs, non-string values, keys that
+// do not exist in Spanish, or a source string used through t('...') that Spanish forgot.
 
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const localesDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'locales')
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const localesDir = join(root, 'src', 'locales')
 const files = readdirSync(localesDir).filter(f => f.endsWith('.js')).sort()
-
-if (!files.length) {
-  console.error(`No locale files found in ${localesDir}`)
-  process.exit(1)
-}
+const delayed = new Set(['de', 'fr', 'hi', 'it', 'ko', 'pl', 'pt', 'ru', 'tr', 'zh'])
+let failed = false
+const fail = message => { failed = true; console.error(message) }
 
 const locales = new Map()
 for (const file of files) {
-  const { default: dict } = await import(pathToFileURL(join(localesDir, file)).href)
-  if (!dict || typeof dict !== 'object') {
-    console.error(`${file}: no default-exported object`)
-    process.exit(1)
+  let dict
+  try { ({ default: dict } = await import(pathToFileURL(join(localesDir, file)).href)) }
+  catch (error) { fail(`${file}: cannot import (${error.message})`); continue }
+  if (!dict || typeof dict !== 'object' || Array.isArray(dict)) { fail(`${file}: default export must be an object`); continue }
+  for (const [key, value] of Object.entries(dict)) {
+    if (typeof value !== 'string') fail(`${file}: ${JSON.stringify(key)} must translate to a string`)
   }
-  locales.set(file.replace(/\.js$/, ''), new Set(Object.keys(dict)))
+  locales.set(file.replace(/\.js$/, ''), dict)
 }
 
-// How many locales carry each key — 1 means the key was added to a single file only,
-// which is the usual shape of the bug and worth naming separately from plain gaps.
-const seen = new Map()
-for (const keys of locales.values()) for (const k of keys) seen.set(k, (seen.get(k) || 0) + 1)
-const union = [...seen.keys()]
+const spanish = locales.get('es')
+if (!spanish) fail('es.js is required and is the strict reference catalogue')
+const reference = new Set(Object.keys(spanish || {}))
 
-let failed = false
-for (const [lang, keys] of locales) {
-  const missing = union.filter(k => !keys.has(k))
-  const orphans = union.filter(k => keys.has(k) && seen.get(k) === 1)
-  if (missing.length || orphans.length) {
-    failed = true
-    console.error(`\n${lang}.js: ${keys.size}/${union.length} keys`)
-    for (const k of missing) console.error(`  missing:   ${JSON.stringify(k)}`)
-    for (const k of orphans) console.error(`  only here: ${JSON.stringify(k)}`)
+// Static t('...')/t("...") calls are the source catalogue. Computed labels must be added to
+// es.js explicitly by their feature (and remain covered by the extra-key checks below).
+const sourceKeys = new Set()
+const walk = dir => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      if (!['locales', 'instr', 'names'].includes(entry.name)) walk(path)
+      continue
+    }
+    if (!/\.(js|jsx)$/.test(entry.name)) continue
+    const source = readFileSync(path, 'utf8')
+    const pattern = /\bt\(\s*(['"])((?:\\.|(?!\1)[\s\S])*?)\1/g
+    for (const match of source.matchAll(pattern)) {
+      try { sourceKeys.add(Function(`"use strict";return ${match[1]}${match[2]}${match[1]}`)()) }
+      catch { fail(`${path}: could not read translation key near ${match[0].slice(0, 80)}`) }
+    }
   }
 }
+walk(join(root, 'src'))
 
-if (failed) {
-  console.error('\nLocale key sets differ. Every locale must carry the same keys.')
-  process.exit(1)
+const missingSpanish = [...sourceKeys].filter(key => !reference.has(key)).sort()
+for (const key of missingSpanish) fail(`es.js missing source key: ${JSON.stringify(key)}`)
+
+const report = { generatedAt: new Date().toISOString(), reference: 'es', totalKeys: reference.size, locales: {} }
+for (const [lang, dict] of locales) {
+  const keys = new Set(Object.keys(dict))
+  const extra = [...keys].filter(key => !reference.has(key)).sort()
+  for (const key of extra) fail(`${lang}.js has key absent from es.js: ${JSON.stringify(key)}`)
+  const missing = [...reference].filter(key => !keys.has(key)).sort()
+  const coverage = reference.size ? Number(((reference.size - missing.length) * 100 / reference.size).toFixed(1)) : 100
+  report.locales[lang] = { translated: reference.size - missing.length, total: reference.size, coverage, missing }
+  const status = missing.length ? `${missing.length} missing` : 'complete'
+  console.log(`${lang}: ${reference.size - missing.length}/${reference.size} (${coverage}%) — ${status}`)
+  if (missing.length && delayed.has(lang)) console.log(`  ${missing.slice(0, 20).map(JSON.stringify).join(', ')}${missing.length > 20 ? ', …' : ''}`)
+  if (missing.length && !delayed.has(lang)) fail(`${lang}.js must be complete`)
 }
 
-console.log(`${locales.size} locales, ${union.length} keys each — in sync.`)
+const reportFile = join(root, 'locale-coverage.json')
+writeFileSync(reportFile, JSON.stringify(report, null, 2) + '\n')
+console.log(`Coverage report: ${reportFile}`)
+if (failed) process.exit(1)

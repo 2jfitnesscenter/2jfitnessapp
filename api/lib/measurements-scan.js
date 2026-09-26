@@ -10,11 +10,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import * as cfgStore from '../coach/config.js';
+import * as auxAI from './aux-ai-config.js';
 import { adapterFor } from '../coach/adapters/index.js';
 import { extractJSON } from '../coach/validate.js';
 
 const TIMEOUT_MS = 60000;
+const GEMINI = adapterFor('gemini');
 
 // Keys this feature knows how to place — bodyFat/muscleMass/waterPct/visceralFat/boneMass match
 // lib/measurements.js's `composition` group 1:1, and the 10 seg* keys match its `segments` group
@@ -80,27 +81,37 @@ function normalize(raw) {
  * @param {{data: string, mimeType: string}} image — base64 payload (no `data:` prefix) + its mime type.
  * @returns {Promise<{ok: true, values: object} | {ok: false, error: string}>}
  */
-export async function scanBioimpedanceImage({ data, mimeType }) {
-  if (!cfgStore.isEnabled() || !cfgStore.isConnected()) {
-    return { ok: false, error: 'el Coach de IA no está configurado en este servidor' };
+export async function scanBioimpedanceImage({ data, mimeType, uid }) {
+  if (!auxAI.isEnabled() || !auxAI.isConnected()) {
+    return { ok: false, error: 'la IA auxiliar no está configurada en este servidor' };
   }
-  const cfg = cfgStore.load();
-  if (cfg.provider !== 'gemini') {
-    return { ok: false, error: 'el escaneo de informes solo funciona con Gemini como proveedor del Coach por ahora' };
+  if (!auxAI.reserveDaily(uid).allowed) {
+    return { ok: false, code: 'DAILY_CAP', error: 'se alcanzó el límite diario de IA auxiliar' };
   }
-  const adapter = adapterFor(cfg.provider);
-  const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coach-scan-'));
+  const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aux-ai-scan-'));
+  const started = Date.now();
   try {
-    const env = cfgStore.jobEnv(jobDir);
-    const check = await adapter.check(cfg, env);
-    if (!check.ok) return { ok: false, error: check.error || 'el proveedor no está disponible' };
-    const r = await adapter.invoke({ cfg, jobDir, env, model: cfg.model || null, timeoutMs: TIMEOUT_MS, prompt: PROMPT, image: { data, mimeType } });
-    if (r.timedOut) return { ok: false, error: 'el proveedor no respondió a tiempo' };
-    if (r.code !== 0) return { ok: false, error: (r.stderr || r.text || 'el proveedor devolvió un error').trim().slice(0, 300) };
+    const env = auxAI.jobEnv();
+    const check = await GEMINI.check(null, env);
+    if (!check.ok) {
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'failed', errorClass: 'runtime', ms: Date.now() - started });
+      return { ok: false, error: check.error || 'el proveedor no está disponible' };
+    }
+    const r = await GEMINI.invoke({ jobDir, env, model: null, timeoutMs: TIMEOUT_MS, prompt: PROMPT, image: { data, mimeType } });
+    if (r.timedOut) {
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'failed', errorClass: 'timeout', ms: Date.now() - started });
+      return { ok: false, error: 'el proveedor no respondió a tiempo' };
+    }
+    if (r.code !== 0) {
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'failed', errorClass: 'provider', ms: Date.now() - started });
+      return { ok: false, error: (r.stderr || r.text || 'el proveedor devolvió un error').trim().slice(0, 300) };
+    }
     const parsed = extractJSON(r.text);
     if (parsed.error || typeof parsed.value !== 'object' || !parsed.value) {
+      auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'failed', errorClass: 'badjson', ms: Date.now() - started });
       return { ok: false, error: 'el proveedor no devolvió el formato esperado' };
     }
+    auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'ready', ms: Date.now() - started });
     return { ok: true, values: normalize(parsed.value) };
   } finally {
     fs.rmSync(jobDir, { recursive: true, force: true });

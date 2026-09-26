@@ -19,8 +19,30 @@ export function initials(name) {
   if (!parts.length) return '?'
   return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
 }
-export function fmtDate(iso, long) {
-  const d = new Date(iso + 'T12:00:00')
+// Dates in the app deliberately coexist in two shapes: calendar-only values (`YYYY-MM-DD`)
+// for workouts/bodyweight, and real timestamps for server-created Social content. Older data
+// can also contain an ISO timestamp or a numeric timestamp serialized as a string. Keep the
+// calendar-only value at local noon (so timezone conversion cannot move it to the previous day),
+// but parse every timestamp as the instant it actually represents.
+export function dateValue(value) {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+  if (typeof value === 'number') {
+    const d = new Date(value)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  if (typeof value !== 'string' || !value.trim()) return null
+  const raw = value.trim()
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(raw + 'T12:00:00')
+    : /^\d{10,16}$/.test(raw)
+      ? new Date(Number(raw))
+      : new Date(raw)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+export const dateSortValue = value => dateValue(value)?.getTime() || 0
+export function fmtDate(value, long) {
+  const d = dateValue(value)
+  if (!d) return '—'
   return d.toLocaleDateString(dateLocale(), long ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short' })
 }
 export function fmtDur(ms) {
@@ -39,6 +61,9 @@ export const fmtVol = (v, unit) => fmtNum(v) + ' ' + unit
 // Plural forms are not automatic when the English string is the key.
 export const exCount = n => t(n === 1 ? '{0} exercise' : '{0} exercises', n)
 export const routineCount = n => t(n === 1 ? '{0} routine' : '{0} routines', n)
+export const supersetCount = n => t(n === 1 ? '{0} superset' : '{0} supersets', n)
+export const unavailableCount = n => t(n === 1 ? '{0} exercise unavailable now' : '{0} exercises unavailable now', n)
+export const daysScheduledCount = n => t(n === 1 ? '{0} day scheduled' : '{0} days scheduled', n)
 
 // Same computation as api/coach/payload.js's ageFrom — duplicated there for the same reason as
 // every other admin/api overlap: the admin page and the api server share no build step.

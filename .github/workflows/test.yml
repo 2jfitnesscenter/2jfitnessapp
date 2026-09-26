@@ -38,6 +38,15 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
+      # v1.3.1 — frontend/src/lib/coach.test.js reaches directly into ../../../api/coach/*.js to
+      # cross-check the client and server payload/validation logic stay in sync (a real,
+      # deliberate cross-package import, not something to undo here — see AI_HANDOFF.md for the
+      # architectural debt this documents: two independent package.json/node_modules trees with
+      # one test file that straddles both). That chain pulls in api/coach/adapters/claude.js,
+      # which imports the real @anthropic-ai/claude-agent-sdk — so this job needs api's own
+      # dependencies installed too, not only frontend's, or that one file fails to even load.
+      - run: npm ci
+        working-directory: api
       - run: npm test
         working-directory: frontend
       # A broken import or bad JSX fails the build long before any test covers it.
@@ -45,6 +54,13 @@ jobs:
         working-directory: frontend
       - run: node scripts/check-locales.mjs
         working-directory: frontend
+      - name: Upload locale coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: locale-coverage
+          path: frontend/locale-coverage.json
+          if-no-files-found: ignore
 
   api:
     runs-on: ubuntu-latest
@@ -53,8 +69,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      # No dependencies to install: the Coach tests run on node:test and drive the in-repo
-      # fixture provider, so the whole job graph works without an AI account or a network.
+      - run: npm ci
+        working-directory: api
       - run: npm test
         working-directory: api
       # The API's copy of the exercise catalogue is generated and committed. A dataset change

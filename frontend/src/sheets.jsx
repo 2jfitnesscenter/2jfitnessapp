@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, isCardio, allExercises, equipmentOf, exOr } from './lib/exercises.js'
-import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
-import { lastEntryFor, bestWeightFor, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted, EFFORT, stepEffort, feelFor, effortColor, EFFORT_COLOR_VAR } from './lib/history.js'
+import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, routineCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
+import { lastEntryFor, recentEntriesFor, bestWeightFor, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted, EFFORT, stepEffort, feelFor, effortColor, EFFORT_COLOR_VAR } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, nameFor, getLang, dateLocale, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
@@ -19,15 +19,18 @@ import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf,
 import { rankUpsFor, rankEmblemUrl } from './lib/rank.js'
 import { evaluateBadges, evaluateBadgesIn } from './lib/badges.js'
 import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
-import { parseImport, mergeImport } from './lib/import-csv.js'
+import { parseImport, mergeImport, workoutFingerprint } from './lib/import-csv.js'
+import { buildImportPlan, applyImportResolutions, localCandidates } from './lib/import-match.js'
+import { api } from './lib/api.js'
 import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
-import { getExerciseAlternatives, QUICK_FILTERS } from './lib/alternatives.js'
+import { getReplacementGroups, QUICK_FILTERS } from './lib/alternatives.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
-import { MOBILE, shareImage } from './lib/mobile.js'
+import { MOBILE } from './lib/mobile.js'
 import { buildShareCardData } from './lib/share-card.js'
-import WorkoutShareCard, { CARD_SIZE } from './components/WorkoutShareCard.jsx'
+import WorkoutShareCard from './components/WorkoutShareCard.jsx'
+import { capturePng, downloadPng, sharePng } from './lib/share-image.js'
 import { MEASUREMENTS, MEASUREMENT, lastMeasurement } from './lib/measurements.js'
 import BioimpedanceFields from './components/BioimpedanceFields.jsx'
 import { resizeImageFile, uploadImage, mediaUrl, scanRoutine, scanMachine, fetchMachineAlias, saveMachineAlias } from './lib/media.js'
@@ -39,6 +42,7 @@ import PendingExerciseChoices from './components/PendingExerciseChoices.jsx'
 import { fetchFriendCode, resetFriendCode, sendFriendRequest } from './lib/friends-api.js'
 import { startThread } from './lib/chat-api.js'
 import { sendWorkoutToStrava } from './lib/strava-api.js'
+import { fetchRoutineVersions, fetchProgramVersions } from './lib/trainer-api.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -368,6 +372,21 @@ function ImportSummary({ parsed, close }) {
   const st = useStore(s => s.S)
   const isBW = parsed.kind === 'bodyweight'
   const isHealth = parsed.kind === 'health'
+  const openSheet = useUI(s => s.openSheet)
+
+  // V2: try to upgrade whatever parseWorkoutCSV couldn't resolve on its own (a gym-wide alias a
+  // human already confirmed, or — failing that — an optional Gemini suggestion) before the user
+  // ever sees the confirm button. Never blocks the screen: it renders the plain V1 numbers
+  // immediately and quietly fills these in once buildImportPlan() resolves, whatever it finds.
+  const [plan, setPlan] = useState(new Map())
+  const [planLoading, setPlanLoading] = useState(!isBW && !isHealth && parsed.customEx?.length > 0)
+  const [confirmed, setConfirmed] = useState(new Map())   // placeholderId -> exerciseId | 'own'
+  useEffect(() => {
+    if (isBW || isHealth || !parsed.customEx?.length) return
+    let live = true
+    buildImportPlan(parsed).then(p => { if (live) setPlan(p) }).finally(() => { if (live) setPlanLoading(false) })
+    return () => { live = false }
+  }, [parsed])
 
   let have, fresh, healthCounts
   if (isHealth) {
@@ -387,14 +406,33 @@ function ImportSummary({ parsed, close }) {
     have = parsed.bodyweight.filter(b => st.bodyweight.some(x => x.d === b.d)).length
     fresh = parsed.bodyweight.length - have
   } else {
-    have = parsed.workouts.filter(w => st.workouts.some(x => x.d === w.d)).length
-    fresh = parsed.workouts.length - have
+    // V2: fingerprint-based, not just "this date already has something" — see
+    // import-csv.js's own workoutFingerprint comment for why that changed. Fingerprinted
+    // AFTER alias/confirmed resolution (not the raw parse): a workout whose only unresolved
+    // exercise was a previously-confirmed alias must compare against its own already-stored
+    // fingerprint using the SAME real exercise id that import used, not a fresh random
+    // placeholder id this second parse just made up — otherwise a genuine reimport would
+    // misread as "new" purely because of that placeholder's own randomness.
+    const finalizedPreview = applyImportResolutions(parsed, plan, confirmed)
+    const haveFp = new Set(st.workouts.map(w => workoutFingerprint(w, st.customEx)))
+    have = finalizedPreview.workouts.filter(w => haveFp.has(workoutFingerprint(w, finalizedPreview.customEx))).length
+    fresh = finalizedPreview.workouts.length - have
   }
+
+  // Derived review counts — recomputed as `confirmed` changes so the tiles reflect exactly what
+  // "Importar" would do right now, before it's clicked (section 6's own preview requirement).
+  const aliasResolved = [...plan.values()].filter(r => r.status === 'alias').length
+  const suggested = [...plan.values()].filter(r => r.status === 'suggested').length
+  const pending = [...plan.values()].filter(r => r.status === 'pending').length
+  const confirmedToReal = [...confirmed.values()].filter(v => v && v !== 'own').length
+  const needsReview = Math.max(0, suggested + pending - confirmed.size)
+  const willBeOwn = Math.max(0, (parsed.customEx?.length || 0) - aliasResolved - confirmedToReal)
 
   const doImport = () => {
     let res, newBadges = []
+    const finalParsed = isBW || isHealth ? parsed : applyImportResolutions(parsed, plan, confirmed)
     update(s => {
-      res = mergeImport(s, parsed)
+      res = mergeImport(s, finalParsed)
       // Retroactive on purpose — an imported history (or a bodyweight-only import, which can
       // newly unlock globalRank's strength-score badges by supplying the bodyweight it needs)
       // can cross a threshold with no live session to hang the evaluation off of. No
@@ -403,6 +441,11 @@ function ImportSummary({ parsed, close }) {
       const badgeRes = evaluateBadges(s)
       s.badges = badgeRes.badges
       newBadges = badgeRes.newlyUnlocked
+    })
+    // Persisted only now that the import this alias came from actually happened (section 5's
+    // "nothing writes before the final confirm") — best-effort, never blocks the import itself.
+    finalParsed.aliasesToSave?.forEach(a => {
+      api('/api/exercises/import-alias', { method: 'POST', body: JSON.stringify(a) }).catch(() => {})
     })
     close()
     toast(isHealth
@@ -432,8 +475,12 @@ function ImportSummary({ parsed, close }) {
       </> : <>
         <div className="tile"><div className="l">{t('Workouts')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{parsed.workouts.length}</div></div>
         <div className="tile"><div className="l">{t('Sets')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{parsed.sets}</div></div>
+        <div className="tile"><div className="l">{t('New')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fresh}</div></div>
+        <div className="tile"><div className="l">{t('Already imported')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{have}</div></div>
         <div className="tile"><div className="l">{t('Exercises matched')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{parsed.matched}</div></div>
-        <div className="tile"><div className="l">{t('Added as your own')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{parsed.created}</div></div>
+        <div className="tile"><div className="l">{t('Identified')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{aliasResolved + confirmedToReal}</div></div>
+        {needsReview > 0 && <div className="tile"><div className="l">{t('Need review')}</div><div className="v" style={{ fontSize: '1.1rem', color: 'var(--yellow)' }}>{needsReview}</div></div>}
+        <div className="tile"><div className="l">{t('Will be added as your own')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{willBeOwn}</div></div>
       </>}
     </div>
 
@@ -452,7 +499,9 @@ function ImportSummary({ parsed, close }) {
       {t('Health has no dedicated muscle-mass reading — this uses its closest one, lean body mass, which also includes bone and water.')}
     </div>}
     {have > 0 && <div className="small dim" style={{ marginBottom: 10 }}>
-      {t('{0} days already have data here and will be left alone.', have)}
+      {isHealth || isBW
+        ? t('{0} days already have data here and will be left alone.', have)
+        : t('{0} workouts already here and will be left alone.', have)}
     </div>}
     {/* The file rated its sets. Say so: the column is off by default, so the ratings would
         otherwise arrive invisibly and look like they had been dropped. */}
@@ -468,11 +517,70 @@ function ImportSummary({ parsed, close }) {
         {parsed.unmatchedNames.slice(0, 12).map(n => <span key={n} className="mchip capitalize">{n}</span>)}
         {parsed.unmatchedNames.length > 12 && <span className="mchip">+{parsed.unmatchedNames.length - 12}</span>}
       </div>
+      {planLoading && <div className="small dim" style={{ marginBottom: 12 }}>{t('Checking for known matches…')}</div>}
+      {!planLoading && needsReview > 0 && <Button style={{ marginBottom: 12 }} onClick={() => openSheet(closeReview =>
+        <ImportMatchReview parsed={parsed} plan={plan} confirmed={confirmed}
+          onDone={next => { setConfirmed(next); closeReview() }} close={closeReview} />, { wide: true })}>
+        {t('Review {0} equivalences', needsReview)}
+      </Button>}
     </>}
 
     <Button variant="primary" onClick={doImport} disabled={!fresh}>
       {fresh ? t('Import') : t('Nothing new to import')}
     </Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
+  </>
+}
+
+// "[Revisar equivalencias]" — every customEx placeholder still open for a human call: a Gemini
+// suggestion (preselected, never applied without landing here — see import-match.js's own
+// finalize-time comment for why) or a genuinely unresolved name with whatever local candidates
+// exist. A deterministic match or a confirmed-alias hit never appears here at all (section 15's
+// own "don't force a review of the safe ones").
+function ImportMatchReview({ parsed, plan, confirmed, onDone, close }) {
+  const items = [...plan.entries()].filter(([, r]) => r.status === 'suggested' || r.status === 'pending')
+  // A Gemini suggestion starts pre-selected (rule: "puede aparecer preseleccionada... el
+  // usuario debe poder cambiarla") — reaching "Done" on this screen without touching it is
+  // itself the human review step; a 'pending' item with no AI opinion starts untouched, always
+  // defaulting to "stays a custom exercise" unless the user actively picks something.
+  const [choices, setChoices] = useState(() => {
+    const init = new Map(confirmed)
+    items.forEach(([id, r]) => { if (r.status === 'suggested' && !init.has(id)) init.set(id, r.exerciseId) })
+    return init
+  })
+
+  const choose = (placeholderId, exerciseId) => setChoices(m => {
+    const next = new Map(m); next.set(placeholderId, exerciseId); return next
+  })
+  const keepOwn = placeholderId => setChoices(m => {
+    const next = new Map(m); next.set(placeholderId, 'own'); return next
+  })
+
+  return <>
+    <h3>{t('Review equivalences')}</h3>
+    <div className="dim small" style={{ marginBottom: 12 }}>
+      {t('A confirmed match here is remembered — the same name from {0} resolves on its own next time, with no AI call needed.', parsed.source || t('this app'))}
+    </div>
+    {items.map(([placeholderId, r]) => {
+      const chosen = choices.get(placeholderId)
+      const candidates = r.candidates.length ? r.candidates : localCandidates(r.name)
+      return <div key={placeholderId} style={{ marginBottom: 16 }}>
+        <div className="small capitalize" style={{ marginBottom: 2 }}>{r.name}</div>
+        <div className="dim small" style={{ marginBottom: 6 }}>{parsed.source || t('Unknown source')}</div>
+        {r.status === 'suggested' && <div className="small" style={{ color: 'var(--acc)', marginBottom: 6 }}>
+          ✨ {t('AI suggestion')} — {r.confidence >= 0.75 ? t('high confidence') : r.confidence >= 0.4 ? t('medium confidence') : t('low confidence')}
+        </div>}
+        <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
+          {candidates.map(c => <button key={c.id}
+            className={'chip capitalize' + (chosen === c.id ? ' on' : '')}
+            onClick={() => choose(placeholderId, c.id)}>{c.name || nameFor(EXIDX[c.id])}</button>)}
+          <button className={'chip dim' + (chosen === 'own' ? ' on' : '')} onClick={() => keepOwn(placeholderId)}>{t('Create as your own')}</button>
+        </div>
+      </div>
+    })}
+    {!items.length && <div className="dim small" style={{ marginBottom: 12 }}>{t('Nothing left to review.')}</div>}
+    <Button variant="primary" onClick={() => onDone(choices)}>{t('Done')}</Button>
     <div style={{ height: 8 }} />
     <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
   </>
@@ -580,7 +688,15 @@ function OneRM({ ex }) {
 
 function ExerciseDetail({ ex, close }) {
   const st = useStore(s => s.S)
-  const last = lastEntryFor(st, ex.id)
+  // V3 — up to the last 3 real appearances, not just the most recent (recentEntriesFor supersedes
+  // lastEntryFor's own single-result walk; see lib/history.js's own comment on why it's now a
+  // thin wrapper around this instead of a second copy of the same loop). "Last session" keeps
+  // showing unconditionally, exactly as before; anything past that (sessions 2-3) is a quiet
+  // "Previous sessions" toggle below it — never all three sitting open by default.
+  const recent = recentEntriesFor(st, ex.id, 3)
+  const last = recent[0] || null
+  const earlier = recent.slice(1)
+  const [showEarlier, setShowEarlier] = useState(false)
   const best = bestWeightFor(st, ex.id)
   return <>
     <h3 className="capitalize">{nameFor(ex)}</h3>
@@ -600,6 +716,16 @@ function ExerciseDetail({ ex, close }) {
       {last
         ? <div className="small">{last.sets.map(s => setLabel(ex.id, s, last.target)).join(', ')} <span className="dim">· {fmtDate(last.d)}</span></div>
         : <div className="muted small">{t('No sessions logged yet.')}</div>}
+      {earlier.length > 0 && <>
+        <button style={{ marginTop: 8, color: 'var(--acc)', fontSize: 'calc(12.5px * var(--text-scale,1))', fontWeight: 500 }} onClick={() => setShowEarlier(v => !v)}>
+          {showEarlier ? t('Hide previous sessions') : t('Show previous sessions')}
+        </button>
+        {showEarlier && <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {earlier.map((r, i) => <div key={i} className="small">
+            {r.sets.map(s => setLabel(ex.id, s, r.target)).join(', ')} <span className="dim">· {fmtDate(r.d)}</span>
+          </div>)}
+        </div>}
+      </>}
     </div>
     {best > 0 && <div className="small row" style={{ marginBottom: 6, gap: 5 }}><Icon name="trophy" style={{ fontSize: 14, color: 'var(--yellow)' }} />{t('Best:')} <b className="accent">{fmtNum(best)} {st.unit}</b></div>}
     <Button icon="history" style={{ marginBottom: 4 }} trailingIcon="chevronRight" onClick={() => { close(); nav('/stats?ex=' + ex.id) }}>{t('See full history')}</Button>
@@ -833,33 +959,51 @@ export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker 
 // no movement-pattern field to rank by.
 function AlternativesPicker({ current, onPick, close }) {
   const st = useStore(s => s.S)
+  const [scope, setScope] = useState('recommended')
   const [filter, setFilter] = useState(null)
-  const alts = getExerciseAlternatives(st, current.id)
+  const [q, setQ] = useState('')
+  const [shown, setShown] = useState(50)
+  const groups = getReplacementGroups(st, current.id)
+  const alts = groups[scope]
   const activeFilter = QUICK_FILTERS.find(f => f.key === filter)
-  const filtered = !activeFilter ? alts
+  const byEquipment = !activeFilter ? alts
     : filter === 'same' ? alts.filter(a => a.ex.eq === current.eq)
       : alts.filter(a => activeFilter.eq.includes(a.ex.eq))
+  const query = q.trim().toLowerCase()
+  const filtered = byEquipment.filter(a => !query || [a.ex.n, nameFor(a.ex), a.ex.tg, a.ex.bp, a.ex.eq, a.ex.desc]
+    .some(value => String(value || '').toLowerCase().includes(query)))
   const labelFor = a => a.matchKey === 'exact' ? t('Exact replacement')
     : a.matchKey === 'sameMuscle' ? t('Alternative with {0}', t(a.ex.eq))
-      : t('Related muscle')
+      : a.matchKey === 'related' ? t('Related muscle') : t('Different movement')
+  const changeScope = next => { setScope(next); setFilter(null); setQ(''); setShown(50) }
   return <>
     <h3 className="capitalize">{t('Replace {0}', nameFor(current))}</h3>
-    <div className="chips" style={{ margin: '10px 0' }}>
-      <button className={'chip nocap' + (!filter ? ' on' : '')} onClick={() => setFilter(null)}>{t('All')}</button>
-      {QUICK_FILTERS.map(f => <button key={f.key} className={'chip' + (filter === f.key ? ' on' : '')} onClick={() => setFilter(f.key)}>{t(f.label)}</button>)}
+    <div className="seg" style={{ margin: '10px 0' }}>
+      {[['recommended', 'Recommended'], ['related', 'Same muscle / related'], ['all', 'All exercises']].map(([key, label]) =>
+        <button key={key} className={scope === key ? 'on' : ''} onClick={() => changeScope(key)}>{t(label)}</button>)}
     </div>
-    <div className="list">
+    {scope === 'all' && <div className="search" style={{ marginBottom: 10 }}>
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+      <input className="input" value={q} placeholder={t('Search {0} exercises…', groups.all.length)}
+        onChange={e => { setQ(e.target.value); setShown(50) }} />
+    </div>}
+    <div className="chips alt-chips" style={{ margin: '10px 0' }}>
+      <button className={'chip nocap' + (!filter ? ' on' : '')} onClick={() => { setFilter(null); setShown(50) }}>{t('All')}</button>
+      {QUICK_FILTERS.map(f => <button key={f.key} className={'chip' + (filter === f.key ? ' on' : '')} onClick={() => { setFilter(f.key); setShown(50) }}>{t(f.label)}</button>)}
+    </div>
+    <div className="list alt-list">
       {filtered.length === 0 && <div className="empty">{t('No alternatives found for this filter.')}</div>}
-      {filtered.map(a => <div key={a.ex.id} className="item" onClick={() => { close(); onPick(a.ex) }}>
+      {filtered.slice(0, shown).map(a => <div key={a.ex.id} className="item" onClick={() => { close(); onPick(a.ex) }}>
         <Thumb ex={a.ex} />
         <div className="grow">
           <div className="tt capitalize">{nameFor(a.ex)}</div>
           <div className="ss capitalize">{t(a.ex.tg || a.ex.bp)} · {t(a.ex.eq)}</div>
         </div>
-        <span className={'tag nocap' + (a.matchKey === 'exact' ? ' acc' : '')}>{labelFor(a)}</span>
+        <span className={'tag nocap' + (a.matchKey === 'exact' ? ' acc' : '') + (a.matchKey === 'unrelated' ? ' dim' : '')}>{labelFor(a)}</span>
         <Icon name="chevronRight" className="chev" />
       </div>)}
     </div>
+    {filtered.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(n => n + 50)}>{t('Show more')}</Button></>}
   </>
 }
 export const alternativesSheet = (current, onPick) => ui().openSheet(close => <AlternativesPicker current={current} onPick={onPick} close={close} />)
@@ -1412,7 +1556,14 @@ function WorkoutDetail({ w, close }) {
           <div className="ss">{e.sets.filter(s => s.done).map(s => setLabel(e.id, s, e.target)).join('  ·  ') || t('no sets')}</div></div>
       </div>
     })}
-    <Button variant="danger" onClick={() => confirmSheet({ title: t('Delete workout?'), message: t('This removes it from your history for good.'), confirmText: t('Delete'), danger: true, onConfirm: () => { update(s => { s.workouts = s.workouts.filter(x => x.id !== w.id) }); close(); toast(t('Workout deleted')) } })}>{t('Delete workout')}</Button>
+    <Button variant="danger" onClick={() => confirmSheet({ title: t('Delete workout?'), message: t('This removes it from your history for good.'), confirmText: t('Delete'), danger: true, onConfirm: () => {
+      update(s => { s.workouts = s.workouts.filter(x => x.id !== w.id) })
+      // v1.3.1 (A1 fix) — a normal sync no longer lets a workout actually disappear just
+      // because a PUT doesn't mention it (server.js's own PUT /api/data comment); this explicit
+      // call is the one real signal "delete this one for good."
+      useStore.getState().deleteWorkoutOnServer(w.id)
+      close(); toast(t('Workout deleted'))
+    } })}>{t('Delete workout')}</Button>
   </>
 }
 export const workoutDetailSheet = w => ui().openSheet(close => <WorkoutDetail w={w} close={close} />)
@@ -1793,6 +1944,38 @@ function ExerciseNotes({ ex, entry, close, onSave }) {
 }
 export const exerciseNotesSheet = (ex, entry, onSave) => ui().openSheet(close => <ExerciseNotes ex={ex} entry={entry} onSave={onSave} close={close} />)
 
+// V3 — traceability for a trainer-assigned routine/program: past versions, newest first, each
+// just a date and a same-shape summary line (exercise count for a routine, routine count for a
+// program). Read-only on purpose — no restore, no diff, this is "it changed on {date}", not an
+// editor. `kind` picks which fetch/summary shape to use; the two are similar enough not to
+// warrant two near-identical sheets.
+function VersionHistory({ kind, memberId, id, close }) {
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    const fetchFn = kind === 'program' ? fetchProgramVersions : fetchRoutineVersions
+    fetchFn(memberId, id).then(setData).catch(e => setErr(e.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const summaryOf = v => kind === 'program' ? routineCount((v.routineIds || []).length) : exCount((v.ex || []).length)
+  return <>
+    <h3>{t('Version history')}</h3>
+    {err ? <div className="dim small">{err}</div>
+      : !data ? <div className="dim small">{t('Loading…')}</div>
+      : !data.versions.length ? <div className="empty"><div className="ico"><Icon name="clock" /></div>{t('No previous versions yet — a version appears here the next time a meaningful change is saved.')}</div>
+      : <div className="list">{data.versions.map((v, i) => <div key={i} className="item">
+          <span className="lrow-i"><Icon name="clock" /></span>
+          <div className="grow"><div className="tt">{v.name}</div>
+            <div className="ss">{new Date(v.versionedAt).toLocaleString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} · {summaryOf(v)}</div>
+          </div>
+        </div>)}</div>}
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" onClick={close}>{t('Close')}</Button>
+  </>
+}
+export const routineVersionsSheet = (memberId, routineId) => ui().openSheet(close => <VersionHistory kind="routine" memberId={memberId} id={routineId} close={close} />)
+export const programVersionsSheet = (memberId, programId) => ui().openSheet(close => <VersionHistory kind="program" memberId={memberId} id={programId} close={close} />)
+
 // Pick any OTHER exercise already in this routine to superset with — the quick link-icon on
 // each row only pairs with the one directly above; this is the flexible version reached from
 // the "…" menu. Picking one hands its index back; RoutineEdit.jsx does the actual reordering.
@@ -1970,8 +2153,8 @@ function FinishSummary({ w, prs, e1prs = [], rankUps = [], newBadges = [], close
 }
 // A shareable PNG of the just-finished session (or, from the badge celebration's own trigger,
 // still the current `w` closed over there) — 9:16 by default with a 1:1 toggle, rendered
-// off-screen at CARD_SIZE and rasterized with html-to-image, loaded lazily since most sessions
-// never open this sheet and the library has no reason to ride along in the main bundle.
+// at the card's compact preview width and rasterized with html-to-image, loaded lazily since
+// most sessions never open this sheet and the library has no reason to ride along in the main bundle.
 function shareCardSheet(w, prs, e1prs, newBadges) {
   ui().openSheet(close => <WorkoutShareSheet w={w} prs={prs} e1prs={e1prs} newBadges={newBadges} close={close} />)
 }
@@ -1982,14 +2165,9 @@ function WorkoutShareSheet({ w, prs, e1prs, newBadges, close }) {
   const [busy, setBusy] = useState(false)
   const cardRef = useRef(null)
 
-  // pixelRatio 4 against WorkoutShareCard's 270px-wide DOM node is what turns the on-screen
-  // preview into the spec's 1080×1920 (story) / 1080×1080 (square) export — see CARD_SIZE's
-  // own comment. cacheBust appends a timestamp to the crest/badge <img> requests so a stale
-  // service-worker/browser cache can never hand back a half-loaded image mid-capture.
-  const capture = async () => {
-    const { toPng } = await import('html-to-image')
-    return toPng(cardRef.current, { pixelRatio: 4, cacheBust: true })
-  }
+  // The shared capture helper measures the rendered node's full scroll height before using
+  // pixelRatio 4, so a long exercise/record list grows the PNG instead of being clipped.
+  const capture = () => capturePng(cardRef.current)
   const filename = `2J-Workout-${w.d}.png`
   const withCapture = async fn => {
     if (busy) return
@@ -1998,13 +2176,7 @@ function WorkoutShareSheet({ w, prs, e1prs, newBadges, close }) {
     catch (e) { ui().toast(t("Couldn't create the image")) }
     finally { setBusy(false) }
   }
-  const doShare = async dataUrl => {
-    if (MOBILE) { await shareImage(dataUrl.split(',')[1], filename); return }
-    const blob = await (await fetch(dataUrl)).blob()
-    const file = new File([blob], filename, { type: 'image/png' })
-    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: t('My workout') }); return }
-    downloadPng(dataUrl, filename)
-  }
+  const doShare = dataUrl => sharePng(dataUrl, filename, t('My workout'))
   const doDownload = async dataUrl => downloadPng(dataUrl, filename)
   const doCopy = async dataUrl => {
     if (!navigator.clipboard?.write) { ui().toast(t("Copy isn't supported here")); return }
@@ -2029,11 +2201,6 @@ function WorkoutShareSheet({ w, prs, e1prs, newBadges, close }) {
     </div>
     <Button variant="plain" className="dim" style={{ marginTop: 8, width: '100%' }} onClick={close}>{t('Close')}</Button>
   </div>
-}
-function downloadPng(dataUrl, filename) {
-  const a = document.createElement('a')
-  a.href = dataUrl; a.download = filename
-  document.body.appendChild(a); a.click(); a.remove()
 }
 // Shown once, right after finishing a session that had at least one mid-workout exercise swap
 // (Workout.jsx's `replaceExercise`) — a choice per swap between "just applied to today" (the
@@ -2131,6 +2298,12 @@ function doFinishWorkout() {
     s.badges = res.badges
     newBadges = res.newlyUnlocked
   })
+  // The `update()` above only ever clears S.active on THIS device — PUT /api/data's own
+  // preservation of the server's existing `active` (deliberate, for Bunker) means a normal sync
+  // alone hands a "finished" session right back on the next pull. This is the same authorized
+  // clear the Discard button uses (see useStore.js's own comment); a finish needs it too, not
+  // just a discard.
+  useStore.getState().clearActiveOnServer(A.id)
   // No-ops server-side if Strava isn't connected — never surface a failure into this flow.
   sendWorkoutToStrava(w).catch(() => {})
   useUI.getState().stopRest()

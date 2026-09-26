@@ -561,6 +561,18 @@ h4.sec{
 .chip.chip-select{display:inline-flex;align-items:center;gap:5px}
 .chip.chip-select svg{font-size:calc(11px * var(--text-scale,1))}
 
+/* --- "Replace exercise" (sheets.jsx's AlternativesPicker) — a compact, height-stable card
+   regardless of a foreign exercise name's length, and a match-quality tag that can never grow
+   wide enough to fight the name for space. Scoped to this one sheet (.alt-list/.alt-chips)
+   rather than changing .item/.tag/.chips everywhere else they're used. ---------------------- */
+.alt-list .item{align-items:center}
+.alt-list .tt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alt-list .ss{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alt-list .tag{flex:none;max-width:112px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+/* The chip row already scrolls (see .chips); this just makes that scrollability legible at a
+   glance — a soft fade at the trailing edge reads as "more this way", not as clipped content. */
+.alt-chips{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent)}
+
 /* =========================== CONTROLS ==================================== */
 
 /* --- text field --- */
@@ -801,7 +813,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .sethead .n-sp{width:36px;flex:none}
 .sethead .w-sp{flex:1.4;text-align:center}
 .sethead .r-sp{flex:1;text-align:center}
-.sethead .eff-sp{text-align:center}
+.setmeta-head{flex:1.1;text-align:center;min-width:0}
 .sethead .ck-sp{width:30px;flex:none}
 .setrow{display:flex;align-items:center;gap:8px;padding:7px 0;position:relative}
 .setrow+.setrow::before{
@@ -826,7 +838,8 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow .n.on.pr{background:var(--yellow);color:#000}
 .setrow .stp.w{flex:1.4;min-width:0}
 .setrow .stp.r{flex:1;min-width:0}
-.setrow .stp.eff{flex:1.1;min-width:0}
+.setrow .stp.eff{flex:1;min-width:0}
+.setmeta{display:flex;align-items:center;justify-content:center;gap:5px;flex:1.1;min-width:0}
 /* Micro +/- buttons (spec: ~20-22px) so the value between them always has room — the value
    area itself (.stp .val, below) has its own min-width floor regardless of how narrow these
    get, which is what actually stops a 3-digit decimal like "102.5" from clipping. */
@@ -848,13 +861,9 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow.eff3,.sethead.eff3{gap:7px}
 .setrow.eff3 .stp.w,.sethead.eff3 .w-sp{flex:1.2}
 .setrow.eff3 .stp.r,.sethead.eff3 .r-sp{flex:1}
-.setrow.eff3 .stp.eff,.sethead.eff3 .eff-sp{flex:.85}
+.setrow.eff3 .setmeta,.sethead.eff3 .setmeta-head{flex:.9}
 .setrow.eff3 .stp.w button,.setrow.eff3 .stp.r button{width:20px}
 .setrow.eff3 .stp .num{font-size:calc(14px * var(--text-scale,1))}
-/* the plate button is a 4th thing competing for the same row once effort tracking is also on —
-   shrink it the same way the RIR/RPE stepper already shrinks, or its value clips (issue: barbell
-   plate calculator felt cramped next to RPE) */
-.setrow.eff3 .platesbtn{width:22px;height:22px;font-size:calc(11px * var(--text-scale,1))}
 .setrow.done{opacity:.45}
 /* The effort column, once it's a tap-to-open badge (EffortSheet) rather than a +/- stepper —
    sits inside the same .stp.eff wrapper so the existing eff3 width rules still size the column,
@@ -886,6 +895,14 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   font-size:calc(12.5px * var(--text-scale,1));font-weight:600;
 }
 .overload-chip svg{width:14px;height:14px}
+.exercise-target-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.exercise-plates-btn{
+  min-height:38px;padding:7px 11px;border-radius:10px;background:var(--surface-2);color:var(--label);
+  display:inline-flex;align-items:center;gap:6px;font-size:calc(13px * var(--text-scale,1));font-weight:600;
+}
+.exercise-plates-btn svg{width:16px;height:16px;color:var(--acc)}
+.exercise-plates-btn span{min-width:20px;padding:1px 5px;border-radius:99px;background:var(--surface-3);font-size:calc(11px * var(--text-scale,1));text-align:center}
+.exercise-plates-btn:active{background:var(--surface-3)}
 
 /* --- weekly volume zones (Workout.jsx's RpVolumeBar, lib/rp-volume.js) --- */
 .rpbar-wrap{margin:2px 0 10px}
@@ -919,15 +936,6 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 .setrow .setgo:disabled{opacity:.3;cursor:default}
 .setrow .setgo:not(:disabled):active{background:var(--surface-3)}
-/* opens the plate breakdown (issue: barbell plate calculator) — informational, not a state
-   toggle, so it stays neutral rather than borrowing setgo's accent colour */
-.setrow .platesbtn{
-  width:28px;height:28px;border-radius:50%;flex:none;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--surface-2);color:var(--label-2);font-size:calc(13px * var(--text-scale,1));
-  transition:background var(--fast);
-}
-.setrow .platesbtn:active{background:var(--surface-3)}
 /* --- plate calculator (sheets.jsx's PlatesSheet) --- */
 .platessheet{text-align:center}
 .ps-head{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:2px}
@@ -977,6 +985,24 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   background:var(--zc);color:#fff;font-weight:700;font-size:calc(11px * var(--text-scale,1));
   text-shadow:0 1px 1px rgba(0,0,0,.25);
   letter-spacing:-.01em;
+}
+/* At 360–400px the set card spends less width on padding, while the two +/- controls retain
+   real 32×44px targets. Numeric cells may use the remaining width instead of clipping the +.
+   The per-row plate icon no longer competes for this row; its single replacement sits above. */
+@media (max-width:430px){
+  .workout-sets-card{padding-left:8px;padding-right:8px}
+  .setrow,.sethead{gap:4px}
+  .setrow .n{width:32px;height:40px}
+  .sethead .n-sp{width:32px}
+  .setrow .stp button,.setrow.eff3 .stp.w button,.setrow.eff3 .stp.r button{width:32px;min-height:44px}
+  .setrow .stp .val{min-width:0;padding-left:0;padding-right:0}
+  .setrow .stp.w,.sethead .w-sp{flex:1.25}
+  .setrow .stp.r,.sethead .r-sp{flex:1}
+  .setrow.eff3 .setmeta,.sethead.eff3 .setmeta-head{flex:none;width:70px}
+  .setmeta{gap:3px}
+  .setmeta .zonechip{min-width:23px;padding:0 4px}
+  .setrow.eff3 .effbadge{font-size:calc(11px * var(--text-scale,1));gap:1px}
+  .setrow.eff3 .effbadge .em{display:none}
 }
 /* exercise-config sheet: three steppers side by side on narrow phones */
 .cfgrow{gap:8px}
@@ -1079,6 +1105,16 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 }
 :root[data-theme="light"] .center{background:#fff}
 @keyframes pop{from{transform:translate(-50%,-50%) scale(.94);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.sync-conflict-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.58);backdrop-filter:blur(18px)}
+#sync-conflict{position:fixed;inset:0;z-index:9999}
+.sync-conflict-card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,480px);max-height:88vh;overflow:auto;background:var(--bg-el);border:1px solid var(--separator);border-radius:var(--r-lg);padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.55)}
+.sync-conflict-card h2{font-size:calc(22px * var(--text-scale,1));margin-bottom:8px}
+.sync-conflict-card>p{color:var(--label-2);margin-bottom:16px;line-height:1.4}
+.sync-conflict-card>.btn{margin-bottom:12px}
+.sync-conflict-diff{border:1px solid var(--separator);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:14px;max-height:34vh;overflow:auto}
+.sync-conflict-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;padding:9px 0;border-bottom:1px solid var(--separator);font-size:calc(13px * var(--text-scale,1))}
+.sync-conflict-row:last-child{border-bottom:0}.sync-conflict-row span{color:var(--label-2)}
+.sync-conflict-actions{display:grid;gap:10px;margin-top:4px}.sync-conflict-card small{display:block;color:var(--label-3);line-height:1.35;margin-top:12px}.danger-text{color:var(--red)!important;margin-top:10px!important}
 .sheet-full{
   position:absolute;inset:0;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
   animation:sheetup .28s var(--ease);
@@ -1466,6 +1502,22 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   display:flex;justify-content:center;margin-top:14px;
   filter:drop-shadow(0 12px 28px rgba(0,0,0,.45));
 }
+.sharecard-capture{position:fixed;left:-10000px;top:0;pointer-events:none}
+.badge-sharecard{
+  width:270px;min-height:360px;box-sizing:border-box;overflow:visible;padding:20px 20px 14px;
+  display:flex;flex-direction:column;align-items:center;text-align:center;color:#f5fff2;border-radius:18px;
+  background:radial-gradient(85% 48% at 50% 18%,color-mix(in srgb,var(--badge-accent) 32%,transparent),transparent 72%),linear-gradient(155deg,#0c2818,#020905 78%);
+  border:1px solid color-mix(in srgb,var(--badge-accent) 35%,transparent);
+}
+.bsc-brand{display:flex;align-items:center;gap:6px;color:rgba(232,250,232,.5);font-size:8px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.bsc-brand img{width:25px;height:25px;object-fit:contain}
+.bsc-kicker{margin-top:22px;color:var(--badge-accent);font-size:9px;font-weight:800;letter-spacing:.09em}
+.bsc-emblem{width:142px;height:142px;object-fit:contain;margin:10px 0 8px;filter:drop-shadow(0 0 20px color-mix(in srgb,var(--badge-accent) 55%,transparent))}
+.bsc-icon{width:112px;height:112px;border-radius:50%;margin:20px 0 16px;display:flex;align-items:center;justify-content:center;font-size:48px;color:var(--badge-accent);background:#173a26;box-shadow:0 0 0 3px var(--badge-accent)}
+.bsc-title{font-size:23px;font-weight:850;line-height:1.08;text-wrap:balance}
+.bsc-description{margin-top:9px;color:rgba(232,250,232,.72);font-size:12px;line-height:1.45;text-wrap:balance}
+.bsc-date{margin-top:12px;color:var(--badge-accent);font-size:11px;font-weight:700}
+.bsc-footer{width:100%;margin-top:auto;padding-top:18px;color:rgba(232,250,232,.35);font-size:7.5px;letter-spacing:.08em;border-top:1px solid rgba(180,255,170,.12)}
 
 /* --- stat tiles --- */
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -1532,23 +1584,36 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .swatch:active{transform:scale(.9)}
 .swatch.on::after{content:'';position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 2px var(--label)}
 
-/* --- supersets --- */
+/* --- supersets ---
+   Each group carries its own color via the --ss-color custom property (lib/superset-colors.js
+   assigns it, by the order groups first appear — never by their own opaque `sg` id), set once
+   on a shared ancestor and read here with a var(--ss-color, var(--acc)) fallback, so anything
+   that isn't handed a group color (or a genuinely solo exercise) still renders exactly as
+   before: the single green accent. */
 .ss-label{
   font-size:calc(12px * var(--text-scale,1));font-weight:600;letter-spacing:-.004em;text-transform:none;
-  color:var(--acc);margin:8px 0 5px 4px;display:flex;align-items:center;gap:5px;
+  color:var(--ss-color, var(--acc));margin:8px 0 5px 4px;display:flex;align-items:center;gap:5px;
 }
 .ss-label .icn{font-size:calc(13px * var(--text-scale,1))}
-.item.in-ss{box-shadow:inset 3px 0 0 var(--acc)}
+.item.in-ss{box-shadow:inset 3px 0 0 var(--ss-color, var(--acc))}
 .ss-card{
   border-radius:var(--r-lg);padding:14px;
-  background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--acc-line);
+  background:var(--surface);box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--ss-color, var(--acc)) 38%, transparent);
 }
 .ss-hd{
-  font-size:calc(12px * var(--text-scale,1));font-weight:600;color:var(--acc);margin-bottom:12px;
+  font-size:calc(12px * var(--text-scale,1));font-weight:600;color:var(--ss-color, var(--acc));margin-bottom:12px;
   text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;
 }
 .ss-ex{position:relative}
-.ss-amp{text-align:center;font-size:calc(15px * var(--text-scale,1));font-weight:600;color:var(--acc);margin:14px 0 8px}
+.ss-amp{text-align:center;font-size:calc(15px * var(--text-scale,1));font-weight:600;color:var(--ss-color, var(--acc));margin:14px 0 8px}
+/* The A1/A2 badge — small, next to the exercise name, never the sole way to tell groups apart
+   (the letter+number reads fine printed in black and white too). */
+.ss-badge{
+  display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;
+  border-radius:6px;font-size:calc(10.5px * var(--text-scale,1));font-weight:700;flex:none;
+  background:color-mix(in srgb, var(--ss-color, var(--acc)) 18%, transparent);color:var(--ss-color, var(--acc));
+  margin-right:5px;
+}
 
 /* --- home: today's session row --- */
 .today-row{
@@ -1662,8 +1727,19 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   display:flex;flex-direction:column;
 }
 .bk-dash{flex:1;display:flex;flex-direction:column;padding:28px 32px;overflow-y:auto}
-.bk-hd{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:24px}
-.bk-hd-title{font-size:28px;font-weight:700;letter-spacing:-.02em;cursor:default;user-select:none}
+/* ---------- fixed top bar (every Bunker screen but the admin overlay) ---------- */
+.bk-topbar{display:flex;align-items:center;gap:14px;padding:14px 20px;flex:none;background:#0c0c0e;border-bottom:1px solid #1c1c20}
+.bk-topbar-title{font-size:18px;font-weight:700;letter-spacing:-.01em;cursor:default;user-select:none;flex:none;white-space:nowrap}
+.bk-topbar-tabs{display:flex;gap:8px;overflow-x:auto;flex:1;padding:2px}
+.bk-topbar-tab{
+  flex:none;display:flex;align-items:center;gap:8px;background:#1a1a1e;color:#9a9a9e;
+  border-radius:99px;padding:10px 18px;font-size:14px;font-weight:600;white-space:nowrap;
+}
+.bk-topbar-tab svg{width:18px;height:18px;flex:none}
+.bk-topbar-tab.on{background:#73b52e;color:#04140b}
+.bk-tabcontent{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.bk-tabpane{flex:1;display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding:28px 32px;max-width:720px;width:100%;margin:0 auto;box-sizing:border-box}
+.bk-tabpane-title{font-size:22px;font-weight:700;text-align:center;margin-bottom:20px;flex:none}
 .bk-paired-badge{
   font-size:11px;font-weight:600;color:#10B981;background:rgba(16,185,129,.12);
   border:1px solid rgba(16,185,129,.3);border-radius:99px;padding:3px 10px;flex:none;
@@ -1677,9 +1753,18 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .bk-card{
   background:#141417;border-radius:18px;padding:20px;min-height:140px;
   display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;
-  transition:box-shadow .3s;
+  transition:box-shadow .3s,transform .15s;cursor:pointer;
 }
+.bk-card:active{transform:scale(.97)}
 .bk-card.paused{opacity:.6}
+/* Own card, checked in from THIS device, tap to reopen with no PIN — see Bunker.jsx's own
+   module doc comment (V3 fix) for why that's safe: this class only ever appears when this
+   exact kiosk already holds a valid token for that member. */
+.bk-card.resumable{box-shadow:inset 0 0 0 2px rgba(16,185,129,.55)}
+.bk-card-resume{
+  font-size:11px;font-weight:700;color:#10B981;background:rgba(16,185,129,.12);
+  border:1px solid rgba(16,185,129,.3);border-radius:99px;padding:2px 9px;flex:none;
+}
 .bk-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .bk-card-elapsed{font-size:12px;color:#6a6a6e;font-variant-numeric:tabular-nums}
 .bk-card-name{font-size:20px;font-weight:700}
@@ -1703,6 +1788,27 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   padding:18px 40px;font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px;
 }
 .bk-join:disabled{opacity:.4}
+.bk-live-prs{
+  width:min(100%,980px);margin:26px auto 0;padding:18px 20px;border-radius:18px;
+  background:linear-gradient(135deg,#171719,#101012);border:1px solid #27272b;flex:none;
+}
+.bk-live-prs-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.035em}
+.bk-live-prs-head strong{font-size:13px;color:#ffd60a;background:rgba(255,214,10,.1);border-radius:99px;padding:5px 10px;white-space:nowrap}
+.bk-live-prs-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.bk-live-pr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:11px 13px;border-radius:12px;background:#1d1d20;min-width:0}
+.bk-live-pr-person{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-live-pr-mark{grid-column:1;display:flex;gap:6px;color:#aaaab0;font-size:13px;min-width:0}
+.bk-live-pr-mark span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-live-pr-mark b{color:#f2f2f2;white-space:nowrap}
+.bk-live-pr-delta{grid-column:2;grid-row:1/3;align-self:center;color:#73b52e;font-size:15px;font-weight:800;white-space:nowrap}
+.bk-live-prs-empty{display:flex;align-items:center;justify-content:center;gap:8px;color:#77777d;font-size:14px;padding:8px}
+.bk-live-prs-empty svg{color:#4d4d52}
+.bk-live-prs-empty small{color:#5e5e63}
+.bk-live-prs.compact{width:calc(100% - 32px);max-width:none;margin:0 16px 12px;padding:10px 14px}
+.bk-live-prs.compact .bk-live-prs-head{margin-bottom:7px;font-size:14px}
+.bk-live-prs.compact .bk-live-prs-list{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px}
+.bk-live-prs.compact .bk-live-pr{padding:7px 10px}
+.bk-live-prs.compact .bk-live-prs-empty{padding:2px}
 
 .bk-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(12px);z-index:2;display:flex;align-items:center;justify-content:center}
 .bk-pad{position:relative;background:#141417;border-radius:24px;padding:36px;width:min(90vw,420px);text-align:center}
@@ -1731,20 +1837,53 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .bk-admin-setting{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid #232327}
 
 .bk-panel{flex:1;display:flex;flex-direction:column;padding:24px 28px;overflow-y:auto}
+.bk-multi{flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 16px 16px;gap:10px}
+.bk-multi-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex:none;overflow-x:auto}
+.bk-multi-actions .bk-join{margin:0;padding:10px 18px;font-size:14px}
+.bk-restore{display:flex;align-items:center;gap:6px;flex:none;background:#1a1a1e;color:#10B981;border:1px solid rgba(16,185,129,.3);border-radius:99px;padding:9px 13px;font-size:13px;font-weight:700}
+.bk-multi-grid{flex:1;min-height:0;display:grid;gap:12px;overflow:hidden;justify-content:center}
+.bk-multi-grid.users-1{grid-template-columns:minmax(0,900px)}
+.bk-multi-grid.users-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bk-multi-grid.users-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.bk-multi-grid>.bk-panel{min-width:0;min-height:0;background:#0c0c0e;border:1px solid #232327;border-radius:18px;padding:16px}
+.bk-multi-grid .bk-panel-hd{margin-bottom:12px}
+.bk-multi-grid .bk-minimize{padding:8px 12px;font-size:12px}
+.bk-multi-grid .bk-panel-name{font-size:17px}
+.bk-multi-grid .bk-routine-name{margin:-7px 0 12px}
+.bk-multi-grid .bk-exlist{margin-bottom:12px}
+.bk-multi-grid .bk-extab{padding:8px 10px;font-size:13px;max-width:170px}
+.bk-multi-grid .bk-setrow{gap:7px;padding:10px}
+.bk-multi-grid .bk-bigstp button{width:36px;height:48px;font-size:21px}
+.bk-multi-grid .bk-bigstp-v{font-size:17px;min-width:42px}
+.bk-multi-grid .bk-check{width:46px;height:48px}
+.bk-multi-grid.users-3 .bk-setrow{display:grid;grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 46px}
+.bk-multi-grid.users-3 .bk-setn{width:auto}
+.bk-multi-grid.users-3 .bk-effort-stp{grid-column:2/4;max-width:none}
+.bk-multi-grid.users-3 .bk-check{grid-column:4;grid-row:1}
+.bk-multi-grid.users-2 .bk-exmedia,.bk-multi-grid.users-3 .bk-exmedia{height:92px;max-width:240px;align-self:center}
 .bk-panel-hd{display:flex;align-items:center;gap:16px;margin-bottom:18px}
 .bk-minimize{background:#1a1a1e;color:#c8c8cc;border-radius:99px;padding:10px 18px;font-size:14px;display:flex;align-items:center;gap:6px}
 .bk-panel-name{flex:1;font-size:20px;font-weight:700;text-align:center}
 .bk-routine-name{color:#73b52e;font-size:14px;font-weight:600;text-align:center;margin:-10px 0 18px}
 .bk-loading{margin:auto;color:#8a8a8e;font-size:18px}
-.bk-exlist{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:18px}
+.bk-exlist{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:18px;flex:none;min-height:58px}
 .bk-extab{
   flex:none;background:#1a1a1e;color:#c8c8cc;border-radius:14px;padding:12px 18px;font-size:15px;
-  display:flex;flex-direction:column;align-items:center;gap:4px;white-space:nowrap;
+  display:flex;flex-direction:column;align-items:center;gap:4px;white-space:normal;scroll-snap-align:start;
 }
-.bk-extab.on{background:#232327;color:#fff;box-shadow:inset 0 0 0 2px #73b52e}
+.bk-exlist{scroll-snap-type:x proximity}
+.bk-extab.on{background:#232327;color:#fff;box-shadow:inset 0 0 0 2px #73b52e,0 0 0 1px rgba(115,181,46,.25)}
 .bk-extab.done{color:#73b52e}
+.bk-extab-title{display:flex;align-items:center;gap:6px;min-width:0;width:100%}
+.bk-extab-code{flex:none;display:inline-flex;align-items:center;justify-content:center;min-width:25px;height:22px;padding:0 5px;border-radius:7px;background:#303035;color:#d9b5ff;font-size:11px}
+.bk-extab.on .bk-extab-code{background:#73b52e;color:#04140b}
+.bk-extab-name{line-height:1.15;overflow-wrap:anywhere;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .bk-extab-n{font-size:12px;color:#8a8a8e}
 .bk-exname{font-size:24px;font-weight:700;margin-bottom:4px}
+.bk-exmedia{width:100%;height:118px;object-fit:contain;border-radius:14px;background:#fff;margin-bottom:4px}
+.bk-ssbadge{display:inline-flex;align-items:center;justify-content:center;margin-right:6px;padding:2px 6px;border-radius:6px;background:#39264d;color:#d9b5ff;font-size:.68em;line-height:1.2;vertical-align:middle}
+.bk-superset-line{display:flex;align-items:center;gap:6px;color:#d9b5ff;background:#17101f;border-radius:10px;padding:8px 10px;margin:2px 0 10px;font-size:12px;line-height:1.35}
+.bk-superset-line svg{flex:none}
 .bk-last{color:#8a8a8e;font-size:15px;margin-bottom:16px}
 .bk-sets{display:flex;flex-direction:column;gap:14px;margin-bottom:24px}
 .bk-setrow{
@@ -1757,6 +1896,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .bk-bigstp button:active{background:#2a2a2e}
 .bk-bigstp-v{flex:1;text-align:center;font-size:22px;font-weight:700;display:flex;align-items:baseline;justify-content:center;gap:4px}
 .bk-bigstp-v i{font-style:normal;font-size:13px;color:#8a8a8e}
+.bk-effort-stp{max-width:180px}
 .bk-check{
   width:56px;height:56px;border-radius:14px;flex:none;background:#1e1e22;color:#3a3a3e;font-size:22px;
   display:flex;align-items:center;justify-content:center;
@@ -1768,6 +1908,25 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 @media (max-width:700px){
   .bk-grid{grid-template-columns:repeat(2,1fr)}
   .bk-bigstp button{width:44px;height:48px;font-size:22px}
+  .bk-topbar{flex-wrap:wrap;padding:12px 16px}
+  .bk-topbar-tabs{order:3;flex-basis:100%;width:100%}
+  .bk-topbar-tab span{display:none}
+  .bk-tabpane{padding:20px 16px}
+  .bk-dash{padding:20px 16px}
+  .bk-live-prs{padding:14px;margin-top:20px}
+  .bk-live-prs-head{font-size:15px}
+  .bk-live-prs-list{grid-template-columns:1fr}
+  .bk-live-prs-empty{flex-wrap:wrap;text-align:center}
+  .bk-live-prs-empty small{flex-basis:100%}
+}
+@media (max-width:1279px){
+  .bk-multi-grid.users-3{grid-template-columns:repeat(2,minmax(0,1fr));overflow-y:auto;justify-content:stretch}
+  .bk-multi-grid.users-3>.bk-panel{min-height:520px}
+}
+@media (max-width:850px){
+  .bk-multi-grid.users-2,.bk-multi-grid.users-3{grid-template-columns:minmax(0,1fr);overflow-y:auto}
+  .bk-multi-grid>.bk-panel{min-height:520px}
+  .bk-live-prs.compact{width:calc(100% - 20px);margin:0 10px 10px}
 }
 
 /* ---------- exercise swap (Bunker.jsx) ---------- */
@@ -1784,18 +1943,10 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
    (these tools show real lists/tables, not the narrow PIN pad .bk-pad was built for). ---------- */
 .bk-tools-pad{width:min(94vw,560px);max-height:min(88vh,780px);text-align:left;display:flex;flex-direction:column;overflow:hidden}
 .bk-tools-pad .bk-pad-title{text-align:center;flex:none}
-.bk-tools-hub{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.bk-tools-hub-btn{
-  display:flex;flex-direction:column;align-items:center;gap:10px;background:#1a1a1e;color:#e8e8ec;
-  border-radius:16px;padding:22px 8px;font-size:14px;font-weight:600;
-}
-.bk-tools-hub-btn:active{background:#232327}
-.bk-tools-hub-btn svg{width:26px;height:26px}
 .bk-tool-back{
   align-self:flex-start;display:flex;align-items:center;gap:4px;color:#8a8a8e;font-size:14px;
   font-weight:600;padding:6px 0;margin-bottom:4px;flex:none;
 }
-.bk-tool-back-hub{position:absolute;top:18px;left:18px}
 .bk-tool-search{
   width:100%;background:#1e1e22;border-radius:12px;padding:13px 16px;font-size:16px;color:#f2f2f2;
   margin-bottom:12px;flex:none;
@@ -1862,9 +2013,22 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .bk-tool-warmw{flex:none;width:110px;font-weight:700;font-variant-numeric:tabular-nums}
 .bk-tool-warmplates{flex:1;color:#9a9a9e;text-align:right;font-size:13px}
 @media (max-width:520px){
-  .bk-tools-hub{grid-template-columns:repeat(2,1fr)}
   .bk-tool-row2{grid-template-columns:1fr}
 }
+
+/* ---------- "what do you want to train today?" picker (Bunker.jsx) ---------- */
+.bk-picker{flex:1;display:flex;flex-direction:column;padding:20px 0;overflow-y:auto}
+.bk-picker-title{font-size:22px;font-weight:700;text-align:center;margin:20px 0 24px;flex:none}
+.bk-picker-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}
+.bk-picker-routine-icon{
+  width:40px;height:40px;border-radius:10px;background:#1e1e22;color:#73b52e;flex:none;
+  display:flex;align-items:center;justify-content:center;
+}
+.bk-picker-routine-icon svg{width:20px;height:20px}
+
+/* ---------- freestyle add/remove (Bunker.jsx) ---------- */
+.bk-extab-add{padding:12px 16px;color:#73b52e}
+.bk-exremove-btn{color:#ff8a80}
 
 /* ============================================================================
    /admin/bunker — the Bunker's own full admin panel (views/BunkerAdminPage.jsx).

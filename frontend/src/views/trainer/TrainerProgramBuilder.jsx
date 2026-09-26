@@ -5,6 +5,7 @@ import { t } from '../../lib/i18n.js'
 import { exCount, DAYN } from '../../lib/format.js'
 import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
 import { fetchMemberPlan, saveMemberProgram } from '../../lib/trainer-api.js'
+import { programVersionsSheet } from '../../sheets.jsx'
 import { Button } from '../../components/ui.jsx'
 import Icon from '../../components/Icon.jsx'
 
@@ -57,9 +58,11 @@ export default function TrainerProgramBuilder() {
   const [allRoutines, setAllRoutines] = useState([])
   const [p, setP] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [sync, setSync] = useState(null)
 
   useEffect(() => {
     fetchMemberPlan(memberId).then(plan => {
+      setSync(plan.sync)
       setAllRoutines(plan.routines || [])
       if (programId === 'new') { setP(emptyProgram()); return }
       const found = (plan.programs || []).find(x => x.id === programId)
@@ -90,10 +93,11 @@ export default function TrainerProgramBuilder() {
     if (!p.routineIds.length) { toast(t('Add at least one routine first.')); return }
     setBusy(true)
     try {
-      const payload = { memberId, name: p.name.trim(), emoji: p.emoji, routineIds: p.routineIds, week: p.week }
+      const payload = { sync, memberId, name: p.name.trim(), emoji: p.emoji, routineIds: p.routineIds, week: p.week }
       if (p.id) payload.programId = p.id
-      const { programId: savedId } = await saveMemberProgram(payload)
+      const { programId: savedId, sync: savedSync } = await saveMemberProgram(payload)
       setP(cur => ({ ...cur, id: savedId }))
+      setSync(savedSync)
       toast(t('Saved'))
     } catch (e) { toast(e.message) }
     setBusy(false)
@@ -136,6 +140,7 @@ export default function TrainerProgramBuilder() {
 
     <div className="row" style={{ gap: 8, maxWidth: 560 }}>
       {loose.length > 0 && <Button icon="folder" onClick={addExisting}>{t('Add existing routine')}</Button>}
+      {p.id && <Button icon="clock" onClick={() => programVersionsSheet(memberId, p.id)}>{t('Version history')}</Button>}
       <Button variant="primary" disabled={busy} onClick={save} icon="check">{t('Save')}</Button>
     </div>
   </div>

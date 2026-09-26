@@ -1,6 +1,7 @@
 // Talking to the /api/social/* and /api/trainer/* endpoints — thin wrappers over api(), same
 // shape as lib/coach-api.js. No polling here: Social is a browse-on-open list, not a live job.
 import { api } from './api.js'
+import { stateAction } from './state-action.js'
 
 export const fetchSocialRoutines = () => api('/api/social/routines').then(r => r.routines)
 export const publishSocialRoutine = post => api('/api/social/routines', { method: 'POST', body: JSON.stringify(post) })
@@ -55,6 +56,8 @@ export const unpublishGoal = id => api('/api/social/goals/unpublish', { method: 
 
 export const fetchTrainerMembers = () => api('/api/trainer/members').then(r => r.members)
 export const assignRoutineToMember = (routineId, memberId) =>
-  api('/api/trainer/assign-routine', { method: 'POST', body: JSON.stringify({ routineId, memberId }) })
+  api('/api/trainer/member-plan?id=' + encodeURIComponent(memberId)).then(plan =>
+    stateAction('/api/trainer/assign-routine', { routineId, memberId }, plan.sync))
 export const assignProgramToMember = (programId, memberId) =>
-  api('/api/trainer/assign-program', { method: 'POST', body: JSON.stringify({ programId, memberId }) })
+  api('/api/trainer/member-plan?id=' + encodeURIComponent(memberId)).then(plan =>
+    stateAction('/api/trainer/assign-program', { programId, memberId }, plan.sync))
