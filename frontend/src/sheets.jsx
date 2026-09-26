@@ -33,6 +33,8 @@ import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
 import { getReplacementGroups, QUICK_FILTERS } from './lib/alternatives.js'
+import { searchExercises, prioritize, scopeList, facets, movementLabel, equipmentLabel, variantLabel, isRecommended, isDeprecated, familiesOf,
+  preferredOf, variantsFor, favSetOf, toggleFav } from './lib/library/index.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { guidedBlocksOf, buildSteps, summarize } from './lib/guided.js'
 import { routineSnapshot } from './lib/train2j.js'
@@ -711,13 +713,26 @@ function ExerciseDetail({ ex, close }) {
   const earlier = recent.slice(1)
   const [showEarlier, setShowEarlier] = useState(false)
   const best = bestWeightFor(st, ex.id)
+  // Exercise Library V2: movement, normalised equipment, favourite, and the similar variants of
+  // the same movement (with the reason each one is offered). Nothing inferred beyond that.
+  const f = facets(ex)
+  const isFav = favSetOf(st).has(ex.id)
+  const variants = f?.movement && !ex.custom ? variantsFor(ex, allExercises(st).filter(e => e.id !== ex.id), 6) : []
+  const preferred = f?.preferredId ? EXIDX[f.preferredId] : null
   return <>
-    <h3 className="capitalize">{nameFor(ex)}</h3>
+    <div className="row between" style={{ alignItems: 'flex-start', gap: 8 }}>
+      <h3 className="capitalize" style={{ flex: 1 }}>{nameFor(ex)}</h3>
+      <button className={'lib-fav' + (isFav ? ' on' : '')} aria-pressed={isFav} aria-label={t(isFav ? 'Remove from favourites' : 'Add to favourites')}
+        onClick={() => update(s => toggleFav(s, ex.id))}><Icon name="heart" /></button>
+    </div>
+    {preferred && <button className="lib-dep" onClick={() => exerciseDetailSheet(preferred)}>
+      <Icon name="info" /><span>{t('Duplicate of “{0}”. Use that one for new routines — your history here stays.', nameFor(preferred))}</span></button>}
     <Media ex={ex} />
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '10px 0' }}>
-      <span className="tag acc">{t(ex.bp)}</span>
+      {f?.movement ? <span className="tag acc">{t(movementLabel(f.movement))}</span> : <span className="tag acc">{t(ex.bp)}</span>}
+      {isRecommended(ex.id) && <span className="tag acc">{t('2J recommended')}</span>}
       {ex.tg && <span className="tag"><Icon name="target" />{t(ex.tg)}</span>}
-      <span className="tag"><Icon name="dumbbell" />{t(ex.eq)}</span>
+      <span className="tag"><Icon name="dumbbell" />{f?.equipment && equipmentLabel(f.equipment) ? t(equipmentLabel(f.equipment)) : t(ex.eq)}</span>
       {(ex.sm || []).slice(0, 3).map((s, i) => <span key={i} className="tag">{t(s)}</span>)}
     </div>
     {ex.desc && <div className="exnote">{ex.desc}</div>}
@@ -747,6 +762,18 @@ function ExerciseDetail({ ex, close }) {
       <Button icon="pencil" style={{ flex: 1 }} onClick={() => { close(); customExSheet(ex) }}>{t('Edit')}</Button>
       <Button variant="danger" icon="trash" style={{ flex: 1 }} onClick={() => deleteCustomEx(ex, close)}>{t('Delete')}</Button>
     </div>}
+    {variants.length > 0 && <>
+      <h4 className="sec">{t('Variants')}</h4>
+      <div className="list" style={{ marginBottom: 10 }}>
+        {variants.map(v => <div key={v.ex.id} className="item" onClick={() => exerciseDetailSheet(v.ex)}>
+          <Thumb ex={v.ex} />
+          <div className="grow"><div className="tt capitalize">{nameFor(v.ex)}{isRecommended(v.ex.id) && <span className="lib-2j">2J</span>}</div>
+            <div className="ss">{variantLabel(v.ex)}</div></div>
+          <span className="tag nocap">{v.reasonLabels.slice(1).join(' · ') || v.reasonLabels[0]}</span>
+          <Icon name="chevronRight" className="chev" />
+        </div>)}
+      </div>
+    </>}
     {!isCardio(ex) && <TestedOneRM ex={ex} />}
     {!isCardio(ex) && <OneRM ex={ex} />}
     {instrFor(ex).length > 0 &&<><h4 className="sec">{t('How to')}{!INSTR_LANGS.includes(getLang()) && <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}> · {t('instructions in English')}</span>}</h4><ol className="steps-list">{instrFor(ex).map((s, i) => <li key={i}>{s}</li>)}</ol></>}
@@ -918,26 +945,37 @@ export function ExercisePicker({ onPick, close }) {
   const st = useStore(s => s.S)
   const usage = usageMap(st)
   const [q, setQ] = useState('')
-  const [grp, setGrp] = useState('')          // '' = all, '★' = chosen, 'cardio', else a MUSCLE_GROUPS key
+  // Exercise Library V2: Recommended 2J (+ your own customs) by default, the master library one
+  // tap away. Deprecated duplicates never appear in 2J and sit last, tagged, in the master.
+  const [scope, setScope] = useState('2j')    // '2j' | 'all'
+  const [grp, setGrp] = useState('')          // '' = all, '★' = chosen, '♥' = favourites, 'cardio', else a MUSCLE_GROUPS key
   const [eq, setEq] = useState('')          // '' = any equipment
   const [shown, setShown] = useState(50)
-  const ql = q.toLowerCase().trim()
   const all = allExercises(st)
-  let base = all.filter(e =>
-    (grp === '★' ? usage[e.id] : grp === 'cardio' ? e.bp === 'cardio' : !grp || isInMuscleGroup(e, grp)) &&
-    (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql) || e.tg.includes(ql) || e.eq.includes(ql) || (e.desc || '').toLowerCase().includes(ql)))
-  if (grp === '★') base = [...base].sort((a, b) => (usage[b.id] - usage[a.id]) || (nameFor(a) < nameFor(b) ? -1 : 1))
+  const fav = favSetOf(st)
+  const inScope = scopeList(all, scope)
+  let base = inScope.filter(e => grp === '★' ? usage[e.id] : grp === '♥' ? fav.has(e.id) : grp === 'cardio' ? e.bp === 'cardio' : !grp || isInMuscleGroup(e, grp))
+  base = q.trim() ? searchExercises(base, q) : grp === '★'
+    ? [...base].sort((a, b) => (usage[b.id] - usage[a.id]) || (nameFor(a) < nameFor(b) ? -1 : 1))
+    : prioritize(base, st)
   const eqOpts = equipmentOf(base)
   // Drop the equipment filter if the search narrowed it away, so you never hit a dead end.
   const eqOn = eqOpts.includes(eq) ? eq : ''
   const f = eqOn ? base.filter(e => e.eq === eqOn) : base
   const chosenCount = Object.keys(usage).length
+  // A search with nothing in Recommended 2J offers the master library instead of a dead end.
+  const masterHits = scope === '2j' && q.trim() && f.length === 0 ? searchExercises(all, q).length : 0
   return <>
     <h3>{t('Add exercise')}</h3>
+    <div className="seg lib-scope" style={{ margin: '0 0 10px' }}>
+      <button className={scope === '2j' ? 'on' : ''} onClick={() => { setScope('2j'); setShown(50) }}>{t('2J exercises')}</button>
+      <button className={scope === 'all' ? 'on' : ''} onClick={() => { setScope('all'); setShown(50) }}>{t('Full library')}</button>
+    </div>
     <div className="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
-      <input className="input" placeholder={t('Search {0} exercises…', all.length)} value={q} onChange={e => { setQ(e.target.value); setShown(50) }} /></div>
+      <input className="input" placeholder={t('Search {0} exercises…', inScope.length)} value={q} onChange={e => { setQ(e.target.value); setShown(50) }} /></div>
     <div className="chips" style={{ margin: eqOpts.length > 1 ? '10px 0 6px' : '10px 0' }}>
       {chosenCount > 0 && <button className={'chip' + (grp === '★' ? ' on' : '')} onClick={() => { setGrp('★'); setEq(''); setShown(50) }}><Icon name="starFill" style={{ fontSize: 12, display: 'inline-block', marginRight: 4, verticalAlign: '-1px' }} />{t('Chosen')} ({chosenCount})</button>}
+      {fav.size > 0 && <button className={'chip' + (grp === '♥' ? ' on' : '')} onClick={() => { setGrp('♥'); setEq(''); setShown(50) }}><Icon name="heart" style={{ fontSize: 12, display: 'inline-block', marginRight: 4, verticalAlign: '-1px' }} />{t('Favourites')}</button>}
       <button className={'chip nocap' + (!grp ? ' on' : '')} onClick={() => { setGrp(''); setEq(''); setShown(50) }}>{t('All')}</button>
       <ChipSelect value={grp} onChange={g => { setGrp(g); setEq(''); setShown(50) }} sheetTitle={t('Muscle group')} placeholder={t('Muscle group')}
         options={[...MUSCLE_GROUPS.map(g => ({ value: g.key, label: t(g.name) })), { value: 'cardio', label: t('Cardio') }]} />
@@ -956,10 +994,18 @@ export function ExercisePicker({ onPick, close }) {
         <div className="grow"><div className="tt">{t('Create your own exercise')}</div><div className="ss">{t('name + muscle group, no animation')}</div></div><Icon name="plus" className="chev" />
       </div>}
       {f.slice(0, shown).map(e => <div key={e.id} className="item" onClick={() => { close(); onPick(e) }}>
-        <Thumb ex={e} /><div className="grow"><div className="tt capitalize">{nameFor(e)}</div><div className="ss capitalize">{t(e.tg || e.bp)} · {t(e.eq)}</div></div>
+        <Thumb ex={e} /><div className="grow">
+          <div className="tt capitalize">{nameFor(e)}{isRecommended(e.id) && <span className="lib-2j">2J</span>}</div>
+          <div className="ss capitalize">{t(e.tg || e.bp)} · {variantLabel(e) || t(e.eq)}</div></div>
+        {isDeprecated(e.id) && <span className="tag nocap dim">{t('Duplicated')}</span>}
+        {fav.has(e.id) && <span className="tag acc"><Icon name="heart" /></span>}
         {usage[e.id] && <span className="tag acc"><Icon name="starFill" /></span>}<Icon name="plus" className="chev" />
       </div>)}
       {f.length === 0 && grp === '★' && <div className="empty">{t('Nothing chosen yet — add exercises and they’ll show up here.')}</div>}
+      {masterHits > 0 && <div className="item" onClick={() => { setScope('all'); setShown(50) }}>
+        <div className="thumb thumb-x"><Icon name="magnifier" /></div>
+        <div className="grow"><div className="tt">{t('Search the full library')}</div><div className="ss">{t('{0} results', masterHits)}</div></div><Icon name="chevronRight" className="chev" />
+      </div>}
     </div>
     {f.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(s => s + 50)}>{t('Show more')}</Button></>}
   </>
@@ -982,12 +1028,14 @@ function AlternativesPicker({ current, onPick, close }) {
   const byEquipment = !activeFilter ? alts
     : filter === 'same' ? alts.filter(a => a.ex.eq === current.eq)
       : alts.filter(a => activeFilter.eq.includes(a.ex.eq))
-  const query = q.trim().toLowerCase()
-  const filtered = byEquipment.filter(a => !query || [a.ex.n, nameFor(a.ex), a.ex.tg, a.ex.bp, a.ex.eq, a.ex.desc]
-    .some(value => String(value || '').toLowerCase().includes(query)))
-  const labelFor = a => a.matchKey === 'exact' ? t('Exact replacement')
-    : a.matchKey === 'sameMuscle' ? t('Alternative with {0}', t(a.ex.eq))
-      : a.matchKey === 'related' ? t('Related muscle') : t('Different movement')
+  // Exercise Library V2 search (name, alias, movement, muscle, equipment — Spanish or English).
+  const byId = new Map(byEquipment.map(a => [a.ex.id, a]))
+  const filtered = q.trim() ? searchExercises(byEquipment.map(a => a.ex), q).map(ex => byId.get(ex.id)) : byEquipment
+  const labelFor = a => a.matchKey === 'variant' ? ((a.reasons || []).slice(1).join(' · ') || t('Same movement'))
+    : a.matchKey === 'exact' ? t('Exact replacement')
+      : a.matchKey === 'sameMuscle' ? t('Alternative with {0}', t(a.ex.eq))
+        : a.matchKey === 'related' ? t('Related muscle') : t('Different movement')
+  const firstOther = scope === 'recommended' ? filtered.findIndex(a => a.matchKey !== 'variant') : -1
   const changeScope = next => { setScope(next); setFilter(null); setQ(''); setShown(50) }
   return <>
     <h3 className="capitalize">{t('Replace {0}', nameFor(current))}</h3>
@@ -1006,14 +1054,18 @@ function AlternativesPicker({ current, onPick, close }) {
     </div>
     <div className="list alt-list">
       {filtered.length === 0 && <div className="empty">{t('No alternatives found for this filter.')}</div>}
-      {filtered.slice(0, shown).map(a => <div key={a.ex.id} className="item" onClick={() => { close(); onPick(a.ex) }}>
-        <Thumb ex={a.ex} />
-        <div className="grow">
-          <div className="tt capitalize">{nameFor(a.ex)}</div>
-          <div className="ss capitalize">{t(a.ex.tg || a.ex.bp)} · {t(a.ex.eq)}</div>
+      {filtered.slice(0, shown).map((a, i) => <div key={a.ex.id} style={{ display: 'contents' }}>
+        {scope === 'recommended' && i === 0 && a.matchKey === 'variant' && <div className="lib-sec">{t('Similar variants')}</div>}
+        {i === firstOther && i > 0 && <div className="lib-sec">{t('Other alternatives')}</div>}
+        <div className="item" onClick={() => { close(); onPick(a.ex) }}>
+          <Thumb ex={a.ex} />
+          <div className="grow">
+            <div className="tt capitalize">{nameFor(a.ex)}{isRecommended(a.ex.id) && <span className="lib-2j">2J</span>}</div>
+            <div className="ss capitalize">{t(a.ex.tg || a.ex.bp)} · {variantLabel(a.ex) || t(a.ex.eq)}</div>
+          </div>
+          <span className={'tag nocap' + (a.matchKey === 'exact' || a.matchKey === 'variant' ? ' acc' : '') + (a.matchKey === 'unrelated' ? ' dim' : '')}>{labelFor(a)}</span>
+          <Icon name="chevronRight" className="chev" />
         </div>
-        <span className={'tag nocap' + (a.matchKey === 'exact' ? ' acc' : '') + (a.matchKey === 'unrelated' ? ' dim' : '')}>{labelFor(a)}</span>
-        <Icon name="chevronRight" className="chev" />
       </div>)}
     </div>
     {filtered.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(n => n + 50)}>{t('Show more')}</Button></>}
@@ -1060,7 +1112,10 @@ function ExerciseBrowser({ initial }) {
     const m = musclesOf(e)
     return GROUP_BY_KEY[muscle].slugs.some(s => (m[s] || 0) >= 1)
   }
-  const base = allExercises(st).filter(e => byMuscle(e) && (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql) || e.tg.includes(ql) || e.eq.includes(ql) || (e.desc || '').toLowerCase().includes(ql)))
+  // Master library: everything, searched with Exercise Library V2 (alias, movement, muscle,
+  // equipment); Recommended 2J first and deprecated duplicates last when not searching.
+  const inMuscle = allExercises(st).filter(byMuscle)
+  const base = ql ? searchExercises(inMuscle, q) : prioritize(inMuscle, st)
   const eqOpts = equipmentOf(base)
   // Drop the equipment filter if switching muscle (or searching) narrowed it away.
   const eqOn = eqOpts.includes(eq) ? eq : ''
@@ -1088,8 +1143,10 @@ function ExerciseBrowser({ initial }) {
             <Thumb ex={e} />
             <button className="excard-plan" aria-label={t('Plan')} onClick={ev => { ev.stopPropagation(); addToRoutineSheet(e) }}><Icon name="plus" /></button>
             {best > 0 && <span className="excard-best">{fmtNum(best)}</span>}
+            {isRecommended(e.id) && <span className="excard-2j">2J</span>}
           </div>
-          <div className="excard-b"><div className="excard-t capitalize">{nameFor(e)}</div><div className="excard-s capitalize">{t(e.tg || e.bp)}</div></div>
+          <div className="excard-b"><div className="excard-t capitalize">{nameFor(e)}</div>
+            <div className="excard-s capitalize">{isDeprecated(e.id) ? t('Duplicated') : (variantLabel(e) || t(e.tg || e.bp))}</div></div>
         </div>
       })}
     </div>
@@ -1098,6 +1155,35 @@ function ExerciseBrowser({ initial }) {
   </>
 }
 export const exerciseBrowserSheet = muscle => ui().openSheet(close => <ExerciseBrowser initial={muscle} />)
+
+/* ============================ exercise family (Exercise Library V2) ============================ */
+// One canonical movement: its Recommended 2J variants first, the rest of the master library's
+// variants behind a toggle. Each row says how it differs (equipment · angle · one side).
+function ExerciseFamily({ movement }) {
+  const st = useStore(s => s.S)
+  const fam = familiesOf(allExercises(st)).find(f => f.movement === movement)
+  const [more, setMore] = useState(false)
+  const fav = favSetOf(st)
+  if (!fam) return <div className="empty">{t('No match')}</div>
+  const row = e => <div key={e.id} className="item" onClick={() => exerciseDetailSheet(e)}>
+    <Thumb ex={e} />
+    <div className="grow"><div className="tt capitalize">{nameFor(e)}{isRecommended(e.id) && <span className="lib-2j">2J</span>}</div>
+      <div className="ss capitalize">{[variantLabel(e), t(e.tg || e.bp)].filter(Boolean).join(' · ')}</div></div>
+    {fav.has(e.id) && <span className="tag acc"><Icon name="heart" /></span>}
+    <Icon name="chevronRight" className="chev" />
+  </div>
+  return <>
+    <h3>{t(fam.label)}</h3>
+    {fam.recommended.length > 0 && <><div className="lib-sec">{t('2J recommended')}</div><div className="list">{fam.recommended.map(row)}</div></>}
+    {fam.more.length > 0 && <>
+      <button className="lib-more" onClick={() => setMore(v => !v)}>
+        {more ? t('Hide other variants') : t('More variants ({0})', fam.more.length)}<Icon name={more ? 'chevronUp' : 'chevronDown'} />
+      </button>
+      {more && <div className="list">{fam.more.map(row)}</div>}
+    </>}
+  </>
+}
+export const exerciseFamilySheet = movement => ui().openSheet(() => <ExerciseFamily movement={movement} />)
 
 /* ============================ exercise config ============================ */
 // Progression settings for one exercise (issue #17). Shown inside the config sheet because

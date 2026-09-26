@@ -3327,3 +3327,35 @@ body:has(.sync-pill) #app{padding-top:8px}
 .g2a-pickrow{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:10px;background:var(--surface-2);font-size:14px}
 .g2a-pickrow.on{box-shadow:inset 0 0 0 1px #10B981}
 .g2a-lib{margin-top:12px;border-top:1px solid var(--sep-op);padding-top:12px}
+
+/* ------------------------------------------------ Exercise Library V2 -- */
+/* "2J exercises": movement families, a quiet 2J badge, favourites, the deprecated hint.
+   Tokens only (both themes); no new colours. */
+.lib-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.lib-chips{margin:0 0 4px}
+.lib-chips .chip{display:inline-flex;align-items:center;gap:5px}
+.lib-chips .chip .icn{font-size:calc(12px * var(--text-scale,1))}
+.lib-region{margin-top:14px}
+.lib-region .sec{margin:0 0 8px}
+.lib-fams{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:640px){.lib-fams{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1000px){.lib-fams{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.lib-fam{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:10px;border-radius:var(--r-lg);background:var(--surface);min-width:0}
+.lib-fam:active{background:var(--surface-2)}
+.lib-fam:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.lib-fam-thumbs{display:flex;gap:4px;width:100%}
+.lib-fam-thumbs .thumb{width:calc((100% - 8px) / 3);height:auto;aspect-ratio:1/1;border-radius:8px}
+.lib-fam-t{font-size:calc(14px * var(--text-scale,1));font-weight:600;color:var(--label);line-height:1.25;overflow-wrap:anywhere}
+.lib-fam-s{font-size:calc(12px * var(--text-scale,1));color:var(--label-2)}
+.lib-2j{display:inline-block;margin-left:6px;padding:0 5px;border-radius:5px;background:var(--acc-soft);color:var(--acc);font-size:calc(10.5px * var(--text-scale,1));font-weight:700;letter-spacing:.02em;vertical-align:1px;text-transform:none}
+.excard-2j{position:absolute;top:6px;left:6px;padding:1px 6px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font-size:calc(10.5px * var(--text-scale,1));font-weight:700}
+.lib-sec{font-size:calc(12px * var(--text-scale,1));font-weight:600;color:var(--label-2);text-transform:uppercase;letter-spacing:.04em;margin:12px 2px 6px}
+.lib-more{display:flex;align-items:center;gap:6px;margin:12px 2px 8px;color:var(--acc);font-weight:500;font-size:calc(14px * var(--text-scale,1))}
+.lib-fav{flex:none;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--label-2);font-size:calc(18px * var(--text-scale,1))}
+.lib-fav.on{background:var(--acc-soft);color:var(--acc)}
+.lib-fav.on .icn path{fill:currentColor}
+.lib-fav:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.lib-dep{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;margin:4px 0 10px;padding:10px 12px;border-radius:var(--r-md,10px);background:var(--surface-2);color:var(--label-2);font-size:calc(13px * var(--text-scale,1));line-height:1.4}
+.lib-dep .icn{flex:none;margin-top:2px;color:var(--acc)}
+.lib-scope{display:flex}
+.lib-scope button{flex:1}

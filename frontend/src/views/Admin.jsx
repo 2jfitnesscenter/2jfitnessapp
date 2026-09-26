@@ -15,7 +15,10 @@ import AdminTrainerAI from './AdminTrainerAI.jsx'
 import AdminAuxAI from './AdminAuxAI.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
 import AdminFollowUp from './AdminFollowUp.jsx'
-import { EXDB, equipmentOf, setUnavailableEquipment } from '../lib/exercises.js'
+import { EXDB, EXIDX, equipmentOf, setUnavailableEquipment } from '../lib/exercises.js'
+import { facets, searchExercises, movementLabel, equipmentLabel, RECOMMENDED } from '../lib/library/index.js'
+import { EQUIPMENT_OVERRIDE } from '../lib/protocol/movements.js'
+import { DEPRECATED, MOVEMENT_OVERRIDE, REVIEWED_VARIANTS, aliasCountOf } from '../lib/library/overrides.js'
 import { MUSCLE_GROUPS, isInMuscleGroup } from '../lib/muscles.js'
 import { Thumb } from '../components/Media.jsx'
 import { GOALS } from '../lib/starter.js'
@@ -356,11 +359,19 @@ function ExerciseLibrarySheet({ initialHidden, close }) {
   const [hidden, setHidden] = useState(initialHidden)   // owns its own copy so toggles repaint immediately
   const [q, setQ] = useState('')
   const [grp, setGrp] = useState('')
+  const [meta, setMeta] = useState('')          // Exercise Library V2 review: '' · rec · dep · none · fixed
   const [shown, setShown] = useState(60)
-  const ql = q.toLowerCase().trim()
-  const base = EXDB.filter(e =>
-    (grp === 'cardio' ? e.bp === 'cardio' : !grp || isInMuscleGroup(e, grp)) &&
-    (!ql || e.n.toLowerCase().includes(ql) || nameFor(e).toLowerCase().includes(ql)))
+  const fixedIds = new Set([...Object.keys(EQUIPMENT_OVERRIDE), ...Object.keys(MOVEMENT_OVERRIDE), ...REVIEWED_VARIANTS.flat()])
+  const byMeta = e => !meta || (meta === 'rec' ? RECOMMENDED.has(e.id) : meta === 'dep' ? !!DEPRECATED[e.id]
+    : meta === 'none' ? !facets(e)?.movement : fixedIds.has(e.id))
+  const filtered = EXDB.filter(e => (grp === 'cardio' ? e.bp === 'cardio' : !grp || isInMuscleGroup(e, grp)) && byMeta(e))
+  const base = q.trim() ? searchExercises(filtered, q) : filtered
+  const unclassified = EXDB.filter(e => !facets(e)?.movement).length
+  const metaLine = e => {
+    const f = facets(e)
+    return [f?.movement ? t(movementLabel(f.movement)) : t('No movement'), f?.equipment && t(equipmentLabel(f.equipment)),
+      DEPRECATED[e.id] && '→ ' + nameFor(EXIDX[DEPRECATED[e.id]]), aliasCountOf(e.id) ? t('{0} aliases', aliasCountOf(e.id)) : null].filter(Boolean).join(' · ')
+  }
   const toggle = (id, hide) => {
     const next = new Set(hidden); hide ? next.add(id) : next.delete(id); setHidden(next)   // optimistic
     api('/api/admin/exercises/hidden', { method: 'POST', body: JSON.stringify({ id, hidden: hide }) })
@@ -373,17 +384,22 @@ function ExerciseLibrarySheet({ initialHidden, close }) {
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
       <input className="input" placeholder={t('Search {0} exercises…', EXDB.length)} value={q} onChange={e => { setQ(e.target.value); setShown(60) }} />
     </div>
+    <div className="dim small" style={{ margin: '8px 0 0' }}>{t('Library V2 metadata: {0} recommended · {1} deprecated duplicates · {2} without a movement (master only).', RECOMMENDED.size, Object.keys(DEPRECATED).length, unclassified)}</div>
     <div className="chips" style={{ margin: '10px 0' }}>
       <button className={'chip nocap' + (!grp ? ' on' : '')} onClick={() => { setGrp(''); setShown(60) }}>{t('All')}</button>
       <ChipSelect value={grp} onChange={g => { setGrp(g); setShown(60) }} sheetTitle={t('Muscle group')} placeholder={t('Muscle group')}
         options={[...MUSCLE_GROUPS.map(g => ({ value: g.key, label: t(g.name) })), { value: 'cardio', label: t('Cardio') }]} />
+      <ChipSelect value={meta} onChange={m => { setMeta(m === '*' ? '' : m); setShown(60) }} sheetTitle={t('Metadata review')} placeholder={t('Metadata')}
+        options={[{ value: '*', label: t('Any') }, { value: 'rec', label: t('2J recommended') }, { value: 'dep', label: t('Deprecated duplicates') },
+          { value: 'none', label: t('Without a movement') }, { value: 'fixed', label: t('Corrected by 2J') }]} />
     </div>
     <div className="list">
       {base.slice(0, shown).map(e => {
         const isHidden = hidden.has(e.id)
         return <div key={e.id} className="item" onClick={() => toggle(e.id, !isHidden)} style={isHidden ? { opacity: .5 } : null}>
           <Thumb ex={e} />
-          <div className="grow"><div className="tt capitalize">{nameFor(e)}</div><div className="ss capitalize">{t(e.tg || e.bp)} · {t(e.eq)}</div></div>
+          <div className="grow"><div className="tt capitalize">{nameFor(e)}{RECOMMENDED.has(e.id) && <span className="lib-2j">2J</span>}</div>
+            <div className="ss">{metaLine(e)}</div></div>
           <span className={'tag' + (isHidden ? '' : ' acc')}>{isHidden ? t('Hidden') : t('Visible')}</span>
         </div>
       })}

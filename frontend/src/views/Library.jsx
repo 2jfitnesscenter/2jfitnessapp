@@ -1,29 +1,97 @@
+import { useMemo, useState } from 'react'
 import { useStore } from '../store/useStore.js'
-import { t } from '../lib/i18n.js'
-import { exerciseBrowserSheet } from '../sheets.jsx'
-import { Button } from '../components/ui.jsx'
-import { MUSCLE_GROUPS, musclePhotoUrl } from '../lib/muscles.js'
+import { t, nameFor } from '../lib/i18n.js'
+import { exerciseBrowserSheet, exerciseDetailSheet, exerciseFamilySheet } from '../sheets.jsx'
+import { Button, ChipSelect } from '../components/ui.jsx'
+import Icon from '../components/Icon.jsx'
+import { Thumb } from '../components/Media.jsx'
+import { MUSCLE_GROUPS, isInMuscleGroup } from '../lib/muscles.js'
+import { allExercises, EXIDX } from '../lib/exercises.js'
+import { familiesOf, searchExercises, scopeList, favSetOf, recentIdsOf, variantLabel, facets, isRecommended, MOVEMENTS } from '../lib/library/index.js'
 
-// The landing screen for Plan > Exercises: an illustrated chip per muscle group (male or
-// female artwork per S.body, see public/muscles/) rather than the little body-map
-// mannequin — tapping one opens the full browser (exerciseBrowserSheet) as its own sheet,
-// already filtered to that group. "All exercises" is its own button rather than a tile,
-// since "everything" isn't a muscle a chip can depict.
-export default function Library() {
-  const body = useStore(s => s.S.body)
-  return <>
-    <h4 className="sec" style={{ margin: '0 0 10px' }}>{t('By muscle')}</h4>
-    <div className="mtiles">
-      {MUSCLE_GROUPS.map(g => <button key={g.key} className="mtile" onClick={() => exerciseBrowserSheet(g.key)}>
-        <span className="mtile-photo" style={{ backgroundImage: `url(${musclePhotoUrl(g.photo, body)})` }} />
-        <span className="mtile-name">{t(g.name)}</span>
-      </button>)}
-      <button className="mtile" onClick={() => exerciseBrowserSheet('cardio')}>
-        <span className="mtile-photo" style={{ backgroundImage: `url(${musclePhotoUrl('cardio', body)})` }} />
-        <span className="mtile-name">{t('Cardio')}</span>
-      </button>
+// Plan > Exercises — Exercise Library V2. A member sees "2J exercises" (the curated Recommended
+// 2J catalogue) grouped by movement family, can search it in plain words, and opens the full
+// master library only when they need it. Favourites and recents come from their own state.
+const REGIONS = [['lower', 'Lower body'], ['upper', 'Upper body'], ['core', 'Core'], ['full', 'Full body & cardio']]
+const KINDS = [['free', 'Free weights'], ['machine', 'Machines'], ['cable', 'Cables'], ['bodyweight', 'Body weight'], ['accessory', 'Accessories'], ['cardio', 'Cardio machines']]
+
+function ExerciseRow({ ex, fav }) {
+  return <div className="item" onClick={() => exerciseDetailSheet(ex)}>
+    <Thumb ex={ex} />
+    <div className="grow">
+      <div className="tt capitalize">{nameFor(ex)}{isRecommended(ex.id) && <span className="lib-2j">2J</span>}</div>
+      <div className="ss capitalize">{[variantLabel(ex), t(ex.tg || ex.bp)].filter(Boolean).join(' · ')}</div>
     </div>
+    {fav && <span className="tag acc"><Icon name="heart" /></span>}
+    <Icon name="chevronRight" className="chev" />
+  </div>
+}
+
+export default function Library() {
+  const S = useStore(s => s.S)
+  const [q, setQ] = useState('')
+  const [view, setView] = useState('')        // '' = 2J families · 'fav' · 'recent'
+  const [muscle, setMuscle] = useState('')
+  const [move, setMove] = useState('')
+  const [kind, setKind] = useState('')
+  const [shown, setShown] = useState(40)
+  const all = allExercises(S)
+  const two = useMemo(() => scopeList(all, '2j'), [all])
+  const families = useMemo(() => familiesOf(two), [two])
+  const fav = favSetOf(S)
+  const recent = recentIdsOf(S)
+  const filtering = !!(q.trim() || view || muscle || move || kind)
+
+  let list = view === 'fav' ? all.filter(e => fav.has(e.id)) : view === 'recent' ? recent.map(id => EXIDX[id]).filter(Boolean) : two
+  if (muscle) list = list.filter(e => muscle === 'cardio' ? e.bp === 'cardio' : isInMuscleGroup(e, muscle))
+  if (move) list = list.filter(e => facets(e)?.movement === move)
+  if (kind) list = list.filter(e => facets(e)?.kind === kind)
+  if (q.trim()) list = searchExercises(list, q)
+  const reset = () => { setQ(''); setView(''); setMuscle(''); setMove(''); setKind(''); setShown(40) }
+
+  return <>
+    <div className="lib-head">
+      <div>
+        <h4 className="sec" style={{ margin: 0 }}>{t('2J exercises')}</h4>
+        <div className="small dim">{t('{0} recommended exercises, grouped by movement', two.filter(e => !e.custom).length)}</div>
+      </div>
+    </div>
+    <div className="search" style={{ margin: '10px 0 8px' }}><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+      <input className="input" placeholder={t('Search: row machine, glute barbell, hinge…')} value={q} onChange={e => { setQ(e.target.value); setShown(40) }} /></div>
+    <div className="chips lib-chips">
+      {fav.size > 0 && <button className={'chip' + (view === 'fav' ? ' on' : '')} onClick={() => setView(view === 'fav' ? '' : 'fav')}><Icon name="heart" />{t('Favourites')}</button>}
+      {recent.length > 0 && <button className={'chip' + (view === 'recent' ? ' on' : '')} onClick={() => setView(view === 'recent' ? '' : 'recent')}><Icon name="history" />{t('Recent')}</button>}
+      <ChipSelect value={muscle} onChange={v => setMuscle(v === '*' ? '' : v)} sheetTitle={t('Muscle group')} placeholder={t('Muscle')}
+        options={[{ value: '*', label: t('Any muscle') }, ...MUSCLE_GROUPS.map(g => ({ value: g.key, label: t(g.name) })), { value: 'cardio', label: t('Cardio') }]} />
+      <ChipSelect value={move} onChange={v => setMove(v === '*' ? '' : v)} sheetTitle={t('Movement')} placeholder={t('Movement')}
+        options={[{ value: '*', label: t('Any movement') }, ...MOVEMENTS.map(m => ({ value: m.id, label: t(m.label) }))]} />
+      <ChipSelect value={kind} onChange={v => setKind(v === '*' ? '' : v)} sheetTitle={t('Gear')} placeholder={t('Gear')}
+        options={[{ value: '*', label: t('Any equipment') }, ...KINDS.map(([v, l]) => ({ value: v, label: t(l) }))]} />
+      {filtering && <button className="chip nocap" onClick={reset}><Icon name="xmark" />{t('Clear')}</button>}
+    </div>
+
+    {filtering ? <>
+      <div className="list" style={{ marginTop: 8 }}>
+        {list.slice(0, shown).map(e => <ExerciseRow key={e.id} ex={e} fav={fav.has(e.id)} />)}
+        {list.length === 0 && <div className="empty"><div className="ico"><Icon name="magnifier" /></div>{t('No match in 2J exercises')}</div>}
+      </div>
+      {list.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(n => n + 40)}>{t('Show more')}</Button></>}
+    </> : REGIONS.map(([region, label]) => {
+      const fams = families.filter(f => f.region === region)
+      if (!fams.length) return null
+      return <section key={region} className="lib-region">
+        <h4 className="sec">{t(label)}</h4>
+        <div className="lib-fams">
+          {fams.map(f => <button key={f.movement} className="lib-fam" onClick={() => exerciseFamilySheet(f.movement)}>
+            <span className="lib-fam-thumbs">{f.recommended.slice(0, 3).map(e => <Thumb key={e.id} ex={e} />)}</span>
+            <span className="lib-fam-t">{t(f.label)}</span>
+            <span className="lib-fam-s">{t('{0} exercises', f.recommended.length)}</span>
+          </button>)}
+        </div>
+      </section>
+    })}
+
     <div style={{ height: 16 }} />
-    <Button icon="exercises" onClick={() => exerciseBrowserSheet(null)}>{t('All exercises')}</Button>
+    <Button variant="plain" icon="exercises" onClick={() => exerciseBrowserSheet(null)}>{t('See the full library')}</Button>
   </>
 }
