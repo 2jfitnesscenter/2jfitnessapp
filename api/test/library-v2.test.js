@@ -7,7 +7,10 @@ import { tempData } from './helpers.mjs';
 /* Exercise Library V2 on the API side: the AI index carries compact canonical metadata, the
  * Coach is offered Recommended 2J first and never a deprecated duplicate, old plans that name a
  * deprecated id still validate, and the protocol copy knows canonical movements. */
-tempData();
+import fs from 'node:fs';
+import path from 'node:path';
+
+const dataDir = tempData();
 const payload = await import('../coach/payload.js');
 const P = await import('../lib/protocol/index.js');
 const store = await import('../lib/blocks-store.js');
@@ -36,6 +39,32 @@ test('the Coach gets Recommended 2J first and never a deprecated duplicate; old 
   const dumbbell = payload.librarySlice({}, ['dumbbell']);
   assert.ok(dumbbell.every(e => e.eq === 'dumbbell' || e.custom));
   assert.ok(!dumbbell.some(e => e.id === '1731'));
+});
+
+test('recommended > non-recommended within what the gym offers, even when its blacklist hides many recommended', () => {
+  // The 75317b0 deploy probe assumed at least 150 recommended in the slice; a gym blacklist
+  // (hidden-exercises.json) legitimately removes them. The policy is the ordering, not a floor.
+  const hiddenFile = path.join(dataDir, 'hidden-exercises.json');
+  const lib = payload.LIBRARY;
+  const hide = lib.filter(e => e.rec).slice(0, 40).map(e => e.id).concat(lib.filter(e => !e.rec && !e.pref).slice(0, 5).map(e => e.id));
+  fs.writeFileSync(hiddenFile, JSON.stringify(hide));
+  try {
+    const slice = payload.librarySlice({}, []);
+    const hidden = new Set(hide);
+    const expectedRec = lib.filter(e => e.rec && !e.pref && !hidden.has(e.id)).length;
+    assert.equal(expectedRec, lib.filter(e => e.rec).length - 40);
+    const recInSlice = slice.filter(e => e.rec).length;
+    assert.equal(recInSlice, expectedRec, 'every visible recommended exercise is offered');
+    assert.equal(slice.findIndex(e => !e.rec), recInSlice, 'all recommended come before any non-recommended');
+    assert.ok(!slice.some(e => e.pref || hidden.has(e.id)), 'no deprecated, no hidden');
+    assert.equal(slice.length, lib.filter(e => !e.pref && !hidden.has(e.id)).length, 'the rest of the catalogue follows');
+    // Equipment-filtered slice keeps the same ordering inside the compatible set.
+    const db = payload.librarySlice({}, ['dumbbell']);
+    const dbRec = db.filter(e => e.rec).length;
+    assert.ok(dbRec > 0 && db.findIndex(e => !e.rec) === dbRec);
+    // Historical ids still resolve for validation, hidden or deprecated.
+    assert.ok(hide.every(id => payload.libraryHas(id)) && payload.libraryHas('1731'));
+  } finally { fs.rmSync(hiddenFile, { force: true }); }
 });
 
 test('the protocol copy knows canonical movements and flags high overlap as a note only', () => {
