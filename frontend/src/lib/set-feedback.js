@@ -74,6 +74,8 @@ export function nextSetSuggestion(S, entry, i, eq) {
     } else why = ['Hard but within the rep range: keep the load.']
   } else if (set.feel === 'fail') {
     // About 10 % lighter, on a load the equipment can really make; at least one step down.
+    // The 10 % is a practical 2J V1 heuristic for "reset and finish the set", not a universal
+    // scientific rule; the member decides (accept/keep) and the program is never changed.
     const target = realizableToward(S, eq, w, w * 0.9)
     const oneDown = stepWeight(S, eq, w, -1)
     const down = target != null && target < w ? Math.min(target, oneDown) : oneDown

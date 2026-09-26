@@ -150,7 +150,8 @@ ejecutan como player completo en el Bunker (aviso). `views/Bunker.jsx`, `lib/bun
 una serie de trabajo hecha, las opciones son easy/good/hard/fail y se guardan en `set.feel`
 (opcional). La sugerencia es solo para la siguiente serie, usa `stepWeight`/`realizableToward` y
 nunca es automática. Aceptar cambia solo `sets[next].w`; `fbDone` cierra la fila. No toca la
-rutina ni el target. RPE ≥ 9 / RIR ≤ 1 frena "muy fácil". No se muestra en logs pasados ni en el
+rutina ni el target. RPE ≥ 9 / RIR ≤ 1 frena "muy fácil". El ~10 % de "No pude" es una
+heurística práctica 2J V1, no una regla científica universal. No se muestra en logs pasados ni en el
 Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
 
 ## 11. Deploy

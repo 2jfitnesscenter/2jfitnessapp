@@ -9,7 +9,8 @@
 - A deterministic, conservative suggestion for the NEXT set only ("80 kg → 85 kg sugeridos",
   [Aceptar] [Mantener 80 kg]). Very easy with every rep done means one real step up, unless a
   logged RPE ≥ 9 or RIR ≤ 1 says otherwise. Good means keep. Hard means keep, and one step down
-  only below the rep range. Couldn't means about 10 % lighter, at least one step.
+  only below the rep range. Couldn't means about 10 % lighter, at least one step (a practical 2J
+  V1 heuristic, not a universal scientific rule).
 - Loads come from `lib/equipment.js` (2J dumbbell rack, machine stack, custom increments). Never
   automatic. It never touches the routine, the target, the program or future workouts.
 - The optional `set.feel` field lives in `S.active` (offline, same sync) and is kept in history

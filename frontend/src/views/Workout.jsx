@@ -216,8 +216,8 @@ function SetFeedback({ entryIdx }) {
       {FEELINGS.map(f => <button key={f} className={'setfb-chip ' + f + (set.feel === f ? ' on' : '')} aria-pressed={set.feel === f}
         onClick={() => mut(e => setFeeling(e, i, f))}>{t(FEELING_LABEL[f])}</button>)}
     </div>
-    {sug && <div className={'setfb-sug ' + sug.kind}>
-      <div className="setfb-h"><Icon name={sug.kind === 'up' ? 'arrowUp' : 'arrowDown'} />
+    {sug && <div className={'setfb-sug ' + (sug.to > sug.from ? 'up' : 'down')}>
+      <div className="setfb-h"><Icon name={sug.to > sug.from ? 'arrowUp' : 'arrowDown'} />
         {t('Next set: {0} {2} → {1} {2} suggested', fmtNum(sug.from), fmtNum(sug.to), S.unit)}</div>
       <div className="setfb-why">{t(...sug.why)}</div>
       <div className="rec-acts">
