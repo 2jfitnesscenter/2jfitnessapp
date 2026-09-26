@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Reading a bioimpedance report (photo or PDF) into structured measurement values.
  *
  * There is no OCR here on purpose — a first attempt at a deterministic text-layer parser (for

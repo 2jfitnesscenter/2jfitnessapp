@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { recoveryColor } from '../lib/recovery.js'
 
 // A round 0-100% progress ring — no existing chart component does circular progress, this is

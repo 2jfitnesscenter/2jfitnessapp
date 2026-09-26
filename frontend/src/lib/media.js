@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // User-uploaded photos (routine/program covers, wherever else needs one later) — the one place
 // this app stores a user-provided file. See api/server.js's saveUploadedImage/GET
 // /api/social/media: DATA is a private volume nginx never sees, so uploads are served back

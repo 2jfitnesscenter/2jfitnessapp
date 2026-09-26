@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Muscle recovery — a 0-100% "how ready is this muscle" estimate per muscles.js slug, shown on
 // Home, Stats and the /recovery detail screen. This is a documented estimate, not a
 // physiological model (same caveat the reference this was modeled on states about itself).

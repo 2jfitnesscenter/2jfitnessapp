@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A finished workout's guided blocks (Constructor V2.1), read back from `w.guided`: what ran, how
 // it was paced, how much of it was done and what changed on the way — no per-second data exists.
 import { t, nameFor } from '../lib/i18n.js'

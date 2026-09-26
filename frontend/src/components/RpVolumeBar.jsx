@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { t } from '../lib/i18n.js'
 import { fmtNum } from '../lib/format.js'
 import { zoneForVolume, ZONE_META } from '../lib/rp-volume.js'

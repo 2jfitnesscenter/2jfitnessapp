@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Progressive Overload Coach — a live, per-set companion to lib/progression.js's routine-level
 // policy engine, not a replacement for it. `nextPrescription` (progression.js) decides what
 // weight a whole SESSION starts at, once, when the workout is built, and only for exercises

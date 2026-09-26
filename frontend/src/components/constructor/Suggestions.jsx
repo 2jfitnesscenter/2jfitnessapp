@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // "Sugerencias 2J" — a discreet strip in the builder with blocks that could balance the program
 // (lib/block-suggest.js). Suggest → preview → add; nothing is ever changed on its own. Hidden with
 // one tap (remembered on this device) and reopened from a small chip.

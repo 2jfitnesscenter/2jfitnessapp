@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Shared AES-256-GCM at-rest encryption, key derived per-feature via HKDF off ./data/secret (the
    same file that already signs session cookies). Each caller passes its own `info` string so a
    leaked blob from one feature (e.g. a Strava refresh token) isn't decryptable with another

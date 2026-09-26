@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* The single place state-<uid>.json (a member's full workout history, body-weight log, and
    measurements — the app's actual health data) is read from and written to disk, encrypted at
    rest with the shared AES-256-GCM helper (./crypto.js) under its own domain (`user-state`), so

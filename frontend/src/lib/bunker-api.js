@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Thin wrappers over api/bunker/routes.js. Two trust levels never send the normal session
 // cookie's worth of auth — the kiosk itself isn't signed in as anyone — so every bunker-token
 // or admin-token call carries it explicitly as a Bearer header instead of relying on

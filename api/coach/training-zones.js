@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Server-side copy of frontend/src/lib/training-zones.js's ZONES table — same duplication
  * trade-off as rp-volume.js in this same directory. Classifies a single SET's intensity
  * (%1RM/RIR), distinct from rp-volume.js's weekly per-muscle-group set count. Given to the

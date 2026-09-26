@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Optional Constructor V2 metadata that rides on a member's routine/program.
  *
  * routine.blocks — which block instances the day was assembled from (a snapshot label per

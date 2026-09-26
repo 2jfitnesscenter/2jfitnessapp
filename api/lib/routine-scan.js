@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Reading a printed, handwritten or photographed workout routine into raw structured text.
  *
  * Same approach as measurements-scan.js (no OCR — a PDF or photo goes to Gemini as a vision

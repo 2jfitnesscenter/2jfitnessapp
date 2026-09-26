@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMemo, useRef, useState } from 'react'
 import { rankSnapshot } from '../lib/mi2j.js'
 import { Carnet } from './Mi2J.jsx'

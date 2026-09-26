@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Guided routines ("Entrena con 2J") — pure facts about a complete workout made of blocks.
 // Shared by the official build, the server store and the app, so a routine's duration, equipment
 // and tags are computed the same way everywhere and never typed by hand. A guided routine is an

@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Credential/config store for the trainer panel's "Generate with AI" feature.
  *
  * Deliberately separate from ./config.js (the member-facing Coach): Juanjo wants the two AIs

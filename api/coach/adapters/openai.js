@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* OpenAI adapter — direct REST, never the Codex CLI.
  *
  * V3: this replaces the earlier idea of running the member-facing Coach through the OpenAI

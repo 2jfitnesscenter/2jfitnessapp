@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Bunker.jsx's own local, per-device map of "which members THIS exact kiosk instance already
 // has a valid bunker token for" — { [uid]: { token, name, exp } }, kept in React state, never
 // persisted to localStorage (a shared physical kiosk is exactly the wrong place to leave a

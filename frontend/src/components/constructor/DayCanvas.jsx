@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Constructor V2 — one day as a canvas of blocks. The day is still a plain routine: a flat
 // `ex` list (what Workout, Bunker, Sync and Progressive Overload read, unchanged) plus optional
 // `blocks` labels; entries carry `blk` = the instance they belong to. Loose entries (old

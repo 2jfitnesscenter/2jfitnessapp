@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { t } from '../lib/i18n.js'
 
 // A scanned exercise name that was close to more than one library exercise — matchExercise()

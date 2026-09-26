@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Fitness data attached to a 2J workout — calories, heart rate and zones that came from
 // somewhere OTHER than the strength log itself (a wearable's hub, WHOOP, an Apple Health export,
 // a Bluetooth chest strap). The workout keeps being the one record of what was trained; this is

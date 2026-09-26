@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Pre-workout check-in — how the member says they arrive today. Declared data, never a
 // diagnosis: three 1-5 scales, "any discomfort? no/yes + where", an optional short note. It lives
 // in S.checkins (one entry per day, the last one that day wins) and travels with the rest of the

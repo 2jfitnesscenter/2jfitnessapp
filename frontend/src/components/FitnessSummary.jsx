@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { fmtDur, fmtNum } from '../lib/format.js'

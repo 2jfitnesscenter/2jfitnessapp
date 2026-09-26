@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* The one Strava API call this integration needs: log a finished workout as a manual activity.
  * No GPS/streams — this is a strength-training app, not a route tracker. See
  * https://developers.strava.com/docs/reference/#api-Activities-createActivity. */

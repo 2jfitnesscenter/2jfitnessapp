@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Server-side slice of frontend/src/lib/rp-volume.js + lib/muscles.js's target-muscle mapping —
  * duplicated rather than shared, same trade-off payload.js's own modeOf/cleanEx already make
  * for this codebase (two runtimes, no build step in common). Exists so the Coach's payload can

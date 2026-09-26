@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Turns the raw JSON api/lib/routine-scan.js's Gemini prompt returns (day labels + exercise
 // names exactly as printed on a scanned routine) into the same {name, routines, week, customEx}
 // "plan bundle" shape lib/plan-share.js's mergePlan() and the trainer panel's

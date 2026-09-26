@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Talking to the /api/social/* and /api/trainer/* endpoints — thin wrappers over api(), same
 // shape as lib/coach-api.js. No polling here: Social is a browse-on-open list, not a live job.
 import { api } from './api.js'

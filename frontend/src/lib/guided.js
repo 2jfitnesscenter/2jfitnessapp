@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Guided blocks (Constructor V2.1) — the pure half of the timed executor for circuit, interval,
 // HIIT/Tabata and mobility blocks. Not a second training system: a guided block is ordinary
 // entries of the live session (S.active.entries, a round = one set of each), and this module only

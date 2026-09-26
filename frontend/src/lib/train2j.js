@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // "Entrena con 2J" — the pure half of the guided-routine catalogue: search and filters, what the
 // member already did (from workout history, no second list), a light deterministic "For you",
 // and the snapshot a routine becomes when it is started or assigned. No model, no hidden data:

@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Muscle-priority taxonomy — collected once at registration (and editable later from Settings
 // or, for a member, from the Admin panel), used to personalize both the quick PPL plan
 // (starter.js's buildPlan — which routine gets the extra day on a 4-6 day split) and the AI

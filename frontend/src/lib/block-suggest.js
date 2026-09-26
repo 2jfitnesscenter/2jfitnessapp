@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // "Sugerencias 2J" (Constructor V2.1) — a deterministic block recommender for gaps in a program.
 // No model, no second engine: it reads the validator's own count of DIRECT weekly sets per
 // muscle group (validation.stats.weeklySets — timed interval bouts and mobility already left out),

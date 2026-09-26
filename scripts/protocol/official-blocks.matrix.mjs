@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Coverage matrix of the official 2J block library — protocol v1.0.
  *
  * Human-reviewable data, not generated combinations: every row was chosen on purpose, and the

@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* /api/guided/* — "Entrena con 2J": the official guided routines and their collections.
  *
  * Reads: any signed-in person (the member catalogue). Writes, with the existing roles only:

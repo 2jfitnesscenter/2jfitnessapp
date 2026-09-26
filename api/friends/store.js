@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Amigos (friends) data store — a request graph plus one regenerable invite code per user, in
    its own data/friends.json rather than db.json. Same module-level-cache + atomicWrite-the-
    whole-object shape as server.js's own social.json / api/coach/config.js's coach.json.

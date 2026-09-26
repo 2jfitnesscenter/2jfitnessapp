@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* /api/blocks/* — the block library for the trainer builder (Constructor V2).
  *
  * Reuses the existing roles only: any trainer (requireTrainer, which admins pass too) reads the

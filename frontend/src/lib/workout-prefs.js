@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // How a member wants the live workout presented — the PREFERENCES layer, kept apart from the
 // two layers a session actually carries (see views/Workout.jsx):
 //   · prescription — entry.target (a snapshot of the routine slot, trainer note included) and

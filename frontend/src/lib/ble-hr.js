@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Live heart rate from a Bluetooth chest strap / armband, through the browser's Web Bluetooth and
 // the standard GATT Heart Rate service (0x180D / characteristic 0x2A37) — any sensor that speaks
 // the standard works; there is no brand-specific code. EXPERIMENTAL and platform-bound: Chrome

@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { useRef, useState } from 'react'
 import { t, nameFor } from '../lib/i18n.js'
 import { EXIDX } from '../lib/exercises.js'

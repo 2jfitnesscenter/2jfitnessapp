@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Constructor V2 — Program → Day → Blocks → Exercises, for one member, on a real screen.
 //
 // Nothing here is a second training model: a day is the member's routine (flat `ex`, what the

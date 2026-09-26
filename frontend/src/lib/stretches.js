@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A small, self-contained library for the Stretching tab — deliberately separate from EXDB
 // (lib/exercises.js): these are held/paced movements with no weight or rep count, driven by a
 // countdown per exercise, so none of the strength app's rank/PR/progression machinery applies

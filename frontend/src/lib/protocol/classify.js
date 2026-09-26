@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Exercise → protocol taxonomy. Curated entries (catalog.js) are exact; everything else gets a
 // transparent name/equipment heuristic, marked `curated: false` so callers know how far to
 // trust it. No hidden model, no "biomechanics AI" — every decision here is a readable rule.

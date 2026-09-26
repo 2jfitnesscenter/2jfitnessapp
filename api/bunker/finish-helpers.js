@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* PR detection for POST /api/bunker/finish, ported 1:1 from the phone app's own
    doFinishWorkout() (frontend/src/sheets.jsx) and the two functions it calls
    (frontend/src/lib/history.js's bestWeightFor, frontend/src/lib/onerm.js's is1RMRecord and its

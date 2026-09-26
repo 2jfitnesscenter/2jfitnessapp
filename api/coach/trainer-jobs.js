@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Running "generate a routine with AI" jobs from the trainer desktop panel.
  *
  * A sibling to ./jobs.js, not a branch of it: that file runs a member's own consent-gated

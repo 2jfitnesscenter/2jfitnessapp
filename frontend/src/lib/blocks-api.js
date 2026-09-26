@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Constructor V2 — the block library on the client: /api/blocks wrappers, a small cached store,
 // and the protocol context the builder validates with (same validator as the server).
 import { create } from 'zustand'

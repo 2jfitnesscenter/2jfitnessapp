@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Talking to /api/chat/* — thin wrappers over api(), same shape as lib/social-api.js. Polling,
 // not sockets: views/ChatThread.jsx re-fetches on an interval while a thread is open.
 import { api } from './api.js'

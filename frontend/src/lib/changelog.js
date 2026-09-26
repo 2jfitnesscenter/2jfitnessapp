@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A short, in-app version history — condensed from CHANGELOG.md (the full, prose version kept
 // in the repo for GitHub) down to one line per change, no explanations. Item strings go through
 // t() wherever they're rendered, same as every other UI string, so translators can pick them up;
@@ -11,6 +13,7 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Settings → Legal & credits: the original openGym project, this fork, the license and the source code',
       'Train with 2J: 39 official guided workouts — Tabata, HIIT, circuits, intervals, mobility and more',
       'Start a 2J workout in one tap: it runs with the guided timer and never changes your plan',
       'Search, quick filters, collections, favourites and a “For you” row that explains itself',

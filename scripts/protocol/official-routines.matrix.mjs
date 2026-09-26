@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Coverage matrix of the official 2J guided routines — "Entrena con 2J" (Guided Routines V1).
  *
  * A guided routine is a complete, ready-to-start workout; a block is one piece of a workout.

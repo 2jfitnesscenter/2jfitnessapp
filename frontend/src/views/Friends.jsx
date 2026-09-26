@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'

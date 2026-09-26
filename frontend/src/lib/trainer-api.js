@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Talking to /api/trainer/* from the desktop trainer panel — thin wrappers over api(), same
 // shape as lib/social-api.js. fetchTrainerMembers already lives in social-api.js (used by
 // Social.jsx's "assign to a member" flow); import it from there instead of duplicating it.

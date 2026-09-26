@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* The block library — official 2J blocks and trainers' personal blocks.
  *
  * Global, admin/trainer-authored data: it lives in its own file (DATA/blocks.json), never in

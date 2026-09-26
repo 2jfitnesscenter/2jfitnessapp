@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A plate-loading breakdown for a straight barbell: given a set's total weight, works out what
 // actually goes on each side. Shown only on tap (Workout.jsx's plate button, and Settings' own
 // standalone entry, both open sheets.jsx's platesSheet) rather than as an inline row icon — at

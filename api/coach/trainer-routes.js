@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* HTTP surface for the trainer panel's "Generate with AI" feature — admin config routes plus
  * the trainer-facing generate/status/discard routes. Same factory shape as ./routes.js. */
 import fs from 'node:fs';

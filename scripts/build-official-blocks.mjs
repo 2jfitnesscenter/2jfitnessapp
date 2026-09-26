@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Builds the official 2J block library from the coverage matrix.
  *
  *   node scripts/build-official-blocks.mjs           # write api/lib/blocks-official.json

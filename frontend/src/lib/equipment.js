@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // What's actually on the floor at 2J Fitness Center, used to make the weight +/- stepper in a
 // workout jump to a number you can really load, instead of a generic step that lands on 57.5 kg
 // on a rack that only has dumbbells in 2.5 kg jumps. See Settings → Training for the toggle.

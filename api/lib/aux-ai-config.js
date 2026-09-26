@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Credential/config store for 2J's "auxiliary AI" — a THIRD, independent AI profile, separate
  * from both the member-facing Coach (./coach/config.js) and the trainer panel's "Generate with
  * AI" (./coach/trainer-ai.js). Same isolation reasoning as trainer-ai.js: own file on disk, own

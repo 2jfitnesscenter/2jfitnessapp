@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Strength rank — a 9-tier, bodyweight-adjusted rank per curated lift, rolled up into a
 // rank per muscle, per muscle group, and one whole-physique rank.
 //

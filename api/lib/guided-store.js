@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Guided routines — "Entrena con 2J": official 2J routines, trainers' own copies, collections.
  *
  * Same arrangement as the block library (lib/blocks-store.js): global, trainer/admin-authored

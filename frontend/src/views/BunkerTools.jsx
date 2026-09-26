@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Generic Bunker toolbar (V3.2) — Biblioteca / Discos / RM / Temporizador / Calentamiento.
 //
 // Deliberately stateless about WHO is using it: no useStore, no athlete/session data, no

@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // "Did the member see what this workout earned?" — the only state the post-workout
 // celebration keeps, and it keeps as little as possible: the finished workout's id and the ids
 // of the badges that unlocked with it. Everything shown is re-derived from S by

@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The guided executor (Constructor V2.1): circuit, intervals, HIIT/Tabata and mobility blocks run
 // inside the live workout, on the same session — see lib/guided.js for the model. This file is
 // only the screen: the clock is recomputed from the stored end time on every tick, and the store

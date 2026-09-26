@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // V2 — the review layer on top of V1's import-csv.js. Nothing here replaces parseWorkoutCSV or
 // mergeImport; this sits between them: it tries to upgrade whatever parseWorkoutCSV couldn't
 // resolve on its own (parsed.customEx, one placeholder per distinct unrecognised name) to a real

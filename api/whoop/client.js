@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Whoop API calls this integration needs: the member's most recent recovery score, and their
  * recent nights of sleep. Verified 2026-09-12 against Whoop's own docs
  * (https://developer.whoop.com/api) — v1 is retired, this is the current v2 shape.

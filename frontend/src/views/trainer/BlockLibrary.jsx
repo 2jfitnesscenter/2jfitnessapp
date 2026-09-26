@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Block library management (trainer panel): browse the official 2J library and personal
 // blocks, preview, duplicate, edit, activate/deactivate, delete — and the block editor.
 // Permissions are the server's (lib/blocks-store.js): trainers manage their own blocks; only

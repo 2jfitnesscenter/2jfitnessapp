@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* HTTP surface for 2J's auxiliary-AI profile — admin config routes only (V2 has no
  * member/trainer-facing endpoint of its own; the one capability it drives,
  * exercise_import_matching, is called from ./import-exercise-match.js's own route instead).

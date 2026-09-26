@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // 2J Training Protocol — the machine-readable half.
 //
 // Three places describe the protocol and they must not drift apart:

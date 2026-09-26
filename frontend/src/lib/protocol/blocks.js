@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Blocks: reusable, versioned templates of a few prescribed exercises. A master block is never
 // referenced live by a routine — inserting one copies its entries into the day (a snapshot)
 // tagged with an instance id, so editing the day never touches the library and deleting a

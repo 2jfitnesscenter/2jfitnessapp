@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import { createHash } from 'node:crypto';
 import { readState, writeState } from './state-store.js';
 

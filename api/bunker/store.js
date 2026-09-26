@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Bunker (gym-floor kiosk) data — two very different lifetimes in one module:
  *
  * PERSISTENT (data/bunker.json, same module-cache + atomicWrite shape as friends/store.js):

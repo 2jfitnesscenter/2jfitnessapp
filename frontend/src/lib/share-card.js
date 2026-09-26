@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The Workout Share Card's data prep — everything the visual component needs, computed once
 // from the exact same values doFinishWorkout already hands to FinishSummary (w/prs/e1prs/
 // newBadges). No extra history scan, no extra store read beyond what the finish screen itself

@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Chat con entrenadores — member-started support-style threads, in their own data/chat.json.
    No per-member/per-trainer assignment exists anywhere in this app (trainer status is global —
    see server.js's isTrainer), so a thread is between one member and "the trainers" collectively:

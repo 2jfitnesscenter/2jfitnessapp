@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* One-time migration: force every state-<uid>.json still sitting as plain JSON to be rewritten
  * through writeState (encrypted). Not required for correctness — readState already falls back to
  * plain JSON, and any file gets upgraded the next time its owner's data is saved — but an

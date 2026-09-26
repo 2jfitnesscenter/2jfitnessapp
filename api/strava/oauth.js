@@ -1,3 +1,5 @@
+// Copyright (C) 2026 2J Fitness Center
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /* Standard OAuth2 authorization-code + refresh-token grant against Strava's public API
  * (https://developers.strava.com/docs/authentication/). One Strava app (Client ID/Secret,
  * ./config.js) is registered once by the instance owner; each member who connects authorizes
