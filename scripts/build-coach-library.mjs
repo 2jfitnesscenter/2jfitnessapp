@@ -13,6 +13,12 @@
  * Only the fields the Coach reasons over are kept: an id, a name, and the three taxonomy
  * fields it filters on. Instructions, images and secondary muscles stay out — they would
  * quadruple a payload the model has no use for.
+ *
+ * Exercise Library V2 adds three compact fields from frontend/src/lib/library/core.js:
+ *   mv    canonical movement (squat, row…) — lets the model avoid two of the same in a day
+ *   rec   1 for Recommended 2J (preferred over the rest of the master library)
+ *   pref  preferred id of a deprecated duplicate — the entry stays so old plans still validate,
+ *         but it is never offered to the model (api/coach/payload.js librarySlice)
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -23,7 +29,12 @@ const src = join(root, 'frontend', 'src', 'lib', 'exercises-data.js');
 const out = join(root, 'api', 'coach', 'library.json');
 
 const { EXDB } = await import(pathToFileURL(src).href);
-const index = EXDB.map(e => ({ id: e.id, n: e.n, bp: e.bp, tg: e.tg, eq: e.eq }));
+const { facetsOf } = await import(pathToFileURL(join(root, 'frontend', 'src', 'lib', 'library', 'core.js')).href);
+const index = EXDB.map(e => {
+  const f = facetsOf(e);
+  return { id: e.id, n: e.n, bp: e.bp, tg: e.tg, eq: e.eq, ...(f.movement ? { mv: f.movement } : {}),
+    ...(f.recommended ? { rec: 1 } : {}), ...(f.preferredId ? { pref: f.preferredId } : {}) };
+});
 const json = JSON.stringify({ generated_from: 'frontend/src/lib/exercises-data.js', count: index.length, exercises: index }) + '\n';
 
 if (process.argv.includes('--check')) {

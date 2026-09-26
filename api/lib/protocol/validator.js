@@ -15,6 +15,7 @@
 import { PROTOCOL_VERSION, GOALS, LEVELS, RPE_2J, SETS, REST, BLOCK_SIZE, SESSION_EXERCISES, WEEKLY_SETS,
   RESTRICTION_FLAG, MESSAGES, DEFAULT_REASON, MESSAGE_RULE, RULE_BY_ID, BLOCK_TYPES_READY, ROUNDS, ROUND_TYPES, format } from './rules.js'
 import { classify, redundancyKey } from './classify.js'
+import { movementOfPattern, equipmentIdOf } from './movements.js'
 import { repRange, unitsOf, roleOf, restDemand, zoneFor, estimateSeconds, roundMinutes, modeOfEntry, REST_DEFAULTS } from './prescribe.js'
 
 const fmtRange = r => `${r[0]}-${r[1]}`
@@ -136,15 +137,26 @@ export function validateAgainst2JProtocol(target, ctx = {}) {
     const groups = {}
     ex.forEach((e, i) => { (groups[e.blk || '_'] = groups[e.blk || '_'] || []).push(i) })
     for (const idxs of Object.values(groups)) {
-      const seen = new Map(), byKey = new Map(), byPattern = new Map()
+      const seen = new Map(), byKey = new Map(), byPattern = new Map(), byMove = new Map()
       for (const i of idxs) {
         const c = cls[i], e = ex[i]
         if (!c.known || c.cardio) continue
         if (seen.has(e.id)) add('reason', 'duplicate_exercise', [nameOf(e.id)], { day, index: i, why: e.why })
         else seen.set(e.id, i)
         const k = redundancyKey(c)
-        if (byKey.has(k) && ex[byKey.get(k)].id !== e.id) addFor([c, cls[byKey.get(k)]], 'reason', 'redundant_pair', [nameOf(ex[byKey.get(k)].id), nameOf(e.id)], { day, index: i, why: e.why })
+        const pairFlagged = byKey.has(k) && ex[byKey.get(k)].id !== e.id
+        if (pairFlagged) addFor([c, cls[byKey.get(k)]], 'reason', 'redundant_pair', [nameOf(ex[byKey.get(k)].id), nameOf(e.id)], { day, index: i, why: e.why })
         else if (!byKey.has(k)) byKey.set(k, i)
+        // Exercise Library V2 — high overlap: same canonical movement on the same equipment, same
+        // side and angle, under different ids. Only a note (an intentional variant is normal).
+        const mv = movementOfPattern(c.pattern)
+        if (mv && mv !== 'mobility' && !pairFlagged) {
+          const nm = String(lookup(e.id)?.n || '').toLowerCase()
+          const mk = [mv, equipmentIdOf({ id: e.id, eq: c.eq }), c.uni ? 'u' : 'b', /incline/.test(nm) ? 'inc' : /decline/.test(nm) ? 'dec' : 'flat'].join('|')
+          const prev = byMove.get(mk)
+          if (prev != null && ex[prev].id !== e.id && redundancyKey(cls[prev]) !== k) add('note', 'high_overlap', [nameOf(ex[prev].id), nameOf(e.id)], { day, index: i })
+          else if (prev == null) byMove.set(mk, i)
+        }
         byPattern.set(c.pattern, [...(byPattern.get(c.pattern) || []), c])
       }
       for (const [p, list] of byPattern) {

@@ -16,12 +16,15 @@
 // break score ties and label the match.
 import { EXIDX, allExercises, isUnavailable } from './exercises.js'
 import { musclesOf, muscleOptsOf } from './muscles.js'
+import { variantsFor, isDeprecated } from './library/index.js'
 
+// 'variant' — Exercise Library V2: same canonical movement (lib/library/core.js similarVariants),
+//             shown first with the reasons that matched ("Same movement · Same equipment")
 // 'exact' — same primary muscle AND same equipment (a true drop-in replacement)
 // 'sameMuscle' — same primary muscle, different equipment (the common case: "I don't have a
 //                barbell today, what else hits chest the same way")
 // 'related' — no shared primary muscle, but real secondary-muscle overlap with the reference
-export const MATCH_KEYS = ['exact', 'sameMuscle', 'related']
+export const MATCH_KEYS = ['variant', 'exact', 'sameMuscle', 'related']
 
 /**
  * Ranked alternatives for `exerciseId`, best match first. Excludes the exercise itself and
@@ -57,14 +60,21 @@ export function getExerciseAlternatives(S, exerciseId) {
  * same allExercises() source used everywhere else; relatedIds lets the UI warn discreetly when
  * someone deliberately chooses a movement outside the biomechanical suggestions. */
 export function getReplacementGroups(S, exerciseId) {
-  const alternatives = getExerciseAlternatives(S, exerciseId)
-  const relatedById = new Map(alternatives.map(a => [a.ex.id, a]))
+  // Deprecated duplicates are never offered as a replacement (their preferred twin is).
+  const alternatives = getExerciseAlternatives(S, exerciseId).filter(a => !isDeprecated(a.ex.id))
+  const ref = EXIDX[exerciseId]
+  const pool = allExercises(S).filter(ex => ex.id !== exerciseId && !isDeprecated(ex.id))
+  const variants = ref ? variantsFor(ref, pool, 6).map(v => ({ ex: v.ex, matchKey: 'variant', reasons: v.reasonLabels, sameEquipment: v.ex.eq === ref.eq })) : []
+  const variantIds = new Set(variants.map(v => v.ex.id))
+  const relatedById = new Map([...alternatives, ...variants].map(a => [a.ex.id, a]))
   const relatedIds = new Set(relatedById.keys())
   return {
-    recommended: alternatives.slice(0, 8),
+    // Similar variants of the same movement first, then muscle-based alternatives to fill.
+    recommended: [...variants, ...alternatives.filter(a => !variantIds.has(a.ex.id))].slice(0, 8),
+    variants,
     related: alternatives,
-    all: allExercises(S)
-      .filter(ex => ex.id !== exerciseId && !isUnavailable(ex))
+    all: pool
+      .filter(ex => !isUnavailable(ex))
       .map(ex => ({ ex, matchKey: relatedById.get(ex.id)?.matchKey || 'unrelated' })),
     relatedIds,
   }

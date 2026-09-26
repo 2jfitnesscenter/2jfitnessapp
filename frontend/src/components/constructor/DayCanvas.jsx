@@ -15,7 +15,7 @@ import { segmentsOf, pruneBlocks, estimateSeconds, roundMinutes, classify, presc
   isGuided, sanitizeTiming, defaultTiming, applyTiming, guidedSeconds, TIMING_PRESETS, TYPE_LABEL, PROTOCOL_VERSION } from '../../lib/protocol/index.js'
 import { timingLine } from '../../lib/guided.js'
 import { lookup } from '../../lib/blocks-api.js'
-import { exercisePicker, exConfigSheet, exerciseNotesSheet } from '../../sheets.jsx'
+import { alternativesSheet, exConfigSheet, exerciseNotesSheet } from '../../sheets.jsx'
 import { Thumb } from '../Media.jsx'
 import { Stepper } from '../ui.jsx'
 import Icon from '../Icon.jsx'
@@ -225,7 +225,7 @@ export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddE
   const rowMenu = i => {
     const e = day.ex[i]
     openSheet(close => <RowMenu e={e} close={close}
-      onReplace={() => exercisePicker(n => set(withEx(day, day.ex.map((x, k) => k !== i ? { ...x } : { ...x, id: n.id }))))}
+      onReplace={() => alternativesSheet(exOr(e.id), n => set(withEx(day, day.ex.map((x, k) => k !== i ? { ...x } : { ...x, id: n.id }))))}
       onNotes={() => exerciseNotesSheet(exOr(e.id), e, note => set(withEx(day, day.ex.map((x, k) => { if (k !== i) return { ...x }; const y = { ...x }; if (note) y.note = note; else delete y.note; return y }))))}
       onMore={() => exConfigSheet(exOr(e.id), e, cfg => set(withEx(day, day.ex.map((x, k) => k !== i ? { ...x } : { ...Object.fromEntries(KEEP.filter(f => x[f] != null).map(f => [f, x[f]])), id: x.id, ...cfg }))), null, day)}
       onRemove={() => set(withEx(day, day.ex.filter((_, k) => k !== i).map(x => ({ ...x }))))} />)

@@ -24,7 +24,8 @@
 
 import { EXDB, EXIDX } from './exercises.js'
 import { uid } from './format.js'
-import { nameFor } from './i18n.js'
+import { nameFor, getLang } from './i18n.js'
+import { preferredOf, aliasIndexOf, norm as libNorm } from './library/core.js'
 import { matchAll, mapAppleWorkout, attachFitness } from './fitness.js'
 
 /* ----------------------------------------------------------------- CSV ---- */
@@ -141,7 +142,8 @@ const FILLER = new Set(['the', 'a', 'with', 'and', 'v', 'variation', 'version', 
 function wordsOf(name) {
   // Parentheses are unwrapped rather than dropped: "Bench Press (Barbell)" carries its
   // equipment in there, and the dataset writes that as "barbell bench press".
-  let k = String(name || '').toLowerCase()
+  // Accents are folded, not dropped ("búlgara" → "bulgara", never "b lgara").
+  let k = String(name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[()[\]]/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
@@ -218,6 +220,20 @@ const aliasIndex = () => {
  *
  * @returns {{ id: string|null, candidates: Array<{id: string, n: string}> }}
  */
+// The exercise names as shown in the current language (Spanish for a Spanish member), exact
+// match only — a translated name is as good as the dataset's English one. Built per language.
+let LOCAL_IDX = null, LOCAL_LANG = null
+function localIndex() {
+  if (LOCAL_IDX && LOCAL_LANG === getLang()) return LOCAL_IDX
+  LOCAL_LANG = getLang()
+  LOCAL_IDX = new Map()
+  EXDB.forEach(e => { const k = libNorm(nameFor(e)); LOCAL_IDX.set(k, [...(LOCAL_IDX.get(k) || []), e.id]) })
+  return LOCAL_IDX
+}
+// A deprecated duplicate is filed under its preferred twin (same exercise, confirmed — see
+// lib/library/overrides.js); a list is de-duplicated after that mapping.
+const resolved = ids => [...new Set(ids.map(preferredOf))]
+
 export function matchExerciseCandidates(name) {
   const idx = buildIndex()
   const w = wordsOf(name)
@@ -226,9 +242,18 @@ export function matchExerciseCandidates(name) {
   // alias — the exporters disagree about whether the equipment leads or trails.
   const sorted = w.slice().sort().join(' ')
   const aliased = aliasIndex().get(sorted)
-  if (aliased && EXIDX[aliased]) return { id: aliased, candidates: [] }
+  if (aliased && EXIDX[aliased]) return { id: preferredOf(aliased), candidates: [] }
+  // Exercise Library V2: the 2J aliases (Spanish vocabulary, names an exercise had before a
+  // correction) and the translated names, both exact. Two live exercises under one translated
+  // name are never guessed between — they come back as candidates.
+  const nq = libNorm(name)
+  const libAlias = aliasIndexOf().get(nq)
+  if (libAlias && EXIDX[libAlias]) return { id: preferredOf(libAlias), candidates: [] }
+  const local = resolved(localIndex().get(nq) || [])
+  if (local.length === 1) return { id: local[0], candidates: [] }
+  if (local.length > 1) return { id: null, candidates: local.map(id => ({ id, n: nameFor(EXIDX[id]) })) }
   const exact = idx.exact.get(sorted)
-  if (exact) return { id: exact, candidates: [] }
+  if (exact) return { id: preferredOf(exact), candidates: [] }
   const q = new Set(w)
   let bestExtra = Infinity, tied = []
   for (const c of idx.all) {
@@ -240,8 +265,9 @@ export function matchExerciseCandidates(name) {
     if (extra < bestExtra) { bestExtra = extra; tied = [c.id] }
     else if (extra === bestExtra) tied.push(c.id)
   }
-  if (tied.length === 1) return { id: tied[0], candidates: [] }
-  return { id: null, candidates: tied.map(id => ({ id, n: nameFor(EXIDX[id]) })) }
+  const live = resolved(tied)
+  if (live.length === 1) return { id: live[0], candidates: [] }
+  return { id: null, candidates: live.map(id => ({ id, n: nameFor(EXIDX[id]) })) }
 }
 
 /** Find the dataset exercise a foreign name refers to, or null — see matchExerciseCandidates()

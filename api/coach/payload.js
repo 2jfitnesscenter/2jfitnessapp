@@ -155,11 +155,15 @@ export function librarySlice(S, equipment) {
   const wanted = (equipment || []).map(x => String(x).toLowerCase());
   const hidden = hiddenIds();
   const customs = (S.customEx || []).map(c => ({ id: c.id, n: c.n, bp: c.bp, tg: null, eq: 'custom', custom: true }));
-  const visible = hidden.size ? LIBRARY.filter(e => !hidden.has(e.id)) : LIBRARY;
+  // Exercise Library V2: a deprecated duplicate (`pref`) is never offered — its preferred twin
+  // is — and Recommended 2J (`rec`) comes first, the order the prompt asks the model to prefer.
+  const visible = LIBRARY.filter(e => !e.pref && !hidden.has(e.id));
   // No equipment stated (or "everything") ⇒ the whole (visible) catalogue. Filtering to nothing
   // would leave the Coach unable to propose anything at all, which is worse than a bigger payload.
   const base = wanted.length ? visible.filter(e => wanted.includes((e.eq || '').toLowerCase())) : visible;
-  return [...customs, ...(base.length ? base : visible)].map(withGroup);
+  const chosen = base.length ? base : visible;
+  const ranked = [...chosen.filter(e => e.rec), ...chosen.filter(e => !e.rec)];
+  return [...customs, ...ranked].map(withGroup);
 }
 export const libraryHas = id => LIB_BY_ID.has(id);
 export const libraryName = id => LIB_BY_ID.get(id)?.n || null;

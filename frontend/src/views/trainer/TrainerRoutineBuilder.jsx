@@ -10,7 +10,7 @@ import { t, nameFor } from '../../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../../lib/history.js'
 import { supersetGroupInfo, supersetLabel } from '../../lib/superset-colors.js'
 import { Thumb } from '../../components/Media.jsx'
-import { glyphPicker, exercisePicker, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, routineVersionsSheet, ExercisePicker } from '../../sheets.jsx'
+import { glyphPicker, exercisePicker, alternativesSheet, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, routineVersionsSheet, ExercisePicker } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
 import { Button, SelectRow } from '../../components/ui.jsx'
@@ -74,8 +74,8 @@ export default function TrainerRoutineBuilder() {
   })
 
   const menuActions = (ex, e, i) => ({
-    onReplace: () => exercisePicker(newEx => edit(x => { x[i] = { ...x[i], id: newEx.id } })),
-    onReplaceExclude: () => exercisePicker(newEx => {
+    onReplace: () => alternativesSheet(ex, newEx => edit(x => { x[i] = { ...x[i], id: newEx.id } })),
+    onReplaceExclude: () => alternativesSheet(ex, newEx => {
       edit(x => { x[i] = { ...x[i], id: newEx.id } })
       excludeEx(ex.id)
       toast(t('{0} won’t be suggested again', nameFor(ex)))
