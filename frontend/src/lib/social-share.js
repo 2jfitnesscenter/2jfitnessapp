@@ -2,7 +2,7 @@
 // specific share action; health or profile objects can never be spread into a render payload.
 const clean = (value, max) => String(value || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, max)
 export function socialCardPayload(kind, value = {}) {
-  const types = new Set(['routine', 'program', 'record', 'challenge'])
+  const types = new Set(['routine', 'program', 'record', 'challenge', 'workout', 'achievement', 'streak'])
   if (!types.has(kind)) throw new Error('Unsupported social share type')
   return Object.freeze({
     kind,

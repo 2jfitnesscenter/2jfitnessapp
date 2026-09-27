@@ -26,6 +26,13 @@ export const deleteWallComment = (postId, commentId) =>
   api('/api/social/wall/comment/delete', { method: 'POST', body: JSON.stringify({ postId, commentId }) })
 export const setWallVisibility = (id, isPublic) =>
   api('/api/social/wall/visibility', { method: 'POST', body: JSON.stringify({ id, public: isPublic }) })
+export const createSocialShare = payload => api('/api/social/shares', { method: 'POST', body: JSON.stringify({ ...payload, audience: 'community' }) })
+export const fetchSocialShares = () => api('/api/social/shares').then(r => r.shares)
+export const fetchSharedItem = id => api('/api/social/shares/item?id=' + encodeURIComponent(id)).then(r => r.share)
+export const deleteSocialShare = id => api('/api/social/shares/delete', { method: 'POST', body: JSON.stringify({ id }) })
+export const reportSocialContent = (targetType, targetId, reason) => api('/api/social/reports', { method: 'POST', body: JSON.stringify({ targetType, targetId, reason }) })
+export const fetchSocialReports = () => api('/api/admin/social-reports').then(r => r.reports)
+export const resolveSocialReport = (id, action) => api('/api/admin/social-reports/resolve', { method: 'POST', body: JSON.stringify({ id, action }) })
 
 // Muro: temas (topics) + comentarios planos, mismo patrón que el Muro/Wall de arriba.
 export const fetchTopics = () => api('/api/social/topics').then(r => r.topics)

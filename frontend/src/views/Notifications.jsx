@@ -5,7 +5,7 @@ import { useUI } from '../store/useUI.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { fetchNotifications, fetchSocialPreferences, markAllNotificationsRead, markNotificationRead, saveSocialPreferences } from '../lib/notifications-api.js'
-import { enablePush, pushSupported } from '../lib/push.js'
+import { enablePush, pushSupported, pushPermission } from '../lib/push.js'
 
 const messageOf = n => ({
   friend_request: t('{0} wants to connect with you', n.actor?.name || t('A member')),
@@ -23,6 +23,7 @@ export default function Notifications() {
   const [items, setItems] = useState(null)
   const [pushOn, setPushOn] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
+  const permission = pushSupported() ? pushPermission() : 'unsupported'
   useEffect(() => { fetchSocialPreferences().then(v => setPushOn(!!v.notifications.push)).catch(() => {}) }, [])
   const load = () => fetchNotifications().then(data => { setItems(data.notifications); setUnread(data.unread) }).catch(e => toast(e.message))
   useEffect(() => { load() }, [])
@@ -35,15 +36,15 @@ export default function Notifications() {
   return <main className="narrow">
     <header className="hdr"><div><h1>{t('Notifications')}</h1><div className="sub">{t('Only the updates you chose to receive')}</div></div>
       {!!items?.some(x => !x.readAt) && <Button size="sm" onClick={readAll}>{t('Mark all read')}</Button>}</header>
-    {pushSupported() && <section className="card push-card"><div className="row between"><div><div className="tt">{t('Stay in the loop')}</div><div className="ss">{t('Get friend requests and messages when 2J is closed.')}</div></div>
-      <Button size="sm" variant={pushOn ? 'tinted' : 'primary'} disabled={pushBusy} onClick={async () => { setPushBusy(true); try { if (!pushOn) await enablePush(); const prefs = await saveSocialPreferences({ notifications: { push: !pushOn } }); setPushOn(prefs.notifications.push) } catch (e) { toast(e.message) } finally { setPushBusy(false) } }}>{pushOn ? t('Turn off social alerts') : t('Enable push')}</Button></div>
-      <div className="muted small" style={{ marginTop: 8 }}>{t('You choose first; no permission request happens until you tap Enable push.')}</div></section>}
+    {pushSupported() && <section className="card push-card"><div className="row between"><div><div className="tt">{t('Stay in the loop')}</div><div className="ss">{t('Friend requests, messages and content shared directly with you.')}</div></div>
+      <Button size="sm" variant={pushOn ? 'tinted' : 'primary'} disabled={pushBusy || (!pushOn && permission === 'denied')} onClick={async () => { setPushBusy(true); try { if (!pushOn) await enablePush(); const prefs = await saveSocialPreferences({ notifications: { push: !pushOn } }); setPushOn(prefs.notifications.push) } catch (e) { toast(e.message) } finally { setPushBusy(false) } }}>{pushOn ? t('Turn off social alerts') : permission === 'denied' ? t('Push blocked in browser') : t('Enable push')}</Button></div>
+      <div className="muted small" style={{ marginTop: 8 }}>{permission === 'denied' ? t('Push is blocked by your browser. In-app notifications still work.') : t('You choose first; no permission request happens until you tap Enable push.')}</div></section>}
     {items === null ? <div className="muted small">{t('Loading…')}</div> : items.length ? <div className="list">
       {items.map(item => <button type="button" key={item.id} className="item notification-item" onClick={() => open(item)} aria-label={messageOf(item)}>
         <span className="lrow-i"><Icon name={item.type === 'message' ? 'message' : item.type.startsWith('friend') ? 'users' : 'bell'} /></span>
         <span className="grow"><span className="tt">{messageOf(item)}</span><span className="ss">{new Date(item.createdAt).toLocaleString()}</span></span>
         {!item.readAt && <span className="tag acc">{t('Unread item')}</span>}
       </button>)}
-    </div> : <div className="empty"><div className="ico"><Icon name="bell" /></div>{t('You’re all caught up')}<br /><span className="small muted">{t('Friend requests and messages will appear here.')}</span></div>}
+    </div> : <div className="empty"><div className="ico"><Icon name="bell" /></div>{t('You’re all caught up')}<br /><span className="small muted">{t('Friend requests, shared moments and challenge updates will appear here.')}</span></div>}
   </main>
 }

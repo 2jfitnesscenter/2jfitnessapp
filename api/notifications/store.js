@@ -43,11 +43,13 @@ const categoryFor = type => ({ friend_request: 'friendRequests', friend_accepted
 export function create(uid, input) {
   if (!uid || !input || !['friend_request', 'friend_accepted', 'message', 'share', 'challenge', 'achievement'].includes(input.type)) return null;
   if (!allows(uid, input.type)) return null;
+  if (input.dedupeKey && state.items.some(x => x.userId === uid && x.dedupeKey === String(input.dedupeKey).slice(0, 140))) return null;
   const item = {
     id: crypto.randomBytes(9).toString('base64url'), userId: uid, type: input.type,
     actor: input.actor ? { id: String(input.actor.id || '').slice(0, 80), name: String(input.actor.name || '').slice(0, 80) } : null,
     target: input.target ? { kind: String(input.target.kind || '').slice(0, 32), id: String(input.target.id || '').slice(0, 100) } : null,
-    deepLink: /^\/(friends|chat(?:\/[^?#]+)?|social|notifications)(?:\?[^#]*)?$/.test(input.deepLink || '') ? input.deepLink : '/notifications',
+    deepLink: /^\/(?:friends(?:\?[^#]*)?|chat(?:\/[A-Za-z0-9_-]+)?|social(?:\/(?:share|profile)\/[A-Za-z0-9_-]+)?(?:\?[^#]*)?|notifications|admin\/social-reports)$/.test(input.deepLink || '') ? input.deepLink : '/notifications',
+    ...(input.dedupeKey ? { dedupeKey: String(input.dedupeKey).slice(0, 140) } : {}),
     createdAt: Date.now(), readAt: null
   };
   state.items.push(item);

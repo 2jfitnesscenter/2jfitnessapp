@@ -564,6 +564,9 @@ export default function Admin() {
     <AdminNavCard icon="users" tint="var(--blue)" title={t('Members')}
       sub={users ? t('{0} users · {1} active this week', users.length, activeCount) : t('Loading…')} onClick={() => nav('/admin/members')} />
 
+    <AdminNavCard icon="flag" tint="var(--orange)" title={t('Community reports')}
+      sub={t('Review member reports and remove content when needed')} onClick={() => nav('/admin/social-reports')} />
+
     <AdminNavCard icon="link" tint="var(--blue)" title={t('Invite codes')}
       sub={invites ? t('{0} unused · {1} redeemed', invites.filter(i => !i.usedBy).length, invites.filter(i => i.usedBy).length) : t('Loading…')}
       onClick={() => openSheet(close => <InvitesSheet invites={invites} reload={loadInvites} close={close} />)} />

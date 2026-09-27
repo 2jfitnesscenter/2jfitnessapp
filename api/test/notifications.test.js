@@ -44,6 +44,20 @@ test('partial preference writes retain other choices and notification routes aut
   assert.equal(response.body.unread, 0);
 });
 
+test('share, challenge and moderation deep links are allowlisted and notification dedupe is idempotent', () => {
+  store.resetForTests();
+  const share = store.create('b', { type: 'share', target: { kind: 'share', id: 's1' }, deepLink: '/social/share/s1', dedupeKey: 'share-message:m1' });
+  assert.equal(share.deepLink, '/social/share/s1');
+  assert.equal(store.create('b', { type: 'share', target: { kind: 'share', id: 's1' }, deepLink: '/social/share/s1', dedupeKey: 'share-message:m1' }), null);
+  const challenge = store.create('b', { type: 'challenge', deepLink: '/social?tab=challenges&id=c1' });
+  assert.equal(challenge.deepLink, '/social?tab=challenges&id=c1');
+  const moderation = store.create('a', { type: 'share', deepLink: '/admin/social-reports' });
+  assert.equal(moderation.deepLink, '/admin/social-reports');
+  const unsafe = store.create('b', { type: 'share', deepLink: '/social/share/../admin' });
+  assert.equal(unsafe.deepLink, '/notifications');
+  assert.equal(store.unreadCount('b'), 3);
+});
+
 test('social visibility respects audience, content category and live blocks', () => {
   const friends = new Set(['owner:friend']);
   const isFriend = (author, viewer) => friends.has(`${author}:${viewer}`);

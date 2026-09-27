@@ -27,6 +27,8 @@ import { chatRoutes } from './chat/routes.js';
 import { notificationRoutes } from './notifications/routes.js';
 import * as notificationStore from './notifications/store.js';
 import { canViewSharedContent } from './notifications/privacy.js';
+import { sharingRoutes } from './social/sharing-routes.js';
+import * as sharingStore from './social/sharing-store.js';
 import { bunkerRoutes } from './bunker/routes.js';
 import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
@@ -492,6 +494,73 @@ function socialFriends(a, b) {
 }
 function canViewSocialShare(user, authorId, kind) {
   return canViewSharedContent({ authorId, viewerId: user.id, kind, privacy: notificationStore.privacyFor(authorId), isFriend: socialFriends });
+}
+function resolveShareTarget(ownerId, kind, targetId) {
+  const u = db.users.find(x => x.id === ownerId);
+  if (!u) return null;
+  const clean = value => String(value || '').replace(/[\u0000-\u001f]/g, '').slice(0, 90);
+  if (kind === 'workout') {
+    const w = readState(ownerId)?.workouts?.find(x => x.id === targetId);
+    if (!w) return null;
+    const sets = (w.entries || []).flatMap(e => e.sets || []).filter(s => s.done).length;
+    return { title: clean(w.name) || 'Workout completed', metric: `${sets} sets · ${(w.entries || []).length} exercises`, date: clean(w.d) };
+  }
+  if (kind === 'achievement') {
+    const badge = readState(ownerId)?.badges?.[targetId];
+    if (!badge?.unlockedAt) return null;
+    return { title: 'Achievement unlocked', metric: '2J badge', date: clean(String(badge.unlockedAt).slice(0, 10)) };
+  }
+  if (kind === 'streak') {
+    const workouts = readState(ownerId)?.workouts || [];
+    const weeks = [...new Set(workouts.map(w => { const d = new Date(`${w.d}T12:00:00Z`); if (Number.isNaN(+d)) return ''; const day = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - day); return d.toISOString().slice(0, 10); }).filter(Boolean))].sort().reverse();
+    if (!weeks.length) return null;
+    const currentWeek = new Date(); const day = (currentWeek.getUTCDay() + 6) % 7; currentWeek.setUTCHours(0, 0, 0, 0); currentWeek.setUTCDate(currentWeek.getUTCDate() - day);
+    if (weeks[0] !== currentWeek.toISOString().slice(0, 10)) return null;
+    let count = 1;
+    for (let i = 1; i < weeks.length; i++) { const prev = new Date(`${weeks[i - 1]}T12:00:00Z`); prev.setUTCDate(prev.getUTCDate() - 7); if (prev.toISOString().slice(0, 10) !== weeks[i]) break; count++; }
+    if (String(count) !== String(targetId)) return null;
+    return { title: 'Training streak', metric: `${count} ${count === 1 ? 'week' : 'weeks'}`, date: weeks[0] };
+  }
+  if (kind === 'record') {
+    const post = social.wall.find(x => x.id === targetId && x.authorId === ownerId);
+    if (!post) return null;
+    return { title: clean(post.exName), metric: clean(post.mode === 'reps' ? `${post.value?.w} kg × ${post.value?.r}` : post.mode === 'time' ? `${post.value?.sec} sec` : 'Cardio PR'), date: clean(post.sourceDate) };
+  }
+  if (kind === 'routine' || kind === 'program') {
+    const post = social[kind === 'routine' ? 'routines' : 'programs'].find(x => x.id === targetId && x.authorId === ownerId);
+    if (!post) return null;
+    return { title: clean(post.name), metric: kind === 'routine' ? `${post.ex?.length || 0} exercises` : `${post.routines?.length || 0} routines`, date: clean(new Date(post.createdAt).toISOString().slice(0, 10)) };
+  }
+  if (kind === 'challenge') {
+    const c = social.challenges.find(x => x.id === targetId && (x.authorId === ownerId || x.participants?.includes(ownerId) || canViewSocialShare({ id: ownerId }, x.authorId, 'challenge')));
+    if (!c) return null;
+    return { title: clean(c.name), metric: c.type === 'frequency' ? `${c.targetWorkouts || 0} workouts` : 'Community challenge', date: clean(c.endDate) };
+  }
+  return null;
+}
+function resolveReportedContent(viewer, type, id) {
+  if (type === 'share') {
+    const s = sharingStore.findShare(id);
+    const accessKind = s?.kind === 'record' ? 'pr' : ['routine', 'program'].includes(s?.kind) ? 'routine' : ['achievement', 'streak'].includes(s?.kind) ? 'achievement' : s?.kind;
+    if (s && !isAdmin(viewer) && !canViewSocialShare(viewer, s.authorId, accessKind)) return null;
+    const card = s && resolveShareTarget(s.authorId, s.kind, s.targetId);
+    return s && card ? { id: s.id, authorId: s.authorId, authorName: s.authorName, title: card.title, kind: s.kind } : null;
+  }
+  const list = ({ wall: social.wall, routine: social.routines, program: social.programs, challenge: social.challenges, topic: social.topics })[type] || [];
+  const post = list.find(x => x.id === id);
+  if (!post || post.authorId === viewer.id) return null;
+  const category = ({ wall: 'pr', routine: 'routine', program: 'program', challenge: 'challenge', topic: 'routine' })[type];
+  if (!isAdmin(viewer) && !canViewSocialShare(viewer, post.authorId, category)) return null;
+  return { id: post.id, authorId: post.authorId, authorName: post.authorName, title: String(post.name || post.exName || post.title || 'Community post').slice(0, 90), kind: type };
+}
+function removeReportedContent(type, id, actor) {
+  if (type === 'share') return sharingStore.deleteShare(id, actor.id, true);
+  const key = ({ wall: 'wall', routine: 'routines', program: 'programs', challenge: 'challenges', topic: 'topics' })[type];
+  if (!key) return false;
+  const list = social[key], before = list.length;
+  social[key] = list.filter(x => x.id !== id);
+  if (social[key].length === before) return false;
+  saveSocial(); return true;
 }
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -2181,7 +2250,13 @@ const routes = {
     const body = await readBody(req);
     const c = social.challenges.find(x => x.id === body.id);
     if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
-    if (!c.participants.includes(user.id)) c.participants.push(user.id);
+    if (!c.participants.includes(user.id)) {
+      c.participants.push(user.id);
+      if (c.authorId !== user.id) {
+        const n = notificationStore.create(c.authorId, { type: 'challenge', actor: { id: user.id, name: user.name }, target: { kind: 'challenge', id: c.id }, deepLink: '/social?tab=challenges&id=' + c.id, dedupeKey: 'challenge-join:' + c.id + ':' + user.id });
+        if (n) sendSocialPush(c.authorId, { title: 'Nuevo participante', body: `${user.name} se ha unido a ${c.name}`, tag: 'challenge-' + c.id, url: '#/social?tab=challenges&id=' + c.id }, 'challenge');
+      }
+    }
     saveSocial();
     json(res, 200, { ok: true });
   },
@@ -2481,11 +2556,19 @@ const routes = {
   // Same factory shape as coachRoutes — their own data/friends.json and data/chat.json, no
   // per-member/per-trainer assignment concept to hook into (trainer status is global, see
   // isTrainer above), so chat is one shared inbox every trainer/admin can see and reply to.
-  ...friendsRoutes({ json, readBody, readSession, sendPush: (uid, payload) => socialPush(uid, payload, 'friend_request'), users: () => db.users, notify: notificationStore.create }),
-  ...chatRoutes({ json, readBody, readSession, sendPush: (uid, payload) => socialPush(uid, payload, 'message'), isTrainer, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), isFriend: (a, b) => {
+  ...friendsRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'friend_request'), users: () => db.users, notify: notificationStore.create }),
+  ...chatRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'message'), isTrainer, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), resolveShare: (id, viewer) => {
+    const share = sharingStore.findShare(id); if (!share) return null;
+    const pref = notificationStore.privacyFor(share.authorId);
+    const kind = share.kind === 'record' ? 'pr' : ['routine', 'program'].includes(share.kind) ? 'routine' : ['achievement', 'streak'].includes(share.kind) ? 'achievement' : share.kind;
+    if (!canViewSocialShare(viewer, share.authorId, kind)) return null;
+    const card = resolveShareTarget(share.authorId, share.kind, share.targetId);
+    return card ? { id: share.id, kind: share.kind, authorName: share.authorName, card } : null;
+  }, isFriend: (a, b) => {
     // Friend graph is the existing authoritative relationship model.
     return friendsStore.friendIdsOf(a).includes(b) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
   } }),
+  ...sharingRoutes({ json, readBody, readSession, users: () => db.users, isAdmin, resolveTarget: resolveShareTarget, canShareWith: (ownerId, viewerId, kind) => canViewSocialShare({ id: viewerId }, ownerId, kind === 'record' ? 'pr' : ['routine', 'program'].includes(kind) ? 'routine' : ['achievement', 'streak'].includes(kind) ? 'achievement' : kind), resolveReported: resolveReportedContent, removeReported: removeReportedContent, notify: notificationStore.create, sendPush: (uid, payload, type) => sendSocialPush(uid, payload, type) }),
   ...notificationRoutes({ json, readBody, readSession }),
 
   /* ---------- Bunker (gym-floor kiosk) ---------- */

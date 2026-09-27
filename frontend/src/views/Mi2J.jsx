@@ -13,6 +13,7 @@ import { rankSnapshot, personalRecords, unlockedBadges, closestBadges } from '..
 import { streakWeeks } from '../lib/history.js'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Button } from '../components/ui.jsx'
+import { openSocialShare } from '../lib/open-social-share.jsx'
 
 // The carnet: who this member is inside 2J, at a glance. Everything is derived (lib/mi2j.js).
 export function Carnet({ S, user, snap, onRanks, compact }) {
@@ -50,6 +51,7 @@ export default function Mi2J() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
+  const streak = streakWeeks(S)
   // One derivation per history change, not per render.
   const snap = useMemo(() => rankSnapshot(S), [S.workouts, S.bodyweight, S.tests, S.body])
   const records = useMemo(() => personalRecords(S), [S.workouts])
@@ -71,6 +73,7 @@ export default function Mi2J() {
     </div>
 
     <Carnet S={S} user={user} snap={snap} onRanks={() => nav('/rank')} />
+    {streak > 0 && <Button variant="tinted" icon="upload" style={{ width: '100%', marginTop: 12 }} onClick={() => openSocialShare({ kind: 'streak', targetId: String(streak), title: t('My training streak'), metric: t('{0} weeks in a row', streak), subtitle: t('Consistency in motion'), date: new Date().toISOString().slice(0, 10) })}>{t('Share')}</Button>}
 
     <div className="m2-tiles">
       {tiles.map(x => <button key={x.to} className="m2-tile" onClick={() => nav(x.to)}>

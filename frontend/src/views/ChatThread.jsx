@@ -8,6 +8,8 @@ import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { TextField } from '../components/ui.jsx'
 import { fetchMessages, sendMessage, setThreadStatus } from '../lib/chat-api.js'
+import CommunityShareCard from '../components/CommunityShareCard.jsx'
+import ReportContentButton from '../components/ReportContentButton.jsx'
 
 // No websocket infra anywhere in this app — poll while the thread is actually on screen,
 // cleared on unmount, same "browse-on-open" spirit as the rest of Social/Chat's REST-only API.
@@ -60,6 +62,10 @@ export default function ChatThread() {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 2px', overflowY: 'auto' }}>
       {messages.map(m => {
         const mine = m.authorId === user?.id
+        if (m.type === 'share') return <article key={m.id} className={'chat-share-bubble' + (mine ? ' mine' : '')}>
+          {m.share ? <><div className="chat-share-caption">{mine ? t('You shared a training moment') : t('{0} shared a training moment', thread.memberName)}</div><button className="chat-share-open" onClick={() => nav('/social/share/' + m.share.id)}><CommunityShareCard data={{ kind: m.share.kind, ...m.share.card }} /></button><div className="chat-share-foot"><ReportContentButton targetType="share" targetId={m.share.id} /></div></>
+            : <div className="chat-share-unavailable"><Icon name="lock" /><span>{t('This shared moment is no longer available')}</span></div>}
+        </article>
         return <div key={m.id} style={{
           alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '78%',
           background: mine ? 'var(--acc)' : 'var(--surface)', color: mine ? 'var(--on-acc)' : 'var(--label)',

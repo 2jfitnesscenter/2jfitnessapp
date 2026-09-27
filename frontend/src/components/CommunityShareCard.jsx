@@ -1,8 +1,8 @@
 import { t } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
 
-const iconFor = kind => ({ routine: 'dumbbell', program: 'calendar', record: 'trophy', challenge: 'flag' }[kind] || 'users')
-const kickerFor = kind => ({ routine: 'A routine worth sharing', program: 'A program to inspire', record: 'A real training mark', challenge: 'Train together' }[kind] || '2J Community')
+const iconFor = kind => ({ routine: 'dumbbell', program: 'calendar', record: 'trophy', challenge: 'flag', workout: 'figureStrength', achievement: 'sparkles', streak: 'flame' }[kind] || 'users')
+const kickerFor = kind => ({ routine: 'A routine worth sharing', program: 'A program to inspire', record: 'A real training mark', challenge: 'Train together', workout: 'Session complete', achievement: 'Achievement unlocked', streak: 'Consistency in motion' }[kind] || '2J Community')
 
 export default function CommunityShareCard({ data, cardRef }) {
   return <article ref={cardRef} className="community-sharecard" data-share-kind={data.kind}>

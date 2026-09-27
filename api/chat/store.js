@@ -56,6 +56,7 @@ export function createDirect(a, b) {
 export function messagesOf(threadId) {
   return store.messages.filter(m => m.threadId === threadId).sort((a, b) => a.createdAt - b.createdAt);
 }
+export function findShareMessage(shareId) { return store.messages.find(m => m.type === 'share' && m.shareId === shareId) || null; }
 export function lastMessageOf(threadId) {
   const msgs = messagesOf(threadId);
   return msgs.length ? msgs[msgs.length - 1] : null;
@@ -68,6 +69,14 @@ export function addMessage(threadId, authorId, authorRole, text) {
   if (thread) thread.updatedAt = now;
   save();
   return message;
+}
+export function addShareMessage(threadId, authorId, authorRole, shareId) {
+  const now = Date.now();
+  const message = { id: crypto.randomBytes(9).toString('base64url'), threadId, authorId, authorRole, type: 'share', shareId: String(shareId).slice(0, 100), createdAt: now };
+  store.messages.push(message);
+  const thread = store.threads.find(t => t.id === threadId);
+  if (thread) thread.updatedAt = now;
+  save(); return message;
 }
 export function markRead(threadId, userId) {
   const thread = store.threads.find(t => t.id === threadId);

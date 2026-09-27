@@ -12,6 +12,7 @@ import { BADGE_CATEGORIES, CATEGORY_LABEL, CATEGORY_ICON, CATEGORY_IMAGE, BADGES
 import { evaluateBadges } from '../lib/badges.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+import { openSocialShare } from '../lib/open-social-share.jsx'
 
 // The illustrated PNG when a badge/category has one (every category but 'exercises', see
 // badges-data.js), falling back to the old SVG icon registry otherwise — one place for that
@@ -33,7 +34,10 @@ function BadgeDetail({ b, state, close }) {
     <h3 style={{ margin: '0 0 6px' }}>{t(b.title)}</h3>
     <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 16 }}>{t(b.description)}</div>
     {unlocked ? (
+      <>
       <div className="tag acc nocap" style={{ display: 'inline-flex' }}>{t('Unlocked {0}', fmtDate(state.unlockedAt.slice(0, 10), true))}</div>
+      <div style={{ height: 12 }} /><Button variant="tinted" icon="upload" onClick={() => openSocialShare({ kind: 'achievement', targetId: b.id, title: t(b.title), metric: t('Achievement unlocked'), subtitle: t(b.description), date: fmtDate(state.unlockedAt.slice(0, 10), true) })}>{t('Share')}</Button>
+      </>
     ) : (
       <>
         <div className="badgecell-bar" style={{ marginBottom: 6 }}><i style={{ width: pct + '%' }} /></div>

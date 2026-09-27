@@ -12,4 +12,9 @@ describe('social share card payload', () => {
     expect(() => socialCardPayload('health', {})).toThrow()
     expect(socialCardPayload('routine', { title: 'x'.repeat(200) }).title).toHaveLength(80)
   })
+  it.each(['workout', 'achievement', 'streak'])('supports the %s card without accepting profile/health fields', kind => {
+    const card = socialCardPayload(kind, { title: 'Moment', metric: '12', body: 'private', health: { weight: 80 }, restrictions: ['x'] })
+    expect(card.kind).toBe(kind)
+    expect(JSON.stringify(card)).not.toMatch(/health|restrictions|private/)
+  })
 })

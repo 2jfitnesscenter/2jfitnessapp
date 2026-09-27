@@ -9,6 +9,9 @@ import { EXIDX } from '../lib/exercises.js'
 import { personalRecords } from '../lib/mi2j.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+import { useUI } from '../store/useUI.js'
+import { fetchWall, publishWallPost } from '../lib/social-api.js'
+import { socialCardPayload } from '../lib/social-share.js'
 
 // My records: per exercise, the heaviest set really lifted (weight × reps, the same rule the
 // finish summary uses for a PR) and, apart and labelled as such, the best ESTIMATED 1RM. The
@@ -18,6 +21,21 @@ export default function Records() {
   const S = useStore(s => s.S)
   const records = useMemo(() => personalRecords(S), [S.workouts])
   const unit = S.unit
+  const toast = useUI(s => s.toast)
+  const shareRecord = async r => {
+    const ex = EXIDX[r.id], exName = ex ? nameFor(ex) : r.id
+    try {
+      const wall = await fetchWall()
+      let post = wall.find(x => x.authorId === useStore.getState().user?.id && x.exId === r.id && x.sourceDate === r.best.d && Number(x.value?.w) === Number(r.best.w) && Number(x.value?.r) === Number(r.best.r))
+      if (!post) {
+        const created = await publishWallPost({ exId: r.id, exName, mode: 'reps', value: { w: r.best.w, r: r.best.r }, sourceDate: r.best.d, public: false })
+        post = { id: created.id }
+      }
+      const { default: SocialShareSheet } = await import('../components/SocialShareSheet.jsx')
+      const data = socialCardPayload('record', { title: exName, metric: `${fmtNum(r.best.w)} ${unit} × ${r.best.r}`, subtitle: t('Personal record'), date: fmtDate(r.best.d, true) })
+      useUI.getState().openSheet(close => <SocialShareSheet data={data} shareTarget={{ kind: 'record', targetId: post.id }} close={close} />, { kind: 'center' })
+    } catch (e) { toast(e.message || t('Could not share this record')) }
+  }
 
   return <div className="narrow">
     <div className="hdr">
@@ -34,7 +52,7 @@ export default function Records() {
       <div className="recs">
         {records.map(r => {
           const ex = EXIDX[r.id]
-          return <button key={r.id} className="rec" onClick={() => nav('/stats?ex=' + r.id)}
+          return <div key={r.id} className="record-share-row"><button className="rec" onClick={() => nav('/stats?ex=' + r.id)}
             aria-label={(ex ? nameFor(ex) : r.id) + ': ' + fmtNum(r.best.w) + ' ' + unit + ' × ' + r.best.r}>
             <div className="rec-h">
               <span className="rec-n capitalize">{ex ? nameFor(ex) : r.id}</span>
@@ -51,7 +69,7 @@ export default function Records() {
               <span>{t('≈ {0} {1} estimated', fmtNum(r.e1rm.est), unit)}</span>
               <span className="dim">{t('from {0}', fmtNum(r.e1rm.w) + ' × ' + r.e1rm.r)}</span>
             </div>}
-          </button>
+          </button><button type="button" className="record-share-button" onClick={() => shareRecord(r)} aria-label={t('Share {0}', ex ? nameFor(ex) : r.id)} title={t('Share')}><Icon name="upload" /></button></div>
         })}
       </div>
     </>}

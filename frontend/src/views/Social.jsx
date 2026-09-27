@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t, nameFor } from '../lib/i18n.js'
@@ -30,6 +30,7 @@ import { fetchFriends } from '../lib/friends-api.js'
 import { fetchThreads } from '../lib/chat-api.js'
 import { fetchNotifications } from '../lib/notifications-api.js'
 import SocialShareSheet from '../components/SocialShareSheet.jsx'
+import SocialMoments from './SocialMoments.jsx'
 import { socialCardPayload } from '../lib/social-share.js'
 import { communityIntroSeen, markCommunityIntroSeen } from '../lib/community-onboarding.js'
 
@@ -322,7 +323,7 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
 
   return <>
     <DetailHeader post={post} isProgram={false} isOwn={isOwn} onRate={rate} />
-    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('routine', { title: post.name, subtitle: post.description || t('A routine shared with the 2J community'), metric: t('{0} exercises', post.ex.length), date: fmtDate(post.createdAt, true) })} close={close2} />, { kind: 'center' })}>{t('Share image')}</Button>
+    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('routine', { title: post.name, subtitle: post.description || t('A routine shared with the 2J community'), metric: t('{0} exercises', post.ex.length), date: fmtDate(post.createdAt, true) })} shareTarget={isOwn ? { kind: 'routine', targetId: post.id } : null} close={close2} />, { kind: 'center' })}>{t('Share')}</Button>
     <h4 className="sec">{t('Exercises')}</h4>
     <div className="list" style={{ marginBottom: 12 }}>
       {post.ex.map((e, i) => {
@@ -394,7 +395,7 @@ function ProgramDetailSheet({ post: initial, onChanged, close }) {
 
   return <>
     <DetailHeader post={post} isProgram={true} isOwn={isOwn} onRate={rate} />
-    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('program', { title: post.name, subtitle: post.description || t('A program shared with the 2J community'), metric: t('{0} routines', post.routines.length), date: fmtDate(post.createdAt, true) })} close={close2} />, { kind: 'center' })}>{t('Share image')}</Button>
+    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('program', { title: post.name, subtitle: post.description || t('A program shared with the 2J community'), metric: t('{0} routines', post.routines.length), date: fmtDate(post.createdAt, true) })} shareTarget={isOwn ? { kind: 'program', targetId: post.id } : null} close={close2} />, { kind: 'center' })}>{t('Share')}</Button>
     <h4 className="sec">{t('Workouts in this program')}</h4>
     <div className="list" style={{ marginBottom: 12 }}>
       {post.routines.map((r, i) => <div key={i} className="item"
@@ -473,7 +474,7 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
         <div className="ss capitalize row" style={{ gap: 4 }}>{post.authorName} · {setLabel(post.exId, post.value, { mode: post.mode })} · {fmtDate(post.sourceDate, true)}{post.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
       </div>
     </div>
-    {post.public && <Button icon="upload" style={{ width: '100%', marginBottom: 10 }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('record', { title: post.exName, metric: setLabel(post.exId, post.value, { mode: post.mode }), subtitle: t('Personal record shared by {0}', post.authorName), date: fmtDate(post.sourceDate, true) })} close={close2} />, { kind: 'center' })}>{t('Share image')}</Button>}
+    <Button icon="upload" style={{ width: '100%', marginBottom: 10 }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('record', { title: post.exName, metric: setLabel(post.exId, post.value, { mode: post.mode }), subtitle: t('Personal record shared by {0}', post.authorName), date: fmtDate(post.sourceDate, true) })} shareTarget={isOwn ? { kind: 'record', targetId: post.id } : null} close={close2} />, { kind: 'center' })}>{t('Share')}</Button>
     {post.note && <div className="small" style={{ margin: '0 0 14px', lineHeight: 1.5 }}>“{post.note}”</div>}
     {(isOwn || user?.admin) && <div className="row between" style={{ margin: '0 0 14px', padding: '10px 12px', borderRadius: 10, background: 'var(--fill)' }}>
       <div className="row" style={{ gap: 6 }}><Icon name={post.public ? 'globe' : 'lock'} style={{ width: 16, height: 16 }} /><div className="small">{post.public ? t('Visible to everyone') : t('Only visible to you')}</div></div>
@@ -780,7 +781,7 @@ function ChallengeDetailSheet({ id, onChanged, close }) {
   })
   return <>
     <h3>{c.name}</h3>
-    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('challenge', { title: c.name, subtitle: c.description || t('Train together'), metric: c.type === 'frequency' ? t('{0} workouts', c.targetWorkouts) : `${c.targetValue} ${unitLabel}`, date: `${fmtDate(c.startDate)} – ${fmtDate(c.endDate)}` })} close={close2} />, { kind: 'center' })}>{t('Share image')}</Button>
+    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('challenge', { title: c.name, subtitle: c.description || t('Train together'), metric: c.type === 'frequency' ? t('{0} workouts', c.targetWorkouts) : `${c.targetValue} ${unitLabel}`, date: `${fmtDate(c.startDate)} – ${fmtDate(c.endDate)}` })} shareTarget={{ kind: 'challenge', targetId: c.id }} close={close2} />, { kind: 'center' })}>{t('Share')}</Button>
     {c.description && <div className="small dim" style={{ margin: '6px 0 12px', lineHeight: 1.5 }}>{c.description}</div>}
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
       <span className="tag acc">{c.type === 'frequency' ? `${c.targetWorkouts} entrenos` : `${c.targetValue} ${unitLabel} · ${c.exName}`}</span>
@@ -922,12 +923,13 @@ function GoalsSection({ goals, loadGoals }) {
 
 export default function Social() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const user = useStore(s => s.user)
   const S = useStore(s => s.S)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
   const unreadNotifications = useUI(s => s.notificationUnread)
-  const [tab, setTab] = useState('muro')
+  const [tab, setTab] = useState(() => ['muro', 'moments', 'routines', 'board', 'challenges'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'muro')
   const [introStep, setIntroStep] = useState(() => communityIntroSeen(() => window.localStorage, user?.id) ? -1 : 0)
   const [communityStats, setCommunityStats] = useState(null)
   const [routines, setRoutines] = useState(null)
@@ -937,6 +939,7 @@ export default function Social() {
   const [board, setBoard] = useState(null)
   const [challenges, setChallenges] = useState(null)
   const [goals, setGoals] = useState(null)
+  const handledChallengeLink = useRef(null)
 
   const loadRoutines = () => fetchSocialRoutines().then(setRoutines).catch(e => toast(e.message))
   const loadPrograms = () => fetchSocialPrograms().then(setPrograms).catch(e => toast(e.message))
@@ -953,6 +956,12 @@ export default function Social() {
   useEffect(() => { if (tab === 'board' && board === null) loadBoard() }, [tab])
   useEffect(() => { if (tab === 'challenges' && challenges === null) { loadChallenges(); loadGoals() } }, [tab])
   useEffect(() => { if (tab === 'challenges' && wall === null) loadWall() }, [tab])
+  useEffect(() => {
+    const id = searchParams.get('id')
+    if (tab !== 'challenges' || !id || !challenges || handledChallengeLink.current === id) return
+    handledChallengeLink.current = id
+    if (challenges.some(c => c.id === id)) openSheet(close => <ChallengeDetailSheet id={id} onChanged={loadChallenges} close={close} />, { kind: 'center' })
+  }, [tab, challenges, searchParams])
   useEffect(() => {
     let live = true
     Promise.allSettled([fetchFriends(), fetchThreads(), fetchNotifications()]).then(results => {
@@ -1026,7 +1035,7 @@ export default function Social() {
         <span className="community-tile-icon"><Icon name="bell" /></span><span className="community-tile-copy"><strong>{t('Notifications')}</strong><small>{communityStats?.unreadNotifications ? t('{0} unread', communityStats.unreadNotifications) : t('Requests, messages and shared moments')}</small></span><Icon name="chevronRight" />
       </button>
     </section>
-    <Segmented options={[{ value: 'muro', label: t('Wall') }, { value: 'routines', label: t('Routines') }, { value: 'board', label: t('Trainers') }, { value: 'challenges', label: t('Challenges & PRs') }]} value={tab} onChange={setTab} />
+    <Segmented options={[{ value: 'muro', label: t('Wall') }, { value: 'moments', label: t('Moments') }, { value: 'routines', label: t('Routines') }, { value: 'board', label: t('Trainers') }, { value: 'challenges', label: t('Challenges & PRs') }]} value={tab} onChange={setTab} />
     <div style={{ height: 14 }} />
 
     {tab === 'muro' && <>
@@ -1045,6 +1054,8 @@ export default function Social() {
         </div>)}</div> :
           <div className="empty"><div className="ico"><Icon name="list" /></div>{t('No topics yet.')}<br />{t('Be the first to start one.')}</div>}
     </>}
+
+    {tab === 'moments' && <><h4 className="sec">{t('Shared moments')}</h4><SocialMoments /></>}
 
     {tab === 'routines' && <>
       <div className="row between" style={{ marginBottom: 10 }}>

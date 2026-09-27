@@ -21,6 +21,7 @@ import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf,
 import { evaluateBadges, evaluateBadgesIn } from './lib/badges.js'
 import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
 import { postWorkoutEvents, heroEvent } from './lib/mi2j.js'
+import InternalShareActions from './components/InternalShareActions.jsx'
 import { markPending, markSeen, pendingCelebration } from './lib/celebrations.js'
 import { EventsSummary, RankHero, EventDetail } from './components/Mi2JEvents.jsx'
 import FitnessSummary from './components/FitnessSummary.jsx'
@@ -2392,6 +2393,8 @@ function WorkoutShareSheet({ w, prs, e1prs, newBadges, close }) {
       <Button variant="tinted" icon="download" disabled={busy} onClick={() => withCapture(doDownload)}>{t('Save')}</Button>
       <Button variant="tinted" icon="clipboard" disabled={busy} onClick={() => withCapture(doCopy)}>{t('Copy')}</Button>
     </div>
+    <div className="small muted" style={{ margin: '14px 0 8px' }}>{t('Choose a destination only when you want to share this completed workout.')}</div>
+    <InternalShareActions target={{ kind: 'workout', targetId: w.id }} />
     <Button variant="plain" className="dim" style={{ marginTop: 8, width: '100%' }} onClick={close}>{t('Close')}</Button>
   </div>
 }

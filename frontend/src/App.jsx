@@ -51,6 +51,8 @@ const ChatThread = lazy(() => import('./views/ChatThread.jsx'))
 const Notifications = lazy(() => import('./views/Notifications.jsx'))
 const SocialPreferences = lazy(() => import('./views/SocialPreferences.jsx'))
 const SocialProfile = lazy(() => import('./views/SocialProfile.jsx'))
+const SocialShareDetail = lazy(() => import('./views/SocialShareDetail.jsx'))
+const SocialReports = lazy(() => import('./views/SocialReports.jsx'))
 import NotificationWatcher from './components/NotificationWatcher.jsx'
 import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements, { SkinfoldsScreen, BodyMeasurementsScreen } from './views/Measurements.jsx'
@@ -225,6 +227,7 @@ function Shell() {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/social/preferences" element={<SocialPreferences />} />
               <Route path="/social/profile/:id" element={<SocialProfile />} />
+              <Route path="/social/share/:id" element={<SocialShareDetail />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/training" element={<TrainingSettings />} />
               <Route path="/settings/stats" element={<StatsSettings />} />
@@ -253,6 +256,7 @@ function Shell() {
               <Route path="/coach/proposal" element={<CoachProposal />} />
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
+              <Route path="/admin/social-reports" element={user?.admin ? <SocialReports /> : <Navigate to="/home" replace />} />
               <Route path="/admin/bunker" element={(user?.admin || user?.trainer) ? <BunkerAdminPage /> : <Navigate to="/home" replace />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes></Suspense>

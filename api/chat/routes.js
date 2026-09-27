@@ -7,7 +7,7 @@ import * as store from './store.js';
 
 const MAX_TEXT = 2000;
 
-export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users, isFriend = () => false, notify = () => {}, markThreadNotificationsRead = () => {} }) {
+export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users, isFriend = () => false, notify = () => {}, markThreadNotificationsRead = () => {}, resolveShare = () => null }) {
   const guard = (req, res) => {
     const user = readSession(req);
     if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
@@ -26,7 +26,7 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
     return {
       id: thread.id, memberId: thread.memberId, status: thread.status,
       createdAt: thread.createdAt, updatedAt: thread.updatedAt,
-      lastMessage: last ? { text: last.text, authorRole: last.authorRole, createdAt: last.createdAt } : null,
+      lastMessage: last ? { type: last.type || 'text', text: last.type === 'share' ? 'Shared content' : last.text, authorRole: last.authorRole, createdAt: last.createdAt } : null,
       unread: !!last && last.authorId !== viewerId && last.createdAt > readAt
     };
   };
@@ -74,7 +74,10 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       if (!canRead(thread, user)) return json(res, 403, { error: 'prohibido' });
       store.markRead(thread.id, user.id);
       markThreadNotificationsRead(user.id, thread.id);
-      json(res, 200, { thread: { ...preview(thread, user.id), kind: thread.kind || 'trainer', memberName: memberName(thread.kind === 'direct' && thread.memberId === user.id ? thread.recipientId : thread.memberId) }, messages: store.messagesOf(thread.id) });
+      const messages = store.messagesOf(thread.id).map(m => m.type === 'share'
+        ? { ...m, share: resolveShare(m.shareId, user) }
+        : m);
+      json(res, 200, { thread: { ...preview(thread, user.id), kind: thread.kind || 'trainer', memberName: memberName(thread.kind === 'direct' && thread.memberId === user.id ? thread.recipientId : thread.memberId) }, messages });
     },
 
     'POST /api/chat/messages': async (req, res) => {

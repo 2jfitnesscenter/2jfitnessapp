@@ -20,6 +20,7 @@ export default function SocialPreferences() {
   const notice = (label, key) => <label className="item social-pref-row" key={key}><span className="grow">{t(label)}</span><input type="checkbox" checked={!!value.notifications[key]} onChange={e => setNotifications(key, e.target.checked)} /></label>
   return <main className="narrow">
     <header className="hdr"><div><h1>{t('Your privacy')}</h1><div className="sub">{t('Choose what your friends can see')}</div></div><Icon name="lock" /></header>
+    <section className="card social-pref-card social-privacy-intro"><div className="privacy-intro-mark"><Icon name="lock" /></div><div><h3>{t('You decide what people see')}</h3><div className="muted small">{t('Your health data, measurements, trainer notes and restrictions stay private. These settings control only your social profile and shared moments.')}</div></div></section>
     <section className="card social-pref-card"><h3>{t('Profile')}</h3><div className="muted small">{t('Health, measurements and private notes are never shown here.')}</div>
       <p className="small">{t('Who can see your profile')}</p><Segmented options={visibility} value={value.privacy.profile} onChange={v => setPrivacy('profile', v)} />
       <p className="small">{t('Who can see shared activity')}</p><Segmented options={activity} value={value.privacy.activity} onChange={v => setPrivacy('activity', v)} />

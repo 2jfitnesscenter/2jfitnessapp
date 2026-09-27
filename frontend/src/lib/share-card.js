@@ -38,7 +38,7 @@ export function buildShareCardData(S, w, prs = [], e1prs = [], newBadges = []) {
     // them all and this is a highlight, not a ledger (the app's own badge screen is that).
     badges: (newBadges || []).slice(0, 4).map(b => ({ id: b.id, title: b.title, image: b.image })),
     muscleLoad: loadOfWorkouts([w], null, muscleOptsOf(S)),
-    body: S.body,
+    // Never put profile/body data on a share card; the training map alone is enough context.
     crest: MASTER_BADGE_IMAGE,
   }
 }
