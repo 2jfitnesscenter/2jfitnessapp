@@ -38,6 +38,8 @@ import * as whoopConfig from './whoop/config.js';
 import { whoopRoutes } from './whoop/routes.js';
 import { blocksRoutes } from './lib/blocks-routes.js';
 import { guidedRoutes } from './lib/guided-routes.js';
+import * as guidedStore from './lib/guided-store.js';
+import guidedProgramSeed from './lib/guided-programs-official.json' with { type: 'json' };
 import * as gymProfileConfig from './lib/gym-profile-config.js';
 import { cleanEquipment, setOfficialGymEquipment } from './lib/gym-profiles.js';
 import { EQUIPMENT } from './lib/protocol/movements.js';
@@ -2476,11 +2478,39 @@ const routes = {
     if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const name = String(body.name || '').trim().slice(0, 60);
     const routineIds = Array.isArray(body.routineIds) ? body.routineIds : null;
-    if (!name || !routineIds || !routineIds.length) return json(res, 400, { error: 'un programa necesita un nombre y al menos una rutina' });
+    const guidedProgramId = typeof body.guidedProgramId === 'string' ? body.guidedProgramId : '';
+    if (!guidedProgramId && (!name || !routineIds || !routineIds.length)) return json(res, 400, { error: 'un programa necesita un nombre y al menos una rutina' });
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
     const replay = trainerReceipt(S, body, 'member-program');
     if (replay) return json(res, 200, replay);
+    if (guidedProgramId) {
+      const seed = guidedProgramSeed.programs.find(p => p.id === guidedProgramId);
+      if (!seed) return json(res, 404, { error: 'ese programa oficial no existe' });
+      const sourceIds = [...new Set(seed.weeks.flatMap(w => w.sessions.map(s => s.routineId)))];
+      const sourceRoutines = sourceIds.map(id => guidedStore.find(id, { id: '__official_program__' })).filter(Boolean);
+      if (sourceRoutines.length !== sourceIds.length || sourceRoutines.some(r => r.official !== true || r.active === false))
+        return json(res, 409, { error: 'una rutina del programa ya no está disponible' });
+      const restrictions = [...new Set([...(S.programs || []), ...(S.routines || [])].flatMap(x => x?.meta?.restrictions || []))];
+      const policy = enforcePlanPolicy(sourceRoutines.map(r => r.ex), sanitizePlanMeta({ goal: seed.goal, level: seed.level, restrictions }), Object.assign({}, ...sourceRoutines.map(r => blockTypesOf(r.blocks))));
+      if (policy) return json(res, policy.status, { error: policy.error, validation: policy.validation });
+      const routineIdsBySource = Object.fromEntries(sourceIds.map(id => [id, crypto.randomBytes(9).toString('base64url')]));
+      const memberRoutines = sourceRoutines.map(r => ({ id: routineIdsBySource[r.id], name: r.name, emoji: 'sparkles', ex: JSON.parse(JSON.stringify(r.ex)),
+        blocks: JSON.parse(JSON.stringify(r.blocks || [])), meta: { goal: r.goal, level: r.level, restrictions, v: r.protocolVersion || '1.0' } }));
+      const routineSnapshots = Object.fromEntries(sourceRoutines.map(r => [r.id, JSON.parse(JSON.stringify(r))]));
+      const programId = crypto.randomBytes(9).toString('base64url');
+      const assigned = { id: programId, name: seed.name, emoji: 'sparkles', routineIds: sourceIds.map(id => routineIdsBySource[id]),
+        week: Object.fromEntries((seed.weeks[0]?.sessions || []).map(s => [String(s.day), routineIdsBySource[s.routineId]])),
+        source: 'guided-v2', schemaVersion: 1, catalogId: seed.id, status: 'assigned', meta: { goal: seed.goal, level: seed.level, restrictions },
+        weeksCount: seed.weeksCount, sessionsPerWeek: seed.sessionsPerWeek, durationLabel: seed.durationLabel, equipment: seed.equipment,
+        profileTypes: seed.profileTypes, lowImpact: seed.lowImpact, featured: seed.featured, cover: seed.cover,
+        weeks: JSON.parse(JSON.stringify(seed.weeks)), routineSnapshots };
+      S.routines = [...(S.routines || []), ...memberRoutines];
+      S.programs = [...(S.programs || []), assigned];
+      S._ts = Date.now();
+      saveTrainer(member.id, S, body, 'member-program', { ok: true, programId });
+      return json(res, 200, { ok: true, programId, sync: { revision: S._sync.revision, generation: S._sync.generation } });
+    }
     const memberRoutineIds = new Set((S.routines || []).map(r => r.id));
     if (routineIds.some(id => !memberRoutineIds.has(id))) return json(res, 400, { error: 'una de las rutinas no pertenece a este miembro' });
     const progRoutines = routineIds.map(id => S.routines.find(r => r.id === id) || {});

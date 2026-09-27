@@ -40,6 +40,7 @@ import { searchExercises, prioritize, scopeList, facets, movementLabel, equipmen
   preferredOf, variantsFor, favSetOf, toggleFav } from './lib/library/index.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { guidedBlocksOf, buildSteps, summarize } from './lib/guided.js'
+import { completeGuidedProgramSession } from './lib/guided-programs.js'
 import { routineSnapshot } from './lib/train2j.js'
 import GuidedSummary from './components/GuidedSummary.jsx'
 import { MOBILE } from './lib/mobile.js'
@@ -1793,18 +1794,18 @@ export function beginWorkout(routineId, bw) {
    Same path as beginWorkout (buildRoutineEntries, guided blocks, Workout V2 and the guided runner):
    nothing about the member's program, week, dayPlan or routines changes. `src2j` remembers which
    official routine this was, so the finished workout (real history) can say so. */
-export function startOfficialRoutine(r) {
+export function startOfficialRoutine(r, programContext = null) {
   const st = S()
   if (st.active) {
     confirmSheet({ title: t('You have a workout in progress'), message: t('Finish or discard it before starting another one.'),
       confirmText: t('Go to the workout'), onConfirm: () => nav('/workout') })
     return
   }
-  if (shouldShowWorkoutGuide(st)) { openWorkoutGuide({ onDone: () => startOfficialRoutine(r) }); return }
-  if (hasRecentWeighIn(st)) { beginOfficialWorkout(r, null); return }
-  bwSheet({ required: true, onDone: bw => beginOfficialWorkout(r, bw) })
+  if (shouldShowWorkoutGuide(st)) { openWorkoutGuide({ onDone: () => startOfficialRoutine(r, programContext) }); return }
+  if (hasRecentWeighIn(st)) { beginOfficialWorkout(r, null, programContext); return }
+  bwSheet({ required: true, onDone: bw => beginOfficialWorkout(r, bw, programContext) })
 }
-export function beginOfficialWorkout(r, bw) {
+export function beginOfficialWorkout(r, bw, programContext = null) {
   const st = S()
   const snap = routineSnapshot(r, t)
   const entries = buildRoutineEntries(st, snap)
@@ -1813,7 +1814,7 @@ export function beginOfficialWorkout(r, bw) {
   update(s => {
     s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId: null, name: snap.name, bw: bw || null, cur: 0, entries,
       ...(guidedBlocks.length ? { guidedBlocks } : {}),
-      src2j: { id: r.id, name: r.name, category: r.category, v: r.seedVersion || null } }
+      src2j: { id: r.id, name: r.name, category: r.category, v: r.seedVersion || null, ...(programContext ? { program: { ...programContext } } : {}) } }
   })
   useUI.getState().stopRest()
   nav('/workout')
@@ -2497,6 +2498,7 @@ function doFinishWorkout() {
     // A push here would put a backdated log after workouts that actually happened more
     // recently — insertWorkoutSorted keeps S.workouts chronological either way.
     s.workouts = insertWorkoutSorted(s.workouts, w)
+    completeGuidedProgramSession(s, w)
     s.active = null
     // Evaluated against `s` AFTER the push (so totals/streak/volume include this session),
     // with the live A.entries passed through for superset detection — the one thing that

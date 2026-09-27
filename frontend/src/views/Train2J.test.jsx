@@ -19,6 +19,7 @@ vi.mock('../components/WorkoutGuide.jsx', () => ({ openWorkoutGuide: vi.fn() }))
 
 const here = dirname(fileURLToPath(import.meta.url))
 const SEED = JSON.parse(readFileSync(join(here, '..', '..', '..', 'api', 'lib', 'guided-official.json'), 'utf8'))
+const PROGRAM_SEED = JSON.parse(readFileSync(join(here, '..', '..', '..', 'api', 'lib', 'guided-programs-official.json'), 'utf8'))
 const TABATA = SEED.routines.find(r => r.id === 'r2j-tabata-fullbody')
 const clone = x => JSON.parse(JSON.stringify(x))
 const mine = { id: 'r1', name: 'Pierna A', ex: [{ id: '0043', sets: 3, reps: 8, mode: 'reps', rest: 150 }] }
@@ -92,16 +93,37 @@ describe('starting an official routine', () => {
     const { historyStats } = await import('../lib/train2j.js')
     expect(historyStats(S().workouts)[TABATA.id]).toEqual({ count: 1, last: '2026-09-25' })
   })
+  it('runs a program session through the normal Workout/history flow and counts its origin once', async () => {
+    await seed()
+    const source = PROGRAM_SEED.programs[0]
+    const routineIds = [...new Set(source.weeks.flatMap(w => w.sessions.map(s => s.routineId)))]
+    const routines = Object.fromEntries(routineIds.map(id => [id, SEED.routines.find(r => r.id === id)]))
+    const catalog = { ...source, routineIds, routines }
+    const { startGuidedProgram, flattenProgramSessions, programProgress } = await import('../lib/guided-programs.js')
+    let started
+    store.getState().update(s => { started = startGuidedProgram(s, catalog, { id: 'u1', makeId: () => 'fixture-program' }) })
+    const session = flattenProgramSessions(catalog)[0]
+    const routine = started.program.routineSnapshots[session.routineId]
+    sheets.beginOfficialWorkout(routine, null, { programId: started.program.id, sessionId: session.sessionId, week: 1, day: session.day, routineId: session.routineId })
+    store.getState().update(s => { s.active.entries.forEach(e => e.sets.forEach(x => { x.done = true })) })
+    sheets.finishWorkout()
+    expect(S().workouts).toHaveLength(1)
+    expect(S().workouts[0].src2j.program).toMatchObject({ programId: started.program.id, sessionId: session.sessionId, week: 1 })
+    expect(programProgress(S().programs.find(p => p.id === started.program.id), S().workouts)).toMatchObject({ completed: 1, total: 12 })
+    expect(S().routines).toEqual([mine])
+  })
 })
 
 describe('offline catalogue and favourites', () => {
   it('without a connection, the last catalogue this account received is shown; favourites stay on the device', async () => {
     await seed()
-    memory.set('g2j_catalog:u1', JSON.stringify({ routines: SEED.routines, collections: SEED.collections }))
+    memory.set('g2j_catalog:u1', JSON.stringify({ routines: SEED.routines, programs: PROGRAM_SEED.programs, collections: SEED.collections }))
     const g = guidedApi.useGuided
     await g.getState().load('u1')
     expect(g.getState()).toMatchObject({ status: 'ready', offline: true })
     expect(g.getState().routines).toHaveLength(39)
+    expect(g.getState().programs).toHaveLength(4)
+    expect(Object.keys(g.getState().programs[0].routines)).toContain(PROGRAM_SEED.programs[0].weeks[0].sessions[0].routineId)
     expect(g.getState().toggleFavorite(TABATA.id)).toBe(true)
     expect(JSON.parse(memory.get('g2j_favs:u1'))).toEqual([TABATA.id])
     expect(g.getState().toggleFavorite(TABATA.id)).toBe(false)

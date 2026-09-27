@@ -34,6 +34,15 @@ test('the model receives the relevant protocol slice and official blocks — not
   assert.equal(gate.protocolContext({}, { goal: 'fatloss' }).goal, 'general', 'fat loss is not a circuit mandate');
 });
 
+test('the model receives compact official guided programs and only summary progress for an active one', () => {
+  const S = sampleState({ activeProgramId: 'gp-1', programs: [{ id: 'gp-1', source: 'guided-v2', status: 'active', name: 'Mobility', meta: { goal: 'general' }, weeks: [{ sessions: [{ day: 1, routineId: 'r2j-mobility-fullbody' }] }] }],
+    workouts: [{ src2j: { program: { programId: 'gp-1', sessionId: '1:1:0' } } }] });
+  const p = payloadLib.build(S, 'u-program', { kind: 'create', intake: { goal: 'general', experience: 'regular' } });
+  assert.ok(p.protocol.officialPrograms.some(x => x.id === 'g2j-beginner-4w'));
+  assert.deepEqual(p.protocol.activeProgram, { id: 'gp-1', name: 'Mobility', goal: 'general', status: 'active', completed: 1, total: 1, next: null });
+  assert.equal(JSON.stringify(p.protocol.activeProgram).includes('sets'), false, 'progress summary does not copy workout/set history');
+});
+
 test('a plan that fails the protocol twice is never shown or saved', async () => {
   process.env.FIXTURE_MODE = 'protocol-fail';
   create('u-fail');

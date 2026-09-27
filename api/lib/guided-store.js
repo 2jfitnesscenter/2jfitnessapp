@@ -24,9 +24,12 @@ import { validateAgainst2JProtocol, routineFacts, blockTypesOf, ROUTINE_CATEGORI
   GOALS, LEVELS, PROTOCOL_VERSION } from './protocol/index.js';
 import { lookup, sanitizeEntries } from './blocks-store.js';
 import { sanitizeRoutineBlocks } from './plan-meta.js';
+import { equipmentIdOf } from './protocol/movements.js';
 
 const require_ = createRequire(import.meta.url);
 const SEED = require_('./guided-official.json');
+const PROGRAMS = require_('./guided-programs-official.json');
+const EXERCISES = new Map(require_('../coach/library.json').exercises.map(ex => [ex.id, ex]));
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = () => path.join(process.env.DATA_DIR || DATA, 'guided.json');
 export const MAX_PERSONAL = 200;
@@ -88,7 +91,11 @@ export function listFor(user, { trainer = false, admin = false } = {}) {
   const collections = collectionList().filter(c => admin || c.active !== false)
     .map(c => ({ ...c, routineIds: (c.routineIds || []).filter(id => visible.has(id)) }));
   const mine = trainer ? s.personal.filter(r => r.createdBy === user.id) : [];
-  return { routines, collections, mine };
+  const programs = PROGRAMS.programs.filter(p => (p.weeks || []).every(w => (w.sessions || []).every(session => visible.has(session.routineId)))
+  ).map(p => ({ ...p,
+    routineIds: [...new Set((p.weeks || []).flatMap(w => (w.sessions || []).map(s => s.routineId)))],
+  }));
+  return { routines, collections, mine, programs };
 }
 export function find(id, user) {
   if (!id) return null;
@@ -265,4 +272,47 @@ export function compatibleRoutines({ goal, level, max = 10, unavailableEq = [] }
     .slice(0, max)
     .map(r => ({ id: r.id, name: r.name, category: r.category, level: r.level, minutes: r.estimatedMinutes,
       blocks: (r.blocks || []).map(b => b.src).filter(x => typeof x === 'string' && x.startsWith('off-')) }));
+}
+
+/** Compact, active official program candidates for the Coach. Partial equipment fit is retained:
+ * the member and trainer can review a plan even when an individual session needs a swap. */
+export function compatiblePrograms({ goal, level, availableEquipment = null, max = 6 } = {}) {
+  const lv = LEVELS.includes(level) ? level : 'intermediate';
+  const order = { beginner: ['beginner'], intermediate: ['beginner', 'intermediate'], advanced: ['beginner', 'intermediate', 'advanced'] }[lv];
+  const active = new Set(officialList().filter(r => r.active !== false).map(r => r.id));
+  const byId = new Map(officialList().map(r => [r.id, r]));
+  const available = Array.isArray(availableEquipment) ? new Set(availableEquipment) : null;
+  return PROGRAMS.programs.filter(p => (p.goal === goal || (goal === 'endurance' && p.goal === 'general'))
+    && order.includes(p.level)
+    && (p.weeks || []).every(w => (w.sessions || []).every(session => active.has(session.routineId))))
+    .map(p => {
+      const sessions = p.weeks.flatMap(w => w.sessions);
+      const compatible = available ? sessions.filter(s => {
+        const r = byId.get(s.routineId);
+        return r?.ex?.length && r.ex.every(e => {
+          const id = equipmentIdOf(EXERCISES.get(e.id));
+          return id && available.has(id);
+        });
+      }).length : sessions.length;
+      return { id: p.id, name: p.name, goal: p.goal, level: p.level, weeks: p.weeksCount,
+        sessionsPerWeek: p.sessionsPerWeek, duration: p.durationLabel, equipment: p.equipment,
+        equipmentFit: { compatibleSessions: compatible, totalSessions: sessions.length, partial: compatible > 0 && compatible < sessions.length },
+        lowImpact: !!p.lowImpact, featured: !!p.featured };
+    })
+    .filter(p => p.equipmentFit.compatibleSessions > 0)
+    .slice(0, max);
+}
+
+/** Minimal progress context only; no workout/set history is duplicated into the Coach payload. */
+export function activeProgramContext(S) {
+  const p = (S?.programs || []).find(x => x.id === S?.activeProgramId && x.source === 'guided-v2' && x.status === 'active');
+  if (!p) return null;
+  const sessions = (p.weeks || []).flatMap((week, weekIndex) => (week.sessions || []).map((s, dayIndex) => ({
+    sessionId: `${weekIndex + 1}:${s.day}:${dayIndex}`, week: weekIndex + 1, day: s.day, routineId: s.routineId,
+  })));
+  const done = new Set((S.workouts || []).filter(w => w?.src2j?.program?.programId === p.id)
+    .map(w => w.src2j.program.sessionId).filter(Boolean));
+  const next = sessions.find(s => !done.has(s.sessionId)) || null;
+  return { id: p.id, name: p.name, goal: p.meta?.goal || null, status: p.status,
+    completed: sessions.filter(s => done.has(s.sessionId)).length, total: sessions.length, next };
 }

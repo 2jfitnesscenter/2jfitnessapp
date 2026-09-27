@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { validateAgainst2JProtocol, failuresForRepair, compactProtocol, instantiateBlock, RESTRICTIONS, LEVELS, PROTOCOL_VERSION } from '../lib/protocol/index.js';
 import * as blocks from '../lib/blocks-store.js';
-import { compatibleRoutines } from '../lib/guided-store.js';
+import { compatiblePrograms, compatibleRoutines } from '../lib/guided-store.js';
 
 // Coach intake goals → protocol goals. "Fat loss" is not a muscle group or a circuit mandate:
 // strength training keeps its job (2J-RULE-FATLOSS), so it maps to general.
@@ -40,7 +40,7 @@ export function protocolContext(S, profile, unavailableEq = []) {
 }
 
 /** What the model receives: the relevant rules only, plus official blocks it can reuse. */
-export function protocolPayload(ctx, focus = []) {
+export function protocolPayload(ctx, focus = [], activeProgram = null, availableEquipment = null) {
   return {
     ...compactProtocol(ctx.goal, ctx.level),
     restrictions: ctx.restrictions,
@@ -48,6 +48,8 @@ export function protocolPayload(ctx, focus = []) {
     // Complete official 2J guided routines ("Entrena con 2J"), each listed by the official blocks it
     // is made of: curated sessions come before generated ones.
     officialRoutines: compatibleRoutines({ goal: ctx.goal, level: ctx.level, unavailableEq: ctx.unavailableEq }),
+    officialPrograms: compatiblePrograms({ goal: ctx.goal, level: ctx.level, availableEquipment }),
+    ...(activeProgram ? { activeProgram } : {}),
   };
 }
 

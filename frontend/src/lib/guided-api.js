@@ -15,22 +15,30 @@ const FAVS = uid => 'g2j_favs:' + (uid || 'anon')
 const read = k => { try { return JSON.parse(localStorage.getItem(k) || 'null') } catch { return null } }
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* private mode / full */ } }
 const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body) })
+const hydratePrograms = (programs = [], routines = []) => {
+  const byId = Object.fromEntries(routines.map(routine => [routine.id, routine]))
+  return programs.map(program => {
+    const ids = program.routineIds || [...new Set((program.weeks || []).flatMap(week => (week.sessions || []).map(session => session.routineId)))]
+    return { ...program, routineIds: ids, routines: Object.fromEntries(ids.map(id => [id, byId[id]]).filter(([, routine]) => routine)) }
+  })
+}
 
 export const useGuided = create((set, get) => ({
   status: 'idle', offline: false, error: null,
-  routines: [], collections: [], mine: [], canEdit: false, canAssign: false, uid: null, favorites: [],
+  routines: [], programs: [], collections: [], mine: [], canEdit: false, canAssign: false, uid: null, favorites: [],
   async load(uid, force = false) {
     const st = get()
     if (!force && (st.status === 'loading' || (st.status === 'ready' && st.uid === uid))) return
     // Paint the device copy first (instant, and the only option offline), then refresh.
     const cached = read(CACHE(uid))
-    set({ status: cached ? 'ready' : 'loading', uid, favorites: read(FAVS(uid)) || [], ...(cached ? { routines: cached.routines, collections: cached.collections, offline: false } : {}) })
+    set({ status: cached ? 'ready' : 'loading', uid, favorites: read(FAVS(uid)) || [], ...(cached ? { routines: cached.routines, programs: hydratePrograms(cached.programs, cached.routines), collections: cached.collections, offline: false } : {}) })
     try {
       const r = await api('/api/guided')
-      const data = { routines: r.routines || [], collections: r.collections || [] }
+      const data = { routines: r.routines || [], programs: r.programs || [], collections: r.collections || [] }
       // Only what a member sees is kept on the device (never a trainer's own routines).
       write(CACHE(r.uid || uid), data)
-      set({ status: 'ready', offline: false, error: null, ...data, mine: r.mine || [], canEdit: !!r.canEdit, canAssign: !!r.canAssign, uid: r.uid || uid })
+      const programs = hydratePrograms(data.programs, data.routines)
+      set({ status: 'ready', offline: false, error: null, ...data, programs, mine: r.mine || [], canEdit: !!r.canEdit, canAssign: !!r.canAssign, uid: r.uid || uid })
     } catch (e) {
       if (cached) set({ status: 'ready', offline: true })
       else set({ status: 'error', error: e.message, offline: typeof navigator !== 'undefined' && navigator.onLine === false })

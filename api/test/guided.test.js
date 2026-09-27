@@ -35,6 +35,8 @@ test('every signed-in person reads the catalogue; anonymous does not', async () 
   assert.equal(m.status, 200);
   assert.equal(m.body.routines.length, 39);
   assert.equal(m.body.collections.length, 7);
+  assert.equal(m.body.programs.length, 4);
+  assert.ok(m.body.programs.every(p => p.weeks.length === p.weeksCount && p.weeks.every(w => w.sessions.length)));
   assert.deepEqual(m.body.mine, []);
   assert.equal(m.body.canEdit, false);
   assert.equal(m.body.canAssign, false);
@@ -62,6 +64,30 @@ test('members cannot write anything', async () => {
   for (const [p, b] of [['/api/guided/save', { routine: { ...r, id: undefined } }], ['/api/guided/duplicate', { id: r.id }], ['/api/guided/active', { id: r.id, active: false }],
     ['/api/guided/delete', { id: r.id }], ['/api/guided/curate', { id: r.id, featured: 1 }], ['/api/guided/collection', { collection: { name: 'x' } }]])
     assert.equal((await req('POST', p, 'm1', b)).status, 403, p);
+  assert.equal((await req('POST', '/api/trainer/member-program', 'm1', { memberId: 'm1', guidedProgramId: 'g2j-beginner-4w' })).status, 403);
+});
+
+test('trainer assigns an official multi-week program as a versioned member snapshot, with receipt replay', async () => {
+  await req('GET', '/api/sync', 'm1'); // initialize this member's existing Sync V2 state
+  const before = (await req('GET', '/api/trainer/member-plan?id=m1', 't1')).body
+  const body = { memberId: 'm1', guidedProgramId: 'g2j-beginner-4w', sync: before.sync, operationId: 'assign-guided-program-1' }
+  const assigned = await req('POST', '/api/trainer/member-program', 't1', body)
+  assert.equal(assigned.status, 200)
+  assert.ok(assigned.body.programId)
+  const plan = (await req('GET', '/api/trainer/member-plan?id=m1', 't1')).body
+  const program = plan.programs.find(p => p.id === assigned.body.programId)
+  assert.ok(program)
+  assert.equal(program.source, 'guided-v2')
+  assert.equal(program.status, 'assigned')
+  assert.equal(program.weeks.length, 4)
+  assert.equal(Object.keys(program.routineSnapshots).length, 9)
+  assert.equal(plan.routines.length, 9)
+  assert.equal((await req('GET', '/api/data', 'm1')).body.state.activeProgramId || null, null)
+  const replay = await req('POST', '/api/trainer/member-program', 't1', body)
+  assert.equal(replay.status, 200)
+  assert.equal((await req('GET', '/api/trainer/member-plan?id=m1', 't1')).body.programs.length, 1)
+  const latest = (await req('GET', '/api/trainer/member-plan?id=m1', 't1')).body
+  assert.equal((await req('POST', '/api/trainer/member-program', 't1', { ...body, sync: latest.sync, guidedProgramId: 'not-a-program', operationId: 'assign-guided-program-2' })).status, 404)
 });
 
 test('trainers duplicate into their own private routines (no IDOR) and cannot touch official ones', async () => {

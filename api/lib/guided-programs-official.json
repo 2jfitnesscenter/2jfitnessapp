@@ -1,0 +1,90 @@
+{
+ "version": 1,
+ "programs": [
+  {
+   "id": "g2j-beginner-4w",
+   "name": "2J · First steps",
+   "description": "Four steady weeks to build a training rhythm with short, approachable sessions.",
+   "goal": "general",
+   "level": "beginner",
+   "weeksCount": 4,
+   "sessionsPerWeek": 3,
+   "durationLabel": "4 weeks",
+   "equipment": ["Bodyweight", "Gym machines"],
+   "profileTypes": ["official", "home", "hotel", "other", "custom"],
+   "lowImpact": true,
+   "featured": true,
+   "cover": "circuit",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-circuit-machines-start"}, {"day": 3, "routineId": "r2j-mobility-fullbody"}, {"day": 5, "routineId": "r2j-circuit-bodyweight"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-circuit-machines-time"}, {"day": 3, "routineId": "r2j-mobility-hips"}, {"day": 5, "routineId": "r2j-circuit-bodyweight"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-circuit-machines-start"}, {"day": 3, "routineId": "r2j-mobility-upper-back"}, {"day": 5, "routineId": "r2j-intervals-bike-start"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-circuit-machines-time"}, {"day": 3, "routineId": "r2j-mobility-post"}, {"day": 5, "routineId": "r2j-core-start"}]}
+   ]
+  },
+  {
+   "id": "g2j-mobility-21d",
+   "name": "2J · Move every day",
+   "description": "A three-week menu of short mobility sessions. Keep the range comfortable; this is not treatment.",
+   "goal": "general",
+   "level": "beginner",
+   "weeksCount": 3,
+   "sessionsPerWeek": 7,
+   "durationLabel": "21 days",
+   "equipment": ["Bodyweight"],
+   "profileTypes": ["official", "home", "hotel", "other", "custom"],
+   "lowImpact": true,
+   "featured": true,
+   "cover": "mobility",
+   "weeks": [
+    {"sessions": [{"day": 0, "routineId": "r2j-mobility-fullbody"}, {"day": 1, "routineId": "r2j-mobility-hips"}, {"day": 2, "routineId": "r2j-mobility-ankles"}, {"day": 3, "routineId": "r2j-mobility-shoulders"}, {"day": 4, "routineId": "r2j-mobility-upper-back"}, {"day": 5, "routineId": "r2j-mobility-pre"}, {"day": 6, "routineId": "r2j-mobility-express"}]},
+    {"sessions": [{"day": 0, "routineId": "r2j-mobility-post"}, {"day": 1, "routineId": "r2j-mobility-hips"}, {"day": 2, "routineId": "r2j-mobility-ankles"}, {"day": 3, "routineId": "r2j-mobility-shoulders"}, {"day": 4, "routineId": "r2j-mobility-upper-back"}, {"day": 5, "routineId": "r2j-mobility-fullbody"}, {"day": 6, "routineId": "r2j-mobility-express"}]},
+    {"sessions": [{"day": 0, "routineId": "r2j-mobility-pre"}, {"day": 1, "routineId": "r2j-mobility-hips"}, {"day": 2, "routineId": "r2j-mobility-ankles"}, {"day": 3, "routineId": "r2j-mobility-shoulders"}, {"day": 4, "routineId": "r2j-mobility-upper-back"}, {"day": 5, "routineId": "r2j-mobility-post"}, {"day": 6, "routineId": "r2j-mobility-express"}]}
+   ]
+  },
+  {
+   "id": "g2j-hiit-mix-4w",
+   "name": "2J · HIIT mix",
+   "description": "Four weeks mixing low-impact intervals, bodyweight and cardio machines. Adjust effort to your day.",
+   "goal": "general",
+   "level": "intermediate",
+   "weeksCount": 4,
+   "sessionsPerWeek": 2,
+   "durationLabel": "4 weeks",
+   "equipment": ["Bodyweight", "Cardio machines"],
+   "profileTypes": ["official", "home", "hotel", "other", "custom"],
+   "lowImpact": true,
+   "featured": true,
+   "cover": "hiit",
+   "weeks": [
+    {"sessions": [{"day": 2, "routineId": "r2j-hiit-lowimpact"}, {"day": 5, "routineId": "r2j-intervals-bike-start"}]},
+    {"sessions": [{"day": 2, "routineId": "r2j-hiit-express"}, {"day": 5, "routineId": "r2j-intervals-elliptical"}]},
+    {"sessions": [{"day": 2, "routineId": "r2j-hiit-lower"}, {"day": 5, "routineId": "r2j-intervals-bike-start"}]},
+    {"sessions": [{"day": 2, "routineId": "r2j-hiit-lowimpact"}, {"day": 5, "routineId": "r2j-intervals-elliptical"}]}
+   ]
+  },
+  {
+   "id": "g2j-cardio-base-6w",
+   "name": "2J · Cardio base",
+   "description": "Six weeks of varied, paced machine sessions to build a repeatable cardio habit.",
+   "goal": "endurance",
+   "level": "beginner",
+   "weeksCount": 6,
+   "sessionsPerWeek": 3,
+   "durationLabel": "6 weeks",
+   "equipment": ["Cardio machines"],
+   "profileTypes": ["official", "other", "custom"],
+   "lowImpact": true,
+   "featured": false,
+   "cover": "interval",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-intervals-bike-start"}, {"day": 3, "routineId": "r2j-intervals-incline-walk"}, {"day": 5, "routineId": "r2j-intervals-elliptical"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-intervals-incline-walk"}, {"day": 3, "routineId": "r2j-intervals-elliptical"}, {"day": 5, "routineId": "r2j-intervals-bike-start"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-intervals-elliptical"}, {"day": 3, "routineId": "r2j-intervals-incline-walk"}, {"day": 5, "routineId": "r2j-intervals-stepmill"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-intervals-bike-start"}, {"day": 3, "routineId": "r2j-intervals-stepmill"}, {"day": 5, "routineId": "r2j-intervals-incline-walk"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-intervals-stepmill"}, {"day": 3, "routineId": "r2j-intervals-elliptical"}, {"day": 5, "routineId": "r2j-intervals-bike-start"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-intervals-bike-start"}, {"day": 3, "routineId": "r2j-intervals-incline-walk"}, {"day": 5, "routineId": "r2j-intervals-elliptical"}]}
+   ]
+  }
+ ]
+}

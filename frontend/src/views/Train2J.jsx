@@ -15,10 +15,12 @@ import { useGuided, favSet } from '../lib/guided-api.js'
 import { filterRoutines, historyStats, recentRoutines, forYou, isNew, memberContext, restrictionIssues, gearKinds, GEAR_LABEL } from '../lib/train2j.js'
 import { CATEGORY_LABEL, LEVEL_LABEL, GOAL_LABEL, TAG_LABEL, RESTRICTION_LABEL } from '../lib/protocol/index.js'
 import { startOfficialRoutine } from '../sheets.jsx'
+import { programProgress } from '../lib/guided-programs.js'
 import { issueText } from '../lib/blocks-api.js'
 import WorkoutCover from '../components/WorkoutCover.jsx'
 import GymProfile from '../components/GymProfile.jsx'
 import Icon from '../components/Icon.jsx'
+import './train2j-program-home.css'
 import { RoutineCard, Rail, CollectionTile, PartsTimeline, FiltersSheet, AssignSheet, CurateSheet, Heart, gearText, lookup } from '../components/train2j/parts.jsx'
 
 const QUICK = [
@@ -57,6 +59,7 @@ export default function Train2J() {
   const S = useStore(s => s.S)
   const openSheet = useUI(s => s.openSheet)
   const { status, error, offline, routines, collections, favorites } = useCatalog()
+  const programs = useGuided(s => s.programs)
   const [f, setF] = useState(EMPTY)
   const [hero, setHero] = useState(0)
   const byId = useMemo(() => Object.fromEntries(routines.map(r => [r.id, r])), [routines])
@@ -67,6 +70,8 @@ export default function Train2J() {
   const results = useMemo(() => active(f) ? filterRoutines(ordered, f, { t, lookup }) : null, [ordered, f])
   const mine = useMemo(() => forYou(routines, S, { lookup }), [routines, S.workouts, S.routines, S.programs])
   const recent = useMemo(() => recentRoutines(S.workouts, byId), [S.workouts, byId])
+  const activeProgram = (S.programs || []).find(p => p.id === S.activeProgramId && p.source === 'guided-v2' && p.status === 'active')
+  const activeProgramState = activeProgram && programProgress(activeProgram, S.workouts)
   if (status !== 'ready') return <div className="t2 t2-page"><Header /><Loading status={status} error={error} offline={offline} /></div>
   const h = featured[Math.min(hero, featured.length - 1)] || ordered[0]
   const card = (r, extra = {}) => <RoutineCard key={r.id} r={r} stats={stats[r.id]} isNewRoutine={isNew(r, routines)} {...extra} />
@@ -102,9 +107,17 @@ export default function Train2J() {
           <small>{t('Your workout is still open.')}</small></div>
         <button className="btn primary" onClick={() => nav('/workout')}><Icon name="play" />{t('Continue')}</button>
       </section>}
+      {activeProgram && <section className="gp-home-active"><div className="grow"><span className="t2-eyebrow">{t('Continue')}</span><h2>{t(activeProgram.name)}</h2>
+        <div className="gp-progress" role="progressbar" aria-label={t('Program progress')} aria-valuemin="0" aria-valuemax="100" aria-valuenow={activeProgramState.percent}><span style={{ width: `${activeProgramState.percent}%` }} /></div>
+        <p>{t('Week {0} of {1}', activeProgramState.next ? activeProgramState.next.weekIndex + 1 : activeProgram.weeksCount, activeProgram.weeksCount)} · {t('{0} of {1} sessions', activeProgramState.completed, activeProgramState.total)}</p></div>
+        {activeProgramState.next && <button className="btn primary" onClick={() => { const session = activeProgramState.next; const routine = activeProgram.routineSnapshots?.[session.routineId]; if (routine) startOfficialRoutine(routine, { programId: activeProgram.id, sessionId: session.sessionId, week: session.weekIndex + 1, day: session.day, routineId: session.routineId }) }}><Icon name="play" />{t('Continue')}</button>}
+      </section>}
       <Rail id="t2-foryou" title={t('For you')} sub={t('From your level, goal and restrictions — nothing else.')} items={mine}>
         {mine.map(x => card(x.routine, { reasons: x.reasons }))}
       </Rail>
+      {programs.length > 0 && <section className="gp-home"><header><div><span className="t2-eyebrow">{t('A PLAN FOR THE NEXT WEEKS')}</span><h2>{t('Guided programs')}</h2></div><button className="t2-more" onClick={() => nav('/train2j/programs')}>{t('See all')}<Icon name="chevronRight" /></button></header>
+        <div className="gp-home-cards">{programs.filter(p => p.featured).slice(0, 3).map(p => <button key={p.id} className="gp-home-card" onClick={() => nav('/train2j/program/' + p.id)}><WorkoutCover r={{ id: p.id, category: p.cover || 'circuit' }} shape="wide" /><b>{t(p.name)}</b><small>{t(p.durationLabel)} · {t('{0} sessions/week', p.sessionsPerWeek)}</small></button>)}</div>
+      </section>}
       <Rail id="t2-again" title={t('Again?')} items={recent}>
         {recent.map(x => <RoutineCard key={x.routine.id} r={x.routine} stats={stats[x.routine.id]} reasons={[[daysAgo(x.d) === 0 ? 'Done today' : daysAgo(x.d) === 1 ? 'Done yesterday' : 'Done {0} days ago', daysAgo(x.d)]]} />)}
       </Rail>

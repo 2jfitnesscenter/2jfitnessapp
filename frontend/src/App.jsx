@@ -45,6 +45,8 @@ import Records from './views/Records.jsx'
 import { showPendingCelebration } from './sheets.jsx'
 import Profile from './views/Profile.jsx'
 const Social = lazy(() => import('./views/Social.jsx'))
+const GuidedProgramCatalog = lazy(() => import('./views/GuidedPrograms.jsx').then(m => ({ default: m.GuidedProgramCatalog })))
+const GuidedProgramDetail = lazy(() => import('./views/GuidedPrograms.jsx').then(m => ({ default: m.GuidedProgramDetail })))
 const Friends = lazy(() => import('./views/Friends.jsx'))
 const Chat = lazy(() => import('./views/Chat.jsx'))
 const ChatThread = lazy(() => import('./views/ChatThread.jsx'))
@@ -215,6 +217,8 @@ function Shell() {
               <Route path="/plan/r/:id" element={<RoutineEdit />} />
               <Route path="/workout" element={<Workout />} />
               <Route path="/train2j" element={<Train2J />} />
+              <Route path="/train2j/programs" element={<GuidedProgramCatalog />} />
+              <Route path="/train2j/program/:id" element={<GuidedProgramDetail />} />
               <Route path="/train2j/c/:id" element={<Train2JCollection />} />
               <Route path="/train2j/r/:id" element={<Train2JDetail />} />
               <Route path="/stretch" element={<Stretch />} />
