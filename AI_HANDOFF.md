@@ -7,8 +7,8 @@
 
 ## 1. Estado de producción (checkpoint 2026-09-27)
 
-- **Producción estable actual (confirmada por el usuario):** `0fcd8fc1f89b84b84291020137b9839e7934add6`.
-  El trabajo local Community V2 de esta rama no está desplegado.
+- **Producción estable actual (confirmada por el usuario):** `3c0129ad39970e8a87e8663c2402405df6199139`.
+  Community V2 + Notifications + Sharing está desplegado y validado según confirmación del usuario.
 - `7ebb722708a6b27c33aafe60f799b1dada8fbc59` es un checkpoint anterior de Gym Profiles V1;
   no representa la producción actual. El polish visual `70080f1` sigue sin desplegar.
 - **Rollback conocido seguro:** `4aab27eaed769505c70d7d742be8de99e4052e5f` (Legal/credits).
@@ -21,12 +21,12 @@
 - Servidor: `/opt/2jfitness` (release extraída de tarballs, no es repo git), datos en
   `/opt/2jfitness/data`, backups en `/root/backups`, URL `https://app.2jfitnesscenter.com`.
 
-### Community V2 + Notifications + Sharing — local, not deployed (2026-09-27)
+### Community V2 + Notifications + Sharing — desplegado (2026-09-27)
 
 - Anteriores commits preservados: `0fb027c` (API/permisos), `119cb5a` (frontend/UX), `e1d92d1`
   (handoff/changelog parcial). Cierre funcional: `fa4d080`; el commit documental posterior no forma
   parte del release de producción.
-  **No desplegado**; producción actual confirmada: `0fcd8fc1f89b84b84291020137b9839e7934add6`.
+  **Desplegado**; producción actual confirmada por el usuario: `3c0129ad39970e8a87e8663c2402405df6199139`.
 - Reutiliza `friends.json`, `chat.json`, `social.json`, Web Push/VAPID existente, HashRouter,
   service worker y exportador PNG. `notifications.json` guarda un máximo de 100 avisos por usuario
   y 5.000 en total; no contiene imágenes/blobs. `social-sharing.json` contiene referencias de
@@ -82,9 +82,22 @@
   revocación visual de privacidad ni movimiento reducido. Push-denied se vio en el navegador local;
   **PUSH_DEVICE_QA=PENDING_REAL_DEVICE**. Frontend **910/910**, API **274/274**, build OK, ES
   **3342/3342**, `git diff --check` OK. Estos checks no convierten la inspección parcial en
-  aceptación: Community V2 sigue **NO lista para declarar sprint completo ni para deploy**.
+  release ya desplegado y validado en producción según confirmación del usuario; queda como nota
+  histórica que la matriz visual local de Community no se recorrió por completo. No hay deploy de
+  Community pendiente.
 - Sin cola offline nueva: cada share/chat se confirma con respuesta del servidor. No tocar Sync V2,
   Training Protocol, Health, Gym Profiles, Library, Bunker ni infra.
+
+### Sprint 2 — Guided Programs V2 (parcial, local, no desplegado; 2026-09-27)
+
+- Sobre la rama local de `3c0129a`: añadido catálogo semilla de **4 programas** (`api/lib/guided-programs-official.json`) que referencia rutinas existentes. `api/lib/guided-store.js` filtra planes cuya rutina oficial esté inactiva; `/api/guided` publica los programas y el endpoint trainer existente acepta `guidedProgramId`, conserva receipt/idempotencia y copia rutinas/versiones al estado del socio. Trainer no los activa sin elección del socio.
+- Frontend con rutas lazy `/train2j/programs` y `/train2j/program/:id`, tarjetas/detalle responsive, intro de 3 pasos reabrible, compatibilidad Gym Profile por sesión, pausa/reanudación/abandono, asignación trainer y progreso derivado de workouts normales. Inicio/finalización siguen usando Workout V2; metadata `src2j.program` enlaza sesión/programa; `S.programs`/`activeProgramId` existentes sincronizan por Sync V2, sin tocar su núcleo ni duplicar workouts. Catálogo/refs se guardan en el cache local `g2j_catalog:<uid>`; el programa puede iniciarse desde el catálogo cacheado.
+- Coach recibe `protocol.officialPrograms` filtrados por objetivo/nivel, con sesiones compatibles calculadas contra el Gym Profile activo, y si existe un resumen mínimo `protocol.activeProgram` (conteo y siguiente sesión), dentro del consentimiento de plan. Prompt prohíbe editar el programa automáticamente. Los programas y cada semana pasan comprobaciones usando `validateAgainst2JProtocol` existente; protocolo sigue v1.0.
+- Antes/después de catálogo: ejercicios **1324→1324**, rutinas oficiales **39→39**, bloques **155→155**, masters **43→43**, colecciones **7→7** (featured **3** sin cambios); programas **0→4**. Son programas de iniciación, movilidad 21 días, HIIT mixto y cardio base. No hay ampliación de rutinas: faltan programas de fuerza/hipertrofia validados y más sesiones diversas de movilidad/estiramiento/Tabata. No se importó fuente externa; la biblioteca tiene 1324 ejercicios (60 movimientos canónicos mobility y 9 cardio), pero la brecha actual es la curación guiada.
+- Exercise Library Quality Pass **no realizado**: 24 grupos de posible duplicado quedan pendientes por falta de evidencia visual actual; los 71 sin movimiento canónico siguen iguales; no se tocaron aliases, equipment ni recomendados. No deprecar ni reasignar sin revisar medios y validar imports/historial.
+- Sin CMS/program curation admin para crear/editar metadata/colecciones/activar programas. No añadirlo como completado: es requisito pendiente del sprint. Offline valida catálogo cacheado, no hay cola offline nueva. La pantalla en navegador local llegó al onboarding, pero el catálogo no cargó (API local ausente, HTTP 502); no se hizo QA visual real 390/tablet/desktop, claro/oscuro ni de todos los estados/trainer/admin.
+- Checks al cierre: frontend **916/916**, API **279/279**, build OK (avisos preexistentes de chunks grandes), seed routines `--check` OK (39/7), español **3392/3392**, `git diff --check` OK. Otros idiomas siguen incompletos (805/3392 según script, fallback inglés). No hubo llamadas reales a IA.
+- Commit funcional local: `1bbf316 feat(guided): add multi-week program foundation`. Producción sigue en `3c0129ad39970e8a87e8663c2402405df6199139` según checkpoint del usuario; el trabajo no está desplegado. Sprint **NO completo / NO listo para deploy** mientras falten calidad de biblioteca/contenido, curation admin y QA visual requerida.
 
 ## 2. Ramas y PRs
 
@@ -248,7 +261,7 @@ Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
 ## 12. Gym Profiles V1 — desplegado; polish y editor V1.1 locales
 
 Commits V1: funcional `d50fa9e`, relevo/documentación `7ebb722`. Release checkpoint anterior
-`7ebb722708a6b27c33aafe60f799b1dada8fbc59`; la producción actual es `0fcd8fc...` (§1). Contexto
+`7ebb722708a6b27c33aafe60f799b1dada8fbc59`; la producción actual es `3c0129a...` (§1). Contexto
 sobre Library V2, no nuevo catálogo ni metodología.
 
 - Modelo canónico: `frontend/src/lib/gym-profile-model.js`; copia API generada mediante
@@ -303,7 +316,7 @@ sobre Library V2, no nuevo catálogo ni metodología.
   locales ES completas, build y `git diff --check` OK. Test HTTP verifica 401 anónimo, 403 miembro y
   trainer, guardado admin, persistencia tras reinicio y lectura común. El checkpoint de producción
   de esa verificación fue `7ebb722708a6b27c33aafe60f799b1dada8fbc59`; la producción actual es
-  `0fcd8fc...`. Este sprint no se ha desplegado ni tiene runner
+  `3c0129a...`. Este sprint no se ha desplegado ni tiene runner
   válido (el runner local previo apunta a `b890a26` y ya no coincide con HEAD).
 - Limitación: otros dispositivos actualizan al iniciar, volver al foco o reconectar; no hay
   notificación realtime global. Las categorías expresan disponibilidad general, no una máquina o
@@ -322,9 +335,11 @@ No desplegar sin autorización explícita.
 duplicados; clasificar los 71 sin movimiento; precisar plate-loaded/selectorized con evidencia;
 posible editor admin de metadata; etiquetas heredadas "(male)" visibles en la biblioteca completa.
 
-**Roadmap orientativo después (no ejecutar):** Inteligencia 2J V2 → Bunker Live → Health Native
-Bridge → Guided Programs V2. Community V2 + Notifications está en implementación parcial local;
-consultar el checkpoint anterior antes de continuar. No está desplegado.
+**Siguiente trabajo:** cerrar Guided Programs V2 desde el checkpoint parcial §1. No declarar el
+sprint listo ni desplegar mientras sigan pendientes la ampliación/curación de contenido, Exercise
+Library Quality Pass, curation admin y QA visual de la matriz solicitada. Community V2 + Notifications
+está desplegado en `3c0129a...`; no está pendiente de deploy. Otras ideas de roadmap (Health V2,
+Library V2, Bunker Live) no se inician hasta priorización explícita.
 
 **Deuda conocida (no autorizada como trabajo):** retención/poda de receipts, tombstones y journal
 de Sync V2; Sync V2 es monoproceso; unidades de pesos históricos; traducciones parciales en

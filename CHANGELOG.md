@@ -2,7 +2,14 @@
 
 ## Unreleased
 
-### Community V2 + Notifications + Sharing — local, not deployed (`fa4d080`)
+### Guided Programs V2 — partial local work, not deployed (`1bbf316`)
+
+- Adds four multi-week catalog plans over the existing official guided routines, with lazy catalog/detail routes, first-use help, Gym Profile session-fit indicators, pause/resume/end and workout-history-derived progress. Sessions still run through the existing Workout V2 flow; no Sync V2 core or second workout engine was added.
+- Trainers can assign a versioned program/routine snapshot through the existing member-program endpoint; the member chooses when to start. The Coach receives goal/level-filtered program references with Gym Profile equipment-fit counts and a minimal active-program progress summary under the existing plan consent.
+- Validates catalog references and every program week with the existing 2J program validator. Frontend **916/916**, API **279/279**, build OK, official routine seed check OK (39 routines/7 collections), Spanish **3392/3392**, `git diff --check` OK.
+- Not a completed sprint: no official strength/hypertrophy program content, no broad guided content expansion, no Exercise Library quality decisions, no admin program curation, and required visual QA was not completed. Library unchanged: 1324 exercises, 39 routines, 155 blocks, 43 masters, 7 collections, 3 featured. No external source was used. Do not deploy.
+
+### Community V2 + Notifications + Sharing — deployed (`3c0129a`)
 
 - Adds explicit sharing from completed workouts, PRs, unlocked badges, streaks, routines, programs
   and challenges to Community, direct chat or an exported 2J image. A chat share is a small
@@ -17,7 +24,7 @@
 - The full visual QA matrix is still outstanding; only Community Home/onboarding at 720×768 in dark
   mode was visually inspected in an isolated local setup. Do not mark the sprint accepted or deploy until the
   requested 390/tablet/desktop, light/dark, conversation/share/report/admin/empty/offline/fallback
-  states are reviewed. Production remains at the user-confirmed `0fcd8fc1f89b84b84291020137b9839e7934add6`.
+  states are reviewed. Production is confirmed by the user at `3c0129ad39970e8a87e8663c2402405df6199139`.
 
 ### Gym Profiles UI polish — local, not deployed (`70080f1`)
 
@@ -35,7 +42,7 @@
   not copied into member Sync V2 state; clients keep only a separate last-known offline cache.
 - Uses the existing taxonomy (18 categories; no taxonomy ids added). Existing routines and workout
   history are not rewritten. The release checkpoint at that time was `7ebb722`; production was
-  later confirmed at `0fcd8fc1f89b84b84291020137b9839e7934add6`. This sprint has not been deployed.
+  later confirmed at `3c0129ad39970e8a87e8663c2402405df6199139`. This sprint has not been deployed.
 
 ## Previous production checkpoint 7ebb722 — Gym Profiles V1 — confirmed 2026-09-27
 
