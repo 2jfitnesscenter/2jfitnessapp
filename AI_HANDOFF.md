@@ -5,18 +5,18 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
-## 1. Estado de producción (checkpoint 2026-09-26)
+## 1. Estado de producción (checkpoint 2026-09-27)
 
-- **Producción estable:** `133a52ce4d8b1d7fe6c2fb578562badae0913508` — Series Feedback V1 y
-  Exercise Library V2 DESPLEGADAS, según confirmación del usuario. No se ha accedido a producción
-  durante el sprint Gym Profiles. Gym Profiles V1 está implementado localmente, **sin desplegar** (§12).
+- **Producción estable:** `7ebb722708a6b27c33aafe60f799b1dada8fbc59` — Gym Profiles V1 desplegado;
+  incluye Series Feedback V1 y Exercise Library V2. Confirmación del usuario. El polish visual
+  `70080f1` es posterior, local y **no desplegado** (§12).
 - **Rollback conocido seguro:** `4aab27eaed769505c70d7d742be8de99e4052e5f` (Legal/credits).
 - **Nunca** usar como rollback código anterior a `SYNC_V2_ROLLBACK_BASE` (`51a221d`); `90d98fe`
   o anteriores no son válidos sobre datos Sync V2.
 - Tests en a9b6453: frontend **864/864** (`cd frontend && npx vitest run`), API **261/261**
   (`cd api && node --test`). `package.json` sigue en 1.3.0: identificar releases por commit.
-- Base 133a52c comprobada en copia temporal: **879/879 frontend, 261/261 API**. Con Gym Profiles:
-  **894/894 frontend, 264/264 API**; build, locales, checks de catálogo/seeds/protocolo y diff OK.
+- Gym Profiles V1: **894/894 frontend, 264/264 API**. Tras el polish visual: **895/895 frontend**,
+  build OK, español completo y `git diff --check` OK; API sin cambios por el polish.
 - Servidor: `/opt/2jfitness` (release extraída de tarballs, no es repo git), datos en
   `/opt/2jfitness/data`, backups en `/root/backups`, URL `https://app.2jfitnesscenter.com`.
 
@@ -159,8 +159,8 @@ Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
 
 ## 11. Deploy
 
-- Runner local del release confirmado: `deploy-133a52c.ps1` (**no versionado**; los `deploy-*.ps1` se quedan
-  sin versionar salvo `deploy-23226f6.ps1`, referencia histórica versionada).
+- El runner local `deploy-7ebb722.ps1` se usó para el release Gym Profiles V1; los runners por
+  release son herramientas locales/no versionadas. No existe runner para el polish `70080f1`.
 - Práctica: PowerShell en Windows + Git Bash; OpenSSH interactivo, **la contraseña la teclea el
   usuario, nunca se guarda ni automatiza**; validación local completa (tests con recuentos exactos,
   build, locales, todos los `--check`); tarball `git archive` con SHA-256; release exact match;
@@ -176,9 +176,11 @@ Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
   `sync-gym-profiles --check`, `frontend/scripts/check-locales.mjs`, `git diff --check`.
 - No desplegar ni crear runner sin prompt explícito; no hacer push/merge remoto sin autorización.
 
-## 12. Gym Profiles V1 — implementado, NO desplegado
+## 12. Gym Profiles V1 — implementado y desplegado; polish visual local
 
-Commit funcional: `d50fa9e`. Contexto sobre Library V2, no nuevo catálogo ni metodología.
+Commits V1: funcional `d50fa9e`, relevo/documentación `7ebb722`. Producción confirmada en
+`7ebb722708a6b27c33aafe60f799b1dada8fbc59`. Contexto sobre Library V2, no nuevo catálogo ni
+metodología.
 
 - Modelo canónico: `frontend/src/lib/gym-profile-model.js`; copia API generada mediante
   `node scripts/sync-gym-profiles.mjs` (test de igualdad + `--check`). Ambos contenedores siguen
@@ -191,7 +193,7 @@ Commit funcional: `d50fa9e`. Contexto sobre Library V2, no nuevo catálogo ni me
   según categorías documentadas en `lib/equipment.js`, NO inventario de máquinas concretas.
   Casa/Hotel empiezan con peso corporal; permiten configurar incluso una lista vacía. Otro gimnasio
   y Personalizado son perfiles del usuario con id estable `gym-*`, nombre y material configurable.
-- `components/GymProfile.jsx`: selector contextual y gestor compacto en Ajustes. Sin cambios en Home.
+- `components/GymProfile.jsx`: selector visual contextual y gestor en Ajustes. Sin cambios en Home.
   Library/pickers priorizan compatibles y permiten filtrar; biblioteca completa sigue accesible.
   Swap determinista: compatibles antes de variantes/músculo, máximo 8 recomendados y fallback.
   Constructor avisa en las filas sin bloquear; Workout muestra sustitución voluntaria en ambas vistas,
@@ -202,17 +204,19 @@ Commit funcional: `d50fa9e`. Contexto sobre Library V2, no nuevo catálogo ni me
   previo. Disponibilidad está subordinada a restricciones explícitas, seguridad y Protocolo 2J.
 - Bunker: perfiles personales pospuestos; su swap fija contexto 2J, no hereda Casa del operador.
   Bloqueos temporales de material 2J se respetan en compatibilidad/swap, sin aplicarlos a Casa/Hotel.
-- Validación: 15 pruebas frontend nuevas (modelo, filtro/fallback, Constructor, Workout inmutable,
-  persistencia offline/reapertura y envío por Sync existente), 3 API (contexto IA, orden y copia).
-  No se hicieron llamadas reales a IA, pruebas en producción ni revisión visual en dispositivo real.
-  Build OK con aviso previo de chunks grandes; todos los checks del §11 pasan. Sin push/merge/runner.
+- Validación V1: 15 pruebas frontend nuevas y 3 API (contexto IA, orden y copia); sin llamadas reales
+  a IA. V1 desplegado según confirmación del usuario.
+- Polish visual local, commit `70080f1` (no desplegado): fila compacta en Ajustes con ayuda; hoja
+  mobile-first con cinco tarjetas, indicador textual de perfil activo, material en chips y español.
+  El modelo, persistencia, API y Sync V2 no cambian. Frontend **895/895**, build OK, español
+  completo, `git diff --check` OK. No se hizo validación manual del polish en dispositivo real.
 - Límites V1: compatibilidad por equipo principal, no comprueba accesorios secundarios (banco/barra
   de dominadas) ni todas las máquinas de una categoría; no inventar banco/TRX/esterilla en taxonomía.
   Train2J solo etiqueta; no filtra ni adapta rutinas. No hay editor de bloques por lugar ni perfiles
   compartidos. Cambios simultáneos de preferencias siguen la resolución existente de Sync V2.
 
-**Siguiente paso:** revisión funcional/visual de Gym Profiles V1 en móvil y desktop; aprobación
-antes de preparar runner/deploy. Producción permanece en 133a52c.
+**Siguiente paso:** revisar el polish visual local en móvil y desktop; no hay runner preparado ni
+deployment pendiente ejecutado para `70080f1`. No desplegar sin autorización explícita.
 
 **Pendientes Library V2 no bloqueantes:** revisar visualmente los 24 grupos de posibles
 duplicados; clasificar los 71 sin movimiento; precisar plate-loaded/selectorized con evidencia;

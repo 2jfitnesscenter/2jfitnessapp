@@ -2,14 +2,20 @@
 
 ## Unreleased
 
-### Gym Profiles V1 — equipment context
+### Gym Profiles UI polish — local, not deployed (`70080f1`)
 
-- 2J, configurable Home/Hotel and personal places; compact Settings manager and contextual selector.
-- Uses canonical equipment and existing offline state/Sync V2; no workout/history migration.
-- Library optional availability filter, compatible-first deterministic swaps, factual Constructor/
-  Workout warnings, Train2J compatibility and compact equipment context for the existing AI.
-- Bunker stays on 2J. Categories do not guarantee a specific machine or secondary accessories.
-- Not deployed. Frontend 894/894, API 264/264; build and catalogue/protocol/locales checks pass.
+- Replaces the native place selector with a compact Settings row and a visual, mobile-first picker:
+  five profile cards, explicit active state, equipment chips and contextual help.
+- No model, persistence, API or Sync V2 changes. Frontend 895/895; build and Spanish locale checks OK.
+- This UI polish has not been deployed.
+
+## Production 7ebb722 — Gym Profiles V1 — confirmed 2026-09-27
+
+- Equipment-category context for 2J, Home, Hotel and personal gym profiles, shared with existing
+  library compatibility, deterministic swaps, Constructor/Workout warnings, Train2J and AI context.
+- Uses existing offline state and Sync V2. No workout/history migration; Bunker retains the 2J
+  equipment context. Categories do not guarantee a specific machine or secondary accessories.
+- Functional commit `d50fa9e`; release/deployment checkpoint `7ebb722708a6b27c33aafe60f799b1dada8fbc59`.
 
 ## Production 133a52c — confirmed 2026-09-26
 
