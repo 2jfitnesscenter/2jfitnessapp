@@ -175,8 +175,11 @@ Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
   `build-coach-library` (todos `--check`), `check-exercise-library`, `audit-exercise-library --check`,
   `sync-gym-profiles --check`, `frontend/scripts/check-locales.mjs`, `git diff --check`.
 - No desplegar ni crear runner sin prompt explícito; no hacer push/merge remoto sin autorización.
+- Existe local y sin versionar `deploy-b890a26.ps1`, preparado para el HEAD anterior `b890a26`.
+  Su `-PrepareOnly` se validó en el checkpoint anterior; tras Gym Profiles V1.1 ya no coincide con
+  HEAD y no debe ejecutarse para este sprint. No hay runner de V1.1.
 
-## 12. Gym Profiles V1 — implementado y desplegado; polish visual local
+## 12. Gym Profiles V1 — desplegado; polish y editor V1.1 locales
 
 Commits V1: funcional `d50fa9e`, relevo/documentación `7ebb722`. Producción confirmada en
 `7ebb722708a6b27c33aafe60f799b1dada8fbc59`. Contexto sobre Library V2, no nuevo catálogo ni
@@ -209,14 +212,44 @@ metodología.
 - Polish visual local, commit `70080f1` (no desplegado): fila compacta en Ajustes con ayuda; hoja
   mobile-first con cinco tarjetas, indicador textual de perfil activo, material en chips y español.
   El modelo, persistencia, API y Sync V2 no cambian. Frontend **895/895**, build OK, español
-  completo, `git diff --check` OK. No se hizo validación manual del polish en dispositivo real.
+  completo, `git diff --check` OK. El checkpoint local `b890a26` incluye la documentación de ese
+  polish. No se hizo validación manual del polish en dispositivo real.
+- **Gym Profiles V1.1 — editor global 2J, local y no desplegado:** `data/gym-profile.json` es una
+  única configuración global del gimnasio, con fallback al inventario incluido en el release.
+  `GET /api/config` la expone (son solo categorías públicas); `POST /api/admin/gym-profile/official`
+  exige admin y persiste cambios mediante escritura temporal + rename. Los perfiles personales no
+  contienen el inventario oficial. El cliente guarda el último valor conocido en
+  `gym_official_equipment_v1`, fuera de `gym_state_v1` y Sync V2, para seguir mostrando compatibilidad
+  offline; al reconectar/volver al foco consulta de nuevo la fuente del servidor.
+- El editor visual agrupa los toggles por las seis familias de la taxonomía existente, con guardar,
+  cancelar y restaurar el inventario recomendado. Solo admin ve/usa la acción de edición; miembro y
+  trainer no-admin ven el perfil 2J en lectura. Backend rechaza ambos roles al escribir.
+- Inventario recomendado mapeado a ids existentes: bodyweight, barbell, ez_bar, dumbbell, cable,
+  weighted, selectorized (máquina genérica de placas guiadas), machine (palancas), plate_loaded,
+  smith, sled, stability_ball, roller, treadmill, bike, elliptical, stepmill y skierg. No se amplió
+  la taxonomía.
+- Library, Swap, Constructor, Workout y Train2J leen el contexto canónico ya existente y reaccionan
+  al refresco del inventario. Coach toma el mismo contexto actualizado y conserva la jerarquía de
+  restricciones/seguridad/protocolo. Bunker usa su contexto fijo `2j` en el selector de swaps, por
+  lo que también consume el inventario compartido; no tiene perfil del operador ni copia propia.
+  Las rutinas/historial no se reescriben ni se crean snapshots por cambios de material.
+- Verificación local V1.1: frontend **898/898**, API **266/266**, modelo frontend/API sincronizado,
+  locales ES completas, build y `git diff --check` OK. Test HTTP verifica 401 anónimo, 403 miembro y
+  trainer, guardado admin, persistencia tras reinicio y lectura común. La producción sigue en
+  `7ebb722708a6b27c33aafe60f799b1dada8fbc59`; este sprint no se ha desplegado ni tiene runner
+  válido (el runner local previo apunta a `b890a26` y ya no coincide con HEAD).
+- Limitación: otros dispositivos actualizan al iniciar, volver al foco o reconectar; no hay
+  notificación realtime global. Las categorías expresan disponibilidad general, no una máquina o
+  accesorio concreto. Falta QA visual manual de este editor en móvil/tema claro/oscuro.
 - Límites V1: compatibilidad por equipo principal, no comprueba accesorios secundarios (banco/barra
   de dominadas) ni todas las máquinas de una categoría; no inventar banco/TRX/esterilla en taxonomía.
   Train2J solo etiqueta; no filtra ni adapta rutinas. No hay editor de bloques por lugar ni perfiles
   compartidos. Cambios simultáneos de preferencias siguen la resolución existente de Sync V2.
 
-**Siguiente paso:** revisar el polish visual local en móvil y desktop; no hay runner preparado ni
-deployment pendiente ejecutado para `70080f1`. No desplegar sin autorización explícita.
+**Siguiente paso:** revisión manual del polish y del editor V1.1 en móvil/desktop y en claro/oscuro.
+Cuando el sprint esté aprobado, preparar runner nuevo para el HEAD exacto; ni el polish ni el
+editor V1.1 están desplegados. `deploy-b890a26.ps1` es un artefacto local obsoleto para este HEAD.
+No desplegar sin autorización explícita.
 
 **Pendientes Library V2 no bloqueantes:** revisar visualmente los 24 grupos de posibles
 duplicados; clasificar los 71 sin movimiento; precisar plate-loaded/selectorized con evidencia;

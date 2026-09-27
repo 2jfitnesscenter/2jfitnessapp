@@ -9,6 +9,16 @@
 - No model, persistence, API or Sync V2 changes. Frontend 895/895; build and Spanish locale checks OK.
 - This UI polish has not been deployed.
 
+### Gym Profiles V1.1 — admin equipment editor — local, not deployed
+
+- Admins can edit the official 2J equipment categories in a grouped visual editor; members and
+  non-admin trainers can read/use the inventory but cannot write it. The API enforces this role.
+- One gym-wide `data/gym-profile.json` value feeds the existing Gym Profiles equipment context,
+  including library compatibility, swaps, Constructor/Workout, Train2J and Coach payloads. It is
+  not copied into member Sync V2 state; clients keep only a separate last-known offline cache.
+- Uses the existing taxonomy (18 categories; no taxonomy ids added). Existing routines and workout
+  history are not rewritten. Production remains at `7ebb722`; this sprint has not been deployed.
+
 ## Production 7ebb722 — Gym Profiles V1 — confirmed 2026-09-27
 
 - Equipment-category context for 2J, Home, Hotel and personal gym profiles, shared with existing
