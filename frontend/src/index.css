@@ -3417,6 +3417,13 @@ body:has(.sync-pill) #app{padding-top:8px}
 .gym-material-heading h2{font-size:calc(17px * var(--text-scale,1));letter-spacing:-.02em;margin:0 0 3px}
 .gym-material-heading p{font-size:12px;color:var(--label-2);margin:0}
 .gym-fixed-note{flex:none;color:var(--acc);font-size:10px;font-weight:650;text-align:right}
+.gym-edit-official{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:8px 12px;border:1px solid color-mix(in srgb,var(--acc) 35%,var(--sep));border-radius:14px;background:color-mix(in srgb,var(--acc) 9%,var(--surface));color:var(--acc);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.gym-official-editor{width:min(100%,900px);min-height:100%;margin:0 auto;padding:calc(22px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));color:var(--label)}
+.gym-official-groups{display:grid;gap:18px;margin:20px 0}
+.gym-official-group h3{margin:0 2px 9px;font-size:13px;color:var(--label-2);font-weight:700}
+.gym-editor-error{color:var(--red);font-size:13px}
+.gym-official-editor .gym-sheet-bottom{display:flex;justify-content:flex-end;gap:9px;position:sticky;bottom:0;background:var(--bg);padding:12px 0 max(10px,env(safe-area-inset-bottom))}
+.gym-official-editor .gym-done-button{width:auto;margin:0;padding-inline:18px}
 .gym-equipment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
 .gym-equipment-chip{position:relative;display:flex;align-items:center;gap:8px;min-height:43px;padding:8px 10px;text-align:left;border:1px solid var(--sep);border-radius:13px;background:var(--surface);color:var(--label-2);font-size:calc(12px * var(--text-scale,1));line-height:1.2}
 .gym-equipment-chip>.icn:first-child{flex:none;width:17px;height:17px;color:var(--label-2)}

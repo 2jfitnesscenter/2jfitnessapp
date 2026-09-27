@@ -7,6 +7,7 @@ import { registerCustom, setHiddenExercises, setUnavailableEquipment } from '../
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { MOBILE, nativeLoad, nativeSave, syncReminder, syncBioimpedanceReminder } from '../lib/mobile.js'
 import { daysSinceBioimpedance } from '../lib/measurements.js'
+import { setCachedOfficialGymEquipment } from '../lib/gym-profiles.js'
 
 const KEY = 'gym_state_v1'
 // A discard/finish that couldn't reach POST /api/active/clear (offline, a dropped request)
@@ -216,8 +217,8 @@ export const useStore = create((set, get) => {
   })
 
   if (typeof window !== 'undefined') {
-    window.addEventListener('online', async () => { await get().pullState(); retryPendingClear() })
-    window.addEventListener('focus', () => get().pullState())
+    window.addEventListener('online', async () => { await get().refreshGymProfileConfig(); await get().pullState(); retryPendingClear() })
+    window.addEventListener('focus', async () => { await get().refreshGymProfileConfig(); await get().pullState() })
   }
 
   // A discard/finish whose POST /api/active/clear never reached the server (offline, a dropped
@@ -248,6 +249,7 @@ export const useStore = create((set, get) => {
     // owner has both enabled the Coach and connected a provider — every Coach entry point in
     // the app hangs off it, so an unconfigured instance renders exactly what it always did.
     config: null,
+    gymProfileRevision: 0,
 
     // Mutate a draft of S via producer fn, then persist + schedule sync.
     update(mut, push = true) {
@@ -270,6 +272,21 @@ export const useStore = create((set, get) => {
     replaceState(S, push = false) { persist(clone(S), push) },
 
     isGuest: () => localStorage.getItem('gym_guest') === '1',
+    async refreshGymProfileConfig() {
+      try {
+        const config = await api('/api/config')
+        if (Array.isArray(config.gymProfile?.availableEquipment)) setCachedOfficialGymEquipment(config.gymProfile.availableEquipment)
+        setHiddenExercises(config.hiddenExercises); setUnavailableEquipment(config.unavailableEquipment)
+        set({ config, gymProfileRevision: get().gymProfileRevision + 1 })
+        return true
+      } catch { return false }
+    },
+    async saveOfficialGymEquipment(availableEquipment) {
+      const result = await api('/api/admin/gym-profile/official', { method: 'POST', body: JSON.stringify({ availableEquipment }) })
+      const clean = setCachedOfficialGymEquipment(result.availableEquipment)
+      set({ gymProfileRevision: get().gymProfileRevision + 1 })
+      return clean
+    },
     setGuest(v) { if (v) localStorage.setItem('gym_guest', '1'); else localStorage.removeItem('gym_guest'); set({}) },
 
     setUser(u) {
@@ -394,7 +411,8 @@ export const useStore = create((set, get) => {
       // Instance capabilities are public and needed whether or not anyone is signed in.
       try {
         const config = await api('/api/config')
-        set({ config })
+        if (Array.isArray(config.gymProfile?.availableEquipment)) setCachedOfficialGymEquipment(config.gymProfile.availableEquipment)
+        set({ config, gymProfileRevision: get().gymProfileRevision + 1 })
         setHiddenExercises(config.hiddenExercises)
         setUnavailableEquipment(config.unavailableEquipment)
       } catch (e) { /* offline — assume nothing extra */ }

@@ -4,16 +4,20 @@
 import { EQUIPMENT } from './protocol/movements.js'
 const ids = new Set(EQUIPMENT.map(e => e.id))
 export const cleanEquipment = value => [...new Set((Array.isArray(value) ? value : []).filter(id => ids.has(id)))]
-// Evidence: frontend/src/lib/equipment.js documents the dumbbell rack, bar/plates and
-// pin-stack machines. This confirms categories, not every machine in the exercise catalogue.
+// One gym-wide inventory, editable by an admin through the server. The bundled value is the
+// safe first-run/offline fallback; it is never copied into a member's synced gymProfiles state.
+export const DEFAULT_2J_EQUIPMENT = ['bodyweight', 'barbell', 'ez_bar', 'dumbbell', 'cable', 'weighted', 'selectorized', 'machine', 'plate_loaded', 'smith', 'sled', 'stability_ball', 'roller', 'treadmill', 'bike', 'elliptical', 'stepmill', 'skierg']
+let official2jEquipment = [...DEFAULT_2J_EQUIPMENT]
+export function setOfficialGymEquipment(value) { official2jEquipment = cleanEquipment(value); return [...official2jEquipment] }
+export const officialGymEquipment = () => [...official2jEquipment]
 export const OFFICIAL_GYM_PROFILES = [
-  { id: '2j', name: '2J Fitness Center', type: 'official', availableEquipment: ['bodyweight', 'dumbbell', 'barbell', 'machine', 'selectorized'] },
+  { id: '2j', name: '2J Fitness Center', type: 'official', availableEquipment: DEFAULT_2J_EQUIPMENT },
   { id: 'home', name: 'Home gym', type: 'home', availableEquipment: ['bodyweight'] },
   { id: 'hotel', name: 'Hotel', type: 'hotel', availableEquipment: ['bodyweight'] },
 ]
 export function gymProfilesOf(S) {
   const data = S?.gymProfiles || {}
-  const official = OFFICIAL_GYM_PROFILES.map(p => ({ ...p, availableEquipment: p.id !== '2j' && Array.isArray(data.overrides?.[p.id]) ? cleanEquipment(data.overrides[p.id]) : [...p.availableEquipment] }))
+  const official = OFFICIAL_GYM_PROFILES.map(p => ({ ...p, availableEquipment: p.id === '2j' ? [...official2jEquipment] : Array.isArray(data.overrides?.[p.id]) ? cleanEquipment(data.overrides[p.id]) : [...p.availableEquipment] }))
   const seen = new Set(official.map(p => p.id))
   const custom = (Array.isArray(data.custom) ? data.custom : []).slice(0, 12).filter(p => {
     if (!p || typeof p.id !== 'string' || !p.id.startsWith('gym-') || p.id.length > 80 || seen.has(p.id)) return false

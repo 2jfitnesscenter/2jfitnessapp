@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
-import { EQUIPMENT } from '../lib/protocol/movements.js'
-import { activeGymProfile, gymProfilesOf, selectGymProfile, saveGymProfile, compatibleWithGym } from '../lib/gym-profiles.js'
+import { EQUIPMENT, EQUIPMENT_KINDS } from '../lib/protocol/movements.js'
+import { activeGymProfile, gymProfilesOf, selectGymProfile, saveGymProfile, compatibleWithGym, DEFAULT_2J_EQUIPMENT } from '../lib/gym-profiles.js'
 import Icon from './Icon.jsx'
 
 const PROFILE_CARDS = [
@@ -17,6 +17,43 @@ const PROFILE_CARDS = [
 ]
 
 const EQUIPMENT_ICONS = { bodyweight: 'figureStrength', dumbbell: 'dumbbell', barbell: 'barbell', machine: 'machine', selectorized: 'machine' }
+const EQUIPMENT_KIND_LABELS = { free: 'Free weights', machine: 'Machines', cable: 'Cables', bodyweight: 'Body weight', accessory: 'Accessories', cardio: 'Cardio machines' }
+
+function OfficialEquipmentEditor({ close }) {
+  const S = useStore(s => s.S)
+  const saveOfficialGymEquipment = useStore(s => s.saveOfficialGymEquipment)
+  const [draft, setDraft] = useState(() => [...activeGymProfile(S).availableEquipment])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const toggle = id => setDraft(items => items.includes(id) ? items.filter(item => item !== id) : [...items, id])
+  const save = async () => {
+    setSaving(true); setError('')
+    try { await saveOfficialGymEquipment(draft); close() }
+    catch (e) { setError(e.message || t('Could not save official equipment')) }
+    finally { setSaving(false) }
+  }
+  return <div className="gym-official-editor">
+    <div className="gym-sheet-head">
+      <div className="gym-sheet-heading"><span className="gym-sheet-mark"><Icon name="dumbbell" /></span><div><h2>{t('2J official equipment')}</h2><p>{t('Choose the equipment available at 2J Fitness Center.')}</p></div></div>
+      <button className="iconbtn" aria-label={t('Close')} onClick={close}><Icon name="xmark" /></button>
+    </div>
+    <div className="gym-official-groups">
+      {EQUIPMENT_KINDS.map(kind => {
+        const items = EQUIPMENT.filter(item => item.kind === kind)
+        if (!items.length) return null
+        return <section className="gym-official-group" key={kind}><h3>{t(EQUIPMENT_KIND_LABELS[kind])}</h3><div className="gym-equipment-grid">
+          {items.map(item => {
+            const selected = draft.includes(item.id)
+            return <button key={item.id} className={'gym-equipment-chip' + (selected ? ' on' : '')} type="button" aria-pressed={selected} onClick={() => toggle(item.id)}><Icon name={EQUIPMENT_ICONS[item.id] || 'checkCircle'} /><span>{t(item.label)}</span>{selected && <Icon name="check" className="gym-equipment-check" />}</button>
+          })}
+        </div></section>
+      })}
+    </div>
+    <button type="button" className="gym-add-place-link" onClick={() => setDraft([...DEFAULT_2J_EQUIPMENT])}><Icon name="reset" />{t('Restore recommended equipment')}</button>
+    {error && <p className="gym-editor-error" role="alert">{error}</p>}
+    <div className="gym-sheet-bottom"><button className="btn" type="button" onClick={close} disabled={saving}>{t('Cancel')}</button><button className="btn primary gym-done-button" type="button" onClick={save} disabled={saving}>{saving ? t('Saving') : t('Save equipment')}</button></div>
+  </div>
+}
 
 function GymProfileHelp({ close }) {
   return <div className="gym-help-sheet">
@@ -35,6 +72,9 @@ function GymProfileHelp({ close }) {
 
 export function GymProfileSheet({ close = () => {}, editable = false }) {
   const S = useStore(s => s.S), update = useStore(s => s.update)
+  useStore(s => s.gymProfileRevision)
+  const user = useStore(s => s.user)
+  const canEditOfficial = editable && user?.admin === true
   const openSheet = useUI(s => s.openSheet)
   const active = activeGymProfile(S)
   const profiles = gymProfilesOf(S)
@@ -90,7 +130,9 @@ export function GymProfileSheet({ close = () => {}, editable = false }) {
       </>}
     </form>}
 
-    <div className="gym-material-heading"><div><h2>{t('Material available')}</h2><p>{activeName}</p></div>{editable && active.id === '2j' && <span className="gym-fixed-note">{t('Confirmed 2J equipment')}</span>}</div>
+    <div className="gym-material-heading"><div><h2>{t('Material available')}</h2><p>{activeName}</p></div>{active.id === '2j' && (canEditOfficial
+      ? <button type="button" className="gym-edit-official" onClick={() => openSheet(done => <OfficialEquipmentEditor close={done} />, { kind: 'full' })}><Icon name="pencil" />{t('Edit official equipment')}</button>
+      : editable ? <span className="gym-fixed-note">{t('Official equipment')}</span> : null)}</div>
     {editable && <div className="gym-equipment-grid">
       {EQUIPMENT.map(item => {
         const available = active.availableEquipment.includes(item.id)
@@ -107,11 +149,13 @@ export function GymProfileSheet({ close = () => {}, editable = false }) {
 
 export function GymCompatibility({ ex, context }) {
   const S = useStore(s => s.S)
+  useStore(s => s.gymProfileRevision)
   return <span className="small dim">{compatibleWithGym(context || S, ex) ? t('Compatible with this place') : t('Equipment not confirmed here')}</span>
 }
 
 export default function GymProfile({ editable = false }) {
   const S = useStore(s => s.S)
+  useStore(s => s.gymProfileRevision)
   const active = activeGymProfile(S)
   const openSheet = useUI(s => s.openSheet)
   const title = active.type === 'official' ? t(active.name) : active.name

@@ -522,6 +522,7 @@ function SimpleExercise({ entryIdx, unitEntries, ssInfo, prefs, onToggle, onPad,
 
 /* ---------- active workout ---------- */
 function ActiveWorkout() {
+  useStore(s => s.gymProfileRevision)
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)

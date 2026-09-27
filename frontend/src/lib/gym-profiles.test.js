@@ -1,20 +1,39 @@
-import { afterEach, expect, test } from 'vitest'
-import { activeGymProfile, gymProfilesOf, saveGymProfile, selectGymProfile, compatibleWithGym, gymExerciseList, gymRoutineCompatibility } from './gym-profiles.js'
+import { afterEach, expect, test, vi } from 'vitest'
+import { activeGymProfile, gymProfilesOf, saveGymProfile, selectGymProfile, compatibleWithGym, gymExerciseList, gymRoutineCompatibility, DEFAULT_2J_EQUIPMENT, setOfficialGymEquipment, setCachedOfficialGymEquipment } from './gym-profiles.js'
 import { EXDB, setUnavailableEquipment } from './exercises.js'
 import { facets } from './library/index.js'
 import { getReplacementGroups } from './alternatives.js'
 const state = id => ({ gymProfiles: { activeId: id }, workouts: [], routines: [], customEx: [] })
 const ex = eq => EXDB.find(e => facets(e)?.equipment === eq)
-afterEach(() => setUnavailableEquipment([]))
+afterEach(() => { setUnavailableEquipment([]); setOfficialGymEquipment(DEFAULT_2J_EQUIPMENT); vi.unstubAllGlobals() })
 test('legacy/default is 2J without mutating or seeding state', () => {
   const S = {}; expect(activeGymProfile(S).id).toBe('2j'); expect(S).toEqual({})
-  expect(activeGymProfile(S).availableEquipment).not.toContain('smith')
+  expect(activeGymProfile(S).availableEquipment).toContain('smith')
 })
 test('official profiles have stable ids and only home/hotel permit personal overrides', () => {
   const S = state('home'); saveGymProfile(S, { id: 'home', availableEquipment: ['dumbbell', 'dumbbell', 'invented'] })
   expect(activeGymProfile(S).availableEquipment).toEqual(['dumbbell'])
   saveGymProfile(S, { id: '2j', availableEquipment: [] }); selectGymProfile(S, '2j')
   expect(activeGymProfile(S).availableEquipment).toContain('barbell')
+})
+test('2J official inventory uses existing canonical equipment and updates the shared compatibility context', () => {
+  expect(DEFAULT_2J_EQUIPMENT).toEqual(['bodyweight', 'barbell', 'ez_bar', 'dumbbell', 'cable', 'weighted', 'selectorized', 'machine', 'plate_loaded', 'smith', 'sled', 'stability_ball', 'roller', 'treadmill', 'bike', 'elliptical', 'stepmill', 'skierg'])
+  const before = { workouts: [{ id: 'historic' }], routines: [{ id: 'saved' }] }, unchanged = JSON.stringify(before)
+  setOfficialGymEquipment(['bodyweight'])
+  expect(activeGymProfile(before).availableEquipment).toEqual(['bodyweight'])
+  const rows = gymExerciseList(before, [ex('smith'), ex('bodyweight')])
+  expect(rows[0]).toBe(ex('bodyweight'))
+  expect(compatibleWithGym(before, ex('smith'))).toBe(false)
+  expect(JSON.stringify(before)).toBe(unchanged)
+})
+test('the last-known global inventory is cached outside each member state for offline reads', () => {
+  const memory = new Map()
+  vi.stubGlobal('localStorage', { getItem: key => memory.get(key) || null, setItem: (key, value) => memory.set(key, value) })
+  const S = { workouts: [{ id: 'history' }], gymProfiles: { activeId: '2j' } }
+  setCachedOfficialGymEquipment(['bodyweight', 'skierg'])
+  expect(JSON.parse(memory.get('gym_official_equipment_v1'))).toEqual(['bodyweight', 'skierg'])
+  expect(activeGymProfile(S).availableEquipment).toEqual(['bodyweight', 'skierg'])
+  expect(S.gymProfiles).toEqual({ activeId: '2j' })
 })
 test('Hotel conservatively starts bodyweight; an explicitly empty list stays empty', () => {
   const S = state('hotel'); expect(activeGymProfile(S).availableEquipment).toEqual(['bodyweight'])

@@ -48,6 +48,7 @@ export function Heart({ id, className = '' }) {
 /** The catalogue card: artwork with type and time, then name and a quiet meta line. */
 export function RoutineCard({ r, stats, isNewRoutine, reasons, onOpen, wide }) {
   const gymState = useStore(s => s.S)
+  useStore(s => s.gymProfileRevision)
   const gymMatch = gymRoutineCompatibility(gymState, r)
   const nav = useNavigate()
   const open = onOpen || (() => nav('/train2j/r/' + r.id))

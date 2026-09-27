@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { tempData } from './helpers.mjs'
 tempData()
 const { build, librarySlice } = await import('../coach/payload.js')
-const { selectGymProfile, saveGymProfile, gymEquipmentContext } = await import('../lib/gym-profiles.js')
+const { selectGymProfile, saveGymProfile, gymEquipmentContext, setOfficialGymEquipment, DEFAULT_2J_EQUIPMENT } = await import('../lib/gym-profiles.js')
 const { equipmentIdOf } = await import('../lib/protocol/movements.js')
 
 test('API model matches the canonical frontend model without cross-container imports', () => {
@@ -25,5 +25,12 @@ test('AI prioritizes compatible equipment after an explicit selection; legacy or
   const list = librarySlice(S, [])
   assert.equal(equipmentIdOf(list[0]), 'bodyweight')
   assert.ok(list.some(e => equipmentIdOf(e) !== 'bodyweight'), 'fallback remains available')
-  assert.deepEqual(gymEquipmentContext({}).availableEquipment, ['bodyweight', 'dumbbell', 'barbell', 'machine', 'selectorized'])
+  assert.deepEqual(gymEquipmentContext({}).availableEquipment, DEFAULT_2J_EQUIPMENT)
+})
+test('official AI equipment context follows the gym-wide admin inventory without entering member state', () => {
+  const S = { workouts: [{ id: 'kept' }] }, before = JSON.stringify(S)
+  setOfficialGymEquipment(['bodyweight', 'skierg'])
+  assert.deepEqual(gymEquipmentContext(S).availableEquipment, ['bodyweight', 'skierg'])
+  assert.equal(JSON.stringify(S), before)
+  setOfficialGymEquipment(DEFAULT_2J_EQUIPMENT)
 })

@@ -32,6 +32,9 @@ import * as whoopConfig from './whoop/config.js';
 import { whoopRoutes } from './whoop/routes.js';
 import { blocksRoutes } from './lib/blocks-routes.js';
 import { guidedRoutes } from './lib/guided-routes.js';
+import * as gymProfileConfig from './lib/gym-profile-config.js';
+import { cleanEquipment, setOfficialGymEquipment } from './lib/gym-profiles.js';
+import { EQUIPMENT } from './lib/protocol/movements.js';
 import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesOf } from './lib/plan-meta.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
 
@@ -64,6 +67,7 @@ fs.mkdirSync(DATA, { recursive: true });
 // its job payload in a temp directory and nothing else. Best-effort: a bind-mounted host directory
 // may refuse the chmod, and that is not a reason to refuse to boot.
 try { fs.chmodSync(DATA, 0o700); } catch { /* host filesystem says no — carry on */ }
+setOfficialGymEquipment(gymProfileConfig.load());
 
 /* ---------- secret + db ---------- */
 const secretFile = path.join(DATA, 'secret');
@@ -516,6 +520,7 @@ const routes = {
     const coach = coachConfig.publicConfig();
     json(res, 200, {
       invite_only: INVITE_ONLY, hiddenExercises: hiddenEx, unavailableEquipment: unavailableEq, ...(coach ? { coach } : {}),
+      gymProfile: { availableEquipment: gymProfileConfig.load() },
       strava: stravaConfig.isConfigured(), whoop: whoopConfig.isConfigured()
     });
   },
@@ -529,6 +534,23 @@ const routes = {
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth
     } });
+  },
+
+  // Public read keeps the official gym context available before login and offline clients can
+  // retain the last-known value. Writes are deliberately stricter: only the owner/admin role.
+  'POST /api/admin/gym-profile/official': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    if (!Array.isArray(body.availableEquipment) || body.availableEquipment.length > EQUIPMENT.length || body.availableEquipment.some(id => typeof id !== 'string' || !EQUIPMENT.some(e => e.id === id)))
+      return json(res, 400, { error: 'equipamiento no válido' });
+    const availableEquipment = cleanEquipment(body.availableEquipment);
+    try {
+      gymProfileConfig.save(availableEquipment);
+      setOfficialGymEquipment(availableEquipment);
+      json(res, 200, { ok: true, availableEquipment });
+    } catch {
+      json(res, 500, { error: 'no se pudo guardar el equipamiento oficial' });
+    }
   },
 
   // Lets someone pick a nicer handle than the auto-generated one — the only thing "Nombre de

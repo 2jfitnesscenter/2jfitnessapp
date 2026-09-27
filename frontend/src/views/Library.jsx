@@ -32,6 +32,7 @@ function ExerciseRow({ ex, fav }) {
 
 export default function Library() {
   const S = useStore(s => s.S)
+  useStore(s => s.gymProfileRevision)
   const [q, setQ] = useState('')
   const [view, setView] = useState('')        // '' = 2J families · 'fav' · 'recent'
   const [muscle, setMuscle] = useState('')
