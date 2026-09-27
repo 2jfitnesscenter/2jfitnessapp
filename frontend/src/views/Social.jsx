@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t, nameFor } from '../lib/i18n.js'
@@ -25,6 +26,12 @@ import {
   fetchTrainerMembers, assignRoutineToMember, assignProgramToMember
 } from '../lib/social-api.js'
 import { resizeImageFile, uploadImage, mediaUrl, refetchAsDataUrl } from '../lib/media.js'
+import { fetchFriends } from '../lib/friends-api.js'
+import { fetchThreads } from '../lib/chat-api.js'
+import { fetchNotifications } from '../lib/notifications-api.js'
+import SocialShareSheet from '../components/SocialShareSheet.jsx'
+import { socialCardPayload } from '../lib/social-share.js'
+import { communityIntroSeen, markCommunityIntroSeen } from '../lib/community-onboarding.js'
 
 // Same "spec sheet" fields api/server.js's readSpecFields accepts — level/goal are fixed
 // choices (goal reuses lib/starter.js's own GOALS, same labels the quick-plan intake uses, so
@@ -315,6 +322,7 @@ function RoutineDetailSheet({ post: initial, onChanged, close }) {
 
   return <>
     <DetailHeader post={post} isProgram={false} isOwn={isOwn} onRate={rate} />
+    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('routine', { title: post.name, subtitle: post.description || t('A routine shared with the 2J community'), metric: t('{0} exercises', post.ex.length), date: fmtDate(post.createdAt, true) })} close={close2} />, { kind: 'center' })}>{t('Share image')}</Button>
     <h4 className="sec">{t('Exercises')}</h4>
     <div className="list" style={{ marginBottom: 12 }}>
       {post.ex.map((e, i) => {
@@ -386,6 +394,7 @@ function ProgramDetailSheet({ post: initial, onChanged, close }) {
 
   return <>
     <DetailHeader post={post} isProgram={true} isOwn={isOwn} onRate={rate} />
+    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('program', { title: post.name, subtitle: post.description || t('A program shared with the 2J community'), metric: t('{0} routines', post.routines.length), date: fmtDate(post.createdAt, true) })} close={close2} />, { kind: 'center' })}>{t('Share image')}</Button>
     <h4 className="sec">{t('Workouts in this program')}</h4>
     <div className="list" style={{ marginBottom: 12 }}>
       {post.routines.map((r, i) => <div key={i} className="item"
@@ -424,6 +433,7 @@ function RoutineExercisesSheet({ routine, unit }) {
 function WallDetailSheet({ post: initial, onChanged, close }) {
   const user = useStore(s => s.user)
   const toast = useUI(s => s.toast)
+  const openSheet = useUI(s => s.openSheet)
   const [post, setPost] = useState(initial)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -463,6 +473,7 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
         <div className="ss capitalize row" style={{ gap: 4 }}>{post.authorName} · {setLabel(post.exId, post.value, { mode: post.mode })} · {fmtDate(post.sourceDate, true)}{post.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
       </div>
     </div>
+    {post.public && <Button icon="upload" style={{ width: '100%', marginBottom: 10 }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('record', { title: post.exName, metric: setLabel(post.exId, post.value, { mode: post.mode }), subtitle: t('Personal record shared by {0}', post.authorName), date: fmtDate(post.sourceDate, true) })} close={close2} />, { kind: 'center' })}>{t('Share image')}</Button>}
     {post.note && <div className="small" style={{ margin: '0 0 14px', lineHeight: 1.5 }}>“{post.note}”</div>}
     {(isOwn || user?.admin) && <div className="row between" style={{ margin: '0 0 14px', padding: '10px 12px', borderRadius: 10, background: 'var(--fill)' }}>
       <div className="row" style={{ gap: 6 }}><Icon name={post.public ? 'globe' : 'lock'} style={{ width: 16, height: 16 }} /><div className="small">{post.public ? t('Visible to everyone') : t('Only visible to you')}</div></div>
@@ -749,6 +760,7 @@ function NewChallengeSheet({ close, onCreated }) {
 function ChallengeDetailSheet({ id, onChanged, close }) {
   const user = useStore(s => s.user)
   const toast = useUI(s => s.toast)
+  const openSheet = useUI(s => s.openSheet)
   const [d, setD] = useState(null)
   const [busy, setBusy] = useState(false)
   const load = () => fetchChallengeDetail(id).then(setD).catch(e => toast(e.message))
@@ -768,6 +780,7 @@ function ChallengeDetailSheet({ id, onChanged, close }) {
   })
   return <>
     <h3>{c.name}</h3>
+    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('challenge', { title: c.name, subtitle: c.description || t('Train together'), metric: c.type === 'frequency' ? t('{0} workouts', c.targetWorkouts) : `${c.targetValue} ${unitLabel}`, date: `${fmtDate(c.startDate)} – ${fmtDate(c.endDate)}` })} close={close2} />, { kind: 'center' })}>{t('Share image')}</Button>
     {c.description && <div className="small dim" style={{ margin: '6px 0 12px', lineHeight: 1.5 }}>{c.description}</div>}
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
       <span className="tag acc">{c.type === 'frequency' ? `${c.targetWorkouts} entrenos` : `${c.targetValue} ${unitLabel} · ${c.exName}`}</span>
@@ -775,6 +788,7 @@ function ChallengeDetailSheet({ id, onChanged, close }) {
     </div>
     <h4 className="sec" style={{ marginTop: 0 }}>Clasificación</h4>
     <div className="list" style={{ marginBottom: 14 }}>
+      {!d.leaderboardVisible && <div className="muted small" style={{ padding: '6px 2px' }}>{t('Join this challenge to see its shared leaderboard.')}</div>}
       {d.leaderboard.map((row, i) => <div key={row.userId} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)' }}>
         <div className="row" style={{ gap: 8 }}>
           <span className="dim small" style={{ width: 18, textAlign: 'right' }}>{i + 1}</span>
@@ -782,7 +796,7 @@ function ChallengeDetailSheet({ id, onChanged, close }) {
         </div>
         <span className="small">{row.value}{c.type === 'frequency' ? '' : ' ' + unitLabel}</span>
       </div>)}
-      {!d.leaderboard.length && <div className="dim small" style={{ padding: '6px 2px' }}>Nadie se ha apuntado todavía.</div>}
+      {d.leaderboardVisible && !d.leaderboard.length && <div className="dim small" style={{ padding: '6px 2px' }}>{t('No shared results yet.')}</div>}
     </div>
     <Button variant={d.joined ? 'danger' : 'primary'} disabled={busy} onClick={toggleJoin}>{d.joined ? 'Dejar el desafío' : 'Apuntarme'}</Button>
     {(user?.id === c.authorId || user?.admin) && <><div style={{ height: 8 }} /><Button variant="danger" onClick={del}>Eliminar desafío</Button></>}
@@ -907,11 +921,15 @@ function GoalsSection({ goals, loadGoals }) {
 }
 
 export default function Social() {
+  const navigate = useNavigate()
   const user = useStore(s => s.user)
   const S = useStore(s => s.S)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
+  const unreadNotifications = useUI(s => s.notificationUnread)
   const [tab, setTab] = useState('muro')
+  const [introStep, setIntroStep] = useState(() => communityIntroSeen(() => window.localStorage, user?.id) ? -1 : 0)
+  const [communityStats, setCommunityStats] = useState(null)
   const [routines, setRoutines] = useState(null)
   const [programs, setPrograms] = useState(null)
   const [wall, setWall] = useState(null)
@@ -928,12 +946,24 @@ export default function Social() {
   const loadBoard = () => fetchBoard().then(setBoard).catch(e => toast(e.message))
   const loadChallenges = () => fetchChallenges().then(setChallenges).catch(e => toast(e.message))
   const loadGoals = () => fetchGoals().then(setGoals).catch(e => toast(e.message))
+  const dismissIntro = () => { markCommunityIntroSeen(() => window.localStorage, user?.id); setIntroStep(-1) }
 
   useEffect(() => { if (tab === 'muro' && topics === null) loadTopics() }, [tab])
   useEffect(() => { if (tab === 'routines' && (routines === null || programs === null)) loadFeed() }, [tab])
   useEffect(() => { if (tab === 'board' && board === null) loadBoard() }, [tab])
   useEffect(() => { if (tab === 'challenges' && challenges === null) { loadChallenges(); loadGoals() } }, [tab])
   useEffect(() => { if (tab === 'challenges' && wall === null) loadWall() }, [tab])
+  useEffect(() => {
+    let live = true
+    Promise.allSettled([fetchFriends(), fetchThreads(), fetchNotifications()]).then(results => {
+      if (!live) return
+      const [friends, threads, notices] = results
+      setCommunityStats({ friends: friends.status === 'fulfilled' ? friends.value.friends.length : null,
+        unreadChats: threads.status === 'fulfilled' ? threads.value.filter(x => x.unread).length : null,
+        unreadNotifications: notices.status === 'fulfilled' ? notices.value.unread : null })
+    })
+    return () => { live = false }
+  }, [user?.id])
 
   const openPublishDetails = (kind, source) =>
     openSheet(close => <PublishDetailsSheet kind={kind} source={source} S={S} close={close} onPublished={loadFeed} />)
@@ -969,8 +999,33 @@ export default function Social() {
 
   return <div className="narrow">
     <div className="hdr">
-      <div><h1>{t('Social')}</h1><div className="sub">{t('Share and discover, gym-wide')}</div></div>
+      <div><h1>{t('Community')}</h1><div className="sub">{t('Share and discover, gym-wide')}</div></div>
+      <div className="row" style={{ gap: 4 }}>
+        <button className="iconbtn notification-bell" aria-label={t('Notifications')} onClick={() => navigate('/notifications')}><Icon name="bell" />{unreadNotifications > 0 && <span className="notification-count">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}</button>
+        <button className="iconbtn" aria-label={t('Your privacy')} onClick={() => navigate('/social/preferences')}><Icon name="lock" /></button>
+        <button className="iconbtn" aria-label={t('Friends')} onClick={() => navigate('/friends')}><Icon name="users" /></button>
+        <button className="iconbtn" aria-label={t('Conversations')} onClick={() => navigate('/chat')}><Icon name="message" /></button>
+      </div>
     </div>
+    {introStep >= 0 ? <section className="community-intro card" aria-label={t('How Community works')}>
+      <div className="community-intro-mark"><Icon name={['users', 'lock', 'message'][introStep]} /></div>
+      <div className="community-intro-copy"><div className="tag acc">{t('COMMUNITY · {0}/3', introStep + 1)}</div>
+        <h3>{t(['Connect with friends', 'Share only what you choose', 'Messages stay in your control'][introStep])}</h3>
+        <p className="small muted">{t(['Find friends and motivate each other with real training milestones.', 'Your profile, activity and shared content have separate privacy controls.', 'Requests and messages appear in one inbox. Health and measurements stay private.'][introStep])}</p>
+      </div>
+      <div className="row between community-intro-actions"><button className="btn ghost" onClick={dismissIntro}>{t('Skip')}</button><div className="row"><button className="btn ghost" onClick={() => setIntroStep(0)}>{t('How it works')}</button><Button size="sm" variant="primary" onClick={() => introStep === 2 ? dismissIntro() : setIntroStep(introStep + 1)}>{introStep === 2 ? t('Done') : t('Next')}</Button></div></div>
+    </section> : <button className="community-help" onClick={() => setIntroStep(0)}><Icon name="info" /> {t('How Community works')}</button>}
+    <section className="community-dashboard" aria-label={t('Your community')}>
+      <button className="community-tile community-tile-main" onClick={() => navigate('/friends')}>
+        <span className="community-tile-icon"><Icon name="users" /></span><span className="community-tile-copy"><strong>{t('Friends')}</strong><small>{communityStats?.friends == null ? t('Find people to train with') : t('{0} connections', communityStats.friends)}</small></span><Icon name="chevronRight" />
+      </button>
+      <button className="community-tile" onClick={() => navigate('/chat')}>
+        <span className="community-tile-icon"><Icon name="message" /></span><span className="community-tile-copy"><strong>{t('Messages')}</strong><small>{communityStats?.unreadChats ? t('{0} unread', communityStats.unreadChats) : t('Conversations with friends and trainers')}</small></span><Icon name="chevronRight" />
+      </button>
+      <button className="community-tile" onClick={() => navigate('/notifications')}>
+        <span className="community-tile-icon"><Icon name="bell" /></span><span className="community-tile-copy"><strong>{t('Notifications')}</strong><small>{communityStats?.unreadNotifications ? t('{0} unread', communityStats.unreadNotifications) : t('Requests, messages and shared moments')}</small></span><Icon name="chevronRight" />
+      </button>
+    </section>
     <Segmented options={[{ value: 'muro', label: t('Wall') }, { value: 'routines', label: t('Routines') }, { value: 'board', label: t('Trainers') }, { value: 'challenges', label: t('Challenges & PRs') }]} value={tab} onChange={setTab} />
     <div style={{ height: 14 }} />
 

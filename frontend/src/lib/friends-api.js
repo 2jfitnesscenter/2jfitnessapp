@@ -13,6 +13,9 @@ export const acceptFriendRequest = requestId => api('/api/friends/accept', { met
 export const declineFriendRequest = requestId => api('/api/friends/decline', { method: 'POST', body: JSON.stringify({ requestId }) })
 export const cancelFriendRequest = requestId => api('/api/friends/cancel', { method: 'POST', body: JSON.stringify({ requestId }) })
 export const removeFriend = friendId => api('/api/friends/remove', { method: 'POST', body: JSON.stringify({ friendId }) })
+export const blockFriend = userId => api('/api/friends/block', { method: 'POST', body: JSON.stringify({ userId }) })
+export const unblockFriend = userId => api('/api/friends/unblock', { method: 'POST', body: JSON.stringify({ userId }) })
+export const fetchSocialProfile = userId => api('/api/social/profile?id=' + encodeURIComponent(userId)).then(r => r.profile)
 
 export const updateUsername = username => api('/api/me/username', { method: 'POST', body: JSON.stringify({ username }) }).then(r => r.username)
 // `dataUrl` (from resizeImageFile) to set a profile photo, or `null` to remove it.

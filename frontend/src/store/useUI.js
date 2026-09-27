@@ -56,6 +56,8 @@ export const useUI = create((set, get) => {
   setChatUnread(n) { set({ chatUnread: n }) },
   friendUnread: 0,     // count of pending incoming friend requests — kept by components/FriendsWatcher.jsx
   setFriendUnread(n) { set({ friendUnread: n }) },
+  notificationUnread: 0,
+  setNotificationUnread(n) { set({ notificationUnread: n }) },
 
   // Badge unlock celebration queue (sheets.jsx's celebrateBadges/BadgeCelebrationModal) — pure
   // ephemeral UI state, deliberately NOT in useStore's S: it says what's still waiting to be

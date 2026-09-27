@@ -33,7 +33,7 @@ export default function Chat() {
         {threads.map(th => <div key={th.id} className="item" onClick={() => nav('/chat/' + th.id)}>
           <span className="lrow-i"><Icon name="personCircle" /></span>
           <div className="grow">
-            <div className="tt capitalize" style={{ fontWeight: th.unread ? 700 : undefined }}>{trainer ? th.memberName : t('Trainers')}</div>
+            <div className="tt capitalize" style={{ fontWeight: th.unread ? 700 : undefined }}>{th.kind === 'direct' ? th.memberName : trainer ? th.memberName : t('Trainers')}</div>
             <div className="ss">{th.lastMessage ? th.lastMessage.text : t('No messages yet')}</div>
           </div>
           {th.unread && <span aria-label={t('Unread messages')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none', marginRight: 2 }} />}

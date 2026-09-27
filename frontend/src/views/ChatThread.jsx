@@ -23,23 +23,24 @@ export default function ChatThread() {
   const [messages, setMessages] = useState([])
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
+  const [online, setOnline] = useState(navigator.onLine)
   const bottomRef = useRef(null)
 
-  const load = () => fetchMessages(id).then(d => { setThread(d.thread); setMessages(d.messages) }).catch(e => toast(e.message))
+  const load = () => fetchMessages(id).then(d => { setThread(d.thread); setMessages(d.messages) }).catch(e => { if (navigator.onLine) toast(e.message) })
   useEffect(() => {
     load()
     const iv = setInterval(load, POLL_MS)
     return () => clearInterval(iv)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+  useEffect(() => { const on = () => setOnline(true); const off = () => setOnline(false); window.addEventListener('online', on); window.addEventListener('offline', off); return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) } }, [])
   useEffect(() => { bottomRef.current?.scrollIntoView({ block: 'end' }) }, [messages.length])
 
   const send = () => {
     const msg = text.trim()
     if (!msg) return
-    setText('')
     setBusy(true)
-    sendMessage(id, msg).then(load).catch(e => toast(e.message)).finally(() => setBusy(false))
+    sendMessage(id, msg).then(() => { setText(current => current === msg ? '' : current); return load() }).catch(e => toast(e.message)).finally(() => setBusy(false))
   }
   const toggleStatus = () => setThreadStatus(id, thread.status === 'open' ? 'closed' : 'open').then(load).catch(e => toast(e.message))
 
@@ -50,8 +51,8 @@ export default function ChatThread() {
   return <div className="narrow" style={{ display: 'flex', flexDirection: 'column', minHeight: '78vh' }}>
     <div className="hdr">
       <button className="iconbtn" onClick={() => nav('/chat')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
-      <div style={{ flex: 1, marginLeft: 8 }}><h1 style={{ fontSize: 22 }} className="capitalize">{trainer ? thread.memberName : t('Trainers')}</h1></div>
-      {trainer && <button className="iconbtn" aria-label={t('Toggle status')} onClick={toggleStatus}>
+      <div style={{ flex: 1, marginLeft: 8 }}><h1 style={{ fontSize: 22 }} className="capitalize">{thread.kind === 'direct' ? thread.memberName : trainer ? thread.memberName : t('Trainers')}</h1></div>
+      {trainer && thread.kind !== 'direct' && <button className="iconbtn" aria-label={t('Toggle status')} onClick={toggleStatus}>
         <Icon name={thread.status === 'open' ? 'checkCircle' : 'reset'} />
       </button>}
     </div>
@@ -68,13 +69,14 @@ export default function ChatThread() {
       <div ref={bottomRef} />
     </div>
 
+    {!online && <div className="offline-note" role="status">{t('You’re offline. Messages are not sent until you reconnect.')}</div>}
     {thread.status === 'closed' ? (
       <div className="dim small" style={{ textAlign: 'center', padding: '14px 0' }}>{t('This conversation is closed.')}</div>
     ) : (
       <div className="row" style={{ gap: 8, padding: '10px 0' }}>
         <TextField style={{ flex: 1 }} placeholder={t('Type your message…')} value={text}
           onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') send() }} />
-        <button className="iconbtn" style={{ background: 'var(--acc)', color: 'var(--on-acc)' }} disabled={busy || !text.trim()} onClick={send} aria-label={t('Send')}>
+        <button className="iconbtn" style={{ background: 'var(--acc)', color: 'var(--on-acc)' }} disabled={busy || !online || !text.trim()} onClick={send} aria-label={t('Send')}>
           <Icon name="send" />
         </button>
       </div>

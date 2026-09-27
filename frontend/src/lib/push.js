@@ -18,7 +18,9 @@ export async function enablePush() {
   if (perm !== 'granted') throw new Error(t('Notifications permission was not granted'))
   const reg = await navigator.serviceWorker.ready
   const { key } = await api('/api/push/public-key')
-  const subscription = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) })
+  // Reusing the current browser subscription makes opt-in idempotent when a member previously
+  // enabled push under the existing rest-timer settings.
+  const subscription = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) })
   await api('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: subscription.toJSON() }) })
 }
 

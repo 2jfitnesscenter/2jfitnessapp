@@ -1,21 +1,24 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Avatar } from '../components/ui.jsx'
 import { addFriendSheet, confirmSheet, celebrateBadges } from '../sheets.jsx'
-import { fetchFriends, acceptFriendRequest, declineFriendRequest, cancelFriendRequest, removeFriend, sendFriendRequest } from '../lib/friends-api.js'
+import { fetchFriends, acceptFriendRequest, declineFriendRequest, cancelFriendRequest, removeFriend, sendFriendRequest, blockFriend, unblockFriend } from '../lib/friends-api.js'
 import { evaluateBadgesIn } from '../lib/badges.js'
+import { startDirectThread } from '../lib/chat-api.js'
 
 export default function Friends() {
   const [params, setParams] = useSearchParams()
+  const nav = useNavigate()
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
   const [data, setData] = useState(null)   // { friends, incoming, outgoing }
+  const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
 
   const load = () => fetchFriends().then(setData).catch(e => toast(e.message))
@@ -51,6 +54,7 @@ export default function Friends() {
   if (!data) return <div className="narrow"><div className="hdr"><div><h1>{t('Friends')}</h1></div></div></div>
 
   const nothingYet = !data.friends.length && !data.incoming.length && !data.outgoing.length
+  const visibleFriends = data.friends.filter(f => !query.trim() || f.name.toLowerCase().includes(query.trim().toLowerCase()))
 
   return <div className="narrow">
     <div className="hdr">
@@ -82,16 +86,22 @@ export default function Friends() {
     </>}
 
     {data.friends.length ? (
+      <>
+      <label className="search" style={{ margin: '4px 0 10px' }}><Icon name="search" /><input className="input" value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Search friends')} /></label>
       <div className="list">
-        {data.friends.map(f => <div key={f.id} className="item">
+        {visibleFriends.map(f => <div key={f.id} className="item">
           <Avatar name={f.name} size={40} />
-          <div className="grow"><div className="tt capitalize">{f.name}</div></div>
+          <button className="grow friend-profile-link" onClick={() => nav('/social/profile/' + encodeURIComponent(f.id))}><span className="tt capitalize">{f.name}</span><span className="ss">{t('View social profile')}</span></button>
+          <button className="iconbtn" aria-label={t('Message {0}', f.name)} onClick={() => startDirectThread(f.id).then(th => nav('/chat/' + th.id)).catch(e => toast(e.message))}><Icon name="message" /></button>
+          <button className="iconbtn" aria-label={t('Block {0}', f.name)} onClick={() => confirmSheet({ title: t('Block {0}?', f.name), message: t('This also removes the friendship and stops direct messages.'), confirmText: t('Block'), danger: true, onConfirm: () => blockFriend(f.id).then(load).catch(e => toast(e.message)) })}><Icon name="ban" /></button>
           <button className="iconbtn" aria-label={t('Remove friend')} onClick={() => confirmSheet({
             title: t('Remove {0}?', f.name), confirmText: t('Remove'), danger: true,
             onConfirm: () => respond(removeFriend, f.id, t('Friend removed'))
           })}><Icon name="xmark" /></button>
         </div>)}
+        {!visibleFriends.length && <div className="empty">{t('No match')}</div>}
       </div>
+      </>
     ) : nothingYet && (
       <div className="card" style={{ textAlign: 'center' }}>
         <div style={{ color: 'var(--label-2)', marginBottom: 10 }}><Icon name="users" size={40} /></div>
@@ -100,5 +110,6 @@ export default function Friends() {
         <Button variant="primary" onClick={() => addFriendSheet(load)}>{t('Invite a friend')}</Button>
       </div>
     )}
+    {!!data.blocked?.length && <><h4 className="sec" style={{ marginTop: 24 }}>{t('Blocked')}</h4><div className="list">{data.blocked.map(f => <div key={f.id} className="item"><Avatar name={f.name} size={38} /><div className="grow"><div className="tt capitalize">{f.name}</div></div><Button size="sm" onClick={() => unblockFriend(f.id).then(load).catch(e => toast(e.message))}>{t('Unblock')}</Button></div>)}</div></>}
   </div>
 }

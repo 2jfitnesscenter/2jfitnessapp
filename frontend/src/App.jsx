@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { bindUI } from './components/ui.jsx'
 import { ACCENTS } from './lib/format.js'
-import { setLang, useLang } from './lib/i18n.js'
+import { setLang, useLang, t } from './lib/i18n.js'
 import { setNav } from './lib/nav.js'
 import { useWakeLock } from './lib/wakelock.js'
 import Icon from './components/Icon.jsx'
@@ -30,7 +30,6 @@ import ClockPicker from './views/Clock.jsx'
 import ClockRun from './views/ClockRun.jsx'
 import Stats from './views/Stats.jsx'
 import History from './views/History.jsx'
-import Social from './views/Social.jsx'
 import Settings from './views/Settings.jsx'
 import TrainingSettings from './views/TrainingSettings.jsx'
 import StatsSettings from './views/StatsSettings.jsx'
@@ -45,9 +44,14 @@ import HealthIntegrations from './views/HealthIntegrations.jsx'
 import Records from './views/Records.jsx'
 import { showPendingCelebration } from './sheets.jsx'
 import Profile from './views/Profile.jsx'
-import Friends from './views/Friends.jsx'
-import Chat from './views/Chat.jsx'
-import ChatThread from './views/ChatThread.jsx'
+const Social = lazy(() => import('./views/Social.jsx'))
+const Friends = lazy(() => import('./views/Friends.jsx'))
+const Chat = lazy(() => import('./views/Chat.jsx'))
+const ChatThread = lazy(() => import('./views/ChatThread.jsx'))
+const Notifications = lazy(() => import('./views/Notifications.jsx'))
+const SocialPreferences = lazy(() => import('./views/SocialPreferences.jsx'))
+const SocialProfile = lazy(() => import('./views/SocialProfile.jsx'))
+import NotificationWatcher from './components/NotificationWatcher.jsx'
 import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements, { SkinfoldsScreen, BodyMeasurementsScreen } from './views/Measurements.jsx'
 import Health from './views/Health.jsx'
@@ -202,7 +206,7 @@ function Shell() {
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
           {!authed ? <Login /> : needsOnboarding ? <PhysicalProfileWizard /> : (
-            <Routes>
+            <Suspense fallback={<div className="narrow" role="status" style={{ paddingTop: 24 }}>{t('Loading…')}</div>}><Routes>
               <Route path="/home" element={<Home />} />
               <Route path="/plan" element={<Plan />} />
               <Route path="/plan/p/:id" element={<ProgramEdit />} />
@@ -218,6 +222,9 @@ function Shell() {
               <Route path="/stats" element={<Stats />} />
               <Route path="/history" element={<History />} />
               <Route path="/social" element={<Social />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/social/preferences" element={<SocialPreferences />} />
+              <Route path="/social/profile/:id" element={<SocialProfile />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/training" element={<TrainingSettings />} />
               <Route path="/settings/stats" element={<StatsSettings />} />
@@ -248,7 +255,7 @@ function Shell() {
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
               <Route path="/admin/bunker" element={(user?.admin || user?.trainer) ? <BunkerAdminPage /> : <Navigate to="/home" replace />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
-            </Routes>
+            </Routes></Suspense>
           )}
         </ErrorBoundary>
       </div>
@@ -260,6 +267,7 @@ function Shell() {
       <RestTimer />
       <ChatWatcher />
       <FriendsWatcher />
+      <NotificationWatcher />
       {!needsOnboarding && <InstallPrompt />}
       <Modals />
       <Toast />

@@ -6,6 +6,7 @@ import { api } from './api.js'
 
 export const fetchThreads = () => api('/api/chat/threads').then(r => r.threads)
 export const startThread = text => api('/api/chat/threads', { method: 'POST', body: JSON.stringify({ text }) }).then(r => r.thread)
+export const startDirectThread = userId => api('/api/chat/direct', { method: 'POST', body: JSON.stringify({ userId }) }).then(r => r.thread)
 export const fetchMessages = threadId => api('/api/chat/messages?threadId=' + encodeURIComponent(threadId))
 export const sendMessage = (threadId, text) => api('/api/chat/messages', { method: 'POST', body: JSON.stringify({ threadId, text }) })
 export const setThreadStatus = (threadId, status) => api('/api/chat/threads/status', { method: 'POST', body: JSON.stringify({ threadId, status }) })
