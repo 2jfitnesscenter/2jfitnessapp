@@ -2,16 +2,22 @@
 
 ## Unreleased
 
-### Community V2 foundation — local, not deployed (`0fb027c`, `119cb5a`)
+### Community V2 + Notifications + Sharing — local, not deployed (`fa4d080`)
 
-- Adds friend-only direct chats, block/unblock, a privacy-filtered social profile, notification
-  inbox/preferences, opt-in social Web Push, Community first-use help, and exportable 2J cards for
-  published routines/programs, shared PRs and challenges.
-- Reuses the existing friend graph, trainer chat, social feed, Web Push, HashRouter and image
-  export. Health and measurements are excluded from social profiles and share-card payloads.
-- This is a partial foundation, not a completed Community V2 sprint. Automatic workout/achievement
-  activity, chat references, report workflow and full data-backed/visual QA remain open. Production
-  remains at `7ebb722`; no deployment or push was performed.
+- Adds explicit sharing from completed workouts, PRs, unlocked badges, streaks, routines, programs
+  and challenges to Community, direct chat or an exported 2J image. A chat share is a small
+  reference, hydrated only while the target and current privacy/relationship rules permit it.
+- Adds the Community Moments feed, user reports, admin-only report review/removal, deduplicated
+  share/challenge notifications and opt-in social Web Push. No workout is published automatically;
+  no Health or body-composition data enters social profiles or share snapshots.
+- Fixes the real-API push helper wiring and revalidates privacy for direct-share detail reads. An
+  isolated HTTP integration covers member A/B, admin, trainer without admin, sharing, unread,
+  dedupe, block/unblock, privacy revocation, reports, challenge alerts, and safe deleted-target
+  fallback. Frontend 910/910, API 274/274, build OK, Spanish 3342/3342, `git diff --check` OK.
+- The full visual QA matrix is still outstanding; only Community Home/onboarding at 720×768 in dark
+  mode was visually inspected in an isolated local setup. Do not mark the sprint accepted or deploy until the
+  requested 390/tablet/desktop, light/dark, conversation/share/report/admin/empty/offline/fallback
+  states are reviewed. Production remains at the user-confirmed `0fcd8fc1f89b84b84291020137b9839e7934add6`.
 
 ### Gym Profiles UI polish — local, not deployed (`70080f1`)
 
@@ -28,9 +34,10 @@
   including library compatibility, swaps, Constructor/Workout, Train2J and Coach payloads. It is
   not copied into member Sync V2 state; clients keep only a separate last-known offline cache.
 - Uses the existing taxonomy (18 categories; no taxonomy ids added). Existing routines and workout
-  history are not rewritten. Production remains at `7ebb722`; this sprint has not been deployed.
+  history are not rewritten. The release checkpoint at that time was `7ebb722`; production was
+  later confirmed at `0fcd8fc1f89b84b84291020137b9839e7934add6`. This sprint has not been deployed.
 
-## Production 7ebb722 — Gym Profiles V1 — confirmed 2026-09-27
+## Previous production checkpoint 7ebb722 — Gym Profiles V1 — confirmed 2026-09-27
 
 - Equipment-category context for 2J, Home, Hotel and personal gym profiles, shared with existing
   library compatibility, deterministic swaps, Constructor/Workout warnings, Train2J and AI context.

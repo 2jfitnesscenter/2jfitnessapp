@@ -7,9 +7,10 @@
 
 ## 1. Estado de producción (checkpoint 2026-09-27)
 
-- **Producción estable:** `7ebb722708a6b27c33aafe60f799b1dada8fbc59` — Gym Profiles V1 desplegado;
-  incluye Series Feedback V1 y Exercise Library V2. Confirmación del usuario. El polish visual
-  `70080f1` es posterior, local y **no desplegado** (§12).
+- **Producción estable actual (confirmada por el usuario):** `0fcd8fc1f89b84b84291020137b9839e7934add6`.
+  El trabajo local Community V2 de esta rama no está desplegado.
+- `7ebb722708a6b27c33aafe60f799b1dada8fbc59` es un checkpoint anterior de Gym Profiles V1;
+  no representa la producción actual. El polish visual `70080f1` sigue sin desplegar.
 - **Rollback conocido seguro:** `4aab27eaed769505c70d7d742be8de99e4052e5f` (Legal/credits).
 - **Nunca** usar como rollback código anterior a `SYNC_V2_ROLLBACK_BASE` (`51a221d`); `90d98fe`
   o anteriores no son válidos sobre datos Sync V2.
@@ -20,42 +21,60 @@
 - Servidor: `/opt/2jfitness` (release extraída de tarballs, no es repo git), datos en
   `/opt/2jfitness/data`, backups en `/root/backups`, URL `https://app.2jfitnesscenter.com`.
 
-### Sprint Community V2 + Notifications + Sharing — implementación local (2026-09-27)
+### Community V2 + Notifications + Sharing — local, not deployed (2026-09-27)
 
-- Commits locales: `0fb027c` (API/permisos) y `119cb5a` (frontend/UX). No desplegado; producción
-  sigue en `7ebb722...`. No toca Sync V2, historial de entrenos, Health ni datos del Bunker.
-- Reutiliza `friends.json`, `chat.json`, `social.json`, el Web Push/VAPID existente, HashRouter,
-  service worker y `share-image.js`. Añade `notifications.json` acotado (100 por usuario/5000 total)
-  con preferencias de privacidad/notificaciones; no almacena blobs en el inbox.
-- API nueva: `GET /api/notifications`, `POST /api/notifications/read|read-all`,
+- Anteriores commits preservados: `0fb027c` (API/permisos), `119cb5a` (frontend/UX), `e1d92d1`
+  (handoff/changelog parcial). Cierre funcional: `fa4d080`; el commit documental posterior no forma
+  parte del release de producción.
+  **No desplegado**; producción actual confirmada: `0fcd8fc1f89b84b84291020137b9839e7934add6`.
+- Reutiliza `friends.json`, `chat.json`, `social.json`, Web Push/VAPID existente, HashRouter,
+  service worker y exportador PNG. `notifications.json` guarda un máximo de 100 avisos por usuario
+  y 5.000 en total; no contiene imágenes/blobs. `social-sharing.json` contiene referencias de
+  shares y reportes; las tarjetas se reconstruyen desde el contenido fuente actual con allowlist.
+- Relaciones: amistad aceptada permite chat directo; bloquear corta amistad y acceso. Desbloquear
+  no recrea la amistad. Perfil social solo expone id/nombre/avatar. Comunidad/chat/detalle vuelven a
+  comprobar privacidad, relación, bloqueos y existencia del target al leer; cambios a privado o
+  eliminación producen fallback inaccesible. No se incluyen Health, medidas, notas, restricciones
+  ni datos de administración en perfiles o snapshots de shares.
+- API añadida/completada: `GET /api/notifications`, `POST /api/notifications/read|read-all`,
   `GET|POST /api/social/preferences`, `GET /api/social/profile?id=...`,
-  `POST /api/chat/direct`, `POST /api/friends/block|unblock`. `GET /api/friends` ahora incluye
-  amistades, solicitudes y bloqueados. Chat directo requiere amistad aceptada y acceso de ambos
-  participantes; borrar amistad/bloquear corta el acceso. Perfil social usa allowlist nombre/avatar;
-  Health, medidas, notas, restricciones y datos admin no salen. La visibilidad se verifica en API
-  y se vuelve a evaluar con relación y preferencias actuales.
-- Centro de notificaciones para solicitud/aceptación, mensajes y tipos preparados para shares,
-  retos/logros; unread/read, read-all, destino validado y badge con refresco cada 30 s.
-  Web Push reutiliza VAPID y solo solicita permiso tras pulsar “Activar”; preferencias sociales no
-  desactivan el push de temporizadores ya existente. Deep links aceptados: friends, chat, social,
-  notifications (HashRouter).
-- UX local: home Community con accesos/resumen, onboarding de tres pasos por usuario en
-  `community-intro:v1:<userId>` y ayuda reabrible; privacidad agrupada; perfil social; bloqueo;
-  indicador de envío offline. Rutina, programa, PR y reto pueden exportarse como tarjeta 2J mediante
-  `CommunityShareCard` + `SocialShareSheet` y renderer existente. Lazy loading para Social, Amigos,
-  Chat, Notifications y perfiles.
-- Validación local: frontend 902/902, API 272/272, build y español 3295/3295; otros idiomas
-  conservan la deuda histórica de traducción/fallback. QA visual Community en 390 px, tablet y
-  escritorio, claro/oscuro; no overflow global medido. El API local no estaba disponible (502),
-  por lo que no se validaron visualmente estados con datos reales.
-- **Alcance parcial; no declarar el sprint completo ni desplegar aún.** Pendiente: feed automático
-  de entrenos/logros/rachas y eventos de share/challenge/achievement; compartir referencias desde
-  Entreno/Mi 2J/Train2J y dentro de chat; conversaciones con mensajes/empty state con API levantada;
-  reportes de usuarios a moderación; pruebas de UI/comportamiento de preferencias, notificaciones,
-  amistades y chat con backend, usuarios y flujos reales; QA completa de estados enumerados en el
-  brief. El feed existente (temas, rutinas, PR, retos) y moderación admin por borrado siguen siendo
-  los ya existentes. No push de Health. No se construyó cola offline: los mensajes solo se confirman
-  cuando el servidor responde.
+  `POST /api/chat/direct`, `POST /api/friends/block|unblock`,
+  `POST /api/social/shares`, `GET /api/social/shares|shares/item`,
+  `POST /api/social/shares/delete`, `POST /api/social/reports`,
+  `GET /api/admin/social-reports`, `POST /api/admin/social-reports/resolve`.
+- Mensaje compartido usa `type: "share"` + `shareId`; no copia PNG ni el estado de entrenamiento.
+  La tarjeta se hidrata al leer y desaparece de forma segura si deja de ser visible. El feed social
+  solo recibe contenido al tocar “Compartir”; ningún entrenamiento se publica automáticamente.
+  workout, PR, badge/logro, racha, reto, rutina y programa tienen entry point o destino compatible;
+  la exportación visual conserva los detalles de entrenamiento elegidos, nunca el perfil corporal.
+- Notificaciones: solicitud/aceptación, mensaje, share directo y participación en reto; estas últimas
+  usan dedupe key. Push social reutiliza la infraestructura VAPID, está OFF por defecto y requiere
+  activación expresa; no hay push por evento del feed ni por Health. El centro in-app permanece activo
+  con permiso del navegador denegado. Destinos permitidos incluyen friends, chat, social/share,
+  reto, notifications y admin/social-reports; HashRouter resuelve los targets y los borrados tienen
+  fallback. Community intro: `community-intro:v1:<userId>`; ayuda de share:
+  `community-share-help:v1:<userId>`.
+- La superficie nueva incluye tab “Momentos”, tarjetas visuales, compartir workout tras completar,
+  PR, badges desbloqueados, rachas, rutinas/programas y retos; cards de chat, reportar/borrar,
+  revisión de reportes solo para admin. Entrenador no-admin y socio reciben 403 en moderación. Se
+  corrige el API wiring para llamar al helper existente `sendSocialPush` (no `socialPush`).
+- Protección de privacidad añadida: permisos de shares directos se vuelven a validar también en el
+  endpoint de detalle, además de al resolver la tarjeta de chat. La integración HTTP comprueba
+  revocación y restauración del permiso, blocks/unblocks y que unblock por sí solo no recrea amistad.
+- Tests verificados localmente: frontend **910/910**; API **274/274**. Build Vite OK; español
+  **3342/3342**. Otros idiomas están en la deuda histórica **805/3342**, no causada por este sprint.
+  Build conserva avisos de chunks grandes; vistas Community/Social/Chat/Notifications y reports
+  salen como chunks lazy separados. `git diff --check` OK.
+- QA funcional: API HTTP efímera con datos aislados (socio A/B, admin y trainer no-admin) pasó
+  amistades, privacidad/perfil, share community/chat, unread, dedupe, avisos, reto, bloqueo, reportes,
+  permisos, retirada del target y prueba negativa de fuga de datos. El API que antes dio 502 fallaba
+  porque el handler nuevo usaba un nombre incorrecto de helper de push; se corrigió y el child API
+  real pasa. QA visual comprobada solo para Community Home en tema oscuro, viewport 720×768 y
+  onboarding. **No se completó la matriz visual solicitada** (390/tablet/desktop, claro y
+  oscuro, chat/share/report/admin/push-denied/offline/borrado), por lo que el sprint queda localmente
+  validado en API/tests/build pero **no listo para declarar aceptación completa ni para deploy**.
+- Sin cola offline nueva: cada share/chat se confirma con respuesta del servidor. No tocar Sync V2,
+  Training Protocol, Health, Gym Profiles, Library, Bunker ni infra.
 
 ## 2. Ramas y PRs
 
@@ -218,9 +237,9 @@ Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
 
 ## 12. Gym Profiles V1 — desplegado; polish y editor V1.1 locales
 
-Commits V1: funcional `d50fa9e`, relevo/documentación `7ebb722`. Producción confirmada en
-`7ebb722708a6b27c33aafe60f799b1dada8fbc59`. Contexto sobre Library V2, no nuevo catálogo ni
-metodología.
+Commits V1: funcional `d50fa9e`, relevo/documentación `7ebb722`. Release checkpoint anterior
+`7ebb722708a6b27c33aafe60f799b1dada8fbc59`; la producción actual es `0fcd8fc...` (§1). Contexto
+sobre Library V2, no nuevo catálogo ni metodología.
 
 - Modelo canónico: `frontend/src/lib/gym-profile-model.js`; copia API generada mediante
   `node scripts/sync-gym-profiles.mjs` (test de igualdad + `--check`). Ambos contenedores siguen
@@ -272,8 +291,9 @@ metodología.
   Las rutinas/historial no se reescriben ni se crean snapshots por cambios de material.
 - Verificación local V1.1: frontend **898/898**, API **266/266**, modelo frontend/API sincronizado,
   locales ES completas, build y `git diff --check` OK. Test HTTP verifica 401 anónimo, 403 miembro y
-  trainer, guardado admin, persistencia tras reinicio y lectura común. La producción sigue en
-  `7ebb722708a6b27c33aafe60f799b1dada8fbc59`; este sprint no se ha desplegado ni tiene runner
+  trainer, guardado admin, persistencia tras reinicio y lectura común. El checkpoint de producción
+  de esa verificación fue `7ebb722708a6b27c33aafe60f799b1dada8fbc59`; la producción actual es
+  `0fcd8fc...`. Este sprint no se ha desplegado ni tiene runner
   válido (el runner local previo apunta a `b890a26` y ya no coincide con HEAD).
 - Limitación: otros dispositivos actualizan al iniciar, volver al foco o reconectar; no hay
   notificación realtime global. Las categorías expresan disponibilidad general, no una máquina o
