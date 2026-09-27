@@ -13,11 +13,12 @@ import crypto from 'node:crypto';
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = path.join(DATA, 'friends.json');
 
-const store = { codes: [], requests: [] };
+const store = { codes: [], requests: [], blocked: [] };
 try {
   const parsed = JSON.parse(fs.readFileSync(FILE, 'utf8'));
   store.codes = Array.isArray(parsed.codes) ? parsed.codes : [];
   store.requests = Array.isArray(parsed.requests) ? parsed.requests : [];
+  store.blocked = Array.isArray(parsed.blocked) ? parsed.blocked : [];
 } catch { /* first boot — no file yet */ }
 
 function atomicWrite(file, content) {
@@ -65,6 +66,17 @@ export function friendIdsOf(userId) {
     .filter(r => r.status === 'accepted' && (r.fromId === userId || r.toId === userId))
     .map(r => (r.fromId === userId ? r.toId : r.fromId));
 }
+export function isBlocked(aId, bId) { return store.blocked.some(x => x.ownerId === aId && x.blockedId === bId); }
+export function blockedOf(userId) { return store.blocked.filter(x => x.ownerId === userId).map(x => x.blockedId); }
+export function blockUser(ownerId, blockedId) {
+  if (!ownerId || !blockedId || ownerId === blockedId) return false;
+  if (!isBlocked(ownerId, blockedId)) store.blocked.push({ ownerId, blockedId, createdAt: Date.now() });
+  removeFriendship(ownerId, blockedId);
+  const now = Date.now();
+  for (const req of store.requests) if (req.status === 'pending' && ((req.fromId === ownerId && req.toId === blockedId) || (req.fromId === blockedId && req.toId === ownerId))) { req.status = 'declined'; req.respondedAt = now; }
+  save(); return true;
+}
+export function unblockUser(ownerId, blockedId) { const n = store.blocked.length; store.blocked = store.blocked.filter(x => !(x.ownerId === ownerId && x.blockedId === blockedId)); if (n !== store.blocked.length) save(); }
 export function incomingOf(userId) {
   return store.requests.filter(r => r.toId === userId && r.status === 'pending');
 }

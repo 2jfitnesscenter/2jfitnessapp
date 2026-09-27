@@ -22,7 +22,11 @@ import { readState, writeState } from './lib/state-store.js';
 import { openSync, mutate, directReceipt, saveDirect, trainerReceipt, saveTrainer } from './lib/sync.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
+import * as friendsStore from './friends/store.js';
 import { chatRoutes } from './chat/routes.js';
+import { notificationRoutes } from './notifications/routes.js';
+import * as notificationStore from './notifications/store.js';
+import { canViewSharedContent } from './notifications/privacy.js';
 import { bunkerRoutes } from './bunker/routes.js';
 import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
@@ -239,6 +243,11 @@ async function sendPush(userId, payload) {
     }
   }));
   if (dirty) saveDb();
+}
+async function sendSocialPush(userId, payload, type) {
+  const prefs = notificationStore.preferencesFor(userId);
+  if (!prefs.push || !notificationStore.allows(userId, type)) return;
+  return sendPush(userId, payload);
 }
 
 // Rest-timer alerts: client schedules on start/extend, cancels on skip or on-screen completion —
@@ -477,6 +486,12 @@ function json(res, code, obj, extraHeaders) {
   const body = JSON.stringify(obj);
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...(extraHeaders || {}) });
   res.end(body);
+}
+function socialFriends(a, b) {
+  return friendsStore.friendIdsOf(b).includes(a) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
+}
+function canViewSocialShare(user, authorId, kind) {
+  return canViewSharedContent({ authorId, viewerId: user.id, kind, privacy: notificationStore.privacyFor(authorId), isFriend: socialFriends });
 }
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -1490,7 +1505,7 @@ const routes = {
   'GET /api/social/routines': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const routines = social.routines.map(r => {
+    const routines = social.routines.filter(r => canViewSocialShare(user, r.authorId, 'routine')).map(r => {
       const ratings = r.ratings || [];
       const avgStars = ratings.length ? Math.round((ratings.reduce((s, x) => s + x.stars, 0) / ratings.length) * 10) / 10 : null;
       const mine = ratings.find(x => x.uid === user.id);
@@ -1746,7 +1761,7 @@ const routes = {
   'GET /api/social/programs': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const programs = social.programs.map(p => {
+    const programs = social.programs.filter(p => canViewSocialShare(user, p.authorId, 'program')).map(p => {
       const ratings = p.ratings || [];
       const avgStars = ratings.length ? Math.round((ratings.reduce((s, x) => s + x.stars, 0) / ratings.length) * 10) / 10 : null;
       const mine = ratings.find(x => x.uid === user.id);
@@ -1833,7 +1848,7 @@ const routes = {
   'GET /api/social/wall': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const visible = social.wall.filter(w => w.public || w.authorId === user.id);
+    const visible = social.wall.filter(w => w.authorId === user.id || (w.public && canViewSocialShare(user, w.authorId, 'pr')));
     json(res, 200, { wall: [...visible].sort((a, b) => b.createdAt - a.createdAt) });
   },
 
@@ -1882,7 +1897,7 @@ const routes = {
     const body = await readBody(req);
     const post = social.wall.find(w => w.id === body.id);
     if (!post) return json(res, 404, { error: 'esa marca ya no existe' });
-    if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (post.authorId !== user.id) return json(res, 403, { error: 'prohibido' });
     post.public = !!body.public;
     saveSocial();
     json(res, 200, { ok: true, public: post.public });
@@ -1899,6 +1914,7 @@ const routes = {
     if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
     const post = social.wall.find(w => w.id === body.id);
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
+    if (post.authorId !== user.id && (!post.public || !canViewSocialShare(user, post.authorId, 'pr'))) return json(res, 404, { error: 'esa publicación no existe' });
     post.comments = post.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     post.comments.push(comment);
@@ -2112,7 +2128,8 @@ const routes = {
     const id = new URL(req.url, 'http://x').searchParams.get('id') || '';
     const c = social.challenges.find(x => x.id === id);
     if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
-    const leaderboard = c.participants.map(uid => {
+    const leaderboardVisible = c.participants.includes(user.id) || user.id === c.authorId || isTrainer(user);
+    const leaderboard = (leaderboardVisible ? c.participants : []).filter(uid => canViewSocialShare(user, uid, 'challenge')).map(uid => {
       const u = db.users.find(x => x.id === uid);
       return { userId: uid, userName: u ? u.name : 'Socio', value: challengeProgress(c, readState(uid)) };
     }).sort((a, b) => b.value - a.value);
@@ -2123,7 +2140,7 @@ const routes = {
         metric: c.metric || null, targetValue: c.targetValue || null,
         startDate: c.startDate, endDate: c.endDate, authorId: c.authorId, authorName: c.authorName
       },
-      leaderboard, joined: c.participants.includes(user.id)
+      leaderboard, leaderboardVisible, joined: c.participants.includes(user.id)
     });
   },
 
@@ -2464,8 +2481,12 @@ const routes = {
   // Same factory shape as coachRoutes — their own data/friends.json and data/chat.json, no
   // per-member/per-trainer assignment concept to hook into (trainer status is global, see
   // isTrainer above), so chat is one shared inbox every trainer/admin can see and reply to.
-  ...friendsRoutes({ json, readBody, readSession, sendPush, users: () => db.users }),
-  ...chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users: () => db.users }),
+  ...friendsRoutes({ json, readBody, readSession, sendPush: (uid, payload) => socialPush(uid, payload, 'friend_request'), users: () => db.users, notify: notificationStore.create }),
+  ...chatRoutes({ json, readBody, readSession, sendPush: (uid, payload) => socialPush(uid, payload, 'message'), isTrainer, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), isFriend: (a, b) => {
+    // Friend graph is the existing authoritative relationship model.
+    return friendsStore.friendIdsOf(a).includes(b) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
+  } }),
+  ...notificationRoutes({ json, readBody, readSession }),
 
   /* ---------- Bunker (gym-floor kiosk) ---------- */
   // Its own data/bunker.json (PINs, admin codes, room settings) — see bunker/store.js's doc

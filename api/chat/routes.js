@@ -7,13 +7,16 @@ import * as store from './store.js';
 
 const MAX_TEXT = 2000;
 
-export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users }) {
+export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users, isFriend = () => false, notify = () => {}, markThreadNotificationsRead = () => {} }) {
   const guard = (req, res) => {
     const user = readSession(req);
     if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
     return user;
   };
   const memberName = id => (users().find(u => u.id === id) || {}).name || null;
+  const canRead = (thread, user) => thread.kind === 'direct'
+    ? ((thread.memberId === user.id || thread.recipientId === user.id) && isFriend(thread.memberId, thread.recipientId))
+    : (thread.memberId === user.id || isTrainer(user));
   // `unread` is per-viewer: a thread is unread for you when the last message wasn't written
   // by you and arrived after the last time you (specifically) opened it — tracked per user id
   // in thread.readBy so every trainer has their own read state on a thread they all share.
@@ -27,17 +30,30 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       unread: !!last && last.authorId !== viewerId && last.createdAt > readAt
     };
   };
-  const notifyTrainers = (fromName, text, threadId) => {
-    users().filter(u => isTrainer(u)).forEach(t => sendPush(t.id, {
+  const notifyTrainers = (fromId, fromName, text, threadId) => {
+    users().filter(u => isTrainer(u) && u.id !== fromId).forEach(t => {
+      notify(t.id, { type: 'message', actor: { id: fromId, name: fromName }, target: { kind: 'chat', id: threadId }, deepLink: '/chat/' + threadId });
+      sendPush(t.id, {
       title: 'Nuevo mensaje', body: `${fromName}: ${text.slice(0, 80)}`, tag: 'chat-' + threadId, url: '#/chat/' + threadId
-    }));
+      });
+    });
   };
 
   return {
     'GET /api/chat/threads': async (req, res) => {
       const user = guard(req, res); if (!user) return;
-      if (isTrainer(user)) return json(res, 200, { threads: store.allThreads().map(t => ({ ...preview(t, user.id), memberName: memberName(t.memberId) })) });
-      json(res, 200, { threads: store.threadsOf(user.id).map(t => preview(t, user.id)) });
+      if (isTrainer(user)) return json(res, 200, { threads: store.allThreads().filter(t => t.kind !== 'direct' || canRead(t, user)).map(t => ({ ...preview(t, user.id), kind: t.kind || 'trainer', memberName: memberName(t.kind === 'direct' && t.memberId === user.id ? t.recipientId : t.memberId) })) });
+      json(res, 200, { threads: store.threadsOf(user.id).filter(t => canRead(t, user)).map(t => ({ ...preview(t, user.id), kind: t.kind || 'trainer', memberName: t.kind === 'direct' ? memberName(t.memberId === user.id ? t.recipientId : t.memberId) : undefined })) });
+    },
+
+    'POST /api/chat/direct': async (req, res) => {
+      const user = guard(req, res); if (!user) return;
+      const body = await readBody(req); const peerId = String(body.userId || '');
+      if (!peerId || peerId === user.id || !isFriend(user.id, peerId)) return json(res, 403, { error: 'solo puedes iniciar un chat con una amistad aceptada' });
+      const peer = users().find(u => u.id === peerId);
+      if (!peer) return json(res, 404, { error: 'esa persona ya no está disponible' });
+      const thread = store.findDirect(user.id, peerId) || store.createDirect(user.id, peerId);
+      json(res, 200, { ok: true, thread: { ...preview(thread, user.id), kind: 'direct', memberName: peer.name } });
     },
 
     'POST /api/chat/threads': async (req, res) => {
@@ -46,7 +62,7 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       const text = String(body.text || '').trim().slice(0, MAX_TEXT);
       if (!text) return json(res, 400, { error: 'escribe un mensaje' });
       const { thread } = store.createThread(user.id, text);
-      notifyTrainers(user.name, text, thread.id);
+      notifyTrainers(user.id, user.name, text, thread.id);
       json(res, 200, { ok: true, thread: preview(thread, user.id) });
     },
 
@@ -55,9 +71,10 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       const threadId = new URL(req.url, 'http://x').searchParams.get('threadId') || '';
       const thread = store.findThread(threadId);
       if (!thread) return json(res, 404, { error: 'esa conversación no existe' });
-      if (thread.memberId !== user.id && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+      if (!canRead(thread, user)) return json(res, 403, { error: 'prohibido' });
       store.markRead(thread.id, user.id);
-      json(res, 200, { thread: { ...preview(thread, user.id), memberName: memberName(thread.memberId) }, messages: store.messagesOf(thread.id) });
+      markThreadNotificationsRead(user.id, thread.id);
+      json(res, 200, { thread: { ...preview(thread, user.id), kind: thread.kind || 'trainer', memberName: memberName(thread.kind === 'direct' && thread.memberId === user.id ? thread.recipientId : thread.memberId) }, messages: store.messagesOf(thread.id) });
     },
 
     'POST /api/chat/messages': async (req, res) => {
@@ -65,14 +82,21 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       const body = await readBody(req);
       const thread = store.findThread(body.threadId);
       if (!thread) return json(res, 404, { error: 'esa conversación no existe' });
-      if (thread.memberId !== user.id && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+      if (!canRead(thread, user)) return json(res, 403, { error: 'prohibido' });
       if (thread.status === 'closed') return json(res, 400, { error: 'esta conversación está cerrada' });
       const text = String(body.text || '').trim().slice(0, MAX_TEXT);
       if (!text) return json(res, 400, { error: 'escribe un mensaje' });
-      const role = thread.memberId === user.id ? 'member' : 'trainer';
+      const role = thread.kind === 'direct' ? 'member' : (thread.memberId === user.id ? 'member' : 'trainer');
       const message = store.addMessage(thread.id, user.id, role, text);
-      if (role === 'member') notifyTrainers(user.name, text, thread.id);
-      else sendPush(thread.memberId, { title: 'Tu entrenador ha respondido', body: text.slice(0, 80), tag: 'chat-' + thread.id, url: '#/chat/' + thread.id });
+      if (thread.kind === 'direct') {
+        const recipientId = thread.memberId === user.id ? thread.recipientId : thread.memberId;
+        notify(recipientId, { type: 'message', actor: { id: user.id, name: user.name }, target: { kind: 'chat', id: thread.id }, deepLink: '/chat/' + thread.id });
+        sendPush(recipientId, { title: 'Nuevo mensaje', body: text.slice(0, 80), tag: 'chat-' + thread.id, url: '#/chat/' + thread.id });
+      } else if (role === 'member') notifyTrainers(user.id, user.name, text, thread.id);
+      else {
+        notify(thread.memberId, { type: 'message', actor: { id: user.id, name: user.name }, target: { kind: 'chat', id: thread.id }, deepLink: '/chat/' + thread.id });
+        sendPush(thread.memberId, { title: 'Tu entrenador ha respondido', body: text.slice(0, 80), tag: 'chat-' + thread.id, url: '#/chat/' + thread.id });
+      }
       json(res, 200, { ok: true, message });
     },
 
@@ -80,6 +104,8 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       const user = guard(req, res); if (!user) return;
       if (!isTrainer(user)) return json(res, 403, { error: 'prohibido' });
       const body = await readBody(req);
+      const existing = store.findThread(body.threadId);
+      if (existing?.kind === 'direct') return json(res, 404, { error: 'esa conversación no existe' });
       const status = body.status === 'closed' ? 'closed' : 'open';
       const thread = store.setStatus(body.threadId, status);
       if (!thread) return json(res, 404, { error: 'esa conversación no existe' });

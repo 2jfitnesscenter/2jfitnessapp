@@ -28,7 +28,7 @@ function atomicWrite(file, content) {
 function save() { atomicWrite(FILE, JSON.stringify(store, null, 2)); }
 
 export function threadsOf(memberId) {
-  return store.threads.filter(t => t.memberId === memberId).sort((a, b) => b.updatedAt - a.updatedAt);
+  return store.threads.filter(t => t.memberId === memberId || (t.kind === 'direct' && t.recipientId === memberId)).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 export function allThreads() {
   return [...store.threads].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -44,6 +44,14 @@ export function createThread(memberId, text) {
   store.messages.push(message);
   save();
   return { thread, message };
+}
+export function findDirect(a, b) {
+  return store.threads.find(t => t.kind === 'direct' && ((t.memberId === a && t.recipientId === b) || (t.memberId === b && t.recipientId === a))) || null;
+}
+export function createDirect(a, b) {
+  const now = Date.now();
+  const thread = { id: crypto.randomBytes(9).toString('base64url'), kind: 'direct', memberId: a, recipientId: b, status: 'open', createdAt: now, updatedAt: now, readBy: {} };
+  store.threads.push(thread); save(); return thread;
 }
 export function messagesOf(threadId) {
   return store.messages.filter(m => m.threadId === threadId).sort((a, b) => a.createdAt - b.createdAt);
