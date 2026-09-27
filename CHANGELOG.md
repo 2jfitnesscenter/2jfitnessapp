@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Community V2 foundation — local, not deployed (`0fb027c`, `119cb5a`)
+
+- Adds friend-only direct chats, block/unblock, a privacy-filtered social profile, notification
+  inbox/preferences, opt-in social Web Push, Community first-use help, and exportable 2J cards for
+  published routines/programs, shared PRs and challenges.
+- Reuses the existing friend graph, trainer chat, social feed, Web Push, HashRouter and image
+  export. Health and measurements are excluded from social profiles and share-card payloads.
+- This is a partial foundation, not a completed Community V2 sprint. Automatic workout/achievement
+  activity, chat references, report workflow and full data-backed/visual QA remain open. Production
+  remains at `7ebb722`; no deployment or push was performed.
+
 ### Gym Profiles UI polish — local, not deployed (`70080f1`)
 
 - Replaces the native place selector with a compact Settings row and a visual, mobile-first picker:

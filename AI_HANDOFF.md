@@ -20,6 +20,43 @@
 - Servidor: `/opt/2jfitness` (release extraída de tarballs, no es repo git), datos en
   `/opt/2jfitness/data`, backups en `/root/backups`, URL `https://app.2jfitnesscenter.com`.
 
+### Sprint Community V2 + Notifications + Sharing — implementación local (2026-09-27)
+
+- Commits locales: `0fb027c` (API/permisos) y `119cb5a` (frontend/UX). No desplegado; producción
+  sigue en `7ebb722...`. No toca Sync V2, historial de entrenos, Health ni datos del Bunker.
+- Reutiliza `friends.json`, `chat.json`, `social.json`, el Web Push/VAPID existente, HashRouter,
+  service worker y `share-image.js`. Añade `notifications.json` acotado (100 por usuario/5000 total)
+  con preferencias de privacidad/notificaciones; no almacena blobs en el inbox.
+- API nueva: `GET /api/notifications`, `POST /api/notifications/read|read-all`,
+  `GET|POST /api/social/preferences`, `GET /api/social/profile?id=...`,
+  `POST /api/chat/direct`, `POST /api/friends/block|unblock`. `GET /api/friends` ahora incluye
+  amistades, solicitudes y bloqueados. Chat directo requiere amistad aceptada y acceso de ambos
+  participantes; borrar amistad/bloquear corta el acceso. Perfil social usa allowlist nombre/avatar;
+  Health, medidas, notas, restricciones y datos admin no salen. La visibilidad se verifica en API
+  y se vuelve a evaluar con relación y preferencias actuales.
+- Centro de notificaciones para solicitud/aceptación, mensajes y tipos preparados para shares,
+  retos/logros; unread/read, read-all, destino validado y badge con refresco cada 30 s.
+  Web Push reutiliza VAPID y solo solicita permiso tras pulsar “Activar”; preferencias sociales no
+  desactivan el push de temporizadores ya existente. Deep links aceptados: friends, chat, social,
+  notifications (HashRouter).
+- UX local: home Community con accesos/resumen, onboarding de tres pasos por usuario en
+  `community-intro:v1:<userId>` y ayuda reabrible; privacidad agrupada; perfil social; bloqueo;
+  indicador de envío offline. Rutina, programa, PR y reto pueden exportarse como tarjeta 2J mediante
+  `CommunityShareCard` + `SocialShareSheet` y renderer existente. Lazy loading para Social, Amigos,
+  Chat, Notifications y perfiles.
+- Validación local: frontend 902/902, API 272/272, build y español 3295/3295; otros idiomas
+  conservan la deuda histórica de traducción/fallback. QA visual Community en 390 px, tablet y
+  escritorio, claro/oscuro; no overflow global medido. El API local no estaba disponible (502),
+  por lo que no se validaron visualmente estados con datos reales.
+- **Alcance parcial; no declarar el sprint completo ni desplegar aún.** Pendiente: feed automático
+  de entrenos/logros/rachas y eventos de share/challenge/achievement; compartir referencias desde
+  Entreno/Mi 2J/Train2J y dentro de chat; conversaciones con mensajes/empty state con API levantada;
+  reportes de usuarios a moderación; pruebas de UI/comportamiento de preferencias, notificaciones,
+  amistades y chat con backend, usuarios y flujos reales; QA completa de estados enumerados en el
+  brief. El feed existente (temas, rutinas, PR, retos) y moderación admin por borrado siguen siendo
+  los ya existentes. No push de Health. No se construyó cola offline: los mensajes solo se confirman
+  cuando el servidor responde.
+
 ## 2. Ramas y PRs
 
 - Trabajo: `feat/pwa-tanita-bunker-roadmap`. Base/default en GitHub: `2jfitness-dev`
@@ -255,8 +292,9 @@ No desplegar sin autorización explícita.
 duplicados; clasificar los 71 sin movimiento; precisar plate-loaded/selectorized con evidencia;
 posible editor admin de metadata; etiquetas heredadas "(male)" visibles en la biblioteca completa.
 
-**Roadmap orientativo después (no ejecutar):** Inteligencia 2J V2 → Community V2 + Notifications
-→ Bunker Live → Health Native Bridge → Guided Programs V2.
+**Roadmap orientativo después (no ejecutar):** Inteligencia 2J V2 → Bunker Live → Health Native
+Bridge → Guided Programs V2. Community V2 + Notifications está en implementación parcial local;
+consultar el checkpoint anterior antes de continuar. No está desplegado.
 
 **Deuda conocida (no autorizada como trabajo):** retención/poda de receipts, tombstones y journal
 de Sync V2; Sync V2 es monoproceso; unidades de pesos históricos; traducciones parciales en
