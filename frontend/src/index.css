@@ -3370,3 +3370,71 @@ body:has(.sync-pill) #app{padding-top:8px}
 .lib-dep .icn{flex:none;margin-top:2px;color:var(--acc)}
 .lib-scope{display:flex}
 .lib-scope button{flex:1}
+
+/* Gym Profiles — a visual place picker, shared by Settings and training entry points. */
+.gym-profile-row-wrap{display:flex;align-items:center;min-width:0;position:relative}
+.gym-profile-row{flex:1;min-width:0;border:0}
+.gym-row-icon{color:var(--acc)}
+.gym-row-info{flex:none;width:42px;height:42px;display:grid;place-items:center;border-radius:50%;color:var(--label-2);font-size:18px;background:transparent}
+.gym-row-info:active{background:var(--surface-2);color:var(--acc)}
+.gym-profile-sheet,.gym-help-sheet{width:min(100%,900px);min-height:100%;margin:0 auto;padding:calc(22px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));color:var(--label)}
+.gym-sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:22px}
+.gym-sheet-head h1{font-size:calc(28px * var(--text-scale,1));line-height:1.1;letter-spacing:-.035em;margin:3px 0 7px}
+.gym-sheet-intro,.gym-sheet-heading p{color:var(--label-2);font-size:calc(14px * var(--text-scale,1));line-height:1.4;margin:0}
+.gym-eyebrow{font-size:11px;font-weight:750;letter-spacing:.1em;color:var(--acc);margin:0 0 8px}
+.gym-sheet-actions{display:flex;gap:5px;flex:none}
+.gym-info-button{color:var(--acc)}
+.gym-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.gym-profile-card{position:relative;display:flex;align-items:flex-start;gap:11px;min-height:108px;padding:14px 12px;text-align:left;border:1px solid var(--sep);border-radius:18px;background:var(--surface);color:var(--label);transition:border-color .16s,background .16s,transform .16s}
+.gym-profile-card:active{transform:scale(.985)}
+.gym-profile-card.selected{border-color:color-mix(in srgb,var(--acc) 68%,var(--sep));background:var(--acc-soft);box-shadow:0 0 0 1px color-mix(in srgb,var(--acc) 12%,transparent) inset}
+.gym-profile-card-icon{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:13px;background:var(--surface-2);color:var(--label-2);font-size:20px}
+.gym-profile-card.selected .gym-profile-card-icon{background:color-mix(in srgb,var(--acc) 16%,var(--surface));color:var(--acc)}
+.gym-profile-card-copy{display:flex;flex-direction:column;gap:4px;min-width:0;padding-top:1px;padding-bottom:20px}
+.gym-profile-card-title{font-size:calc(14px * var(--text-scale,1));font-weight:680;line-height:1.22}
+.gym-profile-card-subtitle{font-size:calc(11.5px * var(--text-scale,1));line-height:1.3;color:var(--label-2)}
+.gym-active-badge{position:absolute;left:12px;bottom:11px;display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:11px;font-weight:700}
+.gym-active-badge .icn{width:13px;height:13px;--icon-stroke:2.5}
+.gym-profile-radio{position:absolute;right:12px;top:14px;width:17px;height:17px;border:1.5px solid var(--sep);border-radius:50%}
+.gym-profile-card.selected .gym-active-badge{background:var(--surface);padding:3px 7px;border-radius:99px}
+.gym-saved-places{margin-top:17px}
+.gym-section-label{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--label-2);margin:0 0 7px 2px}
+.gym-saved-place-list{display:flex;flex-wrap:wrap;gap:7px}
+.gym-saved-place{display:flex;align-items:center;gap:8px;max-width:100%;padding:8px 11px;border-radius:99px;border:1px solid var(--sep);background:var(--surface);color:var(--label);font-size:12px}
+.gym-saved-place.selected{border-color:var(--acc);color:var(--acc);background:var(--acc-soft)}
+.gym-saved-place span{display:inline-flex;align-items:center;color:inherit;font-size:10px}
+.gym-saved-place .icn{width:13px;height:13px}
+.gym-add-place-link{display:inline-flex;align-items:center;gap:5px;margin-top:9px;padding:5px 2px;color:var(--acc);font-size:12px;font-weight:650;background:transparent}
+.gym-add-place-link .icn{width:15px;height:15px}
+.gym-create-place{margin-top:13px;padding:13px;border:1px solid var(--sep);border-radius:16px;background:var(--surface)}
+.gym-create-kind{display:flex;align-items:center;flex-wrap:wrap;gap:7px;color:var(--label-2);font-size:12px}
+.gym-create-kind>span{width:100%}
+.gym-create-place label{display:block;color:var(--label-2);font-size:12px;margin:0 0 7px}
+.gym-create-row{display:flex;gap:8px;align-items:center}
+.gym-create-row .input{min-width:0;flex:1;margin:0}
+.gym-create-button{flex:none;min-height:42px}
+.gym-material-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:25px 2px 10px}
+.gym-material-heading h2{font-size:calc(17px * var(--text-scale,1));letter-spacing:-.02em;margin:0 0 3px}
+.gym-material-heading p{font-size:12px;color:var(--label-2);margin:0}
+.gym-fixed-note{flex:none;color:var(--acc);font-size:10px;font-weight:650;text-align:right}
+.gym-equipment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.gym-equipment-chip{position:relative;display:flex;align-items:center;gap:8px;min-height:43px;padding:8px 10px;text-align:left;border:1px solid var(--sep);border-radius:13px;background:var(--surface);color:var(--label-2);font-size:calc(12px * var(--text-scale,1));line-height:1.2}
+.gym-equipment-chip>.icn:first-child{flex:none;width:17px;height:17px;color:var(--label-2)}
+.gym-equipment-chip.on{border-color:color-mix(in srgb,var(--acc) 54%,var(--sep));background:var(--acc-soft);color:var(--label)}
+.gym-equipment-chip.on>.icn:first-child{color:var(--acc)}
+.gym-equipment-chip:disabled{opacity:1;cursor:default}
+.gym-equipment-check{width:14px;height:14px;margin-left:auto;color:var(--acc);--icon-stroke:2.5}
+.gym-material-readonly{padding:11px 13px;background:var(--surface);border-radius:13px;color:var(--label-2);font-size:13px;line-height:1.5}
+.gym-sheet-footnote{color:var(--label-2);font-size:11px;line-height:1.4;margin:10px 2px 0}
+.gym-delete-place{display:inline-flex;align-items:center;gap:6px;margin-top:15px;color:var(--red);font-size:12px;background:transparent}
+.gym-delete-place .icn{width:15px;height:15px}
+.gym-sheet-bottom{position:sticky;bottom:0;padding-top:18px;margin-top:10px;background:linear-gradient(180deg,transparent,var(--bg) 25%)}
+.gym-done-button{width:100%;min-height:48px;background:var(--acc);color:#fff;font-weight:700}
+.gym-help-sheet{max-width:560px;min-height:auto;padding:24px 20px calc(20px + env(safe-area-inset-bottom))}
+.gym-sheet-heading{display:flex;align-items:center;gap:11px}
+.gym-sheet-heading h2{font-size:19px;margin:0 0 3px;letter-spacing:-.02em}
+.gym-sheet-mark{width:40px;height:40px;display:grid;place-items:center;border-radius:13px;background:var(--acc-soft);color:var(--acc);font-size:20px;flex:none}
+.gym-help-copy{color:var(--label-2);font-size:14px;line-height:1.5}
+.gym-help-copy p{margin:0 0 12px}
+.gym-help-done{width:100%;margin-top:4px}
+@media(min-width:700px){.gym-profile-sheet{padding-left:28px;padding-right:28px}.gym-profile-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.gym-equipment-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}

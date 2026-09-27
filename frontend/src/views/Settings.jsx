@@ -77,7 +77,6 @@ export default function Settings() {
   })
 
   return <div className="narrow">
-    <GymProfile editable />
     <div className="hdr">
       <div><h1>{t('Settings')}</h1></div>
     </div>
@@ -103,6 +102,7 @@ export default function Settings() {
 
     {/* ---------- general ---------- */}
     <Section title={t('General')} footer={t('Note: switching units only changes the label — logged numbers are not converted.')}>
+      <GymProfile editable />
       <SelectRow
         icon="globe" iconTint="var(--blue)" title={t('Language')}
         value={S.lang || 'es'} onChange={v => update(s => { s.lang = v })}
