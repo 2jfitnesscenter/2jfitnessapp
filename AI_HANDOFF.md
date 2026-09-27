@@ -7,13 +7,16 @@
 
 ## 1. Estado de producción (checkpoint 2026-09-26)
 
-- **Producción estable:** `a9b6453c1c75ef6b993df073c88c3a524297d4e4` — Exercise Library V2 DESPLEGADA
-  (`DEPLOY_OK` y `DEPLOY_SCRIPT_OK` = a9b6453).
+- **Producción estable:** `133a52ce4d8b1d7fe6c2fb578562badae0913508` — Series Feedback V1 y
+  Exercise Library V2 DESPLEGADAS, según confirmación del usuario. No se ha accedido a producción
+  durante el sprint Gym Profiles. Gym Profiles V1 está implementado localmente, **sin desplegar** (§12).
 - **Rollback conocido seguro:** `4aab27eaed769505c70d7d742be8de99e4052e5f` (Legal/credits).
 - **Nunca** usar como rollback código anterior a `SYNC_V2_ROLLBACK_BASE` (`51a221d`); `90d98fe`
   o anteriores no son válidos sobre datos Sync V2.
 - Tests en a9b6453: frontend **864/864** (`cd frontend && npx vitest run`), API **261/261**
   (`cd api && node --test`). `package.json` sigue en 1.3.0: identificar releases por commit.
+- Base 133a52c comprobada en copia temporal: **879/879 frontend, 261/261 API**. Con Gym Profiles:
+  **894/894 frontend, 264/264 API**; build, locales, checks de catálogo/seeds/protocolo y diff OK.
 - Servidor: `/opt/2jfitness` (release extraída de tarballs, no es repo git), datos en
   `/opt/2jfitness/data`, backups en `/root/backups`, URL `https://app.2jfitnesscenter.com`.
 
@@ -24,7 +27,7 @@
 - PR #10 (feat → 2jfitness-dev) sigue abierta: **no fusionar automáticamente**.
 - PR #11 (legal) fusionada en `2jfitness-dev`; GitHub detecta `agpl-3.0`.
 - Dependabot PRs: no fusionar en masa; revisarlas en un sprint específico.
-- Commits terminan con `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- No atribuir a Claude cambios realizados por otro agente; conservar la autoría real.
 
 ## 3. Features desplegadas (resumen)
 
@@ -144,7 +147,7 @@ superseries; sustitución V2; herramientas; Health nunca visible en la sala; blo
 ejecutan como player completo en el Bunker (aviso). `views/Bunker.jsx`, `lib/bunker-workout.js`,
 `api/bunker/*`.
 
-## 10b. Series Feedback V1 (sin desplegar)
+## 10b. Series Feedback V1 (desplegado en 133a52c)
 
 `lib/set-feedback.js` + componente `SetFeedback` en `views/Workout.jsx` (ambas vistas). Tras
 una serie de trabajo hecha, las opciones son easy/good/hard/fail y se guardan en `set.feel`
@@ -156,7 +159,7 @@ Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
 
 ## 11. Deploy
 
-- Último runner exitoso: `deploy-a9b6453.ps1` (**no versionado**; los `deploy-*.ps1` se quedan
+- Runner local del release confirmado: `deploy-133a52c.ps1` (**no versionado**; los `deploy-*.ps1` se quedan
   sin versionar salvo `deploy-23226f6.ps1`, referencia histórica versionada).
 - Práctica: PowerShell en Windows + Git Bash; OpenSSH interactivo, **la contraseña la teclea el
   usuario, nunca se guarda ni automatiza**; validación local completa (tests con recuentos exactos,
@@ -170,17 +173,46 @@ Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
   vacío. **Nunca `git clean` indiscriminado en producción.**
 - Checks de dominio: `sync-protocol`, `build-official-blocks`, `build-official-routines`,
   `build-coach-library` (todos `--check`), `check-exercise-library`, `audit-exercise-library --check`,
-  `frontend/scripts/check-locales.mjs`, `git diff --check`.
+  `sync-gym-profiles --check`, `frontend/scripts/check-locales.mjs`, `git diff --check`.
 - No desplegar ni crear runner sin prompt explícito; no hacer push/merge remoto sin autorización.
 
-## 12. Siguiente sprint recomendado: GYM PROFILES V1 (no implementar hasta nuevo prompt)
+## 12. Gym Profiles V1 — implementado, NO desplegado
 
-Library V2 dejó preparado: taxonomía de equipamiento (`EQUIPMENT`, kinds), movimientos canónicos,
-recomendados/máster, swap determinista e IA compatible. Objetivo: perfiles de lugar/equipamiento
-(2J Fitness Center, otro gimnasio, casa, hotel). Un perfil define `availableEquipment` (ids
-canónicos) y alimenta biblioteca, Constructor, swaps, bloques, rutinas e IA. Hoy la disponibilidad
-es global por gimnasio (`unavailableEquipment` con strings `eq` del dataset, `lib/exercises.js`
-`isUnavailable`) — punto de enganche natural.
+Commit funcional: `d50fa9e`. Contexto sobre Library V2, no nuevo catálogo ni metodología.
+
+- Modelo canónico: `frontend/src/lib/gym-profile-model.js`; copia API generada mediante
+  `node scripts/sync-gym-profiles.mjs` (test de igualdad + `--check`). Ambos contenedores siguen
+  siendo independientes; frontend no importa archivos de API. No modificar la copia a mano.
+- Persistencia: `S.gymProfiles = { activeId, overrides: { home, hotel }, custom: [...] }` mediante
+  `useStore.update()`, almacenamiento offline y Sync V2 existentes. Ausencia/null → 2J sin migrar.
+  Cada perfil expone `id`, `name`, `type`, `availableEquipment` (ids de la taxonomía existente).
+  Máximo 12 perfiles propios; no se copian perfiles a workouts ni rutinas.
+- Oficiales: `2j`, `home`, `hotel`. 2J de solo lectura: bodyweight/dumbbell/barbell/machine/selectorized,
+  según categorías documentadas en `lib/equipment.js`, NO inventario de máquinas concretas.
+  Casa/Hotel empiezan con peso corporal; permiten configurar incluso una lista vacía. Otro gimnasio
+  y Personalizado son perfiles del usuario con id estable `gym-*`, nombre y material configurable.
+- `components/GymProfile.jsx`: selector contextual y gestor compacto en Ajustes. Sin cambios en Home.
+  Library/pickers priorizan compatibles y permiten filtrar; biblioteca completa sigue accesible.
+  Swap determinista: compatibles antes de variantes/músculo, máximo 8 recomendados y fallback.
+  Constructor avisa en las filas sin bloquear; Workout muestra sustitución voluntaria en ambas vistas,
+  nunca cambia ejercicios/targets/master al abrir. Train2J calcula compatibilidad de las tarjetas,
+  sin generar rutinas duplicadas. No se migran historial/PR ni se modifican seeds/protocolo.
+- IA socio/entrenador: `api/coach/payload.js` envía solo tipo/material y alcance, sin nombres privados.
+  Tras seleccionar perfil prioriza compatibles dentro del catálogo; usuarios legacy mantienen orden
+  previo. Disponibilidad está subordinada a restricciones explícitas, seguridad y Protocolo 2J.
+- Bunker: perfiles personales pospuestos; su swap fija contexto 2J, no hereda Casa del operador.
+  Bloqueos temporales de material 2J se respetan en compatibilidad/swap, sin aplicarlos a Casa/Hotel.
+- Validación: 15 pruebas frontend nuevas (modelo, filtro/fallback, Constructor, Workout inmutable,
+  persistencia offline/reapertura y envío por Sync existente), 3 API (contexto IA, orden y copia).
+  No se hicieron llamadas reales a IA, pruebas en producción ni revisión visual en dispositivo real.
+  Build OK con aviso previo de chunks grandes; todos los checks del §11 pasan. Sin push/merge/runner.
+- Límites V1: compatibilidad por equipo principal, no comprueba accesorios secundarios (banco/barra
+  de dominadas) ni todas las máquinas de una categoría; no inventar banco/TRX/esterilla en taxonomía.
+  Train2J solo etiqueta; no filtra ni adapta rutinas. No hay editor de bloques por lugar ni perfiles
+  compartidos. Cambios simultáneos de preferencias siguen la resolución existente de Sync V2.
+
+**Siguiente paso:** revisión funcional/visual de Gym Profiles V1 en móvil y desktop; aprobación
+antes de preparar runner/deploy. Producción permanece en 133a52c.
 
 **Pendientes Library V2 no bloqueantes:** revisar visualmente los 24 grupos de posibles
 duplicados; clasificar los 71 sin movimiento; precisar plate-loaded/selectorized con evidencia;

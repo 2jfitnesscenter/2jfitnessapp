@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Gym Profiles V1 — equipment context
+
+- 2J, configurable Home/Hotel and personal places; compact Settings manager and contextual selector.
+- Uses canonical equipment and existing offline state/Sync V2; no workout/history migration.
+- Library optional availability filter, compatible-first deterministic swaps, factual Constructor/
+  Workout warnings, Train2J compatibility and compact equipment context for the existing AI.
+- Bunker stays on 2J. Categories do not guarantee a specific machine or secondary accessories.
+- Not deployed. Frontend 894/894, API 264/264; build and catalogue/protocol/locales checks pass.
+
+## Production 133a52c — confirmed 2026-09-26
+
 ### Series Feedback V1 — "¿Cómo fue?" after each set
 
 - After a finished working set (reps mode), the workout asks *Muy fácil / Bien / Difícil / No pude*
@@ -19,7 +30,7 @@
 
 ### Exercise Library V2 — canonical movements, variants, equipment and discovery
 
-Not deployed yet. No exercise id changed, nothing was deleted and no history, PR or routine was
+Deployed and retained in 133a52c. No exercise id changed, nothing was deleted and no history, PR or routine was
 migrated. Protocol version stays 1.0 (no methodology change). Details in
 [docs/EXERCISE_LIBRARY_V2.md](docs/EXERCISE_LIBRARY_V2.md); numbers in the generated
 [docs/EXERCISE_LIBRARY_AUDIT.md](docs/EXERCISE_LIBRARY_AUDIT.md).
