@@ -3422,4 +3422,8 @@ export default {
   'The member gets a snapshot and starts it when they are ready.': 'El socio recibe una copia y empieza cuando esté preparado.',
   'Assigned to {0}': 'Asignado a {0}',
   'Assign': 'Asignar',
+  'Drag onto the day, or tap Add': 'Arrastra al día o pulsa Añadir',
+  'Exercise added': 'Ejercicio añadido',
+  'Blocks': 'Bloques',
+  'Or drag an exercise or a block here': 'O arrastra aquí un ejercicio o un bloque',
 }

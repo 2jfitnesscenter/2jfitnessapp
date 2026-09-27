@@ -13,6 +13,7 @@ import { Thumb } from '../Media.jsx'
 import Icon from '../Icon.jsx'
 import { TypeTag, OfficialTag, Prescription, ProtocolReport } from './parts.jsx'
 import { timingLine } from '../../lib/guided.js'
+import { BLOCK_DRAG_TYPE } from './drag.js'
 
 const DURATIONS = [{ v: '', l: 'Any length' }, { v: '0-20', l: 'Up to 20 min' }, { v: '20-40', l: '20–40 min' }, { v: '40-99', l: 'Over 40 min' }]
 const PAGE = 24
@@ -22,9 +23,13 @@ export const readLibView = uid => { try { return localStorage.getItem(VIEW_KEY(u
 export const writeLibView = (uid, v) => { try { localStorage.setItem(VIEW_KEY(uid), v === 'list' ? 'list' : 'grid') } catch { /* private mode */ } }
 const shortTiming = tm => tm ? `${tm.work}/${tm.rest} s × ${tm.rounds}` : ''
 const blockName = b => b.name || `${t(GOAL_LABEL[b.goal] || '')} · ${t(LEVEL_LABEL[b.level] || '')}${b.variant ? ' ' + b.variant : ''}`
+// A block that can be added can also be dragged onto the day (Constructor): dataTransfer carries its id.
+const dragProps = (b, onAdd) => onAdd && b.active !== false
+  ? { draggable: true, onDragStart: ev => { ev.dataTransfer.effectAllowed = 'copy'; ev.dataTransfer.setData(BLOCK_DRAG_TYPE, b.id) } }
+  : {}
 
 export function BlockCard({ b, onPreview, onAdd, fav, onFav, selected }) {
-  return <article className={'cx-card' + (b.active === false ? ' off' : '') + (selected ? ' on' : '')}>
+  return <article className={'cx-card' + (b.active === false ? ' off' : '') + (selected ? ' on' : '')} {...dragProps(b, onAdd)}>
     <button className="cx-card-body" onClick={() => onPreview(b)} aria-label={t('Preview {0}', blockTitle(b, t))}>
       <div className="cx-card-eyebrow">
         <span className="cx-focus">{t(FOCUS_LABEL[b.focus] || '—')}</span>
@@ -57,7 +62,7 @@ export function BlockCard({ b, onPreview, onAdd, fav, onFav, selected }) {
 export function BlockRow({ b, onPreview, onAdd, fav, onFav, selected }) {
   const title = b.name || t(FOCUS_LABEL[b.focus] || '—')
   const eq = (b.equipment || [])[0]
-  return <div className={'cx-lrow' + (b.active === false ? ' off' : '') + (selected ? ' on' : '')} role="listitem">
+  return <div className={'cx-lrow' + (b.active === false ? ' off' : '') + (selected ? ' on' : '')} role="listitem" {...dragProps(b, onAdd)}>
     <div className="cx-lrow-name">
       <b>{title}{b.type !== 'strength' && <TypeTag type={b.type} compact />}</b>
       <small>{[b.name && t(FOCUS_LABEL[b.focus] || ''), blockSubtitle(b, t), b.timing && shortTiming(b.timing)].filter(Boolean).join(' · ')}{b.active === false && <span className="cx-off">{t('Inactive')}</span>}</small>

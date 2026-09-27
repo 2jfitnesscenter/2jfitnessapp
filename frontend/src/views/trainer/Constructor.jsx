@@ -9,7 +9,7 @@
 // with their Sync V2 receipts). Every change is validated live under the 2J protocol; a FAIL is
 // shown and needs an explicit confirmation — the trainer's explicit decisions rank above the
 // protocol (docs/TRAINING_PROTOCOL_2J.md), unlike a model's.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../../store/useStore.js'
 import GymProfile from '../../components/GymProfile.jsx'
@@ -21,9 +21,10 @@ import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
 import { fetchMemberPlan, fetchTrainerMembers, saveMemberRoutine, saveMemberProgram } from '../../lib/trainer-api.js'
 import { useBlocks, validate, pushRecent } from '../../lib/blocks-api.js'
 import { RESTRICTION_LABEL, savePolicy, OVERRIDE_REASON_MIN, instantiateBlock, GOALS, LEVELS, GOAL_LABEL, LEVEL_LABEL, RESTRICTIONS, FOCUS, FOCUS_LABEL, PROTOCOL_VERSION, isGuided, blockTypesOf } from '../../lib/protocol/index.js'
-import { glyphPicker, confirmSheet, exercisePicker } from '../../sheets.jsx'
+import { glyphPicker, confirmSheet, ExercisePicker } from '../../sheets.jsx'
+import { exOr } from '../../lib/exercises.js'
 import Library from '../../components/constructor/Library.jsx'
-import DayCanvas, { insertInstance, withEx, prescribedEntry, dayMinutes } from '../../components/constructor/DayCanvas.jsx'
+import DayCanvas, { insertInstance, insertExerciseAt, prescribedEntry, dayMinutes } from '../../components/constructor/DayCanvas.jsx'
 import { ProtocolPill, ProtocolReport } from '../../components/constructor/parts.jsx'
 import Suggestions from '../../components/constructor/Suggestions.jsx'
 import { issueText } from '../../lib/blocks-api.js'
@@ -98,6 +99,33 @@ function SaveAsBlockSheet({ entries, meta, ctx, close }) {
   </div>
 }
 
+/**
+ * The program's days as one horizontal strip above the builder: number, name, weekdays taken,
+ * exercises/minutes and unsaved state; scrolls sideways when there are many days. The active day
+ * is scrolled into view when it changes (e.g. right after "Add day").
+ */
+export function DayBar({ days, week, active, goal, onPick, onAdd, onToggleWeekday }) {
+  const ref = useRef(null)
+  useEffect(() => { ref.current?.querySelector('.cx-day.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }) }, [active, days.length])
+  return <nav className="cx-days cx-daybar" aria-label={t('Days')} ref={ref}>
+    {days.map((d, i) => {
+      const wds = WEEK_ORDER.filter(wd => week[wd] === d.key)
+      return <div key={d.key} className={'cx-day' + (i === active ? ' on' : '')}>
+        <button className="cx-day-b" onClick={() => onPick(i)} aria-current={i === active ? 'true' : undefined}>
+          <span className="cx-day-n num">{i + 1}</span>
+          <span className="cx-day-t">
+            <b>{d.name || t('Day')}{wds.length > 0 && <em className="cx-day-wd">{wds.map(wd => t(DAYN[wd]).slice(0, 2)).join(' · ')}</em>}</b>
+            <small>{t('{0} exercises', d.ex.length)} · ~{dayMinutes(d.ex, goal, d.blocks)} min{d.dirty ? ' · ' + t('unsaved') : ''}</small>
+          </span>
+        </button>
+        <div className="cx-wk">{WEEK_ORDER.map(wd => <button key={wd} className={'cx-wd' + (wds.includes(wd) ? ' on' : '') + (week[wd] && week[wd] !== d.key ? ' taken' : '')}
+          aria-pressed={wds.includes(wd)} title={t(DAYN[wd])} onClick={() => onToggleWeekday(wd, d.key)}>{t(DAYN[wd]).slice(0, 2)}</button>)}</div>
+      </div>
+    })}
+    <button className="cx-day-add" onClick={onAdd}><Icon name="plus" />{t('Add day')}</button>
+  </nav>
+}
+
 export default function Constructor() {
   const nav = useNavigate()
   const { memberId, kind, id } = useParams()          // kind: 'p' program | 'r' routine
@@ -110,7 +138,8 @@ export default function Constructor() {
   const [plan, setPlan] = useState(null)             // { sync, routines, programs }
   const [p, setP] = useState(null)                   // { id, name, emoji, meta, days, week: {weekday: key} }
   const [active, setActive] = useState(0)
-  const [libOpen, setLibOpen] = useState(false)
+  const [libOpen, setLibOpen] = useState(false)      // block library drawer (narrow screens)
+  const [exOpen, setExOpen] = useState(false)        // exercise library drawer (narrow screens)
   const [flash, setFlash] = useState(null)
   const [busy, setBusy] = useState(false)
   const [showReport, setShowReport] = useState(false)
@@ -167,8 +196,21 @@ export default function Constructor() {
     setLibOpen(false)
     toast(t('Block added — every exercise is now editable in this day'))
   }
-  const addExercise = () => exercisePicker(ex => patchDay(withEx(day, [...day.ex.map(e => ({ ...e })), prescribedEntry(ex, ctx, day.ex.length)])))
-  const openLibrary = () => { if (window.matchMedia?.('(min-width: 1100px)').matches) document.getElementById('cx-lib-search')?.focus(); else setLibOpen(true) }
+  // One exercise from the library (Add button, row tap or a drop at `at`), prescribed by the protocol.
+  const addExercise = (ex, at = null) => {
+    patchDay(insertExerciseAt(day, prescribedEntry(ex, ctx, at ?? day.ex.length), at))
+    setExOpen(false)
+    toast(t('Exercise added'))
+  }
+  const onDropExternal = (kind, xid, at) => {
+    if (kind === 'block') { const b = libBlocks.find(x => x.id === xid); if (b) addBlock(b) }
+    else addExercise(exOr(xid), at)
+  }
+  // Wide screens show both libraries beside the day: the buttons focus their search. Narrow ones
+  // open them as drawers (exercises from the left, blocks from the right).
+  const wide = () => window.matchMedia?.('(min-width: 1100px)').matches
+  const openLibrary = () => { if (wide()) document.getElementById('cx-lib-search')?.focus(); else { setExOpen(false); setLibOpen(true) } }
+  const openExercises = () => { if (wide()) document.getElementById('cx-ex-search')?.focus(); else { setLibOpen(false); setExOpen(true) } }
   const saveAsBlock = (entries, meta) => openSheet(close => <SaveAsBlockSheet entries={entries} meta={meta} ctx={ctx} close={close} />)
 
   const addDay = () => setP(cur => { const d = newDay(t('Day {0}', cur.days.length + 1)); setActive(cur.days.length); return { ...cur, days: [...cur.days, d] } })
@@ -259,21 +301,17 @@ export default function Constructor() {
 
     {showReport && <div className="cx-reportwrap"><ProtocolReport v={progV || dayV} /></div>}
 
-    <div className={'cx-grid' + (p.routineOnly ? ' single' : '')}>
-      {!p.routineOnly && <nav className="cx-days" aria-label={t('Days')}>
-        {p.days.map((d, i) => {
-          const wds = WEEK_ORDER.filter(wd => p.week[wd] === d.key)
-          return <div key={d.key} className={'cx-day' + (i === active ? ' on' : '')}>
-            <button className="cx-day-b" onClick={() => setActive(i)} aria-current={i === active ? 'true' : undefined}>
-              <span className="cx-day-n num">{i + 1}</span>
-              <span className="cx-day-t"><b>{d.name || t('Day')}</b><small>{t('{0} exercises', d.ex.length)} · ~{dayMinutes(d.ex, ctx.goal, d.blocks)} min{d.dirty ? ' · ' + t('unsaved') : ''}</small></span>
-            </button>
-            <div className="cx-wk">{WEEK_ORDER.map(wd => <button key={wd} className={'cx-wd' + (wds.includes(wd) ? ' on' : '') + (p.week[wd] && p.week[wd] !== d.key ? ' taken' : '')}
-              aria-pressed={wds.includes(wd)} title={t(DAYN[wd])} onClick={() => toggleWeekday(wd, d.key)}>{t(DAYN[wd]).slice(0, 2)}</button>)}</div>
-          </div>
-        })}
-        <button className="cx-day-add" onClick={addDay}><Icon name="plus" />{t('Add day')}</button>
-      </nav>}
+    {!p.routineOnly && <DayBar days={p.days} week={p.week} active={active} goal={ctx.goal} onPick={setActive} onAdd={addDay} onToggleWeekday={toggleWeekday} />}
+
+    <div className="cx-grid tri">
+      <aside className={'cx-side cx-exlib' + (exOpen ? ' open' : '')} aria-label={t('Exercise library')}>
+        <div className="cx-side-h">
+          <h2>{t('Exercise library')}</h2>
+          <button className="cx-icon cx-side-x" aria-label={t('Close')} onClick={() => setExOpen(false)}><Icon name="xmark" /></button>
+        </div>
+        <p className="cx-side-hint"><Icon name="arrowRight" />{t('Drag onto the day, or tap Add')}</p>
+        <ExercisePicker inline searchId="cx-ex-search" close={() => {}} onPick={ex => addExercise(ex)} />
+      </aside>
 
       <main className="cx-main">
         <div className="cx-dayhead">
@@ -285,12 +323,13 @@ export default function Constructor() {
             {p.days.length > 1 && <button className="cx-icon" title={t('Remove day')} aria-label={t('Remove day')} onClick={() => removeDay(active)}><Icon name="trash" /></button>}
           </>}
           {day.ex.length > 0 && <button className="cx-icon" title={t('Save the whole day as a block')} aria-label={t('Save the whole day as a block')} onClick={() => saveAsBlock(day.ex, null)}><Icon name="download" /></button>}
-          <button className="btn tinted cx-libbtn" onClick={() => setLibOpen(true)}><Icon name="list" />{t('Library')}</button>
+          <button className="btn tinted cx-libbtn" onClick={openExercises}><Icon name="dumbbell" />{t('Exercises')}</button>
+          <button className="btn tinted cx-libbtn" onClick={openLibrary}><Icon name="list" />{t('Blocks')}</button>
         </div>
         {(progV || dayV)?.stats?.exercises > 0 && <Suggestions v={progV || dayV} ctx={ctx} days={p.routineOnly ? 1 : (weekDays.length || p.days.filter(d => d.ex.length).length)}
           blocks={libBlocks} inPlan={inPlan} restrictions={restrictions} onAdd={addBlock} program={!p.routineOnly} />}
         <DayCanvas day={day} ctx={ctx} unit={S.unit} onChange={patchDay} flash={flash} issuesAt={issuesAt}
-          onAddBlock={openLibrary} onAddExercise={addExercise} onSaveAsBlock={saveAsBlock} />
+          onAddBlock={openLibrary} onAddExercise={openExercises} onSaveAsBlock={saveAsBlock} onDropExternal={onDropExternal} />
         <p className="cx-foot dim small">{t('2J Protocol v{0} · validated as you build. Blocks are copied into the day: editing here never changes the library.', PROTOCOL_VERSION)}</p>
       </main>
 
@@ -301,7 +340,7 @@ export default function Constructor() {
         </div>
         <Library onAdd={addBlock} defaults={{ goal: '', level: '' }} />
       </aside>
-      {libOpen && <div className="cx-scrim" onClick={() => setLibOpen(false)} />}
+      {(libOpen || exOpen) && <div className="cx-scrim" onClick={() => { setLibOpen(false); setExOpen(false) }} />}
     </div>
   </div>
 }

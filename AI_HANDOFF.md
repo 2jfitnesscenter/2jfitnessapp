@@ -99,6 +99,23 @@
 - Checks al cierre: frontend **916/916**, API **279/279**, build OK (avisos preexistentes de chunks grandes), seed routines `--check` OK (39/7), español **3392/3392**, `git diff --check` OK. Otros idiomas siguen incompletos (805/3392 según script, fallback inglés). No hubo llamadas reales a IA.
 - Commit funcional local: `1bbf316 feat(guided): add multi-week program foundation`. Producción sigue en `3c0129ad39970e8a87e8663c2402405df6199139` según checkpoint del usuario; el trabajo no está desplegado. Sprint **NO completo / NO listo para deploy** mientras falten calidad de biblioteca/contenido, curation admin y QA visual requerida.
 
+### Constructor UX mini-sprint (local, no desplegado; 2026-09-27)
+
+- Días del programa arriba en barra horizontal (`DayBar` en `views/trainer/Constructor.jsx`):
+  orden, activo, weekdays, resumen, "sin guardar", scroll horizontal, + Añadir día.
+- Grid `cx-grid tri`: **Biblioteca de ejercicios** (izq., `ExercisePicker` de `sheets.jsx` en modo
+  `inline`, sin segunda biblioteca) | rutina del día | **Biblioteca de bloques** (der., sin cambios).
+- Responsive: ≥1100 px tres columnas; <1100 px rutina sola y ambas bibliotecas como drawers
+  (ejercicios izq., bloques der.) con botones Ejercicios/Bloques. "+ Añadir ejercicio" inferior se
+  mantiene: enfoca la búsqueda (desktop) o abre el drawer.
+- Drag & drop nativo: ejercicio → antes de la fila donde cae (se une a su bloque) o al final;
+  bloque → al final como su botón Añadir. Tipos en `components/constructor/drag.js`. Guardado,
+  validador, Sync V2 y endpoints trainer sin cambios.
+- Tests: `views/trainer/constructor-ux.test.jsx` (12). QA visual local con API efímera sintética:
+  1440/1280 (oscuro/claro), 820, 390; guardar + recargar OK.
+- Limitaciones: drag & drop solo con ratón (táctil usa botones); `BlockLibrary`/`GuidedAdmin` no
+  cambian; `TrainerRoutineBuilder` mantiene su picker propio.
+
 ## 2. Ramas y PRs
 
 - Trabajo: `feat/pwa-tanita-bunker-roadmap`. Base/default en GitHub: `2jfitness-dev`

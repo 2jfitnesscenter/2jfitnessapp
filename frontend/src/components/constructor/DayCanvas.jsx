@@ -21,6 +21,7 @@ import { Thumb } from '../Media.jsx'
 import { Stepper } from '../ui.jsx'
 import Icon from '../Icon.jsx'
 import { TypeTag, Prescription, rpeOf, restLabel } from './parts.jsx'
+import { EX_DRAG_TYPE, BLOCK_DRAG_TYPE, dragKindOf } from './drag.js'
 
 const KEEP = ['blk', 'rpe', 'rest', 'role', 'note', 'why', 'sg']
 const restOf = (e, goal) => e.rest ?? REST_DEFAULTS[restDemand(classify(e.id, lookup), goal, e.role)]
@@ -49,6 +50,18 @@ export function moveSegment(day, segIdx, toSegIdx) {
 }
 export const removeSegment = (day, seg) => withEx(day, day.ex.filter((_, i) => !seg.idx.includes(i)).map(e => ({ ...e })))
 export const ungroupSegment = (day, seg) => withEx(day, day.ex.map((e, i) => { const c = { ...e }; if (seg.idx.includes(i)) delete c.blk; return c }))
+/**
+ * One exercise entry into the day: at index `at` (joining the block of the entry it lands on,
+ * like a manual reorder), or appended as a loose exercise when `at` is null.
+ */
+export function insertExerciseAt(day, entry, at = null) {
+  const ex = day.ex.map(e => ({ ...e }))
+  const e = { ...entry }
+  delete e.blk; delete e.sg
+  if (at == null || at < 0 || at >= ex.length) ex.push(e)
+  else { if (ex[at].blk) e.blk = ex[at].blk; ex.splice(at, 0, e) }
+  return withEx(day, ex)
+}
 export function insertInstance(day, inst) {
   return withEx({ ...day, blocks: [...(day.blocks || []), inst.meta] }, [...day.ex.map(e => ({ ...e })), ...inst.ex])
 }
@@ -207,8 +220,10 @@ function TimingSheet({ seg, entries, onSave, onClear, close }) {
  * @param onChange  (nextDay) => void
  * @param onAddBlock, onAddExercise   open the library / the exercise picker
  * @param onSaveAsBlock (entries, meta) => void
+ * @param onDropExternal (kind: 'ex'|'block', id, at: index|null) => void — a drag from the
+ *        exercise or block library (components/constructor/drag.js); omitted = no external drops
  */
-export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddExercise, onSaveAsBlock, flash, issuesAt = {} }) {
+export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddExercise, onSaveAsBlock, onDropExternal, flash, issuesAt = {} }) {
   const openSheet = useUI(s => s.openSheet)
   const [drag, setDrag] = useState(null)        // { kind:'ex', i } | { kind:'seg', s }
   const [over, setOver] = useState(null)        // drop target key
@@ -254,18 +269,32 @@ export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddE
     setDrag(null)
   }
   const dragOver = key => ev => { ev.preventDefault(); if (over !== key) setOver(key) }
+  // Drags from the libraries: an exercise lands before the row it is dropped on (or at the end),
+  // a block is always appended as a new segment — the same result as its "Add" button.
+  const ext = !!onDropExternal
+  const extOver = key => ev => { const k = dragKindOf(ev); if (!k || (key !== 'ext' && k !== 'ex')) return; ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect = 'copy'; if (over !== key) setOver(key) }
+  const extDrop = at => ev => {
+    const k = dragKindOf(ev)
+    if (!k || (at != null && k !== 'ex')) return
+    ev.preventDefault(); ev.stopPropagation(); setOver(null)
+    const id = ev.dataTransfer.getData(k === 'ex' ? EX_DRAG_TYPE : BLOCK_DRAG_TYPE)
+    if (id) onDropExternal(k, id, k === 'ex' ? at : null)
+  }
+  const extLeave = ev => { if (!ev.currentTarget.contains(ev.relatedTarget)) setOver(null) }
+  const canvasDnd = ext ? { onDragOver: extOver('ext'), onDrop: extDrop(null), onDragLeave: extLeave } : {}
 
-  if (!day.ex.length) return <div className="cx-empty">
+  if (!day.ex.length) return <div className={'cx-empty' + (over === 'ext' ? ' drop' : '')} {...canvasDnd}>
     <div className="cx-empty-ico"><Icon name="plus" /></div>
     <h3>{t('Start this day')}</h3>
     <p>{t('Add a 2J block to have a full prescription in one tap, or build it exercise by exercise.')}</p>
+    {ext && <p className="cx-drophint">{t('Or drag an exercise or a block here')}</p>}
     <div className="cx-empty-acts">
       {onAddBlock && <button className="btn primary" onClick={onAddBlock}><Icon name="list" />{t('Add block')}</button>}
       <button className="btn plain" onClick={onAddExercise}><Icon name="dumbbell" />{t('Add exercise')}</button>
     </div>
   </div>
 
-  return <div className="cx-canvas" onDragEnd={() => { setDrag(null); setOver(null) }}>
+  return <div className={'cx-canvas' + (over === 'ext' ? ' drop' : '')} onDragEnd={() => { setDrag(null); setOver(null) }} {...canvasDnd}>
     {segs.map((seg, si) => {
       const entries = seg.idx.map(k => day.ex[k])
       const meta = seg.meta
@@ -300,7 +329,7 @@ export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddE
             return <li key={i} className={'cx-row' + (info ? ' ss' : '') + (info && info.pos === 1 ? ' ss-first' : '') + (info && info.pos === info.size ? ' ss-last' : '') + (over === rk ? ' drop' : '') + (drag?.kind === 'ex' && drag.i === i ? ' dragging' : '') + (bad ? ' ' + bad : '')}
               style={info ? { '--ss': `var(--${info.token})` } : undefined}
               draggable onDragStart={ev => { ev.stopPropagation(); ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', 'ex'); setDrag({ kind: 'ex', i }) }}
-              onDragOver={drag?.kind === 'ex' ? dragOver(rk) : undefined} onDrop={drag?.kind === 'ex' ? onDrop('ex', { i, blk: e.blk }) : undefined}>
+              onDragOver={drag?.kind === 'ex' ? dragOver(rk) : ext ? extOver(rk) : undefined} onDrop={drag?.kind === 'ex' ? onDrop('ex', { i, blk: e.blk }) : ext ? extDrop(i) : undefined}>
               {canLink && <button className={'cx-link' + (linked ? ' on' : '')} aria-pressed={!!linked} title={linked ? t('Unlink superset') : t('Superset with the exercise above')} onClick={() => set(toggleLink(day, i))}><Icon name="link" /></button>}
               <span className="cx-grip sm" aria-hidden="true" />
               <span className="cx-n num">{info ? <b className="cx-ss">{supersetLabel(info)}</b> : pos + 1}</span>

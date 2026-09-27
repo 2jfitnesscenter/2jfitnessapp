@@ -36,6 +36,7 @@ import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
 import { getReplacementGroups, QUICK_FILTERS } from './lib/alternatives.js'
 import { gymExerciseList } from './lib/gym-profiles.js'
 import GymProfile, { GymCompatibility } from './components/GymProfile.jsx'
+import { EX_DRAG_TYPE } from './components/constructor/drag.js'
 import { searchExercises, prioritize, scopeList, facets, movementLabel, equipmentLabel, variantLabel, isRecommended, isDeprecated, familiesOf,
   preferredOf, variantsFor, favSetOf, toggleFav } from './lib/library/index.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
@@ -945,7 +946,9 @@ function usageMap(st) {
 }
 // Exported (not just the sheet-opener below) so the desktop trainer panel can render it inline
 // as a persistent side panel instead of a modal sheet — same search/filter logic either way.
-export function ExercisePicker({ onPick, close }) {
+// `inline` (Constructor panel): no title or place selector (the page has them), each row has an
+// explicit Add button and can be dragged onto the day (dataTransfer EX_DRAG_TYPE = exercise id).
+export function ExercisePicker({ onPick, close, inline = false, searchId }) {
   const [available, setAvailable] = useState(false)
   const st = useStore(s => s.S)
   const usage = usageMap(st)
@@ -971,15 +974,15 @@ export function ExercisePicker({ onPick, close }) {
   // A search with nothing in Recommended 2J offers the master library instead of a dead end.
   const masterHits = scope === '2j' && q.trim() && f.length === 0 ? searchExercises(all, q).length : 0
   return <>
-    <h3>{t('Add exercise')}</h3>
-    <GymProfile />
+    {!inline && <h3>{t('Add exercise')}</h3>}
+    {!inline && <GymProfile />}
     <button className={'chip' + (available ? ' on' : '')} onClick={() => setAvailable(!available)}>{t('Compatible with this place')}</button>
     <div className="seg lib-scope" style={{ margin: '0 0 10px' }}>
       <button className={scope === '2j' ? 'on' : ''} onClick={() => { setScope('2j'); setShown(50) }}>{t('2J exercises')}</button>
       <button className={scope === 'all' ? 'on' : ''} onClick={() => { setScope('all'); setShown(50) }}>{t('Full library')}</button>
     </div>
     <div className="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
-      <input className="input" placeholder={t('Search {0} exercises…', inScope.length)} value={q} onChange={e => { setQ(e.target.value); setShown(50) }} /></div>
+      <input id={searchId} className="input" placeholder={t('Search {0} exercises…', inScope.length)} value={q} onChange={e => { setQ(e.target.value); setShown(50) }} /></div>
     <div className="chips" style={{ margin: eqOpts.length > 1 ? '10px 0 6px' : '10px 0' }}>
       {chosenCount > 0 && <button className={'chip' + (grp === '★' ? ' on' : '')} onClick={() => { setGrp('★'); setEq(''); setShown(50) }}><Icon name="starFill" style={{ fontSize: 12, display: 'inline-block', marginRight: 4, verticalAlign: '-1px' }} />{t('Chosen')} ({chosenCount})</button>}
       {fav.size > 0 && <button className={'chip' + (grp === '♥' ? ' on' : '')} onClick={() => { setGrp('♥'); setEq(''); setShown(50) }}><Icon name="heart" style={{ fontSize: 12, display: 'inline-block', marginRight: 4, verticalAlign: '-1px' }} />{t('Favourites')}</button>}
@@ -1000,13 +1003,15 @@ export function ExercisePicker({ onPick, close }) {
         <div className="thumb thumb-x"><Icon name="sparkles" /></div>
         <div className="grow"><div className="tt">{t('Create your own exercise')}</div><div className="ss">{t('name + muscle group, no animation')}</div></div><Icon name="plus" className="chev" />
       </div>}
-      {f.slice(0, shown).map(e => <div key={e.id} className="item" onClick={() => { close(); onPick(e) }}>
+      {f.slice(0, shown).map(e => <div key={e.id} className={'item' + (inline ? ' cx-exitem' : '')} onClick={() => { close(); onPick(e) }}
+        {...(inline ? { draggable: true, title: t('Drag onto the day, or tap Add'), onDragStart: ev => { ev.dataTransfer.effectAllowed = 'copy'; ev.dataTransfer.setData(EX_DRAG_TYPE, e.id) } } : {})}>
         <Thumb ex={e} /><div className="grow">
           <div className="tt capitalize">{nameFor(e)}{isRecommended(e.id) && <span className="lib-2j">2J</span>}</div>
           <div className="ss capitalize">{t(e.tg || e.bp)} · {variantLabel(e) || t(e.eq)}</div><GymCompatibility ex={e} /></div>
         {isDeprecated(e.id) && <span className="tag nocap dim">{t('Duplicated')}</span>}
         {fav.has(e.id) && <span className="tag acc"><Icon name="heart" /></span>}
-        {usage[e.id] && <span className="tag acc"><Icon name="starFill" /></span>}<Icon name="plus" className="chev" />
+        {usage[e.id] && <span className="tag acc"><Icon name="starFill" /></span>}
+        {inline ? <button className="cx-add" aria-label={t('Add {0}', nameFor(e))} onClick={ev => { ev.stopPropagation(); onPick(e) }}><Icon name="plus" />{t('Add')}</button> : <Icon name="plus" className="chev" />}
       </div>)}
       {f.length === 0 && grp === '★' && <div className="empty">{t('Nothing chosen yet — add exercises and they’ll show up here.')}</div>}
       {masterHits > 0 && <div className="item" onClick={() => { setScope('all'); setShown(50) }}>
