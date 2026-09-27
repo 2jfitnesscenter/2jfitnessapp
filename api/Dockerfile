@@ -24,6 +24,8 @@ COPY lib/ ./lib/
 COPY coach/ ./coach/
 COPY friends/ ./friends/
 COPY chat/ ./chat/
+COPY notifications/ ./notifications/
+COPY social/ ./social/
 COPY bunker/ ./bunker/
 COPY strava/ ./strava/
 COPY whoop/ ./whoop/
