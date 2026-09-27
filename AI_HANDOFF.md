@@ -69,10 +69,20 @@
   amistades, privacidad/perfil, share community/chat, unread, dedupe, avisos, reto, bloqueo, reportes,
   permisos, retirada del target y prueba negativa de fuga de datos. El API que antes dio 502 fallaba
   porque el handler nuevo usaba un nombre incorrecto de helper de push; se corrigió y el child API
-  real pasa. QA visual comprobada solo para Community Home en tema oscuro, viewport 720×768 y
-  onboarding. **No se completó la matriz visual solicitada** (390/tablet/desktop, claro y
-  oscuro, chat/share/report/admin/push-denied/offline/borrado), por lo que el sprint queda localmente
-  validado en API/tests/build pero **no listo para declarar aceptación completa ni para deploy**.
+  real pasa. QA visual parcial (2026-09-27) con fixture sintético local: Home vacío y navegación
+  en anchos CSS 390/768/1200, tema oscuro; Momentos y notificaciones en claro; Amigos, chat con
+  texto/tarjeta, privacidad y reportar en oscuro. Se revisaron onboarding (primera apertura, omitir,
+  reabrir guía y completar), solicitudes/amigos/bloqueados, perfil accesible e inaccesible,
+  notificaciones unread/todas leídas y primera ayuda/destinos del Share Sheet. Se corrigió el
+  apilado de mensaje/fecha en avisos, el import ausente de `Icon` que dejaba en blanco el primer
+  Share Sheet, y el ancho de tarjeta que mostraba scroll horizontal en el diálogo de compartir.
+  Los fixes están en `d4933e9` y no se han desplegado.
+  **La matriz visual sigue incompleta**: no se recorrieron export y destinos de los siete tipos de
+  tarjeta, la moderación admin, chats/avisos vacíos, estados offline/servidor/contenido eliminado,
+  revocación visual de privacidad ni movimiento reducido. Push-denied se vio en el navegador local;
+  **PUSH_DEVICE_QA=PENDING_REAL_DEVICE**. Frontend **910/910**, API **274/274**, build OK, ES
+  **3342/3342**, `git diff --check` OK. Estos checks no convierten la inspección parcial en
+  aceptación: Community V2 sigue **NO lista para declarar sprint completo ni para deploy**.
 - Sin cola offline nueva: cada share/chat se confirma con respuesta del servidor. No tocar Sync V2,
   Training Protocol, Health, Gym Profiles, Library, Bunker ni infra.
 
