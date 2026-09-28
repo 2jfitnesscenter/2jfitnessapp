@@ -9,6 +9,7 @@ import * as oauth from './oauth.js';
 import * as jobs from './jobs.js';
 import { adapterFor } from './adapters/index.js';
 import { DATA_CATEGORIES } from './payload.js';
+import { compactSignal, explainSignal } from './intelligence.js';
 
 // Job failures the user sees, in the app's own voice. The raw provider detail never reaches
 // them — it goes to the admin card, which is where someone can act on it (FR-47).
@@ -73,6 +74,24 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
         const job = jobs.enqueue(user.id, { kind: 'review', note: body.note ? String(body.note).slice(0, 1000) : null });
         json(res, 202, { job });
       } catch (e) { failEnqueue(res, e); }
+    },
+
+    'POST /api/coach/intelligence/explain': async (req, res) => {
+      const user = guard(req, res); if (!user) return;
+      const body = await readBody(req);
+      const signal = compactSignal(body);
+      if (!signal) return json(res, 400, { error: 'invalid-signal' });
+      let release;
+      try { release = jobs.claimExplanation(user.id); }
+      catch (e) { return failEnqueue(res, e); }
+      try {
+        // Only the enum and bounded numeric facts leave this server. The client keeps its
+        // deterministic title, reason, action and priority regardless of the model output.
+        const result = await explainSignal(signal);
+        json(res, 200, result);
+      } catch {
+        json(res, 200, { ok: false, error: 'unavailable' });
+      } finally { release(); }
     },
 
     'POST /api/coach/pending/resolve': async (req, res) => {

@@ -161,6 +161,22 @@ export function enqueue(uid, opts) {
   return { id: job.id };
 }
 
+/** Reserve the same consent, single-flight and daily budget for a short, optional explanation. */
+export function claimExplanation(uid) {
+  if (!cfgStore.isEnabled() || !cfgStore.isConnected()) throw new CoachError('off', 'the Coach is not set up on this instance');
+  if (inflight.has(uid)) throw new CoachError('busy', 'the Coach is already thinking about your training');
+  const S = readState(uid);
+  if (!S?.coach?.consent?.agreedAt || S.coach.consent.version !== 1) throw new CoachError('consent', 'the Coach needs your go-ahead first');
+  const caps = cfgStore.load().caps || {};
+  const { used, limit } = capState(uid);
+  if (limit > 0 && used >= limit) throw new CoachError('cap', 'daily limit reached');
+  if (caps.instanceDaily > 0 && instanceUsedToday() >= caps.instanceDaily) throw new CoachError('cap', 'this instance has reached its daily limit');
+  inflight.add(uid);
+  bumpDaily(uid);
+  cfgStore.logJob({ at: new Date().toISOString(), uid, kind: 'intelligence-explanation', trigger: 'manual', outcome: 'requested' });
+  return () => inflight.delete(uid);
+}
+
 function pump() {
   while (running < MAX_CONCURRENT && queue.length) {
     const job = queue.shift();
