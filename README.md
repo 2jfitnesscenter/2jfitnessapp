@@ -163,6 +163,7 @@ All via `.env` (see `.env.example`):
 | `RP_ID`       | Hostname passkeys are bound to                       | `localhost`             |
 | `ORIGIN`      | Full URL the app is served from                      | `http://localhost:8080` |
 | `WEB_PORT`    | Host port for the web UI                             | `8080`                  |
+| `GYM_TIME_ZONE` | Gym-local date for Bunker PRs | `Atlantic/Canary` |
 | `RP_NAME`     | Name shown in the passkey prompt                     | `2J Fitness Center`     |
 | `ADMIN_UIDS`  | User ids that get the admin dashboard (comma-separated) | *(none)*             |
 | `INVITE_ONLY` | Require an invite code to create a profile           | *(off)*                 |

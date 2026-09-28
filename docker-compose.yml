@@ -27,6 +27,12 @@ services:
     image: 2jfitness-api:latest
     build: ./api
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     env_file: .env
     environment:
       - PORT=3000            # internal port (nginx proxies here) — do not change
