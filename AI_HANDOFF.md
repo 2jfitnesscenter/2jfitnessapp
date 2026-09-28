@@ -98,6 +98,31 @@
 - Validación local: frontend **930/930**, API **281/281**, build OK (warning histórico de chunks grandes), español **3520/3520**; generadores de rutinas/bloques, auditoría/catálogo, espejo de protocolo (9 archivos) y `git diff --check` OK. Otros idiomas: cobertura parcial con fallback inglés (805/3520). Sin llamadas reales a IA.
 - Commits de cierre local: `245e460` (Library), `798d226` (contenido/programas), `2a8c2fe` (curación admin). Producción permanece en `3c0129ad39970e8a87e8663c2402405df6199139` según confirmación del usuario; este sprint **no está desplegado** y no tiene runner. Siguiente paso: revisión del diff/QA por el usuario y, solo tras aprobación, preparar runner para el HEAD exacto; no desplegar ni hacer push automáticamente.
 
+### Bugfix estabilidad IA 2J (local, no desplegado; 2026-09-28)
+
+- **Causa raíz:** el Agent SDK informa los errores de API (529 overloaded, 5xx, 429, auth) como
+  `result` con `subtype:'success'` + `is_error:true` y el texto del error en `result`. El adaptador
+  Claude lo tomaba como respuesta del modelo → `extractJSON` sacaba el objeto del error → contrato
+  inválido → gastaba la reparación → `unusable`, sin retry. Además: si el runtime salía con código ≠0
+  tras un resultado completo se perdía como `missing`; `/token/` clasificaba como auth cualquier
+  mensaje con "max_tokens"; el poll del panel trainer no se re-armaba tras "Generar" (pantalla fija
+  en "Generando…" → reintentos → `busy`) y el socio nunca veía la causa del fallo.
+- **Fix:** `coach/ai-run.js` (clasificación + retry + logs) usado por `jobs.js` y `trainer-jobs.js`;
+  `adapters/claude.js` (`readStream`) respeta `is_error`/`api_error_status`/errores assistant y
+  conserva un resultado ya recibido; `extractJSON` prueba todos los bloques ```` ``` ```` y objetos
+  balanceados, prefiere el que trae `coach_contract`. Frontend: poll re-armado (socio y trainer),
+  botón bloqueado hasta ver el job, tarjeta "última revisión no terminó" con la causa (`status.last`).
+- **Retry:** máx. 3 llamadas (timeout máx. 2), backoff 1,5 s / 4 s, solo timeout, 429, 5xx/529,
+  red, runtime caído, respuesta vacía. Nunca auth/config/runtime ausente/4xx. FAIL del protocolo o
+  JSON inválido: 1 reparación y descartar. Timeout por intento sin cambios: 5 min.
+- **Logs:** `[coach] AI_REQUEST_START|AI_ATTEMPT|AI_TIMEOUT|AI_PROVIDER_ERROR|AI_PARSE_ERROR|AI_REPAIR|AI_SUCCESS|AI_FINAL_FAILURE`
+  con flow/job/provider/attempt/class/status/ms; sin prompts, respuestas, tokens ni datos.
+- **Tests:** `api/test/ai-stability.test.js` (19); fixture con modos `overloaded-then-valid`,
+  `503-twice-then-valid`, `503-always`, `auth`, `fenced`. API 300/300, frontend 930/930.
+- **Limitaciones:** sin reproducción contra Claude real (sin acceso a logs de producción); la causa
+  se confirmó leyendo el SDK 0.3.220 instalado. Escáneres aux-AI (medidas/máquina/rutina/import)
+  no usan aún `ai-run.js` (solo se benefician del nuevo `extractJSON`).
+
 ### Constructor UX mini-sprint (local, no desplegado; 2026-09-27)
 
 - Días del programa arriba en barra horizontal (`DayBar` en `views/trainer/Constructor.jsx`):

@@ -25,6 +25,20 @@ const prompt = await read();
 if (MODE === 'timeout') { await new Promise(() => {}); }          // never resolves — the runner kills us
 if (MODE === 'crash') { process.stderr.write('fixture: simulated crash\n'); process.exit(3); }
 if (MODE === 'invalid') { process.stdout.write('I am afraid I cannot do that.\n'); process.exit(0); }
+if (MODE === 'auth') { process.stderr.write('API Error: 401 authentication_error: invalid x-api-key\n'); process.exit(1); }
+// Transient provider failures on the first call(s) of a job, then fine. Calls of one job share
+// its temp directory (the cwd), so a counter file there tells the calls apart.
+const TRANSIENT = { 'overloaded-then-valid': 1, '503-twice-then-valid': 2, '503-always': 99 }[MODE];
+if (TRANSIENT) {
+  const fs = await import('node:fs');
+  let n = 1;
+  try { n = (Number(fs.readFileSync('calls', 'utf8').trim()) || 0) + 1; } catch { /* first call of this job */ }
+  fs.writeFileSync('calls', String(n));
+  if (n <= TRANSIENT) {
+    process.stderr.write(MODE === 'overloaded-then-valid' ? 'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}\n' : 'API Error: 503 Service Unavailable\n');
+    process.exit(1);
+  }
+}
 
 // The repair round: the first call is garbage, the second (which carries the repair marker)
 // is fine. Two invocations of one process can't share memory, so the marker in the prompt is
@@ -121,4 +135,9 @@ out({
   notes: ['Body weight has been flat for four weeks — if the goal is to gain, that is the lever, not the plan.']
 });
 
-function out(obj) { process.stdout.write(JSON.stringify(obj, null, 2) + '\n'); process.exit(0); }
+function out(obj) {
+  // 'fenced': the answer wrapped in prose and a markdown fence, as chat models often do.
+  const body = JSON.stringify(obj, null, 2);
+  process.stdout.write(MODE === 'fenced' ? 'Here is the plan you asked for {as JSON}:\n\n```json\n' + body + '\n```\nLet me know if you want changes.\n' : body + '\n');
+  process.exit(0);
+}

@@ -37,18 +37,32 @@ const MAX_EX_PER_ROUTINE = 20;
  * parse is tried first so well-behaved output costs nothing.
  */
 export function extractJSON(text) {
-  const raw = String(text || '').trim();
+  const raw = String(text || '').replace(/^﻿/, '').trim();
   if (!raw) return { error: 'el proveedor no devolvió nada' };
-  try { return { value: JSON.parse(raw) }; } catch { /* keep looking */ }
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenced) {
-    try { return { value: JSON.parse(fenced[1]) }; } catch { /* keep looking */ }
+  const tryParse = s => { try { const v = JSON.parse(s); return v && typeof v === 'object' ? v : undefined; } catch { return undefined; } };
+  const whole = tryParse(raw);
+  if (whole !== undefined) return { value: whole };
+  // Every candidate, in order: fenced blocks (```json … ``` or bare ```), then each balanced
+  // {…} object found in the text. A candidate carrying `coach_contract` wins over any other
+  // (e.g. a small example object the model put before the real answer).
+  const candidates = [];
+  for (const m of raw.matchAll(/```[a-zA-Z]*\s*([\s\S]*?)```/g)) { const v = tryParse(m[1].trim()); if (v !== undefined) candidates.push(v); }
+  for (const s of balancedObjects(raw)) { const v = tryParse(s); if (v !== undefined) candidates.push(v); }
+  const best = candidates.find(v => v && Object.prototype.hasOwnProperty.call(v, 'coach_contract')) || candidates[0];
+  return best !== undefined ? { value: best } : { error: 'la respuesta no era JSON' };
+}
+/** Top-level balanced {…} spans of a text, string-aware (braces inside strings are ignored). */
+function balancedObjects(s) {
+  const out = [];
+  let depth = 0, start = -1, inStr = false, esc = false;
+  for (let i = 0; i < s.length && out.length < 20; i++) {
+    const c = s[i];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') { if (depth > 0) inStr = true; continue; }
+    if (c === '{') { if (depth === 0) start = i; depth++; }
+    else if (c === '}' && depth > 0) { depth--; if (depth === 0) out.push(s.slice(start, i + 1)); }
   }
-  const first = raw.indexOf('{'), last = raw.lastIndexOf('}');
-  if (first >= 0 && last > first) {
-    try { return { value: JSON.parse(raw.slice(first, last + 1)) }; } catch { /* give up */ }
-  }
-  return { error: 'la respuesta no era JSON' };
+  return out;
 }
 
 const isStr = v => typeof v === 'string' && v.trim().length > 0;

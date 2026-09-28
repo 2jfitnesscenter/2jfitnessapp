@@ -75,7 +75,7 @@ export default {
     if (!apiKey) return { code: -1, text: '', stderr: 'no OpenAI API key connected', timedOut: false, spawnError: true };
     const r = await callOpenAI({ apiKey, model: model || DEFAULT_MODEL, prompt, timeoutMs });
     if (!r.ok) {
-      return { code: r.status === 401 || r.status === 403 ? 2 : 1, text: '', stderr: r.error, timedOut: !!r.timedOut, spawnError: false };
+      return { code: r.status === 401 || r.status === 403 ? 2 : 1, text: '', stderr: r.error, status: r.status || null, timedOut: !!r.timedOut, spawnError: false };
     }
     return { code: 0, text: r.text, stderr: '', timedOut: false, spawnError: false };
   }

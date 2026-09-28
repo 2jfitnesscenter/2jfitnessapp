@@ -22,6 +22,7 @@ import * as payloadLib from './payload.js';
 import { extractJSON, validatePlan, validateReview, contractOK } from './validate.js';
 import { expandBlocks, gatePlan, gateReview, ctxFromPayload } from './protocol-gate.js';
 import { readState } from '../lib/state-store.js';
+import { invokeWithRetry, aiLog } from './ai-run.js';
 export { readState };   // re-exported: trainer-jobs.js and cadence.js import it from here
 
 const DATA = process.env.DATA_DIR || '/data';
@@ -89,9 +90,15 @@ export function status(uid) {
     archive(uid, rec, 'expired');
     return { job: null, pending: null };
   }
+  // The latest finished job when it produced nothing to review (a real failure after retries, or
+  // "no change"), for a day: the screen says what happened instead of silently resetting.
+  const lastRun = [...(rec.history || [])].reverse().find(h => ['failed', 'nochange', 'ready', 'applied', 'dismissed', 'expired'].includes(h.outcome));
+  const last = !rec.current && lastRun && ['failed', 'nochange'].includes(lastRun.outcome) && Date.now() - (lastRun.at || 0) < 86400000
+    ? { id: lastRun.id, kind: lastRun.kind, outcome: lastRun.outcome, errorClass: lastRun.errorClass || null, at: lastRun.at } : null;
   return {
     job: rec.current ? { id: rec.current.id, kind: rec.current.kind, state: rec.current.state, startedAt: rec.current.startedAt } : null,
     pending: rec.pending || null,
+    last,
     cap: capState(uid)
   };
 }
@@ -237,17 +244,21 @@ async function execute(job) {
     const ids = (await import('./adapters/spawn.js')).unprivilegedIds();
     if (ids) fs.chownSync(jobDir, ids.uid, ids.gid);
 
+    aiLog('AI_REQUEST_START', { flow: 'member-' + job.kind, job: job.id, provider: cfg.provider, trigger: job.trigger });
     let attempt = await invoke(adapter, cfg, payload, jobDir, env, job, null);
     if (!attempt.ok && attempt.repairable) {
       // One repair round, then done (FR-48). Two failures is a provider problem, not a
       // prompting problem, and a retry loop against a paid API is a bad way to find out.
+      aiLog('AI_REPAIR', { flow: 'member-' + job.kind, job: job.id, errors: attempt.errors?.length || 0 });
       attempt = await invoke(adapter, cfg, payload, jobDir, env, job, {
         previous: attempt.raw, errors: attempt.errors
       });
     }
     if (!attempt.ok) {
+      aiLog('AI_FINAL_FAILURE', { flow: 'member-' + job.kind, job: job.id, class: attempt.errorClass, ms: Date.now() - job.startedAt });
       return finish(job, { outcome: 'failed', errorClass: attempt.errorClass, detail: attempt.detail });
     }
+    aiLog('AI_SUCCESS', { flow: 'member-' + job.kind, job: job.id, nochange: attempt.nochange ? 1 : null, ms: Date.now() - job.startedAt });
     if (attempt.nochange) {
       return finish(job, { outcome: 'nochange', pending: null, detail: null });
     }
@@ -268,18 +279,20 @@ async function execute(job) {
 
 async function invoke(adapter, cfg, payload, jobDir, env, job, repair) {
   const prompt = buildPrompt(job.kind, payload, repair);
-  const r = await adapter.invoke({ cfg, prompt, jobDir, env, model: cfg.model || null, timeoutMs: TIMEOUT_MS });
-
-  if (r.timedOut) return { ok: false, errorClass: 'timeout' };
-  if (r.spawnError) return { ok: false, errorClass: 'missing', detail: r.stderr?.slice(0, 300) };
-  if (r.code !== 0) {
-    const err = (r.stderr || r.text || '').toLowerCase();
-    const authish = /auth|unauthor|api key|credential|token|401|403|login/.test(err);
-    return { ok: false, errorClass: authish ? 'auth' : 'provider', detail: (r.stderr || r.text || '').slice(0, 300) };
+  // Transient provider failures (timeout, 429/5xx/overloaded, crashed runtime, empty answer) are
+  // retried here, inside one job, before anything is reported (coach/ai-run.js).
+  const r = await invokeWithRetry(adapter, { cfg, prompt, jobDir, env, model: cfg.model || null, timeoutMs: TIMEOUT_MS },
+    { flow: 'member-' + job.kind, job: job.id, provider: cfg.provider, repair: !!repair });
+  if (r.failure) {
+    const errorClass = r.failure.errorClass === 'empty' ? 'provider' : r.failure.errorClass;
+    return { ok: false, errorClass, detail: [r.failure.status, (r.stderr || '').slice(0, 280)].filter(Boolean).join(' ') || null };
   }
 
   const parsed = extractJSON(r.text);
-  if (parsed.error) return { ok: false, repairable: !repair, errors: [parsed.error], raw: r.text, errorClass: 'unusable' };
+  if (parsed.error) {
+    aiLog('AI_PARSE_ERROR', { flow: 'member-' + job.kind, job: job.id, chars: String(r.text || '').length });
+    return { ok: false, repairable: !repair, errors: [parsed.error], raw: r.text, errorClass: 'unusable' };
+  }
   if (!contractOK(parsed.value)) {
     return { ok: false, repairable: !repair, errors: [`coach_contract must be ${payloadLib.CONTRACT}`], raw: r.text, errorClass: 'unusable' };
   }

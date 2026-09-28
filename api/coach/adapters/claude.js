@@ -23,6 +23,44 @@ function spawnAsCoach({ command, args, cwd, env, signal }) {
   return spawn(command, args, { cwd, env, signal, stdio: ['pipe', 'pipe', 'pipe'], ...(ids || {}) });
 }
 
+/**
+ * Turn the SDK's message stream into the adapter result ({ code, text, stderr, status,
+ * timedOut, spawnError }). Exported for tests, which feed it fake streams.
+ *
+ * An API failure (429, 5xx, 529 overloaded, auth…) is reported on the assistant message and
+ * again on a result whose subtype is still 'success' but with `is_error` set and the error text
+ * as `result`. That text is NOT the model's answer: before this check it was parsed as one (the
+ * error body even contains a JSON object), failed the contract, used up the repair round and
+ * ended as "unusable" — the intermittent failures seen in production.
+ */
+export async function readStream(stream, io = { stderr: '', timedOut: () => false }) {
+  let text = '', failure = '', status = null;
+  try {
+    for await (const message of stream) {
+      if (message.type === 'assistant' && message.error) { failure = failure || `assistant error: ${message.error}`; continue; }
+      if (message.type !== 'result') continue;
+      if (message.subtype === 'success' && !message.is_error) { text = message.result; failure = ''; }
+      else {
+        status = message.api_error_status ?? status;
+        failure = (message.subtype === 'success' ? message.result : message.errors?.join('\n')) || `Agent SDK stopped: ${message.subtype}`;
+      }
+    }
+  } catch (e) {
+    if (io.timedOut()) return { code: -1, text: '', stderr: 'the Agent SDK timed out', timedOut: true, spawnError: false };
+    const msg = e instanceof Error ? e.message : String(e);
+    // The runtime may exit non-zero AFTER delivering a complete result: keep the result.
+    if (text && !failure) return { code: 0, text, stderr: io.stderr || msg, timedOut: false, spawnError: false };
+    // Only a runtime that could not start is "missing"; a crash mid-call is a provider failure
+    // (retryable), classified from its message by ../ai-run.js.
+    const spawnFailed = e instanceof ReferenceError || /failed to spawn|ENOENT|native binary/i.test(msg);
+    return { code: -1, text: '', stderr: [failure, io.stderr, msg].filter(Boolean).join('\n').slice(0, 4000), status, timedOut: false, spawnError: spawnFailed };
+  }
+  if (io.timedOut()) return { code: -1, text: '', stderr: 'the Agent SDK timed out', timedOut: true, spawnError: false };
+  if (failure) return { code: 1, text: '', stderr: failure, status, timedOut: false, spawnError: false };
+  if (!text) return { code: 1, text: '', stderr: io.stderr || 'the Agent SDK returned no result', timedOut: false, spawnError: false };
+  return { code: 0, text, stderr: io.stderr, timedOut: false, spawnError: false };
+}
+
 export default {
   id: 'claude',
   runtime: 'Claude Agent SDK',
@@ -34,18 +72,15 @@ export default {
   },
 
   async invoke({ prompt, jobDir, env, model, timeoutMs }) {
-    let text = '';
-    let failure = '';
-    let stderr = '';
     let timedOut = false;
+    const io = { stderr: '', timedOut: () => timedOut };
     const abortController = new AbortController();
     const timer = setTimeout(() => {
       timedOut = true;
       abortController.abort();
     }, timeoutMs);
-
     try {
-      for await (const message of query({
+      return await readStream(query({
         prompt,
         options: {
           abortController,
@@ -62,30 +97,12 @@ export default {
           strictMcpConfig: true,
           persistSession: false,
           systemPrompt: SYSTEM_PROMPT,
-          stderr: data => { if (stderr.length < OUTPUT_CAP) stderr += data; },
+          stderr: data => { if (io.stderr.length < OUTPUT_CAP) io.stderr += data; },
           spawnClaudeCodeProcess: spawnAsCoach
         }
-      })) {
-        if (message.type !== 'result') continue;
-        if (message.subtype === 'success') text = message.result;
-        else failure = message.errors?.join('\n') || `Agent SDK stopped: ${message.subtype}`;
-      }
-    } catch (e) {
-      if (timedOut) return { code: -1, text: '', stderr: 'the Agent SDK timed out', timedOut: true, spawnError: false };
-      return {
-        code: -1,
-        text: '',
-        stderr: stderr || (e instanceof Error ? e.message : String(e)),
-        timedOut: false,
-        spawnError: true
-      };
+      }), io);
     } finally {
       clearTimeout(timer);
     }
-
-    if (timedOut) return { code: -1, text: '', stderr: 'the Agent SDK timed out', timedOut: true, spawnError: false };
-    if (failure) return { code: 1, text: '', stderr: failure || stderr, timedOut: false, spawnError: false };
-    if (!text) return { code: 1, text: '', stderr: stderr || 'the Agent SDK returned no result', timedOut: false, spawnError: false };
-    return { code: 0, text, stderr, timedOut: false, spawnError: false };
   }
 };

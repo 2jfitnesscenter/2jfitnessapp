@@ -40,7 +40,7 @@ export default function Coach() {
   const toast = useUI(s => s.toast)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
-  const { job, pending, cap, refresh } = useCoachStatus(true)
+  const { job, pending, last, cap, refresh } = useCoachStatus(true)
 
   // Gating lives in one predicate; if the instance isn't offering the Coach this route simply
   // isn't a place you can be.
@@ -56,7 +56,8 @@ export default function Coach() {
       await requestReview(note)
       setNote('')
       toast(t('The Coach is reading your training…'))
-      refresh()
+      // Stay disabled until the status shows the job, so a second tap cannot race into "busy".
+      await refresh()
     } catch (e) { toast(e.message || t('Could not ask the Coach')) }
     setBusy(false)
   }
@@ -97,6 +98,7 @@ export default function Coach() {
       ? <ConsentCard onDone={() => refresh()} />
       : <>
         <StatusCard job={job} pending={pending} nav={nav} />
+        {!job && !pending && last && <LastRunCard last={last} />}
 
         {!job && !pending && <div className="card">
           <h2 style={{ margin: '0 0 6px' }}>{t('Ask for a review')}</h2>
@@ -197,6 +199,17 @@ function ConsentCard({ onDone }) {
 }
 
 /* ---------------------------------- status ---------------------------------- */
+
+/** The last run left nothing to review: say why (after the server's own retries). */
+function LastRunCard({ last }) {
+  const failed = last.outcome === 'failed'
+  return <div className="card" role="status" style={{ borderColor: failed ? 'var(--red)' : 'var(--sep)' }}>
+    <div style={{ fontWeight: 600, marginBottom: 4 }}>{failed ? t('The last Coach run did not finish') : t('The Coach found nothing to change')}</div>
+    <div className="muted small">{failed
+      ? t(JOB_ERRORS[last.errorClass] || JOB_ERRORS.internal) + ' ' + t('You can ask again below.')
+      : t('Your plan fits what you have logged. Ask again after a few more workouts.')}</div>
+  </div>
+}
 
 function StatusCard({ job, pending, nav }) {
   if (job) return <div className="card">

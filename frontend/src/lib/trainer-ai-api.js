@@ -16,8 +16,9 @@ export const discardMemberPlan = memberId =>
 export function useTrainerAIStatus(memberId) {
   const [state, setState] = useState({ job: null, pending: null, errorClass: null, loading: true })
   const timer = useRef(null)
+  const alive = useRef(false)
 
-  const refresh = useCallback(async () => {
+  const fetchStatus = useCallback(async () => {
     if (!memberId) return null
     try {
       const s = await api('/api/trainer/ai/status?memberId=' + encodeURIComponent(memberId))
@@ -29,19 +30,24 @@ export function useTrainerAIStatus(memberId) {
     }
   }, [memberId])
 
+  // Polls while a job is queued/running. `refresh` (called right after "Generate") restarts the
+  // loop: before, the loop had already stopped on the idle first read, so the screen stayed on
+  // "Generating…" without ever asking again and the trainer retried into "busy".
+  const tick = useCallback(async () => {
+    clearTimeout(timer.current)
+    const s = await fetchStatus()
+    if (alive.current && s?.job) timer.current = setTimeout(tick, POLL_MS)
+    return s
+  }, [fetchStatus])
+
   useEffect(() => {
     if (!memberId) return undefined
-    let stopped = false
-    const tick = async () => {
-      const s = await refresh()
-      if (stopped) return
-      if (s?.job) timer.current = setTimeout(tick, POLL_MS)
-    }
+    alive.current = true
     tick()
-    return () => { stopped = true; clearTimeout(timer.current) }
-  }, [memberId, refresh])
+    return () => { alive.current = false; clearTimeout(timer.current) }
+  }, [memberId, tick])
 
-  return { ...state, refresh }
+  return { ...state, refresh: tick }
 }
 
 export const TRAINER_AI_ERRORS = {

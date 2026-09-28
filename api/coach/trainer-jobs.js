@@ -26,9 +26,14 @@ import * as payloadLib from './payload.js';
 import { buildPrompt, readState } from './jobs.js';
 import { extractJSON, validatePlan, contractOK } from './validate.js';
 import { expandBlocks, gatePlan, ctxFromPayload } from './protocol-gate.js';
+import { invokeWithRetry, aiLog } from './ai-run.js';
 
 export const TIMEOUT_MS = 5 * 60000;
 const MAX_CONCURRENT = 2;
+
+// Tests drive the trainer flow through the fixture provider; production always runs Claude.
+let adapterOverride = null;
+export function setAdapterForTests(adapter) { adapterOverride = adapter; }
 
 export class TrainerAIError extends Error {
   constructor(code, message) { super(message); this.code = code; }
@@ -100,7 +105,7 @@ async function execute(job) {
   const S = readState(job.memberId);
   if (!S) return setResult(job, { state: 'failed', errorClass: 'nostate' });
 
-  const adapter = adapterFor('claude');
+  const adapter = adapterOverride || adapterFor('claude');
   const payload = payloadLib.build(S, job.memberId, { kind: 'create', intake: job.brief });
   const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trainer-ai-'));
   const env = trainerAI.jobEnv(jobDir);
@@ -108,33 +113,36 @@ async function execute(job) {
     const ids = (await import('./adapters/spawn.js')).unprivilegedIds();
     if (ids) fs.chownSync(jobDir, ids.uid, ids.gid);
 
-    let attempt = await invoke(adapter, payload, jobDir, env, null);
+    aiLog('AI_REQUEST_START', { flow: 'trainer-create', job: job.id, provider: 'claude' });
+    let attempt = await invoke(adapter, payload, jobDir, env, null, job);
     if (!attempt.ok && attempt.repairable) {
       // One repair round, same rule as jobs.js's execute() (FR-48 there): a second failure is a
       // provider problem, not a prompting problem.
-      attempt = await invoke(adapter, payload, jobDir, env, { previous: attempt.raw, errors: attempt.errors });
+      aiLog('AI_REPAIR', { flow: 'trainer-create', job: job.id, errors: attempt.errors?.length || 0 });
+      attempt = await invoke(adapter, payload, jobDir, env, { previous: attempt.raw, errors: attempt.errors }, job);
     }
-    if (!attempt.ok) return setResult(job, { state: 'failed', errorClass: attempt.errorClass });
+    if (!attempt.ok) {
+      aiLog('AI_FINAL_FAILURE', { flow: 'trainer-create', job: job.id, class: attempt.errorClass, ms: Date.now() - job.startedAt });
+      return setResult(job, { state: 'failed', errorClass: attempt.errorClass });
+    }
+    aiLog('AI_SUCCESS', { flow: 'trainer-create', job: job.id, ms: Date.now() - job.startedAt });
     return setResult(job, { state: 'done', pending: { bundle: attempt.bundle, createdAt: Date.now() } });
   } finally {
     fs.rmSync(jobDir, { recursive: true, force: true });
   }
 }
 
-async function invoke(adapter, payload, jobDir, env, repair) {
+async function invoke(adapter, payload, jobDir, env, repair, job = {}) {
   const prompt = buildPrompt('create', payload, repair);
-  const r = await adapter.invoke({ prompt, jobDir, env, model: null, timeoutMs: TIMEOUT_MS });
-
-  if (r.timedOut) return { ok: false, errorClass: 'timeout' };
-  if (r.spawnError) return { ok: false, errorClass: 'missing' };
-  if (r.code !== 0) {
-    const err = (r.stderr || r.text || '').toLowerCase();
-    const authish = /auth|unauthor|api key|credential|token|401|403|login/.test(err);
-    return { ok: false, errorClass: authish ? 'auth' : 'provider' };
-  }
+  const r = await invokeWithRetry(adapter, { prompt, jobDir, env, model: null, timeoutMs: TIMEOUT_MS },
+    { flow: 'trainer-create', job: job.id, provider: 'claude', repair: !!repair });
+  if (r.failure) return { ok: false, errorClass: r.failure.errorClass === 'empty' ? 'provider' : r.failure.errorClass };
 
   const parsed = extractJSON(r.text);
-  if (parsed.error) return { ok: false, repairable: !repair, errors: [parsed.error], raw: r.text, errorClass: 'unusable' };
+  if (parsed.error) {
+    aiLog('AI_PARSE_ERROR', { flow: 'trainer-create', job: job.id, chars: String(r.text || '').length });
+    return { ok: false, repairable: !repair, errors: [parsed.error], raw: r.text, errorClass: 'unusable' };
+  }
   if (!contractOK(parsed.value)) return { ok: false, repairable: !repair, errors: [`coach_contract must be ${payloadLib.CONTRACT}`], raw: r.text, errorClass: 'unusable' };
 
   const expanded = expandBlocks(parsed.value);

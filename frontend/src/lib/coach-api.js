@@ -37,13 +37,14 @@ export const disclosure = async () => DEMO ? (await demo()).demoDisclosure() : a
  * failing while you are mid-workout is not something to interrupt anyone about.
  */
 export function useCoachStatus(active = true) {
-  const [state, setState] = useState({ job: null, pending: null, cap: null, loading: true })
+  const [state, setState] = useState({ job: null, pending: null, last: null, cap: null, loading: true })
   const timer = useRef(null)
+  const alive = useRef(false)
 
-  const refresh = useCallback(async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       const s = await coachStatus()
-      setState({ ...s, loading: false })
+      setState({ last: null, ...s, loading: false })
       return s
     } catch {
       setState(s => ({ ...s, loading: false }))
@@ -51,19 +52,23 @@ export function useCoachStatus(active = true) {
     }
   }, [])
 
+  // `refresh` restarts the loop, so a request just sent is followed at POLL_MS instead of
+  // waiting out the idle interval that was already scheduled.
+  const tick = useCallback(async () => {
+    clearTimeout(timer.current)
+    const s = await fetchStatus()
+    if (alive.current) timer.current = setTimeout(tick, s?.job ? POLL_MS : IDLE_MS)
+    return s
+  }, [fetchStatus])
+
   useEffect(() => {
     if (!active) return
-    let stopped = false
-    const tick = async () => {
-      const s = await refresh()
-      if (stopped) return
-      timer.current = setTimeout(tick, s?.job ? POLL_MS : IDLE_MS)
-    }
+    alive.current = true
     tick()
-    return () => { stopped = true; clearTimeout(timer.current) }
-  }, [active, refresh])
+    return () => { alive.current = false; clearTimeout(timer.current) }
+  }, [active, tick])
 
-  return { ...state, refresh }
+  return { ...state, refresh: active ? tick : fetchStatus }
 }
 
 // Server failure classes, in the app's voice. The provider's own words go to the admin card;
