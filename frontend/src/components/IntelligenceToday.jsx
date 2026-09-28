@@ -7,6 +7,10 @@ import { t, nameFor } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
 import { useGuided } from '../lib/guided-api.js'
 import { EXIDX } from '../lib/exercises.js'
+import { api } from '../lib/api.js'
+import { hasConsent } from '../lib/coach.js'
+import { useStore } from '../store/useStore.js'
+import { DEMO } from '../lib/demo.js'
 import './intelligence-today.css'
 
 const icon = { PROGRAM_NEXT_SESSION: 'calendar', NEXT_SESSION: 'calendar', PROGRESSION_READY: 'chartLine', EQUIPMENT_CONFLICT: 'dumbbell', PR_RECENT: 'sparkles', CONTENT_SUGGESTION: 'sparkles',
@@ -48,6 +52,7 @@ const sourceLabel = source => ({ 'training-history': t('Training history'), 'act
   'active-plan': t('Active plan'), 'gym-profile': t('Training place'), 'official-2j-content': t('Official 2J content') })[source] || t(source)
 const confidenceLabel = confidence => ({ high: t('High'), medium: t('Medium'), low: t('Low') })[confidence] || confidence
 const priorityLabel = priority => ({ high: t('High priority'), medium: t('Medium priority'), low: t('Optional') })[priority] || priority
+export const canAskCoach = (S, coachEnabled) => !!coachEnabled && hasConsent(S) && !DEMO
 
 export default function IntelligenceToday({ S, user, max = 3, compact = false, types = null, showIntro = false }) {
   const nav = useNavigate()
@@ -57,6 +62,8 @@ export default function IntelligenceToday({ S, user, max = 3, compact = false, t
   const [intro, setIntro] = useState(() => showIntro && read(introKey, '') !== 'done')
   const [hidden, setHidden] = useState(() => readHidden(hideKey))
   const [open, setOpen] = useState(null)
+  const [explanations, setExplanations] = useState({})
+  const coachEnabled = useStore(s => !!s.config?.coach?.enabled)
   const officialRoutines = useGuided(s => s.uid === uid ? s.routines : EMPTY_ROUTINES)
   const loadGuided = useGuided(s => s.load)
   useEffect(() => { if (showIntro && user?.id) loadGuided(user.id) }, [showIntro, user?.id, loadGuided])
@@ -68,6 +75,15 @@ export default function IntelligenceToday({ S, user, max = 3, compact = false, t
   const dismiss = (id, forever) => {
     const next = { ...hidden, [id]: forever ? Number.MAX_SAFE_INTEGER : Date.now() + 7 * 86400000 }
     setHidden(next); write(hideKey, JSON.stringify(next))
+  }
+  const askCoach = async r => {
+    setExplanations(prev => ({ ...prev, [r.id]: { loading: true } }))
+    try {
+      const allowed = ['days', 'sessions', 'weight', 'next', 'min', 'max', 'completed', 'total', 'thisWeek']
+      const facts = Object.fromEntries(allowed.filter(k => typeof r.facts?.[k] === 'number').map(k => [k, r.facts[k]]))
+      const result = await api('/api/coach/intelligence/explain', { method: 'POST', body: JSON.stringify({ type: r.type, facts }) })
+      setExplanations(prev => ({ ...prev, [r.id]: result.ok ? { text: result.explanation } : { failed: true } }))
+    } catch { setExplanations(prev => ({ ...prev, [r.id]: { failed: true } })) }
   }
   if (!cards.length && !intro && !showIntro) return null
   return <section className={'intelligence-today' + (compact ? ' compact' : '')} aria-label={t('For you today')}>
@@ -85,7 +101,13 @@ export default function IntelligenceToday({ S, user, max = 3, compact = false, t
       <div className="intelligence-body"><div className="intelligence-type">{t('2J suggestion')} · {priorityLabel(r.priority)}</div>
         <h3>{copy.title}</h3><p>{copy.summary}</p>
         <button className="intelligence-reason-toggle" type="button" aria-expanded={open === r.id} onClick={() => setOpen(open === r.id ? null : r.id)}>{t('Why this suggestion?')} <Icon name="chevronRight" /></button>
-        {open === r.id && <div className="intelligence-reason"><b>{t('Based on your training')}</b><p>{copy.reason}</p><small>{t('Source')}: {sourceLabel(r.source)} · {t('Confidence')}: {confidenceLabel(r.confidence)}</small></div>}
+        {open === r.id && <div className="intelligence-reason"><b>{t('Based on your training')}</b><p>{copy.reason}</p><small>{t('Source')}: {sourceLabel(r.source)} · {t('Confidence')}: {confidenceLabel(r.confidence)}</small>
+          {canAskCoach(S, coachEnabled) && <div className="intelligence-explain">
+            <button type="button" disabled={explanations[r.id]?.loading} onClick={() => askCoach(r)}>{t('Ask Coach to explain')}</button>
+            {explanations[r.id]?.text && <p><b>{t('Coach adds context')}</b> · {explanations[r.id].text}</p>}
+            {explanations[r.id]?.failed && <p>{t('Coach is unavailable. The original suggestion still stands.')}</p>}
+          </div>}
+        </div>}
         <div className="intelligence-actions"><button className="btn primary" type="button" onClick={() => nav(r.action.route)}>{copy.action}</button>
           <button className="btn plain" type="button" onClick={() => dismiss(r.id, false)}>{t('Not now')}</button>
           <button className="intelligence-never" type="button" onClick={() => dismiss(r.id, true)}>{t('Don’t suggest this again')}</button></div>

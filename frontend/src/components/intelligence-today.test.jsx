@@ -1,9 +1,10 @@
 import { expect, test, vi, beforeEach } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
-import IntelligenceToday from './IntelligenceToday.jsx'
+import IntelligenceToday, { canAskCoach } from './IntelligenceToday.jsx'
 
 vi.mock('../lib/guided-api.js', () => ({ useGuided: selector => selector({ uid: null, routines: [], load: () => {} }) }))
+vi.mock('../store/useStore.js', () => ({ useStore: selector => selector({ config: { coach: { enabled: true } } }) }))
 const store = new Map()
 beforeEach(() => {
   store.clear()
@@ -29,4 +30,13 @@ test('a real signal has a reason, explicit action and dismiss controls; no state
   expect(html).toContain('Not now')
   expect(html).toContain('Don’t suggest this again')
   expect(JSON.stringify(S)).toBe(before)
+})
+
+test('Coach explanation is offered only after consent; deterministic reason remains primary', () => {
+  const S = { workouts: [{ d: '2026-08-01', entries: [] }], routines: [], programs: [] }
+  expect(canAskCoach(S, true)).toBe(false)
+  const consented = { ...S, coach: { consent: { agreedAt: '2026-09-28T00:00:00Z', version: 1 } } }
+  expect(canAskCoach(consented, true)).toBe(true)
+  expect(canAskCoach(consented, false)).toBe(false)
+  expect(render(consented)).toContain('Why this suggestion?')
 })

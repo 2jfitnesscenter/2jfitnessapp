@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -26,6 +26,29 @@ import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 import { MEASUREMENTS, bodyFatBand, visceralFatBand } from '../lib/measurements.js'
 import BioimpedanceFields from '../components/BioimpedanceFields.jsx'
 import { stateAction } from '../lib/state-action.js'
+import { adminIntelligenceFor } from '../lib/admin-intelligence.js'
+import '../components/intelligence-today.css'
+
+export function AdminIntelligence({ detail }) {
+  const cards = useMemo(() => adminIntelligenceFor(detail), [detail])
+  if (!cards.length) return null
+  const label = r => ({ RETURN_AFTER_GAP: t('Return after a break'), PR_RECENT: t('Recent personal best'),
+    PLATEAU: t('Review training pattern'), LOAD_TOO_HIGH: t('Review effort') })[r.type]
+  const reason = r => ({ RETURN_AFTER_GAP: t('{0} days since the last logged workout.', r.facts.days),
+    PR_RECENT: t('Estimated best improved against previous sessions.'),
+    PLATEAU: t('Best load and reps repeated across three sessions.'),
+    LOAD_TOO_HIGH: t('Two recent sessions included failed sets or high effort.') })[r.type]
+  return <section className="intelligence-today compact" aria-label={t('2J training insights')}>
+    <header><div><span className="intelligence-eyebrow">2J FITNESS CENTER</span><h2>{t('2J training insights')}</h2></div></header>
+    <div className="intelligence-list">{cards.map(r => <article className="intelligence-card" key={r.id}>
+      <span className="intelligence-icon"><Icon name="chartLine" /></span><div className="intelligence-body">
+        <div className="intelligence-type">{t('2J suggestion')} · {t('Trainer decides')}</div>
+        <h3>{label(r)}</h3><p>{reason(r)}</p>
+        <small>{t('Source')}: {t('Training history')} · {t('Confidence')}: {t(r.confidence === 'high' ? 'High' : r.confidence === 'medium' ? 'Medium' : 'Low')}</small>
+        <div className="intelligence-actions"><button className="btn primary" type="button" onClick={() => document.getElementById('admin-workout-history')?.scrollIntoView({ behavior: 'smooth' })}>{t('View history')}</button></div>
+      </div></article>)}</div>
+  </section>
+}
 
 // Same labels the member-facing quick-plan sheet (sheets.jsx) uses, so "hypertrophy" means the
 // same rep range whether a member or an admin set it up.
@@ -276,6 +299,7 @@ export function UserDetail({ id, onChanged, close }) {
       <div className="tile"><div className="l">{t('Routines')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.routines.length}</div></div>
       <div className="tile"><div className="l">{t('Last sync')}</div><div className="v" style={{ fontSize: '.95rem' }}>{rel(d.lastSync)}</div></div>
     </div>
+    <AdminIntelligence detail={d} />
     {!!(d.priorityMuscles?.length || d.secondaryMuscles?.length) && <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '10px 0 0' }}>
       {(d.priorityMuscles || []).map(m => <span key={m} className="tag acc">{t(MUSCLE_LABEL[m])}</span>)}
       {(d.secondaryMuscles || []).map(m => <span key={m} className="tag">{t(MUSCLE_LABEL[m])}</span>)}
@@ -311,7 +335,7 @@ export function UserDetail({ id, onChanged, close }) {
         : confirmSheet({ title: t('Disable {0}?', u.name), message: t('They are signed out everywhere and can no longer sync or log in until re-enabled.'), confirmText: t('Disable'), danger: true, onConfirm: () => setDisabled(true) })}>
       {u.disabled ? t('Enable account') : t('Disable account')}</button>}
     <AdminFollowUp id={u.id} />
-    <h4 className="sec">{t('Workout history')}</h4>
+    <h4 className="sec" id="admin-workout-history">{t('Workout history')}</h4>
     {d.workouts.length ? <div className="list" style={{ gap: 0 }}>
       {d.workouts.slice(0, 60).map(w => <div key={w.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
         <div><div className="small" style={{ fontWeight: 600 }}>{w.name}</div>
