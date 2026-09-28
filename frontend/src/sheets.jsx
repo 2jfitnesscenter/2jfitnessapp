@@ -21,6 +21,7 @@ import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf,
 import { evaluateBadges, evaluateBadgesIn } from './lib/badges.js'
 import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
 import { postWorkoutEvents, heroEvent } from './lib/mi2j.js'
+import { intelligenceRecommendations } from './lib/intelligence.js'
 import InternalShareActions from './components/InternalShareActions.jsx'
 import { markPending, markSeen, pendingCelebration } from './lib/celebrations.js'
 import { EventsSummary, RankHero, EventDetail } from './components/Mi2JEvents.jsx'
@@ -2323,6 +2324,8 @@ export function showPendingCelebration() {
 function FinishSummary({ w, prs, e1prs = [], events = [], newBadges = [], close }) {
   const st = useStore(s => s.S)
   const coachOn = !!useStore(s => s.config)?.coach?.enabled && !!st.coach?.consent?.agreedAt
+  const nextProgram = useMemo(() => intelligenceRecommendations(st, { max: 6 }).find(r => r.type === 'PROGRAM_NEXT_SESSION'),
+    [st.workouts, st.programs, st.activeProgramId])
   return <div style={{ textAlign: 'center', padding: '8px 0' }}>
     <div style={{ fontSize: 44, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}><Icon name="trophy" /></div>
     <h3 style={{ margin: '8px 0' }}>{t('Workout complete!')}</h3>
@@ -2339,6 +2342,8 @@ function FinishSummary({ w, prs, e1prs = [], events = [], newBadges = [], close 
     <div style={{ textAlign: 'left', marginBottom: 12 }}>
       <EventsSummary events={events} unit={st.unit} onOpen={ev => openEventDetail(ev, w.d)} />
     </div>
+    {nextProgram && <div className="intelligence-postworkout"><Icon name="sparkles" /><div><b>{t('Next in your program')}</b><p>{t(nextProgram.summary)} · {t('Continue when you are ready; nothing changes automatically.')}</p>
+      <button className="btn tinted" type="button" onClick={() => { close(); nav(nextProgram.action.route) }}>{t('View program')}</button></div></div>}
     <h4 className="sec" style={{ textAlign: 'left' }}>{t('What you just trained')}</h4>
     <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(st))} body={st.body} />
     {coachOn && <SessionRating w={w} />}

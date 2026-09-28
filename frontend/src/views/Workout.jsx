@@ -35,6 +35,7 @@ import { maxHrFor, zoneCuts, bandFor } from '../lib/fitness.js'
 import { guidedBlockFor } from '../lib/guided.js'
 import GuidedRunner, { GuidedLaunch } from '../components/GuidedRunner.jsx'
 import WorkoutCover from '../components/WorkoutCover.jsx'
+import IntelligenceToday from '../components/IntelligenceToday.jsx'
 
 // Today's check-in, next to the exercise it concerns — words only: nothing about the load, the
 // exercise or the routine changes because of it (the member or trainer decides).
@@ -525,6 +526,7 @@ function ActiveWorkout() {
   useStore(s => s.gymProfileRevision)
   const nav = useNavigate()
   const S = useStore(s => s.S)
+  const user = useStore(s => s.user)
   const update = useStore(s => s.update)
   const { startRest, stopRest, toast } = useUI()
   const prefs = workoutPrefs(S)
@@ -735,6 +737,7 @@ function ActiveWorkout() {
 
   return <div className="narrow workout">
     {!A.past && <GymProfile />}
+    {!A.past && <IntelligenceToday S={S} user={user} max={1} compact types={['EQUIPMENT_CONFLICT', 'PROGRESSION_READY', 'LOAD_TOO_HIGH']} />}
     <div className="hdr">
       <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => {
         const id = A.id

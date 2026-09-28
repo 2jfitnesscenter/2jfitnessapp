@@ -14,6 +14,7 @@ import { streakWeeks } from '../lib/history.js'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Button } from '../components/ui.jsx'
 import { openSocialShare } from '../lib/open-social-share.jsx'
+import IntelligenceToday from '../components/IntelligenceToday.jsx'
 
 // The carnet: who this member is inside 2J, at a glance. Everything is derived (lib/mi2j.js).
 export function Carnet({ S, user, snap, onRanks, compact }) {
@@ -73,6 +74,7 @@ export default function Mi2J() {
     </div>
 
     <Carnet S={S} user={user} snap={snap} onRanks={() => nav('/rank')} />
+    <IntelligenceToday S={S} user={user} max={2} compact types={['PR_RECENT', 'PLATEAU', 'ADHERENCE_GOOD']} />
     {streak > 0 && <Button variant="tinted" icon="upload" style={{ width: '100%', marginTop: 12 }} onClick={() => openSocialShare({ kind: 'streak', targetId: String(streak), title: t('My training streak'), metric: t('{0} weeks in a row', streak), subtitle: t('Consistency in motion'), date: new Date().toISOString().slice(0, 10) })}>{t('Share')}</Button>}
 
     <div className="m2-tiles">

@@ -24,6 +24,7 @@ import RecoveryCard from '../components/RecoveryCard.jsx'
 import { daysSinceBioimpedance } from '../lib/measurements.js'
 import { fetchWhoopRecovery, fetchWhoopSleep } from '../lib/whoop-api.js'
 import { mergeSeries } from '../lib/import-csv.js'
+import IntelligenceToday from '../components/IntelligenceToday.jsx'
 
 // Full-screen expansion of the compact body map below — the same load, just big enough to
 // tap a muscle and read its exact set count, the way Stats.jsx's own Muscle balance card
@@ -286,6 +287,8 @@ export default function Home() {
     </button>}
 
     {coachOn && <CoachCard nav={nav} />}
+
+    <IntelligenceToday key={user?.id || 'local'} S={S} user={user} showIntro />
 
     <BioimpedanceReminderCard S={S} nav={nav} />
 

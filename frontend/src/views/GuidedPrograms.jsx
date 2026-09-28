@@ -16,6 +16,7 @@ import { LEVEL_LABEL } from '../lib/protocol/index.js'
 import { confirmSheet, startOfficialRoutine } from '../sheets.jsx'
 import WorkoutCover from '../components/WorkoutCover.jsx'
 import Icon from '../components/Icon.jsx'
+import IntelligenceToday from '../components/IntelligenceToday.jsx'
 import './guided-programs.css'
 
 const STATUS = { active: 'In progress', paused: 'Paused', abandoned: 'Ended', completed: 'Completed' }
@@ -153,6 +154,7 @@ export function GuidedProgramDetail() {
     onConfirm: () => update(s => { setGuidedProgramStatus(s, memberProgram.id, 'abandoned') }) })
   return <main className="gp-page gp-detail">
     <header className="gp-head"><button className="iconbtn" aria-label={t('Back')} onClick={() => nav('/train2j/programs')}><Icon name="chevronLeft" /></button><div className="grow"><span className="t2-eyebrow">2J FITNESS CENTER</span><h1>{t(catalog.name)}</h1></div><Label icon="sparkles">{t('Official')}</Label></header>
+    {memberProgram?.id === S.activeProgramId && <IntelligenceToday S={S} user={user} max={1} compact types={['PROGRAM_NEXT_SESSION', 'MISSED_SESSION']} />}
     <section className="gp-hero"><WorkoutCover r={{ id: catalog.id, category: catalog.cover }} shape="wide"><span className="gp-hero-orbit" /><div className="gp-hero-title"><span>{t('A plan built for real life')}</span><strong>{programDuration(catalog)}</strong></div></WorkoutCover>
       <p className="gp-desc">{t(catalog.description)}</p>
       <div className="gp-facts"><Label icon="calendar">{t('{0} weeks', catalog.weeksCount)}</Label><Label icon="bolt">{t('{0} sessions/week', catalog.sessionsPerWeek)}</Label><Label icon="target">{t(LEVEL_LABEL[catalog.level])}</Label><Label icon="dumbbell">{catalog.equipment.map(e => t(e)).join(' · ')}</Label></div>
