@@ -88,16 +88,15 @@
 - Sin cola offline nueva: cada share/chat se confirma con respuesta del servidor. No tocar Sync V2,
   Training Protocol, Health, Gym Profiles, Library, Bunker ni infra.
 
-### Sprint 2 — Guided Programs V2 (parcial, local, no desplegado; 2026-09-27)
+### Sprint 2 — Guided Programs V2 (completo en la rama local; NO desplegado; 2026-09-28)
 
-- Sobre la rama local de `3c0129a`: añadido catálogo semilla de **4 programas** (`api/lib/guided-programs-official.json`) que referencia rutinas existentes. `api/lib/guided-store.js` filtra planes cuya rutina oficial esté inactiva; `/api/guided` publica los programas y el endpoint trainer existente acepta `guidedProgramId`, conserva receipt/idempotencia y copia rutinas/versiones al estado del socio. Trainer no los activa sin elección del socio.
-- Frontend con rutas lazy `/train2j/programs` y `/train2j/program/:id`, tarjetas/detalle responsive, intro de 3 pasos reabrible, compatibilidad Gym Profile por sesión, pausa/reanudación/abandono, asignación trainer y progreso derivado de workouts normales. Inicio/finalización siguen usando Workout V2; metadata `src2j.program` enlaza sesión/programa; `S.programs`/`activeProgramId` existentes sincronizan por Sync V2, sin tocar su núcleo ni duplicar workouts. Catálogo/refs se guardan en el cache local `g2j_catalog:<uid>`; el programa puede iniciarse desde el catálogo cacheado.
-- Coach recibe `protocol.officialPrograms` filtrados por objetivo/nivel, con sesiones compatibles calculadas contra el Gym Profile activo, y si existe un resumen mínimo `protocol.activeProgram` (conteo y siguiente sesión), dentro del consentimiento de plan. Prompt prohíbe editar el programa automáticamente. Los programas y cada semana pasan comprobaciones usando `validateAgainst2JProtocol` existente; protocolo sigue v1.0.
-- Antes/después de catálogo: ejercicios **1324→1324**, rutinas oficiales **39→39**, bloques **155→155**, masters **43→43**, colecciones **7→7** (featured **3** sin cambios); programas **0→4**. Son programas de iniciación, movilidad 21 días, HIIT mixto y cardio base. No hay ampliación de rutinas: faltan programas de fuerza/hipertrofia validados y más sesiones diversas de movilidad/estiramiento/Tabata. No se importó fuente externa; la biblioteca tiene 1324 ejercicios (60 movimientos canónicos mobility y 9 cardio), pero la brecha actual es la curación guiada.
-- Exercise Library Quality Pass **no realizado**: 24 grupos de posible duplicado quedan pendientes por falta de evidencia visual actual; los 71 sin movimiento canónico siguen iguales; no se tocaron aliases, equipment ni recomendados. No deprecar ni reasignar sin revisar medios y validar imports/historial.
-- Sin CMS/program curation admin para crear/editar metadata/colecciones/activar programas. No añadirlo como completado: es requisito pendiente del sprint. Offline valida catálogo cacheado, no hay cola offline nueva. La pantalla en navegador local llegó al onboarding, pero el catálogo no cargó (API local ausente, HTTP 502); no se hizo QA visual real 390/tablet/desktop, claro/oscuro ni de todos los estados/trainer/admin.
-- Checks al cierre: frontend **916/916**, API **279/279**, build OK (avisos preexistentes de chunks grandes), seed routines `--check` OK (39/7), español **3392/3392**, `git diff --check` OK. Otros idiomas siguen incompletos (805/3392 según script, fallback inglés). No hubo llamadas reales a IA.
-- Commit funcional local: `1bbf316 feat(guided): add multi-week program foundation`. Producción sigue en `3c0129ad39970e8a87e8663c2402405df6199139` según checkpoint del usuario; el trabajo no está desplegado. Sprint **NO completo / NO listo para deploy** mientras falten calidad de biblioteca/contenido, curation admin y QA visual requerida.
+- Foundation `1bbf316` conservada: rutas `/train2j/programs` y `/train2j/program/:id`, onboarding reabrible, Gym Profile por sesión, progreso desde workouts reales, pausa/reanudación/abandono, asignación trainer con receipt e idempotencia y snapshot de rutinas. `src2j.program`, `S.programs` y `activeProgramId` reutilizan Workout/Sync V2 sin cambiar su núcleo ni duplicar entrenamientos. Catálogo cacheado por uid permite consulta offline; no hay cola offline nueva.
+- Contenido local ampliado de **39 a 69 rutinas** (fuerza/hipertrofia, movilidad, HIIT/Tabata y otras), de **155 a 158 bloques** y de **4 a 13 programas** de varias semanas; 8 colecciones, 3 destacadas. Los nuevos programas cubren retorno, fuerza, full body, tren superior/inferior, PPL, glúteo, casa, core y hotel. Semillas/protocolo espejados con generadores `--check`; referencias de días y bloques comprobadas. No hay contenido externo.
+- Admin puede curar únicamente nombre, descripción, activo y destacado de programas oficiales; semanas y rutinas de la semilla son inmutables. Se filtran programas inactivos para socios, Coach y asignación trainer. Coach sigue recibiendo resúmenes filtrados por objetivo/nivel y compatibilidad del Gym Profile bajo consentimiento; la IA queda subordinada a `validateAgainst2JProtocol` v1.0.
+- Library Quality Pass: 1324 IDs/medios/historial preservados; 3 duplicados con instrucciones/metadata coincidentes reciben `preferredId`, 4 pares de variantes quedan explícitamente separados, 43 asignaciones de movimiento, 3 aliases y selección curada de movilidad. Quedan **18 grupos posibles** sin evidencia para fusionar y **28 ejercicios sin movimiento canónico**. Sin fuzzy matching ni cambios de equipo inventados. Detalle generado en `docs/EXERCISE_LIBRARY_AUDIT.md`.
+- QA visual local con API y usuarios sintéticos: catálogo/detalle en 390/768/1280 px, claro/oscuro sin overflow; onboarding, start, pausa, reanudación, abandono, asignación trainer→socio, compatibilidad 2J/Casa, completed 100 % con estado sintético, curación admin y error HTTP 503; catálogo cacheado con API caída. El estado completed se verificó con fixture, no con nueve entrenamientos manuales ni en dispositivo real. Se corrigieron textos españoles y posición de CTA en tablet.
+- Validación local: frontend **930/930**, API **281/281**, build OK (warning histórico de chunks grandes), español **3520/3520**; generadores de rutinas/bloques, auditoría/catálogo, espejo de protocolo (9 archivos) y `git diff --check` OK. Otros idiomas: cobertura parcial con fallback inglés (805/3520). Sin llamadas reales a IA.
+- Commits de cierre local: `245e460` (Library), `798d226` (contenido/programas), `2a8c2fe` (curación admin). Producción permanece en `3c0129ad39970e8a87e8663c2402405df6199139` según confirmación del usuario; este sprint **no está desplegado** y no tiene runner. Siguiente paso: revisión del diff/QA por el usuario y, solo tras aprobación, preparar runner para el HEAD exacto; no desplegar ni hacer push automáticamente.
 
 ### Constructor UX mini-sprint (local, no desplegado; 2026-09-27)
 
@@ -137,29 +136,29 @@
 | Health V2 / Fitness V1 | evolución física, segmental, check-in, WHOOP/Strava/BLE, zonas | `views/Health.jsx`, `lib/fitness.js` |
 | Constructor V2 / V2.1 | programa → día → bloques → ejercicios; bloques guiados con timing; sugerencias 2J | `views/trainer/Constructor.jsx`, `components/constructor/*` |
 | Protocolo 2J v1.0 | reglas, validador determinista, save policy, puerta IA | `lib/protocol/*` (copia en `api/lib/protocol`) |
-| Official Blocks | 155 maestros | `api/lib/blocks-official.json`, `scripts/protocol/official-blocks.matrix.mjs` |
+| Official Blocks (rama local; no desplegado) | 158 maestros | `api/lib/blocks-official.json`, `scripts/protocol/official-blocks.matrix.mjs` |
 | Guided Blocks | ejecutor circuito/intervalos/HIIT/Tabata/movilidad en el entreno | `lib/guided.js`, `components/GuidedRunner.jsx` |
-| Entrena con 2J / Guided Routines V1 / Collections | 39 rutinas, 7 colecciones, 3 destacadas | ver §6 |
+| Entrena con 2J / Guided Programs V2 (rama local; no desplegado) | 69 rutinas, 13 programas, 8 colecciones, 3 destacadas | ver §1 y §7 |
 | Legal / credits | AGPL, atribución, pantalla Legal | ver §8 |
 | Exercise Library V2 | taxonomía, recomendados, familias, búsqueda, swap | ver §4–5 |
 | Bunker | pantalla de sala multiusuario | ver §10 |
 | Trainer tools | panel, asignar, duplicar, IA de rutinas, escaneo | `views/trainer/*`, `lib/trainer-api.js` |
 | AI protocol gate | la IA recibe reglas + contenido oficial; FAIL → reparar una vez → descartar | `api/coach/protocol-gate.js`, `api/coach/prompts/*` |
 
-## 4. Exercise Library V2 — estado final
+## 4. Exercise Library V2 — estado de la rama local (no desplegado)
 
 Doc: `docs/EXERCISE_LIBRARY_V2.md`. Métricas generadas: `docs/EXERCISE_LIBRARY_AUDIT.md`.
 
 | Métrica | Valor |
 |---|---|
 | Ejercicios | 1324 (ids históricos preservados, mismo orden) |
-| Recomendados 2J / curados | 179 / 161 |
-| Con movimiento canónico / sin él | 1253 / 71 (solo biblioteca completa) |
-| Movimientos canónicos | 35 |
+| Recomendados 2J / curados | 186 / 165 |
+| Con movimiento canónico / sin él | 1296 / 28 (solo biblioteca completa) |
+| Movimientos canónicos | 35 (sin categorías nuevas; se asignaron más ejercicios a las existentes) |
 | Equipamiento | 28 tipos en 6 familias |
-| Deprecated con preferredId | 11 |
-| Grupos de posibles duplicados (pendientes) | 24 |
-| Aliases | 79 |
+| Deprecated con preferredId | 14 |
+| Grupos de posibles duplicados (pendientes) | 18 |
+| Aliases | 82 |
 | Nombres compartidos entre ejercicios vivos | 0 |
 | Con material / imagen / GIF | 1324 / 1324 / 1324 |
 
@@ -208,8 +207,8 @@ material → lateralidad → ángulo; recomendados en empate) con razones visibl
 
 ## 7. Contenido oficial y Entrena con 2J
 
-- 155 bloques oficiales: 155 PASS, 0 FAIL, 0 PASS_WITH_REASON. 43 guided masters usados por rutinas.
-- 39 rutinas guiadas oficiales, 7 colecciones, 3 destacadas (`api/lib/guided-official.json`,
+- 158 bloques oficiales: 158 PASS, 0 FAIL, 0 PASS_WITH_REASON (rama local; no desplegado).
+- 69 rutinas guiadas oficiales, 8 colecciones, 3 destacadas (`api/lib/guided-official.json`,
   `scripts/build-official-routines.mjs`). Ninguna semilla usa un deprecated.
 - **Entrena con 2J** (`views/Train2J.jsx`, `components/train2j/parts.jsx`, `lib/train2j.js`,
   `lib/guided-api.js`, API `api/lib/guided-*.js`): storefront, rutas `/train2j`, `/train2j/c/:id`,
@@ -348,13 +347,12 @@ Cuando el sprint esté aprobado, preparar runner nuevo para el HEAD exacto; ni e
 editor V1.1 están desplegados. `deploy-b890a26.ps1` es un artefacto local obsoleto para este HEAD.
 No desplegar sin autorización explícita.
 
-**Pendientes Library V2 no bloqueantes:** revisar visualmente los 24 grupos de posibles
-duplicados; clasificar los 71 sin movimiento; precisar plate-loaded/selectorized con evidencia;
+**Pendientes Library V2 no bloqueantes:** revisar visualmente los 18 grupos de posibles
+duplicados; clasificar los 28 sin movimiento; precisar plate-loaded/selectorized con evidencia;
 posible editor admin de metadata; etiquetas heredadas "(male)" visibles en la biblioteca completa.
 
-**Siguiente trabajo:** cerrar Guided Programs V2 desde el checkpoint parcial §1. No declarar el
-sprint listo ni desplegar mientras sigan pendientes la ampliación/curación de contenido, Exercise
-Library Quality Pass, curation admin y QA visual de la matriz solicitada. Community V2 + Notifications
+**Siguiente trabajo:** Guided Programs V2 está cerrado localmente (§1). Revisar el sprint y,
+si se aprueba, preparar runner seguro para el HEAD exacto; NO desplegar todavía. Community V2 + Notifications
 está desplegado en `3c0129a...`; no está pendiente de deploy. Otras ideas de roadmap (Health V2,
 Library V2, Bunker Live) no se inician hasta priorización explícita.
 
