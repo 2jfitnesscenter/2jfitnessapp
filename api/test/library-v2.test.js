@@ -23,7 +23,7 @@ test('the AI index keeps every id and adds movement, recommended and preferred',
   assert.ok(rec.length > 150 && rec.length < 250);
   assert.ok(rec.every(e => e.mv));
   const dep = lib.filter(e => e.pref);
-  assert.equal(dep.length, 11);
+  assert.equal(dep.length, 14);
   assert.ok(dep.every(e => lib.find(x => x.id === e.pref && !x.pref)));
   assert.deepEqual(lib.find(e => e.id === '0739'), { id: '0739', n: 'sled 45° leg press', bp: 'upper legs', tg: 'glutes', eq: 'sled machine', mv: 'squat', rec: 1 });
 });

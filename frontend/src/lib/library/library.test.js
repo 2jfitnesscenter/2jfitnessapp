@@ -95,9 +95,9 @@ describe('recommended vs master, deprecated vs preferred', () => {
     }
     expect(preferredOf('0025')).toBe('0025')
   })
-  it('no official block or guided routine uses a deprecated id (155 blocks, 39 routines untouched)', () => {
-    expect(json('api/lib/blocks-official.json').blocks).toHaveLength(155)
-    expect(json('api/lib/guided-official.json').routines).toHaveLength(39)
+  it('no official block or guided routine uses a deprecated id', () => {
+    expect(json('api/lib/blocks-official.json').blocks).toHaveLength(158)
+    expect(json('api/lib/guided-official.json').routines).toHaveLength(69)
     for (const id of Object.keys(DEPRECATED)) expect(OFFICIAL.has(id), id).toBe(false)
   })
   it('names that were shared by two different exercises are now distinct (reviewed variants)', () => {
@@ -114,6 +114,18 @@ describe('recommended vs master, deprecated vs preferred', () => {
     expect(idx.get(norm('press banca'))).toBe('0025')
     expect(idx.get(norm('Peso muerto rumano'))).toBe('0085')
     expect(idx.get(norm('run (equipment)'))).toBe('0684')
+    expect(idx.get(norm('cuerdas de batalla'))).toBe('0128')
+  })
+  it('the quality pass resolves only evidence-backed duplicate and movement decisions', () => {
+    expect(DEPRECATED).toMatchObject({ '0312': '0313', '0395': '0396', '2318': '0869' })
+    for (const [a, b] of [['0312', '0313'], ['0395', '0396'], ['2318', '0869']]) {
+      expect(X[a].st).toEqual(X[b].st)
+      expect(preferredOf(a)).toBe(b)
+    }
+    for (const [id, movement] of Object.entries({ '1408': 'hip_thrust', '0325': 'vertical_push', '0128': 'conditioning', '1362': 'mobility', '0500': 'core_rotation', '0628': 'hip_abduction' }))
+      expect(facetsOf(X[id]).movement, id).toBe(movement)
+    expect(EXDB.filter(e => !facetsOf(e).movement)).toHaveLength(28)
+    expect(RECOMMENDED.has('0128') && RECOMMENDED.has('0500') && RECOMMENDED.has('1362')).toBe(true)
   })
 })
 

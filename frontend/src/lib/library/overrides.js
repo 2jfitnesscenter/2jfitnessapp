@@ -27,6 +27,9 @@ export const DEPRECATED = {
   '1463': '0739', // sled 45° leg press (side pov)
   '1464': '0739', // sled 45° leg press (back pov)
   '1765': '0437', // dumbbell upright row (back pov)
+  '0312': '0313', // identical dataset steps, implement, movement and target: hammer curl v. 2
+  '0395': '0396', // identical dataset steps, implement, movement and target: seated lateral raise v. 2
+  '2318': '0869', // identical dataset steps, implement, movement and target: lever shoulder press v. 3
 }
 
 /**
@@ -45,10 +48,27 @@ export const EXTRA_RECOMMENDED = [
   '0979', // band Pallof press
   '0226', // cable standing crunch
   '0684', '3666', '2138', '2141', '2331', '2311', '0798', // cardio machines used in 2J sessions
+  '0128', // battling ropes: clear conditioning intervals
+  '0500', // isometric wipers: clear core rotation
+  '1362', // sphinx: simple floor mobility
 ]
 
 /** Movement where the dataset's body part / target is misleading (ergometers filed under chest/arms). */
-export const MOVEMENT_OVERRIDE = { '2139': 'cardio', '2142': 'cardio' }
+export const MOVEMENT_OVERRIDE = {
+  '2139': 'cardio', '2142': 'cardio',
+  '1408': 'hip_thrust', // band hip lift: steps describe a glute bridge
+  '0128': 'conditioning', '2271': 'conditioning', '3552': 'conditioning', '1354': 'conditioning', '2459': 'conditioning',
+  '1017': 'rear_delt', '0191': 'rear_delt', '3542': 'rear_delt', '3541': 'rear_delt', '0341': 'rear_delt',
+  '0050': 'front_raise', '0759': 'front_raise',
+  '0325': 'vertical_push', '0328': 'vertical_push', // incline 'raise' instructions actually press overhead
+  '0332': 'lateral_raise', '0408': 'lateral_raise', '0844': 'lateral_raise',
+  '0863': 'shoulder_rotation', '0339': 'knee_flexion', '0628': 'hip_abduction', '0624': 'squat',
+  '0466': 'vertical_pull', '0680': 'vertical_pull',
+  '1418': 'mobility', '1582': 'mobility', '1587': 'mobility', '2203': 'mobility', '2209': 'mobility', '1362': 'mobility', '1364': 'mobility', '1366': 'mobility',
+  '0500': 'core_rotation', '1416': 'core_rotation', '3669': 'core_rotation',
+  '1297': 'chest_fly', '0555': 'core_flexion', '0730': 'lunge', '3433': 'core_anti_extension',
+  '1302': 'horizontal_push', '1303': 'horizontal_push', '1304': 'horizontal_push', '1305': 'horizontal_push',
+}
 
 /**
  * Search and import aliases — the words members and other apps actually use, Spanish first.
@@ -100,6 +120,9 @@ export const ALIASES = {
   '2138': ['bici', 'bicicleta', 'bici estatica'],
   '2141': ['eliptica'],
   '2311': ['escaladora', 'stepmill'],
+  '0128': ['cuerdas de batalla'],
+  '0500': ['limpiaparabrisas isometricos'],
+  '1362': ['postura de la esfinge'],
 }
 
 export const aliasCountOf = id => (ALIASES[id] || []).length
@@ -117,4 +140,8 @@ export const REVIEWED_VARIANTS = [
   ['0763', '1394'], // Smith calf raise, bar on back on a step vs bar in front
   ['0746', '0767'], // Smith shrug behind vs in front
   ['0697', '1766'], // nordic curl anchored on a machine vs on a bench (class C: kept, not deprecated)
+  ['0098', '0097'], // stationary wide squat vs lateral step into a squat (dataset instructions)
+  ['0318', '0317'], // upper arms supported on incline bench vs arms free
+  ['1471', '3698'], // hands walk out and back vs travelling with feet towards hands
+  ['1452', '3760'], // separate crunch machine setups, only second has secured feet
 ]

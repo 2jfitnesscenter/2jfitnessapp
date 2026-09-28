@@ -172,6 +172,11 @@ const C = {
   '1363': ['mob-spine', 'iso', '', '', 'floor', 'seated'],
   '3639': ['mob-spine', 'iso', '', '', 'floor', 'lying-twist'],
   '1346': ['mob-lat', 'iso', '', '', 'floor', 'kneeling'],
+  // Text and exercise instructions identify these as unweighted mobility, not strength volume.
+  '0721': ['mob-wrist', 'iso', '', '', 'uni', 'standing'],
+  '1428': ['mob-wrist', 'iso', '', '', '', 'circles'],
+  '1494': ['mob-adductor', 'iso', '', '', 'floor', 'seated'],
+  '1587': ['mob-adductor', 'iso', '', '', 'floor', 'wide-angle'],
   // ── conditioning (Guided Routines V1) — like mobility, no primary group: a bout of steps or
   // climbers is conditioning, never counted as a muscle's direct sets. Jump/floor flags are real.
   '3672': ['cond-step', 'sec', '', '', '', 'back-forth'],

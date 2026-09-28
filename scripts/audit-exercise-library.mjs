@@ -85,7 +85,7 @@ p('## Duplicates');
 p('');
 p('Classes: **A** real duplicate (deprecated, preferred id) · **B** valid variant (kept, names made distinct) · **C** possible duplicate (kept, reported) · **D** distinct.');
 p('');
-p('### A — real duplicates (checked against the dataset images)');
+p('### A — real duplicates (supported by matching dataset instructions/metadata or reviewed images)');
 p('');
 p('| Deprecated | Preferred |');
 p('|---|---|');

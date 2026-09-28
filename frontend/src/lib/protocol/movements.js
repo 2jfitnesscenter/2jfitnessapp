@@ -56,7 +56,7 @@ export const MOVEMENTS = [
   { id: 'olympic', label: 'Clean, snatch & thruster', region: 'full', patterns: ['olympic'] },
   { id: 'conditioning', label: 'Conditioning', region: 'full', patterns: ['cond-burpee', 'cond-jack', 'cond-crawl', 'cond-skater', 'cond-knee', 'cond-step', 'cond-run', 'cond-climber'] },
   { id: 'cardio', label: 'Cardio machine', region: 'full', patterns: ['cardio'] },
-  { id: 'mobility', label: 'Mobility & stretching', region: 'full', patterns: ['mobility', 'mob-chest', 'mob-lat', 'mob-spine', 'mob-tspine', 'mob-ankle', 'mob-calf', 'mob-glute', 'mob-ham', 'mob-hip', 'mob-quad', 'mob-knee', 'mob-shoulder'] },
+  { id: 'mobility', label: 'Mobility & stretching', region: 'full', patterns: ['mobility', 'mob-chest', 'mob-lat', 'mob-spine', 'mob-tspine', 'mob-ankle', 'mob-calf', 'mob-glute', 'mob-ham', 'mob-hip', 'mob-quad', 'mob-knee', 'mob-shoulder', 'mob-wrist', 'mob-adductor'] },
 ]
 export const MOVEMENT_BY_ID = Object.fromEntries(MOVEMENTS.map(m => [m.id, m]))
 const BY_PATTERN = {}
