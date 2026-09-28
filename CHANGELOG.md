@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-### Inteligencia 2J V2 — deterministic local layer, not deployed
+### Inteligencia 2J V2 — local completion, not deployed
 
 - Adds bounded, read-only training context and explainable signals for program/plan continuation,
   progression, repeated high effort, plateau, missed sessions, return after a gap, PRs, equipment
@@ -13,9 +13,23 @@
   explicit navigation actions and dismiss controls, plus contextual cards in Workout, program detail,
   Mi 2J and the post-workout summary. Spanish strings are complete. A container-width layout fix
   keeps single cards legible in narrower app shells.
-- Local validation: frontend 945/945, API 299/299, build and Spanish locale checks pass. Visual QA
-  remains partial; provider enrichment, trainer-facing delivery and consented Health context remain
-  future work. Production stays at `3c0129a`.
+- Adds an optional, user-requested Coach explanation for a deterministic card. The server enforces
+  existing Coach consent, single-flight and daily caps; sends only an allowlisted signal type and
+  bounded numeric facts through the existing adapter/retry/logging path. A short validated sentence
+  may supplement the card but cannot replace its reason, priority or action. Invalid/unavailable AI
+  falls back immediately to the deterministic card. No Health, Community, notes or raw workouts go
+  to the provider; Claude's `ai-run.js` stability fix is unchanged.
+- Adds a compact admin-only member insight panel using the admin history already permitted by
+  `/api/admin/user`. It shows at most three automatic signals with reason, source and a link to
+  history; trainers without admin access do not gain workout-history rights. WHOOP recovery remains
+  outside Intelligence: the current integration has no recent baseline or scoped permission for
+  that inference, so no low-recovery/fatigue signal is invented.
+- Synthetic visual QA at 390/768/1280 px in light/dark covered empty, one/three cards, progression,
+  repeated high effort, plateau, equipment conflict, program next/missed, return, PR, official
+  content, onboarding and admin view; reason expansion and wrapping checked, no horizontal overflow.
+  Improved card text contrast and admin CTA. No real-device or live-provider acceptance yet.
+  Frontend **948/948**, API **304/304**, build OK (historic chunk warning), Spanish **3607/3607**,
+  `git diff --check` OK. Production stays at `3c0129a`.
 
 ### Guided Programs V2 — partial local work, not deployed (`1bbf316`)
 
