@@ -34,7 +34,7 @@
    "equipment": ["Bodyweight"],
    "profileTypes": ["official", "home", "hotel", "other", "custom"],
    "lowImpact": true,
-   "featured": true,
+   "featured": false,
    "cover": "mobility",
    "weeks": [
     {"sessions": [{"day": 0, "routineId": "r2j-mobility-fullbody"}, {"day": 1, "routineId": "r2j-mobility-hips"}, {"day": 2, "routineId": "r2j-mobility-ankles"}, {"day": 3, "routineId": "r2j-mobility-shoulders"}, {"day": 4, "routineId": "r2j-mobility-upper-back"}, {"day": 5, "routineId": "r2j-mobility-pre"}, {"day": 6, "routineId": "r2j-mobility-express"}]},
@@ -54,7 +54,7 @@
    "equipment": ["Bodyweight", "Cardio machines"],
    "profileTypes": ["official", "home", "hotel", "other", "custom"],
    "lowImpact": true,
-   "featured": true,
+   "featured": false,
    "cover": "hiit",
    "weeks": [
     {"sessions": [{"day": 2, "routineId": "r2j-hiit-lowimpact"}, {"day": 5, "routineId": "r2j-intervals-bike-start"}]},
@@ -84,6 +84,101 @@
     {"sessions": [{"day": 1, "routineId": "r2j-intervals-bike-start"}, {"day": 3, "routineId": "r2j-intervals-stepmill"}, {"day": 5, "routineId": "r2j-intervals-incline-walk"}]},
     {"sessions": [{"day": 1, "routineId": "r2j-intervals-stepmill"}, {"day": 3, "routineId": "r2j-intervals-elliptical"}, {"day": 5, "routineId": "r2j-intervals-bike-start"}]},
     {"sessions": [{"day": 1, "routineId": "r2j-intervals-bike-start"}, {"day": 3, "routineId": "r2j-intervals-incline-walk"}, {"day": 5, "routineId": "r2j-intervals-elliptical"}]}
+   ]
+  },
+  {
+   "id": "g2j-return-3w", "name": "2J · Return to training", "description": "Three gentle weeks alternating stable strength, simple movement and recovery.",
+   "goal": "beginner", "level": "beginner", "weeksCount": 3, "sessionsPerWeek": 3, "durationLabel": "3 weeks", "equipment": ["Bodyweight", "Gym machines"],
+   "profileTypes": ["official", "other", "custom"], "lowImpact": true, "featured": true, "cover": "strength",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-return-a"}, {"day": 3, "routineId": "r2j-mobility-recovery"}, {"day": 5, "routineId": "r2j-strength-return-b"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-return-b"}, {"day": 3, "routineId": "r2j-mobility-fullbody"}, {"day": 5, "routineId": "r2j-strength-return-a"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-return-a"}, {"day": 3, "routineId": "r2j-mobility-post"}, {"day": 5, "routineId": "r2j-strength-return-b"}]}
+   ]
+  },
+  {
+   "id": "g2j-fullbody-hypertrophy-4w", "name": "2J · Full-body hypertrophy", "description": "Two distinct full-body lifting days each week, with a recovery session between them.",
+   "goal": "hypertrophy", "level": "intermediate", "weeksCount": 4, "sessionsPerWeek": 2, "durationLabel": "4 weeks", "equipment": ["Dumbbells", "Gym machines"],
+   "profileTypes": ["official", "other", "custom"], "lowImpact": false, "featured": true, "cover": "strength",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-fullbody-a"}, {"day": 4, "routineId": "r2j-strength-fullbody-b"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-fullbody-b"}, {"day": 4, "routineId": "r2j-strength-fullbody-a"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-fullbody-a"}, {"day": 4, "routineId": "r2j-strength-fullbody-b"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-fullbody-b"}, {"day": 4, "routineId": "r2j-strength-fullbody-a"}]}
+   ]
+  },
+  {
+   "id": "g2j-upper-lower-4w", "name": "2J · Upper / lower", "description": "Four lifting days each week, with upper and lower sessions separated by recovery.",
+   "goal": "hypertrophy", "level": "intermediate", "weeksCount": 4, "sessionsPerWeek": 4, "durationLabel": "4 weeks", "equipment": ["Dumbbells", "Gym machines"],
+   "profileTypes": ["official", "other", "custom"], "lowImpact": false, "featured": false, "cover": "strength",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-upper-a"}, {"day": 2, "routineId": "r2j-strength-lower-a"}, {"day": 4, "routineId": "r2j-strength-back"}, {"day": 5, "routineId": "r2j-strength-lower-b"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-upper-a"}, {"day": 2, "routineId": "r2j-strength-lower-b"}, {"day": 4, "routineId": "r2j-strength-shoulders"}, {"day": 5, "routineId": "r2j-strength-lower-a"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-upper-a"}, {"day": 2, "routineId": "r2j-strength-lower-a"}, {"day": 4, "routineId": "r2j-strength-back"}, {"day": 5, "routineId": "r2j-strength-lower-b"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-upper-a"}, {"day": 2, "routineId": "r2j-strength-lower-b"}, {"day": 4, "routineId": "r2j-strength-shoulders"}, {"day": 5, "routineId": "r2j-strength-lower-a"}]}
+   ]
+  },
+  {
+   "id": "g2j-ppl-4w", "name": "2J · Push / pull / legs", "description": "Three clearly separated lifting days with a rest day between sessions.",
+   "goal": "hypertrophy", "level": "intermediate", "weeksCount": 4, "sessionsPerWeek": 3, "durationLabel": "4 weeks", "equipment": ["Dumbbells", "Gym machines"],
+   "profileTypes": ["official", "other", "custom"], "lowImpact": false, "featured": false, "cover": "strength",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-push-a"}, {"day": 3, "routineId": "r2j-strength-pull-a"}, {"day": 5, "routineId": "r2j-strength-lower-a"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-push-b"}, {"day": 3, "routineId": "r2j-strength-pull-b"}, {"day": 5, "routineId": "r2j-strength-lower-b"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-push-a"}, {"day": 3, "routineId": "r2j-strength-pull-a"}, {"day": 5, "routineId": "r2j-strength-lower-b"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-push-b"}, {"day": 3, "routineId": "r2j-strength-pull-b"}, {"day": 5, "routineId": "r2j-strength-lower-a"}]}
+   ]
+  },
+  {
+   "id": "g2j-glutes-4w", "name": "2J · Glutes and lower body", "description": "Two lower-body lifting days each week with different glute and quad emphases.",
+   "goal": "hypertrophy", "level": "intermediate", "weeksCount": 4, "sessionsPerWeek": 2, "durationLabel": "4 weeks", "equipment": ["Dumbbells", "Gym machines"],
+   "profileTypes": ["official", "other", "custom"], "lowImpact": false, "featured": false, "cover": "strength",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-glutes-b"}, {"day": 4, "routineId": "r2j-strength-lower-a"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-lower-b"}, {"day": 4, "routineId": "r2j-strength-glutes-b"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-glutes-b"}, {"day": 4, "routineId": "r2j-strength-lower-a"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-lower-b"}, {"day": 4, "routineId": "r2j-strength-glutes-b"}]}
+   ]
+  },
+  {
+   "id": "g2j-strength-base-4w", "name": "2J · Strength base", "description": "Practice the main lifts on three different days each week, keeping full rests.",
+   "goal": "strength", "level": "intermediate", "weeksCount": 4, "sessionsPerWeek": 3, "durationLabel": "4 weeks", "equipment": ["Barbell", "Gym machines"],
+   "profileTypes": ["official", "other", "custom"], "lowImpact": false, "featured": false, "cover": "strength",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-base-full"}, {"day": 3, "routineId": "r2j-strength-base-upper"}, {"day": 5, "routineId": "r2j-strength-base-lower"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-base-lower"}, {"day": 3, "routineId": "r2j-strength-base-full"}, {"day": 5, "routineId": "r2j-strength-base-upper"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-base-full"}, {"day": 3, "routineId": "r2j-strength-base-upper"}, {"day": 5, "routineId": "r2j-strength-base-lower"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-base-lower"}, {"day": 3, "routineId": "r2j-strength-base-full"}, {"day": 5, "routineId": "r2j-strength-base-upper"}]}
+   ]
+  },
+  {
+   "id": "g2j-home-3w", "name": "2J · Train at home", "description": "Simple sessions with bodyweight and a pair of dumbbells, plus mobility on a lighter day.",
+   "goal": "general", "level": "beginner", "weeksCount": 3, "sessionsPerWeek": 3, "durationLabel": "3 weeks", "equipment": ["Bodyweight", "Dumbbells"],
+   "profileTypes": ["home", "hotel", "other", "custom", "official"], "lowImpact": false, "featured": false, "cover": "strength",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-home-full"}, {"day": 3, "routineId": "r2j-mobility-fullbody"}, {"day": 5, "routineId": "r2j-circuit-bodyweight"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-circuit-bodyweight"}, {"day": 3, "routineId": "r2j-mobility-recovery"}, {"day": 5, "routineId": "r2j-strength-home-full"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-home-full"}, {"day": 3, "routineId": "r2j-mobility-post"}, {"day": 5, "routineId": "r2j-circuit-bodyweight"}]}
+   ]
+  },
+  {
+   "id": "g2j-core-3w", "name": "2J · Core foundation", "description": "A paced core plan that moves from controlled floor work to stronger holds and rotation.",
+   "goal": "general", "level": "intermediate", "weeksCount": 3, "sessionsPerWeek": 2, "durationLabel": "3 weeks", "equipment": ["Bodyweight", "Cable"],
+   "profileTypes": ["official", "other", "custom"], "lowImpact": true, "featured": false, "cover": "core",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-core-start"}, {"day": 4, "routineId": "r2j-mobility-recovery"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-core-circuit"}, {"day": 4, "routineId": "r2j-mobility-thoracic"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-strength-core-base"}, {"day": 4, "routineId": "r2j-mobility-post"}]}
+   ]
+  },
+  {
+   "id": "g2j-hotel-3w", "name": "2J · Hotel and travel", "description": "A no-equipment rhythm for small spaces: gentle intervals, bodyweight and mobility.",
+   "goal": "general", "level": "beginner", "weeksCount": 3, "sessionsPerWeek": 3, "durationLabel": "3 weeks", "equipment": ["Bodyweight"],
+   "profileTypes": ["hotel", "home", "other", "custom", "official"], "lowImpact": true, "featured": false, "cover": "circuit",
+   "weeks": [
+    {"sessions": [{"day": 1, "routineId": "r2j-circuit-bodyweight"}, {"day": 3, "routineId": "r2j-mobility-recovery"}, {"day": 5, "routineId": "r2j-tabata-start"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-hiit-lowimpact"}, {"day": 3, "routineId": "r2j-mobility-wrists"}, {"day": 5, "routineId": "r2j-circuit-bodyweight"}]},
+    {"sessions": [{"day": 1, "routineId": "r2j-tabata-start"}, {"day": 3, "routineId": "r2j-mobility-adductors"}, {"day": 5, "routineId": "r2j-hiit-lowimpact"}]}
    ]
   }
  ]

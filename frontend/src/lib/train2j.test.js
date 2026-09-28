@@ -19,11 +19,11 @@ const get = id => R.find(r => r.id === id)
 const GYM_EQ = new Set(['barbell', 'dumbbell', 'cable', 'leverage machine', 'smith machine', 'ez barbell', 'body weight', 'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill'])
 
 describe('the official catalogue', () => {
-  it('39 routines across 7 formats, 7 collections, 3 featured — every one validated and honest', () => {
-    expect(SEED.count).toBe(39)
-    expect(new Set(R.map(r => r.id)).size).toBe(39)
+  it('69 routines across 8 formats, 8 collections, 3 featured — every one validated and honest', () => {
+    expect(SEED.count).toBe(69)
+    expect(new Set(R.map(r => r.id)).size).toBe(69)
     expect(new Set(R.map(r => r.category))).toEqual(new Set(ROUTINE_CATEGORIES))
-    expect(SEED.collections).toHaveLength(7)
+    expect(SEED.collections).toHaveLength(8)
     expect(R.filter(r => r.featured).sort((a, b) => a.featured - b.featured).map(r => r.id)).toEqual(['r2j-tabata-fullbody', 'r2j-mobility-hips', 'r2j-hiit-lowimpact'])
     for (const r of R) {
       const v = validateAgainst2JProtocol({ kind: 'routine', goal: r.goal, level: r.level, entries: r.ex, blockTypes: blockTypesOf(r.blocks) }, { lookup, official: true })
@@ -42,8 +42,8 @@ describe('the official catalogue', () => {
   })
   it('routines compose master blocks, never add them: every master added for them is used, no two masters are the same', () => {
     const used = new Set(R.flatMap(r => r.blocks.map(b => b.src)))
-    // 43 distinct masters: 37 added for the routines + 6 that already existed (one of them strength)
-    expect(used.size).toBe(43)
+    // The expanded catalogue composes existing strength masters plus the guided masters.
+    expect(used.size).toBe(68)
     expect([...used].every(id => LIB.blocks.some(b => b.id === id))).toBe(true)
     // every guided master but one mobility flow of V2.1 is used by some routine
     expect(LIB.blocks.filter(b => ['circuit', 'hiit', 'interval', 'mobility'].includes(b.type) && !used.has(b.id))).toHaveLength(1)
@@ -82,18 +82,18 @@ describe('the official catalogue', () => {
 describe('search and filters', () => {
   const ids = (f, extra) => filterRoutines(R, f, { t, lookup, ...extra }).map(r => r.id)
   it('type, duration, level and equipment chips', () => {
-    expect(ids({ category: 'mobility' })).toHaveLength(8)
+    expect(ids({ category: 'mobility' })).toHaveLength(14)
     expect(ids({ duration: 'lt15' }).every(id => get(id).estimatedMinutes < 15)).toBe(true)
     expect(ids({ level: 'beginner' }).every(id => get(id).level === 'beginner')).toBe(true)
     expect(ids({ gear: 'none' }).every(id => get(id).tags.includes('no-equipment'))).toBe(true)
-    expect(ids({ category: 'hiit', duration: '15-30', level: 'intermediate' })).toEqual(['r2j-hiit-fullbody', 'r2j-hiit-express', 'r2j-hiit-lower'])
+    expect(ids({ category: 'hiit', duration: '15-30', level: 'intermediate' })).toEqual(['r2j-hiit-fullbody', 'r2j-hiit-express', 'r2j-hiit-lower', 'r2j-hiit-bodyweight'])
   })
   it('editorial search in Spanish finds real metadata', () => {
     expect(ids({ q: 'movilidad cadera' })).toContain('r2j-mobility-hips')
     expect(ids({ q: 'sin saltos' }).length).toBeGreaterThan(5)
     expect(ids({ q: 'sin saltos' })).toEqual(expect.arrayContaining(R.filter(r => r.tags.includes('no-jumps')).map(r => r.id)))
     expect(ids({ q: 'bicicleta' })).toEqual(expect.arrayContaining(['r2j-tabata-bike', 'r2j-intervals-bike-start']))
-    expect(ids({ q: 'tabata' }).filter(id => get(id).category === 'tabata')).toHaveLength(8)
+    expect(ids({ q: 'tabata' }).filter(id => get(id).category === 'tabata')).toHaveLength(9)
     expect(ids({ q: '20 minutos' }).every(id => Math.abs(get(id).estimatedMinutes - 20) <= 5)).toBe(true)
     expect(ids({ q: 'iniciado sin material' }).every(id => get(id).level === 'beginner')).toBe(true)
     expect(ids({ q: 'zzzz' })).toEqual([])

@@ -49,13 +49,17 @@ function gearState(S, p) {
   return { compatible, total: checks.length, kind: compatible === checks.length ? 'Compatible' : compatible ? 'Partially compatible' : 'Requires equipment' }
 }
 function Label({ icon, children }) { return <span className="gp-label"><Icon name={icon} />{children}</span> }
+function programDuration(p) {
+  const days = /^(\d+) days$/.exec(p.durationLabel || '')
+  return days ? t('{0} days', Number(days[1])) : t('{0} weeks', p.weeksCount)
+}
 function ProgramCard({ p, status, percent, open }) {
   return <button className="gp-card" onClick={open}>
     <WorkoutCover r={{ id: p.id, category: p.cover || 'circuit' }} shape="wide">
       <span className="gp-cover-mark"><Icon name={p.cover === 'mobility' ? 'stretch' : p.cover === 'interval' ? 'bike' : p.cover === 'hiit' ? 'bolt' : 'sparkles'} /></span>
       {p.featured && <span className="gp-featured">{t('Featured')}</span>}
     </WorkoutCover>
-    <span className="gp-card-body"><b>{t(p.name)}</b><small>{t(p.durationLabel)} · {t('{0} sessions/week', p.sessionsPerWeek)}</small>
+    <span className="gp-card-body"><b>{t(p.name)}</b><small>{programDuration(p)} · {t('{0} sessions/week', p.sessionsPerWeek)}</small>
       {status && <small className="gp-status">{t(STATUS[status] || status)} · {percent}%</small>}
       <span className="gp-open">{t('View plan')} <Icon name="chevronRight" /></span>
     </span>
@@ -149,7 +153,7 @@ export function GuidedProgramDetail() {
     onConfirm: () => update(s => { setGuidedProgramStatus(s, memberProgram.id, 'abandoned') }) })
   return <main className="gp-page gp-detail">
     <header className="gp-head"><button className="iconbtn" aria-label={t('Back')} onClick={() => nav('/train2j/programs')}><Icon name="chevronLeft" /></button><div className="grow"><span className="t2-eyebrow">2J FITNESS CENTER</span><h1>{t(catalog.name)}</h1></div><Label icon="sparkles">{t('Official')}</Label></header>
-    <section className="gp-hero"><WorkoutCover r={{ id: catalog.id, category: catalog.cover }} shape="wide"><span className="gp-hero-orbit" /><div className="gp-hero-title"><span>{t('A plan built for real life')}</span><strong>{t(catalog.durationLabel)}</strong></div></WorkoutCover>
+    <section className="gp-hero"><WorkoutCover r={{ id: catalog.id, category: catalog.cover }} shape="wide"><span className="gp-hero-orbit" /><div className="gp-hero-title"><span>{t('A plan built for real life')}</span><strong>{programDuration(catalog)}</strong></div></WorkoutCover>
       <p className="gp-desc">{t(catalog.description)}</p>
       <div className="gp-facts"><Label icon="calendar">{t('{0} weeks', catalog.weeksCount)}</Label><Label icon="bolt">{t('{0} sessions/week', catalog.sessionsPerWeek)}</Label><Label icon="target">{t(LEVEL_LABEL[catalog.level])}</Label><Label icon="dumbbell">{catalog.equipment.map(e => t(e)).join(' · ')}</Label></div>
       <div className={'gp-fit ' + (fit.compatible === fit.total ? 'good' : fit.compatible ? 'partial' : 'missing')}><Icon name={fit.compatible === fit.total ? 'checkCircle' : 'info'} /><span><b>{t(fit.kind)}</b><small>{t('{0} of {1} sessions fit your active training place. Other sessions remain available; unavailable exercises follow existing Gym Profile substitutions/skips.', fit.compatible, fit.total)}</small></span></div>

@@ -21,6 +21,7 @@ const rng = seed => () => { seed = (Math.imul(seed ^ (seed >>> 15), 2246822507) 
 export const COVER_TONE = {
   tabata: ['#10B981', '#34D399'], hiit: ['#0EA271', '#6EE7B7'], circuit: ['#10B981', '#A7F3D0'], interval: ['#14B8A6', '#5EEAD4'],
   mobility: ['#2DD4BF', '#99F6E4'], core: ['#059669', '#34D399'], mixed: ['#10B981', '#D4AF37'],
+  strength: ['#16A34A', '#86EFAC'],
 }
 const GOLD = '#D4AF37'
 
@@ -74,6 +75,10 @@ function Pattern({ category, rnd, n }) {
     case 'core': {
       const cx = 250 + rnd() * 70, cy = 130 + rnd() * 60
       return <g fill="none">{[92, 70, 48, 26].map((r, i) => <circle key={r} cx={cx} cy={cy} r={r} stroke={i === 3 ? GOLD : a} strokeWidth={i === 3 ? 6 : 5} opacity={i === 3 ? 0.9 : 0.25 + i * 0.15} />)}</g>
+    }
+    case 'strength': {
+      const x = 155 + rnd() * 45
+      return <g fill="none" stroke={a} strokeLinecap="round"><path d={`M${x},228 V82 M${x + 78},228 V82`} strokeWidth="13" opacity=".85" /><path d={`M${x - 32},108 H${x + 110} M${x - 32},202 H${x + 110}`} strokeWidth="9" opacity=".65" /><circle cx={x + 39} cy="155" r="27" stroke={b} strokeWidth="7" opacity=".8" /></g>
     }
     default: { // mixed
       return <g>

@@ -15,10 +15,32 @@ const catalog = p => {
 
 describe('Guided Programs V2 data and lifecycle', () => {
   it('has unique, fully referenced plans with the declared duration and cadence', () => {
+    expect(official.programs).toHaveLength(13)
     expect(new Set(official.programs.map(p => p.id)).size).toBe(official.programs.length)
     const ids = new Set(routines.map(r => r.id))
-    for (const p of official.programs) expect(validateGuidedProgram(p, ids)).toEqual([])
+    for (const p of official.programs) {
+      expect(validateGuidedProgram(p, ids), p.id).toEqual([])
+      expect(p.weeks.every(week => week.sessions.length === p.sessionsPerWeek), p.id).toBe(true)
+      expect(p.weeks.every(week => new Set(week.sessions.map(s => s.day)).size === week.sessions.length), p.id).toBe(true)
+    }
     expect(official.programs.some(p => p.weeksCount >= 4 && p.sessionsPerWeek >= 2)).toBe(true)
+  })
+
+  it('every official plan snapshots its actual routines and completes only from its own session history', () => {
+    for (const source of official.programs) {
+      const p = catalog(source)
+      const s = { active: null, programs: [], activeProgramId: null, workouts: [] }
+      const started = startGuidedProgram(s, p, { id: 'qa', makeId: () => source.id })
+      expect(started.ok, source.id).toBe(true)
+      const sessions = flattenProgramSessions(started.program)
+      expect(Object.keys(started.program.routineSnapshots).sort()).toEqual([...new Set(sessions.map(x => x.routineId))].sort())
+      expect(programProgress(started.program, s.workouts)).toMatchObject({ total: sessions.length, completed: 0, percent: 0 })
+      s.workouts = sessions.map((x, i) => ({ id: `${source.id}-${i}`, end: i + 1, src2j: { program: { programId: started.program.id, sessionId: x.sessionId } } }))
+      expect(programProgress(started.program, s.workouts)).toMatchObject({ total: sessions.length, completed: sessions.length, percent: 100, next: null })
+      expect(completeGuidedProgramSession(s, s.workouts.at(-1))).toBe(true)
+      expect(started.program.status).toBe('completed')
+      expect(s.activeProgramId).toBeNull()
+    }
   })
 
   it('starts as a synced program snapshot and preserves existing plan data', () => {

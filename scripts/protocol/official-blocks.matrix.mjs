@@ -177,6 +177,9 @@ export const MATRIX = [
   ['calves', 'general', 'beginner', null, 'flow', ['1368', '1377', '1398', '0257'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 2, roundRest: 0 } }],
   ['shoulders', 'general', 'beginner', null, 'flow', ['1271', '0669', '1405'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
   ['upper', 'general', 'beginner', null, 'flow', ['1365', '0794', '2329', '1363'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['upper', 'general', 'beginner', 'A', 'wrist-flow', ['1428', '0721'], { type: 'mobility', timing: { prep: 5, work: 35, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['lower', 'general', 'beginner', 'D', 'adductor-flow', ['1494', '1587'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['upper', 'general', 'beginner', 'B', 'thoracic-flow', ['1365', '2329', '1363', '1167'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 2, roundRest: 0 } }],
   // Tabata format (20 s / 10 s): a pair alternates for 4 rounds = 8 bouts, 4 minutes; a machine
   // does 8 rounds on its own. Named for the format — see TRAINING_PROTOCOL_2J.md on the name.
   ['fullbody', 'general', 'beginner', 'A', 'tabata', ['3672', '3636'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 4, roundRest: 0 } }],

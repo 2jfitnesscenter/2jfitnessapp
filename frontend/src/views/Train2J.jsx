@@ -33,6 +33,7 @@ const QUICK = [
   { key: 'circuit', label: 'Circuits', f: { category: 'circuit' } },
   { key: 'cardio', label: 'Cardio', f: { category: 'interval' } },
   { key: 'mobility', label: 'Mobility', f: { category: 'mobility' } },
+  { key: 'strength', label: 'Strength', f: { category: 'strength' } },
   { key: 'beginner', label: 'Novice', f: { level: 'beginner' } },
 ]
 const EMPTY = { q: '', category: '', duration: '', level: '', gear: '' }

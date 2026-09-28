@@ -27,7 +27,7 @@ const LIB = JSON.parse(readFileSync(join(root, 'api', 'lib', 'blocks-official.js
 const OUT = join(root, 'api', 'lib', 'guided-official.json')
 export const SEED_VERSION = 1
 const PUBLISHED = '2026-09-26'
-export const CATEGORIES = ['tabata', 'hiit', 'circuit', 'interval', 'mobility', 'core', 'mixed']
+export const CATEGORIES = ['tabata', 'hiit', 'circuit', 'interval', 'mobility', 'core', 'mixed', 'strength']
 // Reasons (PASS_WITH_REASON) a routine may ship with, each reviewed by a person. Empty on purpose.
 const REVIEWED_REASONS = {}
 
@@ -71,6 +71,7 @@ function build(r) {
     core: () => mains.every(p => blockById[p.src].focus === 'abs'),
     interval: () => mainTypes.every(t => t === 'interval'),
     mobility: () => parts.every(p => p.type === 'mobility'),
+    strength: () => mainTypes.every(t => t === 'strength' || t === 'superset'),
     mixed: () => mains.length >= 2 && mainTypes.some(t => t === 'hiit' || t === 'interval') && mainTypes.some(t => t === 'circuit' || t === 'strength'),
   }[r.category]
   if (okCat && !okCat()) err(`main parts (${mainTypes.join(', ')}) do not match category ${r.category}`)

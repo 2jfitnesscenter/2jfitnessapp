@@ -1,7 +1,7 @@
 {
  "protocolVersion": "1.0",
  "seedVersion": 2,
- "count": 155,
+ "count": 158,
  "blocks": [
   {
    "id": "off-glutes-hypertrophy-beginner-a",
@@ -13189,6 +13189,190 @@
     },
     {
      "id": "1363",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 40,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-upper-general-beginner-a-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "upper",
+   "variant": "A",
+   "style": "wrist-flow",
+   "ex": [
+    {
+     "id": "1428",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 35,
+     "weight": 0
+    },
+    {
+     "id": "0721",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 35,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 35,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 2,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-lower-general-beginner-d-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "lower",
+   "variant": "D",
+   "style": "adductor-flow",
+   "ex": [
+    {
+     "id": "1494",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1587",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 45,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 2,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-upper-general-beginner-b-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "upper",
+   "variant": "B",
+   "style": "thoracic-flow",
+   "ex": [
+    {
+     "id": "1365",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "2329",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "1363",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "1167",
      "sets": 2,
      "mode": "time",
      "prog": "double",

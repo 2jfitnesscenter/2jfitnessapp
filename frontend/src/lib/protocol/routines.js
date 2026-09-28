@@ -9,9 +9,9 @@ import { classify } from './classify.js'
 import { estimateSeconds, roundMinutes, restDemand, REST_DEFAULTS } from './prescribe.js'
 import { isGuided, guidedSeconds, segmentsOf } from './blocks.js'
 
-export const ROUTINE_CATEGORIES = ['tabata', 'hiit', 'circuit', 'interval', 'mobility', 'core', 'mixed']
+export const ROUTINE_CATEGORIES = ['tabata', 'hiit', 'circuit', 'interval', 'mobility', 'core', 'mixed', 'strength']
 // Labels are English source strings rendered through t() (Spanish in locales/es.js).
-export const CATEGORY_LABEL = { tabata: 'Tabata', hiit: 'HIIT', circuit: 'Circuit', interval: 'Cardio intervals', mobility: 'Mobility', core: 'Core', mixed: 'Strength + cardio' }
+export const CATEGORY_LABEL = { tabata: 'Tabata', hiit: 'HIIT', circuit: 'Circuit', interval: 'Cardio intervals', mobility: 'Mobility', core: 'Core', mixed: 'Strength + cardio', strength: 'Strength training' }
 export const PART_ROLES = ['warmup', 'main', 'cooldown']
 export const ROUTINE_TAGS = ['no-jumps', 'no-equipment', 'no-floor', 'low-impact', 'express']
 export const TAG_LABEL = { 'no-jumps': 'No jumps', 'no-equipment': 'No equipment', 'no-floor': 'No floor work', 'low-impact': 'Low impact', express: 'Express' }
