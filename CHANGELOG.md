@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Inteligencia 2J V2 — deterministic local layer, not deployed
+
+- Adds bounded, read-only training context and explainable signals for program/plan continuation,
+  progression, repeated high effort, plateau, missed sessions, return after a gap, PRs, equipment
+  conflicts and compatible official content. It reuses existing workout history, program receipts,
+  Gym Profiles, equipment increments, swap ranking and member restrictions. No silent mutation,
+  parallel sync/history, provider request or Health/Community data transmission.
+- Adds a compact “For you today” surface with user-scoped onboarding, reason/source disclosure,
+  explicit navigation actions and dismiss controls, plus contextual cards in Workout, program detail,
+  Mi 2J and the post-workout summary. Spanish strings are complete. A container-width layout fix
+  keeps single cards legible in narrower app shells.
+- Local validation: frontend 945/945, API 299/299, build and Spanish locale checks pass. Visual QA
+  remains partial; provider enrichment, trainer-facing delivery and consented Health context remain
+  future work. Production stays at `3c0129a`.
+
 ### Guided Programs V2 — partial local work, not deployed (`1bbf316`)
 
 - Adds four multi-week catalog plans over the existing official guided routines, with lazy catalog/detail routes, first-use help, Gym Profile session-fit indicators, pause/resume/end and workout-history-derived progress. Sessions still run through the existing Workout V2 flow; no Sync V2 core or second workout engine was added.

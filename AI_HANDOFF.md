@@ -123,6 +123,40 @@
   se confirmó leyendo el SDK 0.3.220 instalado. Escáneres aux-AI (medidas/máquina/rutina/import)
   no usan aún `ai-run.js` (solo se benefician del nuevo `extractJSON`).
 
+### Inteligencia 2J V2 — capa determinista local (2026-09-28; NO desplegada)
+
+- Base obligatoria conservada: `c4e005a` (fix de estabilidad IA de Claude). No se ha cambiado
+  `ai-run.js`, Coach, Sync V2, Workout engine, programas, Gym Profiles, Bunker ni API. Producción
+  confirmada sigue en `3c0129ad39970e8a87e8663c2402405df6199139`; Sprint 2 y esta capa
+  local aún no están desplegados. No hay runner ni push de este sprint.
+- Commits locales: `946abdd` (motor, señales, tests y umbrales documentados), `7563be5`
+  (superficies, onboarding, traducciones y test UI). Este relevo se documenta aparte.
+- `frontend/src/lib/intelligence.js` deriva un contexto acotado del estado existente: últimas 36
+  sesiones, programa activo/progreso por receipts, contexto declarado de `memberContext`, Gym Profile
+  y categorías disponibles. No crea historial/cola/sync paralelos. No incluye Health, Community,
+  conversaciones ni notas privadas; no llama a un proveedor.
+- Señales deterministas: siguiente sesión del plan/programa, adherencia, sesión pendiente, retorno
+  tras 14 días, progresión tras dos exposiciones positivas con RPE/Series Feedback e incremento real,
+  dos exposiciones difíciles, plateau tras tres, PR reciente, conflicto de material y contenido oficial
+  compatible. Restricciones explícitas y material incompatible frenan consejos de carga; un swap se
+  ofrece solo desde el motor existente y no se afirma válido si hay restricciones no verificadas.
+  Máximo tres recomendaciones, prioridad/dedupe y caducidad de evidencia; ninguna modifica estado.
+- UI local: “Para ti hoy” en Home, tarjetas contextuales en Workout/Program Detail/Mi 2J y siguiente
+  sesión tras Workout. Cada tarjeta distingue sugerencia automática, acción explícita, razón/fuente,
+  aplazamiento y ocultación por usuario en localStorage; introducción de tres pasos reabrible.
+  Las acciones navegan a los flujos existentes para revisión, sin aplicar cambios en silencio.
+- Validación local: frontend **945/945**, API **299/299**, build OK con warning histórico de chunks,
+  español **3594/3594**, `git diff --check` OK. QA visual local parcial en Home oscuro con demo:
+  tarjeta a ancho estrecho y 768 px; se corrigió cuadrícula basada en viewport que comprimía una
+  tarjeta dentro del contenedor. No hay QA completa 390/tablet/desktop × claro/oscuro ni recorrido
+  interactivo de todos los estados/acciones en dispositivo real.
+- **Pendiente para cerrar V2:** enriquecimiento generativo opcional y seguro a través del Coach
+  consentido (sin tocar su fix de estabilidad), superficie trainer bajo permisos actuales y
+  contextualización Health solo con consentimiento adecuado. No están implementados; el fallback
+  determinista funciona sin proveedor. Revisar la matriz visual y aceptación antes de runner/deploy.
+- Los umbrales son heurísticas conservadoras de producto, no ciencia clínica ni nueva versión del
+  protocolo; véase `docs/EVIDENCE.md`.
+
 ### Constructor UX mini-sprint (local, no desplegado; 2026-09-27)
 
 - Días del programa arriba en barra horizontal (`DayBar` en `views/trainer/Constructor.jsx`):
