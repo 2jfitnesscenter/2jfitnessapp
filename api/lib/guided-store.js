@@ -44,7 +44,8 @@ function load() {
   try { s = JSON.parse(fs.readFileSync(FILE(), 'utf8')); } catch { /* absent = nothing customised yet */ }
   const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
   cache = { v: 1, overrides: obj(s.overrides), officialCustom: Array.isArray(s.officialCustom) ? s.officialCustom : [],
-    personal: Array.isArray(s.personal) ? s.personal : [], collections: { overrides: obj(s.collections?.overrides), custom: Array.isArray(s.collections?.custom) ? s.collections.custom : [] } };
+    personal: Array.isArray(s.personal) ? s.personal : [], collections: { overrides: obj(s.collections?.overrides), custom: Array.isArray(s.collections?.custom) ? s.collections.custom : [] },
+    programOverrides: obj(s.programOverrides) };
   return cache;
 }
 function save() {
@@ -81,6 +82,16 @@ function collectionList() {
   const fromSeed = SEED.collections.map(c => ({ ...c, ...(s.collections.overrides[c.id] || {}), id: c.id }));
   return [...fromSeed, ...s.collections.custom].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
+function programList() {
+  const overrides = load().programOverrides;
+  return PROGRAMS.programs.map(p => {
+    const o = overrides[p.id] || {};
+    const curated = {};
+    for (const key of ['active', 'featured', 'name', 'description']) if (key in o) curated[key] = o[key];
+    return { ...p, ...curated };
+  });
+}
+export function findProgram(id) { return programList().find(p => p.id === id && p.active !== false) || null; }
 
 /** What one person sees. Members: active official routines and collections. Trainers: + their
  *  own routines. Admins: everything, inactive included (flagged). */
@@ -91,7 +102,7 @@ export function listFor(user, { trainer = false, admin = false } = {}) {
   const collections = collectionList().filter(c => admin || c.active !== false)
     .map(c => ({ ...c, routineIds: (c.routineIds || []).filter(id => visible.has(id)) }));
   const mine = trainer ? s.personal.filter(r => r.createdBy === user.id) : [];
-  const programs = PROGRAMS.programs.filter(p => (p.weeks || []).every(w => (w.sessions || []).every(session => visible.has(session.routineId)))
+  const programs = programList().filter(p => (admin || p.active !== false) && (p.weeks || []).every(w => (w.sessions || []).every(session => visible.has(session.routineId)))
   ).map(p => ({ ...p,
     routineIds: [...new Set((p.weeks || []).flatMap(w => (w.sessions || []).map(s => s.routineId)))],
   }));
@@ -239,6 +250,20 @@ export function curate(user, id, patch = {}) {
   return { routine: officialList().find(x => x.id === id) };
 }
 
+/** Admin-only overlay for safe program metadata. The seed weeks and routine snapshots stay fixed. */
+export function curateProgram(user, id, patch = {}) {
+  const seed = PROGRAMS.programs.find(p => p.id === id);
+  if (!seed) return { error: 'ese programa oficial no existe', status: 404 };
+  const o = { ...(load().programOverrides[id] || {}) };
+  if ('active' in patch) o.active = patch.active !== false;
+  if ('featured' in patch) o.featured = !!patch.featured;
+  if ('name' in patch) { const name = str(patch.name, 70); if (!name) return { error: 'ponle un nombre al programa', status: 400 }; o.name = name; }
+  if ('description' in patch) { const description = str(patch.description, 400); if (!description) return { error: 'ponle una descripción al programa', status: 400 }; o.description = description; }
+  load().programOverrides[id] = { ...o, by: user.id, at: now() };
+  save();
+  return { program: programList().find(p => p.id === id) };
+}
+
 /** Collections: admin creates, edits, orders, (de)activates and fills them. Nothing more. */
 export function saveCollection(user, input = {}) {
   const s = load();
@@ -282,7 +307,7 @@ export function compatiblePrograms({ goal, level, availableEquipment = null, max
   const active = new Set(officialList().filter(r => r.active !== false).map(r => r.id));
   const byId = new Map(officialList().map(r => [r.id, r]));
   const available = Array.isArray(availableEquipment) ? new Set(availableEquipment) : null;
-  return PROGRAMS.programs.filter(p => (p.goal === goal || (goal === 'endurance' && p.goal === 'general'))
+  return programList().filter(p => p.active !== false && (p.goal === goal || (goal === 'endurance' && p.goal === 'general'))
     && order.includes(p.level)
     && (p.weeks || []).every(w => (w.sessions || []).every(session => active.has(session.routineId))))
     .map(p => {

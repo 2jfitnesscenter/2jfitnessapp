@@ -57,6 +57,7 @@ export const useGuided = create((set, get) => ({
   async setActive(id, active) { await post('/api/guided/active', { id, active }); await get().load(get().uid, true) },
   async remove(id) { await post('/api/guided/delete', { id }); await get().load(get().uid, true) },
   async curate(id, patch) { await post('/api/guided/curate', { id, ...patch }); await get().load(get().uid, true) },
+  async curateProgram(id, patch) { await post('/api/guided/program/curate', { id, ...patch }); await get().load(get().uid, true) },
   async saveCollection(collection) { await post('/api/guided/collection', { collection }); await get().load(get().uid, true) },
 }))
 

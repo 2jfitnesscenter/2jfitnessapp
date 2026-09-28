@@ -48,6 +48,11 @@ export function guidedRoutes({ json, readBody, readSession, requireTrainer, requ
       const body = await readBody(req);
       reply(res, store.curate(user, String(body.id || ''), body));
     },
+    'POST /api/guided/program/curate': async (req, res) => {
+      const user = requireAdmin(req, res); if (!user) return;
+      const body = await readBody(req);
+      reply(res, store.curateProgram(user, String(body.id || ''), body));
+    },
     // body: { collection: { id?, name, description, style, order, active, routineIds } }
     'POST /api/guided/collection': async (req, res) => {
       const user = requireAdmin(req, res); if (!user) return;

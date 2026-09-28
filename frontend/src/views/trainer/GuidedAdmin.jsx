@@ -60,6 +60,25 @@ function CollectionSheet({ c, routines, close }) {
   </div>
 }
 
+function ProgramCurationSheet({ program, close }) {
+  const toast = useUI(s => s.toast)
+  const curateProgram = useGuided(s => s.curateProgram)
+  const [x, setX] = useState({ name: program.name, description: program.description, active: program.active !== false, featured: !!program.featured })
+  const [busy, setBusy] = useState(false)
+  const save = async () => {
+    setBusy(true)
+    try { await curateProgram(program.id, x); toast(t('Saved')); close() } catch (e) { toast(e.message) }
+    setBusy(false)
+  }
+  return <div className="cx-form"><h3>{t('Curate program')}</h3>
+    <label className="cx-field"><span>{t('Name')}</span><input className="input" maxLength={70} value={x.name} onChange={e => setX(v => ({ ...v, name: e.target.value }))} /></label>
+    <label className="cx-field"><span>{t('Description')}</span><textarea className="input" rows={3} maxLength={400} value={x.description} onChange={e => setX(v => ({ ...v, description: e.target.value }))} /></label>
+    <label className="cx-check"><input type="checkbox" checked={x.active} onChange={e => setX(v => ({ ...v, active: e.target.checked }))} />{t('Active')}</label>
+    <label className="cx-check"><input type="checkbox" checked={x.featured} onChange={e => setX(v => ({ ...v, featured: e.target.checked }))} />{t('Featured')}</label>
+    <button className="btn primary" disabled={busy} onClick={save}><Icon name="check" />{t('Save')}</button>
+  </div>
+}
+
 export default function GuidedAdmin() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
@@ -99,6 +118,15 @@ export default function GuidedAdmin() {
         {g.canEdit && <button className="btn plain" onClick={() => nav('/trainer/guided/edit/' + r.id)}><Icon name="pencil" />{t('Edit')}</button>}
       </Row>)}
     </section>
+
+    {g.canEdit && <section className="g2a-sec"><h2>{t('Official 2J programs')} <span className="num dim">{g.programs.length}</span></h2>
+      {g.programs.map(p => <div key={p.id} className={'g2a-row' + (p.active === false ? ' off' : '')}>
+        <WorkoutCover r={{ id: p.id, category: p.cover }} shape="square" />
+        <div className="grow"><b>{t(p.name)}</b><small>{t(p.durationLabel)} · {t('{0} sessions/week', p.sessionsPerWeek)}{p.featured ? ' · ' + t('Featured') : ''}{p.active === false ? ' · ' + t('Inactive') : ''}</small></div>
+        <div className="g2a-acts"><a className="btn plain" href={'#/train2j/program/' + p.id}><Icon name="play" />{t('Preview')}</a>
+          <button className="btn plain" onClick={() => openSheet(close => <ProgramCurationSheet program={p} close={close} />)}><Icon name="gear" />{t('Curate program')}</button></div>
+      </div>)}
+    </section>}
 
     {g.canEdit && <section className="g2a-sec">
       <h2>{t('Collections')}<button className="btn plain" style={{ marginLeft: 'auto' }} onClick={() => openSheet(close => <CollectionSheet routines={official} close={close} />, { wide: true })}><Icon name="plus" />{t('New collection')}</button></h2>

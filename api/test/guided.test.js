@@ -33,14 +33,14 @@ test('every signed-in person reads the catalogue; anonymous does not', async () 
   assert.equal((await req('GET', '/api/guided')).status, 401);
   const m = await req('GET', '/api/guided', 'm1');
   assert.equal(m.status, 200);
-  assert.equal(m.body.routines.length, 39);
-  assert.equal(m.body.collections.length, 7);
-  assert.equal(m.body.programs.length, 4);
+  assert.equal(m.body.routines.length, 69);
+  assert.equal(m.body.collections.length, 8);
+  assert.equal(m.body.programs.length, 13);
   assert.ok(m.body.programs.every(p => p.weeks.length === p.weeksCount && p.weeks.every(w => w.sessions.length)));
   assert.deepEqual(m.body.mine, []);
   assert.equal(m.body.canEdit, false);
   assert.equal(m.body.canAssign, false);
-  assert.deepEqual(m.body.seed, { protocolVersion: SEED.protocolVersion, seedVersion: 1, count: 39, collections: 7 });
+  assert.deepEqual(m.body.seed, { protocolVersion: SEED.protocolVersion, seedVersion: 1, count: 69, collections: 8 });
   assert.ok(m.body.routines.every(r => r.official && r.validation.result === 'PASS' && r.ex.length && r.blocks.length));
   const t = await req('GET', '/api/guided', 't1');
   assert.equal(t.body.canAssign, true);
@@ -55,14 +55,15 @@ test('/api/blocks serves exactly the official masters — routines add no blocks
   const LIB = JSON.parse(fs.readFileSync(path.resolve('lib/blocks-official.json'), 'utf8'));
   const blocks = (await req('GET', '/api/blocks', 't1')).body.blocks;
   assert.equal(blocks.length, LIB.blocks.length);
-  assert.equal(blocks.length, 155);
+  assert.equal(blocks.length, 158);
   assert.ok(!blocks.some(b => /^r2j/.test(b.id) || SEED.routines.some(r => r.blocks.some(x => x.iid === b.id))));
 });
 
 test('members cannot write anything', async () => {
   const r = SEED.routines[0];
   for (const [p, b] of [['/api/guided/save', { routine: { ...r, id: undefined } }], ['/api/guided/duplicate', { id: r.id }], ['/api/guided/active', { id: r.id, active: false }],
-    ['/api/guided/delete', { id: r.id }], ['/api/guided/curate', { id: r.id, featured: 1 }], ['/api/guided/collection', { collection: { name: 'x' } }]])
+    ['/api/guided/delete', { id: r.id }], ['/api/guided/curate', { id: r.id, featured: 1 }], ['/api/guided/collection', { collection: { name: 'x' } }],
+    ['/api/guided/program/curate', { id: 'g2j-return-3w', active: false }]])
     assert.equal((await req('POST', p, 'm1', b)).status, 403, p);
   assert.equal((await req('POST', '/api/trainer/member-program', 'm1', { memberId: 'm1', guidedProgramId: 'g2j-beginner-4w' })).status, 403);
 });
@@ -162,6 +163,26 @@ test('admin collections: create, edit, order, deactivate; unknown routine ids ar
   await req('POST', '/api/guided/collection', 'ad', { collection: { ...seedColl, order: 99 } });
   const list = (await req('GET', '/api/guided', 'm1')).body.collections;
   assert.equal(list.at(-1).id, seedColl.id, 'reordered');
+});
+
+test('admin program curation is an overlay; disabled programs cannot be assigned or suggested', async () => {
+  const id = 'g2j-return-3w';
+  const before = JSON.parse(fs.readFileSync(path.resolve('lib/guided-programs-official.json'), 'utf8')).programs.find(p => p.id === id);
+  assert.equal((await req('POST', '/api/guided/program/curate', 't1', { id, active: false })).status, 403);
+  assert.equal((await req('POST', '/api/guided/program/curate', 'ad', { id: 'not-a-program', active: false })).status, 404);
+  assert.equal((await req('POST', '/api/guided/program/curate', 'ad', { id, name: '' })).status, 400);
+  const edited = await req('POST', '/api/guided/program/curate', 'ad', { id, name: 'Return plan', description: 'A careful restart', featured: false, active: false, weeks: [] });
+  assert.equal(edited.status, 200);
+  assert.deepEqual(edited.body.program.weeks, before.weeks, 'weeks and session references are immutable');
+  assert.ok(!(await req('GET', '/api/guided', 'm1')).body.programs.some(p => p.id === id));
+  assert.ok((await req('GET', '/api/guided', 'ad')).body.programs.some(p => p.id === id && p.active === false));
+  const plan = (await req('GET', '/api/trainer/member-plan?id=m1', 't1')).body;
+  assert.equal((await req('POST', '/api/trainer/member-program', 't1', { memberId: 'm1', guidedProgramId: id, sync: plan.sync, operationId: 'disabled-guided-program' })).status, 404);
+  await req('POST', '/api/guided/program/curate', 'ad', { id, active: true, featured: true });
+  const again = (await req('GET', '/api/guided', 'm1')).body.programs.find(p => p.id === id);
+  assert.equal(again.name, 'Return plan'); assert.equal(again.featured, true);
+  assert.deepEqual(again.weeks, before.weeks);
+  assert.ok(fs.readFileSync(path.join(dir, 'guided.json'), 'utf8').includes('programOverrides'));
 });
 
 test('the Coach receives compact official routines built from official blocks', async () => {

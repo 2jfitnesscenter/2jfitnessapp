@@ -39,7 +39,6 @@ import { whoopRoutes } from './whoop/routes.js';
 import { blocksRoutes } from './lib/blocks-routes.js';
 import { guidedRoutes } from './lib/guided-routes.js';
 import * as guidedStore from './lib/guided-store.js';
-import guidedProgramSeed from './lib/guided-programs-official.json' with { type: 'json' };
 import * as gymProfileConfig from './lib/gym-profile-config.js';
 import { cleanEquipment, setOfficialGymEquipment } from './lib/gym-profiles.js';
 import { EQUIPMENT } from './lib/protocol/movements.js';
@@ -2485,7 +2484,7 @@ const routes = {
     const replay = trainerReceipt(S, body, 'member-program');
     if (replay) return json(res, 200, replay);
     if (guidedProgramId) {
-      const seed = guidedProgramSeed.programs.find(p => p.id === guidedProgramId);
+      const seed = guidedStore.findProgram(guidedProgramId);
       if (!seed) return json(res, 404, { error: 'ese programa oficial no existe' });
       const sourceIds = [...new Set(seed.weeks.flatMap(w => w.sessions.map(s => s.routineId)))];
       const sourceRoutines = sourceIds.map(id => guidedStore.find(id, { id: '__official_program__' })).filter(Boolean);
