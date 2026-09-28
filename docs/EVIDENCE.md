@@ -12,6 +12,18 @@ Confianza: *alta* (consenso o position stand más revisiones consistentes) · *m
 
 ---
 
+## Inteligencia 2J V2 — umbrales de producto, no evidencia clínica
+
+Las señales `PROGRESSION_READY` (dos exposiciones que alcanzan el techo de repeticiones sin
+feedback negativo ni esfuerzo alto), `LOAD_TOO_HIGH` (dos exposiciones fallidas), `PLATEAU`
+(tres exposiciones con la misma mejor carga y repeticiones) y `RETURN_AFTER_GAP` (14 días) son
+**heurísticas conservadoras de interfaz**, no umbrales clínicos validados. Se limitan a sugerir
+una revisión; no diagnostican, no prescriben una carga universal y nunca modifican una sesión,
+rutina o programa. La disponibilidad del material y las restricciones explícitas mandan. La
+ventana para mostrar patrones de ejercicio caduca a los diez días. No cambia el Protocolo 2J v1.0.
+
+---
+
 ## Fuente troncal
 
 **[ACSM-2026]** Currier BS, D'Souza AC, Fiatarone Singh MA, Lowisz CV, Rawson ES, Schoenfeld BJ, Smith-Ryan AE, Steen JP, Thomas GA, Triplett NT, Washington TA, Werner TJ, Phillips SM. *American College of Sports Medicine Position Stand. Resistance Training Prescription for Muscle Function, Hypertrophy, and Physical Performance in Healthy Adults: An Overview of Reviews.* Med Sci Sports Exerc. 2026;58(4):851–872. doi:10.1249/MSS.0000000000003897. Es una revisión de revisiones: 137 revisiones sistemáticas y más de 30.000 participantes. Sustituye al position stand del ACSM de 2009 (*Progression models in resistance training for healthy adults*).
