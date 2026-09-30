@@ -3466,6 +3466,12 @@ body:has(.sync-pill) #app{padding-top:8px}
 .gym-official-editor .gym-sheet-bottom{display:flex;justify-content:flex-end;gap:9px;position:sticky;bottom:0;background:var(--bg);padding:12px 0 max(10px,env(safe-area-inset-bottom))}
 .gym-official-editor .gym-done-button{width:auto;margin:0;padding-inline:18px}
 .gym-equipment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.gym-equipment-tools{display:flex;align-items:center;gap:10px;margin:0 0 11px}
+.gym-equipment-tools .input{flex:1;min-width:0}
+.gym-equipment-count{flex:none;color:var(--label-2);font-size:12px}
+.gym-equipment-empty{padding:14px;color:var(--label-2);font-size:13px;text-align:center}
+.gym-equipment-unsaved{margin:10px 2px 0;color:var(--label-2);font-size:12px}
+.gym-equipment-save{width:100%;min-height:44px;margin-top:12px}
 .gym-equipment-chip{position:relative;display:flex;align-items:center;gap:8px;min-height:43px;padding:8px 10px;text-align:left;border:1px solid var(--sep);border-radius:13px;background:var(--surface);color:var(--label-2);font-size:calc(12px * var(--text-scale,1));line-height:1.2}
 .gym-equipment-chip>.icn:first-child{flex:none;width:17px;height:17px;color:var(--label-2)}
 .gym-equipment-chip.on{border-color:color-mix(in srgb,var(--acc) 54%,var(--sep));background:var(--acc-soft);color:var(--label)}

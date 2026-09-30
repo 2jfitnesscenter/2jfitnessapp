@@ -70,6 +70,30 @@ function GymProfileHelp({ close }) {
   </div>
 }
 
+function PersonalEquipmentEditor({ profile, update }) {
+  const [draft, setDraft] = useState(() => [...profile.availableEquipment])
+  const [query, setQuery] = useState('')
+  const saved = EQUIPMENT.every(item => draft.includes(item.id) === profile.availableEquipment.includes(item.id))
+  const filtered = EQUIPMENT.filter(item => t(item.label).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+  const toggle = id => setDraft(items => items.includes(id) ? items.filter(item => item !== id) : [...items, id])
+  const save = () => update(s => saveGymProfile(s, { ...profile, availableEquipment: draft }))
+  return <div className="gym-personal-equipment">
+    <div className="gym-equipment-tools">
+      <input className="input" type="search" aria-label={t('Search equipment')} placeholder={t('Search equipment')} value={query} onChange={e => setQuery(e.target.value)} />
+      <span className="gym-equipment-count">{t('{0} selected', draft.length)}</span>
+    </div>
+    <div className="gym-equipment-grid">
+      {filtered.map(item => {
+        const available = draft.includes(item.id)
+        return <button key={item.id} className={'gym-equipment-chip' + (available ? ' on' : '')} type="button" aria-pressed={available} onClick={() => toggle(item.id)}><Icon name={EQUIPMENT_ICONS[item.id] || 'checkCircle'} /><span>{t(item.label)}</span>{available && <Icon name="check" className="gym-equipment-check" />}</button>
+      })}
+    </div>
+    {filtered.length === 0 && <p className="gym-equipment-empty">{t('No matching equipment')}</p>}
+    {!saved && <p className="gym-equipment-unsaved" role="status">{t('Unsaved equipment changes')}</p>}
+    <button className="btn primary gym-equipment-save" type="button" onClick={save} disabled={saved}>{t('Save equipment')}</button>
+  </div>
+}
+
 export function GymProfileSheet({ close = () => {}, editable = false }) {
   const S = useStore(s => s.S), update = useStore(s => s.update)
   useStore(s => s.gymProfileRevision)
@@ -81,7 +105,6 @@ export function GymProfileSheet({ close = () => {}, editable = false }) {
   const [draftType, setDraftType] = useState('')
   const [name, setName] = useState('')
   const change = id => update(s => selectGymProfile(s, id))
-  const toggle = id => update(s => saveGymProfile(s, { ...active, availableEquipment: active.availableEquipment.includes(id) ? active.availableEquipment.filter(x => x !== id) : [...active.availableEquipment, id] }))
   const activeName = active.type === 'official' ? t(active.name) : active.name
   const chooseCard = card => {
     if (!card.create) { change(card.id); setDraftType(''); return }
@@ -132,14 +155,14 @@ export function GymProfileSheet({ close = () => {}, editable = false }) {
 
     <div className="gym-material-heading"><div><h2>{t('Material available')}</h2><p>{activeName}</p></div>{active.id === '2j' && (canEditOfficial
       ? <button type="button" className="gym-edit-official" onClick={() => openSheet(done => <OfficialEquipmentEditor close={done} />, { kind: 'full' })}><Icon name="pencil" />{t('Edit official equipment')}</button>
-      : editable ? <span className="gym-fixed-note">{t('Official equipment')}</span> : null)}</div>
-    {editable && <div className="gym-equipment-grid">
+      : editable ? <span className="gym-fixed-note">{t('Material managed by 2J Fitness Center')}</span> : null)}</div>
+    {editable && active.id === '2j' && <div className="gym-equipment-grid">
       {EQUIPMENT.map(item => {
         const available = active.availableEquipment.includes(item.id)
-        const fixed = active.id === '2j'
-        return <button key={item.id} className={'gym-equipment-chip' + (available ? ' on' : '')} type="button" aria-pressed={available} disabled={fixed} onClick={() => toggle(item.id)}><Icon name={EQUIPMENT_ICONS[item.id] || 'checkCircle'} /><span>{t(item.label)}</span>{available && <Icon name="check" className="gym-equipment-check" />}</button>
+        return <button key={item.id} className={'gym-equipment-chip' + (available ? ' on' : '')} type="button" aria-pressed={available} disabled><Icon name={EQUIPMENT_ICONS[item.id] || 'checkCircle'} /><span>{t(item.label)}</span>{available && <Icon name="check" className="gym-equipment-check" />}</button>
       })}
     </div>}
+    {editable && active.id !== '2j' && <PersonalEquipmentEditor key={active.id} profile={active} update={update} />}
     {!editable && <div className="gym-material-readonly">{active.availableEquipment.map(id => t(EQUIPMENT.find(e => e.id === id)?.label || id)).join(' · ') || t('No equipment selected')}</div>}
     <p className="gym-sheet-footnote">{t('Equipment is grouped by category. Check the specific machine before training.')}</p>
     {editable && (active.type === 'other' || active.type === 'custom') && <button className="gym-delete-place" onClick={() => update(s => { s.gymProfiles = { ...s.gymProfiles, activeId: '2j', custom: (s.gymProfiles?.custom || []).filter(p => p.id !== active.id) } })}><Icon name="trash" />{t('Delete place')}</button>}

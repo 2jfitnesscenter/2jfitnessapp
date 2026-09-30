@@ -39,6 +39,20 @@ test('Hotel conservatively starts bodyweight; an explicitly empty list stays emp
   const S = state('hotel'); expect(activeGymProfile(S).availableEquipment).toEqual(['bodyweight'])
   saveGymProfile(S, { id: 'hotel', availableEquipment: [] }); expect(compatibleWithGym(S, ex('bodyweight'))).toBe(false)
 })
+test('personal equipment edits persist for Home, Hotel and custom places and change compatibility', () => {
+  for (const id of ['home', 'hotel', 'gym-1']) {
+    const S = state(id)
+    if (id === 'gym-1') saveGymProfile(S, { id, name: 'My place', type: 'custom', availableEquipment: ['bodyweight'] })
+    const exercise = ex('dumbbell')
+    expect(compatibleWithGym(S, exercise)).toBe(false)
+    saveGymProfile(S, { id, availableEquipment: ['bodyweight', 'dumbbell', 'not-in-catalog'] })
+    const restored = JSON.parse(JSON.stringify(S))
+    expect(activeGymProfile(restored).availableEquipment).toEqual(['bodyweight', 'dumbbell'])
+    expect(compatibleWithGym(restored, exercise)).toBe(true)
+    saveGymProfile(restored, { id, availableEquipment: ['bodyweight'] })
+    expect(compatibleWithGym(restored, exercise)).toBe(false)
+  }
+})
 test.each(['other', 'custom'])('%s profiles retain stable id/name and only canonical equipment', type => {
   const S = {}; saveGymProfile(S, { id: 'gym-1', name: 'Mi sala', type, availableEquipment: ['band'] }); selectGymProfile(S, 'gym-1')
   expect(activeGymProfile(JSON.parse(JSON.stringify(S)))).toMatchObject({ id: 'gym-1', name: 'Mi sala', type, availableEquipment: ['band'] })

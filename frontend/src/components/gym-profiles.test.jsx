@@ -26,6 +26,9 @@ test('visual place sheet shows five profile cards, active state, equipment chips
   for (const name of ['2J Fitness Center', 'Home gym', 'Hotel', 'Other gym', 'Custom gym']) expect(html).toContain(name)
   expect(html).toContain('aria-pressed="true"')
   expect(html).toContain('Material available')
+  expect(html).toContain(t('Search equipment'))
+  expect(html).toContain(t('Save equipment'))
+  expect(html).toContain(t('{0} selected', 0))
   expect(html).toContain('aria-label="What is the training place?"')
   expect(html).not.toContain('<select')
 })
@@ -34,6 +37,8 @@ test('only admins see the official 2J inventory editor action', () => {
   mockStore.current.user = { admin: false }
   const member = renderToStaticMarkup(<GymProfileSheet close={() => {}} editable />)
   expect(member).not.toContain(t('Edit official equipment'))
+  expect(member).toContain(t('Material managed by 2J Fitness Center'))
+  expect(member).not.toContain(t('Search equipment'))
   mockStore.current.user = { admin: true }
   const admin = renderToStaticMarkup(<GymProfileSheet close={() => {}} editable />)
   expect(admin).toContain(t('Edit official equipment'))
