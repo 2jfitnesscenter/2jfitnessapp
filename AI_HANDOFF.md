@@ -5,12 +5,14 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
-## 1. Estado de producción (checkpoint 2026-09-27)
+## 1. Estado actual (checkpoint 2026-09-30)
 
-- **Producción estable actual (confirmada por el usuario):** `3c0129ad39970e8a87e8663c2402405df6199139`.
-  Community V2 + Notifications + Sharing está desplegado y validado según confirmación del usuario.
+- **Producción estable actual (confirmada por el usuario):** `abe32659d5bc20179f3270cd2f7d2612ea132623`.
+- **HEAD de trabajo antes de este relevo:** `013c3b7378a72facc35420cd2197ea9887a3c950`.
+  Su mejora de edición personal de Gym Profiles **NO está desplegada**. Las referencias de producción
+  anteriores en las notas históricas de abajo describen checkpoints pasados, no el estado actual.
 - `7ebb722708a6b27c33aafe60f799b1dada8fbc59` es un checkpoint anterior de Gym Profiles V1;
-  no representa la producción actual. El polish visual `70080f1` sigue sin desplegar.
+  no representa la producción actual. El polish visual `70080f1` es un checkpoint anterior.
 - **Rollback conocido seguro:** `4aab27eaed769505c70d7d742be8de99e4052e5f` (Legal/credits).
 - **Nunca** usar como rollback código anterior a `SYNC_V2_ROLLBACK_BASE` (`51a221d`); `90d98fe`
   o anteriores no son válidos sobre datos Sync V2.
@@ -26,7 +28,7 @@
 - Anteriores commits preservados: `0fb027c` (API/permisos), `119cb5a` (frontend/UX), `e1d92d1`
   (handoff/changelog parcial). Cierre funcional: `fa4d080`; el commit documental posterior no forma
   parte del release de producción.
-  **Desplegado**; producción actual confirmada por el usuario: `3c0129ad39970e8a87e8663c2402405df6199139`.
+  **Desplegado**; producción confirmada en aquel checkpoint: `3c0129ad39970e8a87e8663c2402405df6199139`.
 - Reutiliza `friends.json`, `chat.json`, `social.json`, Web Push/VAPID existente, HashRouter,
   service worker y exportador PNG. `notifications.json` guarda un máximo de 100 avisos por usuario
   y 5.000 en total; no contiene imágenes/blobs. `social-sharing.json` contiene referencias de
@@ -96,7 +98,7 @@
 - Library Quality Pass: 1324 IDs/medios/historial preservados; 3 duplicados con instrucciones/metadata coincidentes reciben `preferredId`, 4 pares de variantes quedan explícitamente separados, 43 asignaciones de movimiento, 3 aliases y selección curada de movilidad. Quedan **18 grupos posibles** sin evidencia para fusionar y **28 ejercicios sin movimiento canónico**. Sin fuzzy matching ni cambios de equipo inventados. Detalle generado en `docs/EXERCISE_LIBRARY_AUDIT.md`.
 - QA visual local con API y usuarios sintéticos: catálogo/detalle en 390/768/1280 px, claro/oscuro sin overflow; onboarding, start, pausa, reanudación, abandono, asignación trainer→socio, compatibilidad 2J/Casa, completed 100 % con estado sintético, curación admin y error HTTP 503; catálogo cacheado con API caída. El estado completed se verificó con fixture, no con nueve entrenamientos manuales ni en dispositivo real. Se corrigieron textos españoles y posición de CTA en tablet.
 - Validación local: frontend **930/930**, API **281/281**, build OK (warning histórico de chunks grandes), español **3520/3520**; generadores de rutinas/bloques, auditoría/catálogo, espejo de protocolo (9 archivos) y `git diff --check` OK. Otros idiomas: cobertura parcial con fallback inglés (805/3520). Sin llamadas reales a IA.
-- Commits de cierre local: `245e460` (Library), `798d226` (contenido/programas), `2a8c2fe` (curación admin). Producción permanece en `3c0129ad39970e8a87e8663c2402405df6199139` según confirmación del usuario; este sprint **no está desplegado** y no tiene runner. Siguiente paso: revisión del diff/QA por el usuario y, solo tras aprobación, preparar runner para el HEAD exacto; no desplegar ni hacer push automáticamente.
+- Commits de cierre local: `245e460` (Library), `798d226` (contenido/programas), `2a8c2fe` (curación admin). En aquel checkpoint producción estaba en `3c0129ad39970e8a87e8663c2402405df6199139`; esta nota de 2026-09-28 no determina el estado de despliegue actual (§1).
 
 ### Bugfix estabilidad IA 2J (local, no desplegado; 2026-09-28)
 
@@ -127,8 +129,8 @@
 
 - Base obligatoria conservada: `c4e005a` (fix de estabilidad IA de Claude). No se ha cambiado
   `ai-run.js`, Sync V2, Workout engine, programas, Gym Profiles ni Bunker. Producción
-  confirmada sigue en `3c0129ad39970e8a87e8663c2402405df6199139`; Sprint 2 y esta capa
-  local aún no están desplegados. No hay runner ni push de este sprint.
+  confirmada entonces estaba en `3c0129ad39970e8a87e8663c2402405df6199139`; esta nota
+  histórica no determina el estado de despliegue actual (§1).
 - Commits locales: `946abdd` (motor/señales), `7563be5` (superficies/onboarding),
   `d87ec18` (explicación opcional y tests API) y `25b3dda` (UI/Admin/tests); sin push.
 - `frontend/src/lib/intelligence.js` deriva un contexto acotado del estado existente: últimas 36
@@ -342,10 +344,10 @@ Bunker (pospuesto: `views/Bunker.jsx` tiene su propio flujo de series).
   Su `-PrepareOnly` se validó en el checkpoint anterior; tras Gym Profiles V1.1 ya no coincide con
   HEAD y no debe ejecutarse para este sprint. No hay runner de V1.1.
 
-## 12. Gym Profiles V1 — desplegado; polish y editor V1.1 locales
+## 12. Gym Profiles — historial y mejora local de material personal
 
 Commits V1: funcional `d50fa9e`, relevo/documentación `7ebb722`. Release checkpoint anterior
-`7ebb722708a6b27c33aafe60f799b1dada8fbc59`; la producción actual es `3c0129a...` (§1). Contexto
+`7ebb722708a6b27c33aafe60f799b1dada8fbc59`; ver producción actual en §1. Contexto
 sobre Library V2, no nuevo catálogo ni metodología.
 
 - Modelo canónico: `frontend/src/lib/gym-profile-model.js`; copia API generada mediante
@@ -399,8 +401,8 @@ sobre Library V2, no nuevo catálogo ni metodología.
 - Verificación local V1.1: frontend **898/898**, API **266/266**, modelo frontend/API sincronizado,
   locales ES completas, build y `git diff --check` OK. Test HTTP verifica 401 anónimo, 403 miembro y
   trainer, guardado admin, persistencia tras reinicio y lectura común. El checkpoint de producción
-  de esa verificación fue `7ebb722708a6b27c33aafe60f799b1dada8fbc59`; la producción actual es
-  `3c0129a...`. Este sprint no se ha desplegado ni tiene runner
+  de esa verificación fue `7ebb722708a6b27c33aafe60f799b1dada8fbc59`. Esta nota histórica
+  no determina el despliegue actual ni tiene runner
   válido (el runner local previo apunta a `b890a26` y ya no coincide con HEAD).
 - Limitación: otros dispositivos actualizan al iniciar, volver al foco o reconectar; no hay
   notificación realtime global. Las categorías expresan disponibilidad general, no una máquina o
@@ -410,19 +412,30 @@ sobre Library V2, no nuevo catálogo ni metodología.
   Train2J solo etiqueta; no filtra ni adapta rutinas. No hay editor de bloques por lugar ni perfiles
   compartidos. Cambios simultáneos de preferencias siguen la resolución existente de Sync V2.
 
-**Siguiente paso:** revisión manual del polish y del editor V1.1 en móvil/desktop y en claro/oscuro.
-Cuando el sprint esté aprobado, preparar runner nuevo para el HEAD exacto; ni el polish ni el
-editor V1.1 están desplegados. `deploy-b890a26.ps1` es un artefacto local obsoleto para este HEAD.
+**GYM PROFILES — USER EQUIPMENT UX (commit `013c3b7`; DEPLOY STATUS = NOT DEPLOYED):**
+Casa, Hotel y perfiles personalizados ya admitían edición del material por el usuario. Este commit
+añade búsqueda en el catálogo existente, contador de seleccionados, selección temporal y botón
+explícito «Guardar equipamiento». El perfil oficial muestra que 2J Fitness Center gestiona su
+material: socio en solo lectura, admin con el editor oficial existente. Se reutilizan los mismos
+equipment IDs; guardar actualiza la compatibilidad existente para Exercise Library, swaps,
+Constructor, Workout, Train2J e Intelligence 2J, sin rehacer esas integraciones. Tests locales:
+frontend **949/949**, API **304/304**, build OK, español completo y `git diff --check` OK.
+La selección no guardada se descarta al salir. Producción continúa en
+`abe32659d5bc20179f3270cd2f7d2612ea132623`.
+
+**Nota para Sprint 4:** partir de `013c3b7378a72facc35420cd2197ea9887a3c950`;
+no rehacer la edición de equipamiento de Gym Profiles.
+
+**Siguiente paso para la mejora de material personal:** revisión del commit `013c3b7` antes de
+preparar cualquier despliegue; `deploy-b890a26.ps1` es un artefacto local obsoleto para este HEAD.
 No desplegar sin autorización explícita.
 
 **Pendientes Library V2 no bloqueantes:** revisar visualmente los 18 grupos de posibles
 duplicados; clasificar los 28 sin movimiento; precisar plate-loaded/selectorized con evidencia;
 posible editor admin de metadata; etiquetas heredadas "(male)" visibles en la biblioteca completa.
 
-**Siguiente trabajo:** Guided Programs V2 está cerrado localmente (§1). Revisar el sprint y,
-si se aprueba, preparar runner seguro para el HEAD exacto; NO desplegar todavía. Community V2 + Notifications
-está desplegado en `3c0129a...`; no está pendiente de deploy. Otras ideas de roadmap (Health V2,
-Library V2, Bunker Live) no se inician hasta priorización explícita.
+**Siguiente trabajo:** Sprint 4 parte del HEAD indicado arriba, sin rehacer Gym Profiles.
+Otras ideas de roadmap (Health V2, Library V2, Bunker Live) no se inician hasta priorización explícita.
 
 **Deuda conocida (no autorizada como trabajo):** retención/poda de receipts, tombstones y journal
 de Sync V2; Sync V2 es monoproceso; unidades de pesos históricos; traducciones parciales en
