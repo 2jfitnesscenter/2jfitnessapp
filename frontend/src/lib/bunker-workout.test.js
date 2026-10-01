@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextAfterBunkerSet, bunkerRestSec, BUNKER_REST_FALLBACK } from './bunker-workout.js'
+import { nextAfterBunkerSet, bunkerRestSec, bunkerProgress, BUNKER_REST_FALLBACK } from './bunker-workout.js'
 
 const entry = (id, sg, done = false) => ({ id, ...(sg ? { sg } : {}), sets: [{ w: 20, r: 10, done }] })
 
@@ -16,6 +16,16 @@ describe('Bunker superset progression', () => {
   it('starts rest only after the other superset partner is complete', () => {
     expect(nextAfterBunkerSet([entry('a', 'g', true), entry('b', 'g')], 1, 0))
       .toEqual({ rest: true, nextEntry: null })
+  })
+})
+
+describe('Bunker panel progress', () => {
+  it('derives independent exercise and set progress from that panel only', () => {
+    const ana = [{ sets: [{ done: true }, { done: true }] }, { sets: [{ done: false }] }]
+    const ben = [{ sets: [{ done: false }, { done: false }] }]
+    expect(bunkerProgress(ana)).toEqual({ doneSets: 2, totalSets: 3, doneExercises: 1, totalExercises: 2, percent: 67 })
+    expect(bunkerProgress(ben)).toEqual({ doneSets: 0, totalSets: 2, doneExercises: 0, totalExercises: 1, percent: 0 })
+    expect(bunkerProgress([])).toEqual({ doneSets: 0, totalSets: 0, doneExercises: 0, totalExercises: 0, percent: 0 })
   })
 })
 

@@ -6,7 +6,7 @@ import { t, nameFor } from '../lib/i18n.js'
 import { fmtNum, todayISO, uid, exCount } from '../lib/format.js'
 import { workoutVolume, effectiveRoutine, modeOf, swapEntryExercise, supersetUnits, effortOf, stepEffort, setLabel } from '../lib/history.js'
 import { buildRoutineEntries, buildFreeEntry } from '../lib/progression.js'
-import { EXIDX, imgSrc } from '../lib/exercises.js'
+import { EXIDX, imgSrc, gifSrc } from '../lib/exercises.js'
 import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { ExerciseSearchList, BunkerTopBar, BunkerToolPane, DEFAULT_TIMER_STATE } from './BunkerTools.jsx'
@@ -21,7 +21,7 @@ import {
   bunkerAdminCheckin, fetchBunkerAdminSessions, closeBunkerSession, pauseBunkerSession, saveBunkerSettings,
 } from '../lib/bunker-api.js'
 import { purgeStaleCredentials } from '../lib/bunker-credentials.js'
-import { nextAfterBunkerSet, bunkerRestSec, BUNKER_REST_FALLBACK } from '../lib/bunker-workout.js'
+import { nextAfterBunkerSet, bunkerRestSec, bunkerProgress, BUNKER_REST_FALLBACK } from '../lib/bunker-workout.js'
 import { guidedBlocksOf } from '../lib/guided.js'
 import { TYPE_LABEL } from '../lib/protocol/index.js'
 import { retryPendingFinish, stagePendingFinish } from '../lib/bunker-persistence.js'
@@ -486,6 +486,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
 
   const freeTraining = active.routineId === null
   const guidedHere = entry?.target?.blk ? (guidedOf(active, plan.routines) || []).find(b => b.iid === entry.target.blk) || null : null
+  const progress = bunkerProgress(active.entries)
 
   return <div className="bk-panel" onClick={touch}>
     <div className="bk-panel-hd">
@@ -494,6 +495,10 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       {restEndsAt && <RestRing endsAt={restEndsAt} total={restTotal} size={52} />}
     </div>
     <div className="bk-routine-name">{active.name}</div>
+    <div className="bk-live-progress" aria-label={t('Workout progress')}>
+      <div className="bk-live-progress-label"><span>{t('{0} of {1} exercises', progress.doneExercises, progress.totalExercises)}</span><strong>{progress.percent}%</strong><span>{t('{0} of {1} sets', progress.doneSets, progress.totalSets)}</span></div>
+      <div className="bk-live-progress-track" role="progressbar" aria-label={t('Workout progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}><span style={{ width: `${progress.percent}%` }} /></div>
+    </div>
     {active.entries.length > 0 && <div className="bk-exlist">
       {active.entries.map((e, i) => {
         const doneN = e.sets.filter(s => s.done).length
@@ -510,7 +515,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       <button className="bk-join" style={{ marginTop: 16 }} onClick={() => { touch(); setShowAdd(true) }}><Icon name="plus" />{t('Add exercise')}</button>
     </div>}
     {entry && <div className="bk-sets">
-      {EXIDX[entry.id]?.img && <img className="bk-exmedia" src={imgSrc(EXIDX[entry.id])} alt={exName(entry.id, plan.customEx)} loading="lazy" decoding="async" />}
+      {(EXIDX[entry.id]?.gif || EXIDX[entry.id]?.img) && <img className="bk-exmedia" src={EXIDX[entry.id]?.gif ? gifSrc(EXIDX[entry.id]) : imgSrc(EXIDX[entry.id])} alt={exName(entry.id, plan.customEx)} loading="lazy" decoding="async" />}
       <div className="bk-exname-row">
         <div className="bk-exname">{ssInfo[exIdx] && <span className="bk-ssbadge">{supersetLabel(ssInfo[exIdx])}</span>}{exName(entry.id, plan.customEx)}</div>
         <button className="bk-exchange-btn" onClick={() => { touch(); alternativesSheet(EXIDX[entry.id] || { id: entry.id, n: exName(entry.id, plan.customEx), eq: 'custom' }, doSwap, true) }}>

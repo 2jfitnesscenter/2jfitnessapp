@@ -9,6 +9,17 @@ export function nextAfterBunkerSet(entries, entryIndex, setIndex) {
   return nextEntry === undefined ? { rest: true, nextEntry: null } : { rest: false, nextEntry }
 }
 
+// Derived only from one panel's own in-memory session. This is display progress, not a
+// persistence marker or a second workout state.
+export function bunkerProgress(entries = []) {
+  const rows = Array.isArray(entries) ? entries : []
+  const totalSets = rows.reduce((n, e) => n + (Array.isArray(e?.sets) ? e.sets.length : 0), 0)
+  const doneSets = rows.reduce((n, e) => n + (Array.isArray(e?.sets) ? e.sets.filter(s => s?.done).length : 0), 0)
+  const trackable = rows.filter(e => Array.isArray(e?.sets) && e.sets.length > 0)
+  const doneExercises = trackable.filter(e => e.sets.every(s => s?.done)).length
+  return { doneSets, totalSets, doneExercises, totalExercises: trackable.length, percent: totalSets ? Math.round(doneSets / totalSets * 100) : 0 }
+}
+
 // The kiosk's rest before it was prescription-aware — still the fallback for any exercise whose
 // routine carries no rest of its own (older routines, freestyle, exercises added at the kiosk).
 export const BUNKER_REST_FALLBACK = 90
