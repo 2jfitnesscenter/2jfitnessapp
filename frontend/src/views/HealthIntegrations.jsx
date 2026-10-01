@@ -9,7 +9,7 @@ import { fmtDate } from '../lib/format.js'
 import { connectWhoop, disconnectWhoop, fetchWhoopWorkouts } from '../lib/whoop-api.js'
 import { mapWhoopWorkout, matchAll, attachFitness, fitnessSources } from '../lib/fitness.js'
 import { bleSupported } from '../lib/ble-hr.js'
-import { getBridge, bridgeState, connectBridge, readBridge, applyMatches, disconnectBridge, platformLabel } from '../lib/health-bridge.js'
+import { getBridge, bridgeState, connectBridge, readBridge, applyMatches, disconnectBridge, platformLabel, shouldShowManualHealthConnectHelp } from '../lib/health-bridge.js'
 import { importFromApp, confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, Button } from '../components/ui.jsx'
@@ -55,6 +55,7 @@ export default function HealthIntegrations() {
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [whoopNeedsReconnect, setWhoopNeedsReconnect] = useState(false)
+  const [showManualHealthConnectHelp, setShowManualHealthConnectHelp] = useState(false)
 
   const importWhoop = async () => {
     setBusy(true)
@@ -78,24 +79,33 @@ export default function HealthIntegrations() {
   const bstate = bridgeState(user?.id)
   const connectNative = async () => {
     const ownerId = user?.id
+    setShowManualHealthConnectHelp(false)
     setBusy(true)
     try {
       const r = await connectBridge({ uid: ownerId, bridge })
       if (useStore.getState().user?.id !== ownerId) return
       if (r.status === 'connected') toast(t('Connected. Nothing is read until you sync.'))
-      else if (r.status === 'denied') toast(t('Permission not granted. Nothing was read.'))
+      else if (r.status === 'denied') {
+        setShowManualHealthConnectHelp(shouldShowManualHealthConnectHelp(bridge, r.status))
+        toast(t('Permission not granted. Nothing was read.'))
+      }
       else toast(t('Health is not available on this device'))
     } finally { setBusy(false) }
   }
   const syncNative = async () => {
     const ownerId = user?.id
+    setShowManualHealthConnectHelp(false)
     setBusy(true)
     try {
       const res = await readBridge({ uid: ownerId, workouts: useStore.getState().S.workouts, bridge })
       // Do not attach one account's health records to another account if the shell read resolves
       // after an auth switch.
       if (useStore.getState().user?.id !== ownerId) return
-      if (res.status !== 'ok') { toast(res.status === 'off' ? t('Connect first') : res.status === 'denied' ? t('Permission not granted. Nothing was read.') : t('Could not read your health data')); return }
+      if (res.status !== 'ok') {
+        if (res.status === 'denied') setShowManualHealthConnectHelp(shouldShowManualHealthConnectHelp(bridge, res.status))
+        toast(res.status === 'off' ? t('Connect first') : res.status === 'denied' ? t('Permission not granted. Nothing was read.') : t('Could not read your health data'))
+        return
+      }
       let attached = 0
       if (res.match.length) update(s => { attached = applyMatches(s, res) })
       toast(t('{0} linked · {1} already linked · {2} without a matching workout', attached, res.linked.length, res.none.length))
@@ -119,6 +129,9 @@ export default function HealthIntegrations() {
         <Row icon="xmark" iconTint="var(--grey)" title={t('Turn off {0}', t(platformLabel(bridge)))} onClick={disconnectNative} />
       </> : <Row icon="heart" iconTint="var(--red)" title={t('Connect {0}', t(platformLabel(bridge)))}
         subtitle={t('You choose what to allow in the next screen')} accessory="chevron" onClick={busy ? undefined : connectNative} />}
+      {showManualHealthConnectHelp && bridge.platform === 'android' && <div role="status" className="muted small" style={{ padding: '10px 14px 14px', lineHeight: 1.45 }}>
+        {t('To allow access manually, open Settings → Health Connect → App access → 2J Fitness. The wording may vary by Android version.')}
+      </div>}
     </Section>}
 
     <Section title={t('Apple Health (iPhone, Apple Watch)')} footer={t('Export from the Health app (profile → Export All Health Data) and import the file here. Workouts recorded by Apple Watch — or by apps that write to Health, like Zepp — bring their calories and heart rate; they are linked to a 2J workout only when the times clearly match. The file comes from an iPhone; you can upload it from any device, but this is a manual file import, not an Android integration.')}>

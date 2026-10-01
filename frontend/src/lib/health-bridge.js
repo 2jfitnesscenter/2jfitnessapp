@@ -61,6 +61,8 @@ function capacitorBridge(cap) {
   }
 }
 export const platformLabel = bridge => bridge?.platform === 'ios' ? 'Apple Health' : bridge?.platform === 'android' ? 'Health Connect' : 'Health'
+/** Android may stop showing its permission sheet after denial; guide the person to system settings. */
+export const shouldShowManualHealthConnectHelp = (bridge, status) => bridge?.platform === 'android' && status === 'denied'
 
 /* -------------------------------------------------------------------- consent --- */
 

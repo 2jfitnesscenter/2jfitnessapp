@@ -3998,6 +3998,7 @@ export default {
   'Last sync {0}': 'Última sincronización {0}',
   'Not synced yet': 'Aún sin sincronizar',
   'Permission not granted. Nothing was read.': 'Permiso no concedido. No se leyó nada.',
+  'To allow access manually, open Settings → Health Connect → App access → 2J Fitness. The wording may vary by Android version.': 'Para permitir el acceso manualmente, abre Ajustes → Health Connect → Acceso de apps → 2J Fitness. El nombre de las opciones puede variar según la versión de Android.',
   'Read-only and off until you turn it on. 2J reads only each workout’s duration, calories and heart-rate average and maximum — never the raw heart-rate stream — and keeps it with your workouts, private to you.': 'Solo lectura y desactivado hasta que lo actives. 2J lee únicamente la duración, las calorías y la frecuencia cardiaca media y máxima de cada entreno —nunca el registro continuo de pulsaciones— y lo guarda con tus entrenos, privado para ti.',
   'Sync workouts (30 days)': 'Sincronizar entrenos (30 días)',
   'Turn off {0}': 'Desactivar {0}',

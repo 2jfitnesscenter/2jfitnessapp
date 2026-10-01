@@ -1,8 +1,9 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getBridge, bridgeState, connectBridge, readBridge, applyMatches, disconnectBridge, sanitizeSession, recordsFrom, platformLabel, MAX_DAYS, MAX_SESSIONS, DEFAULT_DAYS } from './health-bridge.js'
+import { getBridge, bridgeState, connectBridge, readBridge, applyMatches, disconnectBridge, sanitizeSession, recordsFrom, platformLabel, shouldShowManualHealthConnectHelp, MAX_DAYS, MAX_SESSIONS, DEFAULT_DAYS } from './health-bridge.js'
 import { fitnessOf, fitnessSources } from './fitness.js'
+import es from '../locales/es.js'
 
 /* Health native bridge — web side. A fake shell stands in for Health Connect / HealthKit: the
  * point is what 2J accepts, stores and refuses, not the OS. */
@@ -38,6 +39,12 @@ describe('detection: nothing in a browser or the installed PWA', () => {
     expect(platformLabel({ platform: 'ios' })).toBe('Apple Health')
     expect(platformLabel({ platform: 'android' })).toBe('Health Connect')
     expect(platformLabel({})).toBe('Health')
+  })
+  it('shows manual permission guidance only after an Android denial', () => {
+    expect(shouldShowManualHealthConnectHelp({ platform: 'android' }, 'denied')).toBe(true)
+    expect(shouldShowManualHealthConnectHelp({ platform: 'android' }, 'connected')).toBe(false)
+    expect(shouldShowManualHealthConnectHelp({ platform: 'ios' }, 'denied')).toBe(false)
+    expect(es['To allow access manually, open Settings → Health Connect → App access → 2J Fitness. The wording may vary by Android version.']).toMatch(/Ajustes → Health Connect → Acceso de apps → 2J Fitness/)
   })
 })
 
