@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Sprint 4.5 — Entrena con 2J Admin, content expansion and Library Quality (2026-10-01; NOT DEPLOYED)
+
+- Admin Studio (lazy, admin-only) for the official catalogue: routines, programs and collections with
+  draft / active / hidden states, preview as a member, publish, hide, feature, reorder, duplicate as a
+  draft; program editor (weeks, days, live server dry-run); collection editor with routines and programs;
+  routine editor gains state, purpose, cover and notes. Roles enforced in the backend; started or
+  assigned content is a snapshot and never changes. Separate persistence in `guided.json`; catalogue
+  cache refreshes on `guidedRev`; a first-use guide of three steps can be reopened.
+- Library Quality tool and overlay (names EN/ES, aliases, canonical movement, equipment, Recommended 2J,
+  preferred/deprecated with no chains or cycles, curator notes) persisted in `library-admin.json`,
+  applied from `/api/config` with an offline copy; the AI and validators read the effective library.
+- Library pass: deprecated duplicates 14 → 26, canonical movement 1296 → 1305, Recommended 2J 186 → 210,
+  names/aliases/equipment reviewed; ids never removed.
+- Content: blocks 158 → 198, routines 69 → 155, collections 8 → 15, programs 13 → 22 — warm-ups,
+  cool-downs, stretching, recovery, machine HIIT/Tabata/intervals (SkiErg added), bodyweight HIIT, home
+  circuits, strength splits, strength + cardio sessions from 5 to 60 min; routines carry a `purpose`.
+  Gym Profile compatibility shows Compatible / Partially compatible / Needs other equipment.
+- Tests: API 346, frontend 1005; build, Spanish 3968/3968 and sync checks pass. Not deployed.
+
+
 ### Pre-deploy safety — inactivity finish / first working load (2026-10-01)
 
 - Auto-finish after 60 min of real inactivity, using the existing idempotent finish transaction.

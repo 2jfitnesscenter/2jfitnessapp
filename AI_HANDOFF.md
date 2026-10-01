@@ -7,6 +7,8 @@
 
 ## 1. Estado actual (checkpoint 2026-10-01)
 
+- **Sprint 4.5 (Entrena con 2J Admin + contenido + biblioteca) completo en la rama local; NO DESPLEGADO.** Producción: `78b22bb80d946d3e402040b1ff3094c0ef81dedc`. Resumen y cifras en la sección 13b.
+
 - **Producción estable actual (confirmada por el usuario):** `abe32659d5bc20179f3270cd2f7d2612ea132623`.
 - **Código/tests local validado:** `4801d61` (sobre `4f8e80c`; auto-finish `f127e06`); el commit documental
   de este checkpoint lo sigue (HEAD exacto: `git rev-parse HEAD`).
@@ -263,13 +265,13 @@ Doc: `docs/EXERCISE_LIBRARY_V2.md`. Métricas generadas: `docs/EXERCISE_LIBRARY_
 | Métrica | Valor |
 |---|---|
 | Ejercicios | 1324 (ids históricos preservados, mismo orden) |
-| Recomendados 2J / curados | 186 / 165 |
-| Con movimiento canónico / sin él | 1296 / 28 (solo biblioteca completa) |
+| Recomendados 2J / curados | 210 / 189 |
+| Con movimiento canónico / sin él | 1305 / 19 (solo biblioteca completa) |
 | Movimientos canónicos | 35 (sin categorías nuevas; se asignaron más ejercicios a las existentes) |
 | Equipamiento | 28 tipos en 6 familias |
-| Deprecated con preferredId | 14 |
-| Grupos de posibles duplicados (pendientes) | 18 |
-| Aliases | 82 |
+| Deprecated con preferredId | 26 |
+| Grupos de posibles duplicados (pendientes) | 0 (revisados; ver 13b) |
+| Aliases | 102 (en 57 ejercicios) |
 | Nombres compartidos entre ejercicios vivos | 0 |
 | Con material / imagen / GIF | 1324 / 1324 / 1324 |
 
@@ -318,8 +320,8 @@ material → lateralidad → ángulo; recomendados en empate) con razones visibl
 
 ## 7. Contenido oficial y Entrena con 2J
 
-- 158 bloques oficiales: 158 PASS, 0 FAIL, 0 PASS_WITH_REASON (rama local; no desplegado).
-- 69 rutinas guiadas oficiales, 8 colecciones, 3 destacadas (`api/lib/guided-official.json`,
+- 198 bloques oficiales: 198 PASS, 0 FAIL, 0 PASS_WITH_REASON (rama local; no desplegado).
+- 155 rutinas guiadas oficiales, 15 colecciones, 22 programas, 3 destacadas (`api/lib/guided-official.json`,
   `scripts/build-official-routines.mjs`). Ninguna semilla usa un deprecated.
 - **Entrena con 2J** (`views/Train2J.jsx`, `components/train2j/parts.jsx`, `lib/train2j.js`,
   `lib/guided-api.js`, API `api/lib/guided-*.js`): storefront, rutas `/train2j`, `/train2j/c/:id`,
@@ -525,6 +527,70 @@ ni Bunker Live. Otras ideas de roadmap (Health V2, Library V2) requieren prioriz
 **Deuda conocida (no autorizada como trabajo):** retención/poda de receipts, tombstones y journal
 de Sync V2; Sync V2 es monoproceso; unidades de pesos históricos; traducciones parciales en
 idiomas distintos del español (política: fallback a inglés).
+
+## 13b. Sprint 4.5 — Entrena con 2J Admin + contenido + calidad de biblioteca (NO DESPLEGADO)
+
+**DEPLOY STATUS: NOT DEPLOYED.** Producción confirmada: `78b22bb80d946d3e402040b1ff3094c0ef81dedc`. Rama
+`feat/pwa-tanita-bunker-roadmap`; commits del sprint: `05268ea` (calidad de biblioteca), `870b533` (backend admin),
+`fb88893` (contenido), `791312e` (Studio + frontend) y el commit documental que los sigue. Sin push, sin runner.
+
+**ENTRENA CON 2J ADMIN — arquitectura.** Persistencia propia en `DATA/guided.json` (nunca en el estado/Sync V2 del
+socio): overlays sobre las semillas (`overrides`, `officialCustom`, `programsCustom`, `collections`), las semillas de
+`api/lib/*.json` no se sobrescriben. Estados `draft → active → hidden` (draft implica active:false); los socios solo ven
+`active`; el admin ve todo. `contentRev` + `GET /api/config`→`guidedRev` invalidan la caché del cliente.
+Endpoints (`api/lib/guided-routes.js`): `GET /api/guided`, `POST /api/guided/{save,duplicate(official),active,status,delete,curate,reorder,collection,collection/delete,program/{save,curate,duplicate,delete}}`
+y `GET /api/admin/library`, `POST /api/admin/library/save`. **Permisos en backend:** admin escribe contenido oficial,
+programas, colecciones y biblioteca; trainer solo duplica/edita/borra sus propias rutinas y asigna (snapshot vía
+`/api/trainer/member-routine`); socio solo lee. Todo contenido oficial pasa por `validateAgainst2JProtocol` + refs,
+ids, no-deprecated, equipo, nivel/duración, tiempos/rondas; programas validan semanas/días/refs/publicación con
+`saveProgram(..., {dryRun})`. Snapshots de rutinas/programas ya empezados o asignados nunca se mutan.
+**Frontend (lazy, solo admin):** `views/trainer/studio/` — `StudioAdmin.jsx` (Rutinas/Programas/Colecciones: filtros por
+estado/tipo/búsqueda, publicar/ocultar/borrador, destacar, reordenar, duplicar como borrador, vista previa como socio,
+editor de colección con rutinas y programas), `ProgramEditor.jsx` (semanas, días, selector de rutinas, copiar semana,
+validación en vivo del servidor, publicar), `LibraryQuality.jsx`, `parts.jsx`, `studio.css`; helpers puros en
+`lib/studio.js` y `lib/library-quality.js`. El editor de rutina (`GuidedEditor`) añade estado, finalidad, portada y notas.
+Rutas: `/trainer/guided` (admin→Studio, trainer→su página), `/trainer/guided/program/:id`, `/trainer/library-quality`.
+Ayuda de primer uso: 3 pasos, reabrible con el botón ⓘ (`studio_help_v1` en localStorage).
+**Caché/offline:** catálogo `g2j_catalog:<uid>` + `useGuided.notifyRev` recarga si cambia `guidedRev`; overlay de biblioteca
+`lib_overlay_v1` (sin notas del curador) aplicado desde `/api/config` y restaurado al arrancar sin red.
+
+**CONTENT EXPANSION (antes → después).** Bloques 158 → **198** (todos PASS); rutinas 69 → **155** (todas PASS); colecciones 8 → **15**
+(+Calentamientos, Vuelta a la calma y estiramientos, Recuperación, Finales de sesión, Sin material, Bajo impacto, 30 min o más);
+programas 13 → **22**. Campo `purpose` (warmup/cooldown/recovery/stretch/finisher) separado de la categoría (sin portadas
+nuevas). Distribución: movilidad 37 (calentamientos 7, vueltas a la calma 4, estiramientos 10, recuperación 2; además 3 finales de sesión de 5 min), HIIT 16,
+Tabata 14, intervalos 12, circuitos 9, core 5, mixtas 6, fuerza 56; niveles 54/80/21 (iniciado/intermedio/avanzado);
+duraciones 5·19, 10·20, 15·15, 20·36, 25·12, 30·17, 35·11, 40·9, 45·10, 50·4, 55·1, 60·1 (min·nº). Máquinas: cinta, bici,
+elíptica, escaladora, SkiErg (añadido a `GYM_EQ`). Compatibilidad con Gym Profile en 3 niveles (Compatible / Parcialmente
+compatible / Requiere otro material) con los ejercicios que faltan; nunca se oculta una rutina por un ejercicio.
+Generación: `scripts/protocol/official-{blocks,routines}.matrix.mjs` → `build-official-{blocks,routines}.mjs`; el build
+exige español (`es.js`) para todo texto de rutina y colección.
+
+**LIBRARY QUALITY.** Deprecated 14 → **26** (con evidencia en `overrides.js`; deprecated→preferido sin cadenas ni ciclos, ids
+nunca borrados); movimiento canónico 1296 → **1305/1324** (19 sin movimiento, solo biblioteca completa); Recommended 2J 186 → **210**;
+grupos de posibles duplicados pendientes **0** (audit) — 7 pares revisados mantenidos como variantes; alias 102 en 57
+ejercicios; nombres/mojibake corregidos vía `NAME_OVERRIDE`. Pendiente sin evidencia suficiente: los 19 sin movimiento y
+1 par "push up on bosu ball" / "push-up (bosu ball)" que la herramienta marca como posible duplicado.
+**LIBRARY ADMIN.** Editable por admin: nombre visible (EN/ES), alias, movimiento canónico, material, Recommended 2J,
+preferido/deprecated, nota del curador. Persistencia `DATA/library-admin.json` (overlay con `rev`), reglas compartidas
+`frontend/src/lib/library/overlay.js` → copia generada `api/lib/library-overlay.js` (`scripts/sync-library-overlay.mjs --check`).
+Rechaza cadenas, ciclos, otro movimiento, nombre ambiguo y duplicar algo que el contenido oficial activo usa. La IA y los
+validadores leen la biblioteca efectiva (overlay aplicado).
+
+**IA.** `compatibleRoutines/Programs` solo ofrecen contenido oficial `active`, con preferencia por destacados/compatible con
+el equipo; nunca deprecated (test en `studio-admin.test.js`).
+**TESTS.** API 346/346; frontend 1005/1005 (nuevos: `lib/studio.test.js` 15, `views/trainer/studio/studio-runtime.test.jsx` 5);
+build OK; español 3968/3968; checks de sincronía (protocol, coach library, bloques, rutinas, overlay, gym profiles, audit,
+check-exercise-library) OK. **Limitaciones:** no hay test e2e de navegador del Studio (QA visual manual con API efímera
+sintética: escritorio/tablet/móvil, claro/oscuro); el editor de rutina reutiliza el Constructor (sin arrastrar y soltar para
+reordenar rutinas: botones subir/bajar); subir portadas propias no está implementado (se elige entre las portadas por tipo).
+
+**EXTERNAL_CONTENT_REQUIRED=YES** (no se importó nada). Huecos: movilidad torácica específica (open book / thread the needle),
+cat-cow, postura del niño, 90/90 y paloma de cadera, couch stretch, movilidad de muñeca (solo hay `0721` y curls) y de tobillo
+(solo `1368` círculos; falta rodilla-a-pared), movilidad de hombro con banda (pass-through/dislocates), cardio de remo
+(rowing ergometer), air bike/assault bike, sled push/pull y carries, foam rolling. Opinión: **free-exercise-db** (Unlicense,
+~870 ejercicios en JSON con campos compatibles) para completar estiramientos/movilidad; **wger** (CC-BY-SA, API, nombres y
+descripciones en varios idiomas) si se quiere traducción; evitar datasets de Kaggle sin licencia clara; cualquiera exige
+revisar duplicados contra los 1324 ids y aportar medios propios (imagen/GIF).
 
 ## 13. Workflow con Claude (ahorro de contexto)
 
