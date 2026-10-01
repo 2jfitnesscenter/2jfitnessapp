@@ -8,8 +8,9 @@
 ## 1. Estado actual (checkpoint 2026-10-01)
 
 - **Producción estable actual (confirmada por el usuario):** `abe32659d5bc20179f3270cd2f7d2612ea132623`.
-- **HEAD local:** `2920370829b391b96295cd760a0b89d1c25a383a`.
-  Bunker Live V2 está en progreso local y **NO está desplegado**. Las referencias de producción
+- **Código/tests local validado:** `ec0d77ab938c4ec2688bebb816726dc61527303f`; el commit documental
+  de este checkpoint lo sigue (HEAD exacto: `git rev-parse HEAD`).
+  **Bunker Live V2 — Sprint 4 COMPLETO localmente; NO desplegado.** Las referencias de producción
   anteriores en las notas históricas de abajo describen checkpoints pasados, no el estado actual.
 - Trabajo tras `013c3b7`: `db69559` actualizó solo handoff; `2920370` añadió progreso visual por
   panel Bunker y media GIF existente. `013c3b7` conserva la UX de edición de equipo Gym Profiles.
@@ -314,7 +315,7 @@ superseries; sustitución V2; herramientas; Health nunca visible en la sala; blo
 ejecutan como player completo en el Bunker (aviso). `views/Bunker.jsx`, `lib/bunker-workout.js`,
 `api/bunker/*`.
 
-### Bunker Live V2 — fase local segura (2026-10-01; NO desplegada)
+### Bunker Live V2 — Sprint 4 cerrado (2026-10-01; NO desplegado)
 
 - Al inspeccionar el HEAD `db69559` (desde `013c3b7`, solo el handoff había cambiado), se encontró
   ya disponible: navegación horizontal por todos los ejercicios, selección de rutina o freestyle
@@ -325,16 +326,38 @@ ejecutan como player completo en el Bunker (aviso). `views/Bunker.jsx`, `lib/bun
 - Commit `2920370`: añadió barra derivada de progreso (ejercicios/sets hechos) dentro de cada panel y
   preferencia por el GIF catalogado del ejercicio, con imagen catalogada como fallback. El progreso
   se calcula desde `active.entries` local del mismo panel; no crea estado, persistencia ni sincronía.
-- Validación de esta fase: pruebas Bunker workout/persistence/credentials **19/19**; API completa
-  **304/304**; build OK; español **3615/3615** y `git diff --check` OK. Frontend completo: **948
-  pasaron; 2 fallaron** en `rp-volume.test.js` (`monthlyGroupVolume`, esperaba 4 y recibió 0); no
-  pertenecen a Bunker y quedaron sin modificar. Build conserva el aviso conocido de chunks grandes.
-- Falta QA visual/funcional real para uno, dos y tres socios en pantallas grandes/táctiles; 4+ paneles;
-  aislamiento simultáneo de sets/timers/swaps/finish; handoff con conflicto y reconexión; y preservación
-  de metadatos de programa al terminar en Bunker. La fase NO se declara completa.
-- Siguiente ejecución con Sol: revisar esos bordes con evidencia y decidir si alguno requiere tocar
-  Sync V2, concurrencia, auth/PIN, persistencia, formato histórico o handoff móvil-Bunker. No rediseñar
-  esos núcleos; el trabajo de esta fase no los modifica.
+- `13087d5`: minimizar y abrir administración ya no desmontan los paneles; conservan índice,
+  borrador y descanso local. `/session` devuelve el descanso del store existente. Swaps reutilizan
+  el selector compartido (Modals montado en la ruta Bunker), con contexto del socio del panel y
+  perfil oficial 2J; no usan los ejercicios personalizados de otra cuenta.
+- Red: un fallo de carga no revoca credenciales. La cola existente conserva operationId/revisión
+  y el borrador ante fallos y 409; muestra pendiente/Reintentar o conflicto. No hay overwrite ciego:
+  solo la elección explícita de descartar y cargar una lectura exitosa elimina el borrador.
+  Finish pendiente conserva payload; no puede limpiar otra sesión instalada concurrentemente.
+- Handoff normal/repetido, 409/force y dos usuarios revalidados. Correcciones mínimas: una copia
+  divergente del mismo ID mientras está en el kiosco requiere confirmación; una sesión finalizada
+  o tombstoned no puede reabrirse, tampoco con force. El teléfono no ofrece reemplazarla.
+- Finish conserva `src2j.program` y topW, sets/targets/RPE/feedback/cardio. History cuenta cada
+  sesión una vez, calcula la siguiente y completa el programa. API usa copia generada del MISMO
+  helper puro del teléfono (`scripts/sync-guided-program-model.mjs --check` + test de paridad);
+  no existe segundo motor de programas ni cambio de Sync V2.
+- QA real en navegador local con socios ficticios: 1/2/3 paneles a 1440×900, 1024×768, 768×1024
+  y 390×844; GIFs catalogados, navegación/superseries, progreso, descanso, swap, herramientas,
+  minimizar/restaurar y finish de uno manteniendo los otros. Desconexión real conserva set y
+  descanso; Reintentar confirma el set tras recuperar conexión. Conflicto concurrente conserva
+  borrador y bloquea mutaciones. Se corrigieron botoneras recortadas en móvil/tablet. 4 paneles
+  degradan con scroll sin overflow global. No se añadió onboarding: PIN y controles actuales bastan.
+- Tests finales: frontend **957/957**, API **312/312**, Bunker frontend **24/24**; 8 regresiones API
+  en `bunker-live.test.js`. Build OK; español **3620/3620**, paridad y `git diff --check` OK.
+  `ec0d77a`: los dos fallos de volumen mensual eran fixtures dependientes de la fecha (el 1/oct
+  la semana comienza en septiembre y no cuenta); no hubo cambios de Bunker en esa lógica.
+  Pruebas fijadas a mediados de mes + caso explícito del límite mensual; cálculo sin modificar.
+- Límites conservados: temporización guiada completa en teléfono; PIN requerido tras recarga
+  (credenciales solo en memoria), colas existentes ligadas al token y almacenamiento best-effort.
+  No se garantiza recuperar un borrador sin confirmar tras recarga con NUEVO token; no se ha
+  rediseñado esa persistencia. Descanso de sala efímero tras reinicio API; aviso conocido de chunks
+  grandes. Antes de deploy: aprobación y prueba en el dispositivo físico; no runner/push/deploy
+  en este cierre. Producción sigue siendo la confirmada en §1.
 
 ## 10b. Series Feedback V1 (desplegado en 133a52c)
 
@@ -458,8 +481,8 @@ No desplegar sin autorización explícita.
 duplicados; clasificar los 28 sin movimiento; precisar plate-loaded/selectorized con evidencia;
 posible editor admin de metadata; etiquetas heredadas "(male)" visibles en la biblioteca completa.
 
-**Siguiente trabajo:** Sprint 4 parte del HEAD indicado arriba, sin rehacer Gym Profiles.
-Otras ideas de roadmap (Health V2, Library V2, Bunker Live) no se inician hasta priorización explícita.
+**Siguiente trabajo:** revisión/aprobación del cierre local de Sprint 4; no rehacer Gym Profiles
+ni Bunker Live. Otras ideas de roadmap (Health V2, Library V2) requieren priorización explícita.
 
 **Deuda conocida (no autorizada como trabajo):** retención/poda de receipts, tombstones y journal
 de Sync V2; Sync V2 es monoproceso; unidades de pesos históricos; traducciones parciales en
