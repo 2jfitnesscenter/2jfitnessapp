@@ -5,12 +5,14 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
-## 1. Estado actual (checkpoint 2026-09-30)
+## 1. Estado actual (checkpoint 2026-10-01)
 
 - **Producción estable actual (confirmada por el usuario):** `abe32659d5bc20179f3270cd2f7d2612ea132623`.
-- **HEAD de trabajo antes de este relevo:** `013c3b7378a72facc35420cd2197ea9887a3c950`.
-  Su mejora de edición personal de Gym Profiles **NO está desplegada**. Las referencias de producción
+- **HEAD local:** `2920370829b391b96295cd760a0b89d1c25a383a`.
+  Bunker Live V2 está en progreso local y **NO está desplegado**. Las referencias de producción
   anteriores en las notas históricas de abajo describen checkpoints pasados, no el estado actual.
+- Trabajo tras `013c3b7`: `db69559` actualizó solo handoff; `2920370` añadió progreso visual por
+  panel Bunker y media GIF existente. `013c3b7` conserva la UX de edición de equipo Gym Profiles.
 - `7ebb722708a6b27c33aafe60f799b1dada8fbc59` es un checkpoint anterior de Gym Profiles V1;
   no representa la producción actual. El polish visual `70080f1` es un checkpoint anterior.
 - **Rollback conocido seguro:** `4aab27eaed769505c70d7d742be8de99e4052e5f` (Legal/credits).
@@ -311,6 +313,28 @@ Multiusuario con aislamiento por PIN; handoff móvil → Bunker; descanso prescr
 superseries; sustitución V2; herramientas; Health nunca visible en la sala; bloques guiados no se
 ejecutan como player completo en el Bunker (aviso). `views/Bunker.jsx`, `lib/bunker-workout.js`,
 `api/bunker/*`.
+
+### Bunker Live V2 — fase local segura (2026-10-01; NO desplegada)
+
+- Al inspeccionar el HEAD `db69559` (desde `013c3b7`, solo el handoff había cambiado), se encontró
+  ya disponible: navegación horizontal por todos los ejercicios, selección de rutina o freestyle
+  cuando no hay sesión asignada, sets/cardio, supersets A1/A2, swaps existentes, minimización por
+  socio, sesiones simultáneas por panel, herramientas globales, cola local/retry de cambios y finish
+  idempotente ya existente. Bunker conserva el contexto oficial 2J. Los bloques guiados muestran una
+  nota: su temporización completa sigue en el teléfono.
+- Commit `2920370`: añadió barra derivada de progreso (ejercicios/sets hechos) dentro de cada panel y
+  preferencia por el GIF catalogado del ejercicio, con imagen catalogada como fallback. El progreso
+  se calcula desde `active.entries` local del mismo panel; no crea estado, persistencia ni sincronía.
+- Validación de esta fase: pruebas Bunker workout/persistence/credentials **19/19**; API completa
+  **304/304**; build OK; español **3615/3615** y `git diff --check` OK. Frontend completo: **948
+  pasaron; 2 fallaron** en `rp-volume.test.js` (`monthlyGroupVolume`, esperaba 4 y recibió 0); no
+  pertenecen a Bunker y quedaron sin modificar. Build conserva el aviso conocido de chunks grandes.
+- Falta QA visual/funcional real para uno, dos y tres socios en pantallas grandes/táctiles; 4+ paneles;
+  aislamiento simultáneo de sets/timers/swaps/finish; handoff con conflicto y reconexión; y preservación
+  de metadatos de programa al terminar en Bunker. La fase NO se declara completa.
+- Siguiente ejecución con Sol: revisar esos bordes con evidencia y decidir si alguno requiere tocar
+  Sync V2, concurrencia, auth/PIN, persistencia, formato histórico o handoff móvil-Bunker. No rediseñar
+  esos núcleos; el trabajo de esta fase no los modifica.
 
 ## 10b. Series Feedback V1 (desplegado en 133a52c)
 
