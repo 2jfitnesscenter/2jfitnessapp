@@ -30,6 +30,24 @@ export const DEPRECATED = {
   '0312': '0313', // identical dataset steps, implement, movement and target: hammer curl v. 2
   '0395': '0396', // identical dataset steps, implement, movement and target: seated lateral raise v. 2
   '2318': '0869', // identical dataset steps, implement, movement and target: lever shoulder press v. 3
+  // Quality pass (Entrena con 2J Admin sprint). The remaining "v. N" groups were compared step by
+  // step: same name once "v. N" is removed, same implement, same target, and the SAME execution
+  // sequence — only the wording of the dataset's instructions differs (no other grip, angle, setup
+  // or range). The images are not in the repository, so a pair whose steps differ in any
+  // execution detail stays a reviewed variant below instead. The preferred id is the curated or
+  // lower-numbered record; none of these twins is used by an official block or routine.
+  '0077': '0078', // barbell rear lunge v. 2 — identical five steps, wording of step 1 only
+  '0119': '0120', // barbell upright row v. 2 — same grip, width and path (steps 96 % identical)
+  '0121': '0120', // barbell upright row v. 3 — same as above
+  '0287': '2137', // dumbbell Arnold press v. 2 — steps 100 % identical in content ("end up facing")
+  '1657': '0298', // dumbbell cross-body hammer curl v. 2 — same path to the opposite shoulder
+  '2136': '0299', // dumbbell Cuban press v. 2 — same press and rotation sequence
+  '0360': '0361', // dumbbell one-arm shoulder press v. 2 — same four steps
+  '1479': '1299', // lever incline chest press v. 2 — same setup; only "do not lock the elbows" added
+  '0309': '0310', // dumbbell front raise v. 2 — same raise to shoulder height (dataset secondary muscle differs)
+  '0513': '0514', // jump squat v. 2 — same squat and jump; arm swing mentioned in one only
+  '0658': '0659', // wall push-up v. 2 — same stance, hands on the wall at shoulder height
+  '2371': '0846', // weighted Russian twist v. 2 — same seated lean and twist
 }
 
 /**
@@ -48,6 +66,7 @@ export const EXTRA_RECOMMENDED = [
   '0979', // band Pallof press
   '0226', // cable standing crunch
   '0684', '3666', '2138', '2141', '2331', '2311', '0798', // cardio machines used in 2J sessions
+  '2142', // SkiErg: in the gym's equipment list, used by the SkiErg intervals
   '0128', // battling ropes: clear conditioning intervals
   '0500', // isometric wipers: clear core rotation
   '1362', // sphinx: simple floor mobility
@@ -68,6 +87,20 @@ export const MOVEMENT_OVERRIDE = {
   '0500': 'core_rotation', '1416': 'core_rotation', '3669': 'core_rotation',
   '1297': 'chest_fly', '0555': 'core_flexion', '0730': 'lunge', '3433': 'core_anti_extension',
   '1302': 'horizontal_push', '1303': 'horizontal_push', '1304': 'horizontal_push', '1305': 'horizontal_push',
+  // Quality pass: exercises that had no canonical movement, assigned only where the dataset's own
+  // steps (and the Spanish name) agree on the job. Muscle-ups, levers and skin-the-cat (skills),
+  // the two band hip rotations (steps contradict the name), balance board, "around the world",
+  // "elevator", "London bridge", "pirate", "breeding", the exercise-ball arm lift and the assisted
+  // prone hamstring (steps describe a curl, the name a stretch) stay unclassified on purpose.
+  '0376': 'lateral_raise',   // "raise your arms out to the sides until parallel to the floor"
+  '0415': 'lateral_raise',   // alternating raise "to the side … parallel to the ground"
+  '3546': 'vertical_push',   // seated alternating press "up overhead"
+  '0720': 'vertical_pull',   // chin-up variant: "bringing your chin towards the bar"
+  '1689': 'horizontal_push', // both phases of the steps are push-up repetitions
+  '1338': 'mobility',        // "until you feel a stretch in your back muscles"; Spanish name says stretch
+  '1355': 'mobility',        // one-arm lat stretch against a wall; Spanish name says stretch
+  '1312': 'conditioning',    // medicine-ball push, release, then run to catch it
+  '0548': 'olympic',         // explosive hip drive and high pull (a weightlifting pull)
 }
 
 /**
@@ -123,9 +156,32 @@ export const ALIASES = {
   '0128': ['cuerdas de batalla'],
   '0500': ['limpiaparabrisas isometricos'],
   '1362': ['postura de la esfinge'],
+  // Quality pass: words members use for the exercises the guided sessions are built from.
+  '0662': ['flexiones', 'flexion de brazos', 'push up', 'lagartijas'],
+  '0630': ['escaladores', 'mountain climbers'],
+  '1160': ['burpees'],
+  '3360': ['bear crawl', 'arrastre del oso'],
+  '1471': ['gusano', 'caminata de manos', 'inchworm walkout'],
+  '2142': ['skierg', 'esqui ergometro'],
+  '1604': ['world greatest stretch', 'zancada con rotacion'],
+  '1585': ['zancada del corredor'],
+  '0276': ['bicho muerto'],
+  '1403': ['estiramiento de cuello'],
+  '0716': ['estiramiento de cuello con mano'],
 }
 
 export const aliasCountOf = id => (ALIASES[id] || []).length
+
+/**
+ * Display-name corrections: typos in the upstream English name. `n` replaces the English name
+ * (everywhere the app reads `ex.n`); `es` would replace the Spanish one. The dataset record is
+ * never edited. The "(male)/(female)" model label some upstream names end with is removed
+ * programmatically (core.js) wherever the shorter name stays unique.
+ */
+export const NAME_OVERRIDE = {
+  '1512': { n: 'all fours quad stretch' },  // "squad" in the dataset
+  '1418': { n: 'hug knees to chest' },       // "keens" in the dataset
+}
 
 /**
  * Pairs that share a name in the dataset but are different exercises (class B), checked against
@@ -144,4 +200,13 @@ export const REVIEWED_VARIANTS = [
   ['0318', '0317'], // upper arms supported on incline bench vs arms free
   ['1471', '3698'], // hands walk out and back vs travelling with feet towards hands
   ['1452', '3760'], // separate crunch machine setups, only second has secured feet
+  // Quality pass — pairs compared step by step whose execution differs in a way the steps state, so
+  // they are NOT merged (class B/C: different grip, setup or cue; class D: ambiguous). Kept apart.
+  ['0126', '0125'], // barbell wrist curl: rolls the bar to the fingertips vs wrists hanging off the thighs, hands shoulder-width
+  ['0305', '0304'], // decline-bench shrug: arms hang vs palms facing and shoulder blades squeezed together
+  ['0343', '0342'], // one-arm lying press: palm forward vs palm towards the feet, elbow close to the body
+  ['0499', '0497'], // inverted row: free bar or suspension trainer vs bar on a Smith machine, narrower grip
+  ['0580', '1439'], // gripless shrug machine: palms inwards vs overhand bars, back against the pad
+  ['0592', '1614'], // lever preacher curl: plain pad vs chest-supported seat, wider underhand grip
+  ['0603', '0869'], // lever shoulder press: straight up vs "upward and forward" path — possibly another machine
 ]

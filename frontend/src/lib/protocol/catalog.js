@@ -200,6 +200,34 @@ const C = {
   // ── power
   '0514': ['jump', 'sec', 'quads', 'glutes', 'jump,deepKnee', 'bodyweight'],
   '0053': ['jump', 'cf', 'quads', 'glutes', 'jump,deepKnee,spinalLoad', 'barbell'],
+  // ── Entrena con 2J Admin sprint: more mobility, warm-up drills and conditioning for the new
+  // official sessions. Flags were read from each record's own instructions; records whose steps
+  // contradict their name (e.g. "hug knees to chest", "chair leg extended stretch") were left out.
+  // Stretches and drills carry no primary group on purpose (never counted as training volume).
+  '1585': ['mob-ham', 'iso', '', '', 'uni', 'runner'],
+  '1407': ['mob-calf', 'iso', '', '', 'uni', 'wall-push'],
+  '0643': ['mob-triceps', 'iso', '', '', 'overhead,uni', 'overhead'],
+  '1403': ['mob-neck', 'iso', '', '', 'uni', 'side'],
+  '0716': ['mob-neck', 'iso', '', '', 'uni', 'assisted-side'],
+  '1364': ['mob-spine', 'iso', '', '', '', 'pelvic-tilt'],
+  '0690': ['mob-spine', 'iso', '', '', '', 'seated-fold'],
+  '0613': ['mob-quad', 'iso', '', '', 'floor,uni', 'side-lying'],
+  '1576': ['mob-ham', 'iso', '', '', 'floor,uni', 'leg-up'],
+  '1419': ['mob-spine', 'iso', '', '', 'floor', 'cross'],
+  '1362': ['mob-spine', 'iso', '', '', 'floor', 'sphinx'],
+  '1366': ['mob-spine', 'iso', '', '', 'floor', 'updog'],
+  '1471': ['mob-ham', 'iso', '', '', 'floor', 'inchworm'],
+  '1685': ['mob-hip', 'iso', '', '', 'deepKnee,overhead', 'squat-reach'],
+  '1687': ['mob-hip', 'iso', '', '', 'deepKnee,overhead,uni', 'lunge-reach'],
+  '3212': ['mob-ham', 'iso', '', '', '', 'toe-touch'],
+  '3213': ['mob-spine', 'iso', '', '', '', 'side-reach'],
+  '3021': ['mob-shoulder', 'iso', '', '', 'floor', 'scapular'],
+  '3220': ['cond-jack', 'sec', '', '', 'jump', 'astride'],
+  '3223': ['cond-jack', 'sec', '', '', 'jump', 'star'],
+  '0501': ['cond-burpee', 'sec', '', '', 'jump,floor', 'jack'],
+  '3655': ['cond-knee', 'sec', '', '', 'deepKnee,uni', 'walking-lunge'],
+  '3552': ['cond-step', 'sec', '', '', '', 'quick-feet'],
+  '2466': ['cond-climber', 'sec', '', '', 'floor', 'cross-body'],
 }
 
 const CLS = { cf: 'compound_free', cs: 'compound_stable', sec: 'secondary', iso: 'isolation' }

@@ -43,7 +43,11 @@ export const instrFor = ex => (instr && instr[ex.id]) || ex.st || []
 // Display name for an exercise in the current language — `ex.n` (always English, and the
 // field search/import matching keys off) stays untouched; this is presentation-only. A custom
 // exercise's id is never in a names pack, so it falls through to its own `n` automatically.
-export const nameFor = ex => (ex && names && names[ex.id]) || (ex && ex.n) || ''
+// An admin-set Spanish name (library admin overlay) beats the Spanish pack; any other language
+// keeps its pack, then the English name. The overlay lives in lib/library/core.js (ES_NAME).
+let nameOverrides = {}
+export const setNameOverrides = map => { nameOverrides = map || {}; notify() }
+export const nameFor = ex => (ex && lang === 'es' && nameOverrides[ex.id]) || (ex && names && names[ex.id]) || (ex && ex.n) || ''
 
 export async function setLang(l) {
   if (!LANGS[l]) l = 'es'

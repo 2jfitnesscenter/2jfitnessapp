@@ -1,5 +1,8 @@
 import { EXDB } from './exercises-data.js'
 import { t } from './i18n.js'
+// Loading the library layer applies the corrected English display names to EXDB once, before
+// anything reads `ex.n` (see lib/library/core.js).
+import './library/core.js'
 
 export { EXDB }
 export const EXIDX = {}

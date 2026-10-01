@@ -8,7 +8,7 @@ import { EXDB } from '../exercises-data.js'
 import esNames from '../../names/es.js'
 import { classify } from '../protocol/classify.js'
 import { MOVEMENT_BY_ID, EQUIPMENT_BY_ID, equipmentIdOf, validateAgainst2JProtocol } from '../protocol/index.js'
-import { checkLibrary, facetsOf, RECOMMENDED, isDeprecated, preferredOf, similarVariants, aliasIndexOf, norm } from './core.js'
+import { checkLibrary, facetsOf, RECOMMENDED, isDeprecated, preferredOf, similarVariants, aliasIndexOf, norm, upstreamNameOf } from './core.js'
 import { DEPRECATED, EXTRA_RECOMMENDED, ALIASES, REVIEWED_VARIANTS } from './overrides.js'
 
 /* Exercise Library V2 — identity is the dataset id; everything else is metadata on top. */
@@ -124,8 +124,37 @@ describe('recommended vs master, deprecated vs preferred', () => {
     }
     for (const [id, movement] of Object.entries({ '1408': 'hip_thrust', '0325': 'vertical_push', '0128': 'conditioning', '1362': 'mobility', '0500': 'core_rotation', '0628': 'hip_abduction' }))
       expect(facetsOf(X[id]).movement, id).toBe(movement)
-    expect(EXDB.filter(e => !facetsOf(e).movement)).toHaveLength(28)
+    expect(EXDB.filter(e => !facetsOf(e).movement)).toHaveLength(19)
     expect(RECOMMENDED.has('0128') && RECOMMENDED.has('0500') && RECOMMENDED.has('1362')).toBe(true)
+  })
+  it('Entrena con 2J Admin quality pass: every one of the 18 possible-duplicate groups has a decision', () => {
+    // A — deprecated with evidence (same execution sequence, wording only), each → one preferred id
+    const A = { '0077': '0078', '0119': '0120', '0121': '0120', '0287': '2137', '1657': '0298', '2136': '0299',
+      '0360': '0361', '1479': '1299', '0309': '0310', '0513': '0514', '0658': '0659', '2371': '0846' }
+    expect(DEPRECATED).toMatchObject(A)
+    for (const [dep, pref] of Object.entries(A)) {
+      expect(preferredOf(dep), dep).toBe(pref)
+      expect(DEPRECATED[pref], 'no chain: ' + pref).toBeUndefined()
+      expect(facetsOf(X[dep]).movement).toBe(facetsOf(X[pref]).movement)
+    }
+    // B/C/D — compared and kept apart: neither side is deprecated
+    for (const [a, b] of [['0126', '0125'], ['0305', '0304'], ['0343', '0342'], ['0499', '0497'], ['0580', '1439'], ['0592', '1614'], ['0603', '0869']]) {
+      expect(REVIEWED_VARIANTS.some(p => p.includes(a) && p.includes(b)), a + b).toBe(true)
+      expect(isDeprecated(a) || isDeprecated(b)).toBe(false)
+    }
+    // Movements assigned only where the steps agree; the skills stay unclassified on purpose
+    for (const [id, m] of Object.entries({ '0376': 'lateral_raise', '0415': 'lateral_raise', '3546': 'vertical_push', '0720': 'vertical_pull', '1689': 'horizontal_push', '1338': 'mobility', '1355': 'mobility', '1312': 'conditioning', '0548': 'olympic' }))
+      expect(facetsOf(X[id]).movement, id).toBe(m)
+    for (const id of ['0631', '0558', '3297', '3295', '3304', '0020']) expect(facetsOf(X[id]).movement, id).toBeNull()
+  })
+  it('English display names: the dataset typos are corrected and the model label is gone where unique', () => {
+    expect(X['1512'].n).toBe('all fours quad stretch')
+    expect(X['1418'].n).toBe('hug knees to chest')
+    expect(EXDB.filter(e => /\((male|female)\)$/.test(e.n)).length).toBeLessThanOrEqual(2)
+    expect(X['3224'].n).toBe('jack jump')
+    expect(upstreamNameOf('3224')).toBe('jack jump (male)')
+    // the id, the Spanish name and every other field are untouched
+    expect(X['3224'].id).toBe('3224')
   })
 })
 

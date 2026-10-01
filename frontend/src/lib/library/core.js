@@ -10,16 +10,49 @@ import { EXDB } from '../exercises-data.js'
 import { CATALOG } from '../protocol/catalog.js'
 import { classify } from '../protocol/classify.js'
 import { movementOfPattern, equipmentIdOf, MOVEMENT_BY_ID, EQUIPMENT_BY_ID, EQUIPMENT_OVERRIDE } from '../protocol/movements.js'
-import { DEPRECATED, EXTRA_RECOMMENDED, MOVEMENT_OVERRIDE, ALIASES, REVIEWED_VARIANTS } from './overrides.js'
+import { DEPRECATED, EXTRA_RECOMMENDED, MOVEMENT_OVERRIDE, ALIASES, REVIEWED_VARIANTS, NAME_OVERRIDE } from './overrides.js'
+import { norm, sanitizeAgainstBase, emptyOverlay } from './overlay.js'
 
+export { norm }
 const DATA = new Map(EXDB.map(e => [e.id, e]))
 const dataLookup = id => DATA.get(id) || null
 
-/** Lower-case, accents off, punctuation to spaces — the one normal form for names and aliases. */
-export const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .replace(/[^a-z0-9]+/g, ' ').trim()
+// ── display names (English) ─────────────────────────────────────────────────────────────────
+// Typos in the upstream names are corrected in this layer (NAME_OVERRIDE) and the "(male)/(female)"
+// model label some upstream names end with is dropped wherever the shorter name stays unique.
+// The record's id and its Spanish name never change. Applied once, when this module loads — it is
+// imported by lib/exercises.js, so every reader of `ex.n` sees the same name.
+const UPSTREAM_NAME = new Map(EXDB.map(e => [e.id, e.n]))
+const MODEL_LABEL = /\s*\((male|female)\)\s*$/i
+const BASE_NAME = (() => {
+  const stripped = new Map(EXDB.map(e => [e.id, NAME_OVERRIDE[e.id]?.n || e.n.replace(MODEL_LABEL, '').trim() || e.n]))
+  const count = new Map()
+  for (const v of stripped.values()) count.set(norm(v), (count.get(norm(v)) || 0) + 1)
+  // A name that would collide with another exercise's keeps its upstream label.
+  return new Map(EXDB.map(e => [e.id, count.get(norm(stripped.get(e.id))) > 1 && !NAME_OVERRIDE[e.id]?.n ? e.n : stripped.get(e.id)]))
+})()
+for (const e of EXDB) e.n = BASE_NAME.get(e.id)
+export const upstreamNameOf = id => UPSTREAM_NAME.get(id) || null
 
-export const RECOMMENDED = new Set([...Object.keys(CATALOG), ...EXTRA_RECOMMENDED].filter(id => !DEPRECATED[id]))
+// ── decisions: the code's (overrides.js) plus the admin overlay (overlay.js) on top ─────────────
+const BASE = {
+  deprecated: { ...DEPRECATED },
+  movement: { ...MOVEMENT_OVERRIDE },
+  equipment: { ...EQUIPMENT_OVERRIDE },
+  aliases: Object.fromEntries(Object.entries(ALIASES).map(([k, v]) => [k, [...v]])),
+  variants: REVIEWED_VARIANTS.map(p => [...p]),
+}
+const NO_MOVEMENT = new Set()          // ids the admin explicitly left without a canonical movement
+const ES_NAME = {}                     // admin-set Spanish display names, read by i18n nameFor
+let overlay = emptyOverlay()
+let overlayRevision = 0
+export const libraryOverlay = () => overlay
+/** Bumps on every applyLibraryOverlay — caches keyed on it (search haystacks) rebuild. */
+export const overlayRevisionOf = () => overlayRevision
+export const spanishNameOverrides = () => ES_NAME
+
+const baseRecommended = () => new Set([...Object.keys(CATALOG), ...EXTRA_RECOMMENDED].filter(id => !BASE.deprecated[id]))
+export const RECOMMENDED = baseRecommended()
 export const isRecommended = id => RECOMMENDED.has(id)
 export const isDeprecated = id => !!DEPRECATED[id]
 /** The id new selections and imports should use for `id` (itself unless deprecated). */
@@ -37,7 +70,7 @@ export function facetsOf(ex, lookup = dataLookup) {
   const c = classify(ex.id, id => (id === ex.id ? ex : lookup(id)))
   const equipment = equipmentIdOf(ex)
   const kind = equipment === 'custom' ? 'custom' : EQUIPMENT_BY_ID[equipment]?.kind || null
-  let movement = MOVEMENT_OVERRIDE[ex.id] || movementOfPattern(c.pattern)
+  let movement = NO_MOVEMENT.has(ex.id) ? null : MOVEMENT_OVERRIDE[ex.id] || movementOfPattern(c.pattern)
   // The dataset files burpees and jumping jacks under "cardio" too: without a cardio machine
   // that is conditioning, not a machine session.
   if (movement === 'cardio' && kind !== 'cardio') movement = 'conditioning'
@@ -52,7 +85,7 @@ export function facetsOf(ex, lookup = dataLookup) {
   return f
 }
 
-/** Alias (normalised) → id, from overrides.js. Built once. */
+/** Alias (normalised) → id, from overrides.js (+ the admin overlay). Rebuilt when an overlay is applied. */
 let aliasIndex = null
 export function aliasIndexOf() {
   if (aliasIndex) return aliasIndex
@@ -61,6 +94,87 @@ export function aliasIndexOf() {
   return aliasIndex
 }
 export const aliasesOf = id => ALIASES[id] || []
+
+// The code's own movement of every exercise, computed once while the live state is the code's.
+let baseMovementMap = null
+function ensureBaseMovement() {
+  if (!baseMovementMap) baseMovementMap = new Map(EXDB.map(e => [e.id, facetsOf(e)?.movement || null]))
+  return baseMovementMap
+}
+
+function restoreBase() {
+  for (const k of Object.keys(DEPRECATED)) delete DEPRECATED[k]
+  Object.assign(DEPRECATED, BASE.deprecated)
+  for (const k of Object.keys(MOVEMENT_OVERRIDE)) delete MOVEMENT_OVERRIDE[k]
+  Object.assign(MOVEMENT_OVERRIDE, BASE.movement)
+  for (const k of Object.keys(EQUIPMENT_OVERRIDE)) delete EQUIPMENT_OVERRIDE[k]
+  Object.assign(EQUIPMENT_OVERRIDE, BASE.equipment)
+  for (const k of Object.keys(ALIASES)) delete ALIASES[k]
+  for (const [k, v] of Object.entries(BASE.aliases)) ALIASES[k] = [...v]
+  REVIEWED_VARIANTS.length = 0
+  REVIEWED_VARIANTS.push(...BASE.variants.map(p => [...p]))
+  NO_MOVEMENT.clear()
+  for (const k of Object.keys(ES_NAME)) delete ES_NAME[k]
+  for (const e of EXDB) e.n = BASE_NAME.get(e.id)
+  RECOMMENDED.clear()
+  for (const id of baseRecommended()) RECOMMENDED.add(id)
+  facetCache.clear()
+  aliasIndex = null
+}
+
+/** What the overlay checks need to know about the code's own (overlay-free) library. */
+function baseContext() {
+  const movements = ensureBaseMovement()
+  return {
+    has: id => DATA.has(id),
+    allIds: () => EXDB.map(e => e.id),
+    movements: new Set(Object.keys(MOVEMENT_BY_ID)),
+    equipment: new Set(Object.keys(EQUIPMENT_BY_ID)),
+    baseMovement: id => movements.get(id) || null,
+    basePref: id => BASE.deprecated[id] || null,
+    baseNames: () => { const m = new Map(); for (const e of EXDB) m.set(norm(e.n), [...(m.get(norm(e.n)) || []), e.id]); return m },
+    baseAliases: () => { const m = new Map(); for (const [id, list] of Object.entries(BASE.aliases)) for (const a of list) m.set(norm(a), id); return m },
+    usedByOfficial: () => false,
+  }
+}
+/** The context the API-shared rules (overlay.js) run against — also used by the admin UI. */
+export const libraryBaseContext = () => baseContext()
+
+/**
+ * Put the admin overlay on top of the code's decisions, in place: DEPRECATED, MOVEMENT_OVERRIDE,
+ * EQUIPMENT_OVERRIDE, ALIASES, REVIEWED_VARIANTS, RECOMMENDED and the English display names are the
+ * very objects the rest of the app reads, so nothing else has to know. Entries that no longer hold
+ * against the code are skipped one by one (a release can change a decision under a stored overlay).
+ * Calling it again replaces the previous overlay; applying nothing restores the code's library.
+ */
+export function applyLibraryOverlay(raw) {
+  restoreBase()
+  ensureBaseMovement()
+  const clean = sanitizeAgainstBase(raw, baseContext())
+  for (const [id, e] of Object.entries(clean.entries)) {
+    if (e.preferredId === false) delete DEPRECATED[id]
+    else if (e.preferredId) DEPRECATED[id] = e.preferredId
+    if (e.movement === '') NO_MOVEMENT.add(id)
+    else if (e.movement) MOVEMENT_OVERRIDE[id] = e.movement
+    if (e.equipment) EQUIPMENT_OVERRIDE[id] = e.equipment
+    if (e.aliases?.length) ALIASES[id] = [...new Set([...(ALIASES[id] || []), ...e.aliases])]
+    if (e.n && DATA.has(id)) DATA.get(id).n = e.n
+    if (e.es) ES_NAME[id] = e.es
+  }
+  RECOMMENDED.clear()
+  for (const id of baseRecommended()) if (!DEPRECATED[id]) RECOMMENDED.add(id)
+  for (const [id, e] of Object.entries(clean.entries)) {
+    if (e.recommended === true && !DEPRECATED[id]) RECOMMENDED.add(id)
+    if (e.recommended === false) RECOMMENDED.delete(id)
+  }
+  for (const id of Object.keys(DEPRECATED)) RECOMMENDED.delete(id)
+  for (const p of clean.variants) REVIEWED_VARIANTS.push([...p])
+  facetCache.clear()
+  aliasIndex = null
+  overlay = clean
+  overlayRevision++
+  return clean
+}
 
 // Why a candidate is offered as a similar variant. Keys are stable; the UI translates them.
 export const REASONS = {

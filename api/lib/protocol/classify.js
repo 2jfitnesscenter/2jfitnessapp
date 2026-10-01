@@ -15,6 +15,7 @@ const TG_GROUP = {
 const TG_FALLBACK = { forearms: 'wrist', calves: 'calf', biceps: 'curl', triceps: 'tri-ext', abs: 'core-flex' }
 const FREE_HEAVY = new Set(['barbell', 'olympic barbell', 'trap bar', 'ez barbell'])
 const GUIDED = new Set(['leverage machine', 'smith machine', 'sled machine', 'cable', 'assisted'])
+const CARDIO_ERGOMETERS = new Set(['skierg machine', 'upper body ergometer'])
 
 // Order matters: first match wins.
 const PATTERNS = [
@@ -70,7 +71,8 @@ export function classify(id, lookup) {
   if (cur) return { ...cur, id, eq: ex?.eq || null, cardio: false, curated: true, known: true }
   if (!ex) return { id, known: false, curated: false, pattern: 'unknown', cls: 'isolation', group: null, secondary: [], flags: [], variant: '', uni: false, eq: null, cardio: false }
   const name = String(ex.n || '').toLowerCase()
-  if (ex.bp === 'cardio') return { id, known: true, curated: false, pattern: 'cardio', cls: 'isolation', group: 'cardio', secondary: [], flags: [], variant: '', uni: false, eq: ex.eq, cardio: true }
+  // Ergometers (ski, arm bike) are filed under shoulders/arms but are cardio machines.
+  if (ex.bp === 'cardio' || CARDIO_ERGOMETERS.has(ex.eq)) return { id, known: true, curated: false, pattern: 'cardio', cls: 'isolation', group: 'cardio', secondary: [], flags: [], variant: '', uni: false, eq: ex.eq, cardio: true }
   let pattern = 'other', cls = 'isolation', flags = []
   for (const [re, p, c, f] of PATTERNS) if (re.test(name)) { pattern = p; cls = c; flags = f ? [...f] : []; break }
   // A plain "press" is a chest press or an overhead press depending on its target muscle.

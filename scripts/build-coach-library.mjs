@@ -29,11 +29,14 @@ const src = join(root, 'frontend', 'src', 'lib', 'exercises-data.js');
 const out = join(root, 'api', 'coach', 'library.json');
 
 const { EXDB } = await import(pathToFileURL(src).href);
-const { facetsOf } = await import(pathToFileURL(join(root, 'frontend', 'src', 'lib', 'library', 'core.js')).href);
+const { facetsOf, aliasesOf } = await import(pathToFileURL(join(root, 'frontend', 'src', 'lib', 'library', 'core.js')).href);
 const index = EXDB.map(e => {
   const f = facetsOf(e);
+  // `al` = the code's aliases: the library admin overlay's checks (api/lib/library-admin.js) need
+  // them to keep aliases unambiguous. It is never sent to a model (payload.js librarySlice).
+  const al = aliasesOf(e.id);
   return { id: e.id, n: e.n, bp: e.bp, tg: e.tg, eq: e.eq, ...(f.movement ? { mv: f.movement } : {}),
-    ...(f.recommended ? { rec: 1 } : {}), ...(f.preferredId ? { pref: f.preferredId } : {}) };
+    ...(f.recommended ? { rec: 1 } : {}), ...(f.preferredId ? { pref: f.preferredId } : {}), ...(al.length ? { al } : {}) };
 });
 const json = JSON.stringify({ generated_from: 'frontend/src/lib/exercises-data.js', count: index.length, exercises: index }) + '\n';
 
