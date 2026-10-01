@@ -1,5 +1,7 @@
 // Spanish UI strings. Keys are the English source strings (see lib/i18n.js).
 export default {
+  'Repeat the first working load until two sessions support a safe increase.': 'Repite la carga de la primera serie de trabajo hasta que dos sesiones respalden un aumento prudente.',
+  'High RPE or difficult feedback — repeat the first working load.': 'RPE alto o sensación difícil: repite la carga de la primera serie de trabajo.',
   'Automatically finished after inactivity': 'Finalizado automáticamente por inactividad',
   'For you today': 'Para ti hoy', 'How Intelligence 2J works': 'Cómo funciona Inteligencia 2J',
   'Your training, with context': 'Tu entrenamiento, con contexto',

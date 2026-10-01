@@ -9,7 +9,7 @@ import { stepWeight } from './equipment.js'
 import { programProgress } from './guided-programs.js'
 import { e1rmSeries, bestTestedOneRM } from './onerm.js'
 import { forYou, memberContext } from './train2j.js'
-import { effectiveRoutine } from './history.js'
+import { workingLoadEvidence, effectiveRoutine } from './history.js'
 import { isoOf } from './format.js'
 
 const DAY = 86400000
@@ -84,9 +84,9 @@ export function intelligenceSignals(S, options = {}) {
       s.r >= max && s.feel !== 'hard' && s.feel !== 'fail' && (effort(s) == null || effort(s) <= 8) &&
       (s.feel === 'good' || s.feel === 'easy' || (effort(s) != null && effort(s) <= 8)))
     const failed = h => h && h.sets.some(s => s.feel === 'fail' || (s.r < min && effort(s) >= 9))
-    const weight = Math.max(...current.sets.map(s => Number(s.w) || 0))
+    const weight = workingLoadEvidence(current.sets).weight
     if (S.enableProgressiveOverloadCoach !== false && history.length >= 2 && weight > 0 && reached(current) && reached(prior) &&
-      Math.max(...prior.sets.map(s => Number(s.w) || 0)) === weight) {
+      workingLoadEvidence(prior.sets).weight === weight) {
       const next = stepWeight(S, ex.eq, weight, 1)
       if (next > weight) add('PROGRESSION_READY', exerciseId, { exerciseId, weight, next, max, min, sessions: 2, evidenceAt: current.date }, 'high')
     } else if (history.length >= 2 && failed(current) && failed(prior))

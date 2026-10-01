@@ -24,7 +24,7 @@ const hist = (id, rows, target) => ({
     entries: [{
       id,
       target: target || { sets: 3, reps: 5, weight: row[0] },
-      sets: row.slice(1).map(r => (r === null ? { w: row[0], r: 0, done: false } : { w: row[0], r, done: true }))
+      sets: row.slice(1).map(r => (r === null ? { w: row[0], r: 0, done: false } : { w: row[0], r, rpe: 7, done: true }))
     }]
   }))
 })
@@ -244,7 +244,7 @@ describe('double progression', () => {
   const cfg = { id: LIFT, sets: 3, reps: 12, repsMin: 8, weight: 40, prog: 'double' }
 
   it('adds weight and drops back to the bottom of the range at the top of it', () => {
-    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12]], { sets: 3, reps: 12 }), cfg)
+    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12], [40, 12, 12, 12]], { sets: 3, reps: 12 }), cfg)
     expect(p.kind).toBe('up')
     expect(p.weight).toBe(42.5)
     expect(p.reps).toBe(8)
@@ -380,7 +380,7 @@ describe('history logged before targets were recorded', () => {
     unit: 'kg', ...FINE,
     workouts: rows.map((row, i) => ({
       d: '2026-03-' + String(i + 1).padStart(2, '0'),
-      entries: [{ id: LIFT, sets: row.slice(1).map(r => ({ w: row[0], r, done: true })) }]   // no target
+      entries: [{ id: LIFT, sets: row.slice(1).map(r => ({ w: row[0], r, rpe: 7, done: true })) }]   // no target
     }))
   })
   const cfg = { id: LIFT, sets: 3, reps: 5, weight: 60, prog: 'linear' }

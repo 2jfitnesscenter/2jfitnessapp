@@ -20,10 +20,10 @@ describe('suggestOverload', () => {
     expect(s).toEqual({ w: 80, r: 9, strategy: 'volume' })
   })
 
-  it('uses the heaviest working set from last time as the reference, not the first one', () => {
+  it('uses the first completed work set, not the heaviest later set', () => {
     const last = { sets: [{ w: 60, r: 12, done: true }, { w: 80, r: 8, done: true }] }
     const s = suggestOverload(baseS(), 'barbell', last, 10)
-    expect(s.w).toBe(80)   // the 80kg set is the real reference, not the 60kg warm-up-ish one
+    expect(s.w).toBe(65)   // optional increment from the first real work set, 60kg
   })
 
   it('treats no configured rep target as "always hit it" — a plain +weight suggestion', () => {

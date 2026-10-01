@@ -9,7 +9,7 @@
 // (plain .js/.jsx, no tsconfig) — documented the same way every other lib/*.js module is.
 import { stepWeight } from './equipment.js'
 import { estimate1RM, bestKnownOneRM } from './onerm.js'
-import { modeOf, recentEntriesFor, warmupSets } from './history.js'
+import { modeOf, recentEntriesFor, warmupSets, workingLoadEvidence } from './history.js'
 
 /**
  * The two-branch coaching suggestion the brief asks for: hit the top of your rep target last
@@ -20,12 +20,12 @@ import { modeOf, recentEntriesFor, warmupSets } from './history.js'
  */
 export function suggestOverload(S, eq, last, topReps) {
   if (!last || !last.sets?.length) return null
-  // The heaviest working set from last time is the one that actually tested the rep target —
-  // an early back-off set shouldn't drive today's suggestion.
-  const ref = last.sets.reduce((a, b) => (b.w || 0) > (a.w || 0) ? b : a, last.sets[0])
+  const evidence = workingLoadEvidence(last.sets)
+  const ref = evidence.first
+  if (!ref) return null
   if (!(ref.w > 0) || !(ref.r > 0)) return null
   const hitTop = topReps ? ref.r >= topReps : true
-  return hitTop
+  return hitTop && !evidence.highEffort
     ? { w: stepWeight(S, eq, ref.w, 1), r: ref.r, strategy: 'weight' }
     : { w: ref.w, r: ref.r + 1, strategy: 'volume' }
 }
@@ -66,7 +66,7 @@ export function isPotentialPR(S, exId, set) {
  * It never writes anything: applying it is the member's explicit choice, and even then only the
  * live session's unfinished sets change — never the routine (see acceptRecommendation).
  *
- * Rules, in order (first match wins). `W` is the heaviest weight of the last session, `min`/`max`
+ * Rules, in order (first match wins). `W` is the first completed working weight of the last session, `min`/`max`
  * the rep target (a range, or the single prescribed number for both), "in range" means every
  * prescribed set was done with at least `min` reps, "top" every set with at least `max`.
  *   1. no previous session, or not a weight × reps exercise → no recommendation
@@ -94,7 +94,7 @@ function readRecent(sets, target, min, max) {
   const complete = sets.length >= (target.sets || sets.length)
   const rpes = sets.map(rpeOf).filter(v => v != null)
   return {
-    W: Math.max(0, ...sets.map(s => s.w || 0)), reps, low,
+    ...workingLoadEvidence(sets), W: workingLoadEvidence(sets).weight, reps, low,
     rpe: rpes.length ? Math.max(...rpes) : null,
     inRange: complete && low >= min,
     top: complete && low >= max,
@@ -116,7 +116,8 @@ export function recommendProgression(S, entry, eq) {
   const sameAs = test => !!prev && prev.W === last.W && test(prev)
   const conf = support => support ? 'high' : (!prev && last.rpe == null ? 'low' : 'medium')
   const repsTxt = last.reps.join(', ')
-  const out = (kind, w, r, confidence, why) => ({ kind, w, r, confidence, why })
+  const out = (kind, w, r, confidence, why) => ({ kind, w, r, confidence, why,
+    ...(last.weights.some(x => x !== last.W) ? { weights: last.weights.map(x => w === last.W ? x : (stepWeight(S, eq, x, w > last.W ? 1 : -1))) } : {}) })
 
   if (!last.inRange) {
     if (!bw && prev && !prev.inRange && prev.W >= last.W) {
@@ -131,11 +132,13 @@ export function recommendProgression(S, entry, eq) {
       ? ['Last time: {0} reps. Same target until every set reaches {1}.', repsTxt, min]
       : ['Last time with {0} {1}: {2} reps. Stay here until every set reaches {3}.', fmt(last.W), unit, repsTxt, min])
   }
+  if (last.highEffort && last.inRange) return out('hold', last.W, last.low, 'medium', ['High RPE or difficult feedback — repeat the first working load.'])
   if (last.top) {
-    if (last.rpe != null && last.rpe >= 9.5) return out('hold', last.W, max, 'medium',
+    if (last.highEffort || (last.rpe != null && last.rpe >= 9.5)) return out('hold', last.W, max, 'medium',
       ['You hit the target, but at RPE {0} — consolidate {1} {2} before adding load.', fmt(last.rpe), fmt(last.W), unit])
     const twice = sameAs(p => p.top)
-    const support = twice || (last.rpe != null && last.rpe <= 8)
+    const support = last.safeToIncrease && (!twice || prev.safeToIncrease)
+    if (!bw && !support) return out('hold', last.W, max, 'low', ['Repeat the first working load until two sessions support a safe increase.'])
     if (bw) return out('reps', 0, max + 1, conf(support), ['Every set reached {0} reps — go for {1}.', max, max + 1])
     const w = stepWeight(S, eq, last.W, 1)
     if (w <= last.W) return out('reps', last.W, max + 1, conf(support), ['Top of the range with the heaviest load available — add a rep instead.'])
@@ -152,7 +155,7 @@ export function recommendProgression(S, entry, eq) {
 // Does the live session already prescribe exactly this? Then there is nothing to offer.
 export function recommendationMatches(entry, rec) {
   const work = entry.sets.filter(s => s.type !== 'warmup' && s.type !== 'drop' && !s.done)
-  return work.length > 0 && work.every(s => (s.w || 0) === rec.w && (s.r || 0) === rec.r)
+  return work.length > 0 && work.every((s, i) => (s.w || 0) === (rec.weights?.[i] ?? rec.weights?.at(-1) ?? rec.w) && (s.r || 0) === rec.r)
 }
 
 // Offered only for a live session, before the exercise's first working set, once per exercise,
@@ -170,9 +173,11 @@ export function recommendationFor(S, entry, eq, { past = false } = {}) {
 // offered again, and it does not survive into the finished workout (doFinishWorkout copies only
 // id/sets/topW/target).
 export function acceptRecommendation(entry, rec, unit) {
+  let workIndex = 0
   entry.sets.forEach(s => {
     if (s.done || s.type === 'warmup' || s.type === 'drop') return
-    s.w = rec.w
+    s.w = rec.weights?.[workIndex] ?? rec.weights?.at(-1) ?? rec.w
+    workIndex++
     s.r = rec.r
   })
   const warm = entry.sets.filter(s => s.type === 'warmup')

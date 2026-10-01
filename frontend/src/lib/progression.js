@@ -16,7 +16,7 @@
 //   · fewer sets than prescribed                       → miss
 // So a session that fell apart can never advance the load as though it had succeeded.
 
-import { modeOf, workingSets, buildSets, cleanupSg, defaultConfig } from './history.js'
+import { modeOf, workingSets, workingLoadEvidence, buildSets, cleanupSg, defaultConfig } from './history.js'
 import { EXIDX, isUnavailable } from './exercises.js'
 import { bestTestedOneRM, pctForReps } from './onerm.js'
 import { realizableToward, stepWeight } from './equipment.js'
@@ -146,7 +146,7 @@ export function readSession(entry, fallback) {
   const reps = sets.map(s => (s.done ? (s.r || 0) : 0))
   return {
     mode, goal, reps,
-    weight: Math.max(0, ...sets.filter(s => s.done).map(s => s.w || 0)),
+    ...workingLoadEvidence(sets),
     low: reps.length ? Math.min(...reps) : 0,
     amrap: reps.length ? reps[reps.length - 1] : 0,       // Greyskull's final set
     ok: goal > 0 && enough && reps.length > 0 && reps.every(r => r >= goal)
@@ -181,7 +181,7 @@ export function stallCount(sessions) {
  * always answer "why this number?". A field the policy has no opinion on comes back
  * undefined and the caller keeps whatever the plan said.
  */
-export function nextPrescription(S, cfg, routine) {
+function policyPrescription(S, cfg, routine) {
   const mode = modeOf(cfg)
   const policy = policyFor(cfg, routine, mode)
   const unit = S.unit || 'kg'
@@ -231,6 +231,10 @@ export function nextPrescription(S, cfg, routine) {
     if (last.ok && goal > 0) return { policy, kind: 'up', weight: 0, reps: goal + 1, why: ['Bodyweight — every rep last time, so go for {0} this time.', goal + 1] }
     return { policy, kind: 'hold', weight: 0, reps: goal || undefined, why: ['Bodyweight — same target again until every set is clean.'] }
   }
+  const previous = sessions[sessions.length - 2]
+  if (last.ok && (!last.safeToIncrease || (policy === 'double' && (!previous?.ok || !previous.safeToIncrease || previous.weight !== w)))) {
+    return { policy, kind: 'hold', weight: w, why: ['Repeat the first working load until two sessions support a safe increase.'] }
+  }
   if (policy === 'double') {
     const top = cfg.reps || last.goal || 10
     const bottom = Math.min(cfg.repsMin || Math.max(1, top - 2), top)
@@ -273,19 +277,32 @@ export function nextPrescription(S, cfg, routine) {
   return { policy, kind: 'hold', weight: w, why: ['Missed reps last time — same weight again ({0} of {1} to go).', deloadAt - stalls, deloadAt] }
 }
 
+// Preserve observed ramp/backoff positions; explicit %1RM remains its own prescription.
+export function nextPrescription(S, cfg, routine) {
+  const p = policyPrescription(S, cfg, routine)
+  if (p.weight == null || p.policy === 'pct1rm' || modeOf(cfg) !== 'reps') return p
+  const latest = sessionsFor(S, cfg.id, cfg).filter(s => s.mode === 'reps').at(-1)
+  if (!latest?.weights?.length || latest.weights.every(w => w === latest.weight)) return p
+  const offset = p.weight - latest.weight
+  const eq = EXIDX[cfg.id]?.eq
+  return { ...p, weights: latest.weights.map(w => offset === 0 ? w : (realizableToward(S, eq, w, Math.max(0, w + offset)) ?? w)) }
+}
+
 /**
  * Apply a prescription to freshly built sets. Only the fields the policy actually decided
  * are touched, and only on sets that have not been logged yet.
  */
 export function applyPrescription(sets, p) {
   if (!p || p.kind === 'off' || p.kind === 'first') return sets
+  let workIndex = 0
   return sets.map(s => {
     // A warmup or dropset's weight is deliberately lighter than the working prescription — it
     // must not get overwritten with the same number the policy chose for the straight sets
     // around it.
     if (s.done || s.type === 'warmup' || s.type === 'drop') return s
     const out = { ...s }
-    if (p.weight != null) out.w = p.weight
+    if (p.weight != null) out.w = p.weights?.[workIndex] ?? p.weights?.at(-1) ?? p.weight
+    workIndex++
     if (p.reps != null) out.r = p.reps
     if (p.sec != null) out.sec = p.sec
     return out

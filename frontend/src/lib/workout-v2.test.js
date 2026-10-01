@@ -96,12 +96,12 @@ describe('intelligent progression V1', () => {
     expect(rec([])).toBeNull()
   })
   it('top of the range twice at the same weight → step up, high confidence, explains why', () => {
-    const r = rec([logged('2026-09-01', [[80, 10], [80, 10], [80, 11]], T), logged('2026-09-04', [[80, 10], [80, 10], [80, 11]], T)])
+    const r = rec([logged('2026-09-01', [[80, 10, 7], [80, 10, 7], [80, 11, 7]], T), logged('2026-09-04', [[80, 10, 7], [80, 10, 7], [80, 11, 7]], T)])
     expect(r).toMatchObject({ kind: 'up', w: 85, r: 8, confidence: 'high' })
     expect(r.why[0]).toMatch(/last two sessions/)
   })
   it('a single session with no RPE is low confidence; RPE ≤ 8 makes it high', () => {
-    expect(rec([logged('2026-09-04', [[80, 10], [80, 10], [80, 10]], T)])).toMatchObject({ kind: 'up', confidence: 'low' })
+    expect(rec([logged('2026-09-04', [[80, 10], [80, 10], [80, 10]], T)])).toMatchObject({ kind: 'hold', w: 80, confidence: 'low' })
     expect(rec([logged('2026-09-04', [[80, 10, 7], [80, 10, 8], [80, 10, 8]], T)])).toMatchObject({ kind: 'up', confidence: 'high' })
   })
   it('high RPE at the top of the range → keep the weight', () => {
@@ -126,7 +126,7 @@ describe('intelligent progression V1', () => {
     expect(recommendProgression(S, { id: 'plank', target: { mode: 'time', sec: 45 }, sets: [] }, 'body weight')).toBeNull()
   })
   it('is only offered before the first working set, when enabled, and when it changes something', () => {
-    const W = [logged('2026-09-04', [[80, 10], [80, 10], [80, 10]], T)]
+    const W = [logged('2026-09-04', [[80, 10, 7], [80, 10, 7], [80, 10, 7]], T)]
     expect(recommendationFor(S0({ workouts: W }), bench(fresh(80, 8), T), 'barbell')).toMatchObject({ w: 85 })
     expect(recommendationFor(S0({ workouts: W }), bench(fresh(85, 8), T), 'barbell')).toBeNull()             // plan already says it
     expect(recommendationFor(S0({ workouts: W, enableProgressiveOverloadCoach: false }), bench(fresh(), T), 'barbell')).toBeNull()
@@ -158,7 +158,7 @@ describe('plan and recommendation agree on realizable loads', () => {
   it('on 2J barbell steps the session plan and the recommendation both say 85, so no card is shown', async () => {
     const { buildRoutineEntries } = await import('./progression.js')
     const T = { sets: 3, reps: 10, targetRepsMin: 8, targetRepsMax: 10, mode: 'reps', weight: 80 }
-    const w = logged('2026-09-04', [[80, 10], [80, 10], [80, 10]], T)
+    const w = logged('2026-09-04', [[80, 10, 7], [80, 10, 7], [80, 10, 7]], T)
     w.entries[0].id = '0025'                    // the real barbell bench press
     const S = S0({ workouts: [w], customEx: [], warmupEnabled: false })
     const [entry] = buildRoutineEntries(S, { id: 'r1', ex: [{ id: '0025', ...T }] })

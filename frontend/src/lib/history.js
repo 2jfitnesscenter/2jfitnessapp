@@ -145,6 +145,18 @@ export function cleanupSg(ex) {
 // Failure sets are still full working sets and stay in.
 export const workingSets = sets => (sets || []).filter(s => s.type !== 'warmup' && s.type !== 'drop')
 
+// Derived from completed work only; topW remains a PR, never a starting-load override.
+export function workingLoadEvidence(sets) {
+  const done = workingSets(sets).filter(s => s.done)
+  const first = done[0]
+  const effort = s => s?.rpe ?? (s?.rir != null ? 10 - s.rir : null)
+  const highEffort = done.some(s => s.feel === 'hard' || s.feel === 'fail' || effort(s) > 8)
+  const supported = first && (first.feel === 'easy' || first.feel === 'good' || (effort(first) != null && effort(first) <= 8))
+  return { first, weights: done.map(s => Number(s.w) || 0),
+    weight: Number(first?.w) || 0, rpe: effort(first), highEffort,
+    safeToIncrease: !!supported && !highEffort }
+}
+
 // V3 — up to `n` past appearances of one exercise, most recent first, for a quick "last few
 // sessions" glance during a live workout. Same walk/filter lastEntryFor already did (front-to-
 // back through S.workouts assuming chronological order — see insertWorkoutSorted's own comment),
@@ -238,13 +250,13 @@ export function buildSets(S, cfg) {
     }
     return sets
   }
-  // The confirmed working weight (TopWeight's own sheet) is just as much "a previous result"
-  // as a raw logged set — both are data from an earlier session, so the same toggle skips both.
+  // exWeights can be a maximum/PR. Completed positional work wins; tracked weight
+  // is only a legacy fallback when no performed rep set exists.
   const conf = S.showPreviousResults !== false ? S.exWeights[cfg.id] : null
   for (let i = 0; i < n; i++) {
     const prev = prevAt(i)
     const usable = prev && prev.r > 0 ? prev : null
-    const w = conf && conf.w > 0 ? conf.w : (usable ? usable.w : cfg.weight)
+    const w = usable ? usable.w : (conf && conf.w > 0 ? conf.w : cfg.weight)
     sets.push({ w, r: usable ? usable.r : cfg.reps, done: false })
   }
   // A routine-level dropset (RoutineEdit's exercise menu) always lands after the last working
