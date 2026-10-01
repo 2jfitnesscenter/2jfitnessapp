@@ -187,9 +187,9 @@ function Shell() {
   // The Bunker kiosk runs on a shared, gym-owned screen — nobody "logs into" that device
   // itself, members check in with their own PIN once the page is already up, so this is the
   // one route in the whole app that skips the authed gate entirely (no Login, no TabBar, no
-  // guest bypass to think about). It owns its own full-bleed layout and never touches
-  // Modals/Toast (see views/Bunker.jsx's own overlay components for why it doesn't need them).
-  if (loc.pathname === '/bunker') return <Bunker />
+  // guest bypass to think about). It owns its own full-bleed layout. The shared swap selector
+  // uses Modals/Toast; training panels themselves remain independent.
+  if (loc.pathname === '/bunker') return <><Bunker /><Modals /><Toast /></>
   if (loc.pathname === '/bunker/launch') return <BunkerLaunch />
 
   // A genuinely brand-new profile only — one with no real data at all yet — sees the Physical

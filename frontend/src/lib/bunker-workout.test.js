@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { nextAfterBunkerSet, bunkerRestSec, bunkerProgress, BUNKER_REST_FALLBACK } from './bunker-workout.js'
+import { nextAfterBunkerSet, bunkerRestSec, bunkerProgress, buildBunkerFinishedWorkout, BUNKER_REST_FALLBACK } from './bunker-workout.js'
+
+it('finish keeps Guided Program receipt, feedback, RPE, cardio and top weight without changing active', () => {
+  const active = { id: 'guided', d: '2026-10-01', start: 1, src2j: { program: { programId: 'p', sessionId: '1:0:0' } }, entries: [
+    { id: '0025', topW: 70, target: { reps: 8 }, sets: [{ done: true, w: 60, r: 8, rpe: 8, feedback: 'good' }] },
+    { id: '0466', target: { mode: 'cardio' }, sets: [{ done: true, sec: 60, distance: 1 }] },
+    { id: 'empty', sets: [{ done: false }] },
+  ] }
+  const before = structuredClone(active), finished = buildBunkerFinishedWorkout(active, 100)
+  expect(finished.src2j).toEqual(active.src2j)
+  expect(finished.entries).toHaveLength(2)
+  expect(finished.entries[0]).toMatchObject(active.entries[0])
+  expect(finished.entries[1].sets).toEqual(active.entries[1].sets)
+  expect(finished.end).toBe(100)
+  expect(active).toEqual(before)
+})
 
 const entry = (id, sg, done = false) => ({ id, ...(sg ? { sg } : {}), sets: [{ w: 20, r: 10, done }] })
 

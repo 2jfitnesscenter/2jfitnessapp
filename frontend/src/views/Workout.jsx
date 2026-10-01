@@ -716,7 +716,7 @@ function ActiveWorkout() {
       toast(t('Transferred — enter your PIN at the Bunker to continue there'))
       nav('/home')
     }).catch(e => {
-      if (e.status === 409) {
+      if (e.status === 409 && e.data?.code !== 'WORKOUT_COMPLETED') {
         confirmSheet({
           title: t('A different session is already at the Bunker'),
           message: t('"{0}" is already in progress there. Replace it with this one?', e.data?.existing?.name || t('Workout')),

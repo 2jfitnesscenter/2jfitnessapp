@@ -50,13 +50,13 @@ async function callFinish(uid, workout) {
 
 const baseState = over => ({
   unit: 'kg', routines: [], programs: [], week: {}, dayPlan: {}, workouts: [], customEx: [],
-  exWeights: {}, bodyweight: [], tests: [], badges: {}, active: { id: 'should-be-cleared' },
+  exWeights: {}, bodyweight: [], tests: [], badges: {}, active: { id: 'w1' },
   ...over,
 });
 
 test('Sync V2: Bunker finish increments revision, stale mobile conflicts and retry does not duplicate', async () => {
   const uid = 'v2_finish';
-  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [] }));
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [], active: { id: 'v2-workout' } }));
   const { openSync, mutate } = await import('../lib/sync.js');
   const before = openSync(uid);
   const workout = { id: 'v2-workout', d: '2026-09-21', start: 1, end: 2, entries: [] };
@@ -145,7 +145,7 @@ test('exWeights is raised when the new weight beats it, and left alone when it d
 
 test('integrity: S.active clears, no duplicate workouts, target/sets/cardio/date/id all survive intact', async () => {
   const uid = 'u_integrity';
-  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [] }));
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [], active: { id: 'w-integrity-1' } }));
   const workout = {
     id: 'w-integrity-1', d: '2026-09-19', start: 111, end: 222, routineId: 'rX', name: 'Full body', bw: 78.4,
     entries: [
@@ -171,10 +171,12 @@ test('integrity: S.active clears, no duplicate workouts, target/sets/cardio/date
 test('multiuser isolation: finishing for two users concurrently never mixes their PRs, exWeights or workouts', async () => {
   const uidA = 'u_multi_a', uidB = 'u_multi_b';
   writeState(process.env.DATA_DIR, uidA, baseState({
+    active: { id: 'wA' },
     workouts: [{ id: 'w0', d: '2026-09-01', entries: [{ id: '0025', sets: [{ w: 40, r: 8, done: true }], target: {} }] }],
     exWeights: { '0025': { w: 40, d: '2026-09-01' } },
   }));
   writeState(process.env.DATA_DIR, uidB, baseState({
+    active: { id: 'wB' },
     workouts: [{ id: 'w0', d: '2026-09-01', entries: [{ id: '0007', sets: [{ w: 30, r: 8, done: true }], target: {} }] }],
     exWeights: { '0007': { w: 30, d: '2026-09-01' } },
   }));
@@ -214,7 +216,7 @@ async function callPostActive(uid, active, extra = {}) {
 
 test('A4a) finishing the exact same workout twice never produces a second one', async () => {
   const uid = 'u_double_finish';
-  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [] }));
+  writeState(process.env.DATA_DIR, uid, baseState({ workouts: [], active: { id: 'w-double' } }));
   const workout = { id: 'w-double', d: '2026-09-21', start: 1, end: 2, routineId: null, name: 'x', bw: null,
     entries: [{ id: '0025', sets: [{ w: 60, r: 8, done: true }], target: {} }] };
 

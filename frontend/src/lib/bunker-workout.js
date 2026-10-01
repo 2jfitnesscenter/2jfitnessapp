@@ -1,6 +1,19 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { supersetUnits } from './history.js'
+import { supersetUnits, workoutVolume } from './history.js'
+
+// Same history fields as the phone finish. Preserve the source receipt used by Guided Programs.
+export function buildBunkerFinishedWorkout(active, end = Date.now()) {
+  const w = {
+    id: active.id, d: active.d, start: active.start, end, routineId: active.routineId,
+    name: active.name, bw: active.bw,
+    entries: active.entries.map(e => ({ id: e.id, sets: e.sets, target: e.target, topW: e.topW || null })).filter(e => e.sets.some(s => s.done)),
+    prs: [],
+    ...(active.src2j ? { src2j: active.src2j } : {}),
+  }
+  w.vol = workoutVolume(w)
+  return w
+}
 
 export function nextAfterBunkerSet(entries, entryIndex, setIndex) {
   const unit = supersetUnits(entries).find(u => u.includes(entryIndex)) || [entryIndex]

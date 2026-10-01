@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { t, nameFor } from '../lib/i18n.js'
 import { fmtNum, todayISO, uid, exCount } from '../lib/format.js'
-import { workoutVolume, effectiveRoutine, modeOf, swapEntryExercise, supersetUnits, effortOf, stepEffort, setLabel } from '../lib/history.js'
+import { effectiveRoutine, modeOf, swapEntryExercise, supersetUnits, effortOf, stepEffort, setLabel } from '../lib/history.js'
 import { buildRoutineEntries, buildFreeEntry } from '../lib/progression.js'
 import { EXIDX, imgSrc, gifSrc } from '../lib/exercises.js'
 import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
@@ -21,10 +21,10 @@ import {
   bunkerAdminCheckin, fetchBunkerAdminSessions, closeBunkerSession, pauseBunkerSession, saveBunkerSettings,
 } from '../lib/bunker-api.js'
 import { purgeStaleCredentials } from '../lib/bunker-credentials.js'
-import { nextAfterBunkerSet, bunkerRestSec, bunkerProgress, BUNKER_REST_FALLBACK } from '../lib/bunker-workout.js'
+import { nextAfterBunkerSet, bunkerRestSec, bunkerProgress, buildBunkerFinishedWorkout, BUNKER_REST_FALLBACK } from '../lib/bunker-workout.js'
 import { guidedBlocksOf } from '../lib/guided.js'
 import { TYPE_LABEL } from '../lib/protocol/index.js'
-import { retryPendingFinish, stagePendingFinish } from '../lib/bunker-persistence.js'
+import { drainPendingActive, retryPendingFinish, stagePendingFinish } from '../lib/bunker-persistence.js'
 import { alternativesSheet } from '../sheets.jsx'
 
 const BOARD_POLL_MS = 4000
@@ -220,13 +220,19 @@ function exName(exId, customEx) {
 // simply disappeared from the board); and a session that turns out not to load at all (an
 // actually-expired/invalid token) drops the credential too, so a stale card self-heals into
 // asking for the PIN again instead of silently doing nothing on the next tap.
-function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onInvalid }) {
+function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize, onFinish, onInvalid }) {
   const [plan, setPlan] = useState(null)
   const [active, setActive] = useState(null)
   const [exIdx, setExIdx] = useState(0)
   const [restEndsAt, setRestEndsAt] = useState(null)
   const [restTotal, setRestTotal] = useState(BUNKER_REST_FALLBACK)
   const [showAdd, setShowAdd] = useState(false)
+  const [connection, setConnection] = useState('loading')
+  const [conflict, setConflict] = useState(null)
+  const conflictRef = useRef(null)
+  const loadedRef = useRef(false)
+  const loadSessionRef = useRef(null)
+  const panelStyle = hidden ? { display: 'none' } : undefined
   const idleRef = useRef(null)
   const minimizeRef = useRef(null)
   const activeRevisionRef = useRef(0)
@@ -247,30 +253,20 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
     } catch { /* the in-memory queue still protects this mounted session */ }
   }
   const drainPending = () => {
+    if (conflictRef.current) return Promise.resolve(false)
     if (drainPromiseRef.current) return drainPromiseRef.current
     const run = (async () => {
-      while (pendingRef.current.length) {
-        const item = pendingRef.current[0]
-        if (item.expectedActiveRevision === undefined) {
-          item.expectedActiveRevision = activeRevisionRef.current
-          persistPending()
-        }
-        try {
-          const result = await postBunkerActive(token, item)
-          activeRevisionRef.current = result.activeRevision
-          pendingRef.current.shift()
-          persistPending()
-        } catch (e) {
-          if (e.status === 409 && e.data) {
-            activeRevisionRef.current = e.data.activeRevision ?? activeRevisionRef.current
-            pendingRef.current = []
-            persistPending()
-            setActive(e.data.active || null)
-          }
-          return false
-        }
+      const result = await drainPendingActive({ queue: pendingRef.current, revision: activeRevisionRef.current,
+        persist: persistPending, send: item => postBunkerActive(token, item) })
+      activeRevisionRef.current = result.revision
+      if (result.error?.status === 409) {
+        conflictRef.current = result.error.data || {}
+        setConflict(conflictRef.current)
+      } else if (result.error?.status === 401 || result.error?.status === 403) {
+        onInvalid()
       }
-      return true
+      setConnection(result.ok ? 'saved' : 'pending')
+      return result.ok
     })()
     drainPromiseRef.current = run.finally(() => { drainPromiseRef.current = null })
     return drainPromiseRef.current
@@ -289,6 +285,12 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
         pendingRef.current = []
         persistPending()
         onFinish()
+      } else if (result.pending) {
+        if (result.error?.status === 409) {
+          conflictRef.current = result.error.data || {}
+          setConflict(conflictRef.current)
+        }
+        setConnection('pending')
       }
       return result
     })
@@ -297,8 +299,12 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
   }
 
   useEffect(() => {
-    fetchBunkerSession(token).then(p => {
+    let alive = true
+    const load = () => fetchBunkerSession(token).then(p => {
+      if (!alive) return
       setPlan(p)
+      loadedRef.current = true
+      setConnection('saved')
       activeRevisionRef.current = p.activeRevision || 0
       // Same resolver the rest of the app uses for "today's routine" (Home, Stats, the phone
       // logger) — dayPlan's own override first, then an active program's own week, then the
@@ -321,16 +327,28 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       try { queued = JSON.parse(localStorage.getItem(pendingKey) || '[]') } catch { /* discard malformed local queue */ }
       pendingRef.current = Array.isArray(queued) ? queued : []
       const draft = pendingRef.current.at(-1)?.active
-      setActive(draft || p.active || (routine ? buildBunkerActive({ ...miniS, unit: p.unit, workouts: p.recentWorkouts, exWeights: p.exWeights, tests: p.tests, showPreviousResults: p.showPreviousResults, warmupEnabled: p.warmupEnabled }, routine) : null))
+      const resumed = draft || p.active || (routine ? buildBunkerActive({ ...miniS, unit: p.unit, workouts: p.recentWorkouts, exWeights: p.exWeights, tests: p.tests, showPreviousResults: p.showPreviousResults, warmupEnabled: p.warmupEnabled }, routine) : null)
+      setActive(resumed)
+      setExIdx(Math.max(0, Math.min(resumed?.cur || 0, (resumed?.entries.length || 1) - 1)))
+      setRestEndsAt(p.restEndsAt || null)
+      setRestTotal(p.restSec || BUNKER_REST_FALLBACK)
       drainFinish()
       armIdle(idleMs)
-    }).catch(() => onInvalid())
-    const retry = () => drainFinish()
+    }).catch(e => {
+      if (!alive) return
+      if (e.status === 401 || e.status === 403) onInvalid()
+      else setConnection('unavailable')
+    })
+    loadSessionRef.current = load
+    load()
+    const retry = () => loadedRef.current ? drainFinish() : load()
     window.addEventListener('online', retry)
-    return () => { clearTimeout(idleRef.current); clearTimeout(minimizeRef.current); window.removeEventListener('online', retry) }
+    return () => { alive = false; clearTimeout(idleRef.current); clearTimeout(minimizeRef.current); window.removeEventListener('online', retry) }
   }, [token])
 
-  if (!plan) return <div className="bk-panel"><div className="bk-loading">{t('Loading…')}</div></div>
+  if (!plan) return <div className="bk-panel" style={panelStyle}><div className="bk-loading">{name}<br />{t(connection === 'unavailable' ? 'Connection unavailable. Your session is still safe.' : 'Loading…')}
+    {connection === 'unavailable' && <button className="bk-join" onClick={() => loadSessionRef.current?.()}>{t('Retry')}</button>}
+  </div></div>
 
   // The same minimal S buildRoutineEntries/buildSets/nextPrescription/buildFreeEntry all need,
   // rebuilt from the session payload on demand (not just once at mount) so a routine picked or
@@ -340,9 +358,12 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
     routines: plan.routines, unit: plan.unit, workouts: plan.recentWorkouts, exWeights: plan.exWeights,
     tests: plan.tests, showPreviousResults: plan.showPreviousResults, warmupEnabled: plan.warmupEnabled,
   })
-  const sync = next => {
+  const sync = (next, currentIndex = exIdx) => {
+    if (conflictRef.current) return
+    next = { ...next, cur: currentIndex }
     setActive(next)
-    const entry = next.entries[exIdx]
+    setConnection('pending')
+    const entry = next.entries[currentIndex]
     const doneN = entry ? entry.sets.filter(s => s.done).length : 0
     pendingRef.current.push({ operationId: uid(), active: next, exId: entry?.id || null, exName: entry ? exName(entry.id, plan.customEx) : null, setIdx: doneN, setsTotal: entry?.sets.length || 0 })
     persistPending()
@@ -360,7 +381,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
     armIdle(idleMs)
   }
 
-  if (!active) return <div className="bk-panel">
+  if (!active) return <div className="bk-panel" style={panelStyle}>
     <div className="bk-panel-hd">
       <button className="bk-minimize" onClick={onMinimize}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
       <div className="bk-panel-name">{name}</div>
@@ -433,24 +454,20 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
   const doAdd = ex => {
     touch()
     const nextEntries = [...active.entries, buildFreeEntry(sessionS(), ex.id)]
-    sync({ ...active, entries: nextEntries })
+    sync({ ...active, entries: nextEntries }, nextEntries.length - 1)
     setExIdx(nextEntries.length - 1)
     setShowAdd(false)
   }
   const doRemove = idx => {
     touch()
     const nextEntries = active.entries.filter((_, i) => i !== idx)
-    sync({ ...active, entries: nextEntries })
-    setExIdx(i => Math.min(i, Math.max(0, nextEntries.length - 1)))
+    const nextIndex = Math.min(exIdx, Math.max(0, nextEntries.length - 1))
+    sync({ ...active, entries: nextEntries }, nextIndex)
+    setExIdx(nextIndex)
   }
 
   const finish = async () => {
-    const w = {
-      id: active.id, d: active.d, start: active.start, end: Date.now(), routineId: active.routineId, name: active.name, bw: active.bw,
-      entries: active.entries.map(e => ({ id: e.id, sets: e.sets, target: e.target })).filter(e => e.sets.some(s => s.done)),
-      prs: [],
-    }
-    w.vol = workoutVolume(w)
+    const w = buildBunkerFinishedWorkout(active)
     pendingFinishRef.current = stagePendingFinish(localStorage, finishKey, w)
     const result = await drainFinish()
     if (!result.completed) onMinimize()
@@ -487,14 +504,31 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
   const freeTraining = active.routineId === null
   const guidedHere = entry?.target?.blk ? (guidedOf(active, plan.routines) || []).find(b => b.iid === entry.target.blk) || null : null
   const progress = bunkerProgress(active.entries)
+  const loadServerSession = async () => {
+    try {
+      const p = await fetchBunkerSession(token)
+      // Explicit user choice: the draft was kept intact until this successful read.
+      pendingRef.current = []
+      pendingFinishRef.current = null
+      persistPending()
+      try { localStorage.removeItem(finishKey) } catch { /* in-memory draft is cleared explicitly */ }
+      activeRevisionRef.current = p.activeRevision || 0
+      setPlan(p); setActive(p.active || null)
+      setExIdx(Math.max(0, Math.min(p.active?.cur || 0, (p.active?.entries.length || 1) - 1)))
+      setRestEndsAt(p.restEndsAt || null); setRestTotal(p.restSec || BUNKER_REST_FALLBACK)
+      conflictRef.current = null; setConflict(null); setConnection('saved')
+    } catch { setConnection('pending') }
+  }
 
-  return <div className="bk-panel" onClick={touch}>
+  return <div className="bk-panel" style={panelStyle} onClick={touch}>
     <div className="bk-panel-hd">
       <button className="bk-minimize" onClick={onMinimize}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
       <div className="bk-panel-name">{name}</div>
       {restEndsAt && <RestRing endsAt={restEndsAt} total={restTotal} size={52} />}
     </div>
     <div className="bk-routine-name">{active.name}</div>
+    {conflict ? <div className="bk-connection" role="alert"><span>{t('Session changed on another device. Pending sets are kept here until you choose.')}</span><button onClick={loadServerSession}>{t('Discard local changes and load server session')}</button></div>
+      : connection === 'pending' && <div className="bk-connection" role="status"><span>{t('Changes pending. Your sets are kept on this device.')}</span><button onClick={drainFinish}>{t('Retry')}</button></div>}
     <div className="bk-live-progress" aria-label={t('Workout progress')}>
       <div className="bk-live-progress-label"><span>{t('{0} of {1} exercises', progress.doneExercises, progress.totalExercises)}</span><strong>{progress.percent}%</strong><span>{t('{0} of {1} sets', progress.doneSets, progress.totalSets)}</span></div>
       <div className="bk-live-progress-track" role="progressbar" aria-label={t('Workout progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}><span style={{ width: `${progress.percent}%` }} /></div>
@@ -508,7 +542,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
           <span className="bk-extab-n">{doneN}/{e.sets.length}</span>
         </button>
       })}
-      {freeTraining && <button className="bk-extab bk-extab-add" onClick={() => { touch(); setShowAdd(true) }} aria-label={t('Add exercise')}><Icon name="plus" /></button>}
+      {freeTraining && <button disabled={!!conflict} className="bk-extab bk-extab-add" onClick={() => { touch(); setShowAdd(true) }} aria-label={t('Add exercise')}><Icon name="plus" /></button>}
     </div>}
     {freeTraining && !active.entries.length && <div className="bk-empty">
       {t('Freestyle workout — add your first exercise.')}
@@ -518,10 +552,10 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
       {(EXIDX[entry.id]?.gif || EXIDX[entry.id]?.img) && <img className="bk-exmedia" src={EXIDX[entry.id]?.gif ? gifSrc(EXIDX[entry.id]) : imgSrc(EXIDX[entry.id])} alt={exName(entry.id, plan.customEx)} loading="lazy" decoding="async" />}
       <div className="bk-exname-row">
         <div className="bk-exname">{ssInfo[exIdx] && <span className="bk-ssbadge">{supersetLabel(ssInfo[exIdx])}</span>}{exName(entry.id, plan.customEx)}</div>
-        <button className="bk-exchange-btn" onClick={() => { touch(); alternativesSheet(EXIDX[entry.id] || { id: entry.id, n: exName(entry.id, plan.customEx), eq: 'custom' }, doSwap, true) }}>
+        <button disabled={!!conflict} className="bk-exchange-btn" onClick={() => { touch(); alternativesSheet(EXIDX[entry.id] || { id: entry.id, n: exName(entry.id, plan.customEx), eq: 'custom' }, doSwap, true, plan) }}>
           <Icon name="shuffle" />{t('Change exercise')}
         </button>
-        {freeTraining && <button className="bk-exchange-btn bk-exremove-btn" onClick={() => doRemove(exIdx)}>
+        {freeTraining && <button disabled={!!conflict} className="bk-exchange-btn bk-exremove-btn" onClick={() => doRemove(exIdx)}>
           <Icon name="trash" />{t('Remove exercise')}
         </button>}
       </div>
@@ -538,7 +572,7 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
         // big steppers below switch what they edit by mode, same distinction Workout.jsx's own
         // ExerciseBlock makes, instead of assuming every set is a weight×reps one.
         const cardio = modeOf(entry.target || {}) === 'cardio'
-        return <div key={si} className={'bk-setrow' + (s.done ? ' done' : '')}>
+        return <fieldset disabled={!!conflict} key={si} className={'bk-setrow' + (s.done ? ' done' : '')}>
           <span className="bk-setn">{si + 1}</span>
           {cardio ? <>
             <div className="bk-bigstp">
@@ -569,10 +603,10 @@ function BunkerTrainingPanel({ token, name, settings, onMinimize, onFinish, onIn
             <button onClick={() => setEffort(exIdx, si, effortKind, 1)}>+</button>
           </div>}
           <button className={'bk-check' + (s.done ? ' on' : '')} onClick={() => toggleDone(exIdx, si)} aria-label={t('Done')}><Icon name="check" /></button>
-        </div>
+        </fieldset>
       })}
     </div>}
-    {active.entries.length > 0 && <button className="bk-finish" onClick={finish}>{t('Finish workout & exit')}</button>}
+    {active.entries.length > 0 && <button disabled={!!conflict} className="bk-finish" onClick={finish}>{t('Finish workout & exit')}</button>}
     {showAdd && <div className="bk-overlay">
       <div className="bk-pad bk-tools-pad">
         <button className="bk-close" onClick={() => setShowAdd(false)} aria-label={t('Close')}><Icon name="xmark" /></button>
@@ -732,7 +766,7 @@ export default function Bunker() {
   // "it's the one I'm actively looking at right now" — see lib/bunker-credentials.js's own doc
   // comment for exactly which real-world cases that covers (finish, admin force-close, the
   // 15-minute idle timeout) and why minimizing is never one of them.
-  useEffect(() => { setCredentials(c => purgeStaleCredentials(c, board, activeUids)) }, [board, activeUids])
+  useEffect(() => { setCredentials(c => purgeStaleCredentials(c, board, activeUids)) }, [board])
   // A credential that failed to actually resume (GET /session 401'd — the rare case of a token
   // that outlived its own 4h TTL while its card stayed on the board because the member kept
   // training right up to that edge) or that just finished a workout both end the same way here:
@@ -754,8 +788,6 @@ export default function Bunker() {
     if (tapsRef.current.length >= 3) { tapsRef.current = []; setShowExitLock(true) }
   }
 
-  if (adminToken) return <div className="bunker"><BunkerAdminOverlay adminToken={adminToken} onClose={() => setAdminToken(null)} /></div>
-
   return <div className="bunker">
     <BunkerTopBar active={tool} onSelect={setTool} header={settings.header || '2J Fitness Center'} paired={paired}
       onAdmin={() => setShowAdminLogin(true)} onExitTap={onExitTap} />
@@ -766,18 +798,17 @@ export default function Bunker() {
           nobody's checked in yet, already polls at the root (below) and has nothing tab-switch
           could lose either way. */}
       <div style={{ display: tool === 'training' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        {open.length
-          ? <div className="bk-multi">
+        {!!Object.keys(credentials).length && <div className="bk-multi" style={open.length ? undefined : { display: 'none' }}>
               <div className="bk-multi-actions">
                 {minimized.map(([uid, credential]) => <button key={uid} className="bk-restore" onClick={() => expand(uid)}><Icon name="expand" />{credential.name}</button>)}
                 <button className="bk-join" onClick={() => setShowCheckin(true)}><Icon name="plus" /> {t('Join the Bunker')}</button>
               </div>
-              <div className={`bk-multi-grid users-${Math.min(open.length, 3)}`}>{open.map(([uid, current]) =>
-                <BunkerTrainingPanel key={uid} token={current.token} name={current.name} settings={settings}
+              <div className={`bk-multi-grid users-${Math.min(open.length, 3)}${open.length > 3 ? ' overflow-panels' : ''}`}>{Object.entries(credentials).map(([uid, current]) =>
+                <BunkerTrainingPanel key={uid} token={current.token} name={current.name} settings={settings} hidden={!activeUids.includes(uid)}
                   onMinimize={() => minimize(uid)} onFinish={() => releaseActive(uid)} onInvalid={() => releaseActive(uid)} />
               )}</div>
-            </div>
-          : <BunkerBoard board={board} settings={settings} credentials={credentials}
+            </div>}
+        {!open.length && <BunkerBoard board={board} settings={settings} credentials={credentials}
               onCheckin={() => setShowCheckin(true)} onResume={expand} />}
         <TodayPrs prs={todayPrs} compact={open.length > 0} />
       </div>
@@ -793,6 +824,7 @@ export default function Bunker() {
       setShowCheckin(false)
     }} />}
     {showAdminLogin && <BunkerAdminLogin onClose={() => setShowAdminLogin(false)} onSuccess={tok => { setAdminToken(tok); setShowAdminLogin(false) }} />}
+    {adminToken && <BunkerAdminOverlay adminToken={adminToken} onClose={() => setAdminToken(null)} />}
     {showExitLock && <BunkerAdminLogin onClose={() => setShowExitLock(false)} onSuccess={() => nav('/home')} />}
   </div>
 }

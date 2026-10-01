@@ -3628,4 +3628,9 @@ export default {
   'The Coach found nothing to change': 'El Coach no ha encontrado nada que cambiar',
   'You can ask again below.': 'Puedes volver a pedirla abajo.',
   'Your plan fits what you have logged. Ask again after a few more workouts.': 'Tu plan encaja con lo que has registrado. Vuelve a pedirla tras unos cuantos entrenamientos más.',
+  'Connection unavailable. Your session is still safe.': 'Sin conexión. Tu sesión sigue a salvo.',
+  'Session changed on another device. Pending sets are kept here until you choose.': 'La sesión cambió en otro dispositivo. Conservamos aquí tus series pendientes hasta que decidas.',
+  'Discard local changes and load server session': 'Descartar cambios locales y cargar la sesión del servidor',
+  'Changes pending. Your sets are kept on this device.': 'Cambios pendientes. Tus series se conservan en este dispositivo.',
+  'Retry': 'Reintentar',
 }

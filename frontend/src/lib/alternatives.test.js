@@ -93,6 +93,15 @@ describe('QUICK_FILTERS', () => {
 })
 
 describe('getReplacementGroups', () => {
+  it('keeps personal custom alternatives scoped to each Bunker member context', () => {
+    const personal = id => ({ id, n: id, bp: 'chest', tg: 'pectorals', eq: 'dumbbell', sm: [] })
+    const a = getReplacementGroups(baseS({ customEx: [personal('c-ana')], gymProfiles: { activeId: '2j' } }), BENCH)
+    const b = getReplacementGroups(baseS({ customEx: [personal('c-bruno')], gymProfiles: { activeId: '2j' } }), BENCH)
+    expect(a.all.some(x => x.ex.id === 'c-ana')).toBe(true)
+    expect(a.all.some(x => x.ex.id === 'c-bruno')).toBe(false)
+    expect(b.all.some(x => x.ex.id === 'c-bruno')).toBe(true)
+    expect(b.all.some(x => x.ex.id === 'c-ana')).toBe(false)
+  })
   it('keeps ranked recommendations and exposes the complete available catalogue', () => {
     const groups = getReplacementGroups(baseS(), BENCH)
     expect(groups.recommended.length).toBeGreaterThan(0)

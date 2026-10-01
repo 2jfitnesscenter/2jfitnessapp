@@ -1029,9 +1029,10 @@ export const exercisePicker = onPick => ui().openSheet(close => <ExercisePicker 
 // Unlike ExercisePicker above (a flat "browse everything" list), this ranks the catalogue
 // against the exercise actually being replaced — see lib/alternatives.js for how, and why there's
 // no movement-pattern field to rank by.
-function AlternativesPicker({ current, onPick, close, room = false }) {
+function AlternativesPicker({ current, onPick, close, room = false, context }) {
   const stored = useStore(s => s.S)
-  const st = room ? { ...stored, gymProfiles: { activeId: '2j' } } : stored
+  const base = context || stored
+  const st = room ? { ...base, gymProfiles: { activeId: '2j' } } : base
   const [scope, setScope] = useState('recommended')
   const [filter, setFilter] = useState(null)
   const [q, setQ] = useState('')
@@ -1087,7 +1088,7 @@ function AlternativesPicker({ current, onPick, close, room = false }) {
     {filtered.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(n => n + 50)}>{t('Show more')}</Button></>}
   </>
 }
-export const alternativesSheet = (current, onPick, room = false) => ui().openSheet(close => <AlternativesPicker current={current} onPick={onPick} close={close} room={room} />)
+export const alternativesSheet = (current, onPick, room = false, context) => ui().openSheet(close => <AlternativesPicker current={current} onPick={onPick} close={close} room={room} context={context} />)
 
 /* ============================ exercise browser (by muscle, photo grid) ============================ */
 // Plan > Exercises opens this as its own sheet per muscle (or unfiltered) instead of filtering

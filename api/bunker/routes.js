@@ -18,9 +18,11 @@
  */
 import * as store from './store.js';
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { readState, writeState } from '../lib/state-store.js';
 import { bestWeightFor, is1RMRecord } from './finish-helpers.js';
 import { bunkerClientIp, bunkerLimiters } from './rate-limit.js';
+import { completeGuidedProgramSession } from '../lib/guided-program-model.js';
 
 const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits in 4 hours
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
@@ -127,6 +129,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
   // slice of their real state either way, just reached through a different trust level.
   const sessionPayload = uid => {
     const S = readState(uid) || {};
+    const room = store.getSession(uid);
     return {
       name: publicName(uid),
       unit: S.unit || 'kg',
@@ -158,6 +161,8 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       recentWorkouts: (S.workouts || []).slice(-40).map(({ fitness, hrZones, ...w }) => w),
       active: S.active || null,
       activeRevision: activeRevision(S),
+      restEndsAt: room?.restEndsAt || null,
+      restSec: room?.restSec || null,
       // RP Volume Zones — off unless this member turned it on themselves (Settings), matching
       // the exact fields lib/rp-volume.js's landmarksFor/weeklyGroupVolume read elsewhere.
       enableRpVolumeZones: !!S.enableRpVolumeZones,
@@ -189,8 +194,9 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     // are still on their phone, not at the kiosk yet).
     //
     // Idempotent by active.id: re-sending the same session (a retry, a double tap) just
-    // overwrites with the latest copy — safe, since S.active is a single field, never an array
-    // nothing here ever appends to. A genuinely DIFFERENT session already on the server (e.g.
+    // overwrites with the latest copy while still on the phone. Once checked in, a divergent
+    // copy requires explicit confirmation, including when it has the same workout id.
+    // Nothing here appends a second active. A genuinely DIFFERENT session on the server (e.g.
     // one already started at the kiosk, or a previous handoff never finished) is never silently
     // replaced — the caller gets a 409 with that existing session, and must retry with
     // `force: true` once the member has actually chosen to discard it.
@@ -204,6 +210,12 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       }
       const S = readState(me.id) || {};
       const existing = S.active;
+      if ((S.workouts || []).some(w => w.id === active.id) || S._sync?.tombstones.workouts.includes(active.id)) {
+        return json(res, 409, { error: 'esa sesión ya ha finalizado', code: 'WORKOUT_COMPLETED', existing: existing || null });
+      }
+      if (existing?.id === active.id && store.getSession(me.id) && !body.force && !isDeepStrictEqual(existing, active)) {
+        return json(res, 409, { error: 'la sesión cambió en el Bunker; confirma antes de sustituirla', existing });
+      }
       if (existing && existing.id !== active.id && !body.force) {
         return json(res, 409, { error: `Ya tienes otra sesión en curso en el Bunker: "${existing.name || 'Entreno'}"`, existing });
       }
@@ -397,6 +409,11 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
         return json(res, 200, { ok: true, prs: already.prs || [], e1prs: [] });
       }
 
+      // A queued finish belongs to one workout, never to a replacement handed off meanwhile.
+      if (S.active && S.active.id !== w.id) {
+        return json(res, 409, { error: 'la sesión activa cambió; tus series pendientes no se han descartado', active: S.active, activeRevision: activeRevision(S) });
+      }
+
       // Computed against the history as it stands BEFORE this workout joins it — same order
       // doFinishWorkout uses (prs/e1prs are derived first, the push happens after).
       const prs = [];
@@ -414,6 +431,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       while (i > 0 && workouts[i - 1].d > w.d) i--;
       workouts.splice(i, 0, w);
       S.workouts = workouts;
+      completeGuidedProgramSession(S, w);
 
       // Same exWeights rule as doFinishWorkout: the heaviest done set (topW counts too),
       // recorded only when it beats whatever was already on file.
