@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { zoneForVolume, landmarksFor, rollupToGroups, weeklyGroupVolume, primaryGroupOf, RP_VOLUME_DEFAULTS, LEVELS, weekRangeLabel, groupVolumeForWeek, monthlyGroupVolume, zoneCounts, clampLandmark } from './rp-volume.js'
 import { todayISO, weekKey } from './format.js'
 import { MUSCLE_GROUPS } from './muscles.js'
@@ -183,10 +183,13 @@ describe('groupVolumeForWeek', () => {
 })
 
 describe('monthlyGroupVolume', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 8, 24, 12)) })
+  afterEach(() => vi.useRealTimers())
   const S = (over = {}) => ({ workouts: [], active: null, ...over })
   const doneSets = n => Array.from({ length: n }, () => ({ w: 40, r: 10, done: true }))
   it('averages a fixed 4-set week across exactly the weeks that belong to this calendar month', () => {
     const offsets = offsetsInThisMonth()
+    expect(offsets.length).toBeGreaterThan(0)
     const workouts = offsets.map(offset => ({
       id: 'w' + offset, d: mondayOf(offset).toISOString().slice(0, 10),
       entries: [{ id: BENCH, sets: doneSets(4) }],
@@ -203,6 +206,12 @@ describe('monthlyGroupVolume', () => {
     const farBack = { id: 'wfar', d: mondayOf(20).toISOString().slice(0, 10), entries: [{ id: BENCH, sets: doneSets(99) }] }
     const vol = monthlyGroupVolume(S({ workouts: [...inMonth, farBack] }))
     expect(vol.chest).toBeCloseTo(4, 5)
+  })
+  it('has no counted week when the first days of the month belong to the previous month', () => {
+    vi.setSystemTime(new Date(2026, 9, 1, 12))
+    expect(offsetsInThisMonth()).toEqual([])
+    const workouts = [{ id: 'previous-month-week', d: '2026-09-28', entries: [{ id: BENCH, sets: doneSets(4) }] }]
+    expect(monthlyGroupVolume(S({ workouts })).chest).toBe(0)
   })
 })
 
