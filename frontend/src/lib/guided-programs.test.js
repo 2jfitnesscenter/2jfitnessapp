@@ -15,7 +15,7 @@ const catalog = p => {
 
 describe('Guided Programs V2 data and lifecycle', () => {
   it('has unique, fully referenced plans with the declared duration and cadence', () => {
-    expect(official.programs).toHaveLength(13)
+    expect(official.programs).toHaveLength(22)
     expect(new Set(official.programs.map(p => p.id)).size).toBe(official.programs.length)
     const ids = new Set(routines.map(r => r.id))
     for (const p of official.programs) {

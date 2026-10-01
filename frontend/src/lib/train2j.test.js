@@ -16,14 +16,14 @@ const SEED = JSON.parse(readFileSync(join(here, '..', '..', '..', 'api', 'lib', 
 const LIB = JSON.parse(readFileSync(join(here, '..', '..', '..', 'api', 'lib', 'blocks-official.json'), 'utf8'))
 const R = SEED.routines
 const get = id => R.find(r => r.id === id)
-const GYM_EQ = new Set(['barbell', 'dumbbell', 'cable', 'leverage machine', 'smith machine', 'ez barbell', 'body weight', 'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill'])
+const GYM_EQ = new Set(['barbell', 'dumbbell', 'cable', 'leverage machine', 'smith machine', 'ez barbell', 'body weight', 'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill', 'skierg machine'])
 
 describe('the official catalogue', () => {
-  it('69 routines across 8 formats, 8 collections, 3 featured — every one validated and honest', () => {
-    expect(SEED.count).toBe(69)
-    expect(new Set(R.map(r => r.id)).size).toBe(69)
+  it('155 routines across 8 formats, 15 collections, 3 featured — every one validated and honest', () => {
+    expect(SEED.count).toBe(155)
+    expect(new Set(R.map(r => r.id)).size).toBe(155)
     expect(new Set(R.map(r => r.category))).toEqual(new Set(ROUTINE_CATEGORIES))
-    expect(SEED.collections).toHaveLength(8)
+    expect(SEED.collections).toHaveLength(15)
     expect(R.filter(r => r.featured).sort((a, b) => a.featured - b.featured).map(r => r.id)).toEqual(['r2j-tabata-fullbody', 'r2j-mobility-hips', 'r2j-hiit-lowimpact'])
     for (const r of R) {
       const v = validateAgainst2JProtocol({ kind: 'routine', goal: r.goal, level: r.level, entries: r.ex, blockTypes: blockTypesOf(r.blocks) }, { lookup, official: true })
@@ -43,10 +43,10 @@ describe('the official catalogue', () => {
   it('routines compose master blocks, never add them: every master added for them is used, no two masters are the same', () => {
     const used = new Set(R.flatMap(r => r.blocks.map(b => b.src)))
     // The expanded catalogue composes existing strength masters plus the guided masters.
-    expect(used.size).toBe(68)
+    expect(used.size).toBe(145)
     expect([...used].every(id => LIB.blocks.some(b => b.id === id))).toBe(true)
     // every guided master but one mobility flow of V2.1 is used by some routine
-    expect(LIB.blocks.filter(b => ['circuit', 'hiit', 'interval', 'mobility'].includes(b.type) && !used.has(b.id))).toHaveLength(1)
+    expect(LIB.blocks.filter(b => ['circuit', 'hiit', 'interval', 'mobility'].includes(b.type) && !used.has(b.id))).toHaveLength(2)
     const sig = b => b.type + '|' + JSON.stringify(b.timing || null) + '|' + b.ex.map(e => e.id).join(',')
     expect(new Set(LIB.blocks.map(sig)).size).toBe(LIB.blocks.length)
     const ids = [...LIB.blocks.map(b => b.id), ...R.map(r => r.id), ...SEED.collections.map(c => c.id)]
@@ -82,18 +82,18 @@ describe('the official catalogue', () => {
 describe('search and filters', () => {
   const ids = (f, extra) => filterRoutines(R, f, { t, lookup, ...extra }).map(r => r.id)
   it('type, duration, level and equipment chips', () => {
-    expect(ids({ category: 'mobility' })).toHaveLength(14)
+    expect(ids({ category: 'mobility' })).toHaveLength(37)
     expect(ids({ duration: 'lt15' }).every(id => get(id).estimatedMinutes < 15)).toBe(true)
     expect(ids({ level: 'beginner' }).every(id => get(id).level === 'beginner')).toBe(true)
     expect(ids({ gear: 'none' }).every(id => get(id).tags.includes('no-equipment'))).toBe(true)
-    expect(ids({ category: 'hiit', duration: '15-30', level: 'intermediate' })).toEqual(['r2j-hiit-fullbody', 'r2j-hiit-express', 'r2j-hiit-lower', 'r2j-hiit-bodyweight'])
+    expect(ids({ category: 'hiit', duration: '15-30', level: 'intermediate' })).toEqual(['r2j-hiit-fullbody', 'r2j-hiit-express', 'r2j-hiit-lower', 'r2j-hiit-bodyweight', 'r2j-hiit-burpees', 'r2j-hiit-dumbbell-complex', 'r2j-hiit-treadmill', 'r2j-hiit-stepmill'])
   })
   it('editorial search in Spanish finds real metadata', () => {
     expect(ids({ q: 'movilidad cadera' })).toContain('r2j-mobility-hips')
     expect(ids({ q: 'sin saltos' }).length).toBeGreaterThan(5)
     expect(ids({ q: 'sin saltos' })).toEqual(expect.arrayContaining(R.filter(r => r.tags.includes('no-jumps')).map(r => r.id)))
     expect(ids({ q: 'bicicleta' })).toEqual(expect.arrayContaining(['r2j-tabata-bike', 'r2j-intervals-bike-start']))
-    expect(ids({ q: 'tabata' }).filter(id => get(id).category === 'tabata')).toHaveLength(9)
+    expect(ids({ q: 'tabata' }).filter(id => get(id).category === 'tabata')).toHaveLength(14)
     expect(ids({ q: '20 minutos' }).every(id => Math.abs(get(id).estimatedMinutes - 20) <= 5)).toBe(true)
     expect(ids({ q: 'iniciado sin material' }).every(id => get(id).level === 'beginner')).toBe(true)
     expect(ids({ q: 'zzzz' })).toEqual([])

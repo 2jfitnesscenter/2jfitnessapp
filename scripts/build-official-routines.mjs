@@ -28,6 +28,8 @@ const OUT = join(root, 'api', 'lib', 'guided-official.json')
 export const SEED_VERSION = 1
 const PUBLISHED = '2026-09-26'
 export const CATEGORIES = ['tabata', 'hiit', 'circuit', 'interval', 'mobility', 'core', 'mixed', 'strength']
+// What a session is FOR besides its format — the catalogue's warm-up / cool-down / recovery rows.
+export const PURPOSES = ['warmup', 'cooldown', 'recovery', 'stretch', 'finisher']
 // Reasons (PASS_WITH_REASON) a routine may ship with, each reviewed by a person. Empty on purpose.
 const REVIEWED_REASONS = {}
 
@@ -41,6 +43,7 @@ const restOf = (e, goal) => e.rest ?? P.REST_DEFAULTS[P.restDemand(P.classify(e.
 function build(r) {
   const err = m => errors.push(`${r.id}: ${m}`)
   if (!CATEGORIES.includes(r.category)) err('unknown category ' + r.category)
+  if (r.purpose && !PURPOSES.includes(r.purpose)) err('unknown purpose ' + r.purpose)
   if (!P.GOALS.includes(r.goal) || !P.LEVELS.includes(r.level)) err('bad goal/level')
   const ex = [], blocks = [], parts = []
   let seconds = 0, n = 0
@@ -102,7 +105,7 @@ function build(r) {
   const evidence = [...new Set(r.parts.flatMap(([, id]) => blockById[id]?.evidence || []))].sort()
   return {
     id: r.id, official: true, active: true, seedVersion: SEED_VERSION, protocolVersion: P.PROTOCOL_VERSION, publishedAt: PUBLISHED,
-    category: r.category, name: r.name, subtitle: r.subtitle || null, description: r.description, goal: r.goal, level: r.level, focus: r.focus,
+    category: r.category, ...(r.purpose ? { purpose: r.purpose } : {}), name: r.name, subtitle: r.subtitle || null, description: r.description, goal: r.goal, level: r.level, focus: r.focus,
     estimatedMinutes: facts.minutes, equipment: facts.equipment, tags: facts.tags, parts, blocks, ex,
     validation: { result: v.result, reasons }, evidence,
   }
@@ -136,7 +139,11 @@ const collections = COLLECTIONS.map((c, order) => {
     const cats = asList(c.auto?.category)
     if (cats && !cats.includes(r.category)) return false
     if (c.auto?.maxMinutes && r.estimatedMinutes > c.auto.maxMinutes) return false
+    if (c.auto?.minMinutes && r.estimatedMinutes < c.auto.minMinutes) return false
     if (c.auto?.notCategory && asList(c.auto.notCategory).includes(r.category)) return false
+    if (c.auto?.purpose && !asList(c.auto.purpose).includes(r.purpose)) return false
+    if (c.auto?.tag && !asList(c.auto.tag).every(t => r.tags.includes(t))) return false
+    if (c.auto?.level && !asList(c.auto.level).includes(r.level)) return false
     return true
   }).map(r => r.id)
   for (const x of c.extra || []) if (!ids.includes(x)) ids.push(x)
@@ -146,6 +153,11 @@ const collections = COLLECTIONS.map((c, order) => {
 })
 for (const id of FEATURED) if (!seen.has(id)) errors.push('featured routine missing: ' + id)
 routines.forEach(r => { const k = FEATURED.indexOf(r.id); if (k >= 0) r.featured = k + 1 })
+
+// ── Spanish: every routine and collection text has its translation in the app (locales/es.js) ───
+const esKeys = new Set(Object.keys((await imp('frontend/src/locales/es.js')).default))
+for (const r of routines) for (const k of ['name', 'subtitle', 'description']) if (r[k] && !esKeys.has(r[k])) errors.push(`${r.id}: no Spanish for ${k} "${r[k]}"`)
+for (const c of collections) for (const k of ['name', 'description']) if (c[k] && !esKeys.has(c[k])) errors.push(`collection ${c.id}: no Spanish for ${k} "${c[k]}"`)
 
 if (errors.length) { console.error(errors.join('\n')); process.exit(1) }
 

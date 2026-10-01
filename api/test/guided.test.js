@@ -57,7 +57,6 @@ test('/api/blocks serves exactly the official masters — routines add no blocks
   const LIB = JSON.parse(fs.readFileSync(path.resolve('lib/blocks-official.json'), 'utf8'));
   const blocks = (await req('GET', '/api/blocks', 't1')).body.blocks;
   assert.equal(blocks.length, LIB.blocks.length);
-  assert.equal(blocks.length, 158);
   assert.ok(!blocks.some(b => /^r2j/.test(b.id) || SEED.routines.some(r => r.blocks.some(x => x.iid === b.id))));
 });
 

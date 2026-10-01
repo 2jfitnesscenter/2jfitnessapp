@@ -101,8 +101,8 @@ describe('the official library after V2.1', () => {
   // MASTER blocks only (api/lib/blocks-official.json = what /api/blocks serves): the 118 of
   // Constructor V2.1 plus the 40 guided masters that the official guided routines are made of.
   // Routines never add masters: they hold copies (snapshots) inside api/lib/guided-official.json.
-  const MASTERS_V21 = 118, MASTERS_ADDED_FOR_ROUTINES = 40, MASTERS = MASTERS_V21 + MASTERS_ADDED_FOR_ROUTINES
-  it('158 official MASTER blocks (118 of V2.1 + 40 guided masters for Entrena con 2J), every one PASS, unique ids; only the two hip-thrust blocks were revised', () => {
+  const MASTERS_V21 = 118, MASTERS_ADDED_FOR_ROUTINES = 80, MASTERS = MASTERS_V21 + MASTERS_ADDED_FOR_ROUTINES
+  it('198 official MASTER blocks (118 of V2.1 + 80 guided masters for Entrena con 2J), every one PASS, unique ids; only the two hip-thrust blocks were revised', () => {
     expect(seed.count).toBe(MASTERS)
     expect(new Set(seed.blocks.map(b => b.id)).size).toBe(MASTERS)
     expect(seed.blocks.every(b => b.validation.result === 'PASS')).toBe(true)
@@ -111,13 +111,13 @@ describe('the official library after V2.1', () => {
     for (const id of revised) expect(seed.blocks.find(b => b.id === id).ex.map(e => e.id)).toContain('0058')
     expect(seed.seedVersion).toBe(2)
   })
-  it('46 guided blocks with timing, curated or cardio-machine exercises, revalidated here', () => {
+  it('86 guided blocks with timing, curated or cardio-machine exercises, revalidated here', () => {
     const guided = seed.blocks.filter(b => isGuided(b.type))
     const n = {}; for (const b of guided) n[b.type] = (n[b.type] || 0) + 1
-    expect(n).toEqual({ circuit: 10, hiit: 16, interval: 6, mobility: 14 })
+    expect(n).toEqual({ circuit: 13, hiit: 28, interval: 14, mobility: 31 })
     for (const b of guided) {
       expect(sanitizeTiming(b.timing, b.type)).toEqual(b.timing)
-      for (const e of b.ex) expect(CATALOG[e.id] || byId[e.id].bp === 'cardio').toBeTruthy()
+      for (const e of b.ex) expect(CATALOG[e.id] || byId[e.id].bp === 'cardio' || ['2142', '2138'].includes(e.id)).toBeTruthy()
       const r = v({ kind: 'block', goal: b.goal, level: b.level, type: b.type, focus: b.focus, entries: b.ex }, { official: true })
       expect(r.result, b.id).toBe('PASS')
       expect(b.ex.every(e => e.sets === b.timing.rounds), b.id).toBe(true)

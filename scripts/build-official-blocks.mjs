@@ -27,7 +27,7 @@ export const SEED_VERSION = 1
 // (lib/equipment.js models its dumbbells, plates and machines). Bands, kettlebells, balls
 // and other kit are left out rather than assumed.
 const GYM_EQ = new Set(['barbell', 'dumbbell', 'cable', 'leverage machine', 'smith machine', 'ez barbell', 'body weight',
-  'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill'])
+  'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill', 'skierg machine'])
 
 const byId = Object.fromEntries(EXDB.map(e => [e.id, e]))
 const lookup = id => byId[id] || null
@@ -56,10 +56,10 @@ function buildBlock([focus, goal, level, variant, style, exercises, opts = {}]) 
       if (!lookup(s.id)) { errors.push(`${id}: unknown exercise ${s.id}`); continue }
       // Official blocks only use exercises whose taxonomy is curated (lib/protocol/catalog.js) — a
       // name-based guess is never enough for what the library promises. Cardio is a library fact.
-      if (!c.curated && lookup(s.id).bp !== 'cardio') errors.push(id + ': ' + s.id + ' is not in the curated catalogue')
+      if (!c.curated && !c.cardio) errors.push(id + ': ' + s.id + ' is not in the curated catalogue')
       if (!GYM_EQ.has(lookup(s.id).eq)) errors.push(`${id}: ${s.id} uses "${lookup(s.id).eq}", not 2J equipment`)
       let e
-      if (guided && lookup(s.id).bp === 'cardio') {
+      if (guided && (c.cardio || lookup(s.id).bp === 'cardio')) {
         // A cardio machine inside a timed block works in bouts (applyTiming sets their length).
         e = { id: s.id, sets: 1, mode: 'time', sec: 60, weight: 0 }
       } else if (s.cardio) {
@@ -124,7 +124,8 @@ for (const fam of Object.values(families)) for (let i = 0; i < fam.length; i++) 
   const shared = [...a].filter(x => c.has(x)).length
   const jac = shared / new Set([...a, ...c]).size
   if (jac > 0.5) errors.push(`${fam[i].id} and ${fam[j].id} are too similar (${Math.round(jac * 100)}% shared)`)
-  const pat = b => b.ex.map(e => P.classify(e.id, lookup)).map(P.redundancyKey).sort().join(',')
+  // A cardio session on a different machine is a different session: the machine is part of its pattern.
+  const pat = b => b.ex.map(e => { const c = P.classify(e.id, lookup); return c.cardio ? 'cardio:' + e.id : P.redundancyKey(c) }).sort().join(',')
   if (pat(fam[i]) === pat(fam[j])) errors.push(`${fam[i].id} and ${fam[j].id} repeat the same patterns`)
 }
 

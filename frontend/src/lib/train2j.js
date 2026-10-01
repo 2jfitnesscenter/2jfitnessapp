@@ -10,7 +10,7 @@ import { validateAgainst2JProtocol, blockTypesOf, CATEGORY_LABEL, TAG_LABEL, TYP
 
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const LOWER = new Set(['glutes', 'quads', 'hamstrings', 'calves', 'adductors', 'abductors'])
-const CARDIO_EQ = new Set(['stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill'])
+const CARDIO_EQ = new Set(['stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill', 'skierg machine'])
 const MACHINE_EQ = new Set(['leverage machine', 'sled machine', 'cable', 'smith machine', 'assisted'])
 
 /** Kinds of material a routine needs, for the equipment filter and the card. */

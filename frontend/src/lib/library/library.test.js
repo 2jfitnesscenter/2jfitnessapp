@@ -96,8 +96,8 @@ describe('recommended vs master, deprecated vs preferred', () => {
     expect(preferredOf('0025')).toBe('0025')
   })
   it('no official block or guided routine uses a deprecated id', () => {
-    expect(json('api/lib/blocks-official.json').blocks).toHaveLength(158)
-    expect(json('api/lib/guided-official.json').routines).toHaveLength(69)
+    expect(json('api/lib/blocks-official.json').blocks).toHaveLength(198)
+    expect(json('api/lib/guided-official.json').routines).toHaveLength(155)
     for (const id of Object.keys(DEPRECATED)) expect(OFFICIAL.has(id), id).toBe(false)
   })
   it('names that were shared by two different exercises are now distinct (reviewed variants)', () => {

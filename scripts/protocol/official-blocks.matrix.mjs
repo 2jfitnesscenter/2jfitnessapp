@@ -213,6 +213,56 @@ export const MATRIX = [
   ['cardio', 'endurance', 'intermediate', null, 'intervals', ['2311'], { type: 'interval', timing: { prep: 10, work: 120, rest: 60, rounds: 5, roundRest: 0 } }],
   ['cardio', 'general', 'advanced', null, 'intervals', ['0684'], { type: 'interval', timing: { prep: 10, work: 30, rest: 90, rounds: 8, roundRest: 0 } }],
   ['cardio', 'endurance', 'advanced', null, 'intervals', ['2331'], { type: 'interval', timing: { prep: 10, work: 240, rest: 120, rounds: 4, roundRest: 0 } }],
+
+  // ───────── ENTRENA CON 2J ADMIN SPRINT — content expansion. Same rule as above: only pieces the new
+  // official sessions are composed of. Every exercise is curated (lib/protocol/catalog.js); stretches
+  // and drills carry no primary group, so none of this counts as training volume.
+  // Warm-ups (dynamic, short) and cool-downs (slow holds), by region and by what comes next.
+  ['upper', 'general', 'intermediate', 'A', 'warmup', ['3021', '1167', '1471', '3213'], { type: 'mobility', timing: { prep: 5, work: 30, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['lower', 'general', 'intermediate', 'A', 'warmup', ['1685', '1687', '1368', '0257'], { type: 'mobility', timing: { prep: 5, work: 30, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['lower', 'general', 'intermediate', 'B', 'warmup', ['1368', '0257', '1687', '3552', '3636'], { type: 'mobility', timing: { prep: 5, work: 30, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['fullbody', 'general', 'intermediate', 'B', 'warmup', ['1471', '1685', '1687', '3213', '0257'], { type: 'mobility', timing: { prep: 5, work: 30, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['shoulders', 'general', 'intermediate', 'A', 'warmup', ['3021', '1167', '0669', '1271'], { type: 'mobility', timing: { prep: 5, work: 30, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['glutes', 'general', 'intermediate', 'A', 'warmup', ['3561', '1687', '1685', '2567'], { type: 'mobility', timing: { prep: 5, work: 30, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['lower', 'general', 'intermediate', 'C', 'cooldown', ['3533', '1511', '1424', '1377'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['upper', 'general', 'intermediate', 'B', 'cooldown', ['1271', '0669', '0643', '1365'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['fullbody', 'general', 'intermediate', 'C', 'cooldown', ['1604', '1511', '1271', '1363'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
+  // Regions: spine, hips (standing and floor), posterior chain, neck and shoulders, lats, calves.
+  ['back', 'general', 'beginner', null, 'flow', ['1364', '1362', '2329', '1424', '1511'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['lower', 'general', 'beginner', 'E', 'flow', ['1604', '1687', '1585', '3533'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['lower', 'general', 'beginner', 'F', 'flow', ['1576', '1419', '0613', '2567', '1494'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['posterior', 'general', 'beginner', null, 'flow', ['1511', '3212', '1424', '1377', '1364'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['shoulders', 'general', 'beginner', 'B', 'flow', ['1403', '0716', '0643', '1405'], { type: 'mobility', timing: { prep: 5, work: 40, rest: 5, rounds: 2, roundRest: 0 } }],
+  ['upper', 'general', 'beginner', 'C', 'flow', ['1405', '1346', '1365', '2329'], { type: 'mobility', timing: { prep: 5, work: 45, rest: 5, rounds: 2, roundRest: 0 } }],
+  // Long sessions: one block of distinct regions paced for 20 and 30 minutes (9 holds of 55 s, 3 rounds / 8 holds of 60 s, 2 rounds).
+  ['fullbody', 'general', 'intermediate', 'D', 'flow', ['1604', '1365', '1271', '1405', '1364', '1511', '1424', '3533', '1377'], { type: 'mobility', timing: { prep: 5, work: 55, rest: 10, rounds: 3, roundRest: 0 } }],
+  ['fullbody', 'general', 'beginner', 'G', 'flow', ['1585', '0643', '2329', '1346', '1576', '2567', '0613', '1398'], { type: 'mobility', timing: { prep: 5, work: 60, rest: 10, rounds: 2, roundRest: 0 } }],
+  // Cardio on the gym's machines — intervals (own work/rest per machine), HIIT and Tabata format.
+  ['cardio', 'general', 'beginner', 'A', 'intervals', ['0798'], { type: 'interval', timing: { prep: 10, work: 45, rest: 75, rounds: 6, roundRest: 0 } }],
+  ['cardio', 'general', 'intermediate', 'A', 'intervals', ['2142'], { type: 'interval', timing: { prep: 10, work: 40, rest: 20, rounds: 8, roundRest: 0 } }],
+  ['cardio', 'general', 'intermediate', 'B', 'intervals', ['0684'], { type: 'interval', timing: { prep: 10, work: 60, rest: 60, rounds: 8, roundRest: 0 } }],
+  ['cardio', 'endurance', 'beginner', 'A', 'intervals', ['2141'], { type: 'interval', timing: { prep: 10, work: 240, rest: 60, rounds: 4, roundRest: 0 } }],
+  ['cardio', 'endurance', 'intermediate', 'A', 'intervals', ['2331'], { type: 'interval', timing: { prep: 10, work: 180, rest: 60, rounds: 5, roundRest: 0 } }],
+  ['cardio', 'endurance', 'advanced', 'A', 'intervals', ['2311'], { type: 'interval', timing: { prep: 10, work: 90, rest: 30, rounds: 8, roundRest: 0 } }],
+  ['cardio', 'general', 'advanced', 'A', 'intervals', ['2142'], { type: 'interval', timing: { prep: 10, work: 30, rest: 30, rounds: 10, roundRest: 0 } }],
+  ['cardio', 'general', 'advanced', 'B', 'intervals', ['2138'], { type: 'interval', timing: { prep: 10, work: 45, rest: 15, rounds: 10, roundRest: 0 } }],
+  ['cardio', 'general', 'beginner', 'A', 'intervals', ['2138'], { type: 'hiit', timing: { prep: 10, work: 30, rest: 30, rounds: 8, roundRest: 0 } }],
+  ['cardio', 'general', 'intermediate', 'C', 'intervals', ['0684'], { type: 'hiit', timing: { prep: 10, work: 30, rest: 30, rounds: 10, roundRest: 0 } }],
+  ['cardio', 'general', 'intermediate', 'E', 'intervals', ['2311'], { type: 'hiit', timing: { prep: 10, work: 30, rest: 30, rounds: 8, roundRest: 0 } }],
+  ['cardio', 'general', 'beginner', 'B', 'tabata', ['0798'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 8, roundRest: 0 } }],
+  ['cardio', 'general', 'intermediate', 'A', 'tabata', ['2142'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 8, roundRest: 0 } }],
+  ['cardio', 'general', 'advanced', 'A', 'tabata', ['0684'], { type: 'hiit', timing: { preset: 'tabata', prep: 10, work: 20, rest: 10, rounds: 8, roundRest: 0 } }],
+  // Bodyweight and dumbbell HIIT: low impact (no jumps), jumping, upper, core, strength-conditioning.
+  ['fullbody', 'general', 'beginner', 'C', 'intervals', ['3672', '3552', '3636', '3655'], { type: 'hiit', timing: { prep: 10, work: 30, rest: 30, rounds: 3, roundRest: 30 } }],
+  ['fullbody', 'general', 'intermediate', 'E', 'intervals', ['0501', '3223', '2466', '3360'], { type: 'hiit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 60 } }],
+  ['fullbody', 'general', 'advanced', 'C', 'intervals', ['0501', '3220', '2466', '0514'], { type: 'hiit', timing: { prep: 10, work: 45, rest: 15, rounds: 4, roundRest: 60 } }],
+  ['upper', 'general', 'beginner', 'A', 'intervals', ['0493', '0662', '3021', '3665'], { type: 'hiit', timing: { prep: 10, work: 30, rest: 30, rounds: 3, roundRest: 30 } }],
+  ['abs', 'general', 'intermediate', 'C', 'intervals', ['0459', '2466', '3665', '0687'], { type: 'hiit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 45 } }],
+  ['fullbody', 'general', 'intermediate', 'F', 'intervals', ['1760', '0292', '1459', '0405'], { type: 'hiit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 60 } }],
+  // Circuits without machines — for home, hotel and travel — and a longer machine circuit.
+  ['fullbody', 'general', 'beginner', 'B', 'circuit', ['0431', '0493', '3013', '0276', '3544:time=20'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 60 } }],
+  ['lower', 'general', 'beginner', 'A', 'circuit', ['2368', '3561', '0605', '3769'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 60 } }],
+  ['fullbody', 'endurance', 'intermediate', 'A', 'circuit', ['0289', '0292', '1459', '0405', '1760'], { type: 'circuit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 75 } }],
 ]
 
 // Per-block seed revisions: a block whose content changed after v1 of the seed carries its own

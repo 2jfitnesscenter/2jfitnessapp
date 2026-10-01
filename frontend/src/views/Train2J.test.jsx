@@ -121,8 +121,8 @@ describe('offline catalogue and favourites', () => {
     const g = guidedApi.useGuided
     await g.getState().load('u1')
     expect(g.getState()).toMatchObject({ status: 'ready', offline: true })
-    expect(g.getState().routines).toHaveLength(69)
-    expect(g.getState().programs).toHaveLength(13)
+    expect(g.getState().routines).toHaveLength(155)
+    expect(g.getState().programs).toHaveLength(22)
     expect(Object.keys(g.getState().programs[0].routines)).toContain(PROGRAM_SEED.programs[0].weeks[0].sessions[0].routineId)
     expect(g.getState().toggleFavorite(TABATA.id)).toBe(true)
     expect(JSON.parse(memory.get('g2j_favs:u1'))).toEqual([TABATA.id])

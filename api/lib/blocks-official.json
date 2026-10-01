@@ -1,7 +1,7 @@
 {
  "protocolVersion": "1.0",
  "seedVersion": 2,
- "count": 158,
+ "count": 198,
  "blocks": [
   {
    "id": "off-glutes-hypertrophy-beginner-a",
@@ -15430,6 +15430,2779 @@
     "leverage machine"
    ],
    "exerciseCount": 1,
+   "estimatedMinutes": 20,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-upper-general-intermediate-a-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "upper",
+   "variant": "A",
+   "style": "warmup",
+   "ex": [
+    {
+     "id": "3021",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1471",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "3213",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 30,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-lower-general-intermediate-a-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "lower",
+   "variant": "A",
+   "style": "warmup",
+   "ex": [
+    {
+     "id": "1685",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1687",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 30,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-lower-general-intermediate-b-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "lower",
+   "variant": "B",
+   "style": "warmup",
+   "ex": [
+    {
+     "id": "1368",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1687",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "3552",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "3636",
+     "sets": 2,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 30,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 5,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-general-intermediate-b-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "variant": "B",
+   "style": "warmup",
+   "ex": [
+    {
+     "id": "1471",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1685",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1687",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "3213",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "0257",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 30,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 5,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-shoulders-general-intermediate-a-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "shoulders",
+   "variant": "A",
+   "style": "warmup",
+   "ex": [
+    {
+     "id": "3021",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1167",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "0669",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1271",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 30,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-glutes-general-intermediate-a-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "glutes",
+   "variant": "A",
+   "style": "warmup",
+   "ex": [
+    {
+     "id": "3561",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1687",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "1685",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "2567",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 30,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [
+    "glutes"
+   ],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-lower-general-intermediate-c-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "lower",
+   "variant": "C",
+   "style": "cooldown",
+   "ex": [
+    {
+     "id": "3533",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1511",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1424",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1377",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 45,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-upper-general-intermediate-b-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "upper",
+   "variant": "B",
+   "style": "cooldown",
+   "ex": [
+    {
+     "id": "1271",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "0669",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "0643",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1365",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 45,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-general-intermediate-c-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "variant": "C",
+   "style": "cooldown",
+   "ex": [
+    {
+     "id": "1604",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1511",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1271",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1363",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 45,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-back-general-beginner-x-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "back",
+   "variant": null,
+   "style": "flow",
+   "ex": [
+    {
+     "id": "1364",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "1362",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "2329",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "1424",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "1511",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 40,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 5,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-lower-general-beginner-e-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "lower",
+   "variant": "E",
+   "style": "flow",
+   "ex": [
+    {
+     "id": "1604",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "1687",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "1585",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "3533",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 40,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-lower-general-beginner-f-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "lower",
+   "variant": "F",
+   "style": "flow",
+   "ex": [
+    {
+     "id": "1576",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1419",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "0613",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "2567",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1494",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 45,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 5,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-posterior-general-beginner-x-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "posterior",
+   "variant": null,
+   "style": "flow",
+   "ex": [
+    {
+     "id": "1511",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "3212",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1424",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1377",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1364",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 45,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 5,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-shoulders-general-beginner-b-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "shoulders",
+   "variant": "B",
+   "style": "flow",
+   "ex": [
+    {
+     "id": "1403",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "0716",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "0643",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "1405",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 40,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-upper-general-beginner-c-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "upper",
+   "variant": "C",
+   "style": "flow",
+   "ex": [
+    {
+     "id": "1405",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1346",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "1365",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "2329",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 45,
+    "rest": 5,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-general-intermediate-d-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "variant": "D",
+   "style": "flow",
+   "ex": [
+    {
+     "id": "1604",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 55,
+     "weight": 0
+    },
+    {
+     "id": "1365",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 55,
+     "weight": 0
+    },
+    {
+     "id": "1271",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 55,
+     "weight": 0
+    },
+    {
+     "id": "1405",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 55,
+     "weight": 0
+    },
+    {
+     "id": "1364",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 55,
+     "weight": 0
+    },
+    {
+     "id": "1511",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 55,
+     "weight": 0
+    },
+    {
+     "id": "1424",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 55,
+     "weight": 0
+    },
+    {
+     "id": "3533",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 55,
+     "weight": 0
+    },
+    {
+     "id": "1377",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 55,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 55,
+    "rest": 10,
+    "rounds": 3,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 9,
+   "estimatedMinutes": 30,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-general-beginner-g-mobility",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "mobility",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "fullbody",
+   "variant": "G",
+   "style": "flow",
+   "ex": [
+    {
+     "id": "1585",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 60,
+     "weight": 0
+    },
+    {
+     "id": "0643",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 60,
+     "weight": 0
+    },
+    {
+     "id": "2329",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 60,
+     "weight": 0
+    },
+    {
+     "id": "1346",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 60,
+     "weight": 0
+    },
+    {
+     "id": "1576",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 60,
+     "weight": 0
+    },
+    {
+     "id": "2567",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 60,
+     "weight": 0
+    },
+    {
+     "id": "0613",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 60,
+     "weight": 0
+    },
+    {
+     "id": "1398",
+     "sets": 2,
+     "mode": "time",
+     "prog": "double",
+     "sec": 60,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 5,
+    "work": 60,
+    "rest": 10,
+    "rounds": 2,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 8,
+   "estimatedMinutes": 20,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-beginner-a-interval",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "interval",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "cardio",
+   "variant": "A",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "0798",
+     "sets": 6,
+     "mode": "time",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 45,
+    "rest": 75,
+    "rounds": 6,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "leverage machine"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-intermediate-a-interval",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "interval",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "cardio",
+   "variant": "A",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "2142",
+     "sets": 8,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 40,
+    "rest": 20,
+    "rounds": 8,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "skierg machine"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-intermediate-b-interval",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "interval",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "cardio",
+   "variant": "B",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "0684",
+     "sets": 8,
+     "mode": "time",
+     "sec": 60,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 60,
+    "rest": 60,
+    "rounds": 8,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "treadmill"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 15,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-endurance-beginner-a-interval",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "interval",
+   "goal": "endurance",
+   "level": "beginner",
+   "focus": "cardio",
+   "variant": "A",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "2141",
+     "sets": 4,
+     "mode": "time",
+     "sec": 240,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 240,
+    "rest": 60,
+    "rounds": 4,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "elliptical machine"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 20,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-endurance-intermediate-a-interval",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "interval",
+   "goal": "endurance",
+   "level": "intermediate",
+   "focus": "cardio",
+   "variant": "A",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "2331",
+     "sets": 5,
+     "mode": "time",
+     "sec": 180,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 180,
+    "rest": 60,
+    "rounds": 5,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "leverage machine"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 20,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-endurance-advanced-a-interval",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "interval",
+   "goal": "endurance",
+   "level": "advanced",
+   "focus": "cardio",
+   "variant": "A",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "2311",
+     "sets": 8,
+     "mode": "time",
+     "sec": 90,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 90,
+    "rest": 30,
+    "rounds": 8,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "stepmill machine"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 15,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-advanced-a-interval",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "interval",
+   "goal": "general",
+   "level": "advanced",
+   "focus": "cardio",
+   "variant": "A",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "2142",
+     "sets": 10,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 30,
+    "rest": 30,
+    "rounds": 10,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "skierg machine"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-advanced-b-interval",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "interval",
+   "goal": "general",
+   "level": "advanced",
+   "focus": "cardio",
+   "variant": "B",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "2138",
+     "sets": 10,
+     "mode": "time",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 45,
+    "rest": 15,
+    "rounds": 10,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "stationary bike"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-beginner-a-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "cardio",
+   "variant": "A",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "2138",
+     "sets": 8,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 30,
+    "rest": 30,
+    "rounds": 8,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "stationary bike"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-intermediate-c-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "cardio",
+   "variant": "C",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "0684",
+     "sets": 10,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 30,
+    "rest": 30,
+    "rounds": 10,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "treadmill"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-intermediate-e-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "cardio",
+   "variant": "E",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "2311",
+     "sets": 8,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 30,
+    "rest": 30,
+    "rounds": 8,
+    "roundRest": 0
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "stepmill machine"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-beginner-b-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "cardio",
+   "variant": "B",
+   "style": "tabata",
+   "ex": [
+    {
+     "id": "0798",
+     "sets": 8,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 20,
+    "rest": 10,
+    "rounds": 8,
+    "roundRest": 0,
+    "preset": "tabata"
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "leverage machine"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-intermediate-a-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "cardio",
+   "variant": "A",
+   "style": "tabata",
+   "ex": [
+    {
+     "id": "2142",
+     "sets": 8,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 20,
+    "rest": 10,
+    "rounds": 8,
+    "roundRest": 0,
+    "preset": "tabata"
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "skierg machine"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-cardio-general-advanced-a-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "advanced",
+   "focus": "cardio",
+   "variant": "A",
+   "style": "tabata",
+   "ex": [
+    {
+     "id": "0684",
+     "sets": 8,
+     "mode": "time",
+     "sec": 20,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 20,
+    "rest": 10,
+    "rounds": 8,
+    "roundRest": 0,
+    "preset": "tabata"
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "treadmill"
+   ],
+   "exerciseCount": 1,
+   "estimatedMinutes": 5,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-general-beginner-c-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "fullbody",
+   "variant": "C",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "3672",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "3552",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "3636",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "3655",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 30,
+    "rest": 30,
+    "rounds": 3,
+    "roundRest": 30
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-general-intermediate-e-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "variant": "E",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "0501",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "3223",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "2466",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "3360",
+     "sets": 3,
+     "mode": "time",
+     "sec": 40,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 40,
+    "rest": 20,
+    "rounds": 3,
+    "roundRest": 60
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 15,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-general-advanced-c-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "advanced",
+   "focus": "fullbody",
+   "variant": "C",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "0501",
+     "sets": 4,
+     "mode": "time",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "3220",
+     "sets": 4,
+     "mode": "time",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "2466",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    },
+    {
+     "id": "0514",
+     "sets": 4,
+     "mode": "time",
+     "prog": "double",
+     "sec": 45,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 45,
+    "rest": 15,
+    "rounds": 4,
+    "roundRest": 60
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [
+    "quads"
+   ],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 20,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-upper-general-beginner-a-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "upper",
+   "variant": "A",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "0493",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "0662",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "3021",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    },
+    {
+     "id": "3665",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 30,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 30,
+    "rest": 30,
+    "rounds": 3,
+    "roundRest": 30
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [
+    "chest",
+    "abs"
+   ],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 10,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-abs-general-intermediate-c-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "abs",
+   "variant": "C",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "0459",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "2466",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "3665",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "0687",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 40,
+    "rest": 20,
+    "rounds": 3,
+    "roundRest": 45
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [
+    "abs"
+   ],
+   "equipment": [
+    "body weight"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 15,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-general-intermediate-f-hiit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "hiit",
+   "goal": "general",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "variant": "F",
+   "style": "intervals",
+   "ex": [
+    {
+     "id": "1760",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "0292",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "1459",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    },
+    {
+     "id": "0405",
+     "sets": 3,
+     "mode": "time",
+     "prog": "double",
+     "sec": 40,
+     "weight": 0
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 40,
+    "rest": 20,
+    "rounds": 3,
+    "roundRest": 60
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [
+    "quads",
+    "back",
+    "hamstrings",
+    "shoulders"
+   ],
+   "equipment": [
+    "dumbbell"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 15,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-general-beginner-b-circuit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "circuit",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "fullbody",
+   "variant": "B",
+   "style": "circuit",
+   "ex": [
+    {
+     "id": "0431",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "0493",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "3013",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "0276",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 15,
+     "targetRepsMin": 12,
+     "targetRepsMax": 15,
+     "repsMin": 12,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "3544",
+     "sets": 3,
+     "mode": "time",
+     "sec": 30,
+     "weight": 0,
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 30,
+    "rest": 20,
+    "rounds": 3,
+    "roundRest": 60
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [
+    "glutes",
+    "abs",
+    "chest"
+   ],
+   "equipment": [
+    "body weight",
+    "dumbbell"
+   ],
+   "exerciseCount": 5,
+   "estimatedMinutes": 15,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-lower-general-beginner-a-circuit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "circuit",
+   "goal": "general",
+   "level": "beginner",
+   "focus": "lower",
+   "variant": "A",
+   "style": "circuit",
+   "ex": [
+    {
+     "id": "2368",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "3561",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "0605",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 15,
+     "targetRepsMin": 12,
+     "targetRepsMax": 15,
+     "repsMin": 12,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "3769",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 12,
+     "targetRepsMin": 10,
+     "targetRepsMax": 12,
+     "repsMin": 10,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 30,
+    "rest": 20,
+    "rounds": 3,
+    "roundRest": 60
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-FREQ-001",
+    "2J-EVD-GEN-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [
+    "glutes",
+    "quads",
+    "calves"
+   ],
+   "equipment": [
+    "body weight",
+    "leverage machine"
+   ],
+   "exerciseCount": 4,
+   "estimatedMinutes": 15,
+   "validation": {
+    "result": "PASS",
+    "reasons": []
+   }
+  },
+  {
+   "id": "off-fullbody-endurance-intermediate-a-circuit",
+   "official": true,
+   "active": true,
+   "seedVersion": 1,
+   "protocolVersion": "1.0",
+   "type": "circuit",
+   "goal": "endurance",
+   "level": "intermediate",
+   "focus": "fullbody",
+   "variant": "A",
+   "style": "circuit",
+   "ex": [
+    {
+     "id": "0289",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "0292",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "1459",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "0405",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    },
+    {
+     "id": "1760",
+     "sets": 3,
+     "mode": "reps",
+     "reps": 20,
+     "targetRepsMin": 15,
+     "targetRepsMax": 20,
+     "repsMin": 15,
+     "prog": "double",
+     "rpe": [
+      6,
+      8,
+      8
+     ]
+    }
+   ],
+   "timing": {
+    "prep": 10,
+    "work": 40,
+    "rest": 20,
+    "rounds": 3,
+    "roundRest": 75
+   },
+   "evidence": [
+    "2J-EVD-EFF-001",
+    "2J-EVD-END-001"
+   ],
+   "createdBy": "2j",
+   "createdAt": "2026-09-25",
+   "updatedAt": "2026-09-25",
+   "muscles": [
+    "chest",
+    "back",
+    "hamstrings",
+    "shoulders",
+    "quads"
+   ],
+   "equipment": [
+    "dumbbell"
+   ],
+   "exerciseCount": 5,
    "estimatedMinutes": 20,
    "validation": {
     "result": "PASS",
