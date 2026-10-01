@@ -598,6 +598,22 @@ cat-cow, postura del niño, 90/90 y paloma de cadera, couch stretch, movilidad d
 descripciones en varios idiomas) si se quiere traducción; evitar datasets de Kaggle sin licencia clara; cualquiera exige
 revisar duplicados contra los 1324 ids y aportar medios propios (imagen/GIF).
 
+## 13c. Sprint 5 — Health Native Bridge, fase 1 (web; sin shell nativo)
+
+`lib/health-bridge.js` + sección en `views/HealthIntegrations.jsx` (solo si existe `window.TwoJNative.health` o plugin Capacitor
+`TwoJHealth`; si no, la pantalla no cambia). Contrato: `isAvailable / requestPermissions / readWorkouts({start,end})` de solo
+lectura, agregados por entreno (nunca muestras de pulso). Privado por defecto: consentimiento local por dispositivo
+(`health_bridge_v1:<uid>`), se pide permiso solo con un toque y la lectura exige consentimiento; ventana 30 d (máx 90),
+máx 500 sesiones, sesiones saneadas/whitelisted (id obligatorio, duración ≤24 h, rango solicitado y rangos de kcal/FC).
+Solo se adjuntan kcal/FC si el permiso opcional correspondiente fue concedido; una concesión sin `workouts` no habilita
+la lectura. Consentimiento revocado mientras una lectura nativa está pendiente descarta su respuesta; cambio de cuenta
+durante lectura/selección ambigua no adjunta datos a otra cuenta. `mapHealthConnectSession/mapHealthKitWorkout`,
+`matchAll` conservador (ambiguos al selector manual) y `attachFitness` existente → `w.fitness` viaja por Sync V2 sin
+cambios. Sin endpoints ni cambios de API/auth. Tests: `health-bridge.test.js` (19) + 1 en `Health.test.jsx`; frontend
+1029/1029. **Pendiente (bloqueante real):** los plugins nativos Kotlin (Health
+Connect) y Swift (HealthKit) en `frontend/android|ios`, permisos/privacy policy, declaración de Play Console y prueba en
+dispositivo; ver `docs/HEALTH_NATIVE_BRIDGE.md`.
+
 ## 13. Workflow con Claude (ahorro de contexto)
 
 1. Leer este archivo. 2. Inspeccionar solo los archivos relevantes. 3. No reauditar toda la app.

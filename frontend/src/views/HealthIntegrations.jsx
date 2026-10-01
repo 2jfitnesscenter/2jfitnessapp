@@ -9,6 +9,7 @@ import { fmtDate } from '../lib/format.js'
 import { connectWhoop, disconnectWhoop, fetchWhoopWorkouts } from '../lib/whoop-api.js'
 import { mapWhoopWorkout, matchAll, attachFitness, fitnessSources } from '../lib/fitness.js'
 import { bleSupported } from '../lib/ble-hr.js'
+import { getBridge, bridgeState, connectBridge, readBridge, applyMatches, disconnectBridge, platformLabel } from '../lib/health-bridge.js'
 import { importFromApp, confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, Button } from '../components/ui.jsx'
@@ -18,11 +19,12 @@ import { Section, Row, Button } from '../components/ui.jsx'
 // installed PWA; they appear here as an explanation, never as a button that does nothing.
 const countBy = (S, source) => (S.workouts || []).filter(w => fitnessSources(w).some(r => r.source === source) || (source === 'apple' && w.hrZones)).length
 
-function AmbiguousSheet({ items, close }) {
+function AmbiguousSheet({ items, close, ownerId }) {
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const [left, setLeft] = useState(items)
   const choose = (item, wid) => {
+    if (ownerId != null && useStore.getState().user?.id !== ownerId) { close(); return }
     if (wid) update(s => { const w = s.workouts.find(x => x.id === wid); if (w) attachFitness(w, item.rec) })
     const next = left.filter(x => x !== item)
     setLeft(next)
@@ -70,11 +72,54 @@ export default function HealthIntegrations() {
   }
   const whoopConnected = !!user?.whoop
 
+  // Native bridge (Health Connect / Apple Health inside a 2J shell). `bridge` is null in a browser
+  // or the installed PWA, and then none of this renders: the screen stays as it was.
+  const bridge = getBridge()
+  const bstate = bridgeState(user?.id)
+  const connectNative = async () => {
+    const ownerId = user?.id
+    setBusy(true)
+    try {
+      const r = await connectBridge({ uid: ownerId, bridge })
+      if (useStore.getState().user?.id !== ownerId) return
+      if (r.status === 'connected') toast(t('Connected. Nothing is read until you sync.'))
+      else if (r.status === 'denied') toast(t('Permission not granted. Nothing was read.'))
+      else toast(t('Health is not available on this device'))
+    } finally { setBusy(false) }
+  }
+  const syncNative = async () => {
+    const ownerId = user?.id
+    setBusy(true)
+    try {
+      const res = await readBridge({ uid: ownerId, workouts: useStore.getState().S.workouts, bridge })
+      // Do not attach one account's health records to another account if the shell read resolves
+      // after an auth switch.
+      if (useStore.getState().user?.id !== ownerId) return
+      if (res.status !== 'ok') { toast(res.status === 'off' ? t('Connect first') : t('Could not read your health data')); return }
+      let attached = 0
+      if (res.match.length) update(s => { attached = applyMatches(s, res) })
+      toast(t('{0} linked · {1} already linked · {2} without a matching workout', attached, res.linked.length, res.none.length))
+      if (res.ambiguous.length) useUI.getState().openSheet(close => <AmbiguousSheet items={res.ambiguous} close={close} ownerId={ownerId} />)
+    } finally { setBusy(false) }
+  }
+  const disconnectNative = () => confirmSheet({
+    title: t('Turn off {0}?', t(platformLabel(bridge))), message: t('2J stops reading it on this device. Workouts already linked keep their data. To revoke access completely, use your phone’s Health settings.'),
+    confirmText: t('Turn off'), danger: true, onConfirm: () => disconnectBridge(user?.id) })
+
   return <div className="narrow">
     <div className="hdr">
       <button className="iconbtn" onClick={() => nav('/health')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Fitness integrations')}</h1><div className="sub">{t('Calories and heart rate from your watch, linked to your 2J workouts')}</div></div>
     </div>
+
+    {bridge && user?.id && <Section title={t(platformLabel(bridge)) + ' · ' + t('automatic')} footer={t('Read-only and off until you turn it on. 2J reads only each workout’s duration, calories and heart-rate average and maximum — never the raw heart-rate stream — and keeps it with your workouts, private to you.')}>
+      {bstate.enabled ? <>
+        <Row icon="download" iconTint="var(--red)" title={busy ? t('Importing…') : t('Sync workouts (30 days)')}
+          subtitle={bstate.lastSync ? t('Last sync {0}', new Date(bstate.lastSync).toLocaleString()) : t('Not synced yet')} accessory="chevron" onClick={busy ? undefined : syncNative} />
+        <Row icon="xmark" iconTint="var(--grey)" title={t('Turn off {0}', t(platformLabel(bridge)))} onClick={disconnectNative} />
+      </> : <Row icon="heart" iconTint="var(--red)" title={t('Connect {0}', t(platformLabel(bridge)))}
+        subtitle={t('You choose what to allow in the next screen')} accessory="chevron" onClick={busy ? undefined : connectNative} />}
+    </Section>}
 
     <Section title={t('Apple Health (iPhone, Apple Watch)')} footer={t('Export from the Health app (profile → Export All Health Data) and import the file here. Workouts recorded by Apple Watch — or by apps that write to Health, like Zepp — bring their calories and heart rate; they are linked to a 2J workout only when the times clearly match. The file comes from an iPhone; you can upload it from any device, but this is a manual file import, not an Android integration.')}>
       <Row icon="upload" iconTint="var(--red)" title={t('Import Apple Health export')}

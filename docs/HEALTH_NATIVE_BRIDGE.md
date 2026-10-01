@@ -1,7 +1,14 @@
-# Health native bridge — design only, not implemented
+# Health native bridge
 
-Status: **design**. Nothing in this document is built. No Capacitor, no native project, no store
-listing. It needs an explicit go-ahead from the owner (see “Decisions needed” at the end).
+Status: **phase 1 (web side) implemented; native shells NOT built.** `frontend/src/lib/health-bridge.js` detects
+`window.TwoJNative.health` (or a Capacitor plugin `TwoJHealth`), asks for read access only on an explicit tap,
+reads per-workout aggregates, re-validates/whitelists them and attaches them through the existing mappers and
+`matchAll`/`attachFitness` (no endpoint, no new queue, consent kept on the device, off by default). Without a
+shell nothing is rendered. The native Android/iOS plugins that implement the contract below are the next phase and
+still need the owner’s go-ahead (see “Decisions needed”). Optional calorie/heart-rate fields are retained only when
+their corresponding OS grants were returned; consent without workout access cannot read. Results outside the requested
+date window are rejected, and a revocation during an in-flight read discards its result. The UI also discards results if
+the signed-in account changes before attachment.
 
 ## Why a native layer is needed at all
 

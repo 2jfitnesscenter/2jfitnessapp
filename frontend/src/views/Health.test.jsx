@@ -101,6 +101,25 @@ describe('integrations screen', () => {
     expect(html).toContain('Import Apple Health export')
     expect(html).not.toMatch(/Connect Health Connect|Connect HealthKit|Connect Zepp/i)
   })
+  it('native bridge: invisible without a 2J shell, off by default and read-only with one', async () => {
+    vi.unstubAllGlobals()
+    await seed({}, {})
+    const without = render(<views.Integrations />)
+    expect(without).not.toMatch(/ · automatic|Connect Health Connect|Sync workouts/)
+    const bridge = { platform: 'android', isAvailable: vi.fn(), requestPermissions: vi.fn(), readWorkouts: vi.fn() }
+    await seed({}, {})
+    vi.stubGlobal('TwoJNative', { health: bridge })
+    const withShell = render(<views.Integrations />)
+    expect(withShell).toContain('Health Connect · automatic')
+    expect(withShell).toContain('Connect Health Connect')
+    expect(withShell).toContain('never the raw heart-rate stream')
+    expect(withShell).not.toContain('Sync workouts')          // off until the person connects
+    expect(bridge.isAvailable).not.toHaveBeenCalled(); expect(bridge.readWorkouts).not.toHaveBeenCalled(); expect(bridge.requestPermissions).not.toHaveBeenCalled()
+    memory.set('health_bridge_v1:u1', JSON.stringify({ enabled: true, at: 1, lastSync: null, granted: ['workouts'] }))
+    const connected = render(<views.Integrations />)
+    expect(connected).toContain('Sync workouts (30 days)'); expect(connected).toContain('Turn off Health Connect')
+    vi.unstubAllGlobals()
+  })
   it('Bluetooth shows as compatible only when the browser has it', async () => {
     await seed({}, { bluetooth: { requestDevice: () => {} } })
     const html = render(<views.Integrations />)
