@@ -199,6 +199,11 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       // in case an earlier attempt died after saving the workout but before either of those.
       const already = (S.workouts || []).find(x => x.id === w.id);
       if (already) {
+        // The server may have expired its last acknowledged snapshot while this phone
+        // still held newer offline edits. Do not acknowledge those edits as saved.
+        if (mobileTimeout && !isDeepStrictEqual(w.entries, already.entries)) {
+          return json(res, 409, { code: 'WORKOUT_COMPLETED_CONFLICT', error: 'el entrenamiento ya finalizó; conserva y revisa tus cambios locales' });
+        }
         if (S.active && S.active.id === w.id) { replaceActive(S, null); writeState(uid, S); }
         if (!S.active || S.active.id === w.id) store.endSession(uid);
         return json(res, 200, { ok: true, prs: already.prs || [], e1prs: [], ...(mobileTimeout ? { workout: already } : {}) });

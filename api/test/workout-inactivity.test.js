@@ -82,3 +82,14 @@ test('API and client use one exact inactivity policy and finish builder', () => 
   const read = p => fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
   assert.equal(read(new URL('../lib/workout-activity.js', import.meta.url)), read(new URL('../../frontend/src/lib/workout-activity.js', import.meta.url)));
 });
+
+test('server timeout never acknowledges newer offline phone sets as persisted; exact retry still succeeds', async () => {
+  seed('A'); const original = readState('A').active;
+  await sweep();
+  const changed = structuredClone(original); changed.entries[0].sets[0].w = 45;
+  const result = await call('/api/active/finish-inactive', 'A', { active: changed, workout: buildFinishedWorkout(changed) });
+  assert.equal(result.status, 409); assert.equal(result.body.code, 'WORKOUT_COMPLETED_CONFLICT');
+  assert.equal(readState('A').workouts.length, 1);
+  assert.equal(readState('A').workouts[0].entries[0].sets[0].w, 40);
+  assert.equal((await call('/api/active/finish-inactive', 'A', { active: original, workout: buildFinishedWorkout(original) })).status, 200);
+});
