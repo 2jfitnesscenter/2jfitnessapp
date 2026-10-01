@@ -222,7 +222,7 @@ export function GuidedEditor() {
           {g.canEdit && id === 'new' && <label className="cx-check"><input type="checkbox" checked={r.scope === 'official'} onChange={e => set({ scope: e.target.checked ? 'official' : 'personal' })} />{t('Publish as an official 2J routine')}</label>}
           {(r.official || r.scope === 'official') && <>
             {sel('status', t('State'), STATUSES.map(x => <option key={x} value={x}>{t(STATUS_LABEL[x])}</option>))}
-            <div className="cx-form-row">
+            <div className="cx-form-col">
               <label className="cx-field"><span>{t('Purpose')}</span><select className="input" value={r.purpose || ''} onChange={e => set({ purpose: e.target.value || null })}>
                 <option value="">{t('Training session')}</option>{PURPOSES.map(x => <option key={x} value={x}>{t(PURPOSE_LABEL[x])}</option>)}</select></label>
               <label className="cx-field"><span>{t('Cover')}</span><select className="input" value={r.cover || ''} onChange={e => set({ cover: e.target.value || null })}>

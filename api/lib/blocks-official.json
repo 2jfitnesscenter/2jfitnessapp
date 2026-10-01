@@ -17881,7 +17881,7 @@
    "style": "circuit",
    "ex": [
     {
-     "id": "0431",
+     "id": "1460",
      "sets": 3,
      "mode": "reps",
      "reps": 12,
@@ -17969,13 +17969,13 @@
    "createdAt": "2026-09-25",
    "updatedAt": "2026-09-25",
    "muscles": [
-    "glutes",
     "abs",
-    "chest"
+    "quads",
+    "chest",
+    "glutes"
    ],
    "equipment": [
-    "body weight",
-    "dumbbell"
+    "body weight"
    ],
    "exerciseCount": 5,
    "estimatedMinutes": 15,
@@ -18028,7 +18028,7 @@
      ]
     },
     {
-     "id": "0605",
+     "id": "0710",
      "sets": 3,
      "mode": "reps",
      "reps": 15,
@@ -18075,12 +18075,10 @@
    "updatedAt": "2026-09-25",
    "muscles": [
     "glutes",
-    "quads",
-    "calves"
+    "quads"
    ],
    "equipment": [
-    "body weight",
-    "leverage machine"
+    "body weight"
    ],
    "exerciseCount": 4,
    "estimatedMinutes": 15,

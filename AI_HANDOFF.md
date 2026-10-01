@@ -576,6 +576,8 @@ preferido/deprecated, nota del curador. Persistencia `DATA/library-admin.json` (
 Rechaza cadenas, ciclos, otro movimiento, nombre ambiguo y duplicar algo que el contenido oficial activo usa. La IA y los
 validadores leen la biblioteca efectiva (overlay aplicado).
 
+**QA predeploy (2026-10-01):** revisión visual 1440/1920/móvil y muestreo de contenido; correcciones objetivas: títulos con minutos reales (`cool-down-fullbody-15`, `stretch-global-20`), circuitos "sin material" sin mancuerna/máquina (walking lunge, abducción de cadera), colección `c2j-home` renombrada «Casa y hotel» (evitaba rail duplicado), etiquetas de material del programa `g2j-bodyweight-hiit-3w`, contraste de inputs y botones alineados en Studio. Contenido de producción (158 bloques/69 rutinas/13 programas) idéntico byte a byte.
+
 **IA.** `compatibleRoutines/Programs` solo ofrecen contenido oficial `active`, con preferencia por destacados/compatible con
 el equipo; nunca deprecated (test en `studio-admin.test.js`).
 **TESTS.** API 346/346; frontend 1005/1005 (nuevos: `lib/studio.test.js` 15, `views/trainer/studio/studio-runtime.test.jsx` 5);

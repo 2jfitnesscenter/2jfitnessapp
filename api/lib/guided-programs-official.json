@@ -1587,14 +1587,14 @@
    "sessionsPerWeek": 3,
    "durationLabel": "3 weeks",
    "equipment": [
-    "Bodyweight",
-    "Gym machines",
-    "Dumbbells"
+    "Bodyweight"
    ],
    "profileTypes": [
-    "official",
+    "home",
+    "hotel",
     "other",
-    "custom"
+    "custom",
+    "official"
    ],
    "lowImpact": false,
    "featured": false,

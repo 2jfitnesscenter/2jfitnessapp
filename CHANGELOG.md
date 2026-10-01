@@ -19,7 +19,8 @@
   cool-downs, stretching, recovery, machine HIIT/Tabata/intervals (SkiErg added), bodyweight HIIT, home
   circuits, strength splits, strength + cardio sessions from 5 to 60 min; routines carry a `purpose`.
   Gym Profile compatibility shows Compatible / Partially compatible / Needs other equipment.
-- Tests: API 346, frontend 1005; build, Spanish 3968/3968 and sync checks pass. Not deployed.
+- Predeploy QA fixes: titles match real durations, "no equipment" circuits use bodyweight only, collection "Home and hotel", program gear labels, Studio input contrast. Existing production content unchanged.
+- Tests: API 346, frontend 1005; build, Spanish 3969/3969 and sync checks pass. Not deployed.
 
 
 ### Pre-deploy safety — inactivity finish / first working load (2026-10-01)

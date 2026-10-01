@@ -117,3 +117,6 @@
   .st-row{align-items:flex-start}.st-row>.st-pill,.st-row>.st-star,.st-row>.st-menu{margin-top:2px}
   .st-main b{font-size:14.5px}
 }
+.cx-form-col{display:grid;grid-template-columns:1fr;gap:10px}
+.st-selrow .grow,.st-pick .grow,.st-sessbtn .grow,.st-qrow .grow,.st-coll .grow{flex:1 1 auto;min-width:0}
+.st-qpanel .input,.st-help .input{background:var(--surface-2)}.st-session .input{background:var(--surface)}

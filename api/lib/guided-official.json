@@ -14352,7 +14352,7 @@
    ]
   },
   {
-   "id": "r2j-cooldown-fullbody-10",
+   "id": "r2j-cooldown-fullbody-15",
    "official": true,
    "active": true,
    "seedVersion": 1,
@@ -14360,7 +14360,7 @@
    "publishedAt": "2026-09-26",
    "category": "mobility",
    "purpose": "cooldown",
-   "name": "Cool-down · Full body, 10 min",
+   "name": "Cool-down · Full body, 15 min",
    "subtitle": "Hips and spine, then lats",
    "description": "The quick cool-down followed by a lat and upper-back sequence for a complete wind-down.",
    "goal": "general",
@@ -14377,7 +14377,7 @@
    ],
    "parts": [
     {
-     "iid": "k9695ff1e",
+     "iid": "k0a234865",
      "role": "main",
      "src": "off-fullbody-general-intermediate-c-mobility",
      "type": "mobility",
@@ -14392,7 +14392,7 @@
      }
     },
     {
-     "iid": "k2c3f090e",
+     "iid": "k5aa63555",
      "role": "main",
      "src": "off-upper-general-beginner-c-mobility",
      "type": "mobility",
@@ -14409,7 +14409,7 @@
    ],
    "blocks": [
     {
-     "iid": "k9695ff1e",
+     "iid": "k0a234865",
      "src": "off-fullbody-general-intermediate-c-mobility",
      "name": null,
      "type": "mobility",
@@ -14430,7 +14430,7 @@
      "seedVersion": 1
     },
     {
-     "iid": "k2c3f090e",
+     "iid": "k5aa63555",
      "src": "off-upper-general-beginner-c-mobility",
      "name": null,
      "type": "mobility",
@@ -14459,7 +14459,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k9695ff1e"
+     "blk": "k0a234865"
     },
     {
      "id": "1511",
@@ -14468,7 +14468,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k9695ff1e"
+     "blk": "k0a234865"
     },
     {
      "id": "1271",
@@ -14477,7 +14477,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k9695ff1e"
+     "blk": "k0a234865"
     },
     {
      "id": "1363",
@@ -14486,7 +14486,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k9695ff1e"
+     "blk": "k0a234865"
     },
     {
      "id": "1405",
@@ -14495,7 +14495,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k2c3f090e"
+     "blk": "k5aa63555"
     },
     {
      "id": "1346",
@@ -14504,7 +14504,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k2c3f090e"
+     "blk": "k5aa63555"
     },
     {
      "id": "1365",
@@ -14513,7 +14513,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k2c3f090e"
+     "blk": "k5aa63555"
     },
     {
      "id": "2329",
@@ -14522,7 +14522,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k2c3f090e"
+     "blk": "k5aa63555"
     }
    ],
    "validation": {
@@ -15243,7 +15243,7 @@
    ]
   },
   {
-   "id": "r2j-stretch-global-15",
+   "id": "r2j-stretch-global-20",
    "official": true,
    "active": true,
    "seedVersion": 1,
@@ -15251,7 +15251,7 @@
    "publishedAt": "2026-09-26",
    "category": "mobility",
    "purpose": "stretch",
-   "name": "Stretch · Global, 15 min",
+   "name": "Stretch · Global, 20 min",
    "subtitle": "Legs, upper body and spine",
    "description": "Three slow sequences in a row: legs, chest and shoulders, then hips and legs on the floor. Stay in an easy range.",
    "goal": "general",
@@ -15268,7 +15268,7 @@
    ],
    "parts": [
     {
-     "iid": "kd67717c8",
+     "iid": "k09098913",
      "role": "main",
      "src": "off-lower-general-intermediate-c-mobility",
      "type": "mobility",
@@ -15283,7 +15283,7 @@
      }
     },
     {
-     "iid": "k2cbbb54f",
+     "iid": "k2050257c",
      "role": "main",
      "src": "off-upper-general-intermediate-b-mobility",
      "type": "mobility",
@@ -15298,7 +15298,7 @@
      }
     },
     {
-     "iid": "k08da7ed5",
+     "iid": "kb4a20451",
      "role": "main",
      "src": "off-lower-general-beginner-f-mobility",
      "type": "mobility",
@@ -15315,7 +15315,7 @@
    ],
    "blocks": [
     {
-     "iid": "kd67717c8",
+     "iid": "k09098913",
      "src": "off-lower-general-intermediate-c-mobility",
      "name": null,
      "type": "mobility",
@@ -15336,7 +15336,7 @@
      "seedVersion": 1
     },
     {
-     "iid": "k2cbbb54f",
+     "iid": "k2050257c",
      "src": "off-upper-general-intermediate-b-mobility",
      "name": null,
      "type": "mobility",
@@ -15357,7 +15357,7 @@
      "seedVersion": 1
     },
     {
-     "iid": "k08da7ed5",
+     "iid": "kb4a20451",
      "src": "off-lower-general-beginner-f-mobility",
      "name": null,
      "type": "mobility",
@@ -15386,7 +15386,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "kd67717c8"
+     "blk": "k09098913"
     },
     {
      "id": "1511",
@@ -15395,7 +15395,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "kd67717c8"
+     "blk": "k09098913"
     },
     {
      "id": "1424",
@@ -15404,7 +15404,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "kd67717c8"
+     "blk": "k09098913"
     },
     {
      "id": "1377",
@@ -15413,7 +15413,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "kd67717c8"
+     "blk": "k09098913"
     },
     {
      "id": "1271",
@@ -15422,7 +15422,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k2cbbb54f"
+     "blk": "k2050257c"
     },
     {
      "id": "0669",
@@ -15431,7 +15431,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k2cbbb54f"
+     "blk": "k2050257c"
     },
     {
      "id": "0643",
@@ -15440,7 +15440,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k2cbbb54f"
+     "blk": "k2050257c"
     },
     {
      "id": "1365",
@@ -15449,7 +15449,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k2cbbb54f"
+     "blk": "k2050257c"
     },
     {
      "id": "1576",
@@ -15458,7 +15458,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k08da7ed5"
+     "blk": "kb4a20451"
     },
     {
      "id": "1419",
@@ -15467,7 +15467,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k08da7ed5"
+     "blk": "kb4a20451"
     },
     {
      "id": "0613",
@@ -15476,7 +15476,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k08da7ed5"
+     "blk": "kb4a20451"
     },
     {
      "id": "2567",
@@ -15485,7 +15485,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k08da7ed5"
+     "blk": "kb4a20451"
     },
     {
      "id": "1494",
@@ -15494,7 +15494,7 @@
      "prog": "double",
      "sec": 45,
      "weight": 0,
-     "blk": "k08da7ed5"
+     "blk": "kb4a20451"
     }
    ],
    "validation": {
@@ -21938,17 +21938,17 @@
    "category": "circuit",
    "name": "Circuit · Home, full body",
    "subtitle": "Bodyweight · 3 rounds",
-   "description": "Step-ups, incline push-ups, glute bridges, dead bugs and a side plank. A bench or sturdy step is all you need.",
+   "description": "Walking lunges, incline push-ups, glute bridges, dead bugs and a side plank. All you need is a bench or a sturdy step for the push-ups.",
    "goal": "general",
    "level": "beginner",
    "focus": "fullbody",
    "estimatedMinutes": 25,
    "equipment": [
-    "body weight",
-    "dumbbell"
+    "body weight"
    ],
    "tags": [
-    "no-jumps"
+    "no-jumps",
+    "no-equipment"
    ],
    "parts": [
     {
@@ -22091,7 +22091,7 @@
      "blk": "k12e4f0b9"
     },
     {
-     "id": "0431",
+     "id": "1460",
      "sets": 3,
      "mode": "reps",
      "reps": 12,
@@ -22233,17 +22233,17 @@
    "category": "circuit",
    "name": "Circuit · Legs and glutes, no equipment",
    "subtitle": "Bodyweight · 3 rounds",
-   "description": "Split squats, marching bridges, calf raises and curtsy lunges, then slow hip stretches on the floor.",
+   "description": "Split squats, marching bridges, side hip abductions and curtsy lunges, then slow hip stretches on the floor.",
    "goal": "general",
    "level": "beginner",
    "focus": "lower",
    "estimatedMinutes": 20,
    "equipment": [
-    "body weight",
-    "leverage machine"
+    "body weight"
    ],
    "tags": [
-    "no-jumps"
+    "no-jumps",
+    "no-equipment"
    ],
    "parts": [
     {
@@ -22427,7 +22427,7 @@
      "blk": "k3971cd99"
     },
     {
-     "id": "0605",
+     "id": "0710",
      "sets": 3,
      "mode": "reps",
      "reps": 15,
@@ -33143,14 +33143,14 @@
     "r2j-cooldown-lower",
     "r2j-cooldown-upper",
     "r2j-cooldown-quick",
-    "r2j-cooldown-fullbody-10",
+    "r2j-cooldown-fullbody-15",
     "r2j-mobility-back-hips",
     "r2j-mobility-hips-standing",
     "r2j-stretch-hips-floor",
     "r2j-stretch-back-body",
     "r2j-mobility-neck-shoulders",
     "r2j-stretch-lats",
-    "r2j-stretch-global-15",
+    "r2j-stretch-global-20",
     "r2j-stretch-lower-25",
     "r2j-mobility-full-20",
     "r2j-stretch-slow-20",
@@ -33274,14 +33274,14 @@
     "r2j-cooldown-lower",
     "r2j-cooldown-upper",
     "r2j-cooldown-quick",
-    "r2j-cooldown-fullbody-10",
+    "r2j-cooldown-fullbody-15",
     "r2j-mobility-back-hips",
     "r2j-mobility-hips-standing",
     "r2j-stretch-hips-floor",
     "r2j-stretch-back-body",
     "r2j-mobility-neck-shoulders",
     "r2j-stretch-lats",
-    "r2j-stretch-global-15",
+    "r2j-stretch-global-20",
     "r2j-stretch-lower-25",
     "r2j-mobility-full-20",
     "r2j-stretch-slow-20"
@@ -33303,7 +33303,7 @@
   {
    "id": "c2j-finishers",
    "name": "Finishers",
-   "description": "Five-minute machine bursts to end a strength day.",
+   "description": "Short machine bursts to finish a strength day.",
    "style": "express",
    "order": 11,
    "active": true,
@@ -33316,7 +33316,7 @@
   },
   {
    "id": "c2j-home",
-   "name": "No equipment",
+   "name": "Home and hotel",
    "description": "Only your body: sessions for home, a hotel or a park.",
    "style": "start",
    "order": 12,
@@ -33361,14 +33361,14 @@
     "r2j-cooldown-lower",
     "r2j-cooldown-upper",
     "r2j-cooldown-quick",
-    "r2j-cooldown-fullbody-10",
+    "r2j-cooldown-fullbody-15",
     "r2j-mobility-back-hips",
     "r2j-mobility-hips-standing",
     "r2j-stretch-hips-floor",
     "r2j-stretch-back-body",
     "r2j-mobility-neck-shoulders",
     "r2j-stretch-lats",
-    "r2j-stretch-global-15",
+    "r2j-stretch-global-20",
     "r2j-stretch-lower-25",
     "r2j-mobility-full-20",
     "r2j-stretch-slow-20",
@@ -33379,7 +33379,9 @@
     "r2j-hiit-burpees",
     "r2j-hiit-plyo-advanced",
     "r2j-tabata-upper-core",
-    "r2j-core-hiit"
+    "r2j-core-hiit",
+    "r2j-circuit-home-full",
+    "r2j-circuit-legs-bodyweight"
    ]
   },
   {
@@ -33426,14 +33428,14 @@
     "r2j-cooldown-lower",
     "r2j-cooldown-upper",
     "r2j-cooldown-quick",
-    "r2j-cooldown-fullbody-10",
+    "r2j-cooldown-fullbody-15",
     "r2j-mobility-back-hips",
     "r2j-mobility-hips-standing",
     "r2j-stretch-hips-floor",
     "r2j-stretch-back-body",
     "r2j-mobility-neck-shoulders",
     "r2j-stretch-lats",
-    "r2j-stretch-global-15",
+    "r2j-stretch-global-20",
     "r2j-stretch-lower-25",
     "r2j-mobility-full-20",
     "r2j-stretch-slow-20",

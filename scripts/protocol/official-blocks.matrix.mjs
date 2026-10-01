@@ -260,8 +260,8 @@ export const MATRIX = [
   ['abs', 'general', 'intermediate', 'C', 'intervals', ['0459', '2466', '3665', '0687'], { type: 'hiit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 45 } }],
   ['fullbody', 'general', 'intermediate', 'F', 'intervals', ['1760', '0292', '1459', '0405'], { type: 'hiit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 60 } }],
   // Circuits without machines — for home, hotel and travel — and a longer machine circuit.
-  ['fullbody', 'general', 'beginner', 'B', 'circuit', ['0431', '0493', '3013', '0276', '3544:time=20'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 60 } }],
-  ['lower', 'general', 'beginner', 'A', 'circuit', ['2368', '3561', '0605', '3769'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 60 } }],
+  ['fullbody', 'general', 'beginner', 'B', 'circuit', ['1460', '0493', '3013', '0276', '3544:time=20'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 60 } }],
+  ['lower', 'general', 'beginner', 'A', 'circuit', ['2368', '3561', '0710', '3769'], { type: 'circuit', timing: { prep: 10, work: 30, rest: 20, rounds: 3, roundRest: 60 } }],
   ['fullbody', 'endurance', 'intermediate', 'A', 'circuit', ['0289', '0292', '1459', '0405', '1760'], { type: 'circuit', timing: { prep: 10, work: 40, rest: 20, rounds: 3, roundRest: 75 } }],
 ]
 
