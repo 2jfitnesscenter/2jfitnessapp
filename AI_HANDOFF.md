@@ -7,13 +7,14 @@
 
 ## 1. Estado actual (checkpoint 2026-10-01)
 
-- **Sprint 4.5 (Entrena con 2J Admin + contenido + biblioteca) completo en la rama local; NO DESPLEGADO.** Producción: `78b22bb80d946d3e402040b1ff3094c0ef81dedc`. Resumen y cifras en la sección 13b.
-
-- **Producción estable actual (confirmada por el usuario):** `abe32659d5bc20179f3270cd2f7d2612ea132623`.
-- **Código/tests local validado:** `4801d61` (sobre `4f8e80c`; auto-finish `f127e06`); el commit documental
-  de este checkpoint lo sigue (HEAD exacto: `git rev-parse HEAD`).
-  **Bunker Live V2 — Sprint 4 COMPLETO localmente; NO desplegado.** Las referencias de producción
-  anteriores en las notas históricas de abajo describen checkpoints pasados, no el estado actual.
+- **Producción actual (confirmada por el usuario):** `b4e7baad74131a90cc002d662cad1e4a21f973ce`.
+  **Sprint 4.5 DESPLEGADO y cerrado** (Entrena con 2J Admin + expansión de contenido + calidad/admin de la
+  biblioteca + inventario oficial del Gym Profile con kettlebells + switch de visibilidad del Studio).
+  Resumen y cifras en §13b. Todo lo anterior (Bunker Live V2, auto-finish, carga inicial segura, Gym Profiles,
+  Series Feedback…) está incluido en ese release. Checkpoints de producción previos: `78b22bb` (Bunker Live V2 +
+  auto-finish) y `760008e` (Sprint 4.5 sin el switch); solo históricos. Las referencias a `abe3265` y
+  anteriores en las notas de abajo describen checkpoints pasados, no el estado actual.
+- **Rollback del último deploy:** `760008e564c0c17438313b8b8d3852bc47d8e429` (árbol exacto; el runner lo verifica).
 - Trabajo tras `013c3b7`: `db69559` actualizó solo handoff; `2920370` añadió progreso visual por
   panel Bunker y media GIF existente. `013c3b7` conserva la UX de edición de equipo Gym Profiles.
 - `7ebb722708a6b27c33aafe60f799b1dada8fbc59` es un checkpoint anterior de Gym Profiles V1;
@@ -28,11 +29,11 @@
 - Servidor: `/opt/2jfitness` (release extraída de tarballs, no es repo git), datos en
   `/opt/2jfitness/data`, backups en `/root/backups`, URL `https://app.2jfitnesscenter.com`.
 
-### Pre-deploy — auto-finish + carga inicial segura (2026-10-01; NO DESPLEGADO)
+### Pre-deploy — auto-finish + carga inicial segura (2026-10-01; histórico, desplegado en `78b22bb`)
 
 - Commits separados: `f127e06` auto-finish; `4801d61` Progressive Overload; `2d6d13b` protege
-  edits offline posteriores al cierre servidor (409 conserva draft; retry idéntico 200). Producción sigue
-  en `abe32659d5bc20179f3270cd2f7d2612ea132623` según la última confirmación; no SSH/deploy/push.
+  edits offline posteriores al cierre servidor (409 conserva draft; retry idéntico 200). En aquel
+  momento producción estaba en `abe32659d5bc20179f3270cd2f7d2612ea132623` (histórico; hoy §1).
 - Auto-finish reutiliza el finish idempotente existente, PR/exWeights/history/program completion.
   `lastActivityAt` vive en el active local/persistido; cambia por sets, carga/reps, cardio,
   navegación de ejercicio, swaps o cambios reales de Guided. Polling/render/revalidación no lo renuevan.
@@ -63,7 +64,7 @@
   protocolo/modelos/seeds/catálogo OK, diff check OK. Deuda histórica: chunks grandes, otros idiomas
   incompletos y 28 ejercicios sin movimiento canónico; no causada por estos fixes.
 - `deploy-4f8e80c.ps1` y su release quedan OBSOLETOS. Preparar runner NUEVO para el HEAD documental
-  final, baseline/rollback `abe3265`, artefactos exactos, backup, protección datos/Sync V2, retry,
+  final, baseline/rollback `abe3265` (nota histórica, ya cumplida por los runners posteriores), artefactos exactos, backup, protección datos/Sync V2, retry,
   runtime/image probes, PrepareOnly e install/rollback local antes de cualquier aprobación de deploy.
 
 ### Community V2 + Notifications + Sharing — desplegado (2026-09-27)
@@ -133,7 +134,7 @@
 - Sin cola offline nueva: cada share/chat se confirma con respuesta del servidor. No tocar Sync V2,
   Training Protocol, Health, Gym Profiles, Library, Bunker ni infra.
 
-### Sprint 2 — Guided Programs V2 (completo en la rama local; NO desplegado; 2026-09-28)
+### Sprint 2 — Guided Programs V2 (completo; desplegado después, ver §1; 2026-09-28)
 
 - Foundation `1bbf316` conservada: rutas `/train2j/programs` y `/train2j/program/:id`, onboarding reabrible, Gym Profile por sesión, progreso desde workouts reales, pausa/reanudación/abandono, asignación trainer con receipt e idempotencia y snapshot de rutinas. `src2j.program`, `S.programs` y `activeProgramId` reutilizan Workout/Sync V2 sin cambiar su núcleo ni duplicar entrenamientos. Catálogo cacheado por uid permite consulta offline; no hay cola offline nueva.
 - Contenido local ampliado de **39 a 69 rutinas** (fuerza/hipertrofia, movilidad, HIIT/Tabata y otras), de **155 a 158 bloques** y de **4 a 13 programas** de varias semanas; 8 colecciones, 3 destacadas. Los nuevos programas cubren retorno, fuerza, full body, tren superior/inferior, PPL, glúteo, casa, core y hotel. Semillas/protocolo espejados con generadores `--check`; referencias de días y bloques comprobadas. No hay contenido externo.
@@ -143,7 +144,7 @@
 - Validación local: frontend **930/930**, API **281/281**, build OK (warning histórico de chunks grandes), español **3520/3520**; generadores de rutinas/bloques, auditoría/catálogo, espejo de protocolo (9 archivos) y `git diff --check` OK. Otros idiomas: cobertura parcial con fallback inglés (805/3520). Sin llamadas reales a IA.
 - Commits de cierre local: `245e460` (Library), `798d226` (contenido/programas), `2a8c2fe` (curación admin). En aquel checkpoint producción estaba en `3c0129ad39970e8a87e8663c2402405df6199139`; esta nota de 2026-09-28 no determina el estado de despliegue actual (§1).
 
-### Bugfix estabilidad IA 2J (local, no desplegado; 2026-09-28)
+### Bugfix estabilidad IA 2J (desplegado después; 2026-09-28)
 
 - **Causa raíz:** el Agent SDK informa los errores de API (529 overloaded, 5xx, 429, auth) como
   `result` con `subtype:'success'` + `is_error:true` y el texto del error en `result`. El adaptador
@@ -211,7 +212,7 @@
 - Los umbrales son heurísticas conservadoras de producto, no ciencia clínica ni nueva versión del
   protocolo; véase `docs/EVIDENCE.md`.
 
-### Constructor UX mini-sprint (local, no desplegado; 2026-09-27)
+### Constructor UX mini-sprint (desplegado después; 2026-09-27)
 
 - Días del programa arriba en barra horizontal (`DayBar` en `views/trainer/Constructor.jsx`):
   orden, activo, weekdays, resumen, "sin guardar", scroll horizontal, + Añadir día.
@@ -249,16 +250,16 @@
 | Health V2 / Fitness V1 | evolución física, segmental, check-in, WHOOP/Strava/BLE, zonas | `views/Health.jsx`, `lib/fitness.js` |
 | Constructor V2 / V2.1 | programa → día → bloques → ejercicios; bloques guiados con timing; sugerencias 2J | `views/trainer/Constructor.jsx`, `components/constructor/*` |
 | Protocolo 2J v1.0 | reglas, validador determinista, save policy, puerta IA | `lib/protocol/*` (copia en `api/lib/protocol`) |
-| Official Blocks (rama local; no desplegado) | 158 maestros | `api/lib/blocks-official.json`, `scripts/protocol/official-blocks.matrix.mjs` |
+| Official Blocks (desplegado) | 158 maestros | `api/lib/blocks-official.json`, `scripts/protocol/official-blocks.matrix.mjs` |
 | Guided Blocks | ejecutor circuito/intervalos/HIIT/Tabata/movilidad en el entreno | `lib/guided.js`, `components/GuidedRunner.jsx` |
-| Entrena con 2J / Guided Programs V2 (rama local; no desplegado) | 69 rutinas, 13 programas, 8 colecciones, 3 destacadas | ver §1 y §7 |
+| Entrena con 2J / Guided Programs V2 (desplegado) | 69 rutinas, 13 programas, 8 colecciones, 3 destacadas | ver §1 y §7 |
 | Legal / credits | AGPL, atribución, pantalla Legal | ver §8 |
 | Exercise Library V2 | taxonomía, recomendados, familias, búsqueda, swap | ver §4–5 |
 | Bunker | pantalla de sala multiusuario | ver §10 |
 | Trainer tools | panel, asignar, duplicar, IA de rutinas, escaneo | `views/trainer/*`, `lib/trainer-api.js` |
 | AI protocol gate | la IA recibe reglas + contenido oficial; FAIL → reparar una vez → descartar | `api/coach/protocol-gate.js`, `api/coach/prompts/*` |
 
-## 4. Exercise Library V2 — estado de la rama local (no desplegado)
+## 4. Exercise Library V2 — desplegado
 
 Doc: `docs/EXERCISE_LIBRARY_V2.md`. Métricas generadas: `docs/EXERCISE_LIBRARY_AUDIT.md`.
 
@@ -320,7 +321,7 @@ material → lateralidad → ángulo; recomendados en empate) con razones visibl
 
 ## 7. Contenido oficial y Entrena con 2J
 
-- 198 bloques oficiales: 198 PASS, 0 FAIL, 0 PASS_WITH_REASON (rama local; no desplegado).
+- 198 bloques oficiales: 198 PASS, 0 FAIL, 0 PASS_WITH_REASON (desplegado).
 - 155 rutinas guiadas oficiales, 15 colecciones, 22 programas, 3 destacadas (`api/lib/guided-official.json`,
   `scripts/build-official-routines.mjs`). Ninguna semilla usa un deprecated.
 - **Entrena con 2J** (`views/Train2J.jsx`, `components/train2j/parts.jsx`, `lib/train2j.js`,
@@ -355,7 +356,7 @@ superseries; sustitución V2; herramientas; Health nunca visible en la sala; blo
 ejecutan como player completo en el Bunker (aviso). `views/Bunker.jsx`, `lib/bunker-workout.js`,
 `api/bunker/*`.
 
-### Bunker Live V2 — Sprint 4 cerrado (2026-10-01; NO desplegado)
+### Bunker Live V2 — Sprint 4 cerrado (2026-10-01; desplegado después, ver §1)
 
 - Al inspeccionar el HEAD `db69559` (desde `013c3b7`, solo el handoff había cambiado), se encontró
   ya disponible: navegación horizontal por todos los ejercicios, selección de rutina o freestyle
@@ -397,7 +398,7 @@ ejecutan como player completo en el Bunker (aviso). `views/Bunker.jsx`, `lib/bun
   No se garantiza recuperar un borrador sin confirmar tras recarga con NUEVO token; no se ha
   rediseñado esa persistencia. Descanso de sala efímero tras reinicio API; aviso conocido de chunks
   grandes. Antes de deploy: aprobación y prueba en el dispositivo físico; no runner/push/deploy
-  en este cierre. Producción sigue siendo la confirmada en §1.
+  en este cierre. Producción es la indicada en §1.
 
 ## 10b. Series Feedback V1 (desplegado en 133a52c)
 
@@ -461,12 +462,12 @@ sobre Library V2, no nuevo catálogo ni metodología.
   Bloqueos temporales de material 2J se respetan en compatibilidad/swap, sin aplicarlos a Casa/Hotel.
 - Validación V1: 15 pruebas frontend nuevas y 3 API (contexto IA, orden y copia); sin llamadas reales
   a IA. V1 desplegado según confirmación del usuario.
-- Polish visual local, commit `70080f1` (no desplegado): fila compacta en Ajustes con ayuda; hoja
+- Polish visual, commit `70080f1` (desplegado después): fila compacta en Ajustes con ayuda; hoja
   mobile-first con cinco tarjetas, indicador textual de perfil activo, material en chips y español.
   El modelo, persistencia, API y Sync V2 no cambian. Frontend **895/895**, build OK, español
   completo, `git diff --check` OK. El checkpoint local `b890a26` incluye la documentación de ese
   polish. No se hizo validación manual del polish en dispositivo real.
-- **Gym Profiles V1.1 — editor global 2J, local y no desplegado:** `data/gym-profile.json` es una
+- **Gym Profiles V1.1 — editor global 2J (desplegado después):** `data/gym-profile.json` es una
   única configuración global del gimnasio, con fallback al inventario incluido en el release.
   `GET /api/config` la expone (son solo categorías públicas); `POST /api/admin/gym-profile/official`
   exige admin y persiste cambios mediante escritura temporal + rename. Los perfiles personales no
@@ -499,7 +500,7 @@ sobre Library V2, no nuevo catálogo ni metodología.
   Train2J solo etiqueta; no filtra ni adapta rutinas. No hay editor de bloques por lugar ni perfiles
   compartidos. Cambios simultáneos de preferencias siguen la resolución existente de Sync V2.
 
-**GYM PROFILES — USER EQUIPMENT UX (commit `013c3b7`; DEPLOY STATUS = NOT DEPLOYED):**
+**GYM PROFILES — USER EQUIPMENT UX (commit `013c3b7`; histórico; desplegado después, ver §1):**
 Casa, Hotel y perfiles personalizados ya admitían edición del material por el usuario. Este commit
 añade búsqueda en el catálogo existente, contador de seleccionados, selección temporal y botón
 explícito «Guardar equipamiento». El perfil oficial muestra que 2J Fitness Center gestiona su
@@ -507,8 +508,8 @@ material: socio en solo lectura, admin con el editor oficial existente. Se reuti
 equipment IDs; guardar actualiza la compatibilidad existente para Exercise Library, swaps,
 Constructor, Workout, Train2J e Intelligence 2J, sin rehacer esas integraciones. Tests locales:
 frontend **949/949**, API **304/304**, build OK, español completo y `git diff --check` OK.
-La selección no guardada se descarta al salir. Producción continúa en
-`abe32659d5bc20179f3270cd2f7d2612ea132623`.
+La selección no guardada se descarta al salir. (En aquel momento producción estaba en
+`abe32659d5bc20179f3270cd2f7d2612ea132623`; hoy §1.)
 
 **Nota para Sprint 4:** partir de `013c3b7378a72facc35420cd2197ea9887a3c950`;
 no rehacer la edición de equipamiento de Gym Profiles.
@@ -528,11 +529,14 @@ ni Bunker Live. Otras ideas de roadmap (Health V2, Library V2) requieren prioriz
 de Sync V2; Sync V2 es monoproceso; unidades de pesos históricos; traducciones parciales en
 idiomas distintos del español (política: fallback a inglés).
 
-## 13b. Sprint 4.5 — Entrena con 2J Admin + contenido + calidad de biblioteca (NO DESPLEGADO)
+## 13b. Sprint 4.5 — Entrena con 2J Admin + contenido + calidad de biblioteca (DESPLEGADO)
 
-**DEPLOY STATUS: NOT DEPLOYED.** Producción confirmada: `78b22bb80d946d3e402040b1ff3094c0ef81dedc`. Rama
-`feat/pwa-tanita-bunker-roadmap`; commits del sprint: `05268ea` (calidad de biblioteca), `870b533` (backend admin),
-`fb88893` (contenido), `791312e` (Studio + frontend) y el commit documental que los sigue. Sin push, sin runner.
+**DEPLOY STATUS: DEPLOYED.** Producción: `b4e7baad74131a90cc002d662cad1e4a21f973ce` (rollback exacto `760008e`).
+Rama `feat/pwa-tanita-bunker-roadmap`; commits del sprint: `05268ea` (calidad de biblioteca), `870b533` (backend admin),
+`fb88893` (contenido), `791312e` (Studio + frontend), `ebef26c`/`76a6518` (QA predeploy y test de compatibilidad),
+`760008e` (Gym Profile oficial con kettlebells, 19 ids) y `b4e7baa` (switch de visibilidad en las filas del Studio y
+las cards de bloques: ON = visible, OFF = oculto, guardado inmediato con los endpoints existentes; filtros
+Todos/Visibles/Ocultos; el menú «…» queda para editar/duplicar/borrar).
 
 **ENTRENA CON 2J ADMIN — arquitectura.** Persistencia propia en `DATA/guided.json` (nunca en el estado/Sync V2 del
 socio): overlays sobre las semillas (`overrides`, `officialCustom`, `programsCustom`, `collections`), las semillas de
