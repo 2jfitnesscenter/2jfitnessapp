@@ -61,3 +61,18 @@ export function duplicateWeek(weeks, i) {
   const copy = JSON.parse(JSON.stringify(weeks[i]))
   return [...weeks.slice(0, i + 1), copy, ...weeks.slice(i + 1)]
 }
+
+export const VISIBILITY_LABEL = { active: 'Visible', hidden: 'Hidden', draft: 'Draft' }
+
+/**
+ * The direct visibility switch of a row: ON publishes (active), OFF hides. Uses the existing store
+ * calls and endpoints only; the server stays the authority (a routine or program that does not
+ * pass its publishing checks is refused with its reason, and the switch stays where it was).
+ * kind: 'routine' | 'program' | 'collection' (blocks have their own setActive).
+ */
+export async function setVisible(g, kind, item, on) {
+  if (kind === 'routine') return g.setStatus(item.id, on ? 'active' : 'hidden')
+  if (kind === 'program') { const { routines: _r, routineIds: _i, ...program } = item; return g.saveProgram({ ...program, status: on ? 'active' : 'hidden' }) }
+  if (kind === 'collection') return g.saveCollection({ ...item, active: !!on })
+  throw new Error('unknown kind ' + kind)
+}

@@ -11,6 +11,7 @@ import { useBlocks, recentBlocks, validate } from '../../lib/blocks-api.js'
 import { filterBlocks, blockTitle, blockSubtitle, FOCUS, FOCUS_LABEL, GOAL_LABEL, LEVEL_LABEL, TYPE_LABEL, GOALS, LEVELS, BLOCK_TYPES } from '../../lib/protocol/index.js'
 import { Thumb } from '../Media.jsx'
 import Icon from '../Icon.jsx'
+import { Switch } from '../ui.jsx'
 import { TypeTag, OfficialTag, Prescription, ProtocolReport } from './parts.jsx'
 import { timingLine } from '../../lib/guided.js'
 import { BLOCK_DRAG_TYPE } from './drag.js'
@@ -28,13 +29,21 @@ const dragProps = (b, onAdd) => onAdd && b.active !== false
   ? { draggable: true, onDragStart: ev => { ev.dataTransfer.effectAllowed = 'copy'; ev.dataTransfer.setData(BLOCK_DRAG_TYPE, b.id) } }
   : {}
 
-export function BlockCard({ b, onPreview, onAdd, fav, onFav, selected }) {
+/** Direct visibility switch of a block (management page only): ON = visible, OFF = hidden. */
+export function BlockSwitch({ b, visibility }) {
+  if (!visibility?.can(b)) return null
+  return <span className="cx-vis" role="group" aria-label={t('Visible to members') + ': ' + blockTitle(b, t)}>
+    <Switch checked={b.active !== false} disabled={visibility.busy?.has(b.id)} onChange={on => visibility.toggle(b, on)} />
+  </span>
+}
+
+export function BlockCard({ b, onPreview, onAdd, fav, onFav, selected, visibility }) {
   return <article className={'cx-card' + (b.active === false ? ' off' : '') + (selected ? ' on' : '')} {...dragProps(b, onAdd)}>
     <button className="cx-card-body" onClick={() => onPreview(b)} aria-label={t('Preview {0}', blockTitle(b, t))}>
       <div className="cx-card-eyebrow">
         <span className="cx-focus">{t(FOCUS_LABEL[b.focus] || '—')}</span>
         {b.type !== 'strength' && <TypeTag type={b.type} compact />}
-        {b.active === false && <span className="cx-off">{t('Inactive')}</span>}
+        {b.active === false && <span className="cx-off">{t('Hidden')}</span>}
       </div>
       <div className="cx-card-title">{blockName(b)}</div>
       {blockSubtitle(b, t) && <div className="cx-card-style">{blockSubtitle(b, t)}</div>}
@@ -48,6 +57,7 @@ export function BlockCard({ b, onPreview, onAdd, fav, onFav, selected }) {
     <div className="cx-card-foot">
       <OfficialTag official={b.official} />
       <span className="grow" />
+      <BlockSwitch b={b} visibility={visibility} />
       {onFav && <button className={'cx-star' + (fav ? ' on' : '')} aria-pressed={!!fav} aria-label={fav ? t('Remove from favorites') : t('Add to favorites')} onClick={() => onFav(b, !fav)}>
         <Icon name={fav ? 'starFill' : 'star'} /></button>}
       {onAdd && <button className="cx-add" onClick={() => onAdd(b)}><Icon name="plus" />{t('Add')}</button>}
@@ -59,13 +69,13 @@ export function BlockCard({ b, onPreview, onAdd, fav, onFav, selected }) {
  * One block as a compact row (list view): name, goal, level, variant, exercises, duration, main
  * equipment, source and the two actions. Narrow panels fold the columns into a second line.
  */
-export function BlockRow({ b, onPreview, onAdd, fav, onFav, selected }) {
+export function BlockRow({ b, onPreview, onAdd, fav, onFav, selected, visibility }) {
   const title = b.name || t(FOCUS_LABEL[b.focus] || '—')
   const eq = (b.equipment || [])[0]
   return <div className={'cx-lrow' + (b.active === false ? ' off' : '') + (selected ? ' on' : '')} role="listitem" {...dragProps(b, onAdd)}>
     <div className="cx-lrow-name">
       <b>{title}{b.type !== 'strength' && <TypeTag type={b.type} compact />}</b>
-      <small>{[b.name && t(FOCUS_LABEL[b.focus] || ''), blockSubtitle(b, t), b.timing && shortTiming(b.timing)].filter(Boolean).join(' · ')}{b.active === false && <span className="cx-off">{t('Inactive')}</span>}</small>
+      <small>{[b.name && t(FOCUS_LABEL[b.focus] || ''), blockSubtitle(b, t), b.timing && shortTiming(b.timing)].filter(Boolean).join(' · ')}{b.active === false && <span className="cx-off">{t('Hidden')}</span>}</small>
     </div>
     <span className="cx-lc goal">{t(GOAL_LABEL[b.goal] || '—')}</span>
     <span className="cx-lc level">{t(LEVEL_LABEL[b.level] || '—')}</span>
@@ -76,6 +86,7 @@ export function BlockRow({ b, onPreview, onAdd, fav, onFav, selected }) {
     <span className="cx-lc src"><OfficialTag official={b.official} /></span>
     <span className="cx-lrow-meta num">{[t(GOAL_LABEL[b.goal] || ''), t(LEVEL_LABEL[b.level] || '') + (b.variant ? ' ' + b.variant : ''), t('{0} ex.', b.exerciseCount ?? b.ex.length), `~${b.estimatedMinutes} min`, eq && t(eq)].filter(Boolean).join(' · ')}</span>
     <div className="cx-lrow-acts">
+      <BlockSwitch b={b} visibility={visibility} />
       {onFav && <button className={'cx-star' + (fav ? ' on' : '')} aria-pressed={!!fav} aria-label={fav ? t('Remove from favorites') : t('Add to favorites')} onClick={() => onFav(b, !fav)}>
         <Icon name={fav ? 'starFill' : 'star'} /></button>}
       <button className="cx-view" onClick={() => onPreview(b)} aria-label={t('Preview {0}', blockTitle(b, t))}>{t('View')}</button>
@@ -129,7 +140,7 @@ export function BlockPreview({ b, onAdd, actions, close }) {
  * @param onAdd(block)  insert into the active day (omitted on the management page)
  * @param extraActions(block, close) → buttons for the preview (management page)
  */
-export default function Library({ onAdd, extraActions, defaults = {}, full }) {
+export default function Library({ onAdd, extraActions, defaults = {}, full, visibility }) {
   const { status, blocks, favorites, uid, load, favorite, error } = useBlocks()
   const openSheet = useUI(s => s.openSheet)
   const toast = useUI(s => s.toast)
@@ -140,22 +151,24 @@ export default function Library({ onAdd, extraActions, defaults = {}, full }) {
   const [type, setType] = useState('')
   const [dur, setDur] = useState('')
   const [source, setSource] = useState('')
+  const [vis, setVis] = useState('')   // '' | 'visible' | 'hidden' (management page)
   const [more, setMore] = useState(false)
   const [limit, setLimit] = useState(PAGE)
   useEffect(() => { load() }, [])
-  useEffect(() => { setLimit(PAGE) }, [q, goal, level, focus, type, dur, source])
+  useEffect(() => { setLimit(PAGE) }, [q, goal, level, focus, type, dur, source, vis])
 
   const favSet = useMemo(() => new Set(favorites), [favorites])
   const [minM, maxM] = dur ? dur.split('-').map(Number) : [0, 0]
   const list = useMemo(() => filterBlocks(blocks, { q, goal, level, focus, type, source: source === 'fav' ? '' : source, onlyFavorites: source === 'fav', favorites: favSet, uid, minMinutes: minM, maxMinutes: maxM, includeInactive: full }, t),
     [blocks, q, goal, level, focus, type, source, favSet, uid, dur, full])
+  const listV = useMemo(() => vis === 'hidden' ? list.filter(b => b.active === false) : vis === 'visible' ? list.filter(b => b.active !== false) : list, [list, vis])
   // A muscle filter shows the blocks built FOR that muscle first, then ones that also train it.
   // A text search ranks blocks whose main muscle matches a word above ones that only train it.
   const norm = x => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   const words = norm(q).split(/\s+/).filter(w => w && !/^\d+(min)?$|^min$/.test(w))
   const primary = b => (focus && b.focus === focus ? 2 : 0) + (words.some(w => norm(t(FOCUS_LABEL[b.focus] || '')).includes(w)) ? 1 : 0)
-  const sorted = useMemo(() => (focus || words.length) ? [...list].sort((a, b) => primary(b) - primary(a)) : list, [list, focus, q])
-  const filtering = q || goal || level || focus || type || dur || source
+  const sorted = useMemo(() => (focus || words.length) ? [...listV].sort((a, b) => primary(b) - primary(a)) : listV, [listV, focus, q])
+  const filtering = q || goal || level || focus || type || dur || source || vis
   const recent = useMemo(() => recentBlocks().map(id => blocks.find(b => b.id === id)).filter(b => b && b.active !== false), [blocks, status])
   const favs = useMemo(() => blocks.filter(b => favSet.has(b.id)), [blocks, favSet])
   const mine = useMemo(() => blocks.filter(b => !b.official && b.createdBy === uid), [blocks, uid])
@@ -166,8 +179,8 @@ export default function Library({ onAdd, extraActions, defaults = {}, full }) {
   const preview = b => openSheet(close => <BlockPreview b={b} close={close} onAdd={onAdd} actions={extraActions?.(b, close)} />)
   const onFav = (b, on) => favorite(b.id, on).catch(e => toast(e.message))
   const card = b => view === 'list'
-    ? <BlockRow key={b.id} b={b} onPreview={preview} onAdd={onAdd} fav={favSet.has(b.id)} onFav={onFav} />
-    : <BlockCard key={b.id} b={b} onPreview={preview} onAdd={onAdd} fav={favSet.has(b.id)} onFav={onFav} />
+    ? <BlockRow key={b.id} b={b} onPreview={preview} onAdd={onAdd} fav={favSet.has(b.id)} onFav={onFav} visibility={visibility} />
+    : <BlockCard key={b.id} b={b} onPreview={preview} onAdd={onAdd} fav={favSet.has(b.id)} onFav={onFav} visibility={visibility} />
   const items = list => view === 'list' ? <div className="cx-list" role="list">{list.map(card)}</div> : <div className="cx-cards">{list.map(card)}</div>
   const section = (title, items_, icon) => items_.length > 0 && <section className="cx-sec">
     <h4 className="cx-sec-h"><Icon name={icon} />{title}<span className="num">{items_.length}</span></h4>
@@ -197,6 +210,9 @@ export default function Library({ onAdd, extraActions, defaults = {}, full }) {
         <button className={view === 'list' ? 'on' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')} title={t('List')}><Icon name="list" /><span>{t('List')}</span></button>
       </div>
     </div>
+    {visibility && <div className="cx-visfilter" role="group" aria-label={t('Visibility')}>
+      {[['', 'All'], ['visible', 'Visible'], ['hidden', 'Hidden']].map(([k, l]) => <button key={k} className={'chip' + (vis === k ? ' on' : '')} aria-pressed={vis === k} onClick={() => setVis(k)}>{t(l)}</button>)}
+    </div>}
     {more && <div className="cx-filters sub">
       {sel(type, setType, BLOCK_TYPES.map(x => ({ v: x, l: t(TYPE_LABEL[x]) })), t('Type'), t('Any type'))}
       {sel(dur, setDur, DURATIONS.slice(1).map(d => ({ v: d.v, l: t(d.l) })), t('Duration'), t('Any length'))}
@@ -205,10 +221,10 @@ export default function Library({ onAdd, extraActions, defaults = {}, full }) {
     {status === 'loading' && <div className="cx-lib-empty">{t('Loading…')}</div>}
     {status === 'error' && <div className="cx-lib-empty">{error} <button className="cx-linkbtn" onClick={() => load(true)}>{t('Try again')}</button></div>}
     {status === 'ready' && (filtering ? <>
-      <div className="cx-count num">{t('{0} blocks', list.length)}{filtering && <button className="cx-linkbtn" onClick={() => { setQ(''); setGoal(''); setLevel(''); setFocus(''); setType(''); setDur(''); setSource('') }}>{t('Clear filters')}</button>}</div>
-      {list.length ? items(sorted.slice(0, limit))
+      <div className="cx-count num">{t('{0} blocks', listV.length)}{filtering && <button className="cx-linkbtn" onClick={() => { setQ(''); setGoal(''); setLevel(''); setFocus(''); setType(''); setDur(''); setSource('') }}>{t('Clear filters')}</button>}</div>
+      {listV.length ? items(sorted.slice(0, limit))
         : <div className="cx-lib-empty"><Icon name="magnifier" />{t('No block matches. Try fewer filters, or build it from exercises and save it as a block.')}</div>}
-      {list.length > limit && <button className="btn plain cx-loadmore" onClick={() => setLimit(l => l + PAGE)}>{t('Show more')}</button>}
+      {listV.length > limit && <button className="btn plain cx-loadmore" onClick={() => setLimit(l => l + PAGE)}>{t('Show more')}</button>}
     </> : <>
       {section(t('Favorites'), favs, 'starFill')}
       {section(t('Recent'), recent, 'history')}

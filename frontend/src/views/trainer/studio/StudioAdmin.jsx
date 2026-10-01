@@ -10,20 +10,43 @@ import { useUI } from '../../../store/useUI.js'
 import { t } from '../../../lib/i18n.js'
 import { useGuided } from '../../../lib/guided-api.js'
 import { CATEGORY_LABEL, LEVEL_LABEL, ROUTINE_CATEGORIES } from '../../../lib/protocol/index.js'
-import { statusOf, STATUS_LABEL, STATUSES, filterAdmin, countByStatus, moveId, PURPOSE_LABEL } from '../../../lib/studio.js'
+import { statusOf, VISIBILITY_LABEL, filterAdmin, countByStatus, moveId, PURPOSE_LABEL, setVisible } from '../../../lib/studio.js'
 import { confirmSheet } from '../../../sheets.jsx'
 import WorkoutCover from '../../../components/WorkoutCover.jsx'
 import Icon from '../../../components/Icon.jsx'
-import { StatusPill, RowMenu, Segmented, Empty, StudioHelp } from './parts.jsx'
+import { RowMenu, Segmented, Empty, StudioHelp, VisibilityControl } from './parts.jsx'
 
 const HELP_KEY = 'studio_help_v1'
 const seen = () => { try { return localStorage.getItem(HELP_KEY) === '1' } catch { return true } }
 const markSeen = () => { try { localStorage.setItem(HELP_KEY, '1') } catch { /* private mode */ } }
 const STYLES = ['start', 'tabata', 'hiit', 'circuit', 'interval', 'mobility', 'express', 'core', 'mixed', 'strength']
 
+/** Visibility switches: saved at once, one request per row at a time; a refusal shows its reason and changes nothing. */
+function useVisibility(g, kind) {
+  const toast = useUI(s => s.toast)
+  const [pending, setPending] = useState(() => new Set())
+  const toggle = item => async on => {
+    if (pending.has(item.id)) return
+    setPending(p => new Set(p).add(item.id))
+    try { await setVisible(g, kind, item, on); toast(on ? t('Visible to members') : t('Hidden')) }
+    catch (e) { toast(e.message) }
+    setPending(p => { const n = new Set(p); n.delete(item.id); return n })
+  }
+  return { toggle, busy: id => pending.has(id) }
+}
+
+const confirmDelete = (title, message, onConfirm) => confirmSheet({ title, message, confirmText: t('Delete'), danger: true, onConfirm })
+
 function useAct() {
   const toast = useUI(s => s.toast)
   return (fn, ok) => async () => { try { await fn(); if (ok) toast(t(ok)) } catch (e) { toast(e.message) } }
+}
+
+function VisibilityChips({ value, onChange, total, counts, drafts = true }) {
+  return <div className="st-chips">
+    <button className={'chip' + (value === 'all' ? ' on' : '')} onClick={() => onChange('all')}>{t('All')} <span className="num">{total}</span></button>
+    {['active', 'hidden', ...(drafts ? ['draft'] : [])].map(k => <button key={k} className={'chip' + (value === k ? ' on' : '')} onClick={() => onChange(k)}>{t(VISIBILITY_LABEL[k])} <span className="num">{counts[k]}</span></button>)}
+  </div>
 }
 
 /* ------------------------------- routines ------------------------------- */
@@ -40,6 +63,7 @@ function RoutinesTab({ g }) {
   const list = useMemo(() => filterAdmin(sorted, { q, status, category }, r => t(r.name)), [sorted, q, status, category])
   const filtered = q || status !== 'all' || category !== 'all'
   const ids = sorted.map(r => r.id)
+  const vis = useVisibility(g, 'routine')
   const nextFeatured = Math.max(0, ...sorted.map(r => r.featured || 0)) + 1
   const move = (id, dir) => act(() => g.reorder('routines', moveId(ids, id, dir)))()
 
@@ -55,7 +79,7 @@ function RoutinesTab({ g }) {
     </div>
     <div className="st-chips">
       <button className={'chip' + (status === 'all' ? ' on' : '')} onClick={() => setStatus('all')}>{t('All')} <span className="num">{sorted.length}</span></button>
-      {STATUSES.map(s => <button key={s} className={'chip' + (status === s ? ' on' : '')} onClick={() => setStatus(s)}>{t(STATUS_LABEL[s])} <span className="num">{counts[s]}</span></button>)}
+      {['active', 'hidden', 'draft'].map(s => <button key={s} className={'chip' + (status === s ? ' on' : '')} onClick={() => setStatus(s)}>{t(VISIBILITY_LABEL[s])} <span className="num">{counts[s]}</span></button>)}
     </div>
     <div className="st-list">
       {list.slice(0, ordering ? list.length : limit).map(r => {
@@ -67,18 +91,17 @@ function RoutinesTab({ g }) {
             <small className="num">{t(CATEGORY_LABEL[r.category])} · {t(LEVEL_LABEL[r.level])} · ~{r.estimatedMinutes} min{r.purpose ? ' · ' + t(PURPOSE_LABEL[r.purpose]) : ''}</small>
           </div>
           {r.featured ? <span className="st-star" title={t('Featured {0}', r.featured)}><Icon name="starFill" /></span> : null}
-          <StatusPill x={r} />
+          <VisibilityControl x={r} name={t(r.name)} busy={vis.busy(r.id)} onToggle={vis.toggle(r)} />
           {ordering
             ? <div className="st-order"><button aria-label={t('Move up')} onClick={() => move(r.id, -1)}><Icon name="arrowUp" /></button><button aria-label={t('Move down')} onClick={() => move(r.id, 1)}><Icon name="arrowDown" /></button></div>
             : <>
               <button className="btn plain st-edit" onClick={() => nav('/trainer/guided/edit/' + r.id)}><Icon name="pencil" />{t('Edit')}</button>
               <RowMenu label={t('Actions for {0}', t(r.name))} items={[
+                { label: t('Edit'), onClick: () => nav('/trainer/guided/edit/' + r.id) },
                 { label: t('Preview as a member'), onClick: () => nav('/train2j/r/' + r.id) },
-                s !== 'active' && { label: t('Publish'), onClick: act(() => g.setStatus(r.id, 'active'), 'Published') },
-                s === 'active' && { label: t('Hide from members'), onClick: act(() => g.setStatus(r.id, 'hidden'), 'Hidden') },
-                s !== 'draft' && { label: t('Back to draft'), onClick: act(() => g.setStatus(r.id, 'draft'), 'Saved') },
                 { label: r.featured ? t('Remove from featured') : t('Feature on the home'), onClick: act(() => g.curate(r.id, { featured: r.featured ? null : nextFeatured }), 'Saved') },
                 { label: t('Duplicate as a draft'), onClick: act(async () => { const c = await g.duplicateOfficial(r.id); nav('/trainer/guided/edit/' + c.id) }) },
+                /^r2jc-/.test(r.id) && { label: t('Delete'), danger: true, onClick: () => confirmDelete(t('Delete this routine?'), t('Members who already received it keep their own copy.'), act(() => g.remove(r.id), 'Deleted')) },
               ]} />
             </>}
         </article>
@@ -96,34 +119,37 @@ function ProgramsTab({ g }) {
   const [ordering, setOrdering] = useState(false)
   const sorted = useMemo(() => [...g.programs].sort((a, b) => (a.order ?? 999) - (b.order ?? 999)), [g.programs])
   const ids = sorted.map(p => p.id)
-  const setSt = (p, status) => act(() => g.saveProgram({ ...p, status }), status === 'active' ? 'Published' : 'Saved')
+  const vis = useVisibility(g, 'program')
+  const [pstatus, setPstatus] = useState('all')
+  const shownPrograms = useMemo(() => filterAdmin(sorted, { status: pstatus }, p => t(p.name)), [sorted, pstatus])
+  const pcounts = useMemo(() => countByStatus(sorted), [sorted])
   return <>
     <div className="st-tools">
       <span className="grow dim small">{t('{0} programs', sorted.length)}</span>
       <button className={'btn plain' + (ordering ? ' on' : '')} aria-pressed={ordering} onClick={() => setOrdering(!ordering)}><Icon name="list" />{t('Reorder')}</button>
       <button className="btn primary" onClick={() => nav('/trainer/guided/program/new')}><Icon name="plus" />{t('New program')}</button>
     </div>
+    <VisibilityChips value={pstatus} onChange={setPstatus} total={sorted.length} counts={pcounts} />
     <div className="st-list">
-      {sorted.map(p => {
+      {shownPrograms.map(p => {
         const s = statusOf(p)
         return <article key={p.id} className={'st-row' + (s !== 'active' ? ' dim' : '')}>
           <button className="st-cover" onClick={() => nav('/train2j/program/' + p.id)} aria-label={t('Preview')}><WorkoutCover r={{ id: p.id, category: p.cover }} shape="square" /></button>
           <div className="grow st-main"><b>{t(p.name)}</b>
             <small className="num">{t(p.durationLabel)} · {t('{0} sessions/week', p.sessionsPerWeek)} · {t(LEVEL_LABEL[p.level])}</small></div>
           {p.featured && <span className="st-star"><Icon name="starFill" /></span>}
-          <StatusPill x={p} />
+          <VisibilityControl x={p} name={t(p.name)} busy={vis.busy(p.id)} onToggle={vis.toggle(p)} />
           {ordering
             ? <div className="st-order"><button aria-label={t('Move up')} onClick={() => act(() => g.reorder('programs', moveId(ids, p.id, -1)))()}><Icon name="arrowUp" /></button>
               <button aria-label={t('Move down')} onClick={() => act(() => g.reorder('programs', moveId(ids, p.id, 1)))()}><Icon name="arrowDown" /></button></div>
             : <>
               <button className="btn plain st-edit" onClick={() => nav('/trainer/guided/program/' + p.id)}><Icon name="pencil" />{t('Edit')}</button>
               <RowMenu label={t('Actions for {0}', t(p.name))} items={[
+                { label: t('Edit'), onClick: () => nav('/trainer/guided/program/' + p.id) },
                 { label: t('Preview as a member'), onClick: () => nav('/train2j/program/' + p.id) },
-                s !== 'active' && { label: t('Publish'), onClick: setSt(p, 'active') },
-                s === 'active' && { label: t('Hide from members'), onClick: setSt(p, 'hidden') },
-                s !== 'draft' && { label: t('Back to draft'), onClick: setSt(p, 'draft') },
                 { label: p.featured ? t('Remove from featured') : t('Feature on the home'), onClick: act(() => g.curateProgram(p.id, { featured: !p.featured }), 'Saved') },
                 { label: t('Duplicate as a draft'), onClick: act(async () => { const c = await g.duplicateProgram(p.id); nav('/trainer/guided/program/' + c.id) }) },
+                !/^g2j-/.test(p.id) && { label: t('Delete'), danger: true, onClick: () => confirmDelete(t('Delete this program?'), t('People who already started it keep their own copy.'), act(() => g.removeProgram(p.id), 'Deleted')) },
               ]} />
             </>}
         </article>
@@ -192,23 +218,34 @@ function CollectionsTab({ g }) {
   const sorted = useMemo(() => [...g.collections].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [g.collections])
   const ids = sorted.map(c => c.id)
   const edit = c => openSheet(close => <CollectionEditor c={c} g={g} close={close} />, { wide: true })
+  const vis = useVisibility(g, 'collection')
+  const [cstatus, setCstatus] = useState('all')
+  const shownCollections = useMemo(() => filterAdmin(sorted, { status: cstatus }, c => t(c.name)), [sorted, cstatus])
+  const ccounts = useMemo(() => countByStatus(sorted), [sorted])
   return <>
     <div className="st-tools">
       <span className="grow dim small">{t('{0} collections', sorted.length)}</span>
       <button className={'btn plain' + (ordering ? ' on' : '')} aria-pressed={ordering} onClick={() => setOrdering(!ordering)}><Icon name="list" />{t('Reorder')}</button>
       <button className="btn primary" onClick={() => edit(null)}><Icon name="plus" />{t('New collection')}</button>
     </div>
+    <VisibilityChips value={cstatus} onChange={setCstatus} total={sorted.length} counts={ccounts} drafts={false} />
     <div className="st-list">
-      {sorted.map(c => <article key={c.id} className={'st-row' + (c.active === false ? ' dim' : '')}>
+      {shownCollections.map(c => <article key={c.id} className={'st-row' + (c.active === false ? ' dim' : '')}>
         <button className="st-cover" onClick={() => edit(c)} aria-label={t('Edit')}><WorkoutCover r={{ id: c.id, style: c.style }} shape="square" /></button>
         <div className="grow st-main"><b>{t(c.name)}</b>
           <small className="num">{t('{0} workouts', c.routineIds.length)}{c.programIds?.length ? ' · ' + t('{0} programs', c.programIds.length) : ''}</small></div>
         {c.featured && <span className="st-star"><Icon name="starFill" /></span>}
-        <span className={'st-pill ' + (c.active === false ? 'hidden' : 'active')}><i />{c.active === false ? t('Hidden') : t('Active')}</span>
+        <VisibilityControl x={c} name={t(c.name)} busy={vis.busy(c.id)} onToggle={vis.toggle(c)} />
         {ordering
           ? <div className="st-order"><button aria-label={t('Move up')} onClick={() => act(() => g.reorder('collections', moveId(ids, c.id, -1)))()}><Icon name="arrowUp" /></button>
             <button aria-label={t('Move down')} onClick={() => act(() => g.reorder('collections', moveId(ids, c.id, 1)))()}><Icon name="arrowDown" /></button></div>
-          : <button className="btn plain st-edit" onClick={() => edit(c)}><Icon name="pencil" />{t('Edit')}</button>}
+          : <>
+            <button className="btn plain st-edit" onClick={() => edit(c)}><Icon name="pencil" />{t('Edit')}</button>
+            <RowMenu label={t('Actions for {0}', t(c.name))} items={[
+              { label: t('Edit'), onClick: () => edit(c) },
+              !/^c2j-/.test(c.id) && { label: t('Delete'), danger: true, onClick: () => confirmDelete(t('Delete this collection?'), t('The routines stay in the library; only the grouping goes away.'), act(() => g.removeCollection(c.id), 'Deleted')) },
+            ]} />
+          </>}
       </article>)}
     </div>
   </>

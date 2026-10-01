@@ -7,12 +7,24 @@ import { t } from '../../../lib/i18n.js'
 import { statusOf, STATUS_LABEL, filterAdmin } from '../../../lib/studio.js'
 import { CATEGORY_LABEL, LEVEL_LABEL } from '../../../lib/protocol/index.js'
 import WorkoutCover from '../../../components/WorkoutCover.jsx'
+import { Switch } from '../../../components/ui.jsx'
 import Icon from '../../../components/Icon.jsx'
 import './studio.css'
 
 export function StatusPill({ x }) {
   const s = statusOf(x)
   return <span className={'st-pill ' + s}><i />{t(STATUS_LABEL[s])}</span>
+}
+
+/** Direct visibility control of a row: ON = visible to members, OFF = hidden. A hidden or draft row also shows its chip. */
+export function VisibilityControl({ x, onToggle, busy, name }) {
+  const on = statusOf(x) === 'active'
+  return <span className="st-vis">
+    {!on && <StatusPill x={x} />}
+    <span className="st-vis-sw" role="group" aria-label={t('Visible to members') + ': ' + name}>
+      <Switch checked={on} disabled={busy} onChange={onToggle} />
+    </span>
+  </span>
 }
 
 /** A quiet "…" menu: native <details>, so it is keyboard- and screen-reader-friendly for free. */

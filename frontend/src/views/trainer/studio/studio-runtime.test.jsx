@@ -111,3 +111,46 @@ describe('Studio UI pieces', () => {
     expect(picker).toMatch(/Warm-up/); expect(picker).toMatch(/Search routines/)
   })
 })
+
+describe('direct visibility switch', () => {
+  it('ON publishes and OFF hides through the existing store calls; a refusal propagates and nothing else is called', async () => {
+    const { setVisible } = await import('../../../lib/studio.js')
+    const g = { setStatus: vi.fn().mockResolvedValue({}), saveProgram: vi.fn().mockResolvedValue({}), saveCollection: vi.fn().mockResolvedValue({}) }
+    await setVisible(g, 'routine', { id: 'r1' }, false)
+    await setVisible(g, 'routine', { id: 'r1' }, true)
+    expect(g.setStatus.mock.calls).toEqual([['r1', 'hidden'], ['r1', 'active']])
+    await setVisible(g, 'program', { id: 'p1', name: 'P', weeks: [], routines: { x: 1 }, routineIds: ['x'] }, false)
+    expect(g.saveProgram).toHaveBeenCalledWith({ id: 'p1', name: 'P', weeks: [], status: 'hidden' })
+    await setVisible(g, 'collection', { id: 'c1', name: 'C', routineIds: ['a'], active: true }, false)
+    expect(g.saveCollection).toHaveBeenCalledWith({ id: 'c1', name: 'C', routineIds: ['a'], active: false })
+    await setVisible(g, 'collection', { id: 'c1', name: 'C', routineIds: ['a'], active: false }, true)
+    expect(g.saveCollection.mock.calls[1][0].active).toBe(true)
+    g.setStatus.mockRejectedValueOnce(new Error('la rutina no cumple'))
+    await expect(setVisible(g, 'routine', { id: 'r2' }, true)).rejects.toThrow('la rutina no cumple')
+    await expect(setVisible(g, 'block', { id: 'b' }, true)).rejects.toThrow()
+  })
+  it('a visible row shows an ON switch and no chip; a hidden or draft row shows its chip and an OFF switch', async () => {
+    const { VisibilityControl } = await import('./parts.jsx')
+    const on = renderToStaticMarkup(<VisibilityControl x={{ id: 'a' }} name="Alpha" onToggle={() => {}} />)
+    expect(on).toMatch(/role="switch"[^>]*aria-checked="true"|aria-checked="true"[^>]*role="switch"/)
+    expect(on).not.toMatch(/st-pill/)
+    const off = renderToStaticMarkup(<VisibilityControl x={{ id: 'a', active: false }} name="Alpha" onToggle={() => {}} />)
+    expect(off).toMatch(/aria-checked="false"/)
+    expect(off).toMatch(/st-pill hidden[\s\S]*Hidden/)
+    const draft = renderToStaticMarkup(<VisibilityControl x={{ id: 'a', draft: true, active: false }} name="Alpha" onToggle={() => {}} />)
+    expect(draft).toMatch(/st-pill draft/)
+    expect(renderToStaticMarkup(<VisibilityControl x={{ id: 'a' }} name="Alpha" busy onToggle={() => {}} />)).toMatch(/disabled/)
+  })
+  it('blocks: the switch exists only where the person may edit, and a hidden block shows the "Hidden" chip', async () => {
+    vi.stubGlobal('document', { addEventListener: vi.fn(), removeEventListener: vi.fn(), visibilityState: 'visible', body: { classList: { toggle: vi.fn(), remove: vi.fn() } } })
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn(), matchMedia: () => ({ matches: false }) })
+    const { BlockSwitch, BlockCard } = await import('../../../components/constructor/Library.jsx')
+    const block = { id: 'off-x', focus: 'chest', type: 'strength', ex: [], estimatedMinutes: 20, active: false, official: true }
+    const visibility = { can: b => b.id === 'off-x', toggle: vi.fn(), busy: new Set() }
+    expect(renderToStaticMarkup(<BlockSwitch b={block} visibility={visibility} />)).toMatch(/aria-checked="false"/)
+    expect(renderToStaticMarkup(<BlockSwitch b={{ ...block, id: 'other' }} visibility={visibility} />)).toBe('')
+    expect(renderToStaticMarkup(<BlockSwitch b={block} />)).toBe('')
+    const card = renderToStaticMarkup(<BlockCard b={block} onPreview={() => {}} visibility={visibility} />)
+    expect(card).toMatch(/cx-card off/); expect(card).toMatch(/cx-off">Hidden</)
+  })
+})

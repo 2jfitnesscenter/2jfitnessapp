@@ -21,11 +21,17 @@ export default function BlockLibrary() {
   const toast = useUI(s => s.toast)
   const { canEditOfficial, uid, duplicate, setActive, remove } = useBlocks()
   const canEdit = b => b.official ? canEditOfficial : b.createdBy === uid
+  // Visibility is a switch on the card, saved at once (the "…" actions are for edit / duplicate / delete).
+  const [busy, setBusy] = useState(() => new Set())
+  const visibility = { can: canEdit, busy, toggle: async (b, on) => {
+    if (busy.has(b.id)) return
+    setBusy(p => new Set(p).add(b.id))
+    try { await setActive(b.id, on); toast(on ? t('Visible to members') : t('Hidden')) } catch (e) { toast(e.message) }
+    setBusy(p => { const n = new Set(p); n.delete(b.id); return n })
+  } }
   const extra = (b, close) => <>
     <button className="btn plain" onClick={async () => { try { const c = await duplicate(b.id); close(); toast(t('Copied to your blocks')); nav('/trainer/blocks/edit/' + c.id) } catch (e) { toast(e.message) } }}><Icon name="clipboard" />{t('Duplicate')}</button>
     {canEdit(b) && <button className="btn plain" onClick={() => { close(); nav('/trainer/blocks/edit/' + b.id) }}><Icon name="pencil" />{t('Edit')}</button>}
-    {canEdit(b) && <button className="btn plain" onClick={async () => { try { await setActive(b.id, b.active === false); close(); toast(b.active === false ? t('Block activated') : t('Block deactivated')) } catch (e) { toast(e.message) } }}>
-      <Icon name={b.active === false ? 'play' : 'pause'} />{b.active === false ? t('Activate') : t('Deactivate')}</button>}
     {canEdit(b) && !(b.official && b.seedVersion) && <button className="btn plain danger" onClick={() => { close(); confirmSheet({
       title: t('Delete this block?'), message: t('Routines that already used it keep their own copy — nothing that was assigned changes.'), confirmText: t('Delete'), danger: true,
       onConfirm: () => remove(b.id).then(() => toast(t('Block deleted'))).catch(e => toast(e.message)) }) }}><Icon name="trash" />{t('Delete')}</button>}
@@ -38,7 +44,7 @@ export default function BlockLibrary() {
       <button className="btn primary" onClick={() => nav('/trainer/blocks/edit/new')}><Icon name="plus" />{t('New block')}</button>
     </header>
     <p className="dim small cx-lead">{t('Official 2J blocks follow the 2J Training Protocol v1.0. Duplicate one to make it yours; your blocks are only visible to you.')}</p>
-    <Library full extraActions={extra} />
+    <Library full extraActions={extra} visibility={visibility} />
   </div>
 }
 
