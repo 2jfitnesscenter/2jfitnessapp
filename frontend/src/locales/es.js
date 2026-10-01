@@ -1,5 +1,6 @@
 // Spanish UI strings. Keys are the English source strings (see lib/i18n.js).
 export default {
+  'Automatically finished after inactivity': 'Finalizado automáticamente por inactividad',
   'For you today': 'Para ti hoy', 'How Intelligence 2J works': 'Cómo funciona Inteligencia 2J',
   'Your training, with context': 'Tu entrenamiento, con contexto',
   'Learns from your workouts': 'Aprende de tus entrenamientos',

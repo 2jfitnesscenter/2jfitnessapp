@@ -287,7 +287,7 @@ test('Sync V2 serializes Bunker set snapshots and acknowledges a lost-response r
   const stale = await callPostActive(uid, { ...active, cur: 1 }, { ...body, operationId: 'bunker-active-operation-2' });
   assert.equal(stale.status, 409);
   assert.equal(stale.body.code, 'ACTIVE_CONFLICT');
-  assert.deepEqual(readState(uid).active, active, 'a stale Bunker snapshot cannot overwrite the accepted set state');
+  assert.deepEqual(readState(uid).active, { ...active, lastActivityAt: afterFirst.active.lastActivityAt }, 'a stale Bunker snapshot cannot overwrite the accepted set state');
 });
 
 test('Sync V2 rejects a legacy Bunker active writer after activation', async () => {

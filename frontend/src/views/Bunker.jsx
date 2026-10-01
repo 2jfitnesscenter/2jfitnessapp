@@ -1,3 +1,4 @@
+import { stampWorkoutActivity, workoutInactive, inactivityFinishMetadata } from '../lib/workout-activity.js'
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useEffect, useRef, useState } from 'react'
@@ -233,6 +234,7 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
   const loadedRef = useRef(false)
   const loadSessionRef = useRef(null)
   const panelStyle = hidden ? { display: 'none' } : undefined
+  const autoFinishRef = useRef(null)
   const idleRef = useRef(null)
   const minimizeRef = useRef(null)
   const activeRevisionRef = useRef(0)
@@ -346,6 +348,17 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
     return () => { alive = false; clearTimeout(idleRef.current); clearTimeout(minimizeRef.current); window.removeEventListener('online', retry) }
   }, [token])
 
+  useEffect(() => {
+    const check = () => {
+      if (!active || conflictRef.current || pendingFinishRef.current || pendingRef.current.length || !workoutInactive(active)) return
+      autoFinishRef.current?.()
+    }
+    check()
+    const timer = setInterval(check, 30000)
+    window.addEventListener('online', check)
+    return () => { clearInterval(timer); window.removeEventListener('online', check) }
+  }, [active])
+
   if (!plan) return <div className="bk-panel" style={panelStyle}><div className="bk-loading">{name}<br />{t(connection === 'unavailable' ? 'Connection unavailable. Your session is still safe.' : 'Loading…')}
     {connection === 'unavailable' && <button className="bk-join" onClick={() => loadSessionRef.current?.()}>{t('Retry')}</button>}
   </div></div>
@@ -360,7 +373,7 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
   })
   const sync = (next, currentIndex = exIdx) => {
     if (conflictRef.current) return
-    next = { ...next, cur: currentIndex }
+    next = stampWorkoutActivity(active, { ...next, cur: currentIndex })
     setActive(next)
     setConnection('pending')
     const entry = next.entries[currentIndex]
@@ -466,12 +479,17 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
     setExIdx(nextIndex)
   }
 
-  const finish = async () => {
+  const finish = async reason => {
+    if (finishPromiseRef.current || conflictRef.current) return
+    if (reason === 'inactivity_timeout' && !await drainPending()) return
     const w = buildBunkerFinishedWorkout(active)
+    if (reason === 'inactivity_timeout') Object.assign(w, inactivityFinishMetadata(active), { _inactivityRevision: activeRevisionRef.current })
     pendingFinishRef.current = stagePendingFinish(localStorage, finishKey, w)
     const result = await drainFinish()
     if (!result.completed) onMinimize()
   }
+
+  autoFinishRef.current = () => finish('inactivity_timeout')
 
   const entry = active.entries[exIdx]
   const last = entry ? lastResultFor(plan.recentWorkouts, entry.id) : null
@@ -537,7 +555,7 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
       {active.entries.map((e, i) => {
         const doneN = e.sets.filter(s => s.done).length
         return <button key={i} className={'bk-extab' + (i === exIdx ? ' on' : '') + (doneN === e.sets.length ? ' done' : '')}
-          onClick={() => { touch(); setExIdx(i) }}>
+          onClick={() => { touch(); sync(active, i); setExIdx(i) }}>
           <span className="bk-extab-title"><b className="bk-extab-code">{ssInfo[i] ? supersetLabel(ssInfo[i]) : i + 1}</b><span className="bk-extab-name">{exName(e.id, plan.customEx)}</span></span>
           <span className="bk-extab-n">{doneN}/{e.sets.length}</span>
         </button>

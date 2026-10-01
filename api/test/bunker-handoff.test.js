@@ -62,7 +62,7 @@ const baseState = over => ({
   ...over,
 });
 const sampleActive = (id, over = {}) => ({
-  id, d: '2026-09-20', start: 1000, routineId: 'r1', name: 'Full body', bw: 78.2, cur: 0,
+  id, d: '2026-09-20', lastActivityAt: Date.now(), start: 1000, routineId: 'r1', name: 'Full body', bw: 78.2, cur: 0,
   entries: [{ id: '0025', target: { sets: 3, reps: 8, weight: 60, mode: 'reps' }, plan: { policy: 'linear', kind: 'first' },
     sets: [{ w: 60, r: 8, done: true }, { w: 60, r: 8, done: false }, { w: 60, r: 8, done: false }] }],
   ...over,

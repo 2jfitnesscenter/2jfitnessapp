@@ -60,7 +60,7 @@ const baseState = over => ({
   unit: 'kg', routines: [], programs: [], week: {}, dayPlan: {}, workouts: [], customEx: [],
   exWeights: {}, bodyweight: [], tests: [], badges: {}, ...over,
 });
-const someActive = id => ({ id, d: '2026-09-20', start: Date.now() - 27309000, routineId: null, name: 'Espalda & Bíceps', bw: null, cur: 0, entries: [{ id: '0025', target: {}, plan: {}, sets: [] }] });
+const someActive = id => ({ id, d: '2026-09-20', lastActivityAt: Date.now(), start: Date.now() - 27309000, routineId: null, name: 'Espalda & Bíceps', bw: null, cur: 0, entries: [{ id: '0025', target: {}, plan: {}, sets: [] }] });
 
 test('1-2. discard clears an existing server-side active', async () => {
   const active = someActive('discard-1');

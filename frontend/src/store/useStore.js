@@ -1,3 +1,4 @@
+import { stampWorkoutActivity } from '../lib/workout-activity.js'
 import { SyncClient } from '../lib/sync-client.js'
 import { retryStateActions } from '../lib/state-action.js'
 import { create } from 'zustand'
@@ -255,6 +256,8 @@ export const useStore = create((set, get) => {
     update(mut, push = true) {
       const S = clone(get().S)
       mut(S)
+      const beforeActive = get().S.active
+      S.active = stampWorkoutActivity(beforeActive, S.active)
       // api/lib/sync.js never takes `active` from a save, and gym_state_v1 already holds it
       // durably: journaling a change confined to the live session would only queue one
       // full-state snapshot per logged set, which offline can fill localStorage mid-workout.
@@ -268,6 +271,11 @@ export const useStore = create((set, get) => {
         syncForUser().enqueue('save', S, { deletes })
       }
       persist(S, push)
+      if (get().user && S.active?.lastActivityAt !== beforeActive?.lastActivityAt && S.active?.lastActivityAt) {
+        // Metadata only, scoped to this user's already handed-off session. Replays carry
+        // the ORIGINAL action time and cannot turn polling/reconnect into fresh activity.
+        api('/api/active/activity', { method: 'POST', body: JSON.stringify({ id: S.active.id, at: S.active.lastActivityAt }) }).catch(() => {})
+      }
     },
     replaceState(S, push = false) { persist(clone(S), push) },
 

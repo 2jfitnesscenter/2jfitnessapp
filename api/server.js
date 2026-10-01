@@ -2607,6 +2607,11 @@ const routes = {
   // for the kiosk's own short-lived, narrowly-scoped tokens (never a full login).
   ...bunkerRoutes({
     json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users,
+    registerInactivitySweep: sweep => {
+      // Independent deadlines live in each persisted active workout, never in this tick.
+      setTimeout(sweep, 0).unref();
+      setInterval(sweep, 30000).unref();
+    },
     todayPrs: () => publicTodayPrs({ wall: social.wall, readState }),
   }),
 

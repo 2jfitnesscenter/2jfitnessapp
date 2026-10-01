@@ -50,7 +50,7 @@ export const postBunkerActive = (token, payload) =>
 export const postBunkerRest = (token, sec) =>
   fetch('/api/bunker/rest', { ...bearer(token), method: 'POST', body: JSON.stringify({ sec }) }).then(okJson)
 export const postBunkerFinish = (token, workout) =>
-  fetch('/api/bunker/finish', { ...bearer(token), method: 'POST', body: JSON.stringify({ workout }) }).then(okJson)
+  fetch('/api/bunker/finish', { ...bearer(token), method: 'POST', body: JSON.stringify({ workout, ...(workout.finishReason === 'inactivity_timeout' ? { finishReason: workout.finishReason, expectedActiveRevision: workout._inactivityRevision } : {}) }) }).then(okJson)
 
 /* ---------- room admin ---------- */
 export const bunkerAdminCheckin = code =>

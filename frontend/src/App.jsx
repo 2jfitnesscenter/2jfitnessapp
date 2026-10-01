@@ -1,3 +1,4 @@
+import { api } from './lib/api.js'
 import { lazy, Suspense, useEffect } from 'react'
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from './store/useStore.js'
@@ -42,7 +43,7 @@ import Badges from './views/Badges.jsx'
 import Mi2J from './views/Mi2J.jsx'
 import HealthIntegrations from './views/HealthIntegrations.jsx'
 import Records from './views/Records.jsx'
-import { showPendingCelebration } from './sheets.jsx'
+import { showPendingCelebration, autoFinishInactiveWorkout } from './sheets.jsx'
 import Profile from './views/Profile.jsx'
 const Social = lazy(() => import('./views/Social.jsx'))
 const GuidedProgramCatalog = lazy(() => import('./views/GuidedPrograms.jsx').then(m => ({ default: m.GuidedProgramCatalog })))
@@ -113,6 +114,19 @@ function applyPrefs(theme, accent, glass, glassOpacity, glassBlur, textScale) {
 }
 
 function Shell() {
+  useEffect(() => {
+    const check = () => { autoFinishInactiveWorkout().catch(() => {}) }
+    const reconnect = () => {
+      const active = useStore.getState().S.active
+      if (active?.lastActivityAt) api('/api/active/activity', { method: 'POST', body: JSON.stringify({ id: active.id, at: active.lastActivityAt }) }).catch(() => {})
+      check()
+    }
+    check()
+    const timer = setInterval(check, 30000)
+    window.addEventListener('online', reconnect)
+    document.addEventListener('visibilitychange', check)
+    return () => { clearInterval(timer); window.removeEventListener('online', reconnect); document.removeEventListener('visibilitychange', check) }
+  }, [])
   const syncStatus = useStore(s => s.syncStatus)
   const navigate = useNavigate()
   const loc = useLocation()

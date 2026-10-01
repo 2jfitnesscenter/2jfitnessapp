@@ -105,7 +105,7 @@ test('4. POST /api/bunker/finish still leaves active:null, and a later normal PU
 
 test('5. handoff -> a normal PUT in between -> Bunker still recovers exactly the transferred active', async () => {
   writeState('u1', baseState({ active: null }));
-  const active = { id: 'handoff-survives-1', d: '2026-09-20', routineId: 'r1', name: 'Full body', bw: null, cur: 0, entries: [{ id: '0025', target: { sets: 3, reps: 8, weight: 60 }, plan: { kind: 'first' }, sets: [{ w: 60, r: 8, done: false }] }] };
+  const active = { id: 'handoff-survives-1', lastActivityAt: Date.now(), d: '2026-09-20', routineId: 'r1', name: 'Full body', bw: null, cur: 0, entries: [{ id: '0025', target: { sets: 3, reps: 8, weight: 60 }, plan: { kind: 'first' }, sets: [{ w: 60, r: 8, done: false }] }] };
   const handoff = await req('POST', '/api/bunker/handoff', { body: { active } });
   assert.equal(handoff.status, 200);
 

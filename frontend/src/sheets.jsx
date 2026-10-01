@@ -1,3 +1,4 @@
+import { workoutInactive, inactivityFinishMetadata, workoutActivityKey } from './lib/workout-activity.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from './store/useStore.js'
 import { shouldShowWorkoutGuide } from './lib/workout-prefs.js'
@@ -1663,6 +1664,7 @@ function WorkoutDetail({ w: w0, close }) {
   const w = st.workouts.find(x => x.id === w0.id) || w0
   return <>
     <h3>{w.name}</h3>
+    {w.finishReason === 'inactivity_timeout' && <div className="muted small">{t('Automatically finished after inactivity')}</div>}
     <div className="muted small" style={{ marginBottom: 12 }}>{[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, st.unit), ...(w.bw ? [fmtNum(w.bw) + ' ' + st.unit] : [])].join(' · ')}</div>
     {/* Cardio data from a real source (Health V2 / Fitness V1), apart from the strength log. A
         workout with only the legacy Apple-Health HR summary shows it through the same view. */}
@@ -2456,7 +2458,13 @@ export function finishWorkout() {
   if (done < total) { confirmSheet({ title: t('Finish early?'), message: t(total - done === 1 ? '{0} set still unchecked. Finish the workout now?' : '{0} sets still unchecked. Finish the workout now?', total - done), confirmText: t('Finish workout'), onConfirm: doFinishWorkout }); return }
   doFinishWorkout()
 }
-function doFinishWorkout() {
+let inactivityFinishInFlight = false
+export async function autoFinishInactiveWorkout() {
+  if (inactivityFinishInFlight || !workoutInactive(S().active) || !useStore.getState().user) return
+  inactivityFinishInFlight = true
+  try { await doFinishWorkout({ automatic: true }) } finally { inactivityFinishInFlight = false }
+}
+async function doFinishWorkout({ automatic = false } = {}) {
   const st = S()
   const A = st.active
   if (!A) return
@@ -2481,6 +2489,7 @@ function doFinishWorkout() {
     entries: A.entries.map(e => ({ id: e.id, sets: e.sets, topW: e.topW || null, target: e.target || null })).filter(e => e.sets.some(s => s.done)),
     prs
   }
+  if (automatic) Object.assign(w, inactivityFinishMetadata(A))
   // Guided blocks run in this session: one summary each (a run still open is closed here as it is).
   const openRun = A.guided && (A.guidedBlocks || []).find(b => b.iid === A.guided.iid)
   const guided = [...(A.guidedLog || []).filter(g => !openRun || g.iid !== openRun.iid),
@@ -2492,6 +2501,13 @@ function doFinishWorkout() {
   // A Bluetooth heart-rate sensor read during this session (lib/ble-hr.js): its measured summary
   // (avg/max and 2J-derived zones — never a stream) becomes the workout's cardio record, and the
   // sensor is released. Nothing happens for a session without one.
+  if (automatic) {
+    try {
+      const result = await api('/api/active/finish-inactive', { method: 'POST', body: JSON.stringify({ workout: w, active: A }) })
+      if (S().active?.id !== A.id || workoutActivityKey(S().active) !== workoutActivityKey(A) || S().active.lastActivityAt !== A.lastActivityAt) return
+      Object.assign(w, result.workout)
+    } catch { return } // Offline/conflict: retain the draft; retry on reconnect, never blind clear.
+  }
   const hr = finishHeartRate(A.id)
   if (hr) attachFitness(w, { source: 'ble', kind: 'measured', start: w.start, end: w.end, avgHr: hr.avgHr, maxHr: hr.maxHr, zones: hr.zones, importedAt: Date.now() })
   // Resolve mid-session swaps (Workout.jsx's `replaceExercise`) against the CURRENT entry ids —
@@ -2508,7 +2524,7 @@ function doFinishWorkout() {
     })
     // A push here would put a backdated log after workouts that actually happened more
     // recently — insertWorkoutSorted keeps S.workouts chronological either way.
-    s.workouts = insertWorkoutSorted(s.workouts, w)
+    s.workouts = insertWorkoutSorted(s.workouts.filter(x => x.id !== w.id), w)
     completeGuidedProgramSession(s, w)
     s.active = null
     // Evaluated against `s` AFTER the push (so totals/streak/volume include this session),
@@ -2523,7 +2539,7 @@ function doFinishWorkout() {
   // alone hands a "finished" session right back on the next pull. This is the same authorized
   // clear the Discard button uses (see useStore.js's own comment); a finish needs it too, not
   // just a discard.
-  useStore.getState().clearActiveOnServer(A.id)
+  if (!automatic) useStore.getState().clearActiveOnServer(A.id)
   // No-ops server-side if Strava isn't connected — never surface a failure into this flow.
   sendWorkoutToStrava(w).catch(() => {})
   useUI.getState().stopRest()
@@ -2535,7 +2551,7 @@ function doFinishWorkout() {
   if (events.length) markPending(localStorage, celebrationUid(), w.id, newBadges.map(b => b.id))
   recapChecked = true
   const openSummary = () => withHero(events, w, () => ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} events={events} newBadges={newBadges} close={close} />, { kind: 'center', locked: true }))
-  if (swaps.length && A.routineId) {
+  if (swaps.length && A.routineId && !automatic) {
     ui().openSheet(close => <SwapKeepSheet swaps={swaps} routineId={A.routineId} onDone={() => { close(); openSummary() }} />, { kind: 'center', locked: true })
   } else {
     openSummary()

@@ -1,3 +1,4 @@
+import { stampWorkoutActivity, workoutActivityKey, workoutInactive, inactivityFinishMetadata, buildFinishedWorkout } from '../lib/workout-activity.js';
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* HTTP surface for the Bunker (gym-floor kiosk). Same factory-of-closures shape as
@@ -27,7 +28,7 @@ import { completeGuidedProgramSession } from '../lib/guided-program-model.js';
 const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits in 4 hours
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
 
-export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], rateLimiters = bunkerLimiters() }) {
+export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], registerInactivitySweep = () => {}, rateLimiters = bunkerLimiters() }) {
   const credentialKey = (kind, value) => createHash('sha256').update(kind + ':' + String(value)).digest('hex');
   const limitAttempt = (kind, ip, value) => {
     const ipLimiter = rateLimiters[kind];
@@ -86,7 +87,13 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
   const activeRevision = S => S._sync?.activeRevision || 0;
   const replaceActive = (S, active) => {
     if (!S._sync) Object.defineProperty(S, '_sync', { value: { activeRevision: 0, receipts: {}, tombstones: { workouts: [], routines: [], programs: [] }, revision: 0, generation: 0, enabled: false }, writable: true, configurable: true });
-    S.active = active;
+    const stamped = stampWorkoutActivity(S.active, active);
+    // Keep a valid client action timestamp; replaying an old queued edit must not
+    // manufacture a fresh hour. Legacy writers are stamped at receipt.
+    if (stamped && workoutActivityKey(S.active) !== workoutActivityKey(active) && Number.isFinite(active?.lastActivityAt) && active.lastActivityAt > 0 && active.lastActivityAt <= Date.now() + 5000) {
+      stamped.lastActivityAt = Math.max(S.active?.id === active.id ? (S.active.lastActivityAt || 0) : 0, active.lastActivityAt);
+    }
+    S.active = stamped;
     S._sync.activeRevision = activeRevision(S) + 1;
   };
   const checkActiveRevision = (res, S, body) => {
@@ -173,7 +180,115 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     };
   };
 
+  const finishWorkout = async (req, res, mobileTimeout = false, internal = null) => {
+      const uid = internal?.uid || (mobileTimeout ? readSession(req)?.id : readBunkerToken(req));
+      if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
+      const body = internal?.body || await readBody(req);
+      const automatic = mobileTimeout || body.finishReason === 'inactivity_timeout';
+      const w = body.workout;
+      if (!w || !w.d || !Array.isArray(w.entries)) return json(res, 400, { error: 'entreno no válido' });
+      const S = readState(uid) || {};
+      S.exWeights = S.exWeights || {};
+
+      // v1.3.1 (A4 fix) — idempotent by workout id: a retried finish (double-tap, a client that
+      // never saw the first response and retries once back online) must never create a second
+      // workout. Re-deriving PRs at this point would also be wrong — the history already
+      // includes this exact workout, so it would be compared against itself. Treat it as already
+      // succeeded: report the PRs it was actually saved with, and still make sure `active`/the
+      // room-board presence are the same "finished" state a first-time success leaves them in,
+      // in case an earlier attempt died after saving the workout but before either of those.
+      const already = (S.workouts || []).find(x => x.id === w.id);
+      if (already) {
+        if (S.active && S.active.id === w.id) { replaceActive(S, null); writeState(uid, S); }
+        if (!S.active || S.active.id === w.id) store.endSession(uid);
+        return json(res, 200, { ok: true, prs: already.prs || [], e1prs: [], ...(mobileTimeout ? { workout: already } : {}) });
+      }
+
+      // A queued finish belongs to one workout, never to a replacement handed off meanwhile.
+      if (S.active && S.active.id !== w.id) {
+        return json(res, 409, { error: 'la sesión activa cambió; tus series pendientes no se han descartado', active: S.active, activeRevision: activeRevision(S) });
+      }
+
+      if (automatic) {
+        const candidate = mobileTimeout ? body.active : S.active;
+        const now = Date.now();
+        if (!candidate || candidate.id !== w.id || !workoutInactive(candidate, now)
+          || (S.active && !workoutInactive(S.active, now))) {
+          return json(res, 409, { code: 'WORKOUT_NOT_INACTIVE', active: S.active || null, activeRevision: activeRevision(S) });
+        }
+        if (S._sync?.tombstones.workouts.includes(w.id)) return json(res, 409, { code: 'WORKOUT_COMPLETED' });
+        if ((!mobileTimeout && body.expectedActiveRevision !== activeRevision(S))
+          || (mobileTimeout && S.active && workoutActivityKey(S.active) !== workoutActivityKey(candidate))) {
+          return json(res, 409, { code: 'ACTIVE_CONFLICT', active: S.active || null, activeRevision: activeRevision(S) });
+        }
+        Object.assign(w, inactivityFinishMetadata(candidate, now));
+        delete w._inactivityRevision;
+      }
+
+      // Computed against the history as it stands BEFORE this workout joins it — same order
+      // doFinishWorkout uses (prs/e1prs are derived first, the push happens after).
+      const prs = [];
+      const e1prs = [];
+      w.entries.forEach(e => {
+        const mx = Math.max(0, ...e.sets.filter(s => s.done).map(s => s.w || 0));
+        if (mx > 0 && mx > bestWeightFor(S, e.id)) prs.push(e.id);
+        const rec = is1RMRecord(S, e.id, e);
+        if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec });
+      });
+      w.prs = prs;
+
+      const workouts = [...(S.workouts || [])];
+      let i = workouts.length;
+      while (i > 0 && workouts[i - 1].d > w.d) i--;
+      workouts.splice(i, 0, w);
+      S.workouts = workouts;
+      completeGuidedProgramSession(S, w);
+
+      // Same exWeights rule as doFinishWorkout: the heaviest done set (topW counts too),
+      // recorded only when it beats whatever was already on file.
+      w.entries.forEach(e => {
+        const mx = Math.max(0, ...e.sets.filter(x => x.done).map(x => x.w || 0), e.topW || 0);
+        if (mx > 0) {
+          const cur = S.exWeights[e.id];
+          if (!cur || mx > cur.w) S.exWeights[e.id] = { w: mx, d: w.d };
+        }
+      });
+
+      replaceActive(S, null);
+      writeState(uid, S);
+      store.endSession(uid);
+      json(res, 200, { ok: true, prs, e1prs, ...(mobileTimeout ? { workout: w } : {}) });
+  };
+
+  registerInactivitySweep(async () => {
+    for (const member of users()) {
+      if (member.disabled) continue;
+      try {
+        const S = readState(member.id);
+        if (!workoutInactive(S?.active)) continue;
+        const body = { workout: buildFinishedWorkout(S.active), finishReason: 'inactivity_timeout', expectedActiveRevision: activeRevision(S) };
+        // Internal invocation of the SAME finish transaction; no second writer/history/queue.
+        const res = { writeHead() {}, end() {} };
+        await finishWorkout({}, res, false, { uid: member.id, body });
+      } catch (e) { console.error('WORKOUT_INACTIVITY_CHECK_FAILED', e.code || e.name); }
+    }
+  });
+
   return {
+    'POST /api/active/activity': async (req, res) => {
+      const me = readSession(req);
+      if (!me) return json(res, 401, { error: 'no has iniciado sesion' });
+      const body = await readBody(req);
+      if (!Number.isFinite(body.at) || body.at <= 0 || body.at > Date.now() + 5000) return json(res, 400, { error: 'actividad no valida' });
+      const S = readState(me.id);
+      if (S?.active?.id === body.id && !S.active.past && body.at > (S.active.lastActivityAt || S.active.start || 0)) {
+        // No new store or snapshot authority: only the acknowledged real activity time.
+        S.active.lastActivityAt = body.at;
+        S._sync.activeRevision = activeRevision(S) + 1;
+        writeState(me.id, S);
+      }
+      json(res, 200, { ok: true });
+    },
     /* ---------- a member's own PIN (their phone, normal session) ---------- */
     'GET /api/bunker/pin': async (req, res) => {
       const me = readSession(req);
@@ -213,7 +328,7 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       if ((S.workouts || []).some(w => w.id === active.id) || S._sync?.tombstones.workouts.includes(active.id)) {
         return json(res, 409, { error: 'esa sesión ya ha finalizado', code: 'WORKOUT_COMPLETED', existing: existing || null });
       }
-      if (existing?.id === active.id && store.getSession(me.id) && !body.force && !isDeepStrictEqual(existing, active)) {
+      if (existing?.id === active.id && store.getSession(me.id) && !body.force && !isDeepStrictEqual({ ...existing, lastActivityAt: undefined }, { ...active, lastActivityAt: undefined })) {
         return json(res, 409, { error: 'la sesión cambió en el Bunker; confirma antes de sustituirla', existing });
       }
       if (existing && existing.id !== active.id && !body.force) {
@@ -386,68 +501,8 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     // persists e1prs on a saved workout either (it only ever reaches the finish-summary sheet in
     // that same React render) — persisting it here would be new, Bunker-only behaviour, not a
     // match for what the normal flow actually keeps.
-    'POST /api/bunker/finish': async (req, res) => {
-      const uid = readBunkerToken(req);
-      if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
-      const body = await readBody(req);
-      const w = body.workout;
-      if (!w || !w.d || !Array.isArray(w.entries)) return json(res, 400, { error: 'entreno no válido' });
-      const S = readState(uid) || {};
-      S.exWeights = S.exWeights || {};
-
-      // v1.3.1 (A4 fix) — idempotent by workout id: a retried finish (double-tap, a client that
-      // never saw the first response and retries once back online) must never create a second
-      // workout. Re-deriving PRs at this point would also be wrong — the history already
-      // includes this exact workout, so it would be compared against itself. Treat it as already
-      // succeeded: report the PRs it was actually saved with, and still make sure `active`/the
-      // room-board presence are the same "finished" state a first-time success leaves them in,
-      // in case an earlier attempt died after saving the workout but before either of those.
-      const already = (S.workouts || []).find(x => x.id === w.id);
-      if (already) {
-        if (S.active && S.active.id === w.id) { replaceActive(S, null); writeState(uid, S); }
-        if (!S.active || S.active.id === w.id) store.endSession(uid);
-        return json(res, 200, { ok: true, prs: already.prs || [], e1prs: [] });
-      }
-
-      // A queued finish belongs to one workout, never to a replacement handed off meanwhile.
-      if (S.active && S.active.id !== w.id) {
-        return json(res, 409, { error: 'la sesión activa cambió; tus series pendientes no se han descartado', active: S.active, activeRevision: activeRevision(S) });
-      }
-
-      // Computed against the history as it stands BEFORE this workout joins it — same order
-      // doFinishWorkout uses (prs/e1prs are derived first, the push happens after).
-      const prs = [];
-      const e1prs = [];
-      w.entries.forEach(e => {
-        const mx = Math.max(0, ...e.sets.filter(s => s.done).map(s => s.w || 0));
-        if (mx > 0 && mx > bestWeightFor(S, e.id)) prs.push(e.id);
-        const rec = is1RMRecord(S, e.id, e);
-        if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec });
-      });
-      w.prs = prs;
-
-      const workouts = [...(S.workouts || [])];
-      let i = workouts.length;
-      while (i > 0 && workouts[i - 1].d > w.d) i--;
-      workouts.splice(i, 0, w);
-      S.workouts = workouts;
-      completeGuidedProgramSession(S, w);
-
-      // Same exWeights rule as doFinishWorkout: the heaviest done set (topW counts too),
-      // recorded only when it beats whatever was already on file.
-      w.entries.forEach(e => {
-        const mx = Math.max(0, ...e.sets.filter(x => x.done).map(x => x.w || 0), e.topW || 0);
-        if (mx > 0) {
-          const cur = S.exWeights[e.id];
-          if (!cur || mx > cur.w) S.exWeights[e.id] = { w: mx, d: w.d };
-        }
-      });
-
-      replaceActive(S, null);
-      writeState(uid, S);
-      store.endSession(uid);
-      json(res, 200, { ok: true, prs, e1prs });
-    },
+    'POST /api/bunker/finish': finishWorkout,
+    'POST /api/active/finish-inactive': (req, res) => finishWorkout(req, res, true),
 
     // Minimizing back to the room dashboard without ending the session — the kiosk just stops
     // showing the member's own panel; their card (and any running rest countdown) stays on the
