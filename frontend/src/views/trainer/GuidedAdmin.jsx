@@ -4,7 +4,7 @@
 // official one, edit, delete) — private to them. Admins: also the official catalogue's curation
 // (featured, order, badge, active), content edits and collections. A light V1, not a CMS: the
 // same DayCanvas and block library the Constructor uses, and the server validates every save.
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
@@ -20,6 +20,7 @@ import { CurateSheet, lookup } from '../../components/train2j/parts.jsx'
 import { partName } from '../../lib/train2j.js'
 import WorkoutCover from '../../components/WorkoutCover.jsx'
 import Icon from '../../components/Icon.jsx'
+import { STATUSES, STATUS_LABEL, PURPOSES, PURPOSE_LABEL, statusOf } from '../../lib/studio.js'
 
 const STYLES = ['start', 'tabata', 'hiit', 'circuit', 'interval', 'mobility', 'express', 'core', 'mixed']
 const FOCI = [['fullbody', 'Full body'], ['lower', 'Lower body'], ['upper', 'Upper body'], ['core', 'Core'], ['cardio', 'Cardio']]
@@ -79,7 +80,15 @@ function ProgramCurationSheet({ program, close }) {
   </div>
 }
 
+const StudioAdmin = lazy(() => import('./studio/StudioAdmin.jsx'))
+
+/** Admins get the Studio (lazy); trainers keep their own routines page. */
 export default function GuidedAdmin() {
+  const admin = useStore(s => !!s.user?.admin)
+  return admin ? <Suspense fallback={<div className="cx-shell" role="status" />}><StudioAdmin /></Suspense> : <TrainerGuided />
+}
+
+function TrainerGuided() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
   const openSheet = useUI(s => s.openSheet)
@@ -155,12 +164,13 @@ export function GuidedEditor() {
   useEffect(() => { g.load(user?.id, true).finally(() => setFresh(true)) }, [user?.id])
   useEffect(() => {
     if (r || !fresh || g.status !== 'ready') return
-    if (id === 'new') { setR({ name: '', subtitle: '', description: '', category: 'circuit', goal: 'general', level: 'intermediate', focus: 'fullbody', ex: [], blocks: [], scope: 'personal' }); return }
+    if (id === 'new') { setR({ name: '', subtitle: '', description: '', category: 'circuit', goal: 'general', level: 'intermediate', focus: 'fullbody', ex: [], blocks: [], scope: g.canEdit ? 'official' : 'personal', status: 'draft' }); return }
     const found = g.mine.find(x => x.id === id) || g.routines.find(x => x.id === id)
     if (!found) { toast(t('That routine no longer exists.')); nav('/trainer/guided'); return }
     // Parts carry no stored name in the seed: show them as the catalogue does (Warm-up, Tabata · …).
     const copy = JSON.parse(JSON.stringify(found))
     copy.blocks = (copy.blocks || []).map(b => b.name ? b : { ...b, name: partName(b, t) })
+    if (copy.official) copy.status = statusOf(found)
     setR(copy)
   }, [g.status, id, fresh])
   const v = useMemo(() => r ? validate({ kind: 'routine', goal: r.goal, level: r.level, entries: r.ex, blockTypes: blockTypesOf(r.blocks) }) : null, [r])
@@ -185,6 +195,7 @@ export function GuidedEditor() {
     <header className="cx-top">
       <a className="trainer-back" href="#/trainer/guided"><Icon name="chevronLeft" />{t('Train with 2J')}</a>
       <input className="cx-title" value={r.name ? t(r.name) : ''} placeholder={t('Routine name')} onChange={e => set({ name: e.target.value })} aria-label={t('Routine name')} />
+      {r.official && r.id && <a className="btn plain cx-prev" href={'#/train2j/r/' + r.id}><Icon name="play" />{t('Preview')}</a>}
       <div className="cx-top-meta"><ProtocolPill v={v} /><span className="cx-daystats num">~{facts.minutes} min</span></div>
       <button className="btn primary cx-save" disabled={busy || v?.result === 'FAIL'} onClick={submit}><Icon name="check" />{t('Save')}</button>
     </header>
@@ -209,6 +220,16 @@ export function GuidedEditor() {
             {sel('level', t('Level'), LEVELS.map(x => <option key={x} value={x}>{t(LEVEL_LABEL[x])}</option>))}
           </div>
           {g.canEdit && id === 'new' && <label className="cx-check"><input type="checkbox" checked={r.scope === 'official'} onChange={e => set({ scope: e.target.checked ? 'official' : 'personal' })} />{t('Publish as an official 2J routine')}</label>}
+          {(r.official || r.scope === 'official') && <>
+            {sel('status', t('State'), STATUSES.map(x => <option key={x} value={x}>{t(STATUS_LABEL[x])}</option>))}
+            <div className="cx-form-row">
+              <label className="cx-field"><span>{t('Purpose')}</span><select className="input" value={r.purpose || ''} onChange={e => set({ purpose: e.target.value || null })}>
+                <option value="">{t('Training session')}</option>{PURPOSES.map(x => <option key={x} value={x}>{t(PURPOSE_LABEL[x])}</option>)}</select></label>
+              <label className="cx-field"><span>{t('Cover')}</span><select className="input" value={r.cover || ''} onChange={e => set({ cover: e.target.value || null })}>
+                <option value="">{t('Automatic')}</option>{ROUTINE_CATEGORIES.map(c => <option key={c} value={c}>{t(CATEGORY_LABEL[c])}</option>)}</select></label>
+            </div>
+            <label className="cx-field"><span>{t('Internal notes (admins only)')}</span><textarea className="input" rows={2} maxLength={300} value={r.notes || ''} onChange={e => set({ notes: e.target.value })} /></label>
+          </>}
           {!r.official && <p className="dim small">{t('Your guided routines are private: only you see them, and you can assign them like any other.')}</p>}
         </div>
         <ProtocolReport v={serverV || v} />

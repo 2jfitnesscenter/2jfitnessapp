@@ -3573,3 +3573,10 @@ body:has(.sync-pill) #app{padding-top:8px}
 @media(min-width:700px){.community-intro{padding:20px}.social-pref-card{padding:20px}.community-dashboard{grid-template-columns:repeat(3,minmax(0,1fr))}.community-tile{align-items:flex-start;flex-wrap:wrap}.community-tile-copy{flex-basis:calc(100% - 52px)}}
 @media(max-width:380px){.community-sharecard{width:285px;min-height:380px;padding:21px 18px 18px}.community-sharecard h2{font-size:24px}.community-share-preview{max-height:54vh}}
 @media(min-width:700px){.gym-profile-sheet{padding-left:28px;padding-right:28px}.gym-profile-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.gym-equipment-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.t2-fit{font-weight:700}.t2-fit.compatible{color:var(--t2-em)}.t2-fit.partial{color:#B7791F}.t2-fit.requires{color:var(--label-2)}
+.t2-fitbox{margin:0 0 18px;padding:14px 16px;border-radius:16px;background:color-mix(in srgb,var(--label) 5%,transparent);border-inline-start:3px solid var(--label-3)}
+.t2-fitbox.compatible{border-color:var(--t2-em)}.t2-fitbox.partial{border-color:#D69E2E}
+.t2-fitbox h2{margin:0 0 6px;font-size:15px;font-weight:800}.t2-fitbox p{margin:0;font-size:14px;color:var(--label-2)}
+.t2-fitbox ul{margin:8px 0 0;padding-inline-start:18px;font-size:13px;color:var(--label-2)}
+.t2-cprogs{margin:18px 0}.t2-cprogs h2{margin:0 0 8px;font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--label-2)}
+.t2-preview{display:flex;gap:10px;align-items:center;margin:0 0 12px;padding:10px 14px;border-radius:12px;font-size:13.5px;font-weight:600;color:#B7791F;background:color-mix(in srgb,#D69E2E 15%,transparent)}

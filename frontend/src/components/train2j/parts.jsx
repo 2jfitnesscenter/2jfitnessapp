@@ -45,6 +45,8 @@ export function Heart({ id, className = '' }) {
   </button>
 }
 
+export const FIT_LABEL = { compatible: 'Compatible with this place', partial: 'Partially compatible', requires: 'Needs other equipment' }
+
 /** The catalogue card: artwork with type and time, then name and a quiet meta line. */
 export function RoutineCard({ r, stats, isNewRoutine, reasons, onOpen, wide }) {
   const gymState = useStore(s => s.S)
@@ -62,7 +64,7 @@ export function RoutineCard({ r, stats, isNewRoutine, reasons, onOpen, wide }) {
       <div className="t2-card-b">
         <h3 className="t2-card-t">{t(r.name)}</h3>
         <div className="t2-card-m">{t(LEVEL_LABEL[r.level])} · {gearText(r)}</div>
-        <div className="small dim">{gymMatch.compatible ? t('Compatible with this place') : t('Equipment not confirmed here')}</div>
+        <div className={'small t2-fit ' + gymMatch.level}>{t(FIT_LABEL[gymMatch.level])}</div>
         {(badges.length > 0 || stats?.count > 0 || reasons) && <div className="t2-card-f">
           {reasons ? reasons.slice(0, 2).map(([k, ...p], i) => <span key={i} className="t2-why">{t(k, ...p.map(v => typeof v === 'string' ? t(v).toLowerCase() : v))}</span>)
             : badges.map(b => <span key={b.key} className={'t2-badge' + (b.strong ? ' strong' : '')}>{t(b.label)}</span>)}

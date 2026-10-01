@@ -46,6 +46,9 @@ import Records from './views/Records.jsx'
 import { showPendingCelebration, autoFinishInactiveWorkout } from './sheets.jsx'
 import Profile from './views/Profile.jsx'
 const Social = lazy(() => import('./views/Social.jsx'))
+// Entrena con 2J Studio (admins): loaded only when an admin opens it.
+const ProgramEditor = lazy(() => import('./views/trainer/studio/ProgramEditor.jsx'))
+const LibraryQuality = lazy(() => import('./views/trainer/studio/LibraryQuality.jsx'))
 const GuidedProgramCatalog = lazy(() => import('./views/GuidedPrograms.jsx').then(m => ({ default: m.GuidedProgramCatalog })))
 const GuidedProgramDetail = lazy(() => import('./views/GuidedPrograms.jsx').then(m => ({ default: m.GuidedProgramDetail })))
 const Friends = lazy(() => import('./views/Friends.jsx'))
@@ -175,12 +178,14 @@ function Shell() {
         <div id="trainer-app" key={loc.pathname}>
           <ErrorBoundary>
             {!authed ? <Login /> : !user?.trainer ? <Navigate to="/home" replace /> : (
-              <Routes>
+              <Suspense fallback={<div className="narrow" role="status" style={{ paddingTop: 24 }}>{t('Loading…')}</div>}><Routes>
                 <Route path="/trainer" element={<TrainerClients />} />
                 <Route path="/trainer/blocks" element={<BlockLibrary />} />
                 <Route path="/trainer/blocks/edit/:blockId" element={<BlockEditor />} />
                 <Route path="/trainer/guided" element={<GuidedAdmin />} />
                 <Route path="/trainer/guided/edit/:id" element={<GuidedEditor />} />
+                <Route path="/trainer/guided/program/:id" element={user?.admin ? <ProgramEditor /> : <Navigate to="/trainer/guided" replace />} />
+                <Route path="/trainer/library-quality" element={user?.admin ? <LibraryQuality /> : <Navigate to="/trainer" replace />} />
                 <Route path="/trainer/:memberId/build/:kind/:id" element={<Constructor />} />
                 <Route path="/trainer/:memberId" element={<TrainerClientPlan />} />
                 <Route path="/trainer/:memberId/ai" element={<TrainerAIGenerate />} />
@@ -188,7 +193,7 @@ function Shell() {
                 <Route path="/trainer/:memberId/r/:routineId" element={<TrainerRoutineBuilder />} />
                 <Route path="/trainer/:memberId/p/:programId" element={<TrainerProgramBuilder />} />
                 <Route path="*" element={<Navigate to="/trainer" replace />} />
-              </Routes>
+              </Routes></Suspense>
             )}
           </ErrorBoundary>
         </div>

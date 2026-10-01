@@ -21,7 +21,8 @@ import WorkoutCover from '../components/WorkoutCover.jsx'
 import GymProfile from '../components/GymProfile.jsx'
 import Icon from '../components/Icon.jsx'
 import './train2j-program-home.css'
-import { RoutineCard, Rail, CollectionTile, PartsTimeline, FiltersSheet, AssignSheet, CurateSheet, Heart, gearText, lookup } from '../components/train2j/parts.jsx'
+import { gymRoutineCompatibility } from '../lib/gym-profiles.js'
+import { RoutineCard, FIT_LABEL, Rail, CollectionTile, PartsTimeline, FiltersSheet, AssignSheet, CurateSheet, Heart, gearText, lookup } from '../components/train2j/parts.jsx'
 
 const QUICK = [
   { key: 'all', label: 'All' },
@@ -177,13 +178,14 @@ export function Train2JCollection() {
   const nav = useNavigate()
   const { id } = useParams()
   const S = useStore(s => s.S)
-  const { status, error, offline, routines, collections } = useCatalog()
+  const { status, error, offline, routines, collections, programs } = useCatalog()
   const stats = useMemo(() => historyStats(S.workouts), [S.workouts])
   if (status !== 'ready') return <div className="t2 t2-page"><Header /><Loading status={status} error={error} offline={offline} /></div>
   const c = collections.find(x => x.id === id)
   if (!c) return <div className="t2 t2-page"><Header /><div className="t2-state"><Icon name="info" /><b>{t('This collection is not available')}</b>
     <button className="btn plain" onClick={() => nav('/train2j')}>{t('Back to Train with 2J')}</button></div></div>
   const items = c.routineIds.map(x => routines.find(r => r.id === x)).filter(Boolean)
+  const progs = (c.programIds || []).map(x => programs.find(p => p.id === x)).filter(Boolean)
   return <div className="t2 t2-page">
     <section className="t2-cbanner">
       <WorkoutCover r={{ id: c.id, style: c.style }} shape="wide">
@@ -196,6 +198,8 @@ export function Train2JCollection() {
         </div>
       </WorkoutCover>
     </section>
+    {progs.length > 0 && <section className="t2-cprogs"><h2>{t('Programs')}</h2>
+      <div className="t2-chips">{progs.map(p => <button key={p.id} className="chip" onClick={() => nav('/train2j/program/' + p.id)}>{t(p.name)} · {t(p.durationLabel)}</button>)}</div></section>}
     <div className="t2-grid">{items.map(r => <RoutineCard key={r.id} r={r} stats={stats[r.id]} isNewRoutine={isNew(r, routines)} />)}</div>
   </div>
 }
@@ -216,6 +220,7 @@ export function Train2JDetail() {
   if (!r) return <div className="t2 t2-page"><Header /><div className="t2-state"><Icon name="info" /><b>{t('This workout is not available')}</b>
     <p>{t('It may have been withdrawn from the 2J library.')}</p><button className="btn plain" onClick={() => nav('/train2j')}>{t('Back to Train with 2J')}</button></div></div>
   const gear = gearKinds(r, lookup)
+  const fit = gymRoutineCompatibility(S, r)
   const unavailable = [...new Set((r.ex || []).map(e => EXIDX[e.id]?.eq).filter(q => q && isEquipmentUnavailable(q)))]
   const blocked = clash.length > 0
   const dup = async () => { try { const c = await duplicate(r.id); toast(t('Copied to your routines')); nav('/trainer/guided/edit/' + c.id) } catch (e) { toast(e.message) } }
@@ -229,6 +234,7 @@ export function Train2JDetail() {
         </WorkoutCover>
       </div>
       <div className="t2-d-main">
+        {r.official && (r.draft || r.active === false) && <div className="t2-preview" role="status"><Icon name="info" /><span>{r.draft ? t('Draft preview — only admins can see this routine.') : t('Hidden routine — only admins can see it.')}</span></div>}
         <h1 className="t2-d-t">{t(r.name)}</h1>
         {r.subtitle && <p className="t2-d-sub">{t(r.subtitle)}</p>}
         <p className="t2-d-desc">{t(r.description)}</p>
@@ -243,6 +249,13 @@ export function Train2JDetail() {
           <p>{t('It breaks a restriction declared for you ({0}). Ask your trainer for an alternative.', [...new Set(clash.map(i => t(RESTRICTION_LABEL[i.params[1]] || i.params[1])))].join(', '))}</p>
           <ul>{clash.slice(0, 3).map((i, k) => <li key={k}>{issueText(i)}</li>)}</ul></div></div>}
         {unavailable.length > 0 && <div className="t2-warn soft"><Icon name="info" /><p>{t('Some equipment is not available at the gym right now ({0}); those exercises will be skipped.', unavailable.map(q => t(q)).join(', '))}</p></div>}
+
+        <section className={'t2-fitbox ' + fit.level}>
+          <h2>{t(FIT_LABEL[fit.level])}</h2>
+          {fit.level === 'compatible' ? <p>{t('Everything in this workout works with the equipment of your current place.')}</p>
+            : <><p>{t('{0} of {1} exercises need equipment not confirmed here. You can swap them for alternatives while you train.', fit.missing, fit.total)}</p>
+              <ul>{fit.missingIds.slice(0, 6).map(id => <li key={id}>{nameFor(EXIDX[id]) || id}</li>)}</ul></>}
+        </section>
 
         <section className="t2-before">
           <h2>{t('Before you start')}</h2>

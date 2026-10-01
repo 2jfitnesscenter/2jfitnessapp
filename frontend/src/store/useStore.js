@@ -9,6 +9,8 @@ import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { MOBILE, nativeLoad, nativeSave, syncReminder, syncBioimpedanceReminder } from '../lib/mobile.js'
 import { daysSinceBioimpedance } from '../lib/measurements.js'
 import { setCachedOfficialGymEquipment } from '../lib/gym-profiles.js'
+import { applyConfigOverlay, restoreCachedOverlay } from '../lib/library/overlay-sync.js'
+import { useGuided } from '../lib/guided-api.js'
 
 const KEY = 'gym_state_v1'
 // A discard/finish that couldn't reach POST /api/active/clear (offline, a dropped request)
@@ -150,6 +152,9 @@ export const sessionOnlyChange = (before, after) => withoutSession(before) === w
 
 const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length)
 
+// Offline start: the last library corrections this device received.
+try { restoreCachedOverlay() } catch { /* a bad copy is ignored */ }
+
 export const useStore = create((set, get) => {
   let pushTm = null
   let saveTm = null
@@ -285,6 +290,7 @@ export const useStore = create((set, get) => {
         const config = await api('/api/config')
         if (Array.isArray(config.gymProfile?.availableEquipment)) setCachedOfficialGymEquipment(config.gymProfile.availableEquipment)
         setHiddenExercises(config.hiddenExercises); setUnavailableEquipment(config.unavailableEquipment)
+        applyConfigOverlay(config); useGuided.getState().notifyRev(config.guidedRev)
         set({ config, gymProfileRevision: get().gymProfileRevision + 1 })
         return true
       } catch { return false }
@@ -420,6 +426,7 @@ export const useStore = create((set, get) => {
       try {
         const config = await api('/api/config')
         if (Array.isArray(config.gymProfile?.availableEquipment)) setCachedOfficialGymEquipment(config.gymProfile.availableEquipment)
+        applyConfigOverlay(config); useGuided.getState().notifyRev(config.guidedRev)
         set({ config, gymProfileRevision: get().gymProfileRevision + 1 })
         setHiddenExercises(config.hiddenExercises)
         setUnavailableEquipment(config.unavailableEquipment)

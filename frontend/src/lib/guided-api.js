@@ -24,7 +24,7 @@ const hydratePrograms = (programs = [], routines = []) => {
 }
 
 export const useGuided = create((set, get) => ({
-  status: 'idle', offline: false, error: null,
+  status: 'idle', offline: false, error: null, rev: null,
   routines: [], programs: [], collections: [], mine: [], canEdit: false, canAssign: false, uid: null, favorites: [],
   async load(uid, force = false) {
     const st = get()
@@ -38,11 +38,17 @@ export const useGuided = create((set, get) => ({
       // Only what a member sees is kept on the device (never a trainer's own routines).
       write(CACHE(r.uid || uid), data)
       const programs = hydratePrograms(data.programs, data.routines)
-      set({ status: 'ready', offline: false, error: null, ...data, programs, mine: r.mine || [], canEdit: !!r.canEdit, canAssign: !!r.canAssign, uid: r.uid || uid })
+      set({ status: 'ready', offline: false, error: null, rev: r.rev ?? null, ...data, programs, mine: r.mine || [], canEdit: !!r.canEdit, canAssign: !!r.canAssign, uid: r.uid || uid })
     } catch (e) {
       if (cached) set({ status: 'ready', offline: true })
       else set({ status: 'error', error: e.message, offline: typeof navigator !== 'undefined' && navigator.onLine === false })
     }
+  },
+  // /api/config carries the catalogue revision: an admin's publish refreshes an open library without a reload.
+  notifyRev(rev) {
+    const st = get()
+    if (rev == null || st.status !== 'ready' || st.rev == null || String(st.rev) === String(rev)) return
+    st.load(st.uid, true)
   },
   toggleFavorite(id) {
     const favs = new Set(get().favorites)
@@ -54,6 +60,13 @@ export const useGuided = create((set, get) => ({
   },
   async save(routine) { const r = await post('/api/guided/save', { routine }); await get().load(get().uid, true); return r },
   async duplicate(id) { const r = await post('/api/guided/duplicate', { id }); await get().load(get().uid, true); return r.routine },
+  async setStatus(id, status) { await post('/api/guided/status', { id, status }); await get().load(get().uid, true) },
+  async reorder(kind, ids) { await post('/api/guided/reorder', { kind, ids }); await get().load(get().uid, true) },
+  async duplicateOfficial(id) { const r = await post('/api/guided/duplicate', { id, official: true }); await get().load(get().uid, true); return r.routine },
+  async saveProgram(program, dryRun = false) { const r = await post('/api/guided/program/save', { program, dryRun }); if (!dryRun) await get().load(get().uid, true); return r },
+  async duplicateProgram(id) { const r = await post('/api/guided/program/duplicate', { id }); await get().load(get().uid, true); return r.program },
+  async removeProgram(id) { await post('/api/guided/program/delete', { id }); await get().load(get().uid, true) },
+  async removeCollection(id) { await post('/api/guided/collection/delete', { id }); await get().load(get().uid, true) },
   async setActive(id, active) { await post('/api/guided/active', { id, active }); await get().load(get().uid, true) },
   async remove(id) { await post('/api/guided/delete', { id }); await get().load(get().uid, true) },
   async curate(id, patch) { await post('/api/guided/curate', { id, ...patch }); await get().load(get().uid, true) },

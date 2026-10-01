@@ -30,5 +30,9 @@ export function gymExerciseList(S, list, onlyAvailable = false) {
 export const gymRoutineCompatibility = (S, routine) => {
   const entries = routine?.ex || []
   const missing = entries.filter(e => !compatibleWithGym(S, EXIDX[e.id]))
-  return { compatible: entries.length > 0 && missing.length === 0, missing: missing.length }
+  const compatible = entries.length > 0 && missing.length === 0
+  // Never hide a whole routine for one incompatible exercise: "partial" when most of it still works
+  // (the missing ones can be swapped for alternatives), "requires" when most of it needs other material.
+  const level = compatible ? 'compatible' : missing.length * 2 <= entries.length ? 'partial' : 'requires'
+  return { compatible, missing: missing.length, total: entries.length, level, missingIds: [...new Set(missing.map(e => e.id))] }
 }
