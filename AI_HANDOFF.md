@@ -8,7 +8,7 @@
 ## 1. Estado actual (checkpoint 2026-10-01)
 
 - **Producción estable actual (confirmada por el usuario):** `abe32659d5bc20179f3270cd2f7d2612ea132623`.
-- **Código/tests local validado:** `ec0d77ab938c4ec2688bebb816726dc61527303f`; el commit documental
+- **Código/tests local validado:** `4801d61` (sobre `4f8e80c`; auto-finish `f127e06`); el commit documental
   de este checkpoint lo sigue (HEAD exacto: `git rev-parse HEAD`).
   **Bunker Live V2 — Sprint 4 COMPLETO localmente; NO desplegado.** Las referencias de producción
   anteriores en las notas históricas de abajo describen checkpoints pasados, no el estado actual.
@@ -25,6 +25,43 @@
   build OK, español completo y `git diff --check` OK; API sin cambios por el polish.
 - Servidor: `/opt/2jfitness` (release extraída de tarballs, no es repo git), datos en
   `/opt/2jfitness/data`, backups en `/root/backups`, URL `https://app.2jfitnesscenter.com`.
+
+### Pre-deploy — auto-finish + carga inicial segura (2026-10-01; NO DESPLEGADO)
+
+- Commits separados: `f127e06` auto-finish; `4801d61` Progressive Overload. Producción sigue
+  en `abe32659d5bc20179f3270cd2f7d2612ea132623` según la última confirmación; no SSH/deploy/push.
+- Auto-finish reutiliza el finish idempotente existente, PR/exWeights/history/program completion.
+  `lastActivityAt` vive en el active local/persistido; cambia por sets, carga/reps, cardio,
+  navegación de ejercicio, swaps o cambios reales de Guided. Polling/render/revalidación no lo renuevan.
+  `WORKOUT_INACTIVITY_MS` = 60 min, modelo único frontend/API comprobado por
+  `scripts/sync-workout-activity.mjs --check`. Revisión cada 30 s; deadline independiente por socio.
+- Bunker: sweep servidor sobre active persistido, independiente de panel/board; móvil: el shell
+  detecta al abrir/reconectar y usa finish autenticado con validación de actividad/conflictos.
+  El pulso móvil envía solo id + timestamp original; no adquiere autoridad de snapshot ni cambia Sync V2.
+  Actividad reconocida de otro dispositivo impide un cierre stale. Cola finish Bunker existente conservada;
+  no nueva queue/store. Guardas de revisión/id/tombstone y dedupe; un draft móvil que cambia durante
+  la petición no se elimina. `finishReason=inactivity_timeout`, `finishedAt` real, `end` último
+  cambio fiable para no sumar la hora inactiva; legacy sin timestamp usa el end normal. Nota discreta en detalle.
+- Límite: un active solo local necesita abrir/reconectar el cliente para finalizar; offline conserva draft
+  y difiere finish hasta respuesta válida. El servidor no puede conocer edits offline no reconocidos;
+  una divergencia conserva el draft y requiere el flujo de conflicto existente, nunca overwrite ciego.
+- Progressive Overload: `exWeights/topW` conservan máxima/PR pero no pisan los sets completados
+  posicionales. `workingLoadEvidence` deriva la primera serie done excluyendo warmup/drop; no añade
+  metadata histórica. readSession/suggestOverload/recommendProgression/Intelligence usan esa base.
+  RPE/RIR y feel hard/fail vetan aumentos; sin evidencia de esfuerzo repite carga. Doble progresión
+  exige dos exposiciones completas con base igual y esfuerzo seguro; políticas lineales explícitas
+  mantienen su regla tras una exposición segura. Sugerencias siguen siendo opcionales/confirmadas.
+- Rampa/backoff conserva posiciones y aplica el incremento realizable existente; straight sets siguen
+  iguales; %1RM explícito conserva su prescripción. Sin historial no se inventa progreso; exWeights
+  queda solo como fallback legacy sin series comparables. Series Feedback NEXT SET no se modificó.
+  Limitación: historial sin type no permite inferir que un set era warmup; respeta semántica existente.
+- Validación: frontend **983/983**, API **322/322** (incluye Bunker/Sync/Guided/Intelligence/Community),
+  12 tests actividad frontend + 10 API + 14 carga inicial A–L/Intelligence; build OK, ES **3623/3623**,
+  protocolo/modelos/seeds/catálogo OK, diff check OK. Deuda histórica: chunks grandes, otros idiomas
+  incompletos y 28 ejercicios sin movimiento canónico; no causada por estos fixes.
+- `deploy-4f8e80c.ps1` y su release quedan OBSOLETOS. Preparar runner NUEVO para el HEAD documental
+  final, baseline/rollback `abe3265`, artefactos exactos, backup, protección datos/Sync V2, retry,
+  runtime/image probes, PrepareOnly e install/rollback local antes de cualquier aprobación de deploy.
 
 ### Community V2 + Notifications + Sharing — desplegado (2026-09-27)
 
