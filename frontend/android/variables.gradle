@@ -1,6 +1,7 @@
 ext {
-    minSdkVersion = 23
-    compileSdkVersion = 35
+    // 26: Health Connect (androidx.health.connect) and java.time need it; Android 8.0+ is the practical floor.
+    minSdkVersion = 26
+    compileSdkVersion = 36
     targetSdkVersion = 35
     androidxActivityVersion = '1.9.2'
     androidxAppCompatVersion = '1.7.0'

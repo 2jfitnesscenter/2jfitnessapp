@@ -37,8 +37,28 @@ const isBridge = b => !!b && ['isAvailable', 'requestPermissions', 'readWorkouts
 export function getBridge(root = globalThis) {
   const native = root?.TwoJNative?.health
   if (isBridge(native)) return native
-  const plugin = root?.Capacitor?.Plugins?.TwoJHealth
-  return isBridge(plugin) ? plugin : null
+  return capacitorBridge(root?.Capacitor)
+}
+
+/**
+ * The Android Capacitor plugin (TwoJHealth, android/app/src/main/java/.../health): a Capacitor call can
+ * only resolve with an object, so readWorkouts answers { sessions } and is unwrapped here to the contract's
+ * array. Works in the bundled app and in a shell that loads the 2J PWA by URL (the bridge is injected
+ * either way): through Capacitor.Plugins when present, otherwise through nativePromise.
+ */
+function capacitorBridge(cap) {
+  if (!cap || (typeof cap.isNativePlatform === 'function' && !cap.isNativePlatform())) return null
+  const plugin = cap.Plugins?.TwoJHealth
+  let call = null
+  if (isBridge(plugin)) call = (m, o) => plugin[m](o)
+  else if (typeof cap.nativePromise === 'function' && typeof cap.isPluginAvailable === 'function' && cap.isPluginAvailable('TwoJHealth')) call = (m, o) => cap.nativePromise('TwoJHealth', m, o || {})
+  if (!call) return null
+  return {
+    platform: typeof cap.getPlatform === 'function' && cap.getPlatform() === 'ios' ? 'ios' : 'android',
+    isAvailable: () => call('isAvailable'),
+    requestPermissions: () => call('requestPermissions'),
+    readWorkouts: async q => { const r = await call('readWorkouts', q); return Array.isArray(r) ? r : r?.sessions },
+  }
 }
 export const platformLabel = bridge => bridge?.platform === 'ios' ? 'Apple Health' : bridge?.platform === 'android' ? 'Health Connect' : 'Health'
 
@@ -136,7 +156,7 @@ export async function readBridge({ uid, workouts, bridge = getBridge(), days = D
   const span = Math.min(MAX_DAYS, Math.max(1, Math.round(Number(days) || DEFAULT_DAYS)))
   let sessions
   try { sessions = await bridge.readWorkouts({ start: new Date(now - span * 86400e3).toISOString(), end: new Date(now).toISOString() }) }
-  catch { return { status: 'error' } }
+  catch (e) { return { status: e?.code === 'permission_denied' ? 'denied' : 'error' } }   // access revoked since connecting
   if (!Array.isArray(sessions)) return { status: 'error' }
   // Consent can be revoked while the native read is in flight. Discard the result and do not
   // recreate the local consent record if that happened.

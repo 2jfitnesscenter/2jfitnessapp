@@ -1,6 +1,6 @@
 # Health native bridge
 
-Status: **phase 1 (web side) implemented; native shells NOT built.** `frontend/src/lib/health-bridge.js` detects
+Status: **web phase implemented; Android bridge compiled locally, not yet run on a device.** `frontend/src/lib/health-bridge.js` detects
 `window.TwoJNative.health` (or a Capacitor plugin `TwoJHealth`), asks for read access only on an explicit tap,
 reads per-workout aggregates, re-validates/whitelists them and attaches them through the existing mappers and
 `matchAll`/`attachFitness` (no endpoint, no new queue, consent kept on the device, off by default). Without a
@@ -9,6 +9,19 @@ still need the owner’s go-ahead (see “Decisions needed”). Optional calorie
 their corresponding OS grants were returned; consent without workout access cannot read. Results outside the requested
 date window are rejected, and a revocation during an in-flight read discards its result. The UI also discards results if
 the signed-in account changes before attachment.
+
+### Android phase (Health Connect, read-only) — plugin compiled locally, NOT yet run on a device
+
+Architecture: reuse the existing Capacitor Android project (`frontend/android`) with a **local Capacitor plugin** `TwoJHealth`
+(Kotlin, `com.twojfitnesscenter.app.health`), registered in `MainActivity`. No second shell. Methods: `isAvailable`, `requestPermissions`,
+`readWorkouts({start,end}) → { sessions }` (the web adapter in `health-bridge.js` unwraps it). Permissions: only `READ_EXERCISE` (required),
+`READ_ACTIVE_CALORIES_BURNED` and `READ_HEART_RATE` (optional); no write permission exists; aggregates per data origin, never raw samples;
+window clamped to 90 days / 500 sessions; permissions re-read on every read (revoked → `permission_denied`). Pure contract logic lives in
+`HealthContract.kt` (7 JVM tests in `HealthContractTest.kt`, passing). Windows build verified with `testDebugUnitTest` and `assembleDebug`;
+the Health Connect 1.1.0 dependency required AGP 8.10.1 and compile SDK 36. `minSdk` raised 23 → 26 (Health Connect, java.time). **Open decision:** the current
+Capacitor build is the standalone offline store app (no backend, no passkeys); the gym app (passkeys, Sync V2) needs a shell mode that loads the
+PWA by URL — the plugin works in both, but passkeys inside that WebView must be verified on a device. Before release, verify the Health Connect
+permission-rationale screen and decide whether the UI's 90-day maximum should request historical-read permission or remain effectively limited by Health Connect's default history access.
 
 ## Why a native layer is needed at all
 

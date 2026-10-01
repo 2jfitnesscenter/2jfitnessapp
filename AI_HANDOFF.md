@@ -610,7 +610,7 @@ la lectura. Consentimiento revocado mientras una lectura nativa está pendiente 
 durante lectura/selección ambigua no adjunta datos a otra cuenta. `mapHealthConnectSession/mapHealthKitWorkout`,
 `matchAll` conservador (ambiguos al selector manual) y `attachFitness` existente → `w.fitness` viaja por Sync V2 sin
 cambios. Sin endpoints ni cambios de API/auth. Tests: `health-bridge.test.js` (19) + 1 en `Health.test.jsx`; frontend
-1029/1029. **Pendiente (bloqueante real):** los plugins nativos Kotlin (Health
+1029/1029. **Fase Android (compilada localmente; sin prueba en teléfono):** plugin Capacitor local `TwoJHealth` (Kotlin, `frontend/android/.../health`), Health Connect solo lectura (READ_EXERCISE obligatorio; kcal y FC opcionales), `HealthContract.kt` (7 tests JVM verdes), adaptador JS en `health-bridge.js`; `minSdk` 26, compile SDK 36/AGP 8.10.1. `testDebugUnitTest` y `assembleDebug` pasan. **Decisión abierta:** el Capacitor actual es la app standalone sin backend/passkeys; para la app del gimnasio hace falta modo shell por URL y verificar passkeys en WebView. **Pendiente:** prueba en teléfono, resolver justificación/política de privacidad Health Connect y el alcance real de historial 30/90 días, iOS (HealthKit) y los plugins nativos Kotlin (Health
 Connect) y Swift (HealthKit) en `frontend/android|ios`, permisos/privacy policy, declaración de Play Console y prueba en
 dispositivo; ver `docs/HEALTH_NATIVE_BRIDGE.md`.
 

@@ -95,7 +95,7 @@ export default function HealthIntegrations() {
       // Do not attach one account's health records to another account if the shell read resolves
       // after an auth switch.
       if (useStore.getState().user?.id !== ownerId) return
-      if (res.status !== 'ok') { toast(res.status === 'off' ? t('Connect first') : t('Could not read your health data')); return }
+      if (res.status !== 'ok') { toast(res.status === 'off' ? t('Connect first') : res.status === 'denied' ? t('Permission not granted. Nothing was read.') : t('Could not read your health data')); return }
       let attached = 0
       if (res.match.length) update(s => { attached = applyMatches(s, res) })
       toast(t('{0} linked · {1} already linked · {2} without a matching workout', attached, res.linked.length, res.none.length))

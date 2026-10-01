@@ -33,7 +33,8 @@ describe('detection: nothing in a browser or the installed PWA', () => {
   it('a complete TwoJNative.health or a Capacitor TwoJHealth plugin is accepted', () => {
     const b = fakeBridge()
     expect(getBridge({ TwoJNative: { health: b } })).toBe(b)
-    expect(getBridge({ Capacitor: { Plugins: { TwoJHealth: b } } })).toBe(b)
+    const wrapped = getBridge({ Capacitor: { Plugins: { TwoJHealth: b } } })   // adapted (a Capacitor call answers an object), not the raw plugin
+    expect(wrapped).not.toBeNull(); expect(wrapped).not.toBe(b); expect(wrapped.platform).toBe('android')
     expect(platformLabel({ platform: 'ios' })).toBe('Apple Health')
     expect(platformLabel({ platform: 'android' })).toBe('Health Connect')
     expect(platformLabel({})).toBe('Health')
@@ -204,5 +205,57 @@ describe('sync: matches conservatively, idempotently, and never writes by itself
     applyMatches(S, res)
     expect(fitnessOf(S.workouts[0]).source).toBe('healthkit')           // the phone's health hub leads
     expect(fitnessSources(S.workouts[0]).map(r => r.source)).toEqual(['healthkit', 'whoop'])   // never summed
+  })
+})
+
+describe('Android Capacitor plugin (TwoJHealth) adapter', () => {
+  const plugin = (over = {}) => ({
+    isAvailable: vi.fn().mockResolvedValue({ available: true }),
+    requestPermissions: vi.fn().mockResolvedValue({ granted: ['workouts', 'heartRate'] }),
+    readWorkouts: vi.fn().mockResolvedValue({ sessions: [androidSession()] }), ...over })
+  const cap = (extra = {}) => ({ isNativePlatform: () => true, getPlatform: () => 'android', ...extra })
+
+  it('wraps the plugin: the object answer { sessions } becomes the contract’s array; platform is android', async () => {
+    const p = plugin()
+    const b = getBridge({ Capacitor: cap({ Plugins: { TwoJHealth: p } }) })
+    expect(b.platform).toBe('android')
+    expect(await b.isAvailable()).toEqual({ available: true })
+    expect(await b.requestPermissions()).toEqual({ granted: ['workouts', 'heartRate'] })
+    const q = { start: '2026-09-01T00:00:00.000Z', end: '2026-10-01T00:00:00.000Z' }
+    const sessions = await b.readWorkouts(q)
+    expect(p.readWorkouts).toHaveBeenCalledWith(q)
+    expect(Array.isArray(sessions)).toBe(true); expect(recordsFrom(sessions, NOW).records).toHaveLength(1)
+    // an array answer (older shell) and a missing field both behave
+    expect(await getBridge({ Capacitor: cap({ Plugins: { TwoJHealth: plugin({ readWorkouts: vi.fn().mockResolvedValue([androidSession()]) }) } }) }).readWorkouts({})).toHaveLength(1)
+    expect(await getBridge({ Capacitor: cap({ Plugins: { TwoJHealth: plugin({ readWorkouts: vi.fn().mockResolvedValue({}) }) } }) }).readWorkouts({})).toBeUndefined()
+  })
+  it('a shell that loads the 2J PWA by URL has no Plugins entry: nativePromise is used', async () => {
+    const nativePromise = vi.fn(async (name, method) => method === 'readWorkouts' ? { sessions: [androidSession()] } : { available: true })
+    const b = getBridge({ Capacitor: cap({ nativePromise, isPluginAvailable: n => n === 'TwoJHealth' }) })
+    expect((await b.readWorkouts({ start: 'a', end: 'b' })).length).toBe(1)
+    expect(nativePromise).toHaveBeenCalledWith('TwoJHealth', 'readWorkouts', { start: 'a', end: 'b' })
+    await b.isAvailable()
+    expect(nativePromise).toHaveBeenCalledWith('TwoJHealth', 'isAvailable', {})
+  })
+  it('plain web (Capacitor stub, not native, or no plugin) is not a bridge', () => {
+    expect(getBridge({ Capacitor: { isNativePlatform: () => false, Plugins: { TwoJHealth: plugin() } } })).toBeNull()
+    expect(getBridge({ Capacitor: cap({ Plugins: {} }) })).toBeNull()
+    expect(getBridge({ Capacitor: cap({ nativePromise: vi.fn(), isPluginAvailable: () => false }) })).toBeNull()
+    expect(getBridge({ Capacitor: {} })).toBeNull()
+  })
+  it('end to end through the adapter: partial grant connects, revoked access reads as denied, nothing is attached', async () => {
+    const denied = Object.assign(new Error('Workout access is not granted'), { code: 'permission_denied' })
+    const p = plugin()
+    const b = getBridge({ Capacitor: cap({ Plugins: { TwoJHealth: p } }) })
+    expect(await connectBridge({ uid: 'u1', bridge: b, now: NOW })).toEqual({ status: 'connected', granted: ['workouts', 'heartRate'] })
+    p.readWorkouts.mockRejectedValueOnce(denied)
+    expect(await readBridge({ uid: 'u1', workouts: [workout()], bridge: b, now: NOW })).toEqual({ status: 'denied' })
+    const ok = await readBridge({ uid: 'u1', workouts: [workout()], bridge: b, now: NOW })
+    expect(ok.match).toHaveLength(1)
+    // workouts denied at the system sheet: the plugin answers the other grants only
+    p.requestPermissions.mockResolvedValueOnce({ granted: ['heartRate'] })
+    disconnectBridge('u1')
+    expect(await connectBridge({ uid: 'u1', bridge: b, now: NOW })).toEqual({ status: 'denied' })
+    expect(bridgeState('u1').enabled).toBe(false)
   })
 })
