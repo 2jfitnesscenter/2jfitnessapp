@@ -6,7 +6,7 @@ const ids = new Set(EQUIPMENT.map(e => e.id))
 export const cleanEquipment = value => [...new Set((Array.isArray(value) ? value : []).filter(id => ids.has(id)))]
 // One gym-wide inventory, editable by an admin through the server. The bundled value is the
 // safe first-run/offline fallback; it is never copied into a member's synced gymProfiles state.
-export const DEFAULT_2J_EQUIPMENT = ['bodyweight', 'barbell', 'ez_bar', 'dumbbell', 'cable', 'weighted', 'selectorized', 'machine', 'plate_loaded', 'smith', 'sled', 'stability_ball', 'roller', 'treadmill', 'bike', 'elliptical', 'stepmill', 'skierg']
+export const DEFAULT_2J_EQUIPMENT = ['bodyweight', 'barbell', 'ez_bar', 'dumbbell', 'kettlebell', 'cable', 'weighted', 'selectorized', 'machine', 'plate_loaded', 'smith', 'sled', 'stability_ball', 'roller', 'treadmill', 'bike', 'elliptical', 'stepmill', 'skierg']
 let official2jEquipment = [...DEFAULT_2J_EQUIPMENT]
 export function setOfficialGymEquipment(value) { official2jEquipment = cleanEquipment(value); return [...official2jEquipment] }
 export const officialGymEquipment = () => [...official2jEquipment]

@@ -17,7 +17,7 @@ test('official profiles have stable ids and only home/hotel permit personal over
   expect(activeGymProfile(S).availableEquipment).toContain('barbell')
 })
 test('2J official inventory uses existing canonical equipment and updates the shared compatibility context', () => {
-  expect(DEFAULT_2J_EQUIPMENT).toEqual(['bodyweight', 'barbell', 'ez_bar', 'dumbbell', 'cable', 'weighted', 'selectorized', 'machine', 'plate_loaded', 'smith', 'sled', 'stability_ball', 'roller', 'treadmill', 'bike', 'elliptical', 'stepmill', 'skierg'])
+  expect(DEFAULT_2J_EQUIPMENT).toEqual(['bodyweight', 'barbell', 'ez_bar', 'dumbbell', 'kettlebell', 'cable', 'weighted', 'selectorized', 'machine', 'plate_loaded', 'smith', 'sled', 'stability_ball', 'roller', 'treadmill', 'bike', 'elliptical', 'stepmill', 'skierg'])
   const before = { workouts: [{ id: 'historic' }], routines: [{ id: 'saved' }] }, unchanged = JSON.stringify(before)
   setOfficialGymEquipment(['bodyweight'])
   expect(activeGymProfile(before).availableEquipment).toEqual(['bodyweight'])
@@ -95,4 +95,28 @@ test('profile list is bounded and rejects reserved ids', () => {
   const S = {}; saveGymProfile(S, { id: 'bad', name: 'x' }); expect(gymProfilesOf(S)).toHaveLength(3)
   for(let i=0;i<20;i++) saveGymProfile(S,{id:'gym-'+i, name:'x'})
   expect(gymProfilesOf(S)).toHaveLength(15)
+})
+
+test('the real 2J inventory (machines, kettlebells, plates, stair climber, sled) is recognised with the existing categories', async () => {
+  const { EXIDX } = await import('./exercises.js')
+  const { equipmentIdOf } = await import('./protocol/movements.js')
+  setOfficialGymEquipment(DEFAULT_2J_EQUIPMENT)
+  const S = state('2j')
+  const mustWork = {
+    '0058': 'barbell hip thrust (Glute Drive / Hip Thruster, plates)', '0585': 'lever leg extension (Dual Leg Extension)', '0599': 'lever seated leg curl (Seated / Horizontal Leg Curl)',
+    '0586': 'lever lying leg curl', '0597': 'lever seated hip abduction (Dual Abductor / Standing Hip Abductor)', '0598': 'lever seated hip adduction (Dual Adductor)',
+    '0573': 'lever back extension', '0593': 'lever reverse hyperextension', '0489': 'hyperextension (Horizontal Roman Chair)', '0739': 'sled 45 leg press (3 inclined presses)',
+    '0743': 'sled hack squat (pendulum / hack)', '2311': 'walking on stepmill (Stair Climber)', '0760': 'smith leg press (Multipower)',
+  }
+  for (const [id, label] of Object.entries(mustWork)) {
+    expect(EXIDX[id], id).toBeTruthy()
+    expect(compatibleWithGym(S, EXIDX[id]), `${id} ${label} → ${equipmentIdOf(EXIDX[id])}`).toBe(true)
+  }
+  const kettlebell = Object.values(EXIDX).find(e => e.eq === 'kettlebell')
+  expect(kettlebell).toBeTruthy()
+  expect(compatibleWithGym(S, kettlebell)).toBe(true)
+  // no taxonomy was added for this: every id of the official inventory already exists
+  const { EQUIPMENT } = await import('./protocol/movements.js')
+  expect(DEFAULT_2J_EQUIPMENT.every(id => EQUIPMENT.some(e => e.id === id))).toBe(true)
+  expect(EQUIPMENT).toHaveLength(28)
 })

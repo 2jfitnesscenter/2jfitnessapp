@@ -38,7 +38,7 @@ await start()
 
 test('the public config uses canonical defaults; member and trainer cannot write the gym-wide inventory', async () => {
   const initial = (await req('GET', '/api/config')).body.gymProfile.availableEquipment
-  assert.deepEqual(initial, ['bodyweight', 'barbell', 'ez_bar', 'dumbbell', 'cable', 'weighted', 'selectorized', 'machine', 'plate_loaded', 'smith', 'sled', 'stability_ball', 'roller', 'treadmill', 'bike', 'elliptical', 'stepmill', 'skierg'])
+  assert.deepEqual(initial, ['bodyweight', 'barbell', 'ez_bar', 'dumbbell', 'kettlebell', 'cable', 'weighted', 'selectorized', 'machine', 'plate_loaded', 'smith', 'sled', 'stability_ball', 'roller', 'treadmill', 'bike', 'elliptical', 'stepmill', 'skierg'])
   const endpoint = '/api/admin/gym-profile/official', body = { availableEquipment: ['bodyweight', 'smith'] }
   assert.equal((await req('POST', endpoint, undefined, body)).status, 401)
   assert.equal((await req('POST', endpoint, 'member', body)).status, 403)
