@@ -20,11 +20,14 @@ import { protocolContext, protocolPayload, readUnavailableEq } from './protocol-
 import { activeProgramContext } from '../lib/guided-store.js';
 import { gymEquipmentContext } from '../lib/gym-profiles.js';
 import { equipmentIdOf } from '../lib/protocol/movements.js';
+import * as libraryAdmin from '../lib/library-admin.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const require_ = createRequire(import.meta.url);
-const LIBRARY = require_('./library.json').exercises;
-const LIB_BY_ID = new Map(LIBRARY.map(e => [e.id, e]));
+const LIBRARY = require_('./library.json').exercises;   // the code's library (tests, builders)
+// What the server reads is the EFFECTIVE library: the code's plus the admin overlay (names,
+// movement, Recommended 2J, duplicates — lib/library-admin.js). Without an overlay it is identical.
+const LIB_BY_ID = { get: id => libraryAdmin.byId(id), has: id => !!libraryAdmin.byId(id) };
 
 // The owner's gym-wide exercise blacklist (server.js writes this file) — read fresh each call
 // rather than cached at import time, since an admin can change it while jobs are in flight.
@@ -160,7 +163,7 @@ export function librarySlice(S, equipment) {
   const customs = (S.customEx || []).map(c => ({ id: c.id, n: c.n, bp: c.bp, tg: null, eq: 'custom', custom: true }));
   // Exercise Library V2: a deprecated duplicate (`pref`) is never offered — its preferred twin
   // is — and Recommended 2J (`rec`) comes first, the order the prompt asks the model to prefer.
-  const visible = LIBRARY.filter(e => !e.pref && !hidden.has(e.id));
+  const visible = libraryAdmin.entries().filter(e => !e.pref && !hidden.has(e.id)).map(({ al: _aliases, ...e }) => e);
   // No equipment stated (or "everything") ⇒ the whole (visible) catalogue. Filtering to nothing
   // would leave the Coach unable to propose anything at all, which is worse than a bigger payload.
   const base = wanted.length ? visible.filter(e => wanted.includes((e.eq || '').toLowerCase())) : visible;

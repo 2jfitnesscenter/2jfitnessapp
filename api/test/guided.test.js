@@ -27,20 +27,22 @@ async function req(method, p, uid, body) {
   return { status: r.status, body: j };
 }
 const SEED = JSON.parse(fs.readFileSync(path.resolve('lib/guided-official.json'), 'utf8'));
+const PROGRAMS = JSON.parse(fs.readFileSync(path.resolve('lib/guided-programs-official.json'), 'utf8'));
 const seedText = fs.readFileSync(path.resolve('lib/guided-official.json'), 'utf8');
 
 test('every signed-in person reads the catalogue; anonymous does not', async () => {
   assert.equal((await req('GET', '/api/guided')).status, 401);
   const m = await req('GET', '/api/guided', 'm1');
   assert.equal(m.status, 200);
-  assert.equal(m.body.routines.length, 69);
-  assert.equal(m.body.collections.length, 8);
-  assert.equal(m.body.programs.length, 13);
+  assert.equal(m.body.routines.length, SEED.routines.length);
+  assert.equal(m.body.collections.length, SEED.collections.length);
+  assert.equal(m.body.programs.length, PROGRAMS.programs.length);
   assert.ok(m.body.programs.every(p => p.weeks.length === p.weeksCount && p.weeks.every(w => w.sessions.length)));
   assert.deepEqual(m.body.mine, []);
   assert.equal(m.body.canEdit, false);
   assert.equal(m.body.canAssign, false);
-  assert.deepEqual(m.body.seed, { protocolVersion: SEED.protocolVersion, seedVersion: 1, count: 69, collections: 8 });
+  assert.deepEqual(m.body.seed, { protocolVersion: SEED.protocolVersion, seedVersion: 1, count: SEED.routines.length, collections: SEED.collections.length, programs: PROGRAMS.programs.length });
+  assert.match(m.body.rev, /^1\.\d+\.0$/);   // seed.programs.rev — nothing edited yet
   assert.ok(m.body.routines.every(r => r.official && r.validation.result === 'PASS' && r.ex.length && r.blocks.length));
   const t = await req('GET', '/api/guided', 't1');
   assert.equal(t.body.canAssign, true);

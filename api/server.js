@@ -39,6 +39,8 @@ import { whoopRoutes } from './whoop/routes.js';
 import { blocksRoutes } from './lib/blocks-routes.js';
 import { guidedRoutes } from './lib/guided-routes.js';
 import * as guidedStore from './lib/guided-store.js';
+import { libraryAdminRoutes } from './lib/library-admin-routes.js';
+import * as libraryAdmin from './lib/library-admin.js';
 import * as gymProfileConfig from './lib/gym-profile-config.js';
 import { cleanEquipment, setOfficialGymEquipment } from './lib/gym-profiles.js';
 import { EQUIPMENT } from './lib/protocol/movements.js';
@@ -75,6 +77,9 @@ fs.mkdirSync(DATA, { recursive: true });
 // may refuse the chmod, and that is not a reason to refuse to boot.
 try { fs.chmodSync(DATA, 0o700); } catch { /* host filesystem says no — carry on */ }
 setOfficialGymEquipment(gymProfileConfig.load());
+// Entrena con 2J Admin: the library admin refuses to mark as a duplicate an exercise that active
+// official content still uses (the stores that know are wired here, so neither imports the other).
+libraryAdmin.setUsageProbe(id => guidedStore.exerciseUsage().has(id));
 
 /* ---------- secret + db ---------- */
 const secretFile = path.join(DATA, 'secret');
@@ -606,6 +611,9 @@ const routes = {
     json(res, 200, {
       invite_only: INVITE_ONLY, hiddenExercises: hiddenEx, unavailableEquipment: unavailableEq, ...(coach ? { coach } : {}),
       gymProfile: { availableEquipment: gymProfileConfig.load() },
+      // Gym-wide, like the equipment: the admin's library corrections and the catalogue revision, so
+      // every device (and its offline copy) learns about an edit the next time it asks.
+      libraryOverlay: libraryAdmin.publicOverlay(), guidedRev: guidedStore.contentRev(),
       strava: stravaConfig.isConfigured(), whoop: whoopConfig.isConfigured()
     });
   },
@@ -2621,7 +2629,10 @@ const routes = {
   /* ---------- Constructor V2: block library (official 2J + personal) ---------- */
   ...blocksRoutes({ json, readBody, requireTrainer, isAdmin, unavailableEq: () => unavailableEq }),
   /* ---------- Entrena con 2J: official guided routines + collections ---------- */
-  ...guidedRoutes({ json, readBody, readSession, requireTrainer, requireAdmin, isAdmin, isTrainer, unavailableEq: () => unavailableEq })
+  ...guidedRoutes({ json, readBody, readSession, requireTrainer, requireAdmin, isAdmin, isTrainer, unavailableEq: () => unavailableEq,
+    hiddenExercises: () => new Set(hiddenEx), availableEquipment: () => gymProfileConfig.load() }),
+  /* ---------- Exercise Library quality: the admin's corrections to the 2J layer ---------- */
+  ...libraryAdminRoutes({ json, readBody, requireAdmin })
 };
 
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */
