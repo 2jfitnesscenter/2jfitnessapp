@@ -10,14 +10,15 @@
   reopen/reconnect. Acknowledged cross-device activity and revision guards prevent stale closure.
   Shared activity model mirrored by generator. Effective end excludes idle tail when known;
   finishedAt records the actual closure and history shows its inactivity reason. Offline/conflicting
-  drafts are retained; unseen offline edits cannot inform the server deadline. No Sync V2 changes.
+  drafts are retained; a newer offline draft gets 409 even if the server already expired the
+  last acknowledged snapshot, while identical retries succeed. Unseen offline edits cannot inform the server deadline. No Sync V2 changes.
 - Starting loads now derive from the first completed work set rather than the session maximum.
   Positional history wins over tracked PR weights. RPE/RIR/Series Feedback gate increases; missing
   effort evidence repeats the load, double progression needs two supported exposures. Existing
   equipment rules preserve ramp/backoff positions; straight and explicit %1RM prescriptions remain.
   PR/topW semantics and NEXT SET feedback unchanged; Intelligence uses the corrected base.
-- Added 12 frontend activity tests, 10 API inactivity tests and 14 starting-load regressions,
-  including A–L, ramp/backoff application and Intelligence. Full frontend 983/983, API 322/322;
+- Added 12 frontend activity tests, 11 API inactivity tests and 14 starting-load regressions,
+  including A–L, ramp/backoff application and Intelligence. Full frontend 983/983, API 323/323;
   build, Spanish 3623/3623, models/protocol/seeds/catalog and diff checks pass. Not deployed.
 
 

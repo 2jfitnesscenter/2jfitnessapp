@@ -28,7 +28,8 @@
 
 ### Pre-deploy — auto-finish + carga inicial segura (2026-10-01; NO DESPLEGADO)
 
-- Commits separados: `f127e06` auto-finish; `4801d61` Progressive Overload. Producción sigue
+- Commits separados: `f127e06` auto-finish; `4801d61` Progressive Overload; `2d6d13b` protege
+  edits offline posteriores al cierre servidor (409 conserva draft; retry idéntico 200). Producción sigue
   en `abe32659d5bc20179f3270cd2f7d2612ea132623` según la última confirmación; no SSH/deploy/push.
 - Auto-finish reutiliza el finish idempotente existente, PR/exWeights/history/program completion.
   `lastActivityAt` vive en el active local/persistido; cambia por sets, carga/reps, cardio,
@@ -55,8 +56,8 @@
   iguales; %1RM explícito conserva su prescripción. Sin historial no se inventa progreso; exWeights
   queda solo como fallback legacy sin series comparables. Series Feedback NEXT SET no se modificó.
   Limitación: historial sin type no permite inferir que un set era warmup; respeta semántica existente.
-- Validación: frontend **983/983**, API **322/322** (incluye Bunker/Sync/Guided/Intelligence/Community),
-  12 tests actividad frontend + 10 API + 14 carga inicial A–L/Intelligence; build OK, ES **3623/3623**,
+- Validación: frontend **983/983**, API **323/323** (incluye Bunker/Sync/Guided/Intelligence/Community),
+  12 tests actividad frontend + 11 API + 14 carga inicial A–L/Intelligence; build OK, ES **3623/3623**,
   protocolo/modelos/seeds/catálogo OK, diff check OK. Deuda histórica: chunks grandes, otros idiomas
   incompletos y 28 ejercicios sin movimiento canónico; no causada por estos fixes.
 - `deploy-4f8e80c.ps1` y su release quedan OBSOLETOS. Preparar runner NUEVO para el HEAD documental
