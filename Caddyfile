@@ -5,3 +5,14 @@
 app.2jfitnesscenter.com {
 	reverse_proxy web:80
 }
+
+# Google's Digital Asset Links service fetches /.well-known/assetlinks.json with the fully-qualified
+# Host "app.2jfitnesscenter.com." (trailing dot). Caddy refuses that spelling as a site address (no
+# certificate can be issued for it), so it is matched here instead: same TLS certificate (the SNI has
+# no dot), same upstream. Any other unknown Host keeps getting Caddy's empty default response.
+:443 {
+	@fqdn host app.2jfitnesscenter.com.
+	handle @fqdn {
+		reverse_proxy web:80
+	}
+}
