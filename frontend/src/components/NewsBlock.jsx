@@ -18,13 +18,13 @@ export function NewsText({ text }) {
   </p>)}</>
 }
 
-// One notice: accent border/glow, optional image on top, title and text. Tap to expand/collapse long text.
+// One notice: accent border/glow, optional thumbnail on the left, title and text. Tap to expand/collapse long text.
 export function NewsCard({ item, preview = false }) {
   const [open, setOpen] = useState(false)
   const accent = safeAccent(item.accentColor)
   const img = item.imageUrl || mediaUrl(item.image)
   const long = (item.body || '').length > 160 || (item.body || '').split('\n').length > 3
-  return <article className={'news-card' + (open ? ' open' : '')} style={{ '--news-accent': accent }} data-news-id={item.id}>
+  return <article className={'news-card' + (open ? ' open' : '') + (img ? ' has-img' : '')} style={{ '--news-accent': accent }} data-news-id={item.id}>
     {img && <img className="news-img" src={img} alt="" loading="lazy" />}
     <div className="news-body">
       <h3>{item.title}</h3>

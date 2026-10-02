@@ -61,12 +61,12 @@ function NewsEditor({ item, onSaved, close }) {
     <label className="small muted">{t('Image (optional)')}</label>
     <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
     {shownImage ? <div style={{ position: 'relative' }}>
-      <img src={shownImage} alt="" style={{ width: '100%', aspectRatio: '16/7', objectFit: 'cover', borderRadius: 12, display: 'block' }} />
+      <img src={shownImage} alt="" style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 12, display: 'block' }} />
       <button className="iconbtn" style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,.55)', color: '#fff' }}
         onClick={() => { setImage(null); setRemoved(true) }} aria-label={t('Remove image')}><Icon name="xmark" /></button>
     </div> : <Button icon="upload" onClick={() => fileRef.current?.click()}>{t('Add an image')}</Button>}
     <div style={{ height: 10 }} />
-    <div className="row" style={{ gap: 10 }}>
+    <div style={{ display: 'grid', gap: 10 }}>
       <div style={{ flex: 1, minWidth: 0 }}><label className="small muted">{t('Publish from')}</label>
         <input type="datetime-local" className="input" value={f.publishAt} onChange={e => set('publishAt', e.target.value)} /></div>
       <div style={{ flex: 1, minWidth: 0 }}><label className="small muted">{t('Expires')}</label>
@@ -112,10 +112,12 @@ export default function AdminNews() {
           <div className="small" style={{ color: tint }}>{t(label)}</div>
         </div>
         <Switch checked={n.active} onChange={v => act('/api/admin/news/active', { id: n.id, active: v })} />
-        <button className="iconbtn" disabled={i === 0} onClick={() => move(i, -1)} aria-label={t('Move up')}><Icon name="arrowUp" /></button>
-        <button className="iconbtn" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={t('Move down')}><Icon name="arrowDown" /></button>
-        <button className="iconbtn" onClick={() => edit(n)} aria-label={t('Edit')}><Icon name="pencil" /></button>
-        <button className="iconbtn" onClick={() => del(n)} aria-label={t('Delete')}><Icon name="trash" /></button>
+        <div className="news-admin-actions">
+          <button className="iconbtn" disabled={i === 0} onClick={() => move(i, -1)} aria-label={t('Move up')}><Icon name="arrowUp" /></button>
+          <button className="iconbtn" disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label={t('Move down')}><Icon name="arrowDown" /></button>
+          <button className="iconbtn" onClick={() => edit(n)} aria-label={t('Edit')}><Icon name="pencil" /></button>
+          <button className="iconbtn" onClick={() => del(n)} aria-label={t('Delete')}><Icon name="trash" /></button>
+        </div>
       </article> })}
     </div> : <div className="empty"><div className="ico"><Icon name="bell" /></div>{t('No notices yet')}</div>}
   </main>
