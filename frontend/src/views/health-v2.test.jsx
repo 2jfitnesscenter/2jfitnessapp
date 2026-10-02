@@ -265,3 +265,34 @@ describe('Health timeline and privacy', () => {
     expect(readdirSync(new URL('../components/', import.meta.url)).length).toBeGreaterThan(0)
   })
 })
+
+describe('Closing fixes', () => {
+  it('Composition has ONE main entry: the old Weight / Body fat / Muscle tiles are not repeated, the evolution drill-down stays', async () => {
+    await seed({ ...HISTORY(), measurements: { bodyFat: [{ d: day(3), v: 18.4, t: 1 }], muscleMass: [{ d: day(3), v: 37.2, t: 1 }] } })
+    const html = await render(views.Health)
+    expect(html).toContain('Composition'); expect(html).not.toContain('hv-now')
+    expect(html).toContain('Evolution'); expect(html).toContain('hv-metric')          // the per-metric cards are still there
+    await seed({ ...HISTORY() }, { bodyweight: false, bioimpedance: false })        // overview hides Composition → the classic tiles remain
+    const off = await render(views.Health)
+    expect(off).not.toContain('>Composition<')
+  })
+  it('15 feature keys, identical on both sides', async () => {
+    await boot()
+    expect(F.FEATURE_KEYS).toHaveLength(15)
+    const server = readFileSync(new URL('../../../api/lib/features-store.js', import.meta.url), 'utf8')
+    const list = server.slice(server.indexOf('FEATURE_KEYS'), server.indexOf('];', server.indexOf('FEATURE_KEYS')))
+    expect([...list.matchAll(/'([a-z0-9]+)'/g)]).toHaveLength(15)
+  })
+  it('i18n never shows undefined or a raw key: unknown keys fall back to their English source, every new Health V2 string has Spanish', async () => {
+    await boot()
+    const i18n = await import('../lib/i18n.js')
+    const unknownKey = ['A brand-new', 'string {0}'].join(' ')       // built at run time (the locale checker reads only literal translation calls)
+    expect(i18n.t(unknownKey, 'x')).toBe('A brand-new string x')
+    expect(i18n.t(undefined)).toBe(''); expect(i18n.t(undefined, 'x')).toBe('')
+    const es = (await import('../locales/es.js')).default
+    const strings = ['Activity today', 'Aggregated data', 'Same as last week', 'Worked this week', 'No data yet', 'Open Health', 'Weight & composition']
+    for (const s of strings) expect(es[s], s).toBeTruthy()
+    const S = { workouts: [wk('a', 1, 80)], routines: [ROUTINE], week: { 3: 'r1' } }
+    for (const ind of [mod.indicators.trainingIndicator(S, '2026-09-09'), mod.indicators.recoveryIndicator(S)]) expect(es[ind.basis], ind.basis).toBeTruthy()
+  })
+})

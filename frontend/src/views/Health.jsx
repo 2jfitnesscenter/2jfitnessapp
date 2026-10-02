@@ -12,6 +12,8 @@ import LineChart from '../components/LineChart.jsx'
 import SegmentExplorer from '../components/SegmentExplorer.jsx'
 import CheckInCard from '../components/CheckInCard.jsx'
 import HealthOverview from '../components/HealthOverview.jsx'
+import { compositionBlock } from '../lib/health-v2.js'
+import { uxOn } from '../lib/features.js'
 import ProgressTimeline from '../components/ProgressTimeline.jsx'
 import { RANGES, availableMetrics, metricSummary, compareMeasurements, scanDates, hasSegments, bmiOf, weekActivity, SOURCE_LABEL } from '../lib/health.js'
 import { PAIN_ZONE, checkinOn } from '../lib/checkin.js'
@@ -109,6 +111,9 @@ export default function Health() {
   useEffect(() => { let on = true; api('/api/followup').then(r => on && setFollowUp(r)).catch(() => {}); return () => { on = false } }, [])
   const recent = (S.checkins || []).slice(-5).reverse()
   const imported = S.steps.length > 0 || S.sleep.length > 0 || S.restingHR.length > 0
+  // The overview's Composition tile already carries weight + scan values (and its detail lists them): the old headline tiles would repeat
+  // them. The evolution charts below stay as the drill-down — nothing is removed.
+  const compositionShown = (uxOn(S, 'bodyweight') || uxOn(S, 'bioimpedance')) && !!compositionBlock(S)
   const nothing = !metrics.length && !S.workouts.length && !imported && !(S.checkins || []).length
 
   return <div className="narrow health">
@@ -126,7 +131,7 @@ export default function Health() {
       <Button variant="primary" icon="scale" onClick={() => nav('/measurements')}>{t('Add a measurement')}</Button>
     </div>}
 
-    {headline.length > 0 && <div className="hv-now">
+    {headline.length > 0 && !compositionShown && <div className="hv-now">
       {headline.map(s => <div key={s.key} className="hv-tile">
         <span className="hv-k">{t(s.def.label)}</span>
         <b>{fmtNum(s.current.v)} <small>{unitOf(s.def, S)}</small></b>

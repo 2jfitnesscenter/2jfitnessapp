@@ -49,10 +49,11 @@
   gates y admin OFF, Body Map con/sin datos y sin base, estados off/sin permiso/parcial/wearable/solo estimación, privacidad,
   post-entreno sin Health); API 378/378 (sin cambios); build y `check-locales` (es completo) OK; tests Health existentes OK.
   Visual: 375 px oscuro (Health, detalle Training + mapa, timeline, anillos de Home).
-- **Riesgos:** (1) el runner de deploy comprueba `FEATURE_KEYS.length !== 13` → pasar a 15. (2) El tile Recuperación muestra FC en
+- **Cierre Fase 2:** `/health` tiene UNA entrada de Composición (tile V2; su detalle lista peso, tendencia, objetivo y bioimpedancia; las tarjetas de evolución quedan como drill-down) → los tiles antiguos Peso/Grasa/Músculo (`hv-now`) solo se muestran si el tile V2 está oculto por gates. `t()` nunca devuelve `undefined` (clave ausente → su inglés; fuente ausente → ''). Tests con `FEATURE_KEYS`=15 (cliente=API); el runner del release valida 15.
+- **Riesgos:** (1) cualquier runner/imagen que compruebe `FEATURE_KEYS.length` debe esperar 15 (el runner del release ya lo hace). (2) El tile Recuperación muestra FC en
   reposo (importada de Apple Health) o FC de sesión; WHOOP solo dentro del detalle. (3) `health_bridge_daily` es por dispositivo y día:
   sin sincronización reciente no hay tile de Actividad. (4) El estado «solo estimación» se infiere de que ninguna sesión tiene kcal medidas.
-  (5) Cadenas nuevas solo en español (10 packs retrasados sin traducir).
+  (5) Cadenas nuevas solo en español (10 packs retrasados caen al inglés, sin romper UI).
 - **NO tocar:** Sync V2, Auth, bridge Android/iOS, política y cola de energía, `doFinishWorkout`, contratos de datos; no publicar Health
   en Social automáticamente; no crear «readiness»/puntuaciones médicas; no sumar kcal de fuentes.
 - **Siguiente fase: Social V2** — reutilizar `AchievementCard`, `EnergyBadge`/`energyPresentation`, `v2.jsx`, `ProgressTimeline`;

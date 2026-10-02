@@ -37,6 +37,7 @@ export const dateLocale = () => DATE_LOCALES[lang] || 'es-ES'
 // Translate a source string; {0},{1}… are replaced with args (also on the English fallback).
 export function t(s, ...args) {
   let v = dict[s] || s
+  if (typeof v !== 'string') return ''     // never "undefined" on screen: a missing key falls back to its English source, a missing source to nothing
   for (let i = 0; i < args.length; i++) v = v.replaceAll('{' + i + '}', args[i])
   return v
 }
