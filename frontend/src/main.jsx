@@ -3,11 +3,17 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import { MOBILE } from './lib/mobile.js'
 import { nav } from './lib/nav.js'
+import { loadStartupLanguage } from './lib/i18n.js'
+import { useStore } from './store/useStore.js'
 import './index.css'
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode><App /></StrictMode>
-)
+// The store synchronously restores gym_state_v1 from localStorage. Load its locale pack
+// before React's first render so users never see the English source strings flash on boot.
+async function startApp() {
+  await loadStartupLanguage(useStore.getState().S)
+  createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMode>)
+}
+startApp()
 
 // Not in the mobile build: the native shell already serves everything from disk.
 if (!MOBILE && 'serviceWorker' in navigator && location.protocol === 'https:') {

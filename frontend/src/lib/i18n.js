@@ -61,6 +61,14 @@ export async function setLang(l) {
   notify()
 }
 
+/** Load the persisted UI pack before mounting React, so the first visible frame is localized. */
+export async function loadStartupLanguage(state) {
+  const saved = state && typeof state.lang === 'string' ? state.lang : 'es'
+  const selected = LANGS[saved] ? saved : 'es'
+  await setLang(selected)
+  return selected
+}
+
 // Re-renders the subscribing component (and its children) whenever the language changes.
 export function useLang() {
   return useSyncExternalStore(fn => { subs.add(fn); return () => subs.delete(fn) }, () => version)
