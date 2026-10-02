@@ -46,6 +46,9 @@ function Send-2JFile {
 # Hands over to the root wrapper through sudo: the existing remote runner (backup, checks, install, probes, data validation, rollback) does everything.
 function Invoke-2JRun {
   param([string]$Short, [string]$RollbackShort, [string]$RunId)
-  & ssh -o BatchMode=yes 2j-prod run $Short $RollbackShort $RunId
-  return $LASTEXITCODE
+  # Stream the remote output to the console only: anything left in the pipeline would be returned with the exit code
+  # and make the caller treat a successful deployment as failed.
+  & ssh -o BatchMode=yes 2j-prod run $Short $RollbackShort $RunId | Out-Host
+  $code = $LASTEXITCODE
+  return [int]$code
 }
