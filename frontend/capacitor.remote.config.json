@@ -1,0 +1,14 @@
+{
+  "appId": "com.twojfitnesscenter.app",
+  "appName": "2J Fitness Center",
+  "webDir": "dist",
+  "backgroundColor": "#000000",
+  "server": {
+    "url": "https://app.2jfitnesscenter.com",
+    "cleartext": false,
+    "allowNavigation": ["app.2jfitnesscenter.com"]
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

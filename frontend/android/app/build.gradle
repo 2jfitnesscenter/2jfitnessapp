@@ -44,6 +44,7 @@ dependencies {
     implementation project(':capacitor-android')
     // Health Connect, read-only (TwoJHealth plugin). Nothing here writes to the health store.
     implementation "androidx.health.connect:connect-client:1.1.0"
+    implementation 'androidx.webkit:webkit:1.12.1'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
