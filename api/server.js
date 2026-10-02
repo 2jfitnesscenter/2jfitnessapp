@@ -45,12 +45,14 @@ import * as gymProfileConfig from './lib/gym-profile-config.js';
 import { cleanEquipment, setOfficialGymEquipment } from './lib/gym-profiles.js';
 import { EQUIPMENT } from './lib/protocol/movements.js';
 import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesOf } from './lib/plan-meta.js';
+import { expectedOrigins } from './lib/webauthn-origins.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
 const RP_ID = process.env.RP_ID || 'localhost';
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
+const WEBAUTHN_ORIGINS = expectedOrigins(ORIGIN);   // web origin + the approved Android shell origin(s)
 const RP_NAME = process.env.RP_NAME || '2J Fitness Center';
 // Admin dashboard (issue): admins are matched by uid; INVITE_ONLY gates new signups behind a
 // code the admin generates. Both default off so a fresh self-hosted instance stays open.
@@ -714,7 +716,7 @@ const routes = {
       verification = await verifyRegistrationResponse({
         response: body.credential,
         expectedChallenge: c.challenge,
-        expectedOrigin: ORIGIN,
+        expectedOrigin: WEBAUTHN_ORIGINS,
         expectedRPID: RP_ID,
         requireUserVerification: false
       });
@@ -766,7 +768,7 @@ const routes = {
       verification = await verifyAuthenticationResponse({
         response: body.credential,
         expectedChallenge: c.challenge,
-        expectedOrigin: ORIGIN,
+        expectedOrigin: WEBAUTHN_ORIGINS,
         expectedRPID: RP_ID,
         requireUserVerification: false,
         credential: {
@@ -863,7 +865,7 @@ const routes = {
       verification = await verifyRegistrationResponse({
         response: body.credential,
         expectedChallenge: c.challenge,
-        expectedOrigin: ORIGIN,
+        expectedOrigin: WEBAUTHN_ORIGINS,
         expectedRPID: RP_ID,
         requireUserVerification: false
       });
