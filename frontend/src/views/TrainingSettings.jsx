@@ -7,6 +7,7 @@ import { wakeLockSupported } from '../lib/wakelock.js'
 import { t } from '../lib/i18n.js'
 import { MOBILE } from '../lib/mobile.js'
 import { effortOf } from '../lib/history.js'
+import { uxOn } from '../lib/features.js'
 import { LEVELS } from '../lib/rp-volume.js'
 import { workoutPrefs } from '../lib/workout-prefs.js'
 import { DUMBBELL_WEIGHTS_2J, MACHINE_WEIGHTS_CONFIG, BARBELL_PLATES_2J } from '../lib/equipment.js'
@@ -66,12 +67,14 @@ export default function TrainingSettings() {
         subtitle={t('Suggest warmup sets before your working sets.')}>
         <Switch checked={S.warmupEnabled !== false} onChange={v => set('warmupEnabled', v)} />
       </Row>
+{uxOn(S, 'effort') && <>
       <Row icon="target" iconTint="var(--purple)" title={t('Effort per set')}>
         <button className="helpbtn" aria-label={t('What are RIR and RPE?')} onClick={effortHelpSheet}><Icon name="info" /></button>
         <Segmented className="seg-inline"
           options={[{ value: 'none', label: t('Off') }, { value: 'rir', label: t('RIR') }, { value: 'rpe', label: t('RPE') }]}
           value={effortOf(S)} onChange={v => update(s => { s.effort = v; delete s.showRir })} />
       </Row>
+      </>}
       <Row icon="barbell" iconTint="var(--blue)" title={t('Plates shortcut')}
         subtitle={t('Shows “Plates” on barbell sets, with what goes on each side.')}>
         <Switch checked={S.enablePlateCalculator !== false} onChange={v => set('enablePlateCalculator', v)} />
@@ -107,25 +110,31 @@ export default function TrainingSettings() {
     </Section>
 
     <Section title={t('Progression')}>
+{uxOn(S, 'suggestions') && <>
       <Row icon="arrowUp" iconTint="var(--green)" title={t('Progression assistant')}
         subtitle={t('Before each exercise, suggests keeping, adding reps or weight from your real sessions — and says why. You decide.')}>
         <button className="helpbtn" aria-label={t('What is the overload coach?')} onClick={overloadHelpSheet}><Icon name="info" /></button>
         <Switch checked={prefs.progression} onChange={v => set('enableProgressiveOverloadCoach', v)} />
       </Row>
+      </>}
+{uxOn(S, 'volume') && <>
       <Row icon="target" iconTint="var(--purple)" title={t('Training zones')}
         subtitle={t('Calculate and show relative effort, RPE and %1RM while training.')}>
         <button className="helpbtn" aria-label={t('What are Training zones?')} onClick={trainingZonesHelpSheet}><Icon name="info" /></button>
         <Switch checked={S.enableTrainingZones !== false} onChange={v => set('enableTrainingZones', v)} />
       </Row>
+      </>}
+{uxOn(S, 'volume') && <>
       <Row icon="chartLine" iconTint="var(--orange)" title={t('Weekly volume zones')}
         subtitle={t('Calculate MV, MEV, MAV and MRV per muscle group and show your weekly progress live.')}>
         <button className="helpbtn" aria-label={t('What are weekly volume zones?')} onClick={rpVolumeHelpSheet}><Icon name="info" /></button>
         <Switch checked={!!S.enableRpVolumeZones} onChange={v => set('enableRpVolumeZones', v)} />
       </Row>
-      {S.enableRpVolumeZones && <SelectRow icon="figureStrength" iconTint="var(--orange)" title={t('Training level')}
+      </>}
+      {S.enableRpVolumeZones && uxOn(S, 'volume') && <SelectRow icon="figureStrength" iconTint="var(--orange)" title={t('Training level')}
         value={S.trainingLevel || 'intermediate'} onChange={v => set('trainingLevel', v)}
         options={LEVELS.map(l => ({ value: l, label: t(l[0].toUpperCase() + l.slice(1)) }))} />}
-      {S.enableRpVolumeZones && <Row icon="wrench" iconTint="var(--orange)" title={t('Calibrate per muscle')}
+      {S.enableRpVolumeZones && uxOn(S, 'volume') && <Row icon="wrench" iconTint="var(--orange)" title={t('Calibrate per muscle')}
         subtitle={t('Fine-tune MV, MEV, MAV and MRV thresholds for each of the 12 muscle groups')}
         accessory="chevron" onClick={() => nav('/settings/rp-volume')} />}
     </Section>

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
+import { uxOn } from '../lib/features.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { beep, vibrate } from '../lib/sound.js'
@@ -17,13 +18,14 @@ const POLL_MS = 15000
 // spirit as RestTimer/Modals/Toast.
 export default function ChatWatcher() {
   const user = useStore(s => s.user)
+  const on = useStore(s => (s.features, uxOn(s.S, 'chat')))   // admin switch + the member's own choice
   const setChatUnread = useUI(s => s.setChatUnread)
   const loc = useLocation()
   const pathRef = useRef(loc.pathname)
   useEffect(() => { pathRef.current = loc.pathname }, [loc.pathname])
 
   useEffect(() => {
-    if (!user) { setChatUnread(0); return }
+    if (!user || !on) { setChatUnread(0); return }
     let stopped = false
     const seen = new Map()   // threadId -> last-seen unread message timestamp, so a reply is toasted once
     let primed = false       // skip the toast on the very first poll (nothing "new" about existing unreads)
@@ -45,7 +47,7 @@ export default function ChatWatcher() {
     poll()
     const iv = setInterval(poll, POLL_MS)
     return () => { stopped = true; clearInterval(iv) }
-  }, [user, setChatUnread])
+  }, [user, on, setChatUnread])
 
   return null
 }

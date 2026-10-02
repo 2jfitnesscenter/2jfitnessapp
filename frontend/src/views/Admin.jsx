@@ -595,6 +595,9 @@ export default function Admin() {
       sub={invites ? t('{0} unused · {1} redeemed', invites.filter(i => !i.usedBy).length, invites.filter(i => i.usedBy).length) : t('Loading…')}
       onClick={() => openSheet(close => <InvitesSheet invites={invites} reload={loadInvites} close={close} />)} />
 
+    <AdminNavCard icon="gear" tint="var(--indigo)" title={t('App features')}
+      sub={t('Choose which modules your gym offers to members')} onClick={() => nav('/admin/features')} />
+
     <AdminNavCard icon="bell" tint="var(--acc)" title={t('News / Notices')}
       sub={t('Announcements shown on every member’s Home')} onClick={() => nav('/admin/news')} />
 

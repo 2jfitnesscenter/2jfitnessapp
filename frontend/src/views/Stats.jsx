@@ -20,6 +20,8 @@ import {
 } from '../lib/effort.js'
 import { ZONES, zoneOfSet } from '../lib/training-zones.js'
 import { Button, Segmented, SelectRow } from '../components/ui.jsx'
+import { uxOn } from '../lib/features.js'
+import { ProgressInsights, LastWorkoutCard, BioimpedanceReminderCard, BodyCompositionCard, WhoopCard } from '../components/ProgressModules.jsx'
 
 // Steps, sleep and resting heart rate only ever arrive via an Apple Health import (Settings →
 // Import from another app) — nothing in the app logs these by hand, so the card just doesn't
@@ -233,6 +235,8 @@ export default function Stats() {
   const [params] = useSearchParams()
   const deepLinkId = params.get('ex')
   const S = useStore(s => s.S)
+  const user = useStore(s => s.user)
+  useStore(s => s.features)   // admin switches may arrive after the first render
   const [range, setRange] = useState(90)
   const [exId, setExId] = useState(() => deepLinkId || null)
   const [exMetric, setExMetric] = useState('top')
@@ -313,10 +317,20 @@ export default function Stats() {
       <div className="tile"><div className="l"><Icon name="dumbbell" />{t('Workouts')}</div><div className="v">{S.workouts.length}</div></div>
       <div className="tile"><div className="l"><Icon name="calendar" />{t('This month')}</div><div className="v">{monthW}</div></div>
       <div className="tile"><div className="l"><Icon name="flame" />{t('Week streak')}</div><div className="v">{streakWeeks(S)}</div></div>
-      <div className="tile"><div className="l"><Icon name="scale" />{t('Weight 30d')}</div><div className="v" style={{ fontSize: 22, color: bwDelta30 === null ? 'inherit' : bwDeltaColor(bwDelta30, (lastBW(S) || {}).w || 0) }}>{bwDelta30 === null ? '—' : (bwDelta30 > 0 ? '+' : '') + fmtNum(bwDelta30) + ' ' + S.unit}</div></div>
+      {uxOn(S, 'bodyweight') && <div className="tile"><div className="l"><Icon name="scale" />{t('Weight 30d')}</div><div className="v" style={{ fontSize: 22, color: bwDelta30 === null ? 'inherit' : bwDeltaColor(bwDelta30, (lastBW(S) || {}).w || 0) }}>{bwDelta30 === null ? '—' : (bwDelta30 > 0 ? '+' : '') + fmtNum(bwDelta30) + ' ' + S.unit}</div></div>}
     </div>
 
-    <RecoveryCard nav={nav} S={S} />
+    <ProgressInsights S={S} nav={nav} />
+
+    {S.workouts.length > 0 && <div className="home-grid2">
+      <LastWorkoutCard S={S} />
+      {uxOn(S, 'recovery') && <RecoveryCard nav={nav} S={S} compact />}
+    </div>}
+
+    {uxOn(S, 'bioimpedance') && <>
+      <BioimpedanceReminderCard S={S} nav={nav} />
+      <BodyCompositionCard S={S} nav={nav} />
+    </>}
 
     <div className="card">
       <h2>{t('Activity — last 12 months')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('by time trained')}</span></h2>
@@ -324,12 +338,16 @@ export default function Stats() {
     </div>
 
     {S.workouts.length > 0 && <MuscleBalance S={S} />}
-    {S.enableRpVolumeZones && <RpVolumeCard S={S} nav={nav} />}
-    {anyEffort && <EffortCard S={S} />}
-    {S.enableTrainingZones !== false && <ZoneDistributionCard S={S} />}
+    {S.enableRpVolumeZones && uxOn(S, 'volume') && <RpVolumeCard S={S} nav={nav} />}
+    {anyEffort && uxOn(S, 'effort') && <EffortCard S={S} />}
+    {!anyEffort && uxOn(S, 'effort') && effortOf(S) === 'none' && S.workouts.length > 0 && <button className="card tappable" style={{ textAlign: 'left', width: '100%' }} onClick={() => nav('/settings/training')}>
+      <div className="row between"><div><h2 style={{ margin: 0 }}>{t('Effort')}</h2><div className="small dim">{t('Rate how hard your sets feel to see effort trends here.')}</div></div><Icon name="chevronRight" className="chev" /></div>
+    </button>}
+    {S.enableTrainingZones !== false && uxOn(S, 'volume') && <ZoneDistributionCard S={S} />}
 
     <div className="cols">
-      <div className="card">
+      {uxOn(S, 'bodyweight') && !S.bodyweight.length && <div className="card"><div className="row between"><div><h2 style={{ margin: 0 }}>{t('Body weight')}</h2><div className="small dim">{t('Log your weight to see how it evolves.')}</div></div><Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button></div></div>}
+      {uxOn(S, 'bodyweight') && S.bodyweight.length > 0 && <div className="card">
         <div className="row between" style={{ marginBottom: 8 }}>
           <h2 style={{ margin: 0 }}>{t('Body weight')}</h2>
           <div className="row" style={{ gap: 8 }}>
@@ -340,7 +358,7 @@ export default function Stats() {
         <Segmented className="seg-range" value={range} onChange={setRange}
           options={[{ value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
         <div className="chart"><LineChart points={bwPts} h={160} unit={S.unit} goal={S.targetW} /></div>
-      </div>
+      </div>}
 
       <div className="card" ref={exProgressRef}>
         <h2>{t('Exercise progress')}</h2>
@@ -372,8 +390,10 @@ export default function Stats() {
         </> : <div className="muted small">{t('Finish your first workout to see progress curves here.')}</div>}
       </div>
 
-      {(S.steps.length || S.sleep.length || S.restingHR.length) > 0 && <HealthCard S={S} />}
+      {uxOn(S, 'health') && (S.steps.length || S.sleep.length || S.restingHR.length) > 0 && <HealthCard S={S} />}
     </div>
+
+    {uxOn(S, 'health') && <WhoopCard nav={nav} connected={!!user?.whoop} />}
 
     {S.workouts.length > 0 && <>
       <div className="row between" style={{ marginBottom: 10 }}>

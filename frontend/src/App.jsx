@@ -60,6 +60,7 @@ const SocialProfile = lazy(() => import('./views/SocialProfile.jsx'))
 const SocialShareDetail = lazy(() => import('./views/SocialShareDetail.jsx'))
 const SocialReports = lazy(() => import('./views/SocialReports.jsx'))
 const AdminNews = lazy(() => import('./views/AdminNews.jsx'))
+const AdminFeatures = lazy(() => import('./views/AdminFeatures.jsx'))
 import NotificationWatcher from './components/NotificationWatcher.jsx'
 import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements, { SkinfoldsScreen, BodyMeasurementsScreen } from './views/Measurements.jsx'
@@ -69,6 +70,8 @@ import Rank from './views/Rank.jsx'
 import Admin from './views/Admin.jsx'
 import AdminMembers from './views/AdminMembers.jsx'
 import PhysicalProfileWizard from './views/PhysicalProfileWizard.jsx'
+import ExperienceSetup from './views/ExperienceSetup.jsx'
+import { uxOn } from './lib/features.js'
 import Coach from './views/Coach.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachProposal from './views/CoachProposal.jsx'
@@ -168,6 +171,8 @@ function Shell() {
   // from a backup) is never gated on it, even if `onboarded` itself was never set.
   const hasPhysicalData = S.height || S.birthDate || S.workouts.length > 0
   const needsOnboarding = !!user && !S.onboarded && !hasPhysicalData
+  // Right after the physical-profile wizard a brand-new profile sees the short visual setup of what it wants from 2J.
+  const needsUxSetup = !!user && !needsOnboarding && S.uxSetup === true
   // Mi 2J: what the last workout earned but this device never got to show (the app was closed
   // on the summary) — shown once, from local data, whether or not there's a connection.
   useEffect(() => {
@@ -235,45 +240,46 @@ function Shell() {
       {authed && <SyncIndicator />}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
-          {!authed ? <Login /> : needsOnboarding ? <PhysicalProfileWizard /> : (
+          {!authed ? <Login /> : needsOnboarding ? <PhysicalProfileWizard /> : needsUxSetup ? <ExperienceSetup mode="onboarding" /> : (
             <Suspense fallback={<div className="narrow" role="status" style={{ paddingTop: 24 }}>{t('Loading…')}</div>}><Routes>
               <Route path="/home" element={<Home />} />
               <Route path="/plan" element={<Plan />} />
               <Route path="/plan/p/:id" element={<ProgramEdit />} />
               <Route path="/plan/r/:id" element={<RoutineEdit />} />
               <Route path="/workout" element={<Workout />} />
-              <Route path="/train2j" element={<Train2J />} />
-              <Route path="/train2j/programs" element={<GuidedProgramCatalog />} />
-              <Route path="/train2j/program/:id" element={<GuidedProgramDetail />} />
-              <Route path="/train2j/c/:id" element={<Train2JCollection />} />
-              <Route path="/train2j/r/:id" element={<Train2JDetail />} />
+              <Route path="/train2j" element={<Feat k="train2j"><Train2J /></Feat>} />
+              <Route path="/train2j/programs" element={<Feat k="train2j"><GuidedProgramCatalog /></Feat>} />
+              <Route path="/train2j/program/:id" element={<Feat k="train2j"><GuidedProgramDetail /></Feat>} />
+              <Route path="/train2j/c/:id" element={<Feat k="train2j"><Train2JCollection /></Feat>} />
+              <Route path="/train2j/r/:id" element={<Feat k="train2j"><Train2JDetail /></Feat>} />
               <Route path="/stretch" element={<Stretch />} />
               <Route path="/tests" element={<TestSession />} />
               <Route path="/clock" element={<ClockPicker />} />
               <Route path="/clock/:mode" element={<ClockRun />} />
               <Route path="/stats" element={<Stats />} />
               <Route path="/history" element={<History />} />
-              <Route path="/social" element={<Social />} />
+              <Route path="/social" element={<Feat k="social"><Social /></Feat>} />
               <Route path="/notifications" element={<Notifications />} />
-              <Route path="/social/preferences" element={<SocialPreferences />} />
-              <Route path="/social/profile/:id" element={<SocialProfile />} />
-              <Route path="/social/share/:id" element={<SocialShareDetail />} />
+              <Route path="/social/preferences" element={<Feat k="social"><SocialPreferences /></Feat>} />
+              <Route path="/social/profile/:id" element={<Feat k="social"><SocialProfile /></Feat>} />
+              <Route path="/social/share/:id" element={<Feat k="social"><SocialShareDetail /></Feat>} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/training" element={<TrainingSettings />} />
               <Route path="/settings/stats" element={<StatsSettings />} />
-              <Route path="/settings/rp-volume" element={<RpVolumeCalibration />} />
-              <Route path="/stats/rp-volume" element={<RpVolumeStats />} />
+              <Route path="/settings/experience" element={<ExperienceSetup />} />
+              <Route path="/settings/rp-volume" element={<Feat k="volume"><RpVolumeCalibration /></Feat>} />
+              <Route path="/stats/rp-volume" element={<Feat k="volume"><RpVolumeStats /></Feat>} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/friends" element={<Friends />} />
-              <Route path="/chat" element={<Chat />} />
-              <Route path="/chat/:id" element={<ChatThread />} />
+              <Route path="/friends" element={<Feat k="friends"><Friends /></Feat>} />
+              <Route path="/chat" element={<Feat k="chat"><Chat /></Feat>} />
+              <Route path="/chat/:id" element={<Feat k="chat"><ChatThread /></Feat>} />
               <Route path="/connected-apps" element={<ConnectedApps />} />
-              <Route path="/measurements" element={<Measurements />} />
-              <Route path="/measurements/folds" element={<SkinfoldsScreen />} />
-              <Route path="/measurements/body" element={<BodyMeasurementsScreen />} />
-              <Route path="/health" element={<Health />} />
-              <Route path="/health/integrations" element={<HealthIntegrations />} />
-              <Route path="/recovery" element={<Recovery />} />
+              <Route path="/measurements" element={<Feat k="bioimpedance"><Measurements /></Feat>} />
+              <Route path="/measurements/folds" element={<Feat k="bioimpedance"><SkinfoldsScreen /></Feat>} />
+              <Route path="/measurements/body" element={<Feat k="bioimpedance"><BodyMeasurementsScreen /></Feat>} />
+              <Route path="/health" element={<Feat k="health"><Health /></Feat>} />
+              <Route path="/health/integrations" element={<Feat k="health"><HealthIntegrations /></Feat>} />
+              <Route path="/recovery" element={<Feat k="recovery"><Recovery /></Feat>} />
               <Route path="/rank" element={<Rank />} />
               <Route path="/badges" element={<Badges />} />
               <Route path="/mi2j" element={<Mi2J />} />
@@ -286,6 +292,7 @@ function Shell() {
               <Route path="/coach/proposal" element={<CoachProposal />} />
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
+              <Route path="/admin/features" element={user?.admin ? <AdminFeatures /> : <Navigate to="/home" replace />} />
               <Route path="/admin/news" element={user?.admin ? <AdminNews /> : <Navigate to="/home" replace />} />
               <Route path="/admin/social-reports" element={user?.admin ? <SocialReports /> : <Navigate to="/home" replace />} />
               <Route path="/admin/bunker" element={(user?.admin || user?.trainer) ? <BunkerAdminPage /> : <Navigate to="/home" replace />} />
@@ -297,17 +304,24 @@ function Shell() {
       {/* Hidden during the Physical Profile wizard — a tab bar would just be a way to skip past
           it without using its own "Skip for now" (which, unlike navigating away, marks
           onboarded so the wizard doesn't reappear). */}
-      {!needsOnboarding && <TabBar />}
+      {!needsOnboarding && !needsUxSetup && <TabBar />}
       {syncStatus === 'conflict' && <SyncConflictDialog />}
       <RestTimer />
       <ChatWatcher />
       <FriendsWatcher />
       <NotificationWatcher />
-      {!needsOnboarding && <InstallPrompt />}
+      {!needsOnboarding && !needsUxSetup && <InstallPrompt />}
       <Modals />
       <Toast />
     </>
   )
+}
+
+// A route that exists only while its feature is on for this member (admin allows it AND the member did not turn it off).
+function Feat({ k, children }) {
+  const S = useStore(s => s.S)
+  useStore(s => s.features)
+  return uxOn(S, k) ? children : <Navigate to="/home" replace />
 }
 
 export default function App() {

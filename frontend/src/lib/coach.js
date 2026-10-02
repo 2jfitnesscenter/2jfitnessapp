@@ -11,6 +11,7 @@
 
 import { EXIDX } from './exercises.js'
 import { modeOf, cleanupSg } from './history.js'
+import { allowedByAdmin } from './features.js'
 import { uid } from './format.js'
 import { mergePlan } from './plan-share.js'
 import { POLICIES } from './progression.js'
@@ -41,7 +42,7 @@ const coachOf = s => (s.coach = s.coach || emptyCoach())
 // interesting feature from the page people are sent to look at it on would be a strange
 // choice. The mobile build stays out — there is no server there to fake anything with.
 export const coachAvailable = (config, user, { demo, mobile } = {}) =>
-  mobile ? false : demo ? true : !!(config?.coach?.enabled && user)
+  mobile ? false : !allowedByAdmin('coach') ? false : demo ? true : !!(config?.coach?.enabled && user)
 export const hasConsent = S => !!S?.coach?.consent?.agreedAt && S.coach.consent.version === CONSENT_VERSION
 
 /* ============================ plan fingerprint ============================ */

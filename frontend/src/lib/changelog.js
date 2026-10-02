@@ -13,6 +13,8 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Personalise 2J: choose what you want to see, from just training to the full analysis — and your gym can switch modules off',
+      'A simpler Home, with recovery, body weight and deeper analysis in Progress',
       'News and notices from 2J on Home, managed by the gym team',
       'Health on Android: read your workouts and daily activity and send your 2J workouts to Health Connect, without ever counting calories twice',
       '2J exercises: the recommended catalogue grouped by movement, with the full library one tap away',

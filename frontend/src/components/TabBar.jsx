@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { actionsSheet } from '../sheets.jsx'
+import { uxOn } from '../lib/features.js'
 import Icon from './Icon.jsx'
 
 export default function TabBar() {
@@ -10,6 +11,8 @@ export default function TabBar() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const isGuest = useStore(s => s.isGuest())
+  useStore(s => s.features)   // the admin's switches arrive after the first render
+  const social = uxOn(S, 'social')
   if (!user && !isGuest) return null
   const cur = loc.pathname.split('/')[1] || 'home'
   const on = k => cur === k || (cur === 'history' && k === 'stats')
@@ -33,7 +36,7 @@ export default function TabBar() {
         <span className="cir"><Icon name={S.active ? 'play' : 'dumbbell'} /></span>
         <span>{S.active ? t('Resume') : t('Train')}</span>
       </button>
-      <Tab k="social" icon="users" to="/social" label={t('Social')} />
+      {social && <Tab k="social" icon="users" to="/social" label={t('Social')} />}
       <Tab k="profile" icon="personCircle" to="/profile" label={t('Profile')} />
       <Tab k="settings" icon="gear" to="/settings" label={t('Settings')} />
     </nav>

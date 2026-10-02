@@ -61,7 +61,7 @@ export default function PhysicalProfileWizard() {
   // fields — only "Finish" after actually stepping through commits them, all at once.
   // Either way out is the one moment this profile is provably new — the only place the
   // roadmap's new-account defaults are written (lib/workout-prefs.js).
-  const skip = () => update(s => { applyNewProfileDefaults(s); s.onboarded = true })
+  const skip = () => update(s => { applyNewProfileDefaults(s); s.onboarded = true; s.uxSetup = true })
   const finish = () => update(s => {
     s.body = p.sex
     if (p.birthDate) s.birthDate = p.birthDate
@@ -76,6 +76,7 @@ export default function PhysicalProfileWizard() {
     if (p.secondary.length) s.secondaryMuscles = p.secondary
     applyNewProfileDefaults(s)
     s.onboarded = true
+    s.uxSetup = true   // next: the short visual setup of what this person wants from 2J (views/ExperienceSetup.jsx)
   })
 
   return <div className="narrow" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', paddingBottom: 86 }}>

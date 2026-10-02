@@ -41,6 +41,7 @@ import { guidedRoutes } from './lib/guided-routes.js';
 import * as guidedStore from './lib/guided-store.js';
 import { libraryAdminRoutes } from './lib/library-admin-routes.js';
 import { newsRoutes } from './lib/news-routes.js';
+import { featuresRoutes } from './lib/features-routes.js';
 import * as libraryAdmin from './lib/library-admin.js';
 import * as gymProfileConfig from './lib/gym-profile-config.js';
 import { cleanEquipment, setOfficialGymEquipment } from './lib/gym-profiles.js';
@@ -2636,6 +2637,7 @@ const routes = {
     hiddenExercises: () => new Set(hiddenEx), availableEquipment: () => gymProfileConfig.load() }),
   /* ---------- Exercise Library quality: the admin's corrections to the 2J layer ---------- */
   ...libraryAdminRoutes({ json, readBody, requireAdmin }),
+  ...featuresRoutes({ json, readBody, readSession, requireAdmin }),
   ...newsRoutes({ json, readBody, readSession, requireAdmin, saveImage: saveUploadedImage, deleteImage: deleteUploadedImage })
 };
 

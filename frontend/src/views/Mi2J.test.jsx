@@ -34,6 +34,7 @@ async function boot() {
     Mi2J: (await import('./Mi2J.jsx')).default,
     Records: (await import('./Records.jsx')).default,
     Home: (await import('./Home.jsx')).default,
+    Stats: (await import('./Stats.jsx')).default,
   }
 }
 async function seed(over = {}) {
@@ -82,7 +83,7 @@ describe('Mi 2J screens read the real store', () => {
 })
 
 describe('Home shows only what is relevant', () => {
-  it('new member: no week/advance/goal cards; with history: your week and the latest step forward', async () => {
+  it('new member: no week/advance/goal cards; with history: your week on Home, the latest step forward in Progress', async () => {
     await seed()
     let html = await render(views.Home)
     expect(html).not.toContain('Your week')
@@ -91,6 +92,9 @@ describe('Home shows only what is relevant', () => {
     html = await render(views.Home)
     expect(html).toContain('Your week')
     expect(html).toMatch(/2 weeks in a row/)
+    // Adaptive UX: Home stays simple — the latest step forward moved to Progress (views/Stats.jsx).
+    expect(html).not.toContain('Latest step forward')
+    html = await render(views.Stats)
     expect(html).toMatch(/Latest step forward[\s\S]*New record/)
   })
 })

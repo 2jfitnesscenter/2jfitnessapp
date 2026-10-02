@@ -11,6 +11,7 @@ import { api } from '../lib/api.js'
 import { hasConsent } from '../lib/coach.js'
 import { useStore } from '../store/useStore.js'
 import { DEMO } from '../lib/demo.js'
+import { uxOn, helpsOn } from '../lib/features.js'
 import './intelligence-today.css'
 
 const icon = { PROGRAM_NEXT_SESSION: 'calendar', NEXT_SESSION: 'calendar', PROGRESSION_READY: 'chartLine', EQUIPMENT_CONFLICT: 'dumbbell', PR_RECENT: 'sparkles', CONTENT_SUGGESTION: 'sparkles',
@@ -54,7 +55,16 @@ const confidenceLabel = confidence => ({ high: t('High'), medium: t('Medium'), l
 const priorityLabel = priority => ({ high: t('High priority'), medium: t('Medium priority'), low: t('Optional') })[priority] || priority
 export const canAskCoach = (S, coachEnabled) => !!coachEnabled && hasConsent(S) && !DEMO
 
-export default function IntelligenceToday({ S, user, max = 3, compact = false, types = null, showIntro = false }) {
+// Suggestions are a feature: gone when the admin turns them off or the member chose not to receive them; the first-use
+// intro also respects the member's visual-hints choice. Wrapper first so no hook is skipped.
+export default function IntelligenceToday(props) {
+  const S = useStore(s => s.S)
+  useStore(s => s.features)
+  if (!uxOn(S, 'suggestions')) return null
+  return <IntelligenceTodayInner {...props} showIntro={!!props.showIntro && helpsOn(S)} />
+}
+
+function IntelligenceTodayInner({ S, user, max = 3, compact = false, types = null, showIntro = false }) {
   const nav = useNavigate()
   const uid = user?.id || 'local'
   const introKey = `intelligence2j:intro:v1:${uid}`

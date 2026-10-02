@@ -16,12 +16,26 @@ import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
 import { t } from '../lib/i18n.js'
+import './experience.css'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, Button, TextField, Avatar } from '../components/ui.jsx'
-import BodyWeightCard from '../components/BodyWeightCard.jsx'
+import { uxOn } from '../lib/features.js'
 import StaffBadge from '../components/StaffBadge.jsx'
 import { bunkerPinSheet } from '../sheets.jsx'
 import { fetchBunkerLaunchLink } from '../lib/bunker-api.js'
+
+// A quiet "more" group: the secondary parts of the profile stay one tap away instead of making a long form.
+function Disclosure({ icon, title, sub, children }) {
+  const [open, setOpen] = useState(false)
+  return <div className="disc">
+    <button type="button" className="disc-h" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+      <span className="lrow-i" style={{ '--tint': 'var(--acc)' }}><Icon name={icon} /></span>
+      <span className="grow"><span className="ttl">{title}</span>{sub && <span className="muted small">{sub}</span>}</span>
+      <Icon name={open ? 'chevronUp' : 'chevronDown'} className="chev" />
+    </button>
+    {open && <div className="disc-b">{children}</div>}
+  </div>
+}
 
 export default function Profile() {
   const nav = useNavigate()
@@ -33,6 +47,7 @@ export default function Profile() {
   const friendUnread = useUI(s => s.friendUnread)
   const avatarInput = useRef(null)
   const [avatarBusy, setAvatarBusy] = useState(false)
+  useStore(s => s.features)   // the admin's switches arrive after the first render
   const snap = useMemo(() => rankSnapshot(S), [S.workouts, S.bodyweight, S.tests, S.body])
 
   const signInHere = async () => {
@@ -83,36 +98,6 @@ export default function Profile() {
       </div>
     </div>
 
-    {/* ---------- friends + trainer chat — need a real (non-guest) account, same reasoning as
-         the Account section right above needing one ---------- */}
-    {user && (
-      <Section title={t('Social')}>
-        <Row icon="users" iconTint="var(--blue)" title={t('Friends')} accessory="chevron" onClick={() => nav('/friends')}>
-          {friendUnread > 0 && <span aria-label={t('Pending friend requests')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
-        </Row>
-        <Row icon="personCircle" iconTint="var(--acc)" title={t('Chat with trainers')} accessory="chevron" onClick={() => nav('/chat')}>
-          {chatUnread > 0 && <span aria-label={t('Unread messages')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
-        </Row>
-        {user?.trainer && <Row icon="dumbbell" iconTint="var(--green)" title={t('Trainer panel')} subtitle={t('Best used on a computer.')} accessory="chevron" onClick={() => nav('/trainer')} />}
-        <Row icon="key" iconTint="var(--orange)" title={t('Bunker check-in PIN')} subtitle={t('Train on the gym-floor screen without your phone')} accessory="chevron" onClick={bunkerPinSheet} />
-      </Section>
-    )}
-
-    {/* ---------- staff-only quick access to the Bunker kiosk/admin — same admin||trainer gate
-         Admin.jsx's own "Room admin" nav card and App.jsx's /admin/bunker route already use ---------- */}
-    {(user?.admin || user?.trainer) && (
-      <Section title={t('Bunker station')}>
-        <Row icon="link" iconTint="var(--acc)" title={t('Copy launch link')}
-          subtitle={t('The URL to open on the gym-floor TV/tablet')}
-          onClick={() => fetchBunkerLaunchLink()
-            .then(key => navigator.clipboard?.writeText(`${location.origin}/#/bunker/launch?token=${key}`))
-            .then(() => toast(t('Launch link copied')))
-            .catch(e => toast(e.message))} />
-        <Row icon="gear" iconTint="var(--indigo)" title={t('Room remote control')} subtitle={t('Manage sessions and room settings from here')}
-          accessory="chevron" onClick={() => nav('/admin/bunker')} />
-      </Section>
-    )}
-
     {/* ---------- create/sign in — nothing to show once there's an account, or on the
          demo/mobile builds, which don't have passkey accounts at all ---------- */}
     {!MOBILE && !DEMO && !user && (
@@ -127,15 +112,8 @@ export default function Profile() {
     )}
     {!user && !DEMO && !MOBILE && <p className="sect-f" style={{ marginTop: -18, marginBottom: 22 }}>{t('Guest mode — data lives only in this browser.')}</p>}
 
-    {/* Mi 2J — the member's sporting identity; the full carnet, ranks, achievements and
-        records live one tap away (views/Mi2J.jsx). */}
-    <button className="mi2j-entry" onClick={() => nav('/mi2j')} aria-label={t('My 2J')}>
-      <div className="mi2j-entry-h"><span>{t('My 2J')}</span><Icon name="chevronRight" /></div>
-      <Carnet S={S} user={user} snap={snap} compact onRanks={() => nav('/rank')} />
-    </button>
-
     {/* ---------- basic info — asked at registration, editable here, read by the AI Coach ---------- */}
-    <Section title={t('Basic info')} footer={t('Sex uses the Body diagram choice in Settings. Starting weight is your first body-weight log — add or edit it from Home.')}>
+    <Section title={t('About you')} footer={t('Sex uses the Body diagram choice in Settings. Starting weight is your first body-weight log — add or edit it from Stats.')}>
       <Row icon="calendar" iconTint="var(--pink)" title={t('Date of birth')}>
         <input type="date" className="timef" value={S.birthDate || ''} max={todayISO()}
           onChange={e => update(s => { s.birthDate = e.target.value || null })} />
@@ -145,11 +123,7 @@ export default function Profile() {
           value={S.height ?? ''} onChange={e => update(s => { const n = Math.round(Number(e.target.value)); s.height = n > 0 ? n : null })} />
         <span className="muted small" style={{ marginLeft: 6 }}>cm</span>
       </Row>
-      <Row icon="figureStrength" iconTint="var(--acc)" title={t('Measurements')} subtitle={t('Body composition & tape measurements over time')} accessory="chevron" onClick={() => nav('/measurements')} />
-      <Row icon="heart" iconTint="var(--red)" title={t('Health')} subtitle={t('Steps, sleep and heart rate from Apple Health')} accessory="chevron" onClick={() => nav('/health')} />
     </Section>
-
-    <BodyWeightCard S={S} />
 
     {/* ---------- muscle priorities — asked at registration, editable here, read by the quick
          PPL plan and the AI Coach ---------- */}
@@ -179,6 +153,50 @@ export default function Profile() {
         </div>
       </div>
     </Section>
+
+    {/* Mi 2J — the member's sporting identity; the full carnet, ranks, achievements and
+        records live one tap away (views/Mi2J.jsx). */}
+    <button className="mi2j-entry" onClick={() => nav('/mi2j')} aria-label={t('My 2J')}>
+      <div className="mi2j-entry-h"><span>{t('My 2J')}</span><Icon name="chevronRight" /></div>
+      <Carnet S={S} user={user} snap={snap} compact onRanks={() => nav('/rank')} />
+    </button>
+
+    {(uxOn(S, 'bioimpedance') || uxOn(S, 'health')) && <Disclosure icon="heart" title={t('Body & health')} sub={t('Measurements and daily activity')}>
+      <Section>
+      {uxOn(S, 'bioimpedance') && <Row icon="figureStrength" iconTint="var(--acc)" title={t('Measurements')} subtitle={t('Body composition & tape measurements over time')} accessory="chevron" onClick={() => nav('/measurements')} />}
+      {uxOn(S, 'health') && <Row icon="heart" iconTint="var(--red)" title={t('Health')} subtitle={t('Steps, sleep and heart rate from Apple Health')} accessory="chevron" onClick={() => nav('/health')} />}
+      </Section>
+    </Disclosure>}
+
+    {user && (uxOn(S, 'friends') || uxOn(S, 'chat') || user.trainer) && <Disclosure icon="users" title={t('Social & connections')} sub={t('Friends, chat and your gym')}>
+    {/* ---------- friends + trainer chat — need a real (non-guest) account, same reasoning as
+         the Account section right above needing one ---------- */}
+    <Section>
+        {uxOn(S, 'friends') && <Row icon="users" iconTint="var(--blue)" title={t('Friends')} accessory="chevron" onClick={() => nav('/friends')}>
+          {friendUnread > 0 && <span aria-label={t('Pending friend requests')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
+        </Row>}
+        {uxOn(S, 'chat') && <Row icon="personCircle" iconTint="var(--acc)" title={t('Chat with trainers')} accessory="chevron" onClick={() => nav('/chat')}>
+          {chatUnread > 0 && <span aria-label={t('Unread messages')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
+        </Row>}
+        {user?.trainer && <Row icon="dumbbell" iconTint="var(--green)" title={t('Trainer panel')} subtitle={t('Best used on a computer.')} accessory="chevron" onClick={() => nav('/trainer')} />}
+        <Row icon="key" iconTint="var(--orange)" title={t('Bunker check-in PIN')} subtitle={t('Train on the gym-floor screen without your phone')} accessory="chevron" onClick={bunkerPinSheet} />
+    </Section>
+    </Disclosure>}
+
+    {/* ---------- staff-only quick access to the Bunker kiosk/admin — same admin||trainer gate
+         Admin.jsx's own "Room admin" nav card and App.jsx's /admin/bunker route already use ---------- */}
+    {(user?.admin || user?.trainer) && (
+      <Section title={t('Bunker station')}>
+        <Row icon="link" iconTint="var(--acc)" title={t('Copy launch link')}
+          subtitle={t('The URL to open on the gym-floor TV/tablet')}
+          onClick={() => fetchBunkerLaunchLink()
+            .then(key => navigator.clipboard?.writeText(`${location.origin}/#/bunker/launch?token=${key}`))
+            .then(() => toast(t('Launch link copied')))
+            .catch(e => toast(e.message))} />
+        <Row icon="gear" iconTint="var(--indigo)" title={t('Room remote control')} subtitle={t('Manage sessions and room settings from here')}
+          accessory="chevron" onClick={() => nav('/admin/bunker')} />
+      </Section>
+    )}
 
     <div style={{ height: 20 }} />
   </div>

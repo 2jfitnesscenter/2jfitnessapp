@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { uxOn } from '../lib/features.js'
 import { useStore } from '../store/useStore.js'
 import { uid } from '../lib/format.js'
 import { RoutineSummaryLine, ProgramSummaryLine } from '../components/PlanSummaryLine.jsx'
@@ -22,7 +23,8 @@ export default function Plan() {
   const user = useStore(s => s.user)
   const config = useStore(s => s.config)
   const update = useStore(s => s.update)
-  const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
+  useStore(s => s.features)
+  const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE }) && uxOn(S, 'coach')
   // Routines already inside a program are shown there, not loose here too — same routine,
   // one place, never two lists claiming it at once.
   // Settings → General → "Default tab" (S.defaultLibraryTab) only sets where this lands on

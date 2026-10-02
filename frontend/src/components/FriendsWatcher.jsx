@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
+import { uxOn } from '../lib/features.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { beep, vibrate } from '../lib/sound.js'
@@ -16,13 +17,14 @@ const POLL_MS = 15000
 // requests that weren't there on the previous poll, no server-side read-tracking involved.
 export default function FriendsWatcher() {
   const user = useStore(s => s.user)
+  const on = useStore(s => (s.features, uxOn(s.S, 'friends')))   // admin switch + the member's own choice
   const setFriendUnread = useUI(s => s.setFriendUnread)
   const loc = useLocation()
   const pathRef = useRef(loc.pathname)
   useEffect(() => { pathRef.current = loc.pathname }, [loc.pathname])
 
   useEffect(() => {
-    if (!user) { setFriendUnread(0); return }
+    if (!user || !on) { setFriendUnread(0); return }
     let stopped = false
     const seen = new Set()
     let primed = false
@@ -41,7 +43,7 @@ export default function FriendsWatcher() {
     poll()
     const iv = setInterval(poll, POLL_MS)
     return () => { stopped = true; clearInterval(iv) }
-  }, [user, setFriendUnread])
+  }, [user, on, setFriendUnread])
 
   return null
 }

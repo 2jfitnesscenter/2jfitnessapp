@@ -1,5 +1,6 @@
 import { workoutInactive, inactivityFinishMetadata, workoutActivityKey } from './lib/workout-activity.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { uxOn } from './lib/features.js'
 import { useStore } from './store/useStore.js'
 import { shouldShowWorkoutGuide } from './lib/workout-prefs.js'
 import { openWorkoutGuide } from './components/WorkoutGuide.jsx'
@@ -2347,7 +2348,7 @@ function FinishSummary({ w, prs, e1prs = [], events = [], newBadges = [], close 
     <div style={{ textAlign: 'left', marginBottom: 12 }}>
       <EventsSummary events={events} unit={st.unit} onOpen={ev => openEventDetail(ev, w.d)} />
     </div>
-    {nextProgram && <div className="intelligence-postworkout"><Icon name="sparkles" /><div><b>{t('Next in your program')}</b><p>{t(nextProgram.summary)} · {t('Continue when you are ready; nothing changes automatically.')}</p>
+    {nextProgram && uxOn(S(), 'suggestions') && <div className="intelligence-postworkout"><Icon name="sparkles" /><div><b>{t('Next in your program')}</b><p>{t(nextProgram.summary)} · {t('Continue when you are ready; nothing changes automatically.')}</p>
       <button className="btn tinted" type="button" onClick={() => { close(); nav(nextProgram.action.route) }}>{t('View program')}</button></div></div>}
     <h4 className="sec" style={{ textAlign: 'left' }}>{t('What you just trained')}</h4>
     <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(st))} body={st.body} />

@@ -15,10 +15,12 @@ import { loadStarterPlan, confirmSheet, importFromApp, platesSheet } from '../sh
 import { ZONES } from '../lib/training-zones.js'
 import { ZONE_ORDER, ZONE_META } from '../lib/rp-volume.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
+import { uxOn } from '../lib/features.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import { RankGuideSheet } from './Rank.jsx'
 import { ChangelogSheet } from './Changelog.jsx'
 import { LegalSheet } from './Legal.jsx'
+import './experience.css'
 import Icon from '../components/Icon.jsx'
 import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button, Slider } from '../components/ui.jsx'
 
@@ -34,6 +36,7 @@ export default function Settings() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const config = useStore(s => s.config)
+  useStore(s => s.features)   // the admin's switches arrive after the first render
   const { update, replaceStateOnServer, signOut, signOutAll, resetDemo } = useStore()
   const toast = useUI(s => s.toast)
   const fileRef = useRef(null)
@@ -81,41 +84,16 @@ export default function Settings() {
       <div><h1>{t('Settings')}</h1></div>
     </div>
 
-    {/* ---------- account (guests create/sign in from Perfil; nothing to show here until
-         there's an account, or on the demo/mobile builds, which have their own message) ---------- */}
-    {(MOBILE || DEMO || user) && (
-      <Section title={MOBILE ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
-        {MOBILE ? <>
-          <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
-        </> : DEMO ? <>
-          <Row icon="sparkles" iconTint="var(--acc)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
-          <Row icon="reset" iconTint="var(--blue)" title={t('Reset demo data')} accessory="chevron"
-            onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
-        </> : <>
-          <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
-          {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
-          <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
-          <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
-        </>}
-      </Section>
-    )}
+    <h3 className="set-grp">{t('My experience')}<span>{t('What you see in 2J, your way')}</span></h3>
+    <Section footer={t('Your gym may switch some features off for everyone; the rest is yours to show or hide. Nothing is deleted.')}>
+      <Row icon="sparkles" iconTint="var(--acc)" title={t('Personalise my experience')}
+        subtitle={S.ux ? t('Your choices are saved — change them any time') : t('Choose what you want to see: simple or complete')}
+        accessory="chevron" onClick={() => nav('/settings/experience')} />
+    </Section>
 
-    {/* ---------- general ---------- */}
-    <Section title={t('General')} footer={t('Note: switching units only changes the label — logged numbers are not converted.')}>
+    <h3 className="set-grp">{t('Training')}</h3>
+    <Section>
       <GymProfile editable />
-      <SelectRow
-        icon="globe" iconTint="var(--blue)" title={t('Language')}
-        value={S.lang || 'es'} onChange={v => update(s => { s.lang = v })}
-        options={Object.entries(LANGS).map(([k, name]) => ({
-          value: k, label: name,
-          subtitle: INSTR_LANGS.includes(k) ? null : t("Exercise instructions aren't available in this language yet — they stay in English."),
-        }))}
-      />
-      <Row icon="scale" iconTint="var(--teal)" title={t('Weight unit')}>
-        <Segmented className="seg-inline"
-          options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]}
-          value={S.unit} onChange={v => update(s => { s.unit = v })} />
-      </Row>
       {/* Which of Library's three tabs (Plan.jsx) opens first — stacked rather than sharing
           the row like Weight unit above it, since "Programas"/"Rutinas"/"Ejercicios" are too
           wide to sit next to a title without crowding it (same reasoning as Text size below). */}
@@ -134,19 +112,6 @@ export default function Settings() {
           onChange={v => update(s => { s.defaultLibraryTab = v })}
         />
       </div>
-      <Row icon="figureStrength" iconTint="var(--purple)" title={t('Statistics')}
-        subtitle={t('How secondary muscles count toward volume and the muscle map')}
-        accessory="chevron" onClick={() => nav('/settings/stats')} />
-      <Row icon="calendar" iconTint="var(--orange)" title={t('Bioimpedance reminder')}
-        subtitle={t('A nudge on Home when it’s been a while since your last body-composition scan')}>
-        <Switch checked={S.enableBioimpedanceReminder !== false} onChange={v => {
-          update(s => { s.enableBioimpedanceReminder = v })
-          if (MOBILE) syncBioimpedanceReminder({ ...S, enableBioimpedanceReminder: v }, daysSinceBioimpedance(S), true)
-        }} />
-      </Row>
-      {S.enableBioimpedanceReminder !== false && <SelectRow icon="calendar" iconTint="var(--orange)" title={t('Reminder frequency')}
-        value={S.bioimpedanceReminderDays || 15} onChange={v => update(s => { s.bioimpedanceReminderDays = v })}
-        options={[15, 30].map(d => ({ value: d, label: t('Every {0} days', d) }))} />}
     </Section>
 
     {/* ---------- during a workout ---------- */}
@@ -184,10 +149,52 @@ export default function Settings() {
       </Section>
     )}
 
-    {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
+    <h3 className="set-grp">{t('Progress & metrics')}</h3>
+    <Section>
+      <Row icon="figureStrength" iconTint="var(--purple)" title={t('Statistics')}
+        subtitle={t('How secondary muscles count toward volume and the muscle map')}
+        accessory="chevron" onClick={() => nav('/settings/stats')} />
+      {uxOn(S, 'bioimpedance') && <>
+      <Row icon="calendar" iconTint="var(--orange)" title={t('Bioimpedance reminder')}
+        subtitle={t('A nudge on Home when it’s been a while since your last body-composition scan')}>
+        <Switch checked={S.enableBioimpedanceReminder !== false} onChange={v => {
+          update(s => { s.enableBioimpedanceReminder = v })
+          if (MOBILE) syncBioimpedanceReminder({ ...S, enableBioimpedanceReminder: v }, daysSinceBioimpedance(S), true)
+        }} />
+      </Row>
+      {S.enableBioimpedanceReminder !== false && <SelectRow icon="calendar" iconTint="var(--orange)" title={t('Reminder frequency')}
+        value={S.bioimpedanceReminderDays || 15} onChange={v => update(s => { s.bioimpedanceReminderDays = v })}
+        options={[15, 30].map(d => ({ value: d, label: t('Every {0} days', d) }))} />}
+      </>}
+    </Section>
 
+    {(uxOn(S, 'health') || (user && (config?.strava || config?.whoop))) && <>
+    <h3 className="set-grp">{t('Health')}</h3>
+    <Section>
+      {uxOn(S, 'health') && <Row icon="heart" iconTint="var(--red)" title={t('Health & activity')} subtitle={t('Steps, sleep, heart rate and your connected watch')} accessory="chevron" onClick={() => nav('/health')} />}
+      {user && (config?.strava || config?.whoop) && (
+        <Row icon="link" iconTint="var(--indigo)" title={t('Connected apps')}
+          subtitle={t('Strava, Whoop')} accessory="chevron" onClick={() => nav('/connected-apps')} />
+      )}
+    </Section>
+    </>}
+
+    <h3 className="set-grp">{t('Appearance')}</h3>
     {/* ---------- appearance ---------- */}
     <Section title={t('Appearance')} footer={DEMO || MOBILE ? undefined : t('synced with your profile')}>
+      <SelectRow
+        icon="globe" iconTint="var(--blue)" title={t('Language')}
+        value={S.lang || 'es'} onChange={v => update(s => { s.lang = v })}
+        options={Object.entries(LANGS).map(([k, name]) => ({
+          value: k, label: name,
+          subtitle: INSTR_LANGS.includes(k) ? null : t("Exercise instructions aren't available in this language yet — they stay in English."),
+        }))}
+      />
+      <Row icon="scale" iconTint="var(--teal)" title={t('Weight unit')}>
+        <Segmented className="seg-inline"
+          options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]}
+          value={S.unit} onChange={v => update(s => { s.unit = v })} />
+      </Row>
       <Row icon="moon" iconTint="var(--indigo)" title={t('Theme')}>
         <Segmented
           className="seg-inline"
@@ -257,13 +264,40 @@ export default function Settings() {
       </div>}
     </Section>
 
+    {(user || MOBILE) && <h3 className="set-grp">{t('Notifications')}</h3>}
+    {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
+
+    {user && uxOn(S, 'social') && <>
+    <h3 className="set-grp">{t('Social & privacy')}</h3>
+    <Section>
+      <Row icon="users" iconTint="var(--blue)" title={t('Social preferences')} subtitle={t('Who sees your activity and what you share')} accessory="chevron" onClick={() => nav('/social/preferences')} />
+    </Section>
+    </>}
+
+    {(MOBILE || DEMO || user) && <h3 className="set-grp">{t('Account')}</h3>}
+    {/* ---------- account (guests create/sign in from Perfil; nothing to show here until
+         there's an account, or on the demo/mobile builds, which have their own message) ---------- */}
+    {(MOBILE || DEMO || user) && (
+      <Section title={MOBILE ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
+        {MOBILE ? <>
+          <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
+        </> : DEMO ? <>
+          <Row icon="sparkles" iconTint="var(--acc)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
+          <Row icon="reset" iconTint="var(--blue)" title={t('Reset demo data')} accessory="chevron"
+            onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
+        </> : <>
+          <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
+          {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
+          <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
+          <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
+        </>}
+      </Section>
+    )}
+
+    <h3 className="set-grp">{t('Advanced')}<span>{t('Data, backups and resets')}</span></h3>
     {/* ---------- data: fill it, bring things over, back it up, wipe it ---------- */}
-    <Section title={t('Data')}>
+    <Section title={t('Data')} footer={t('Back up, import, or start over. Rarely needed.')}>
       <Row icon="sparkles" iconTint="var(--acc)" title={t('Load starter plan (PPL)')} accessory="chevron" onClick={loadStarterPlan} />
-      {user && (config?.strava || config?.whoop) && (
-        <Row icon="link" iconTint="var(--indigo)" title={t('Connected apps')}
-          subtitle={t('Strava, Whoop')} accessory="chevron" onClick={() => nav('/connected-apps')} />
-      )}
       <Row icon="shuffle" iconTint="var(--teal)" title={t('Import from another app')}
         subtitle={t('FitNotes, Strong, Hevy, Gravl — or weight, body composition, steps, sleep and heart rate from Apple Health')}
         accessory="chevron" onClick={() => importRef.current.click()} />

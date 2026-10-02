@@ -11,6 +11,7 @@ import { daysSinceBioimpedance } from '../lib/measurements.js'
 import { setCachedOfficialGymEquipment } from '../lib/gym-profiles.js'
 import { applyConfigOverlay, restoreCachedOverlay } from '../lib/library/overlay-sync.js'
 import { useGuided } from '../lib/guided-api.js'
+import { setAdminFeatures } from '../lib/features.js'
 
 const KEY = 'gym_state_v1'
 // A discard/finish that couldn't reach POST /api/active/clear (offline, a dropped request)
@@ -73,6 +74,11 @@ export const DEF = {
   // from a backup) is treated as onboarded too — see hasPhysicalData in App.jsx — so this only
   // ever gates a genuinely brand-new profile.
   onboarded: false,
+  // Adaptive UX (lib/features.js): the member's own choices of what to show. null = never personalised, so everything
+  // the admin allows stays on (today's behaviour). { v, at, uses: { effort, volume, suggestions, coach, recovery,
+  // bodyweight, bioimpedance, health, train2j, social, helps } }. uxSetup: true for a brand-new profile that still has to see
+  // the short visual setup; uxInviteDismissed: an existing profile closed the "Personalise your experience" nudge.
+  ux: null, uxSetup: false, uxInviteDismissed: false,
   // Programs are a named folder of routine ids (e.g. a whole "Project Kakarrot" split), never a
   // copy of the routine data itself. A routine not listed in any program's `routineIds` is just
   // shown loose. A program can also carry its own weekday->routineId map (`week`, same shape as
@@ -255,6 +261,8 @@ export const useStore = create((set, get) => {
     // owner has both enabled the Coach and connected a provider — every Coach entry point in
     // the app hangs off it, so an unconfigured instance renders exactly what it always did.
     config: null,
+    // Admin switches (GET /api/features, signed-in only). Absent / offline = everything on; the last copy is cached.
+    features: (() => { try { const f = JSON.parse(localStorage.getItem('gym_features_v1')); setAdminFeatures(f); return f || null } catch { return null } })(),
     gymProfileRevision: 0,
 
     // Mutate a draft of S via producer fn, then persist + schedule sync.
@@ -285,6 +293,16 @@ export const useStore = create((set, get) => {
     replaceState(S, push = false) { persist(clone(S), push) },
 
     isGuest: () => localStorage.getItem('gym_guest') === '1',
+    // Admin "App features": which modules exist for this gym. Safe by default — a failure keeps the last copy.
+    async loadFeatures() {
+      try {
+        const { features } = await api('/api/features')
+        setAdminFeatures(features)
+        try { localStorage.setItem('gym_features_v1', JSON.stringify(features)) } catch { /* private mode */ }
+        set({ features })
+        return true
+      } catch { return false }
+    },
     async refreshGymProfileConfig() {
       try {
         const config = await api('/api/config')
@@ -434,6 +452,7 @@ export const useStore = create((set, get) => {
       try {
         const me = await api('/api/me')
         get().setUser(me.user)
+        get().loadFeatures()
         await retryStateActions()
         await get().pullState()
         retryPendingClear()

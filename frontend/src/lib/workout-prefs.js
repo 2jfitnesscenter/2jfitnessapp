@@ -13,6 +13,8 @@
 // and sounds on, nothing auto-completed). New profiles get their own starting point from
 // NEW_PROFILE_DEFAULTS instead — written once, the moment the post-registration wizard marks the
 // profile onboarded, never onto an existing account.
+import { uxOn } from './features.js'
+
 export const WORKOUT_VIEWS = ['simple', 'detailed']
 
 export function workoutPrefs(S) {
@@ -26,7 +28,7 @@ export function workoutPrefs(S) {
     restAlert: S.restAlert !== false,
     sound: !!S.sound,
     vibrate: S.restVibrate !== false,
-    progression: S.enableProgressiveOverloadCoach !== false,
+    progression: S.enableProgressiveOverloadCoach !== false && uxOn(S, 'suggestions'),
   }
 }
 

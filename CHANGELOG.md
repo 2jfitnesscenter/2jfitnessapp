@@ -6,6 +6,31 @@ Everything since v1.3.0. Production is `4622505` today; the release prepared on 
 is `1a403fe`, and Home news / notices is built on top of that. The version number in `package.json` is bumped when
 the release is tagged.
 
+### Adaptive UX + feature control + personalised onboarding (2026-10-02; NOT DEPLOYED)
+
+- Rule: the ADMIN decides which modules exist; the MEMBER decides which of those to see; the DATA decides how much depth a
+  screen shows. Admin off = gone for everyone and never re-enabled from the client; absent / offline / older config = on, so
+  nothing changes for existing profiles. Nothing is deleted — hiding keeps the data.
+- Admin → "App features" (`/admin/features`): 13 real modules (AI Coach, suggestions, effort RPE/RIR, volume analysis, Train with 2J,
+  Health, bioimpedance, recovery, body weight, Social, chat, friends, challenges). Server: `api/lib/features-store.js` +
+  `features-routes.js`, persisted in `features.json` (separate from Sync V2); `GET /api/features` for signed-in users,
+  `POST /api/admin/features` admin-only (trainers refused), unknown keys / non-booleans refused. Cached on the client for offline.
+- Member preferences live in the existing synced state (`S.ux`, no second system). "Personalise my experience": a short visual
+  setup (presets Just train / Balanced / Everything, then Training / Health / Experience cards in plain language) for brand-new
+  profiles right after the physical-profile wizard, and the same configurator in Settings → My experience for anyone, any
+  time. Existing profiles are not forced: one discreet, dismissible invitation on Home. The configurator only offers what the
+  admin allows, so there is never a switch that does nothing.
+- Home is simple: greeting, news, today's workout, Train with 2J, "Your week", one suggestion. Recovery, the coloured body map,
+  body-weight logging, the latest step / closest goal, Whoop and the bioimpedance nudge moved to Progress (Stats), each shown only
+  when allowed, chosen and with data (no empty panels; an empty weight log is a one-line invitation, effort without ratings a minimal one).
+- Profile leads with photo, name, essentials and training priorities; Mi 2J, Body & health and Social & connections follow as
+  quiet groups. Settings is grouped: My experience, Training, Progress & metrics, Health, Appearance, Notifications, Social &
+  privacy, Account, Advanced. Training settings hide effort / progression / volume controls that are off.
+- Gates: admin + member for effort (`effortOf`), suggestions (cards, post-workout, progression assistant), volume zones, Train with 2J
+  (promos and routes), health, bioimpedance, recovery, body weight, Social tab and routes, chat / friends (routes and watchers); the Coach
+  also respects the admin switch.
+- Tests: API features.test.js (6); frontend features.test.js and adaptive.test.jsx (28). Spanish complete.
+
 ### Home news / notices (2026-10-02; NOT DEPLOYED)
 
 - Official notices on Home, written only by admins. Each notice has title, text (**bold**, line breaks and https

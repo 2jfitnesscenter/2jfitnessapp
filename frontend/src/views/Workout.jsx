@@ -36,6 +36,7 @@ import { guidedBlockFor } from '../lib/guided.js'
 import GuidedRunner, { GuidedLaunch } from '../components/GuidedRunner.jsx'
 import WorkoutCover from '../components/WorkoutCover.jsx'
 import IntelligenceToday from '../components/IntelligenceToday.jsx'
+import { uxOn } from '../lib/features.js'
 
 // Today's check-in, next to the exercise it concerns — words only: nothing about the load, the
 // exercise or the routine changes because of it (the member or trainer decides).
@@ -89,7 +90,7 @@ function StartChooser() {
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
         <span className="tag acc">{t('Start')}</span></div>)}</div></>}
     {!S.routines.length && <><div style={{ height: 14 }} /><Button variant="primary" onClick={() => nav('/plan')}>{t('Build a plan first')}</Button></>}
-    <h4 className="sec">{t('Or a ready-made one')}</h4>
+    {uxOn(S, 'train2j') && <><h4 className="sec">{t('Or a ready-made one')}</h4>
     <button className="card tappable t2-promo" onClick={() => nav('/train2j')}>
       <WorkoutCover r={{ id: 'start-promo', category: 'hiit' }} shape="square" />
       <span className="grow">
@@ -97,7 +98,7 @@ function StartChooser() {
         <span className="t2-promo-t">{t('Official guided workouts, ready to start.')}</span>
       </span>
       <Icon name="chevronRight" className="chev" />
-    </button>
+    </button></>}
   </div>
 }
 
