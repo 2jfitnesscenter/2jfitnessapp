@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.twojfitnesscenter.app",
+      "sha256_cert_fingerprints": [
+        "0C:BB:BF:6F:26:C1:0C:83:23:54:2C:93:AE:B3:E6:19:44:D2:92:46:56:0A:F8:9D:A6:85:36:0F:7A:83:5E:AC"
+      ]
+    }
+  }
+]
