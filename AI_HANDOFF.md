@@ -5,6 +5,54 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
+## 0. 2J Fitness 2.0.1 — Experience V2, Fase 1 «Visual V2» (checkpoint 2026-10-02; SIN desplegar)
+
+- **Rama `feat/v2.0.1-visual-v2`**, sobre `fix/challenges-gate` (`2738361`, producción actual). Commit de código `b61fb7d`.
+  Sin push, sin deploy. Solo frontend + 2 claves nuevas en la lista de funciones (ver «Preferencias»).
+- **Cerrado:** capa de diseño, Home Hero, Body Map premium, post-entreno V2, tarjeta de PR/logro, meta de ejercicio V2,
+  glass selectivo, navegación inferior V2, microanimaciones, 2 preferencias opcionales.
+- **Capa de diseño reutilizable** (para Health V2 / Social V2 / Seguimiento V2): `src/v2.css` (tokens `--v2-*`: spacing 4-pt,
+  radios, elevaciones, glass, `--v2-gold`, `--v2-emerald`, movimiento 150/200/250 ms; clases `v2-surface|glass|pill|badge|
+  progress|cta|iconbtn|skel|empty|stat|rise|pop|glow`), `src/v2-screens.css` (estilos por pantalla) y `components/v2.jsx`
+  (`Surface, Pill, ProgressBar, Ring, Skeleton, EmptyState, Stat, CountUp/useCountUp`). `lib/motion.js` (`reducedMotion`).
+- **Componentes nuevos:** `HomeHero`, `BodyMapPanel` (sobre `BodyMap`, sin duplicar geometría), `PostWorkoutSummary`
+  (presentación pura; `sheets.jsx#FinishSummary` lo monta DESPUÉS de guardar), `AchievementCard` (PR/logro/insignia, paleta
+  fija sin blur → exportable con html-to-image), `ExerciseMeta` (compartido por la vista detallada y la simple de Workout),
+  `ProgressTimeline`. Lógica: `lib/indicators.js` (anillos de Home), `lib/timeline.js`.
+- **Reutilizado:** `BodyMap`, `EventsSummary/describeEvent` (Mi2JEvents), `workoutEnergy`, `postWorkoutEvents`,
+  `recoveryOf`, `dailyActivity` (health-bridge), `calendarSheet/startFlow/dayOverrideSheet` (mismos handlers que antes).
+- **Preferencias (solo 2 nuevas, en Ajustes → Mi experiencia):** `activity` («Indicadores de actividad») y `timeline`
+  («Timeline de progreso»). Mismo sistema: admin (`features.json`) → `S.ux.uses` → datos. Claves añadidas en
+  `frontend/src/lib/features.js` Y `api/lib/features-store.js` (un test las mantiene iguales; ahora 15). Presets:
+  simple = ambas OFF; equilibrado = actividad ON; completo = ambas ON. Sin personalizar (`S.ux` null) = ON.
+- **Gates:** admin OFF → no disponible (ni se ofrece en el configurador); admin ON + socio OFF → oculto; ON + ON → visible
+  solo con datos. Anillos: «Entreno» (semana/plan o sesiones), «Actividad» (pasos de hoy del health bridge, también exige
+  `health`), «Recuperación» (exige `recovery` y ≥1 sesión). Timeline: ≥1 sesión. TabBar sigue con `uxOn('social')`.
+- **Decisiones de diseño:** acento = `--acc` del socio (verde por defecto; NO se cambió el tema) — el esmeralda fijo
+  `--v2-emerald` solo en piezas exportables; oro SOLO en récords/logros/hitos (PR, racha, timeline de PR). Glass solo en
+  sheets/`.center`, barra inferior y paneles flotantes (no en cards). Hero oscuro en ambos temas. Duración estimada = media
+  de las últimas 3 sesiones de esa rutina (si no hay, no se muestra). kcal solo si existe (medida/agregada, o estimada con «~»).
+  Anillo de actividad usa 10 000 pasos como referencia visual (`STEPS_REFERENCE`, no es objetivo clínico). Streak/«Tu semana»
+  absorbidos por el Hero (se mantienen los textos). Celebración (aro dorado + glow 900 ms) solo con PR o logro mayor/insignia.
+- **Movimiento:** one-shot 150–250 ms (check de serie, cambio de ejercicio `key={entryIdx}`, acordeón de cues, PR, contadores,
+  barras, cards `:active`); `prefers-reduced-motion` lo apaga (regla global de `index.css` + bloques en v2*.css; test).
+- **Tests:** frontend 1159/1159 (+26 en `views/v2.test.jsx`: hero con/sin sesión, gates, admin OFF, TabBar, post-entreno,
+  AchievementCard, BodyMapPanel, reduced motion); API 378/378; build y `check-locales` OK (es completo). Revisado en el
+  navegador a 375 px en claro y oscuro (Home, Workout, finish→resumen, Stats).
+  Se adaptó 1 test existente (`adaptive.test.jsx`): «Home sin Recuperación» ahora usa `activity:false` (los anillos son opt-out).
+- **Riesgos:** (1) **El runner de deploy** comprueba `FEATURE_KEYS.length !== 13` en la imagen del API → pasar a 15 al preparar
+  el release. (2) Home sin la tarjeta «Tu semana» propia: su contenido vive en el Hero. (3) `.sheet/.center` ahora son
+  translúcidos (blur 22 px): vigilar contraste en Android antiguo; hay fallback sólido sin `backdrop-filter`.
+  (4) Los anillos de Actividad solo aparecen con datos del health bridge de hoy en ese dispositivo.
+- **NO tocar:** Sync V2, Auth, backends de Health/Social/Bunker, contratos de datos, lógica de guardado de `doFinishWorkout`,
+  superseries/IDs de ejercicio, `PostWorkoutSummary` no debe escribir estado, ni crear otro sistema de preferencias.
+- **Fuera de alcance (a propósito):** Health V2, Social V2, amigos/chat nuevos, Seguimiento V2, fotos, check-ins, APIs sociales,
+  iOS, reservas, nutrición, pagos, store. Háptica nueva: ninguna (solo la existente de series).
+- **Siguiente fase: Health V2** — reutilizar `v2.jsx` (Ring/ProgressBar/Stat), `BodyMapPanel`, `AchievementCard` y el patrón
+  admin→socio→datos.
+- **Aptas para Codex:** traducir las ~16 cadenas nuevas a los 10 packs retrasados; test de contraste de los tokens `--v2-*`;
+  pasar `Home` week-strip a `v2-surface`; storybook-style página interna de primitivas; revisión Android del glass.
+
 ## 1. Estado actual (checkpoint 2026-10-01)
 
 - **Ajuste UX + Admin IA (rama `feat/ux-ai-admin`, sobre `feat/adaptive-ux`; SIN desplegar):** Perfil: «Prioridades de entrenamiento» es una fila compacta que abre `/profile/priorities` (`views/TrainingPriorities.jsx`, mismos selectores y mismo guardado). Ajustes: Cuenta primero. Admin → «Inteligencia artificial» (`/admin/ai`, `views/AdminAI.jsx`): las 3 IA existentes (Coach, IA del panel de entrenador, IA auxiliar) con estado y «Configurar» que abre sus paneles actuales. Diagnóstico IA: el Coach funciona de extremo a extremo (proveedor fixture) y el runtime de Claude da razones exactas; no hay bug de código — un fallo con proveedor real es de credencial (reconectar desde la nueva pantalla). Tests: API `ai-admin.test.js` (7), frontend `ux-ai.test.jsx` (8).
