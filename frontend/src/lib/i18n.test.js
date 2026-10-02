@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getLang, loadStartupLanguage, t } from './i18n.js'
+import { getLang, loadStartupLanguage, setLang, t } from './i18n.js'
 
 describe('startup locale', () => {
   beforeEach(() => {
@@ -18,5 +18,21 @@ describe('startup locale', () => {
 
     expect(getLang()).toBe('es')
     expect(t('Settings')).toBe('Ajustes')
+  })
+
+  it('keeps first and final render in Spanish after refresh while an older English load finishes late', async () => {
+    localStorage.setItem('gym_state_v1', JSON.stringify({ lang: 'es' }))
+    const savedState = JSON.parse(localStorage.getItem('gym_state_v1'))
+    let finishOldEnglish
+    const oldEnglishLoad = setLang('en', () => new Promise(resolve => { finishOldEnglish = resolve }))
+
+    await loadStartupLanguage(savedState)
+    const firstRender = t('Settings')
+    finishOldEnglish({ dict: {}, instr: null, names: null })
+    await oldEnglishLoad
+    const finalRender = t('Settings')
+
+    expect([firstRender, finalRender]).toEqual(['Ajustes', 'Ajustes'])
+    expect(getLang()).toBe('es')
   })
 })

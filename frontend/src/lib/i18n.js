@@ -25,6 +25,8 @@ let lang = 'es'
 let dict = {}
 let instr = null            // { exId: [steps] } for the current language, null = English
 let names = null            // { exId: 'translated name' } for the current language, null = English
+let loadedLang = null       // language whose complete packs are currently installed
+let loadRequest = 0          // prevents an older async pack load from replacing the latest choice
 let version = 0
 const subs = new Set()
 const notify = () => { version++; subs.forEach(f => f()) }
@@ -49,23 +51,40 @@ let nameOverrides = {}
 export const setNameOverrides = map => { nameOverrides = map || {}; notify() }
 export const nameFor = ex => (ex && lang === 'es' && nameOverrides[ex.id]) || (ex && names && names[ex.id]) || (ex && ex.n) || ''
 
-export async function setLang(l) {
+async function loadLocale(l) {
+  if (l === 'en') return { dict: {}, instr: null, names: null }
+  const [locale, instructions, exerciseNames] = await Promise.all([
+    localePacks['../locales/' + l + '.js'](),
+    INSTR_LANGS.includes(l) ? instrPacks['../instr/' + l + '.js']() : Promise.resolve(null),
+    namePacks['../names/' + l + '.js'] ? namePacks['../names/' + l + '.js']() : Promise.resolve(null),
+  ])
+  return { dict: locale.default, instr: instructions?.default || null, names: exerciseNames?.default || null }
+}
+
+export async function setLang(l, loadPacks = loadLocale) {
   if (!LANGS[l]) l = 'es'
-  if (l === lang && version > 0) return
+  if (l === lang && l === loadedLang && version > 0) return
+  const request = ++loadRequest
   lang = l
   try {
-    dict = l === 'en' ? {} : (await localePacks['../locales/' + l + '.js']()).default
-    instr = l === 'en' || !INSTR_LANGS.includes(l) ? null : (await instrPacks['../instr/' + l + '.js']()).default
-    names = l === 'en' || !namePacks['../names/' + l + '.js'] ? null : (await namePacks['../names/' + l + '.js']()).default
-  } catch (e) { dict = {}; instr = null; names = null }
+    const packs = await loadPacks(l)
+    if (request !== loadRequest) return
+    dict = packs.dict
+    instr = packs.instr
+    names = packs.names
+    loadedLang = l
+  } catch (e) {
+    if (request !== loadRequest) return
+    dict = {}; instr = null; names = null; loadedLang = null
+  }
   notify()
 }
 
 /** Load the persisted UI pack before mounting React, so the first visible frame is localized. */
-export async function loadStartupLanguage(state) {
+export async function loadStartupLanguage(state, loadPacks = loadLocale) {
   const saved = state && typeof state.lang === 'string' ? state.lang : 'es'
   const selected = LANGS[saved] ? saved : 'es'
-  await setLang(selected)
+  await setLang(selected, loadPacks)
   return selected
 }
 
