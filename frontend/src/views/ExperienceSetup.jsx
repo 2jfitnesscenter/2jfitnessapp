@@ -32,6 +32,8 @@ const GROUPS = [
     { key: 'bioimpedance', icon: 'figureStrength', title: 'Body composition', sub: 'Bioimpedance scans and measurements, with a reminder when it is time for a new one.' },
     { key: 'health', icon: 'heart', title: 'Health & daily activity', sub: 'Steps, sleep and heart rate from your phone or watch.' },
     { key: 'recovery', icon: 'bolt', title: 'Recovery', sub: 'A simple map of which muscles are ready to train again.' },
+    { key: 'activity', icon: 'figureRun', title: 'Activity indicators', sub: 'Three rings on Home: your training, your daily activity and your recovery.' },
+    { key: 'timeline', icon: 'chartLine', title: 'Progress timeline', sub: 'A short timeline of your latest sessions, records and milestones.' },
   ] },
   { id: 'experience', title: 'Experience', lead: 'Help and company along the way.', items: [
     { key: 'helps', icon: 'checkCircle', title: 'Visual hints', sub: 'Short explanations the first time you meet something new.' },

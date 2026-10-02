@@ -9,7 +9,7 @@ import './experience.css'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import WorkoutCover from '../components/WorkoutCover.jsx'
-import { glyphOf } from '../lib/glyphs.js'
+import HomeHero from '../components/HomeHero.jsx'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
@@ -101,11 +101,8 @@ export default function Home() {
   }
 
   return <div className="narrow">
-    <div className="home-hero">
-      <div className="home-hero-bg" />
-      <h1>{user ? t('Hi {0}', user.name) : '2J Fitness'}</h1>
-      <div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-    </div>
+    <HomeHero S={S} user={user} routine={routine} doneToday={doneToday} rescheduled={todayOvr}
+      week={{ done: wThisWeek, planned: plannedPerWeek, streak }} onToday={onToday} onWeek={() => calendarSheet()} now={today} />
 
     <NewsBlock />
 
@@ -118,21 +115,6 @@ export default function Home() {
         <button className="iconbtn" style={{ width: 30, height: 30, fontSize: 15 }} onClick={() => setWeekOffset(w => w + 1)} aria-label={t('Next week')}><Icon name="chevronRight" /></button>
       </div>
       <div className="week">{strip}</div>
-      <div className="today-row" onClick={onToday}>
-        <div className="row" style={{ gap: 9, minWidth: 0 }}>
-          <span className="lrow-i" style={{ background: S.active ? 'var(--orange)' : doneToday ? 'var(--green)' : routine ? 'var(--acc)' : 'var(--surface-3)' }}>
-            <Icon name={S.active ? 'timer' : doneToday ? 'check' : routine ? glyphOf(routine.emoji) : 'moon'} />
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <div className="lbl2">{t('Today')}</div>
-            <div className="ttl">{S.active ? t('{0} — in progress', S.active.name) : doneToday ? (routine ? routine.name : todaysWorkouts[0].name) : routine ? routine.name : t('Rest day')}{todayOvr && routine ? ' · ' + t('rescheduled') : ''}</div>
-          </div>
-        </div>
-        {S.active ? <span className="tag" style={{ color: 'var(--orange)', background: 'color-mix(in srgb,var(--orange) 16%,transparent)' }}>{t('Resume')}</span>
-          : doneToday ? <span className="tag" style={{ color: 'var(--green)', background: 'color-mix(in srgb,var(--green) 16%,transparent)' }}>{t('Done')}</span>
-          : routine ? <span className="tag acc">{t('Start')}</span>
-          : <Icon name="plus" className="chev" />}
-      </div>
     </div>
 
     {/* Entrena con 2J: one discreet way into the official guided routines (no extra tab). */}
@@ -143,19 +125,6 @@ export default function Home() {
         <span className="t2-promo-t">{t('Ready-to-start workouts: Tabata, HIIT, circuits, cardio and mobility.')}</span>
       </span>
       <Icon name="chevronRight" className="chev" />
-    </button>}
-
-    {/* Your week + constancy. Never a scolding: a streak that ended simply starts again. */}
-    {S.workouts.length > 0 && <button className="card tappable home-week" onClick={() => calendarSheet()} aria-label={t('Your week')}>
-      <div className="row between" style={{ alignItems: 'baseline' }}>
-        <span className="home-week-k">{t('Your week')}</span>
-        <span className="home-week-streak"><Icon name="flame" />{streak >= 1 ? t(streak === 1 ? '{0} week in a row' : '{0} weeks in a row', streak) : t('A new streak starts with your next workout')}</span>
-      </div>
-      <div className="home-week-v">{plannedPerWeek ? t('{0} of {1} workouts', wThisWeek, plannedPerWeek) : t(wThisWeek === 1 ? '{0} workout' : '{0} workouts', wThisWeek)}</div>
-      {plannedPerWeek > 0 && <div className="rk-bar" role="progressbar" aria-valuemin={0} aria-valuemax={plannedPerWeek} aria-valuenow={Math.min(wThisWeek, plannedPerWeek)}>
-        <i style={{ width: Math.min(100, Math.round(wThisWeek / plannedPerWeek * 100)) + '%', background: 'var(--acc)' }} />
-      </div>}
-      <div className="muted small" style={{ marginTop: 6 }}>{t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}</div>
     </button>}
 
     {coachOn && uxOn(S, 'coach') && <CoachCard nav={nav} />}

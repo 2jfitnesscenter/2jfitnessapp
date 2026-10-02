@@ -18,7 +18,7 @@ import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, TextArea, TextField, Avatar, Row, ChipSelect, Check, NumberField } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
-import BodyMap from './components/BodyMap.jsx'
+import PostWorkoutSummary from './components/PostWorkoutSummary.jsx'
 import { loadOfWorkouts, MUSCLE_GROUPS, musclePhotoUrl, musclesOf, muscleOptsOf, isInMuscleGroup, GROUP_TO_BODYPART } from './lib/muscles.js'
 import { evaluateBadges, evaluateBadgesIn } from './lib/badges.js'
 import BadgeCelebrationModal from './components/BadgeCelebrationModal.jsx'
@@ -2332,35 +2332,21 @@ function FinishSummary({ w, prs, e1prs = [], events = [], newBadges = [], close 
   const coachOn = !!useStore(s => s.config)?.coach?.enabled && !!st.coach?.consent?.agreedAt
   const nextProgram = useMemo(() => intelligenceRecommendations(st, { max: 6 }).find(r => r.type === 'PROGRAM_NEXT_SESSION'),
     [st.workouts, st.programs, st.activeProgramId])
-  return <div style={{ textAlign: 'center', padding: '8px 0' }}>
-    <div style={{ fontSize: 44, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}><Icon name="trophy" /></div>
-    <h3 style={{ margin: '8px 0' }}>{t('Workout complete!')}</h3>
-    {w.src2j && <div className="t2-done-line"><Icon name="checkCircle" />{t('2J workout completed')} · {t(w.src2j.name)}</div>}
-    <div className="tiles" style={{ textAlign: 'left' }}>
-      <div className="tile"><div className="l">{t('Duration')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtDur(w.end - w.start)}</div></div>
-      <div className="tile"><div className="l">{t('Volume')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtVol(w.vol, st.unit)}</div></div>
-      <div className="tile"><div className="l">{t('Sets')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{setsDone(w)}</div></div>
-      <div className="tile"><div className="l">{t('PRs')}</div><div className="v" style={{ fontSize: 20 }}>{events.filter(e => e.type === 'pr').length || '—'}</div></div>
-    </div>
-    {/* Records, ranks, achievements and consistency — one list, derived (lib/mi2j.js). Each row
-        opens the moment on its own, with sharing, without leaving this summary. */}
-    <div style={{ textAlign: 'left' }}><GuidedSummary guided={w.guided} /></div>
-    <div style={{ textAlign: 'left', marginBottom: 12 }}>
-      <EventsSummary events={events} unit={st.unit} onOpen={ev => openEventDetail(ev, w.d)} />
-    </div>
-    {nextProgram && uxOn(S(), 'suggestions') && <div className="intelligence-postworkout"><Icon name="sparkles" /><div><b>{t('Next in your program')}</b><p>{t(nextProgram.summary)} · {t('Continue when you are ready; nothing changes automatically.')}</p>
-      <button className="btn tinted" type="button" onClick={() => { close(); nav(nextProgram.action.route) }}>{t('View program')}</button></div></div>}
-    <h4 className="sec" style={{ textAlign: 'left' }}>{t('What you just trained')}</h4>
-    <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(st))} body={st.body} />
-    {coachOn && <SessionRating w={w} />}
-    <div style={{ height: 14 }} />
-    <Button variant="tinted" icon="upload" onClick={() => shareCardSheet(w, prs, e1prs, newBadges)}>{t('Share workout')}</Button>
-    <div style={{ height: 8 }} />
-    {/* Badges unlocked by this workout are rows in the list above (an import, which has no
-        summary, still goes through celebrateBadges). Leaving the summary is what marks the
-        workout's moments as seen on this device. */}
-    <Button variant="primary" onClick={() => { markSeen(localStorage, celebrationUid(), w.id); close(); nav('/home') }}>{t('Nice!')}</Button>
-  </div>
+  // Leaving the summary is what marks the workout's moments as seen on this device. Badges unlocked by this workout are rows in
+  // the events list (an import, which has no summary, still goes through celebrateBadges).
+  const leave = to => { markSeen(localStorage, celebrationUid(), w.id); close(); nav(to) }
+  // The layout lives in components/PostWorkoutSummary.jsx (presentation only, rendered after the workout is saved).
+  return <PostWorkoutSummary w={w} S={st} events={events}
+    onOpenEvent={ev => openEventDetail(ev, w.d)}
+    extra={<>
+      <GuidedSummary guided={w.guided} />
+      {nextProgram && uxOn(S(), 'suggestions') && <div className="intelligence-postworkout"><Icon name="sparkles" /><div><b>{t('Next in your program')}</b><p>{t(nextProgram.summary)} · {t('Continue when you are ready; nothing changes automatically.')}</p>
+        <button className="btn tinted" type="button" onClick={() => { close(); nav(nextProgram.action.route) }}>{t('View program')}</button></div></div>}
+    </>}
+    rating={coachOn && <SessionRating w={w} />}
+    onShare={() => shareCardSheet(w, prs, e1prs, newBadges)}
+    onSeeProgress={() => leave('/stats')}
+    onDone={() => leave('/home')} />
 }
 // A shareable PNG of the just-finished session (or, from the badge celebration's own trigger,
 // still the current `w` closed over there) — 9:16 by default with a 1:1 toggle, rendered

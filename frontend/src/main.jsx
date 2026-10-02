@@ -6,6 +6,8 @@ import { nav } from './lib/nav.js'
 import { loadStartupLanguage } from './lib/i18n.js'
 import { useStore } from './store/useStore.js'
 import './index.css'
+import './v2.css'
+import './v2-screens.css'
 
 // The store synchronously restores gym_state_v1 from localStorage. Load its locale pack
 // before React's first render so users never see the English source strings flash on boot.

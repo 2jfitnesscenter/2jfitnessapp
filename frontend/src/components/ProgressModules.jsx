@@ -8,9 +8,10 @@ import { setsDone } from '../lib/history.js'
 import { t } from '../lib/i18n.js'
 import { workoutDetailSheet, openEventDetail } from '../sheets.jsx'
 import Icon from './Icon.jsx'
-import BodyMap, { BodyMapLegend } from './BodyMap.jsx'
+import BodyMap from './BodyMap.jsx'
+import BodyMapPanel from './BodyMapPanel.jsx'
 import { EventRow } from './Mi2JEvents.jsx'
-import { loadOfWorkouts, muscleOptsOf, MUSCLE_NAME } from '../lib/muscles.js'
+import { loadOfWorkouts, muscleOptsOf } from '../lib/muscles.js'
 import { daysSinceBioimpedance, MEASUREMENTS } from '../lib/measurements.js'
 import { latestAdvance, closestGoal } from '../lib/mi2j.js'
 import { TIER_COLOR, rankLabel, rankEmblemUrl, RANK_GROUP_NAME } from '../lib/rank.js'
@@ -27,22 +28,14 @@ import { mergeSeries } from '../lib/import-csv.js'
 // already lets you do for a wider window. Opened as a 'full' sheet (Modals.jsx) since a
 // pinch-to-read body map is exactly the kind of thing a bottom sheet's own max-height cuts off.
 export function WorkoutBodyMapModal({ w, S, close }) {
-  const [sel, setSel] = useState(null)
   const load = loadOfWorkouts([w], null, muscleOptsOf(S))
-  const sets = m => Math.round((load[m] || 0) * 10) / 10
   return <div className="narrow">
     <div className="hdr">
       <button className="iconbtn" onClick={close} aria-label={t('Close')}><Icon name="xmark" /></button>
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{w.name}</h1></div>
     </div>
     <div className="card">
-      <BodyMap className="tappable" load={load} body={S.body} selected={sel}
-        onMuscle={m => setSel(s => (s === m ? null : m))} />
-      <BodyMapLegend />
-      {sel && <div className="mrow" style={{ borderTop: 'var(--hair) solid var(--sep)', marginTop: 4, paddingTop: 10 }}>
-        <span className="nm"><b>{t(MUSCLE_NAME[sel])}</b></span>
-        <span className="v">{sets(sel) ? t('{0} sets', sets(sel)) : t('not trained')}</span>
-      </div>}
+      <BodyMapPanel load={load} body={S.body} top={5} />
     </div>
   </div>
 }

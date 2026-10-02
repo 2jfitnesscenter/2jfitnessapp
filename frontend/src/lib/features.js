@@ -13,7 +13,7 @@
 // Keep in sync with api/lib/features-store.js (a test compares the two lists).
 export const FEATURE_KEYS = [
   'coach', 'suggestions', 'effort', 'volume', 'train2j', 'health', 'bioimpedance', 'recovery',
-  'bodyweight', 'social', 'chat', 'friends', 'challenges',
+  'bodyweight', 'social', 'chat', 'friends', 'challenges', 'activity', 'timeline',
 ]
 
 // Admin screen: grouped, plain-language. `icon` is an existing Icon name.
@@ -29,6 +29,8 @@ export const FEATURE_GROUPS = [
     { key: 'bioimpedance', icon: 'figureStrength', label: 'Bioimpedance & measurements', sub: 'Body composition, tape measurements and scan reminders' },
     { key: 'health', icon: 'heart', label: 'Health & daily activity', sub: 'Steps, sleep, heart rate, Apple Health / Health Connect, Whoop' },
     { key: 'recovery', icon: 'bolt', label: 'Recovery', sub: 'Muscle recovery map and score' },
+    { key: 'activity', icon: 'figureRun', label: 'Activity indicators', sub: 'Training, activity and recovery rings on Home' },
+    { key: 'timeline', icon: 'chartLine', label: 'Progress timeline', sub: 'Recent sessions, records and milestones in Progress' },
   ] },
   { title: 'Experience', keys: [
     { key: 'coach', icon: 'sparkles', label: 'AI Coach', sub: 'Plan design and adjustments by the Coach (needs a provider)' },
@@ -40,7 +42,7 @@ export const FEATURE_GROUPS = [
 ]
 
 // What a member can switch for themselves (a subset, plus `helps`, which is theirs alone — no admin switch).
-export const USER_PREFS = ['effort', 'volume', 'suggestions', 'coach', 'recovery', 'bodyweight', 'bioimpedance', 'health', 'train2j', 'social', 'helps']
+export const USER_PREFS = ['effort', 'volume', 'suggestions', 'coach', 'recovery', 'bodyweight', 'bioimpedance', 'health', 'train2j', 'social', 'activity', 'timeline', 'helps']
 // Features whose member choice is another preference.
 const PREF_OF = { chat: 'social', friends: 'social', challenges: 'social' }
 
@@ -69,9 +71,9 @@ export const configurable = () => USER_PREFS.filter(k => k === 'helps' || allowe
 
 // Ready-made starting points for the visual onboarding (the member can adjust every card afterwards).
 export const PRESETS = {
-  simple: { effort: false, volume: false, suggestions: false, coach: false, recovery: false, bodyweight: false, bioimpedance: false, health: false, train2j: true, social: true, helps: true },
-  balanced: { effort: false, volume: false, suggestions: true, coach: false, recovery: true, bodyweight: true, bioimpedance: false, health: false, train2j: true, social: true, helps: true },
-  complete: { effort: true, volume: true, suggestions: true, coach: true, recovery: true, bodyweight: true, bioimpedance: true, health: true, train2j: true, social: true, helps: true },
+  simple: { effort: false, volume: false, suggestions: false, coach: false, recovery: false, bodyweight: false, bioimpedance: false, health: false, activity: false, timeline: false, train2j: true, social: true, helps: true },
+  balanced: { effort: false, volume: false, suggestions: true, coach: false, recovery: true, bodyweight: true, bioimpedance: false, health: false, activity: true, timeline: false, train2j: true, social: true, helps: true },
+  complete: { effort: true, volume: true, suggestions: true, coach: true, recovery: true, bodyweight: true, bioimpedance: true, health: true, activity: true, timeline: true, train2j: true, social: true, helps: true },
 }
 
 /** What to store in S.ux. `uses` only keeps the preferences the member can actually set. */

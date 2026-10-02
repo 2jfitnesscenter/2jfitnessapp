@@ -11,6 +11,7 @@ import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
 import RecoveryCard from '../components/RecoveryCard.jsx'
+import ProgressTimeline from '../components/ProgressTimeline.jsx'
 import { loadOfWorkouts, rankOf, MUSCLE_NAME, MUSCLE_GROUPS, muscleOptsOf } from '../lib/muscles.js'
 import { weeklyGroupVolume, landmarksFor, zoneForVolume, ZONE_META, LEVELS } from '../lib/rp-volume.js'
 import { e1rmSeries, best1RM } from '../lib/onerm.js'
@@ -78,8 +79,11 @@ function MuscleBalance({ S }) {
     <Segmented className="seg-range" value={win} onChange={v => { setWin(v); setSel(null) }}
       options={[{ value: 7, label: t('Week') }, { value: 30, label: '30d' }, { value: 90, label: '90d' }, { value: 0, label: t('All') }]} />
     {inWin.length ? <>
-      <BodyMap className="tappable" load={load} body={S.body} selected={sel}
-        onMuscle={m => setSel(s => (s === m ? null : m))} />
+      <div className="v2-bmp-map">
+        <BodyMap className="tappable bm-premium" load={load} body={S.body} selected={sel}
+          onMuscle={m => setSel(s => (s === m ? null : m))} />
+        <div className="v2-bmp-cap" aria-hidden="true"><span>{t('Front view')}</span><span>{t('Back view')}</span></div>
+      </div>
       <BodyMapLegend />
       {sel && <div className="mrow" style={{ borderTop: 'var(--hair) solid var(--sep)', marginTop: 4, paddingTop: 10 }}>
         <span className="nm"><b>{t(MUSCLE_NAME[sel])}</b></span>
@@ -321,6 +325,7 @@ export default function Stats() {
     </div>
 
     <ProgressInsights S={S} nav={nav} />
+    <ProgressTimeline S={S} />
 
     {S.workouts.length > 0 && <div className="home-grid2">
       <LastWorkoutCard S={S} />

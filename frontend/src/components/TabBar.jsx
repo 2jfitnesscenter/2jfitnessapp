@@ -22,8 +22,8 @@ export default function TabBar() {
   // test session, the clock) now lives.
   const startWorkout = () => { S.active ? nav('/workout') : actionsSheet() }
   const Tab = ({ k, icon, to, label }) => (
-    <button className={on(k) ? 'on' : ''} onClick={() => nav(to)}>
-      <Icon name={icon} /><span>{label}</span>
+    <button className={on(k) ? 'on' : ''} aria-current={on(k) ? 'page' : undefined} onClick={() => nav(to)}>
+      <span className="tb-ic"><Icon name={icon} /></span><span className="tb-l">{label}</span>
     </button>
   )
 

@@ -59,7 +59,7 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('Home stays simple', () => {
   it('no recovery, body map, weight logging, latest-step or goal cards on Home — for anybody', async () => {
-    await seed({ ...HISTORY(), bodyweight: [{ d: '2026-09-01', w: 80, t: 1 }], measurements: COMPOSITION })
+    await seed({ ...HISTORY(), ux: { v: 1, at: 1, uses: { activity: false } }, bodyweight: [{ d: '2026-09-01', w: 80, t: 1 }], measurements: COMPOSITION })
     const html = await render(views.Home)
     expect(html).toContain('Your week')
     for (const gone of ['Recovery', 'Last workout', 'Body weight', 'Latest step forward', 'Close to', 'Time for a new scan', 'Whoop recovery']) expect(html).not.toContain(gone)

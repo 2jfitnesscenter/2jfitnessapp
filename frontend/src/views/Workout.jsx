@@ -5,13 +5,14 @@ import GymProfile, { GymCompatibility } from '../components/GymProfile.jsx'
 import { compatibleWithGym } from '../lib/gym-profiles.js'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
-import { effectiveRoutine, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, effortOf, feelFor, effortColor, EFFORT_COLOR_VAR, fmtSec } from '../lib/history.js'
+import { effectiveRoutine, workingSets, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, effortOf, feelFor, effortColor, EFFORT_COLOR_VAR, fmtSec } from '../lib/history.js'
 import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN, ageFrom } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { t, nameFor, instrFor } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
+import ExerciseMeta from '../components/ExerciseMeta.jsx'
 import { startFlow, exercisePicker, alternativesSheet, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet } from '../sheets.jsx'
 import { handoffToBunker } from '../lib/bunker-api.js'
 import Icon from '../components/Icon.jsx'
@@ -243,6 +244,11 @@ function targetLine(entry, unit) {
   const reps = tg.targetRepsMin != null && tg.targetRepsMax != null ? `${tg.targetRepsMin}-${tg.targetRepsMax}` : (tg.reps || '')
   return `${sets} × ${reps} ${t('reps')}` + (tg.targetRIR != null ? ' · RIR ' + fmtNum(tg.targetRIR) : plannedRpe(tg))
 }
+// The previous session's first working set, as the member logged it ("80 kg × 8"); null without history.
+const lastWorkingText = (id, last) => {
+  const p = last ? workingSets(last.sets)[0] : null
+  return p ? setLabel(id, { ...p, rpe: undefined, rir: undefined }, last.target) : null
+}
 // The trainer's planned effort on the 2J scale (4/6/8/10) — "RPE 8" when every set is the same,
 // "RPE 8·8·10" when the last set is meant to go further. Never converted to RIR.
 // Rest after a set: the trainer's prescribed rest for this exercise (Constructor V2 / 2J
@@ -372,13 +378,8 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, prefs, onToggle
       </div>
     </div>
     {!S.active?.past && !compatibleWithGym(S, ex) && <button className="chip" onClick={onReplace}><GymCompatibility ex={ex} /> · {t('Change exercise')}</button>}
-    <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-      {cardio && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
-      <span className="tag nocap">{targetLine(entry, S.unit)}</span>
-      {(ex.tg || ex.bp) && <span className="tag">{t(ex.tg || ex.bp)}</span>}
-      {ex.eq && <span className="tag">{t(ex.eq)}</span>}
-      {best > 0 && <span className="tag nocap">{t('Best:')} {fmtNum(best)} {S.unit}</span>}
-    </div>
+    <ExerciseMeta ex={ex} cardio={cardio} target={targetLine(entry, S.unit)} rest={restSecondsFor(entry, S)} best={best} unit={S.unit}
+      lastText={lastWorkingText(entry.id, last)} />
     {rpGroup && rpLandmarks && <RpVolumeBar
       groupName={t(MUSCLE_GROUPS.find(g => g.key === rpGroup)?.name || rpGroup)}
       sets={rpVolume} landmarks={rpLandmarks} />}
@@ -468,7 +469,7 @@ function SimpleExercise({ entryIdx, unitEntries, ssInfo, prefs, onToggle, onPad,
         </button>
       })}
     </div>}
-    <div className="shero">
+    <div className="shero" key={entryIdx}>
       {prefs.images && <Media ex={ex} key={entry.id} compact minimizable />}
       <div className="shero-name">
         <h2 className="exname">{nameFor(ex)}</h2>
@@ -476,8 +477,8 @@ function SimpleExercise({ entryIdx, unitEntries, ssInfo, prefs, onToggle, onPad,
       </div>
       {!S.active?.past && !compatibleWithGym(S, ex) && <button className="chip" onClick={onReplace}><GymCompatibility ex={ex} /> · {t('Change exercise')}</button>}
       <div className="shero-meta">
-        {mode === 'cardio' && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
-        <span className="tag nocap"><Icon name="target" />{targetLine(entry, S.unit)}</span>
+        <ExerciseMeta ex={ex} cardio={mode === 'cardio'} target={targetLine(entry, S.unit)} rest={restSecondsFor(entry, S)} unit={S.unit}
+          lastText={lastWorkingText(entry.id, last)} />
         <button className="tag swap nocap" onClick={onReplace}><Icon name="shuffle" />{t('Change exercise')}</button>
       </div>
       {/* the trainer's note sits above the set — it is part of what to do right now */}
