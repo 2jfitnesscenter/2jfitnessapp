@@ -147,6 +147,12 @@ function Shell() {
     return () => mq.removeEventListener('change', onChange)
   }, [S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur, S.textScale])
   useEffect(() => { setLang(S.lang || 'es') }, [S.lang])
+  // Health energy reconciliation for workouts finished earlier (no-op without a native shell or consent).
+  useEffect(() => {
+    if (!user?.id) return
+    const id = setTimeout(() => { import('./lib/energy-reconcile.js').then(m => m.runEnergyReconcile({ getState: useStore.getState, update: useStore.getState().update })).catch(() => {}) }, 5000)
+    return () => clearTimeout(id)
+  }, [user?.id])
   useEffect(() => { document.documentElement.lang = S.lang || 'es' }, [langV, S.lang])
   // every tab/route change starts at the top of the page
   useEffect(() => { window.scrollTo(0, 0) }, [loc.pathname])

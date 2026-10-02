@@ -128,7 +128,7 @@ describe('what crosses the bridge is validated and whitelisted', () => {
     const many = Array.from({ length: MAX_SESSIONS + 20 }, (_, i) => androidSession({ metadata: { id: 'id' + i } }))
     const r = recordsFrom(many, NOW)
     expect(r.records).toHaveLength(MAX_SESSIONS); expect(r.rejected).toBe(20)
-    expect(recordsFrom('nope', NOW)).toEqual({ records: [], rejected: 0 })
+    expect(recordsFrom('nope', NOW)).toEqual({ records: [], rejected: 0, own: 0 })
   })
   it('read ignores sessions outside the requested window even if the shell returns them', async () => {
     const oldStart = NOW - 100 * 86400e3, oldEnd = oldStart + 60 * 60e3

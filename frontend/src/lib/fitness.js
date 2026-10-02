@@ -23,13 +23,14 @@
 
 export const SOURCE_NAME = {
   healthconnect: 'Health Connect', healthkit: 'Apple Health', apple: 'Apple Health', whoop: 'WHOOP',
-  ble: 'Bluetooth sensor', strava: 'Strava',
+  ble: 'Bluetooth sensor', strava: 'Strava', twoj: '2J estimate',
 }
 // Which source leads when several saw the same session. The phone's health hub is the most
 // direct record of what the watch measured; a Bluetooth strap read live by 2J next; the rest
 // are other apps' copies. Calories/HR are never added up across sources.
-const PRIORITY = { healthkit: 1, healthconnect: 1, apple: 2, ble: 3, whoop: 4, strava: 5 }
-const prio = r => PRIORITY[r.source] || 9
+const PRIORITY = { healthkit: 1, healthconnect: 1, apple: 2, ble: 3, whoop: 4, strava: 5, twoj: 11 }
+// A store-wide total over the workout's interval (energyKind 'aggregated') never outranks a record of the session itself.
+const prio = r => (PRIORITY[r.source] || 9) + (r.energyKind === 'aggregated' ? 0.5 : 0)
 
 // Known Health Connect data origins (package names) → a readable app name. Unknown packages are
 // shown as their package name, never guessed.

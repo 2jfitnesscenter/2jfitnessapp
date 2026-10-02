@@ -9,7 +9,9 @@ import { fmtDate } from '../lib/format.js'
 import { connectWhoop, disconnectWhoop, fetchWhoopWorkouts } from '../lib/whoop-api.js'
 import { mapWhoopWorkout, matchAll, attachFitness, fitnessSources } from '../lib/fitness.js'
 import { bleSupported } from '../lib/ble-hr.js'
-import { getBridge, bridgeState, connectBridge, readBridge, applyMatches, disconnectBridge, platformLabel, shouldShowManualHealthConnectHelp } from '../lib/health-bridge.js'
+import { getBridge, bridgeState, connectBridge, readBridge, applyMatches, disconnectBridge, platformLabel, shouldShowManualHealthConnectHelp,
+  bridgeCanWrite, writeState, connectWrite, disconnectWrite, retryPendingExports, readDailyActivity, dailyActivity } from '../lib/health-bridge.js'
+import { runEnergyReconcile } from '../lib/energy-reconcile.js'
 import { importFromApp, confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, Button } from '../components/ui.jsx'
@@ -77,6 +79,8 @@ export default function HealthIntegrations() {
   // or the installed PWA, and then none of this renders: the screen stays as it was.
   const bridge = getBridge()
   const bstate = bridgeState(user?.id)
+  const wstate = writeState(user?.id)
+  const daily = bstate.enabled ? dailyActivity(user?.id) : null
   const connectNative = async () => {
     const ownerId = user?.id
     setShowManualHealthConnectHelp(false)
@@ -108,10 +112,25 @@ export default function HealthIntegrations() {
       }
       let attached = 0
       if (res.match.length) update(s => { attached = applyMatches(s, res) })
+      await readDailyActivity({ uid: ownerId, bridge })
+      await runEnergyReconcile({ getState: useStore.getState, update: useStore.getState().update, bridge })
+      if (bridgeCanWrite(bridge) && writeState(ownerId).enabled) await retryPendingExports({ uid: ownerId, workouts: useStore.getState().S.workouts, S: useStore.getState().S, bridge })
       toast(t('{0} linked · {1} already linked · {2} without a matching workout', attached, res.linked.length, res.none.length))
       if (res.ambiguous.length) useUI.getState().openSheet(close => <AmbiguousSheet items={res.ambiguous} close={close} ownerId={ownerId} />)
     } finally { setBusy(false) }
   }
+  const connectNativeWrite = async () => {
+    const ownerId = user?.id
+    setBusy(true)
+    try {
+      const r = await connectWrite({ uid: ownerId, bridge })
+      if (useStore.getState().user?.id !== ownerId) return
+      toast(r.status === 'connected' ? t('2J will send the workouts you finish to Health.') : r.status === 'denied' ? t('Permission not granted. Nothing was written.') : t('Health is not available on this device'))
+    } finally { setBusy(false) }
+  }
+  const disconnectNativeWrite = () => confirmSheet({
+    title: t('Stop sending workouts?'), message: t('2J stops writing to Health. Workouts already sent stay there; 2J never edits or deletes them.'),
+    confirmText: t('Stop'), danger: true, onConfirm: () => { disconnectWrite(user?.id); setBusy(false) } })
   const disconnectNative = () => confirmSheet({
     title: t('Turn off {0}?', t(platformLabel(bridge))), message: t('2J stops reading it on this device. Workouts already linked keep their data. To revoke access completely, use your phone’s Health settings.'),
     confirmText: t('Turn off'), danger: true, onConfirm: () => disconnectBridge(user?.id) })
@@ -129,6 +148,11 @@ export default function HealthIntegrations() {
         <Row icon="xmark" iconTint="var(--grey)" title={t('Turn off {0}', t(platformLabel(bridge)))} onClick={disconnectNative} />
       </> : <Row icon="heart" iconTint="var(--red)" title={t('Connect {0}', t(platformLabel(bridge)))}
         subtitle={t('You choose what to allow in the next screen')} accessory="chevron" onClick={busy ? undefined : connectNative} />}
+      {bstate.enabled && daily && <Row icon="flame" iconTint="var(--orange)" title={t('Today')}
+        subtitle={[daily.steps != null ? t('{0} steps', daily.steps) : null, daily.activeKcal != null ? t('{0} active kcal', daily.activeKcal) : null].filter(Boolean).join(' · ') + ' · ' + t('active calories, not total daily expenditure')} />}
+      {bridgeCanWrite(bridge) && (wstate.enabled
+        ? <Row icon="upload" iconTint="var(--red)" title={t('Sending 2J workouts to {0}', t(platformLabel(bridge)))} subtitle={t('Only workouts you finish in 2J. On Android, if Health still has no calories for one after about 15 min, 2J adds a labelled estimate.')} accessory="chevron" onClick={disconnectNativeWrite} />
+        : <Row icon="upload" iconTint="var(--red)" title={t('Send 2J workouts to {0}', t(platformLabel(bridge)))} subtitle={t('Optional and separate from reading. Off until you allow it.')} accessory="chevron" onClick={busy ? undefined : connectNativeWrite} />)}
       {showManualHealthConnectHelp && bridge.platform === 'android' && <div role="status" className="muted small" style={{ padding: '10px 14px 14px', lineHeight: 1.45 }}>
         {t('To allow access manually, open Settings → Health Connect → App access → 2J Fitness. The wording may vary by Android version.')}
       </div>}

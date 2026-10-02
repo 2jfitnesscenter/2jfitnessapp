@@ -63,10 +63,15 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Health Connect — READ ONLY. No write permission is requested anywhere: 2J never writes to the
-         health store. Each one is asked only from the in-app "Connect" tap and can be denied one by one
-         (calories and heart rate are optional; workouts are the minimum). -->
+    <!-- Health Connect. READ (workouts are the minimum; calories, heart rate and steps are optional) is asked from the
+         in-app "Connect" tap; WRITE is a separate consent. Each can be denied one by one. 2J never deletes or edits
+         records it did not create and never writes calories or distance. -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <!-- WRITE: only the workout session itself, only after the person turns on "send 2J workouts to Health". -->
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <!-- WRITE: a labelled 2J ESTIMATE of active calories, only if the aggregate has zero external energy for the workout after a grace period; deleted if an external source appears. -->
+    <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED" />
 </manifest>

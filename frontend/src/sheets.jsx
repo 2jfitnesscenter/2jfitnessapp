@@ -61,6 +61,8 @@ import PendingExerciseChoices from './components/PendingExerciseChoices.jsx'
 import { fetchFriendCode, resetFriendCode, sendFriendRequest } from './lib/friends-api.js'
 import { startThread } from './lib/chat-api.js'
 import { sendWorkoutToStrava } from './lib/strava-api.js'
+import { exportWorkout as exportWorkoutToHealth } from './lib/health-bridge.js'
+import { scheduleEnergy, runEnergyReconcile, GRACE_MS } from './lib/energy-reconcile.js'
 import { fetchRoutineVersions, fetchProgramVersions } from './lib/trainer-api.js'
 
 const S = () => useStore.getState().S
@@ -2542,6 +2544,15 @@ async function doFinishWorkout({ automatic = false } = {}) {
   if (!automatic) useStore.getState().clearActiveOnServer(A.id)
   // No-ops server-side if Strava isn't connected — never surface a failure into this flow.
   sendWorkoutToStrava(w).catch(() => {})
+  // Optional, with its own consent, and never in the way: a failed export is queued and retried; the workout is already saved.
+  // A retroactive log (A.past) was not trained live, so it is not offered to Health.
+  if (!A.past) {
+    const uid = useStore.getState().user?.id
+    exportWorkoutToHealth({ uid, workout: w, S: S() }).catch(() => {})
+    // Energy: never duplicated. Looked at again after a grace period (and on later opens/syncs); a 2J estimate is written only
+    // if the health store still has none, and replaced if something better arrives. Best effort, never in the way of the finish.
+    if (scheduleEnergy({ uid, workout: w })) setTimeout(() => runEnergyReconcile({ getState: useStore.getState, update: useStore.getState().update }).catch(() => {}), GRACE_MS + 30e3)
+  }
   useUI.getState().stopRest()
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
   // Mi 2J: derive what this workout earned from the state that now contains it — the same
