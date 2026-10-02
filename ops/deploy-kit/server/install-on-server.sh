@@ -21,8 +21,8 @@ if ! id "$U" >/dev/null 2>&1; then
 fi
 # sshd runs a forced command through the account's login shell, so the shell must be a real one (never nologin/false). A human
 # still gets no shell: authorized_keys forces the gate with `restrict` (no pty) and the password is unusable.
-# The password field is '*' (matches no password), NOT '!' / `passwd -l`: sshd with UsePAM can refuse a '!'-locked account even
-# for public-key logins.
+# The password field is '*' (matches no password) instead of a '!' lock: some UsePAM setups refuse '!'-locked accounts even for
+# public-key logins (defensive; it was not the cause of the first failed bootstrap — that was a passphrase on the local key).
 usermod --shell /bin/bash --password '*' --expiredate '' --inactive -1 "$U"
 home=$(getent passwd "$U" | cut -d: -f6)
 [[ "$home" == /home/deploy2j ]] || { echo "unexpected home: $home" >&2; exit 1; }

@@ -14,7 +14,9 @@ $key = Join-Path $ssh $KeyName
 $pub = "$key.pub"
 
 if (-not (Test-Path -LiteralPath $key)) {
-  & ssh-keygen -q -t ed25519 -a 64 -N '""' -C "2jfitness-deploy@$($env:COMPUTERNAME)" -f $key
+  # NO passphrase. Do not pass -N '""' from PowerShell: it reaches ssh-keygen as the two literal characters "" and the key gets
+  # a passphrase, after which every BatchMode login fails at signing time. cmd.exe passes a real empty string.
+  & cmd.exe /d /c "ssh-keygen -q -t ed25519 -a 64 -N `"`" -C 2jfitness-deploy@$($env:COMPUTERNAME) -f `"$key`""
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $pub)) { throw 'ssh-keygen failed' }
   Write-Host "KEY_CREATED=$key"
 } else { Write-Host "KEY_EXISTS=$key" }

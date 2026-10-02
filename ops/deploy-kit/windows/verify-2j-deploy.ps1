@@ -14,8 +14,9 @@ foreach ($bad in @('id', 'whoami', 'bash', 'cat /etc/passwd', 'sudo -n true', 'l
   $r = Ssh2j @($bad)
   Check "refused: '$bad'" ($r.Code -ne 0 -and $r.Out -match 'refused|not allowed') $r.Out
 }
+# only meaningful once authentication works: the gate itself must answer "refused" to a session without a command
 $r = & ssh -o BatchMode=yes -tt 2j-prod 2>&1 | Out-String
-Check 'no interactive shell' ($LASTEXITCODE -ne 0 -and $r -notmatch '\$ $') $r
+Check 'no interactive shell (session without command is refused by the gate)' ($LASTEXITCODE -ne 0 -and $r -match 'PTY allocation request failed|refused' -and $r -notmatch 'Permission denied') $r
 
 # a wrong run request reaches the wrapper (through sudo) and is refused for missing files — proving the sudo path works, with no side effect
 $r = Ssh2j @('run 0000000 0000000 00000000000000000000000000000000')
