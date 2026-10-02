@@ -84,6 +84,26 @@ export default function Settings() {
       <div><h1>{t('Settings')}</h1></div>
     </div>
 
+    {(MOBILE || DEMO || user) && <h3 className="set-grp">{t('Account')}</h3>}
+    {/* ---------- account (guests create/sign in from Perfil; nothing to show here until
+         there's an account, or on the demo/mobile builds, which have their own message) ---------- */}
+    {(MOBILE || DEMO || user) && (
+      <Section title={MOBILE ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
+        {MOBILE ? <>
+          <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
+        </> : DEMO ? <>
+          <Row icon="sparkles" iconTint="var(--acc)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
+          <Row icon="reset" iconTint="var(--blue)" title={t('Reset demo data')} accessory="chevron"
+            onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
+        </> : <>
+          <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
+          {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
+          <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
+          <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
+        </>}
+      </Section>
+    )}
+
     <h3 className="set-grp">{t('My experience')}<span>{t('What you see in 2J, your way')}</span></h3>
     <Section footer={t('Your gym may switch some features off for everyone; the rest is yours to show or hide. Nothing is deleted.')}>
       <Row icon="sparkles" iconTint="var(--acc)" title={t('Personalise my experience')}
@@ -273,26 +293,6 @@ export default function Settings() {
       <Row icon="users" iconTint="var(--blue)" title={t('Social preferences')} subtitle={t('Who sees your activity and what you share')} accessory="chevron" onClick={() => nav('/social/preferences')} />
     </Section>
     </>}
-
-    {(MOBILE || DEMO || user) && <h3 className="set-grp">{t('Account')}</h3>}
-    {/* ---------- account (guests create/sign in from Perfil; nothing to show here until
-         there's an account, or on the demo/mobile builds, which have their own message) ---------- */}
-    {(MOBILE || DEMO || user) && (
-      <Section title={MOBILE ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
-        {MOBILE ? <>
-          <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
-        </> : DEMO ? <>
-          <Row icon="sparkles" iconTint="var(--acc)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
-          <Row icon="reset" iconTint="var(--blue)" title={t('Reset demo data')} accessory="chevron"
-            onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
-        </> : <>
-          <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
-          {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
-          <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
-          <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
-        </>}
-      </Section>
-    )}
 
     <h3 className="set-grp">{t('Advanced')}<span>{t('Data, backups and resets')}</span></h3>
     {/* ---------- data: fill it, bring things over, back it up, wipe it ---------- */}

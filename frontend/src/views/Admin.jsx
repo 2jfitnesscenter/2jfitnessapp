@@ -10,9 +10,6 @@ import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented, ChipSelect, Switch, Row } from '../components/ui.jsx'
 import ScanUpload from '../components/ScanUpload.jsx'
-import AdminCoach from './AdminCoach.jsx'
-import AdminTrainerAI from './AdminTrainerAI.jsx'
-import AdminAuxAI from './AdminAuxAI.jsx'
 import AdminIntegrations from './AdminIntegrations.jsx'
 import AdminFollowUp from './AdminFollowUp.jsx'
 import { EXDB, EXIDX, equipmentOf, setUnavailableEquipment } from '../lib/exercises.js'
@@ -595,6 +592,9 @@ export default function Admin() {
       sub={invites ? t('{0} unused · {1} redeemed', invites.filter(i => !i.usedBy).length, invites.filter(i => i.usedBy).length) : t('Loading…')}
       onClick={() => openSheet(close => <InvitesSheet invites={invites} reload={loadInvites} close={close} />)} />
 
+    <AdminNavCard icon="sparkles" tint="var(--purple)" title={t('Artificial intelligence')}
+      sub={t('AI Coach, trainer panel AI and auxiliary AI — status and controls')} onClick={() => nav('/admin/ai')} />
+
     <AdminNavCard icon="gear" tint="var(--indigo)" title={t('App features')}
       sub={t('Choose which modules your gym offers to members')} onClick={() => nav('/admin/features')} />
 
@@ -607,12 +607,6 @@ export default function Admin() {
     <ExerciseLibraryNav />
 
     <EquipmentAvailabilityNav />
-
-    <AdminCoach />
-
-    <AdminTrainerAI />
-
-    <AdminAuxAI />
 
     <AdminIntegrations />
   </div>

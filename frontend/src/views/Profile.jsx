@@ -14,7 +14,7 @@ import { resizeImageFile, mediaUrl } from '../lib/media.js'
 import { globalRank, TIER_COLOR, rankLabel, rankEmblemUrl } from '../lib/rank.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
-import { MUSCLES, MUSCLE_LABEL } from '../lib/muscle-priority.js'
+import { MUSCLE_LABEL } from '../lib/muscle-priority.js'
 import { t } from '../lib/i18n.js'
 import './experience.css'
 import Icon from '../components/Icon.jsx'
@@ -125,33 +125,11 @@ export default function Profile() {
       </Row>
     </Section>
 
-    {/* ---------- muscle priorities — asked at registration, editable here, read by the quick
-         PPL plan and the AI Coach ---------- */}
-    <Section title={t('Training priorities')} footer={t('Optional. The quick plan and the AI Coach give these a little more work than the rest.')}>
-      <div style={{ padding: '2px 16px 4px' }}>
-        <div className="dim small" style={{ marginBottom: 6 }}>{t('What do you want to prioritize? (up to 2)')}</div>
-        <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
-          {MUSCLES.map(m => <button key={m} className={'chip' + ((S.priorityMuscles || []).includes(m) ? ' on' : '')}
-            onClick={() => update(s => {
-              const v = s.priorityMuscles || []
-              s.priorityMuscles = v.includes(m) ? v.filter(x => x !== m) : v.length < 2 ? [...v, m] : v
-              s.secondaryMuscles = (s.secondaryMuscles || []).filter(x => x !== m)
-            })}>{t(MUSCLE_LABEL[m])}</button>)}
-        </div>
-        <div className="dim small" style={{ margin: '12px 0 6px' }}>{t('Anything else? (up to 3)')}</div>
-        <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
-          {MUSCLES.map(m => {
-            const isPrimary = (S.priorityMuscles || []).includes(m)
-            return <button key={m} className={'chip' + ((S.secondaryMuscles || []).includes(m) ? ' on' : '')}
-              disabled={isPrimary} style={isPrimary ? { opacity: .35 } : undefined}
-              onClick={() => update(s => {
-                const v = s.secondaryMuscles || []
-                s.secondaryMuscles = v.includes(m) ? v.filter(x => x !== m) : v.length < 3 ? [...v, m] : v
-                s.priorityMuscles = (s.priorityMuscles || []).filter(x => x !== m)
-              })}>{t(MUSCLE_LABEL[m])}</button>
-          })}
-        </div>
-      </div>
+    {/* ---------- training priorities — the two pickers live on their own screen (views/TrainingPriorities.jsx) ---------- */}
+    <Section>
+      <Row icon="target" iconTint="var(--acc)" title={t('Training priorities')}
+        subtitle={[...(S.priorityMuscles || []), ...(S.secondaryMuscles || [])].map(m => t(MUSCLE_LABEL[m])).join(', ') || t('Optional — choose which muscles get a little more work')}
+        accessory="chevron" onClick={() => nav('/profile/priorities')} />
     </Section>
 
     {/* Mi 2J — the member's sporting identity; the full carnet, ranks, achievements and

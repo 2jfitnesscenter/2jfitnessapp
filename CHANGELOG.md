@@ -6,6 +6,13 @@ Everything since v1.3.0. Production is `4622505` today; the release prepared on 
 is `1a403fe`, and Home news / notices is built on top of that. The version number in `package.json` is bumped when
 the release is tagged.
 
+### Profile / Settings tidy-up and Admin → Artificial intelligence (2026-10-02; NOT DEPLOYED)
+
+- Profile: "Training priorities" is one compact row (current choice as subtitle) that opens its own screen (`/profile/priorities`) with exactly the same two pickers and the same storage; back returns to Profile.
+- Settings: Account is the first group, then My experience, Training, Progress & metrics, Health, Appearance, Notifications, Social & privacy, Advanced. No control removed.
+- Admin → "Artificial intelligence" (`/admin/ai`): the three existing AIs (AI Coach, Trainer panel AI, Auxiliary AI) in one screen — name, purpose, honest state (off / no credential / expired / last job failed with the reason / working) and "Configure", which opens that AI's own existing controls in place (AdminCoach / AdminTrainerAI / AdminAuxAI, not reimplemented). The three remain isolated.
+- AI check: the member Coach runs end to end (fixture provider → plan proposal) and the Claude runtime reports exact reasons ("Not logged in", "401 OAuth access token is invalid"); no code defect found — a failing real provider needs its credential reconnected from the new screen. API ai-admin.test.js (7), frontend ux-ai.test.jsx (8).
+
 ### Adaptive UX + feature control + personalised onboarding (2026-10-02; NOT DEPLOYED)
 
 - Rule: the ADMIN decides which modules exist; the MEMBER decides which of those to see; the DATA decides how much depth a

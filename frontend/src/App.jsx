@@ -61,6 +61,7 @@ const SocialShareDetail = lazy(() => import('./views/SocialShareDetail.jsx'))
 const SocialReports = lazy(() => import('./views/SocialReports.jsx'))
 const AdminNews = lazy(() => import('./views/AdminNews.jsx'))
 const AdminFeatures = lazy(() => import('./views/AdminFeatures.jsx'))
+const AdminAI = lazy(() => import('./views/AdminAI.jsx'))
 import NotificationWatcher from './components/NotificationWatcher.jsx'
 import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements, { SkinfoldsScreen, BodyMeasurementsScreen } from './views/Measurements.jsx'
@@ -71,6 +72,7 @@ import Admin from './views/Admin.jsx'
 import AdminMembers from './views/AdminMembers.jsx'
 import PhysicalProfileWizard from './views/PhysicalProfileWizard.jsx'
 import ExperienceSetup from './views/ExperienceSetup.jsx'
+import TrainingPriorities from './views/TrainingPriorities.jsx'
 import { uxOn } from './lib/features.js'
 import Coach from './views/Coach.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
@@ -270,6 +272,7 @@ function Shell() {
               <Route path="/settings/rp-volume" element={<Feat k="volume"><RpVolumeCalibration /></Feat>} />
               <Route path="/stats/rp-volume" element={<Feat k="volume"><RpVolumeStats /></Feat>} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/priorities" element={<TrainingPriorities />} />
               <Route path="/friends" element={<Feat k="friends"><Friends /></Feat>} />
               <Route path="/chat" element={<Feat k="chat"><Chat /></Feat>} />
               <Route path="/chat/:id" element={<Feat k="chat"><ChatThread /></Feat>} />
@@ -292,6 +295,7 @@ function Shell() {
               <Route path="/coach/proposal" element={<CoachProposal />} />
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
+              <Route path="/admin/ai" element={user?.admin ? <AdminAI /> : <Navigate to="/home" replace />} />
               <Route path="/admin/features" element={user?.admin ? <AdminFeatures /> : <Navigate to="/home" replace />} />
               <Route path="/admin/news" element={user?.admin ? <AdminNews /> : <Navigate to="/home" replace />} />
               <Route path="/admin/social-reports" element={user?.admin ? <SocialReports /> : <Navigate to="/home" replace />} />
