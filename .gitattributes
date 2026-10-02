@@ -1,1 +1,3 @@
 *.sh text eol=lf
+ops/deploy-kit/server/* text eol=lf
+ops/deploy-kit/tests/*.sh text eol=lf
