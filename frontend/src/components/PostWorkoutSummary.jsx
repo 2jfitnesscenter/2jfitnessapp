@@ -5,7 +5,9 @@ import { t } from '../lib/i18n.js'
 import { fmtDur, fmtVol, fmtDate, fmtNum, weekKey } from '../lib/format.js'
 import { setsDone, activeWeek } from '../lib/history.js'
 import { loadOfWorkouts, muscleOptsOf } from '../lib/muscles.js'
-import { workoutEnergy, ENERGY_KIND } from '../lib/energy.js'
+import { workoutEnergyView } from '../lib/health-v2.js'
+import { fitnessOf, SOURCE_NAME } from '../lib/fitness.js'
+import { energyFigure, energySourceText } from './EnergyBadge.jsx'
 import { describeEvent, EventsSummary } from './Mi2JEvents.jsx'
 import AchievementCard from './AchievementCard.jsx'
 import BodyMapPanel from './BodyMapPanel.jsx'
@@ -40,7 +42,9 @@ export default function PostWorkoutSummary({ w, S, events = [], onOpenEvent, onS
   const celebrate = !!topPr || achievement
   const prev = useMemo(() => safe(() => previousSession(S, w)), [S.workouts, w])
   const dv = volumeDelta(w, prev)
-  const energy = useMemo(() => safe(() => workoutEnergy(w, S)), [w, S])
+  // Health is only READ here, after the save: the figure appears if a source has it and never delays anything.
+  const energy = useMemo(() => safe(() => workoutEnergyView(w, S)), [w, S])
+  const hr = useMemo(() => safe(() => fitnessOf(w)), [w])
   const load = useMemo(() => safe(() => loadOfWorkouts([w], null, muscleOptsOf(S)), {}), [w, S.body])
   const week = useMemo(() => safe(() => ({
     done: (S.workouts || []).filter(x => weekKey(x.d) === weekKey(w.d)).length,
@@ -66,7 +70,8 @@ export default function PostWorkoutSummary({ w, S, events = [], onOpenEvent, onS
       <Stat value={<CountUp value={safe(() => setsDone(w), 0)} />} label={t('Sets')} />
       <Stat value={fmtVol(w.vol, S.unit)} label={t('Volume')}
         delta={dv == null ? null : (dv > 0 ? '+' : '') + dv + '% ' + t('vs last session')} tone={dv == null ? undefined : dv >= 0 ? 'up' : 'down'} />
-      {energy && energy.kcal > 0 && <Stat value={(energy.kind === ENERGY_KIND.estimated ? '~' : '') + energy.kcal} label={energy.kind === ENERGY_KIND.estimated ? t('kcal (estimated)') : t('kcal')} />}
+      {energy && <Stat value={energyFigure(energy)} label={t('kcal')} delta={energySourceText(energy)} />}
+      {hr && hr.avgHr > 0 && <Stat value={hr.avgHr} label={t('Avg HR') + ' · ' + t('bpm')} delta={t(SOURCE_NAME[hr.source] || hr.source)} />}
       {prEvents.length > 0 && <Stat value={<CountUp value={prEvents.length} />} label={t('PRs')} />}
     </div>
 
@@ -77,7 +82,7 @@ export default function PostWorkoutSummary({ w, S, events = [], onOpenEvent, onS
 
     {Object.keys(load || {}).length > 0 && <>
       <h4 className="sec">{t('What you just trained')}</h4>
-      <div className="card v2-fin-map"><BodyMapPanel load={load} body={S.body} top={3} /></div>
+      <div className="card v2-fin-map"><BodyMapPanel load={load} body={S.body} top={3} S={S} /></div>
     </>}
 
     {(week.planned > 0 || week.done > 0) && <div className="card v2-fin-week">

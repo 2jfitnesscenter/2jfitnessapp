@@ -7,6 +7,8 @@ import { glyphOf } from '../lib/glyphs.js'
 import { homeIndicators } from '../lib/indicators.js'
 import Icon from './Icon.jsx'
 import { Pill, ProgressBar, Ring } from './v2.jsx'
+import IndicatorDetail from './IndicatorDetail.jsx'
+import { useUI } from '../store/useUI.js'
 
 /* Home's hero (Experience V2): greeting, today's session with its real facts, ONE primary action and the week's
    progress — compact, so the rest of Home (news, week strip, Train with 2J, Coach…) keeps its place.
@@ -69,10 +71,11 @@ export default function HomeHero({ S, user, routine, doneToday, rescheduled, wee
     </button>}
 
     {indicators.length > 0 && <div className="v2-hero-rings" role="list" aria-label={t('Activity indicators')}>
-      {indicators.map(i => <div key={i.key} role="listitem" className="v2-hero-ring">
+      {indicators.map(i => <button key={i.key} type="button" role="listitem" className="v2-hero-ring v2-tap"
+        onClick={() => useUI.getState().openSheet(close => <IndicatorDetail i={i} close={close} />)}>
         <Ring value={i.value} size={58} stroke={6} color={i.color} icon={i.icon} label={`${t(i.label)}: ${i.text}${i.unit ? ' ' + t(i.unit) : ''}`} />
         <span className="v">{i.text}</span><span className="k">{t(i.label)}</span>
-      </div>)}
+      </button>)}
     </div>}
   </section>
 }

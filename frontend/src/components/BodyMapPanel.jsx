@@ -4,17 +4,22 @@ import { useMemo, useState } from 'react'
 import BodyMap, { BodyMapLegend } from './BodyMap.jsx'
 import { MUSCLE_NAME } from '../lib/muscles.js'
 import { t } from '../lib/i18n.js'
+import { muscleDetail } from '../lib/health-v2.js'
+import MuscleDetailCard from './MuscleDetailCard.jsx'
 
 /* The premium body map: front + back, shading by how hard each muscle was worked, a tap-to-read detail and the
    "most worked" ranking. Presentational and reusable (Post-workout, Progress, Health V2): it takes the same `load`
    ({ slug: effective sets }) BodyMap already takes and invents nothing — the ranking and the numbers are that load.
    Changing `load` (e.g. another period) re-shades the same paths with a CSS transition, so there is no flash. */
-export default function BodyMapPanel({ load = {}, body = 'male', top = 3, unitLabel, className = '', selectable = true }) {
+// With `S` the tapped muscle opens its depth card (this week, last session, frequency, comparison with last week); without it the
+// panel behaves as before (a one-line count). `S` is only ever read.
+export default function BodyMapPanel({ load = {}, body = 'male', top = 3, unitLabel, className = '', selectable = true, S = null }) {
   const [sel, setSel] = useState(null)
   const sets = m => Math.round((load[m] || 0) * 10) / 10
   const ranked = useMemo(() => Object.entries(load).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]), [load])
   const max = ranked.length ? ranked[0][1] : 0
   const fmt = v => unitLabel ? unitLabel(v) : t('{0} sets', v)
+  const detail = S && sel ? muscleDetail(S, sel) : null
   if (!ranked.length) return null
   return <div className={'v2-bmp ' + className}>
     <div className="v2-bmp-map">
@@ -32,7 +37,8 @@ export default function BodyMapPanel({ load = {}, body = 'male', top = 3, unitLa
         </button>
       </li>)}
     </ul>
-    {sel && !ranked.slice(0, top).some(([m]) => m === sel) && <div className="v2-bmp-sel">
+    {detail && <MuscleDetailCard detail={detail} unit={S.unit} />}
+    {!detail && sel && !ranked.slice(0, top).some(([m]) => m === sel) && <div className="v2-bmp-sel">
       <b>{t(MUSCLE_NAME[sel])}</b><span>{sets(sel) ? fmt(sets(sel)) : t('not trained')}</span>
     </div>}
   </div>

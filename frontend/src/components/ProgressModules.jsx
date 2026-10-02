@@ -35,7 +35,7 @@ export function WorkoutBodyMapModal({ w, S, close }) {
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{w.name}</h1></div>
     </div>
     <div className="card">
-      <BodyMapPanel load={load} body={S.body} top={5} />
+      <BodyMapPanel load={load} body={S.body} top={5} S={S} />
     </div>
   </div>
 }

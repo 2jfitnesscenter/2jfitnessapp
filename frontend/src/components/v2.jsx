@@ -21,16 +21,18 @@ export function ProgressBar({ value = 0, tone, label, className }) {
     aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(v * 100)}><i style={{ width: v * 100 + '%' }} /></div>
 }
 
-/** A round indicator: value 0–1, optional icon in the middle and a caption below. `color` is any CSS colour. */
+/** A round indicator: value 0–1, optional icon in the middle and a caption below. `color` is any CSS colour.
+ *  value null/undefined = a STATE ring (no arc, no percentage): the figure is shown, nothing is claimed about progress. */
 export function Ring({ value = 0, size = 64, stroke = 7, color = 'var(--acc)', icon, label, caption, children, className }) {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r
-  const v = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0))
-  return <div className={cx('v2-ring', className)} role="img" aria-label={label}>
+  const state = value == null || !Number.isFinite(value)
+  const v = state ? 1 : Math.max(0, Math.min(1, value))
+  return <div className={cx('v2-ring', state && 'state', className)} role="img" aria-label={label}>
     <div style={{ position: 'relative', width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         <circle className="v2-ring-track" cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} />
-        <circle className="v2-ring-arc" cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - v)} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+        <circle className={'v2-ring-arc' + (state ? ' state' : '')} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={state ? `2 ${c / 18 - 2}` : c} strokeDashoffset={state ? 0 : c * (1 - v)} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color, fontSize: size * 0.34 }}>
         {children || (icon && <Icon name={icon} />)}
@@ -72,4 +74,17 @@ export function useCountUp(value, ms = 250) {
 export function CountUp({ value, format = n => String(Math.round(n)), ms }) {
   const v = useCountUp(value, ms)
   return <span className="v2-num">{format(v)}</span>
+}
+
+/** Minimal inline trend line (no chart library). `points` = numbers, oldest first; renders nothing with fewer than two. */
+export function Sparkline({ points = [], width = 120, height = 36, color = 'var(--acc)', label }) {
+  const p = points.filter(Number.isFinite)
+  if (p.length < 2) return null
+  const min = Math.min(...p), max = Math.max(...p), span = max - min || 1
+  const x = i => 2 + i * (width - 4) / (p.length - 1), y = v => height - 3 - (v - min) / span * (height - 6)
+  const d = p.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')
+  return <svg className="v2-spark" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label}>
+    <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx={x(p.length - 1)} cy={y(p[p.length - 1])} r="3" fill={color} />
+  </svg>
 }

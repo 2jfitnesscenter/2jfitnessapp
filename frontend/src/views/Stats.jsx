@@ -12,6 +12,8 @@ import Icon from '../components/Icon.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
 import RecoveryCard from '../components/RecoveryCard.jsx'
 import ProgressTimeline from '../components/ProgressTimeline.jsx'
+import MuscleDetailCard from '../components/MuscleDetailCard.jsx'
+import { muscleDetail } from '../lib/health-v2.js'
 import { loadOfWorkouts, rankOf, MUSCLE_NAME, MUSCLE_GROUPS, muscleOptsOf } from '../lib/muscles.js'
 import { weeklyGroupVolume, landmarksFor, zoneForVolume, ZONE_META, LEVELS } from '../lib/rp-volume.js'
 import { e1rmSeries, best1RM } from '../lib/onerm.js'
@@ -89,6 +91,7 @@ function MuscleBalance({ S }) {
         <span className="nm"><b>{t(MUSCLE_NAME[sel])}</b></span>
         <span className="v">{sets(sel) ? t('{0} sets', sets(sel)) : on ? t('no hard sets') : t('not trained')}</span>
       </div>}
+      {sel && <MuscleDetailCard detail={muscleDetail(S, sel)} unit={S.unit} />}
       {!sel && top.map(m => <div key={m} className="mrow">
         <span className="nm">{t(MUSCLE_NAME[m])}</span>
         <span className="bar"><i style={{ width: Math.round(load[m] / max * 100) + '%', background: on ? 'var(--yellow)' : undefined }} /></span>

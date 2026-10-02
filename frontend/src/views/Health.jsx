@@ -11,6 +11,8 @@ import MetricHeatmap from '../components/MetricHeatmap.jsx'
 import LineChart from '../components/LineChart.jsx'
 import SegmentExplorer from '../components/SegmentExplorer.jsx'
 import CheckInCard from '../components/CheckInCard.jsx'
+import HealthOverview from '../components/HealthOverview.jsx'
+import ProgressTimeline from '../components/ProgressTimeline.jsx'
 import { RANGES, availableMetrics, metricSummary, compareMeasurements, scanDates, hasSegments, bmiOf, weekActivity, SOURCE_LABEL } from '../lib/health.js'
 import { PAIN_ZONE, checkinOn } from '../lib/checkin.js'
 import { api } from '../lib/api.js'
@@ -91,6 +93,7 @@ function CompareCard({ S }) {
 export default function Health() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
+  const user = useStore(s => s.user)
   const [range, setRange] = useState('6m')
   const [sleepMode, setSleepMode] = useState('day')
   const [editCheckin, setEditCheckin] = useState(false)
@@ -113,6 +116,8 @@ export default function Health() {
       <button className="iconbtn" onClick={() => nav('/profile')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Health')}</h1><div className="sub">{t('Your physical evolution')}</div></div>
     </div>
+
+    <HealthOverview S={S} user={user} nav={nav} />
 
     {nothing && <div className="card m2-empty">
       <div className="m2-empty-ic"><Icon name="heart" /></div>
@@ -187,6 +192,8 @@ export default function Health() {
       {S.restingHR.length > 0 && <div className="card"><h2>{t('Resting HR')}</h2>
         <MetricHeatmap series={S.restingHR} tooltip={(d, v) => `${d} · ${v} bpm`} /></div>}
     </>}
+
+    <ProgressTimeline S={S} health max={8} />
 
     <h4 className="sec">{t('Connections')}</h4>
     <div className="list">

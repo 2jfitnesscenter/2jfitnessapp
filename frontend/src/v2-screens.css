@@ -146,3 +146,66 @@
   .t2-promo:active, .tappable:active, .scomplete:active, .setrow .n:active { transform: none; }
 }
 .v2-fin-actions .row { flex-direction: column; align-items: stretch; gap: 8px; }
+
+/* ------------------------------------------------- indicators (detail) -- */
+.v2-hero-ring { color: inherit; border-radius: 14px; padding: 4px 2px; }
+.v2-hero-ring:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.v2-ring-arc.state { opacity: .7; }
+.v2-ind { display: flex; flex-direction: column; gap: 10px; }
+.v2-ind-head { display: flex; align-items: center; gap: 16px; }
+.v2-ind-fig { font-size: calc(30px * var(--text-scale,1)); font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.v2-ind-fig small { font-size: .5em; font-weight: 600; color: var(--label-2); letter-spacing: 0; }
+.v2-ind-basis { font-size: calc(15px * var(--text-scale,1)); line-height: 1.4; margin: 0; }
+.v2-ind-meta { display: flex; gap: 8px; align-items: flex-start; font-size: calc(12.5px * var(--text-scale,1)); color: var(--label-2); margin: 0; line-height: 1.4; }
+.v2-ind-meta .icn { font-size: 15px; margin-top: 1px; flex: none; }
+
+/* ----------------------------------------------------- muscle detail card -- */
+.v2-md { margin-top: 10px; padding: 12px; border-radius: 16px; background: color-mix(in srgb, var(--label) 6%, transparent); animation: v2-rise var(--v2-med) var(--v2-ease) both; }
+.v2-md-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.v2-md-h b { font-size: calc(16px * var(--text-scale,1)); text-transform: capitalize; letter-spacing: -.01em; }
+.v2-md-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.v2-md-empty { margin: 0; font-size: calc(13px * var(--text-scale,1)); color: var(--label-2); }
+@media (prefers-reduced-motion: reduce) { .v2-md { animation: none !important; } }
+
+/* ------------------------------------------------ premium body (richer) -- */
+.v2-bmp-map::before { inset: 4% 8% 10%; background: radial-gradient(closest-side, color-mix(in srgb, var(--acc) 22%, transparent), transparent 74%); }
+.bodymap.bm-premium .bm-v { max-height: min(52vh, 380px); filter: drop-shadow(0 10px 16px rgba(0,0,0,.28)); }
+.bodymap.bm-premium .bm-sil { fill: color-mix(in srgb, var(--label) 9%, var(--surface)); stroke: color-mix(in srgb, var(--label) 14%, transparent); stroke-width: 1.5; }
+.bodymap.bm-premium .bm-m.l1 { fill: color-mix(in srgb, var(--acc) 38%, var(--bm-base)); }
+.bodymap.bm-premium .bm-m.l2 { fill: color-mix(in srgb, var(--acc) 62%, var(--bm-base)); }
+.bodymap.bm-premium .bm-m.l3 { fill: color-mix(in srgb, var(--acc) 84%, #fff 4%); }
+.bodymap.bm-premium .bm-m.l4 { fill: color-mix(in srgb, var(--acc) 92%, #fff 14%); filter: drop-shadow(0 0 7px color-mix(in srgb, var(--acc) 70%, transparent)); }
+.bodymap.bm-premium .bm-m.sel { stroke: #fff; stroke-width: 4; animation: v2-pop var(--v2-med) var(--v2-ease) both; }
+.bodymap.bm-premium.tappable .bm-m:hover { filter: brightness(1.12); }
+@media (prefers-reduced-motion: reduce) { .bodymap.bm-premium .bm-m.sel { animation: none !important; } }
+
+/* ------------------------------------------------------- energy source -- */
+.v2-en { display: inline-flex; flex-direction: column; gap: 1px; min-width: 0; }
+.v2-en b { font-size: calc(16px * var(--text-scale,1)); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.v2-en span { font-size: calc(11.5px * var(--text-scale,1)); color: var(--label-2); }
+.v2-en.estimated b { color: var(--label); }
+
+/* ------------------------------------------------------- health overview -- */
+.v2-ho { margin: 4px 0 14px; display: flex; flex-direction: column; gap: 10px; }
+.v2-ho-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.v2-ho-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; padding: 14px; min-height: 112px; color: var(--label); }
+.v2-ho-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.v2-ho-ic { width: 28px; height: 28px; border-radius: 9px; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 15px;
+  color: var(--tint, var(--acc)); background: color-mix(in srgb, var(--tint, var(--acc)) 16%, transparent); }
+.v2-ho-fig { font-size: calc(26px * var(--text-scale,1)); font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.v2-ho-fig small { font-size: .46em; font-weight: 600; color: var(--label-2); letter-spacing: 0; }
+.v2-ho-sub { font-size: calc(12px * var(--text-scale,1)); color: var(--label-2); font-variant-numeric: tabular-nums; }
+.v2-spark { display: block; max-width: 100%; }
+.v2-hs { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 14px; font-size: calc(12.5px * var(--text-scale,1)); color: var(--label-2);
+  background: color-mix(in srgb, var(--label) 6%, transparent); }
+.v2-hs .icn { font-size: 16px; flex: none; }
+.v2-hs.wearable .icn { color: var(--acc); }
+.v2-hs span { flex: 1; min-width: 0; line-height: 1.35; }
+.v2-hs button { flex: none; min-height: 32px; padding: 0 12px; border-radius: 999px; font-weight: 600; background: var(--acc-soft); color: var(--acc); }
+.v2-hd { display: flex; flex-direction: column; gap: 10px; }
+.v2-hd-head { display: flex; align-items: center; gap: 10px; }
+.v2-hd-head h3 { margin: 0; }
+.v2-hd-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: var(--hair) solid var(--sep); }
+.v2-hd-row .k { color: var(--label-2); font-size: calc(14px * var(--text-scale,1)); }
+.v2-hd-row .v { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; display: flex; flex-direction: column; }
+.v2-hd-row .v small { font-weight: 400; font-size: calc(11.5px * var(--text-scale,1)); color: var(--label-2); }
