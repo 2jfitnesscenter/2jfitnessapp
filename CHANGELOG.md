@@ -1,8 +1,60 @@
 # Changelog
 
-## Unreleased
+## Unreleased — v1.4.0 candidate (after v1.3.0, 2026-09-21)
 
-### Sprint 4.5 — Entrena con 2J Admin, content expansion and Library Quality (2026-10-01; NOT DEPLOYED)
+Everything since v1.3.0. Production is `4622505` today; the release prepared on top of it (Sprint 5 Android + web)
+is `1a403fe`, and Home news / notices is built on top of that. The version number in `package.json` is bumped when
+the release is tagged.
+
+### Home news / notices (2026-10-02; NOT DEPLOYED)
+
+- Official notices on Home, written only by admins. Each notice has title, text (**bold**, line breaks and https
+  links — rendered as React nodes, never as HTML), an accent colour, an optional image, an active switch, an
+  order and optional publish / expiry dates. One notice shows as a compact card; several as a snap-scrolling
+  carousel with a discreet indicator; none, no block. The client also honours the dates, keeps a per-user offline copy.
+- Admin → News / Notices: list with status (live / scheduled / expired / off), direct switch, move up/down, edit with
+  live preview, image upload (the existing private-upload storage, served by `/api/social/media`), delete.
+- Backend: `api/lib/news-store.js` + `news-routes.js`, persisted in `news.json` (separate from Sync V2).
+  `GET /api/news` for any signed-in member; `GET /api/admin/news` and `POST /api/admin/news/{save,active,reorder,delete}`
+  admin-only (trainers refused). No auth, Sync V2, Health, iOS or Android change.
+- Tests: API news.test.js (10, real server: roles, active, windows, order, validation, images, persistence), frontend
+  news.test.js and NewsBlock.test.jsx (13: hidden when empty, one card, carousel, safe rendering). Spanish complete.
+
+### Sprint 5 — Health Native Bridge, Android + web (2026-10-02; release 1a403fe prepared, NOT DEPLOYED)
+
+- Web bridge (`lib/health-bridge.js`, one contract for Health Connect and HealthKit): separate read and write consent,
+  per-user state, privacy by default, no new backend or sync. Read workouts, active calories, useful heart rate,
+  steps / daily activity; export of 2J workouts (idempotent by id `2j:<workout id>`, never with measured kcal,
+  failures queued and never blocking the workout); own sessions are dropped when read back.
+- Energy layer (`lib/energy.js`, `lib/energy-reconcile.js`): one number per workout by priority — measured wearable >
+  aggregated Health > labelled 2J estimate; measured vs estimated always distinguished, never summed, active energy
+  only. Policy "never duplicate calories": any external active energy in the store's official aggregate blocks a 2J
+  estimate (no coverage threshold); with read + write permission and a still-zero aggregate after ~15 min, Android writes
+  ONE estimate `2j:<id>:kcal-est` (guard re-checked right before inserting) and deletes only that sample if an external
+  source appears later. iOS never writes kcal (HealthKit cannot tell "no data" from "not allowed"). Transitional local
+  queue; Sync V2 untouched.
+- Android plugin TwoJHealth (Kotlin, Health Connect 1.1.0): availability, read workouts / activity / energy, write
+  workouts and the labelled estimate, delete only own samples. Validated on a Galaxy S25 Ultra (export without
+  duplicates, estimate written once, blocked when WHOOP energy exists, idempotent, third-party data untouched).
+  13 JVM contract tests. Health screen: connect / sync / write toggles, today's steps and active kcal, manual
+  permission-recovery guidance.
+- Android remote shell: Capacitor loading https://app.2jfitnesscenter.com (config `capacitor.remote.config.json`, standalone
+  config untouched), WebAuthn through Credential Manager in the WebView, TwoJHealth available. Production support added
+  and validated: `/.well-known/assetlinks.json` (get_login_creds + handle_all_urls, debug certificate), Caddy serving
+  the fully-qualified Host `app.2jfitnesscenter.com.` that Google's Digital Asset Links uses, and the API accepting the
+  exact `android:apk-key-hash:<hash>` origin next to the web origin (no wildcards; `ANDROID_APK_KEY_HASHES` for the release
+  keystore). Verified: passkey login, real session, Sync V2 data. Release keystore hash still to be added.
+- Fix: the saved language is loaded before the first render (no flash of the default language).
+- iOS HealthKit is NOT part of this release (preserved on branch `wip/ios-healthkit-v2`, needs a Mac / Xcode).
+- Tests: frontend 1073/1073, API 355/355, Android 13 JVM tests, builds, Spanish complete.
+
+### Deployed since v1.3.0 (previously listed as Unreleased)
+
+- Production `b4e7baa` (2026-10-01): Sprint 4.5, Studio visibility switch, inactivity auto-finish, starting-load fixes,
+  Inteligencia 2J V2, Gym Profiles and the earlier items below. Production `4622505`: `b4e7baa` + Digital Asset Links,
+  the Caddy FQDN host and the Android WebAuthn origin.
+
+### Sprint 4.5 — Entrena con 2J Admin, content expansion and Library Quality (2026-10-01; deployed, production b4e7baa)
 
 - Admin Studio (lazy, admin-only) for the official catalogue: routines, programs and collections with
   draft / active / hidden states, preview as a member, publish, hide, feature, reorder, duplicate as a

@@ -13,6 +13,8 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'News and notices from 2J on Home, managed by the gym team',
+      'Health on Android: read your workouts and daily activity and send your 2J workouts to Health Connect, without ever counting calories twice',
       '2J exercises: the recommended catalogue grouped by movement, with the full library one tap away',
       'Search exercises by name, movement, muscle or equipment, in Spanish or English',
       'Swapping an exercise shows similar variants of the same movement first, with the reason',

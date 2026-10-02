@@ -25,6 +25,7 @@ import { daysSinceBioimpedance } from '../lib/measurements.js'
 import { fetchWhoopRecovery, fetchWhoopSleep } from '../lib/whoop-api.js'
 import { mergeSeries } from '../lib/import-csv.js'
 import IntelligenceToday from '../components/IntelligenceToday.jsx'
+import NewsBlock from '../components/NewsBlock.jsx'
 
 // Full-screen expansion of the compact body map below — the same load, just big enough to
 // tap a muscle and read its exact set count, the way Stats.jsx's own Muscle balance card
@@ -214,6 +215,8 @@ export default function Home() {
       <h1>{user ? t('Hi {0}', user.name) : '2J Fitness'}</h1>
       <div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div>
     </div>
+
+    <NewsBlock />
 
     <div className="card">
       <div className="row between" style={{ marginBottom: 8 }}>

@@ -595,6 +595,9 @@ export default function Admin() {
       sub={invites ? t('{0} unused · {1} redeemed', invites.filter(i => !i.usedBy).length, invites.filter(i => i.usedBy).length) : t('Loading…')}
       onClick={() => openSheet(close => <InvitesSheet invites={invites} reload={loadInvites} close={close} />)} />
 
+    <AdminNavCard icon="bell" tint="var(--acc)" title={t('News / Notices')}
+      sub={t('Announcements shown on every member’s Home')} onClick={() => nav('/admin/news')} />
+
     <AdminNavCard icon="dumbbell" tint="var(--acc)" title={t('Room admin')}
       sub={t('Manage who’s checked into the Bunker and the room screen’s own settings')} onClick={() => nav('/admin/bunker')} />
 
