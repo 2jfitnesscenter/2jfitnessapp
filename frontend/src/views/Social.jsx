@@ -33,6 +33,7 @@ import SocialShareSheet from '../components/SocialShareSheet.jsx'
 import SocialMoments from './SocialMoments.jsx'
 import { socialCardPayload } from '../lib/social-share.js'
 import { communityIntroSeen, markCommunityIntroSeen } from '../lib/community-onboarding.js'
+import { uxOn } from '../lib/features.js'
 
 // Same "spec sheet" fields api/server.js's readSpecFields accepts — level/goal are fixed
 // choices (goal reuses lib/starter.js's own GOALS, same labels the quick-plan intake uses, so
@@ -929,7 +930,12 @@ export default function Social() {
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
   const unreadNotifications = useUI(s => s.notificationUnread)
-  const [tab, setTab] = useState(() => ['muro', 'moments', 'routines', 'board', 'challenges'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'muro')
+  useStore(s => s.features)   // the admin's switches may arrive after the first render
+  // Challenges, Marks (record posts) and Goals live in one tab: it exists only while the "challenges" feature is on for this member
+  // (admin allows it AND the member did not hide Social). A direct link to it lands on the Wall instead.
+  const challengesOn = uxOn(S, 'challenges')
+  const [rawTab, setTab] = useState(() => ['muro', 'moments', 'routines', 'board', 'challenges'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'muro')
+  const tab = rawTab === 'challenges' && !challengesOn ? 'muro' : rawTab
   const [introStep, setIntroStep] = useState(() => communityIntroSeen(() => window.localStorage, user?.id) ? -1 : 0)
   const [communityStats, setCommunityStats] = useState(null)
   const [routines, setRoutines] = useState(null)
@@ -1025,17 +1031,17 @@ export default function Social() {
       <div className="row between community-intro-actions"><button className="btn ghost" onClick={dismissIntro}>{t('Skip')}</button><div className="row"><button className="btn ghost" onClick={() => setIntroStep(0)}>{t('How it works')}</button><Button size="sm" variant="primary" onClick={() => introStep === 2 ? dismissIntro() : setIntroStep(introStep + 1)}>{introStep === 2 ? t('Done') : t('Next')}</Button></div></div>
     </section> : <button className="community-help" onClick={() => setIntroStep(0)}><Icon name="info" /> {t('How Community works')}</button>}
     <section className="community-dashboard" aria-label={t('Your community')}>
-      <button className="community-tile community-tile-main" onClick={() => navigate('/friends')}>
+      {uxOn(S, 'friends') && <button className="community-tile community-tile-main" onClick={() => navigate('/friends')}>
         <span className="community-tile-icon"><Icon name="users" /></span><span className="community-tile-copy"><strong>{t('Friends')}</strong><small>{communityStats?.friends == null ? t('Find people to train with') : t('{0} connections', communityStats.friends)}</small></span><Icon name="chevronRight" />
-      </button>
-      <button className="community-tile" onClick={() => navigate('/chat')}>
+      </button>}
+      {uxOn(S, 'chat') && <button className="community-tile" onClick={() => navigate('/chat')}>
         <span className="community-tile-icon"><Icon name="message" /></span><span className="community-tile-copy"><strong>{t('Messages')}</strong><small>{communityStats?.unreadChats ? t('{0} unread', communityStats.unreadChats) : t('Conversations with friends and trainers')}</small></span><Icon name="chevronRight" />
-      </button>
+      </button>}
       <button className="community-tile" onClick={() => navigate('/notifications')}>
         <span className="community-tile-icon"><Icon name="bell" /></span><span className="community-tile-copy"><strong>{t('Notifications')}</strong><small>{communityStats?.unreadNotifications ? t('{0} unread', communityStats.unreadNotifications) : t('Requests, messages and shared moments')}</small></span><Icon name="chevronRight" />
       </button>
     </section>
-    <Segmented options={[{ value: 'muro', label: t('Wall') }, { value: 'moments', label: t('Moments') }, { value: 'routines', label: t('Routines') }, { value: 'board', label: t('Trainers') }, { value: 'challenges', label: t('Challenges & PRs') }]} value={tab} onChange={setTab} />
+    <Segmented options={[{ value: 'muro', label: t('Wall') }, { value: 'moments', label: t('Moments') }, { value: 'routines', label: t('Routines') }, { value: 'board', label: t('Trainers') }, ...(challengesOn ? [{ value: 'challenges', label: t('Challenges & PRs') }] : [])]} value={tab} onChange={setTab} />
     <div style={{ height: 14 }} />
 
     {tab === 'muro' && <>
