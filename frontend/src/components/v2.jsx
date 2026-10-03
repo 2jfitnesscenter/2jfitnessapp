@@ -45,6 +45,11 @@ export function Ring({ value = 0, size = 64, stroke = 7, color = 'var(--acc)', i
 export const Skeleton = ({ width = '100%', height = 14, className, style }) =>
   <div className={cx('v2-skel', className)} style={{ width, height, ...style }} aria-hidden="true" />
 
+/** Loading placeholder for a list of rows (avatar + two lines): same footprint as the real rows, so nothing jumps on arrival. */
+export const ListSkeleton = ({ rows = 3 }) =>
+  <div className="v2-lskel" role="status" aria-busy="true" aria-label="…">{Array.from({ length: rows }, (_, i) =>
+    <div key={i} className="v2-lskel-row"><Skeleton width={40} height={40} /><div><Skeleton width="55%" /><Skeleton width="80%" height={11} /></div></div>)}</div>
+
 export const EmptyState = ({ icon = 'sparkles', title, children, action }) =>
   <div className="v2-empty"><div className="ic"><Icon name={icon} /></div>{title && <div className="tt">{title}</div>}{children}{action}</div>
 

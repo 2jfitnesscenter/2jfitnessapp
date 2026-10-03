@@ -7,6 +7,7 @@ import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Avatar } from '../components/ui.jsx'
+import { EmptyState, ListSkeleton } from '../components/v2.jsx'
 import { addFriendSheet, confirmSheet, celebrateBadges } from '../sheets.jsx'
 import { fetchFriends, acceptFriendRequest, declineFriendRequest, cancelFriendRequest, removeFriend, sendFriendRequest, blockFriend, unblockFriend } from '../lib/friends-api.js'
 import { evaluateBadgesIn } from '../lib/badges.js'
@@ -51,25 +52,27 @@ export default function Friends() {
     }).catch(e => toast(e.message)).finally(() => setBusy(false))
   }
 
-  if (!data) return <div className="narrow"><div className="hdr"><div><h1>{t('Friends')}</h1></div></div></div>
+  if (!data) return <div className="narrow v2-friends"><div className="hdr"><div><h1>{t('Friends')}</h1></div></div><ListSkeleton /></div>
 
   const nothingYet = !data.friends.length && !data.incoming.length && !data.outgoing.length
   const visibleFriends = data.friends.filter(f => !query.trim() || f.name.toLowerCase().includes(query.trim().toLowerCase()))
 
-  return <div className="narrow">
+  return <div className="narrow v2-friends">
     <div className="hdr">
       <div><h1>{t('Friends')}</h1></div>
       <Button size="sm" onClick={() => addFriendSheet(load)}>{t('Add')}</Button>
     </div>
 
     {!!data.incoming.length && <>
-      <h4 className="sec">{t('Requests')}</h4>
+      <h4 className="sec">{t('Requests')}<span className="v2-badge">{data.incoming.length}</span></h4>
       <div className="list" style={{ marginBottom: 22 }}>
-        {data.incoming.map(r => <div key={r.id} className="item">
+        {data.incoming.map(r => <div key={r.id} className="item v2-req">
           <Avatar name={r.from?.name} size={40} />
           <div className="grow"><div className="tt capitalize">{r.from?.name}</div></div>
-          <Button size="sm" variant="primary" disabled={busy} onClick={() => acceptFriend(r.id)}>{t('Accept')}</Button>
-          <Button size="sm" disabled={busy} onClick={() => respond(declineFriendRequest, r.id, t('Request declined'))}>{t('Decline')}</Button>
+          <div className="v2-req-acts">
+            <Button variant="primary" disabled={busy} onClick={() => acceptFriend(r.id)}>{t('Accept')}</Button>
+            <Button disabled={busy} onClick={() => respond(declineFriendRequest, r.id, t('Request declined'))}>{t('Decline')}</Button>
+          </div>
         </div>)}
       </div>
     </>}
@@ -92,7 +95,7 @@ export default function Friends() {
         {visibleFriends.map(f => <div key={f.id} className="item">
           <Avatar name={f.name} size={40} />
           <button className="grow friend-profile-link" onClick={() => nav('/social/profile/' + encodeURIComponent(f.id))}><span className="tt capitalize">{f.name}</span><span className="ss">{t('View social profile')}</span></button>
-          <button className="iconbtn" aria-label={t('Message {0}', f.name)} onClick={() => startDirectThread(f.id).then(th => nav('/chat/' + th.id)).catch(e => toast(e.message))}><Icon name="message" /></button>
+          <button className="iconbtn v2-msg-btn" aria-label={t('Message {0}', f.name)} onClick={() => startDirectThread(f.id).then(th => nav('/chat/' + th.id)).catch(e => toast(e.message))}><Icon name="message" /></button>
           <button className="iconbtn" aria-label={t('Block {0}', f.name)} onClick={() => confirmSheet({ title: t('Block {0}?', f.name), message: t('This also removes the friendship and stops direct messages.'), confirmText: t('Block'), danger: true, onConfirm: () => blockFriend(f.id).then(load).catch(e => toast(e.message)) })}><Icon name="ban" /></button>
           <button className="iconbtn" aria-label={t('Remove friend')} onClick={() => confirmSheet({
             title: t('Remove {0}?', f.name), confirmText: t('Remove'), danger: true,
@@ -103,11 +106,10 @@ export default function Friends() {
       </div>
       </>
     ) : nothingYet && (
-      <div className="card" style={{ textAlign: 'center' }}>
-        <div style={{ color: 'var(--label-2)', marginBottom: 10 }}><Icon name="users" size={40} /></div>
-        <div className="big" style={{ fontSize: 20, marginBottom: 6 }}>{t('Share activity')}</div>
-        <div className="muted small" style={{ marginBottom: 14 }}>{t('Invite friends to share workouts, get inspired and stay motivated.')}</div>
-        <Button variant="primary" onClick={() => addFriendSheet(load)}>{t('Invite a friend')}</Button>
+      <div className="card">
+        <EmptyState icon="users" title={t('Share activity')} action={<Button variant="primary" onClick={() => addFriendSheet(load)}>{t('Invite a friend')}</Button>}>
+          <div className="muted small" style={{ marginBottom: 14 }}>{t('Invite friends to share workouts, get inspired and stay motivated.')}</div>
+        </EmptyState>
       </div>
     )}
     {!!data.blocked?.length && <><h4 className="sec" style={{ marginTop: 24 }}>{t('Blocked')}</h4><div className="list">{data.blocked.map(f => <div key={f.id} className="item"><Avatar name={f.name} size={38} /><div className="grow"><div className="tt capitalize">{f.name}</div></div><Button size="sm" onClick={() => unblockFriend(f.id).then(load).catch(e => toast(e.message))}>{t('Unblock')}</Button></div>)}</div></>}

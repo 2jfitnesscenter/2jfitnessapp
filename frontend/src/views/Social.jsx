@@ -11,6 +11,7 @@ import { exOr, extractCustomDefs, mergeCustomDefs } from '../lib/exercises.js'
 import { glyphOf } from '../lib/glyphs.js'
 import Icon from '../components/Icon.jsx'
 import { Thumb } from '../components/Media.jsx'
+import { ListSkeleton } from '../components/v2.jsx'
 import StaffBadge from '../components/StaffBadge.jsx'
 import Stepper from '../components/Stepper.jsx'
 import { Button, Segmented, TextArea, TextField, SelectRow } from '../components/ui.jsx'
@@ -690,8 +691,8 @@ function ChallengeCard({ c, onOpen }) {
   const metricLabel = c.type === 'frequency'
     ? `${c.targetWorkouts} entrenos`
     : `${c.targetValue} ${c.metric === 'volume' ? 'kg' : c.metric === 'reps' ? 'reps' : 'series'} · ${c.exName || c.exId}`
-  return <div className="item" onClick={() => onOpen(c)}>
-    <span className="lrow-i" style={{ '--tint': 'var(--orange)' }}><Icon name="trophy" /></span>
+  return <div className="item v2-challenge" onClick={() => onOpen(c)}>
+    <span className="lrow-i"><Icon name="trophy" /></span>
     <div className="grow">
       <div className="tt">{c.name}</div>
       <div className="ss">{metricLabel} · {c.participantCount} apuntados</div>
@@ -767,7 +768,7 @@ function ChallengeDetailSheet({ id, onChanged, close }) {
   const [busy, setBusy] = useState(false)
   const load = () => fetchChallengeDetail(id).then(setD).catch(e => toast(e.message))
   useEffect(() => { load() }, [])
-  if (!d) return <div className="muted small">{t('Loading…')}</div>
+  if (!d) return <ListSkeleton />
   const c = d.challenge
   const unitLabel = c.metric === 'volume' ? 'kg' : c.metric === 'reps' ? 'reps' : c.metric === 'sets' ? 'series' : 'entrenos'
   const toggleJoin = async () => {
@@ -816,7 +817,7 @@ function ChallengesSection({ challenges, loadChallenges, user }) {
       {user?.trainer && <Button size="sm" variant="tinted" icon="plus"
         onClick={() => openSheet(close => <NewChallengeSheet close={close} onCreated={loadChallenges} />)}>Crear</Button>}
     </div>
-    {challenges === null ? <div className="muted small">{t('Loading…')}</div> :
+    {challenges === null ? <ListSkeleton /> :
       active.length ? <div className="list" style={{ marginBottom: past.length ? 18 : 0 }}>{active.map(c => <ChallengeCard key={c.id} c={c} onOpen={openDetail} />)}</div> :
         <div className="empty"><div className="ico"><Icon name="trophy" /></div>Todavía no hay desafíos activos.</div>}
     {past.length > 0 && <>
@@ -908,7 +909,7 @@ function GoalsSection({ goals, loadGoals }) {
     </div>
 
     <h4 className="sec">Metas de la comunidad</h4>
-    {goals === null ? <div className="muted small">{t('Loading…')}</div> :
+    {goals === null ? <ListSkeleton /> :
       others.length ? <div className="list">{others.map(g => {
         const pct = g.target > 0 ? Math.min(100, Math.round((g.current / g.target) * 100)) : 0
         return <div key={g.id} className="item" style={{ cursor: 'default' }}>
@@ -1012,7 +1013,7 @@ export default function Social() {
   const memberFeed = feed ? feed.filter(p => p.authorKind !== 'trainer') : null
   const trainerFeed = feed ? feed.filter(p => p.authorKind === 'trainer') : null
 
-  return <div className="narrow">
+  return <div className="narrow v2-social">
     <div className="hdr">
       <div><h1>{t('Community')}</h1><div className="sub">{t('Share and discover, gym-wide')}</div></div>
       <div className="row" style={{ gap: 4 }}>
@@ -1049,7 +1050,7 @@ export default function Social() {
         <h4 className="sec" style={{ margin: 0 }}>{t('Wall')}</h4>
         <Button size="sm" variant="tinted" icon="plus" onClick={newTopic}>{t('New topic')}</Button>
       </div>
-      {topics === null ? <div className="muted small">{t('Loading…')}</div> :
+      {topics === null ? <ListSkeleton /> :
         topics.length ? <div className="list">{topics.map(tp => <div key={tp.id} className="item" onClick={() => openTopicDetail(tp)}>
           <span className="lrow-i"><Icon name="list" /></span>
           <div className="grow">
@@ -1069,14 +1070,14 @@ export default function Social() {
         <Button size="sm" variant="tinted" icon="upload" onClick={publish}>{t('Publish')}</Button>
       </div>
       <h4 className="sec" style={{ marginTop: 0 }}>{t('Public routines')}</h4>
-      {memberFeed === null ? <div className="muted small">{t('Loading…')}</div> :
+      {memberFeed === null ? <ListSkeleton /> :
         memberFeed.length ? <div className="list" style={{ marginBottom: 18 }}>{memberFeed.map(p => p.kind === 'program'
           ? <ProgramCard key={p.id} post={p} onOpen={openDetail} />
           : <RoutineCard key={p.id} post={p} onOpen={openDetail} />)}</div> :
           <div className="empty" style={{ marginBottom: 18 }}><div className="ico"><Icon name="users" /></div>{t('No routines published yet.')}<br />{t('Be the first to share one.')}</div>}
 
       <h4 className="sec">{t('Trainer routines')}</h4>
-      {trainerFeed === null ? <div className="muted small">{t('Loading…')}</div> :
+      {trainerFeed === null ? <ListSkeleton /> :
         trainerFeed.length ? <div className="list">{trainerFeed.map(p => p.kind === 'program'
           ? <ProgramCard key={p.id} post={p} onOpen={openDetail} />
           : <RoutineCard key={p.id} post={p} onOpen={openDetail} />)}</div> :
@@ -1088,7 +1089,7 @@ export default function Social() {
         <h4 className="sec" style={{ margin: 0 }}>{t('Trainers')}</h4>
         {(user?.trainer || user?.admin) && <Button size="sm" variant="tinted" icon="plus" onClick={newBoardPost}>{t('New announcement')}</Button>}
       </div>
-      {board === null ? <div className="muted small">{t('Loading…')}</div> :
+      {board === null ? <ListSkeleton /> :
         board.length ? <div className="list">{board.map(p => <div key={p.id} className="item" onClick={() => openBoardDetail(p)}>
           <span className="lrow-i" style={{ '--tint': 'var(--acc)' }}><Icon name="medal" /></span>
           <div className="grow">
@@ -1108,8 +1109,8 @@ export default function Social() {
         <h4 className="sec" style={{ margin: 0 }}>{t('Marks')}</h4>
         <Button size="sm" variant="tinted" icon="upload" onClick={publishWall}>{t('Post a record')}</Button>
       </div>
-      {wall === null ? <div className="muted small">{t('Loading…')}</div> :
-        wall.length ? <div className="list" style={{ marginBottom: 18 }}>{wall.map(p => <div key={p.id} className="item" onClick={() => openWallDetail(p)}>
+      {wall === null ? <ListSkeleton /> :
+        wall.length ? <div className="list" style={{ marginBottom: 18 }}>{wall.map(p => <div key={p.id} className="item v2-mark" onClick={() => openWallDetail(p)}>
           <Thumb ex={exOr(p.exId)} />
           <div className="grow">
             <div className="tt capitalize">{p.exName}</div>
