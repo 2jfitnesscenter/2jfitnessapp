@@ -209,3 +209,10 @@
 .v2-hd-row .k { color: var(--label-2); font-size: calc(14px * var(--text-scale,1)); }
 .v2-hd-row .v { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; display: flex; flex-direction: column; }
 .v2-hd-row .v small { font-weight: 400; font-size: calc(11.5px * var(--text-scale,1)); color: var(--label-2); }
+
+/* an odd tile (or a lone one) takes the full row instead of leaving a hole */
+.v2-ho-grid > .v2-ho-tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+/* the date under the greeting: only the first letter is capital ("Sábado, 3 de octubre"), never every word */
+.v2-hero .sub { text-transform: none; }
+.v2-hero .sub::first-letter { text-transform: uppercase; }
