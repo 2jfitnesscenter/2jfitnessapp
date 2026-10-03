@@ -5,62 +5,60 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
-## 0. 2J Fitness 2.0.1 — Experience V2: Fase 1 «Visual V2» + Fase 2 «Health V2» (checkpoint 2026-10-02; SIN desplegar)
+## 0. 2J Fitness 2.0.1 — EXPERIENCE V2 (visual). Fases 1–4 implementadas (checkpoint 2026-10-03)
 
-- **Rama `feat/v2.0.1-visual-v2`**, sobre `fix/challenges-gate` (`2738361`, producción). Fase 1 = `b61fb7d` (+ docs `7617317`). Fase 2 = commit
-  «Health V2» (ver `git log` de la rama; HEAD). Sin push, sin deploy. Solo frontend + 2 claves en la lista de funciones (Fase 1).
-- **Fase 1 (cerrada):** capa de diseño (`v2.css` tokens `--v2-*`, `v2-screens.css`, `components/v2.jsx`: Surface/Pill/ProgressBar/Ring/
-  Skeleton/EmptyState/Stat/CountUp), Home Hero, `BodyMapPanel`, `PostWorkoutSummary`, `AchievementCard`, `ExerciseMeta`, glass selectivo
-  (sheets, `.center`, tabbar), nav con cápsula, microanimaciones (apagadas por `prefers-reduced-motion`), `ProgressTimeline`,
-  preferencias `activity` y `timeline` (admin `features.json` → `S.ux` → datos; admin OFF prevalece; 15 claves en cliente y
-  `api/lib/features-store.js`). Oro SOLO para récords/logros; acento = `--acc` del socio.
+| Fase | Estado | Producción |
+|---|---|---|
+| 1 Visual V2 | DONE | desplegada (`4c78ecb`, 2026-10-03) |
+| 2 Health V2 | DONE | desplegada (`4c78ecb`) |
+| 3 Social V2 | DONE | **NO desplegada** |
+| 4 Seguimiento V2 | DONE | **NO desplegada** |
 
-### Fase 2 — Health V2 (todo presentación; NO se tocó bridge Android, iOS, política de kcal, cola `health_energy`, Sync V2, API)
-- **Lógica pura nueva `lib/health-v2.js`:** `energyPresentation/workoutEnergyView` (kinds measured/aggregate/estimated),
-  `healthState` (unavailable · off · noPermission · partial · wearable · estimateOnly), `activityBlock`, `trainingBlock`,
-  `recoveryBlock`, `compositionBlock`, `muscleDetail`, `healthMoments`. Devuelven null/[] sin datos reales.
-- **Componentes:** `HealthOverview` (4 tiles Actividad · Entrenamiento · Recuperación · Composición + una línea de estado; cada
-  tile abre un detalle corto «de dónde sale»), `HealthStateLine`, `EnergyBadge` (+`energySourceText/energyFigure`),
-  `IndicatorDetail` (sheet al tocar un anillo de Home), `MuscleDetailCard`, `Sparkline` (SVG propio, sin librería de gráficos).
-  Reutilizados/extendidos: `BodyMapPanel` (prop `S` opcional → profundidad al tocar), `ProgressTimeline` (prop `health`),
-  `WhoopCard`, `Ring` (valor null = anillo de ESTADO sin porcentaje).
-- **Dónde se ve:** `/health` (HealthOverview arriba + timeline antes de «Connections»), Home (anillos tocables), post-entreno
-  (kcal con fuente + FC media), detalle de sesión/Stats/Training-detail (Body Map con profundidad).
-- **Fuentes reutilizadas:** `workoutEnergy` (lib/energy), `fitnessOf/ORIGIN_APP/SOURCE_NAME` (lib/fitness), `dailyActivity/bridgeState/
-  getBridge/platformLabel` (health-bridge, solo lectura local), `metricSummary/bodyweight/targetW/measurements` (lib/health),
-  `S.restingHR`, `recoveryOf`, `loadOfWorkouts/musclesOf/levelsOf`.
-- **Política de kcal (intacta):** measured wearable > agregado oficial > estimación 2J; nunca se suman fuentes. Presentación:
-  measured «463 kcal · {app} · Health Connect» (la app solo si `origin` está guardado; si no «Device / Health Connect», nunca inventada);
-  agregado «463 kcal · Aggregated data · {plataforma}»; estimada «≈235 kcal · 2J estimate (rango)». `≈` SOLO en estimaciones.
-- **Indicadores (sin readiness falso):** Entreno = sesiones/plan (sin plan → anillo de estado, sin %); Actividad = pasos o kcal de
-  hoy del bridge, SIEMPRE anillo de estado (se eliminó la referencia de 10 000 pasos de la Fase 1); Recuperación = estimación de
-  carga muscular (única con %, etiquetada «no es lectura médica ni WHOOP»). `basis` en cada uno, mostrado en el detalle.
-- **Body Map depth:** worked / low / rest / nodata (relativos a la escala del propio mapa); series de la semana, última sesión,
-  frecuencia 4 sem., volumen de sus levantamientos PRINCIPALES (peso 1; no reparte kg entre músculos) y comparación con la semana
-  anterior SOLO con base válida en ambas. CSS premium (halo, glow en l3/l4, siluetas, selección).
-- **Timeline Health:** sesiones + «peso con cambio relevante» (≥1 kg o ≥2 % y ≥7 días entre lecturas) + una línea por día de
-  medición de composición; máx. 8. No hay criterio previo para «actividad diaria destacable» → no se incluye.
-- **Gates:** Actividad ← `health`; Recuperación ← `recovery`; Composición ← `bodyweight` o `bioimpedance`; anillos Home ← `activity`
-  (+`health`/`recovery` por anillo); timeline ← `timeline`. Admin OFF prevalece siempre (`uxOn`).
-- **Privacidad:** Health es solo lectura local y privado: `HealthOverview` lleva `data-private="true"`; ningún módulo Health importa
-  social/share/friends/chat ni hace `api()/fetch`; `share-card.js` no lleva campos Health (tests lo comprueban). Los componentes reciben
-  props planas para que Social V2 pueda compartir SOLO lo que el usuario elija — nada se publica automáticamente.
-- **Tests:** frontend 1180/1180 (+21 en `views/health-v2.test.jsx`: energía por tipo y ≈, sin datos → sin métricas, anillos sin %,
-  gates y admin OFF, Body Map con/sin datos y sin base, estados off/sin permiso/parcial/wearable/solo estimación, privacidad,
-  post-entreno sin Health); API 378/378 (sin cambios); build y `check-locales` (es completo) OK; tests Health existentes OK.
-  Visual: 375 px oscuro (Health, detalle Training + mapa, timeline, anillos de Home).
-- **Cierre Fase 2:** `/health` tiene UNA entrada de Composición (tile V2; su detalle lista peso, tendencia, objetivo y bioimpedancia; las tarjetas de evolución quedan como drill-down) → los tiles antiguos Peso/Grasa/Músculo (`hv-now`) solo se muestran si el tile V2 está oculto por gates. `t()` nunca devuelve `undefined` (clave ausente → su inglés; fuente ausente → ''). Tests con `FEATURE_KEYS`=15 (cliente=API); el runner del release valida 15.
-- **Riesgos:** (1) cualquier runner/imagen que compruebe `FEATURE_KEYS.length` debe esperar 15 (el runner del release ya lo hace). (2) El tile Recuperación muestra FC en
-  reposo (importada de Apple Health) o FC de sesión; WHOOP solo dentro del detalle. (3) `health_bridge_daily` es por dispositivo y día:
-  sin sincronización reciente no hay tile de Actividad. (4) El estado «solo estimación» se infiere de que ninguna sesión tiene kcal medidas.
-  (5) Cadenas nuevas solo en español (10 packs retrasados caen al inglés, sin romper UI).
-- **NO tocar:** Sync V2, Auth, bridge Android/iOS, política y cola de energía, `doFinishWorkout`, contratos de datos; no publicar Health
-  en Social automáticamente; no crear «readiness»/puntuaciones médicas; no sumar kcal de fuentes.
-- **Siguiente fase: Social V2** — reutilizar `AchievementCard`, `EnergyBadge`/`energyPresentation`, `v2.jsx`, `ProgressTimeline`;
-  compartir Health solo por elección explícita del usuario (payload mínimo, sin ids de proveedor).
-- **Aptas para Codex:** traducir ~90 cadenas nuevas a los 10 packs; test de contraste `--v2-*`; skeletons del detalle WHOOP; unificar
-  los tiles «headline» antiguos de Health con `HealthOverview`; ajustar el runner (`FEATURE_KEYS` 15); test de snapshot-free de
-  `healthMoments` con series largas; revisión Android del glass.
+- **Rama `feat/v2.0.1-visual-v2`.** Producción = `4c78ecbb832d2156ad4939367870302d452b7497` (fases 1–2; rollback `2738361`). Los commits de las
+  fases 3–4 van por encima de `0d193f7` (que solo añade el runner `deploy-4c78ecb.2j.ps1`, tooling). `git log` da el HEAD actual.
+  **DEPLOY = BLOQUEADO hasta la frase exacta «Autorizo deploy».** Para el deploy usar el kit ya validado (`ops/deploy-kit` en
+  `ops/deploy-automation`, canal `2j-prod`); no rediseñarlo. Al preparar el release: el delta de producción→HEAD es solo `frontend/src`
+  + docs; el runner se deriva del de `4c78ecb` (ver su guard «producción es ancestro del target»).
+- **Identidad V2 (no cambiar):** grafito oscuro; acento = `--acc` del socio (verde por defecto); oro SOLO para récords, logros e hitos
+  (`--v2-gold`; en tarjetas social: record/achievement/streak); glass solo en sheets, `.center`, tabbar y composer del chat; movimiento
+  150–250 ms, una vez, apagado con `prefers-reduced-motion`; targets ≥ 40 px; sin porcentajes ni scores inventados; `≈` solo en estimaciones.
+- **Capa de diseño:** `src/v2.css` (tokens `--v2-*`), `src/v2-screens.css` (Home, post-entreno, Health, timeline, nav, glass), `src/v2-social.css`
+  (Social + Seguimiento), `components/v2.jsx` (Surface, Pill, ProgressBar, Ring con modo estado, Sparkline, Skeleton, ListSkeleton, EmptyState,
+  Stat, CountUp), `lib/motion.js`. Orden de import en `main.jsx`: index → v2 → v2-screens → v2-social.
+
+### Fase 1 — Visual V2
+- `HomeHero` (sesión de hoy + CTA + semana + anillos), `BodyMapPanel`, `PostWorkoutSummary` (presentación pura tras guardar), `AchievementCard`
+  (PR/logro/insignia, paleta fija exportable), `ExerciseMeta`, `ProgressTimeline`, nav con cápsula, glass selectivo, microanimaciones.
+- Preferencias: `activity` y `timeline` (admin `features.json` → `S.ux` → datos; admin OFF prevalece). `FEATURE_KEYS` = **15**, idénticas en
+  `frontend/src/lib/features.js` y `api/lib/features-store.js` (test). Un runner/imagen que compruebe el nº de claves debe esperar 15.
+
+### Fase 2 — Health V2 (solo presentación; privado)
+- `lib/health-v2.js` (energía measured/aggregate/estimated, `healthState`, bloques, `muscleDetail`, `healthMoments`), `HealthOverview` (4 tiles + línea
+  de estado), `EnergyBadge`, `IndicatorDetail`, `MuscleDetailCard`. Composición tiene UNA entrada (tile V2; los tiles Peso/Grasa/Músculo antiguos
+  solo salen si el V2 está oculto por gates). Anillos sin % cuando no hay denominador real (Actividad siempre estado; Entreno sin plan).
+- Política de kcal intacta: measured wearable > agregado oficial > estimación 2J; nunca se suman fuentes; proveedor solo si está guardado.
+- Privacidad: ningún módulo Health importa social/share ni hace red; los componentes aceptan props planas para que Social comparta SOLO lo elegido.
+
+### Fase 3 — Social V2 (las pantallas existentes, sin funciones nuevas ni backend)
+- `Social.jsx` (`.v2-social`: cabecera en cápsula, tiles de acceso, pestañas en una fila desplazable, Marcas en oro, Desafíos en acento), `Friends.jsx`
+  (solicitudes destacadas con Aceptar/Rechazar, buscador, vacíos con `EmptyState`), `Chat.jsx` (avatares, no leído = punto de acento + fecha),
+  `ChatThread.jsx` (burbujas `.chat-msg`, separadores de día, composer glass anclado), `SocialMoments.jsx` (chip de tipo por momento: oro para
+  record/achievement/streak, acento para el resto), `CommunityShareCard` repintada con la paleta V2 (solo CSS). Skeletons (`ListSkeleton`) en lugar de «Loading…».
+- Reutilizado: onboarding Community existente (sin cambios), `StaffBadge`, `InternalShareActions`, tarjetas de share existentes. Permisos y protocolo intactos.
+
+### Fase 4 — Seguimiento V2 (el sistema existente: `api/lib/followup.js`, `GET /api/followup`, `AdminFollowUp`)
+- Socio: `FollowUpCard` (`lib/followup-view.js`: `useFollowUp`, `followUpView`) en Health y Progreso (completa) y en Home (compacta, solo si la revisión
+  está a ≤ 7 días o vencida): próxima revisión, última, plantilla, peso desde la última revisión (solo con lectura base y posterior) y CTA «Añadir una medición».
+- Staff: `AdminFollowUp` con `Surface`/`Pill`/`Stat`, alertas factuales, mediciones con delta neutro; `alertText` sigue exportado (test Health).
+- Sin scores, riesgo ni readiness. Sin API nueva. Estados offline: la tarjeta no aparece.
+
+- **Tests (cierre):** frontend 1194/1194 (v2 26, health-v2 24, social-v2 11), API 378/378, build y `check-locales` OK (es completo), `git diff --check` limpio.
+- **QA:** 360 / 375 / tablet 768 / desktop, oscuro y claro (DOM + capturas). 360: la cabecera de Comunidad cabía mal → botones 36 px bajo 380 px.
+- **i18n:** español completo; 39 cadenas clave de Experience V2 traducidas a de/fr/hi/it/ko/pl/pt/ru/tr/zh; el resto cae al inglés (`t()` nunca devuelve undefined).
+- **Limitaciones:** las pantallas Social con datos reales solo se vieron con respuestas simuladas (sin backend en el preview); Workout no recibe tarjeta de
+  seguimiento (no hay dato útil ahí); las cadenas largas nuevas de Health/Social siguen solo en español + inglés; tooling de deploy no tocado.
+- **NO tocar:** Sync V2, Auth, bridge Health Android/iOS, política de kcal, `doFinishWorkout`, backends Social/Chat/Followup, permisos, contratos de datos.
+- **Hecho para Codex:** traducir el resto de claves nuevas a los 10 packs; test de contraste de `--v2-*` en claro/oscuro; revisión Android del glass.
 
 ## 1. Estado actual (checkpoint 2026-10-01)
 
