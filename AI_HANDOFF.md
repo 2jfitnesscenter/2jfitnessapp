@@ -5,18 +5,18 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
-## 0. 2J Fitness 2.0.1 — EXPERIENCE V2 (visual). Fases 1–4 implementadas (checkpoint 2026-10-03)
+## 0. 2J Fitness 2.0.1 — EXPERIENCE V2 (visual). Fases 1–4 implementadas Y DESPLEGADAS (checkpoint 2026-10-03)
 
 | Fase | Estado | Producción |
 |---|---|---|
 | 1 Visual V2 | DONE | desplegada (`4c78ecb`, 2026-10-03) |
 | 2 Health V2 | DONE | desplegada (`4c78ecb`) |
-| 3 Social V2 | DONE | **NO desplegada** |
-| 4 Seguimiento V2 | DONE | **NO desplegada** |
+| 3 Social V2 | DONE | desplegada (`eee3bc2`, 2026-10-03) |
+| 4 Seguimiento V2 | DONE | desplegada (`eee3bc2`) |
 
-- **Rama `feat/v2.0.1-visual-v2`.** Producción = `4c78ecbb832d2156ad4939367870302d452b7497` (fases 1–2; rollback `2738361`). Los commits de las
-  fases 3–4 van por encima de `0d193f7` (que solo añade el runner `deploy-4c78ecb.2j.ps1`, tooling). `git log` da el HEAD actual.
-  **DEPLOY = BLOQUEADO hasta la frase exacta «Autorizo deploy».** Para el deploy usar el kit ya validado (`ops/deploy-kit` en
+- **Rama `feat/v2.0.1-visual-v2`.** **Producción = `eee3bc2acb23a29ac44225f5ba4650bd3ecbe308`** (todo Experience V2; desplegado el 2026-10-03 con el canal `2j-prod`; rollback
+  `4c78ecb`; backup previo `/root/backups/2jfitness-predeploy-eee3bc2-2026-10-03_103348.tar.gz`). `eee3bc2` también deja de versionar el runner generado.
+  **Todo deploy nuevo requiere la frase exacta «Autorizo deploy».** Para el deploy usar el kit ya validado (`ops/deploy-kit` en
   `ops/deploy-automation`, canal `2j-prod`); no rediseñarlo. Al preparar el release: el delta de producción→HEAD es solo `frontend/src`
   + docs; el runner se deriva del de `4c78ecb` (ver su guard «producción es ancestro del target»).
 - **Identidad V2 (no cambiar):** grafito oscuro; acento = `--acc` del socio (verde por defecto); oro SOLO para récords, logros e hitos
