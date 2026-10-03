@@ -8,6 +8,8 @@ import { fmtDate, fmtNum } from '../lib/format.js'
 import { MEASUREMENTS } from '../lib/measurements.js'
 import { PAIN_ZONE } from '../lib/checkin.js'
 import { Button, Row, SelectRow } from '../components/ui.jsx'
+import Icon from '../components/Icon.jsx'
+import { Surface, Pill, Stat } from '../components/v2.jsx'
 
 // Seguimiento V2 — staff follow-up card inside the admin member detail. Server:
 // api/lib/followup.js (admin-only; check-ins only when the member shared them). Everything
@@ -82,30 +84,38 @@ export default function AdminFollowUp({ id }) {
   const stop = () => api('/api/admin/user/followup', { method: 'POST', body: JSON.stringify({ id, stop: true }) })
     .then(() => { toast(t('Follow-up stopped')); load() }).catch(e => toast(e.message))
   const last = f?.reviews?.length ? f.reviews[f.reviews.length - 1].d : null
+  const overdue = d.alerts.some(x => x.code === 'review_overdue')
+  const today = new Date().toISOString().slice(0, 10)
+  const status = !f ? '' : overdue ? 'overdue' : s.nextReview && s.nextReview <= today ? 'due' : ''
   return <section className="fu">
     <h4 className="sec">{t('Follow-up')}</h4>
     {!f ? <div className="card fu-empty">
       <div className="muted small">{t('No follow-up yet. Choose an assessment template and how often to review.')}</div>
       <Button icon="plus" onClick={setup}>{t('Start follow-up')}</Button>
-    </div> : <div className="card fu-card">
-      <div className="fu-meta">
-        <span className="tag acc">{t(TEMPLATE_LABEL[f.template])}</span>
-        <span className="tag">{f.cadence === 'custom' ? t('Every {0} days', f.days) : t(CADENCE_LABEL[f.cadence])}</span>
-        <span className="tag">{last ? t('Last review {0}', fmtDate(last)) : t('Started {0}', fmtDate(f.startedAt))}</span>
-        {s.nextReview && <span className="tag">{t('Next {0}', fmtDate(s.nextReview))}</span>}
+    </div> : <Surface className={'v2-fu v2-fu-staff ' + status}>
+      <div className="v2-fu-top">
+        <span className="v2-fu-ic"><Icon name={overdue ? 'bell' : 'calendar'} /></span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="v2-fu-when">{s.nextReview ? t('Next {0}', fmtDate(s.nextReview)) : t('Follow-up')}</div>
+          <div className="v2-fu-sub">{last ? t('Last review {0}', fmtDate(last)) : t('Started {0}', fmtDate(f.startedAt))}</div>
+        </div>
       </div>
-      {!!d.alerts.length && <ul className="fu-alerts">{d.alerts.map((a, i) => <li key={i}>{alertText(a)}</li>)}</ul>}
-      <div className="fu-h">{t('Since {0}', fmtDate(s.from))}</div>
-      <div className="fu-grid">
-        <div><b>{s.workouts}</b><span>{t('workouts')}</span></div>
-        <div><b>{fmtNum(s.perWeek)}</b><span>{s.plannedPerWeek ? t('per week · {0} planned', s.plannedPerWeek) : t('per week')}</span></div>
-        <div><b>{s.prs}</b><span>{t('PRs')}</span></div>
-        {s.weight && <div><b>{fmtNum(s.weight.end)}</b><span>{s.weight.delta != null ? t('kg · {0} since {1}', signed(s.weight.delta), fmtDate(s.weight.startDate)) : t('kg · one reading')}</span></div>}
+      <div className="v2-fu-chips">
+        <Pill tone="acc">{t(TEMPLATE_LABEL[f.template])}</Pill>
+        <Pill>{f.cadence === 'custom' ? t('Every {0} days', f.days) : t(CADENCE_LABEL[f.cadence])}</Pill>
       </div>
-      {!!f.keys.length && <div className="fu-meas">
+      {!!d.alerts.length && <ul className="v2-fu-alerts">{d.alerts.map((a, i) => <li key={i}><Icon name="info" />{alertText(a)}</li>)}</ul>}
+      <div className="v2-eyebrow">{t('Since {0}', fmtDate(s.from))}</div>
+      <div className="v2-fu-facts">
+        <Stat value={s.workouts} label={t('workouts')} />
+        <Stat value={fmtNum(s.perWeek)} label={s.plannedPerWeek ? t('per week · {0} planned', s.plannedPerWeek) : t('per week')} />
+        <Stat value={s.prs} label={t('PRs')} />
+        {s.weight && <Stat value={fmtNum(s.weight.end)} label={s.weight.delta != null ? t('kg · {0} since {1}', signed(s.weight.delta), fmtDate(s.weight.startDate)) : t('kg · one reading')} />}
+      </div>
+      {!!f.keys.length && <div className="v2-fu-meas">
         {f.keys.map(k => {
           const m = s.measurements[k], def = MEAS[k]
-          return <div key={k} className="fu-mrow"><span>{t(def?.label || k)}</span>
+          return <div key={k} className="v2-fu-mrow"><span>{t(def?.label || k)}</span>
             <b>{m ? fmtNum(m.end) + ' ' + (def?.unit || '') : '—'}</b>
             <em>{m?.delta != null ? signed(m.delta) : m ? t('one reading') : t('not measured')}</em></div>
         })}
@@ -118,12 +128,12 @@ export default function AdminFollowUp({ id }) {
           <span>{t('Fatigue')} <b>{fmtNum(s.checkins.avg.fatigue ?? 0)}</b>/5</span>
         </div>}
       </div> : <div className="dim small">{t('Check-ins are private unless the member shares them in their settings.')}</div>}
-      <div className="fu-acts">
+      <div className="v2-fu-acts">
         <Button variant="primary" icon="check" onClick={review}>{t('Mark review done')}</Button>
         <Button onClick={setup}>{t('Edit')}</Button>
         <Button variant="plain" onClick={stop}>{t('Stop')}</Button>
       </div>
       <div className="dim small">{t('Log the readings with “Log bioimpedance scan”. These are facts from the member’s data, not a diagnosis.')}</div>
-    </div>}
+    </Surface>}
   </section>
 }

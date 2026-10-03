@@ -12,6 +12,8 @@ import Icon from '../components/Icon.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
 import RecoveryCard from '../components/RecoveryCard.jsx'
 import ProgressTimeline from '../components/ProgressTimeline.jsx'
+import FollowUpCard from '../components/FollowUpCard.jsx'
+import { useFollowUp } from '../lib/followup-view.js'
 import MuscleDetailCard from '../components/MuscleDetailCard.jsx'
 import { muscleDetail } from '../lib/health-v2.js'
 import { loadOfWorkouts, rankOf, MUSCLE_NAME, MUSCLE_GROUPS, muscleOptsOf } from '../lib/muscles.js'
@@ -239,6 +241,7 @@ function ZoneDistributionCard({ S }) {
 // Stats = the analytics hub: all charts, progress and history live here.
 export default function Stats() {
   const nav = useNavigate()
+  const followUp = useFollowUp()   // read-only schedule of the gym's follow-up (offline → nothing)
   const [params] = useSearchParams()
   const deepLinkId = params.get('ex')
   const S = useStore(s => s.S)
@@ -327,6 +330,7 @@ export default function Stats() {
       {uxOn(S, 'bodyweight') && <div className="tile"><div className="l"><Icon name="scale" />{t('Weight 30d')}</div><div className="v" style={{ fontSize: 22, color: bwDelta30 === null ? 'inherit' : bwDeltaColor(bwDelta30, (lastBW(S) || {}).w || 0) }}>{bwDelta30 === null ? '—' : (bwDelta30 > 0 ? '+' : '') + fmtNum(bwDelta30) + ' ' + S.unit}</div></div>}
     </div>
 
+    <FollowUpCard fu={followUp} S={S} nav={nav} />
     <ProgressInsights S={S} nav={nav} />
     <ProgressTimeline S={S} />
 

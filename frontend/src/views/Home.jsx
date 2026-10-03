@@ -10,6 +10,8 @@ import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import WorkoutCover from '../components/WorkoutCover.jsx'
 import HomeHero from '../components/HomeHero.jsx'
+import FollowUpCard from '../components/FollowUpCard.jsx'
+import { useFollowUp } from '../lib/followup-view.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
@@ -67,6 +69,7 @@ export default function Home() {
   const config = useStore(s => s.config)
   const [weekOffset, setWeekOffset] = useState(0)
   const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
+  const followUp = useFollowUp()   // the gym's follow-up schedule; Home only shows it when a review is near or overdue
 
   const today = new Date()
   const routine = effectiveRoutine(S, todayISO())
@@ -103,6 +106,8 @@ export default function Home() {
   return <div className="narrow">
     <HomeHero S={S} user={user} routine={routine} doneToday={doneToday} rescheduled={todayOvr}
       week={{ done: wThisWeek, planned: plannedPerWeek, streak }} onToday={onToday} onWeek={() => calendarSheet()} now={today} />
+
+    <FollowUpCard fu={followUp} S={S} nav={nav} compact />
 
     <NewsBlock />
 

@@ -12,6 +12,7 @@ import LineChart from '../components/LineChart.jsx'
 import SegmentExplorer from '../components/SegmentExplorer.jsx'
 import CheckInCard from '../components/CheckInCard.jsx'
 import HealthOverview from '../components/HealthOverview.jsx'
+import FollowUpCard from '../components/FollowUpCard.jsx'
 import { compositionBlock } from '../lib/health-v2.js'
 import { uxOn } from '../lib/features.js'
 import ProgressTimeline from '../components/ProgressTimeline.jsx'
@@ -138,9 +139,7 @@ export default function Health() {
         <span className="hv-d">{fmtDate(s.current.d)}{s.current.src ? ' · ' + t(SOURCE_LABEL[s.current.src] || s.current.src) : ''}</span>
       </div>)}
     </div>}
-    {followUp?.active && <div className="hv-fu"><Icon name="calendar" />{followUp.nextReview < new Date().toISOString().slice(0, 10)
-      ? t('Your follow-up review with the gym is due')
-      : t('Next follow-up review with the gym: {0}', fmtDate(followUp.nextReview))}</div>}
+    <FollowUpCard fu={followUp} S={S} nav={nav} />
     {bmi != null && <div className="dim small hv-bmi">{t('BMI {0} · calculated from your weight and height', fmtNum(bmi))}</div>}
 
     {metrics.length > 0 && <>
