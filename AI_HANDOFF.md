@@ -19,6 +19,21 @@
   **Todo deploy nuevo requiere la frase exacta «Autorizo deploy».** Para el deploy usar el kit ya validado (`ops/deploy-kit` en
   `ops/deploy-automation`, canal `2j-prod`); no rediseñarlo. Al preparar el release: el delta de producción→HEAD es solo `frontend/src`
   + docs; el runner se deriva del de `4c78ecb` (ver su guard «producción es ancestro del target»).
+### Sprint 1 WOW — Entrenamiento V3 · Post-entreno V3 · Home Alive (2026-10-04; NO DESPLEGADO)
+- **Rama `feat/v2.0.1-visual-v2`** sobre producción `8afe645`. Solo frontend; motores (series, RPE, Series Feedback, Progressive Overload, supersets, descanso, guardado) intactos.
+- **Adaptativo, nunca con huecos:** admin OFF → `uxOn` (sin cambios); preferencias de usuario (`S.workoutView`, `showExerciseImages`, RPE/feedback/overload existentes) → cada pieza nueva solo se renderiza si hay dato y está activa
+  (sin imágenes no hay caja ni miniatura de «Después»; sin esfuerzo/feedback no hay bloque). Simple y Detallado siguen siendo dos presentaciones distintas de la misma sesión.
+- **Entrenamiento V3:** `WorkoutProgress` (anillo de series + «Ejercicio x / y» + un punto por ejercicio, el superset es UN punto; los puntos saltan de ejercicio con el mismo `cur`), `NextUp` («Después: …» + miniatura solo con imágenes),
+  Simple con imagen editorial más contenida (32 vh) y panel de serie actual grande (KG/REPS 38 px, CTA 56 px), Detallado con tarjeta de series suave, **superset agrupado** (raíl del color del grupo + conector en cadena),
+  Series Feedback como 4 fichas táctiles con subrayado semántico, recomendación de progresión como tarjeta calmada, **RPE/RIR con valores rápidos** (6–10 / 4–0) sobre el slider (misma escala), descanso con **anillo + «Siguiente: serie 3 de 4 · ejercicio»** (glass, ±15 / pausa / saltar iguales).
+  La fila del lugar y la sugerencia 2J contextual pasan debajo del progreso (la sesión va primero). Lógica nueva solo de lectura en `lib/training-v3.js`.
+- **Post-entreno V3:** héroe a pantalla completa (oro SOLO con récord/logro mayor), duración / series / volumen grandes, chips de PR · racha · kcal con fuente · FC; tarjeta de PR, logros, mapa corporal y semana debajo; tarjeta de compartir con PR en oro.
+- **Home Alive** (`lib/home-alive.js` + `HomeHero`): sesión en curso → progreso real de series; recién terminada → recap (series, volumen); **récord de las últimas 36 h** → banda dorada breve; día de descanso → «Próxima sesión · martes · Push» (de tu plan); programa activo ya como pastilla; seguimiento y 2J Intelligence siguen con sus condiciones.
+- **Componentes nuevos:** WorkoutProgress, NextUp (+ `v3-training.css`, `lib/training-v3.js`, `lib/home-alive.js`); reutilizados: Ring/ProgressBar/Pill/Stat/CountUp (v2.jsx), AchievementCard, BodyMapPanel, EnergyBadge, tokens `--v2-*`.
+- **Tests:** frontend 1214/1214 (+20 en `views/v3.test.jsx`), API 378/378, build y check-locales OK; 8 cadenas nuevas traducidas a los 10 packs retrasados. **QA:** 360 / 375 / tablet (DOM) en oscuro y claro.
+- **Limitaciones:** capturas con imágenes de ejercicio rotas (sin red) → el recorte real de GIF/imagen no se pudo ver; el Detallado con RPE real y el flujo completo con backend solo con datos simulados; la miniatura de «Después» omite superset.
+- **Siguiente:** Sprint 2 (Progreso V3, Mi 2J V2, 2J Story). **Deploy: bloqueado hasta «Autorizo deploy».**
+
 - **Identidad V2 (no cambiar):** grafito oscuro; acento = `--acc` del socio (verde por defecto); oro SOLO para récords, logros e hitos
   (`--v2-gold`; en tarjetas social: record/achievement/streak); glass solo en sheets, `.center`, tabbar y composer del chat; movimiento
   150–250 ms, una vez, apagado con `prefers-reduced-motion`; targets ≥ 40 px; sin porcentajes ni scores inventados; `≈` solo en estimaciones.
