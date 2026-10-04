@@ -9,23 +9,54 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { encrypt, decrypt } from '../lib/crypto.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = path.join(DATA, 'chat.json');
 
+/* chat.json is encrypted at rest (AES-256-GCM, lib/crypto.js, domain 'chat-store'). Compatibility rules:
+   - READ is dual: a file that starts with '{' is the legacy plain JSON, anything else is the encrypted base64 blob.
+   - A legacy file is converted once at boot, atomically (temp file -> verified by decrypting it -> rename), so there is never a moment
+     with a half-written chat. Nothing is deleted; a failed conversion leaves the plain file exactly as it was.
+   - If the file exists but cannot be read (wrong/missing key, corruption) the store stays EMPTY AND READ-ONLY: it never overwrites the
+     file with an empty chat, so fixing the key restores everything.
+   - Rollback to a release that only reads plain JSON: scripts/decrypt-chat.mjs (or the pre-deploy backup). */
+const INFO = 'chat-store';
 const store = { threads: [], messages: [] };
-try {
-  const parsed = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-  store.threads = Array.isArray(parsed.threads) ? parsed.threads : [];
-  store.messages = Array.isArray(parsed.messages) ? parsed.messages : [];
-} catch { /* first boot — no file yet */ }
+let locked = false;
+export const isLocked = () => locked;
 
+const serialize = () => encrypt({ threads: store.threads, messages: store.messages }, INFO);
 function atomicWrite(file, content) {
   const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, content);
+  fs.writeFileSync(tmp, content, { mode: 0o600 });
   fs.renameSync(tmp, file);
 }
-function save() { atomicWrite(FILE, JSON.stringify(store, null, 2)); }
+function loadFromDisk() {
+  let raw;
+  try { raw = fs.readFileSync(FILE, 'utf8'); } catch { return; }   // first boot — no file yet
+  const text = raw.trim();
+  if (!text) return;
+  const legacy = text.startsWith('{');
+  let parsed = null;
+  try { parsed = legacy ? JSON.parse(text) : decrypt(text, INFO); } catch { parsed = null; }
+  if (!parsed || typeof parsed !== 'object') { locked = true; console.error('chat: chat.json cannot be read (key or file problem); chat is read-only until fixed'); return; }
+  store.threads = Array.isArray(parsed.threads) ? parsed.threads : [];
+  store.messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+  if (legacy) {
+    try {
+      const blob = serialize();
+      const check = decrypt(blob, INFO);
+      if (!check || check.messages.length !== store.messages.length || check.threads.length !== store.threads.length) throw new Error('verification failed');
+      atomicWrite(FILE, blob);
+    } catch (e) { console.error('chat: encryption of chat.json postponed:', e.message); }
+  }
+}
+loadFromDisk();
+function save() {
+  if (locked) { console.error('chat: write skipped, chat.json is locked (unreadable)'); return; }
+  atomicWrite(FILE, serialize());
+}
 
 export function threadsOf(memberId) {
   return store.threads.filter(t => t.memberId === memberId || (t.kind === 'direct' && t.recipientId === memberId)).sort((a, b) => b.updatedAt - a.updatedAt);

@@ -21,3 +21,6 @@ frontend/locale-coverage.json
 CLAUDE.md
 AGENTS.md
 graphify-out/
+
+# Instance secret once separated from ./data (docs/KEY_SEPARATION.md)
+secrets/

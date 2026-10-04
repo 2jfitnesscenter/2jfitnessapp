@@ -8,15 +8,13 @@
 
    Extracted from api/coach/config.js, which now imports these instead of defining its own copy. */
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
+import { readSecret } from './secret.js';
 
-const DATA = process.env.DATA_DIR || '/data';
 const keyCache = new Map();
 function key(info) {
   if (keyCache.has(info)) return keyCache.get(info);
   // Read the secret lazily: server.js creates it at boot, and a feature module may be imported first.
-  const secret = fs.readFileSync(path.join(DATA, 'secret'), 'utf8').trim();
+  const secret = readSecret();
   const k = Buffer.from(crypto.hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.alloc(0), Buffer.from(info), 32));
   keyCache.set(info, k);
   return k;

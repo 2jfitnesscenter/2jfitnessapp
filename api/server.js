@@ -4,6 +4,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { ensureSecret } from './lib/secret.js';
 import {
   generateRegistrationOptions, verifyRegistrationResponse,
   generateAuthenticationOptions, verifyAuthenticationResponse
@@ -86,9 +87,7 @@ setOfficialGymEquipment(gymProfileConfig.load());
 libraryAdmin.setUsageProbe(id => guidedStore.exerciseUsage().has(id));
 
 /* ---------- secret + db ---------- */
-const secretFile = path.join(DATA, 'secret');
-if (!fs.existsSync(secretFile)) fs.writeFileSync(secretFile, crypto.randomBytes(32).toString('hex'), { mode: 0o600 });
-const SECRET = fs.readFileSync(secretFile, 'utf8').trim();
+const SECRET = ensureSecret();   // ./data/secret by default; SECRET_FILE moves it out of the data folder (lib/secret.js)
 
 const dbFile = path.join(DATA, 'db.json');
 let db = { users: [], creds: [], subs: [], invites: [], recoveries: [] };

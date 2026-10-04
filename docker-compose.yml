@@ -39,7 +39,10 @@ services:
       - DATA_DIR=/data
       - COACH_CODEX_HOME=/codex
     volumes:
-      - ./data:/data         # users, passkeys, per-user state, session secret — BACK THIS UP
+      - ./data:/data         # users, passkeys, per-user state — BACK THIS UP (the session/encryption secret stays here until SECRET_FILE is set)
+      # Optional key separation (docs/KEY_SEPARATION.md): set SECRET_FILE=/secrets/secret in .env and the secret lives here,
+      # outside ./data, so data backups do not carry the key to their own ciphertext. Unused (empty dir) until then.
+      - ${SECRETS_DIR:-./secrets}:/secrets
       # ChatGPT/Codex refresh tokens are kept separate from app data and mounted only into the
       # API container. This directory is owned by the unprivileged Coach runtime.
       - ./data/codex:/codex
