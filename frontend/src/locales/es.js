@@ -4211,4 +4211,5 @@ export default {
   'Achievement': 'Logro',
   'Streak': 'Racha',
   'Challenge': 'Desafío',
+  'Adding': 'Añadiendo',
 }

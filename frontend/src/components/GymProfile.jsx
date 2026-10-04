@@ -132,10 +132,12 @@ export function GymProfileSheet({ close = () => {}, editable = false }) {
     <div className="gym-profile-grid" role="group" aria-label={t('Training place profiles')}>
       {PROFILE_CARDS.map(card => {
         const selected = card.create ? active.type === card.id : active.id === card.id
-        return <button key={card.id} type="button" className={'gym-profile-card' + (selected ? ' selected' : '')} aria-pressed={selected} onClick={() => chooseCard(card)}>
+        // Tapping "Other gym" / "Custom gym" with none saved opens the name form: the card must show it is the one being set up (nothing becomes active until the place is added)
+        const pending = !selected && card.create && draftType === card.id
+        return <button key={card.id} type="button" className={'gym-profile-card' + (selected ? ' selected' : '') + (pending ? ' pending' : '')} aria-pressed={selected || pending} onClick={() => chooseCard(card)}>
           <span className="gym-profile-card-icon"><Icon name={card.icon} /></span>
           <span className="gym-profile-card-copy"><span className="gym-profile-card-title">{t(card.name)}</span><span className="gym-profile-card-subtitle">{t(card.subtitle)}</span></span>
-          {selected ? <span className="gym-active-badge"><Icon name="check" />{t('Active')}</span> : <span className="gym-profile-radio" aria-hidden="true" />}
+          {selected ? <span className="gym-active-badge"><Icon name="check" />{t('Active')}</span> : pending ? <span className="gym-active-badge gym-pending-badge"><Icon name="plus" />{t('Adding')}</span> : <span className="gym-profile-radio" aria-hidden="true" />}
         </button>
       })}
     </div>

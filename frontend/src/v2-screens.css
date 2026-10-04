@@ -216,3 +216,16 @@
 /* the date under the greeting: only the first letter is capital ("Sábado, 3 de octubre"), never every word */
 .v2-hero .sub { text-transform: none; }
 .v2-hero .sub::first-letter { text-transform: uppercase; }
+
+/* ------------------------------------------------ Settings → where you train: add-a-place form -- */
+/* The global .btn is width:100%, which inside this flex row squeezed the name field to ~30 px and stretched "Add place" across the row.
+   The field now takes the space; the button keeps its own width and drops under the field on very narrow screens. */
+.gym-create-place { border-radius: 18px; }
+.gym-create-row { flex-wrap: wrap; gap: 10px; align-items: stretch; }
+.gym-create-row .input { flex: 1 1 140px; width: auto; min-width: 0; min-height: 48px; margin: 0; }
+.gym-create-row .gym-create-button { flex: 0 0 auto; width: auto; min-height: 48px; padding: 0 18px; white-space: nowrap; font-size: calc(15px * var(--text-scale,1)); }
+.gym-create-kind .chip { min-height: 40px; padding: 0 16px; }
+/* the card being set up (no place saved yet) is marked, even though nothing is active until "Add place" */
+.gym-profile-card.pending { border-style: dashed; border-color: var(--acc); background: var(--acc-soft); }
+.gym-profile-card.pending .gym-profile-card-icon { background: color-mix(in srgb, var(--acc) 16%, var(--surface)); color: var(--acc); }
+.gym-pending-badge { background: var(--surface); padding: 3px 7px; border-radius: 99px; }
