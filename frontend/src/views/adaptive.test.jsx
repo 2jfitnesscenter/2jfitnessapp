@@ -94,7 +94,8 @@ describe('Progress holds the depth, adaptively', () => {
     await seed({ ...HISTORY(), bodyweight: [{ d: '2026-09-01', w: 80, t: 1 }], measurements: COMPOSITION, ux: ux(F.PRESETS.simple) })
     const html = await render(views.Stats)
     for (const gone of ['Recovery', 'Body weight', 'Weight 30d', 'Body composition']) expect(html).not.toContain(gone)
-    for (const base of ['Workouts', 'This month', 'Week streak', 'Activity', 'Exercise progress', 'Last workout']) expect(html).toContain(base)
+    // Progress V3: the cover replaced the four stat tiles (period workouts / streak now live in it)
+    for (const base of ['Your progress', 'Month', 'Activity', 'Exercise progress', 'Last workout']) expect(html).toContain(base)
   })
   it('bioimpedance appears only with data: no empty panel for someone who never scanned', async () => {
     await seed({ ...HISTORY(), measurements: {} })

@@ -13,6 +13,8 @@ import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
 import RecoveryCard from '../components/RecoveryCard.jsx'
 import ProgressTimeline from '../components/ProgressTimeline.jsx'
 import FollowUpCard from '../components/FollowUpCard.jsx'
+import ProgressCover from '../components/ProgressCover.jsx'
+import { openStory } from '../components/StorySheet.jsx'
 import { useFollowUp } from '../lib/followup-view.js'
 import MuscleDetailCard from '../components/MuscleDetailCard.jsx'
 import { muscleDetail } from '../lib/health-v2.js'
@@ -133,8 +135,10 @@ function RpVolumeCard({ S, nav }) {
       const sets = Math.round((volume[g.key] || 0) * 10) / 10
       const zone = zoneForVolume(sets, lm)
       const meta = ZONE_META[zone]
-      return <div key={g.key} className="mrow">
+      const cap = lm.mrvMax || lm.mrvMin || 1
+      return <div key={g.key} className="mrow v3-zone">
         <span className="nm">{t(g.name)}</span>
+        <span className="bar" role="img" aria-label={`${meta.code} ${fmtNum(sets)}`}><i style={{ width: Math.max(sets > 0 ? 4 : 0, Math.min(100, Math.round(sets / cap * 100))) + '%', background: meta.color }} /></span>
         <span className="v" style={{ color: meta.color, fontWeight: 700, minWidth: 84 }}>{meta.code} {fmtNum(sets)}</span>
       </div>
     })}
@@ -323,12 +327,7 @@ export default function Stats() {
     <div className="hdr"><div><h1>{t('Stats')}</h1><div className="sub">{t('Progress & history')}</div></div>
       <button className="iconbtn" onClick={() => nav('/history')} aria-label={t('History')}><Icon name="history" /></button></div>
 
-    <div className="tiles">
-      <div className="tile"><div className="l"><Icon name="dumbbell" />{t('Workouts')}</div><div className="v">{S.workouts.length}</div></div>
-      <div className="tile"><div className="l"><Icon name="calendar" />{t('This month')}</div><div className="v">{monthW}</div></div>
-      <div className="tile"><div className="l"><Icon name="flame" />{t('Week streak')}</div><div className="v">{streakWeeks(S)}</div></div>
-      {uxOn(S, 'bodyweight') && <div className="tile"><div className="l"><Icon name="scale" />{t('Weight 30d')}</div><div className="v" style={{ fontSize: 22, color: bwDelta30 === null ? 'inherit' : bwDeltaColor(bwDelta30, (lastBW(S) || {}).w || 0) }}>{bwDelta30 === null ? '—' : (bwDelta30 > 0 ? '+' : '') + fmtNum(bwDelta30) + ' ' + S.unit}</div></div>}
-    </div>
+    <ProgressCover S={S} onStory={openStory} />
 
     <FollowUpCard fu={followUp} S={S} nav={nav} />
     <ProgressInsights S={S} nav={nav} />

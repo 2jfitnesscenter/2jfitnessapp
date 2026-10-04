@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useMemo } from 'react'
-import { t } from '../lib/i18n.js'
+import { Fragment, useMemo } from 'react'
+import { t, dateLocale } from '../lib/i18n.js'
 import { fmtDate, fmtVol } from '../lib/format.js'
 import { progressTimeline, healthTimeline } from '../lib/timeline.js'
 import { fmtNum } from '../lib/format.js'
@@ -20,14 +20,16 @@ export default function ProgressTimeline({ S, max = 6, health = false }) {
     <h2>{t('Progress timeline')}</h2>
     <ol className="v2-tl-list">
       {items.map((it, i) => {
-        if (it.kind === 'weight' || it.kind === 'scan') return <li key={it.id} className="v2-tl-item v2-rise" style={{ animationDelay: Math.min(i, 5) * 40 + 'ms' }}>
+        const month = it.d.slice(0, 7), newMonth = i === 0 || items[i - 1].d.slice(0, 7) !== month
+        const head = newMonth ? <li key={'m' + month + i} className="v3-tl-month" aria-hidden="true">{new Date(it.d + 'T12:00:00').toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' })}</li> : null
+        if (it.kind === 'weight' || it.kind === 'scan') return <Fragment key={it.id}>{head}<li className="v2-tl-item v2-rise" style={{ animationDelay: Math.min(i, 5) * 40 + 'ms' }}>
           <span className="v2-tl-dot" aria-hidden="true" />
           <div className="v2-tl-main"><span className="v2-tl-date">{fmtDate(it.d, true)}</span>
             <span className="v2-tl-name">{it.kind === 'weight' ? t('Weight {0}', fmtNum(it.v) + ' ' + S.unit) : t('New body-composition reading')}</span>
             <span className="v2-tl-sub">{it.kind === 'weight' ? (it.delta > 0 ? '+' : '−') + fmtNum(Math.abs(it.delta)) + ' ' + S.unit + ' · ' + t('since the previous reading') : t('{0} measurements', it.count)}</span></div>
-        </li>
+        </li></Fragment>
         const w = S.workouts.find(x => x.id === it.id)
-        return <li key={it.id} className="v2-tl-item v2-rise" style={{ animationDelay: Math.min(i, 5) * 40 + 'ms' }}>
+        return <Fragment key={it.id}>{head}<li className="v2-tl-item v2-rise" style={{ animationDelay: Math.min(i, 5) * 40 + 'ms' }}>
           <span className={'v2-tl-dot' + (it.events.some(e => e.type === 'pr') ? ' gold' : '')} aria-hidden="true" />
           <button type="button" className="v2-tl-main" onClick={() => w && workoutDetailSheet(w)}>
             <span className="v2-tl-date">{fmtDate(it.d, true)}</span>
@@ -36,12 +38,12 @@ export default function ProgressTimeline({ S, max = 6, health = false }) {
           </button>
           {it.events.slice(0, 3).map(ev => {
             const d = describeEvent(ev, S.unit)
-            return <div key={ev.id} className={'v2-tl-ev' + (ev.type === 'pr' ? ' gold' : '')}>
+            return <div key={ev.id} className={'v2-tl-ev' + (['pr', 'e1rm', 'streak', 'badge'].includes(ev.type) ? ' gold' : '')}>
               <Icon name={d.icon || (ev.type === 'badge' ? 'medal' : 'chartLine')} />
               <span className="min0"><b>{d.title}</b>{d.result ? ' · ' + d.result : ''}</span>
             </div>
           })}
-        </li>
+        </li></Fragment>
       })}
     </ol>
   </div>

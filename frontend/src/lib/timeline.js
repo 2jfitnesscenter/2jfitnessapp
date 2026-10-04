@@ -16,7 +16,7 @@ export function progressTimeline(S, { max = 6 } = {}) {
   const ws = (S.workouts || []).slice(-max).reverse()
   return ws.map(w => ({
     id: w.id, d: w.d, name: w.name, sets: setsDone(w), vol: w.vol || 0,
-    events: postWorkoutEvents(S, w.id, badgesOf(S, w)).filter(e => e.type !== 'streak'),
+    events: postWorkoutEvents(S, w.id, badgesOf(S, w)),     // records, ranks, achievements and streak milestones (all rare enough not to be noise)
   }))
 }
 

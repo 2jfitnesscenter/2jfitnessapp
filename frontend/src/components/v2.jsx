@@ -54,7 +54,7 @@ export const EmptyState = ({ icon = 'sparkles', title, children, action }) =>
   <div className="v2-empty"><div className="ic"><Icon name={icon} /></div>{title && <div className="tt">{title}</div>}{children}{action}</div>
 
 export const Stat = ({ value, label, delta, tone }) =>
-  <div className="v2-stat"><span className="v">{value}</span><span className="k">{label}</span>{delta != null && <span className={cx('d', tone)}>{delta}</span>}</div>
+  <div className={cx('v2-stat', tone === 'gold' && 'gold')}><span className="v">{value}</span><span className="k">{label}</span>{delta != null && <span className={cx('d', tone !== 'gold' && tone)}>{delta}</span>}</div>
 
 /** Counts up to `value` in ~250 ms. Renders the final number at once with reduced motion or a non-finite value. */
 export function useCountUp(value, ms = 250) {
