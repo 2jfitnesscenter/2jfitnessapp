@@ -55,9 +55,9 @@ describe('Mi 2J screens read the real store', () => {
   it('a new member: carnet with the overall rank still locked and an inviting empty state — no zeros wall', async () => {
     await seed()
     const html = await render(views.Mi2J)
-    expect(html).toContain('class="carnet"')
+    expect(html).toContain('v3-pass')      // Mi 2J V2: the athlete passport (the compact carnet still lives in Profile)
     expect(html).toContain('Ana Socia')
-    expect(html).toMatch(/carnet-lock[\s\S]*0\/6/)
+    expect(html).toMatch(/v3-pass-lock[\s\S]*0\/6/)
     expect(html).toContain('Your journey starts here')
     expect(html).toContain('Start training')
     expect(html).not.toContain('m2-ranks')

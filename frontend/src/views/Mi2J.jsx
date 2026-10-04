@@ -8,13 +8,15 @@ import { fmtDate, fmtNum } from '../lib/format.js'
 import { EXIDX } from '../lib/exercises.js'
 import { mediaUrl } from '../lib/media.js'
 import { TIER_COLOR, rankLabel, rankEmblemUrl, RANK_GROUP_NAME, RANK_LIFTS } from '../lib/rank.js'
-import { BADGES } from '../lib/badges-data.js'
+import { BADGES, badgeAccent } from '../lib/badges-data.js'
 import { rankSnapshot, personalRecords, unlockedBadges, closestBadges } from '../lib/mi2j.js'
 import { streakWeeks } from '../lib/history.js'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Button } from '../components/ui.jsx'
 import { openSocialShare } from '../lib/open-social-share.jsx'
 import IntelligenceToday from '../components/IntelligenceToday.jsx'
+import { Pill, Stat, CountUp } from '../components/v2.jsx'
+import { openStory } from '../components/StorySheet.jsx'
 
 // The carnet: who this member is inside 2J, at a glance. Everything is derived (lib/mi2j.js).
 export function Carnet({ S, user, snap, onRanks, compact }) {
@@ -48,6 +50,37 @@ export function Carnet({ S, user, snap, onRanks, compact }) {
   </div>
 }
 
+/* Mi 2J V2 — the athlete passport: who this member is inside 2J (identity, standing, constancy, records, achievements). Everything is
+   derived from the log (lib/mi2j.js); nothing here invents a level, a score or an achievement. Parts that have no data are simply
+   not drawn — a new member sees an identity card and an invitation, an advanced one a full passport. */
+export function AthleteHero({ S, user, snap, records, unlockedCount, streak, onRanks }) {
+  const g = snap.global
+  const tier = !g.locked ? TIER_COLOR[g.tier] : null
+  return <section className="v3-pass" style={tier ? { '--tier': tier } : undefined} aria-label={t('Athlete passport')}>
+    <div className="v3-pass-bg" aria-hidden="true" />
+    <div className="v3-pass-top">
+      <span className="v3-pass-k">2J FITNESS CENTER · {t('ATHLETE')}</span>
+      {streak >= 1 && <Pill tone="gold" icon="flame">{t(streak === 1 ? '{0} week in a row' : '{0} weeks in a row', streak)}</Pill>}
+    </div>
+    <div className="v3-pass-id">
+      <Avatar name={user?.name || t('Guest')} size={72} image={user?.avatar ? mediaUrl(user.avatar) : null} />
+      <div className="v3-pass-who">
+        <div className="v3-pass-name">{user?.name || t('Guest')}</div>
+        {user?.created && <div className="v3-pass-since">{t('Member since {0}', fmtDate(user.created.slice(0, 10)))}</div>}
+      </div>
+      {!g.locked && <button type="button" className="v3-pass-rank" onClick={onRanks} aria-label={t('Overall rank') + ': ' + rankLabel(g)}>
+        <img src={rankEmblemUrl(g.tier, g.division)} alt="" /><span style={{ color: tier }}>{rankLabel(g)}</span>
+      </button>}
+    </div>
+    {g.locked && <button type="button" className="v3-pass-lock" onClick={onRanks}><Icon name="lock" /><span>{t('Overall rank')} · <b>{g.rankedCount}/{g.needed}</b> {t('lifts ranked')}</span><Icon name="chevronRight" className="chev" /></button>}
+    <div className="v3-pass-stats">
+      <Stat value={<CountUp value={S.workouts.length} />} label={t('workouts')} />
+      {records > 0 && <Stat value={<CountUp value={records} />} label={t('lifts with a record')} tone="gold" />}
+      {unlockedCount > 0 && <Stat value={<CountUp value={unlockedCount} />} label={t('achievements')} tone="gold" />}
+    </div>
+  </section>
+}
+
 export default function Mi2J() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
@@ -59,6 +92,9 @@ export default function Mi2J() {
   const unlocked = unlockedBadges(S)
   const near = useMemo(() => closestBadges(S, 2), [S.workouts, S.badges, S.bodyweight])
   const empty = !S.workouts.length
+  const byRecent = [...unlocked].sort((a, b) => (a.unlockedAt < b.unlockedAt ? 1 : -1))
+  const recent = byRecent.slice(0, 3)
+  const special = byRecent.filter(x => badgeAccent(x.badge) === 'gold' && !recent.includes(x)).slice(0, 3)   // the last badge of each category: the rare ones
 
   const tiles = [
     { to: '/rank', icon: 'shield', title: t('My ranks'), sub: snap.hasBW ? t('{0} of {1} groups ranked', snap.groups.filter(g => g.rank).length, snap.groups.length) : t('Log your bodyweight to start'), art: !snap.global.locked ? rankEmblemUrl(snap.global.tier, snap.global.division) : null },
@@ -66,24 +102,24 @@ export default function Mi2J() {
     { to: '/records', icon: 'trophy', title: t('My records'), sub: records.length ? t('{0} exercises', records.length) : t('After your first sessions') },
     { to: '/stats', icon: 'chartLine', title: t('Progress'), sub: t('Charts and history') },
   ]
+  const badgeBtn = ({ badge, unlockedAt }, extra = '') => <button key={badge.id} className={'m2-badge on' + extra} onClick={() => nav('/badges')}>
+    {badge.image ? <img src={badge.image} alt="" /> : <Icon name={badge.icon} />}
+    <span className="m2-badge-t">{t(badge.title)}</span>
+    <span className="m2-badge-s">{fmtDate(unlockedAt.slice(0, 10))}</span>
+  </button>
 
-  return <div className="narrow mi2j">
+  return <div className="narrow mi2j v3-mi2j">
     <div className="hdr">
       <button className="iconbtn" onClick={() => nav('/profile')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('My 2J')}</h1></div>
     </div>
 
-    <Carnet S={S} user={user} snap={snap} onRanks={() => nav('/rank')} />
+    <AthleteHero S={S} user={user} snap={snap} records={records.length} unlockedCount={unlocked.length} streak={streak} onRanks={() => nav('/rank')} />
+    {!empty && <div className="v3-pass-acts">
+      <Button variant="primary" icon="upload" onClick={() => openStory('month')}>{t('Create my 2J Story')}</Button>
+      {streak > 0 && <Button variant="tinted" icon="flame" onClick={() => openSocialShare({ kind: 'streak', targetId: String(streak), title: t('My training streak'), metric: t('{0} weeks in a row', streak), subtitle: t('Consistency in motion'), date: new Date().toISOString().slice(0, 10) })}>{t('Share streak')}</Button>}
+    </div>}
     <IntelligenceToday S={S} user={user} max={2} compact types={['PR_RECENT', 'PLATEAU', 'ADHERENCE_GOOD']} />
-    {streak > 0 && <Button variant="tinted" icon="upload" style={{ width: '100%', marginTop: 12 }} onClick={() => openSocialShare({ kind: 'streak', targetId: String(streak), title: t('My training streak'), metric: t('{0} weeks in a row', streak), subtitle: t('Consistency in motion'), date: new Date().toISOString().slice(0, 10) })}>{t('Share')}</Button>}
-
-    <div className="m2-tiles">
-      {tiles.map(x => <button key={x.to} className="m2-tile" onClick={() => nav(x.to)}>
-        <span className="m2-art">{x.art ? <img src={x.art} alt="" /> : <Icon name={x.icon} />}</span>
-        <span className="m2-t">{x.title}</span>
-        <span className="m2-s">{x.sub}</span>
-      </button>)}
-    </div>
 
     {empty ? <div className="card m2-empty">
       <div className="m2-empty-ic"><Icon name="figureStrength" /></div>
@@ -104,32 +140,40 @@ export default function Mi2J() {
       </>}
 
       {records.length > 0 && <>
-        <h4 className="sec">{t('Latest records')}</h4>
-        <div className="list">
-          {records.slice(0, 3).map(r => <div key={r.id} className="item" onClick={() => nav('/records')}>
-            <span className="lrow-i" style={{ background: 'color-mix(in srgb,var(--yellow) 18%,transparent)', color: 'var(--yellow)' }}><Icon name="trophy" /></span>
-            <div className="grow"><div className="tt capitalize">{EXIDX[r.id] ? nameFor(EXIDX[r.id]) : r.id}</div>
-              <div className="ss">{fmtNum(r.best.w)} {S.unit} × {r.best.r} · {fmtDate(r.best.d)}</div></div>
-          </div>)}
+        <div className="row between v3-sec-row"><h4 className="sec">{t('Latest records')}</h4><button className="v3-link" onClick={() => nav('/records')}>{t('See all')} ({records.length})</button></div>
+        <div className="v3-recs">
+          {records.slice(0, 3).map((r, i) => <button key={r.id} className={'v3-rec' + (i === 0 ? ' top' : '')} onClick={() => nav('/records')}>
+            <span className="v3-rec-ic"><Icon name="trophy" /></span>
+            <span className="v3-rec-main"><span className="v3-rec-n capitalize">{EXIDX[r.id] ? nameFor(EXIDX[r.id]) : r.id}</span>
+              <span className="v3-rec-d">{fmtDate(r.best.d)}{r.previous ? ' · ' + t('before {0}', fmtNum(r.previous.w) + ' ' + S.unit) : ''}</span></span>
+            <span className="v3-rec-v">{fmtNum(r.best.w)}<small> {S.unit} × {r.best.r}</small></span>
+          </button>)}
         </div>
       </>}
 
-      {(unlocked.length > 0 || near.length > 0) && <>
-        <h4 className="sec">{t('Achievements')}</h4>
-        <div className="m2-badges">
-          {unlocked.slice(0, 3).map(({ badge, unlockedAt }) => <button key={badge.id} className="m2-badge on" onClick={() => nav('/badges')}>
-            {badge.image ? <img src={badge.image} alt="" /> : <Icon name={badge.icon} />}
-            <span className="m2-badge-t">{t(badge.title)}</span>
-            <span className="m2-badge-s">{fmtDate(unlockedAt.slice(0, 10))}</span>
-          </button>)}
+      {(recent.length > 0 || special.length > 0 || near.length > 0) && <>
+        <div className="row between v3-sec-row"><h4 className="sec">{t('Achievements')}</h4><button className="v3-link" onClick={() => nav('/badges')}>{t('See all')} ({unlocked.length})</button></div>
+        {recent.length > 0 && <><div className="v3-sub">{t('Recent')}</div><div className="m2-badges">{recent.map(x => badgeBtn(x))}</div></>}
+        {special.length > 0 && <><div className="v3-sub gold">{t('Special')}</div><div className="m2-badges">{special.map(x => badgeBtn(x, ' gold'))}</div></>}
+        {near.length > 0 && <><div className="v3-sub">{t('Almost there')}</div><div className="m2-badges">
           {near.map(({ badge, progress }) => <button key={badge.id} className="m2-badge" onClick={() => nav('/badges')}>
             {badge.image ? <img src={badge.image} alt="" /> : <Icon name={badge.icon} />}
             <span className="m2-badge-t">{t(badge.title)}</span>
+            <span className="v3-near" role="img" aria-label={Math.round(progress * 100) + '%'}><i style={{ width: Math.round(progress * 100) + '%' }} /></span>
             <span className="m2-badge-s">{t('{0}% there', Math.round(progress * 100))}</span>
           </button>)}
-        </div>
+        </div></>}
       </>}
     </>}
+
+    <h4 className="sec">{t('Explore')}</h4>
+    <div className="m2-tiles">
+      {tiles.map(x => <button key={x.to} className="m2-tile" onClick={() => nav(x.to)}>
+        <span className="m2-art">{x.art ? <img src={x.art} alt="" /> : <Icon name={x.icon} />}</span>
+        <span className="m2-t">{x.title}</span>
+        <span className="m2-s">{x.sub}</span>
+      </button>)}
+    </div>
     <div style={{ height: 20 }} />
   </div>
 }
