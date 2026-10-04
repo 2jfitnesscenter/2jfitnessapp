@@ -332,7 +332,6 @@ export default function Stats() {
 
     <FollowUpCard fu={followUp} S={S} nav={nav} />
     <ProgressInsights S={S} nav={nav} />
-    <ProgressTimeline S={S} />
 
     {S.workouts.length > 0 && <div className="home-grid2">
       <LastWorkoutCard S={S} />
@@ -344,6 +343,20 @@ export default function Stats() {
       <BodyCompositionCard S={S} nav={nav} />
     </>}
 
+    {uxOn(S, 'bodyweight') && !S.bodyweight.length && <div className="card"><div className="row between"><div><h2 style={{ margin: 0 }}>{t('Body weight')}</h2><div className="small dim">{t('Log your weight to see how it evolves.')}</div></div><Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button></div></div>}
+    {uxOn(S, 'bodyweight') && S.bodyweight.length > 0 && <div className="card">
+      <div className="row between" style={{ marginBottom: 8 }}>
+        <h2 style={{ margin: 0 }}>{t('Body weight')}</h2>
+        <div className="row" style={{ gap: 8 }}>
+          <Button size="sm" icon="target" style={S.targetW ? { color: 'var(--yellow)' } : undefined} onClick={goalSheet}>{S.targetW ? fmtNum(S.targetW) : t('Goal')}</Button>
+          <Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button>
+        </div>
+      </div>
+      <Segmented className="seg-range" value={range} onChange={setRange}
+        options={[{ value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
+      <div className="chart"><LineChart points={bwPts} h={160} unit={S.unit} goal={S.targetW} /></div>
+    </div>}
+
     <div className="card">
       <h2>{t('Activity — last 12 months')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('by time trained')}</span></h2>
       <Heatmap S={S} onDay={iso => { const ws = S.workouts.filter(w => w.d === iso); if (ws.length === 1) workoutDetailSheet(ws[0]); else if (ws.length) calendarSheet(iso) }} />
@@ -351,6 +364,7 @@ export default function Stats() {
 
     {S.workouts.length > 0 && <MuscleBalance S={S} />}
     {S.enableRpVolumeZones && uxOn(S, 'volume') && <RpVolumeCard S={S} nav={nav} />}
+    <ProgressTimeline S={S} />
     {anyEffort && uxOn(S, 'effort') && <EffortCard S={S} />}
     {!anyEffort && uxOn(S, 'effort') && effortOf(S) === 'none' && S.workouts.length > 0 && <button className="card tappable" style={{ textAlign: 'left', width: '100%' }} onClick={() => nav('/settings/training')}>
       <div className="row between"><div><h2 style={{ margin: 0 }}>{t('Effort')}</h2><div className="small dim">{t('Rate how hard your sets feel to see effort trends here.')}</div></div><Icon name="chevronRight" className="chev" /></div>
@@ -358,20 +372,6 @@ export default function Stats() {
     {S.enableTrainingZones !== false && uxOn(S, 'volume') && <ZoneDistributionCard S={S} />}
 
     <div className="cols">
-      {uxOn(S, 'bodyweight') && !S.bodyweight.length && <div className="card"><div className="row between"><div><h2 style={{ margin: 0 }}>{t('Body weight')}</h2><div className="small dim">{t('Log your weight to see how it evolves.')}</div></div><Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button></div></div>}
-      {uxOn(S, 'bodyweight') && S.bodyweight.length > 0 && <div className="card">
-        <div className="row between" style={{ marginBottom: 8 }}>
-          <h2 style={{ margin: 0 }}>{t('Body weight')}</h2>
-          <div className="row" style={{ gap: 8 }}>
-            <Button size="sm" icon="target" style={S.targetW ? { color: 'var(--yellow)' } : undefined} onClick={goalSheet}>{S.targetW ? fmtNum(S.targetW) : t('Goal')}</Button>
-            <Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button>
-          </div>
-        </div>
-        <Segmented className="seg-range" value={range} onChange={setRange}
-          options={[{ value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
-        <div className="chart"><LineChart points={bwPts} h={160} unit={S.unit} goal={S.targetW} /></div>
-      </div>}
-
       <div className="card" ref={exProgressRef}>
         <h2>{t('Exercise progress')}</h2>
         {exHist.length ? <>
