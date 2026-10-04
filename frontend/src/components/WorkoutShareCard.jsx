@@ -48,7 +48,7 @@ export default function WorkoutShareCard({ data, aspect, cardRef }) {
       </div>
 
       {data.lifts.length > 0 && <div className="sc-lifts">
-        {data.lifts.map(l => <div key={l.id} className="sc-lift">
+        {data.lifts.map(l => <div key={l.id} className={'sc-lift' + (l.isPR ? ' pr' : '')}>
           {l.isPR && <Icon name="trophy" />}
           <span className="sc-lift-n">{l.name}</span>
           <span className="sc-lift-v">{l.w}×{l.r}</span>

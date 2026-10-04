@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMemo } from 'react'
 import { t } from '../lib/i18n.js'
-import { fmtDur, fmtVol, fmtDate, fmtNum, weekKey } from '../lib/format.js'
-import { setsDone, activeWeek } from '../lib/history.js'
+import { fmtDur, fmtVol, fmtDate, fmtNum, weekKey, exCount } from '../lib/format.js'
+import { setsDone, activeWeek, streakWeeks } from '../lib/history.js'
 import { loadOfWorkouts, muscleOptsOf } from '../lib/muscles.js'
 import { workoutEnergyView } from '../lib/health-v2.js'
 import { fitnessOf, SOURCE_NAME } from '../lib/fitness.js'
@@ -13,7 +13,7 @@ import AchievementCard from './AchievementCard.jsx'
 import BodyMapPanel from './BodyMapPanel.jsx'
 import Icon from './Icon.jsx'
 import { Button } from './ui.jsx'
-import { ProgressBar, Stat, CountUp } from './v2.jsx'
+import { ProgressBar, Stat, CountUp, Pill } from './v2.jsx'
 
 /* Post-workout (Experience V2). Presentation only: it is rendered by sheets.jsx's FinishSummary AFTER the workout has
    been saved, from the saved workout and the events lib/mi2j.js derived — it never writes state and nothing in it can
@@ -57,22 +57,29 @@ export default function PostWorkoutSummary({ w, S, events = [], onOpenEvent, onS
   const rest = prCard ? events.filter(e => e.id !== topPr.id) : events
   const dur = w.end > w.start ? fmtDur(w.end - w.start) : null
 
-  return <div className="v2-fin">
-    <div className={'v2-fin-hero' + (celebrate ? ' gold' : '')}>
-      <span className={'v2-fin-check v2-pop' + (celebrate ? ' v2-glow' : '')} aria-hidden="true"><Icon name={celebrate ? 'trophy' : 'check'} /></span>
-      <h3>{t('Workout complete!')}</h3>
-      <div className="v2-fin-sub">{w.name} · {fmtDate(w.d, true)}</div>
-      {w.src2j && <div className="t2-done-line"><Icon name="checkCircle" />{t('2J workout completed')} · {t(w.src2j.name)}</div>}
-    </div>
+  const streak = useMemo(() => safe(() => streakWeeks(S), 0), [S.workouts])
+  const nEx = (w.entries || []).length
 
-    <div className="v2-fin-stats v2-surface">
-      {dur && <Stat value={dur} label={t('Duration')} />}
-      <Stat value={<CountUp value={safe(() => setsDone(w), 0)} />} label={t('Sets')} />
-      <Stat value={fmtVol(w.vol, S.unit)} label={t('Volume')}
-        delta={dv == null ? null : (dv > 0 ? '+' : '') + dv + '% ' + t('vs last session')} tone={dv == null ? undefined : dv >= 0 ? 'up' : 'down'} />
-      {energy && <Stat value={energyFigure(energy)} label={t('kcal')} delta={energySourceText(energy)} />}
-      {hr && hr.avgHr > 0 && <Stat value={hr.avgHr} label={t('Avg HR') + ' · ' + t('bpm')} delta={t(SOURCE_NAME[hr.source] || hr.source)} />}
-      {prEvents.length > 0 && <Stat value={<CountUp value={prEvents.length} />} label={t('PRs')} />}
+  return <div className="v2-fin v3pw">
+    <div className={'v3pw-hero' + (celebrate ? ' gold' : '')}>
+      <span className="v3pw-glow" aria-hidden="true" />
+      <span className={'v2-fin-check v2-pop' + (celebrate ? ' v2-glow' : '')} aria-hidden="true"><Icon name={celebrate ? 'trophy' : 'check'} /></span>
+      <div className="v3pw-eyebrow">{t('Workout complete!')}</div>
+      <h3 className="v3pw-name">{w.name}</h3>
+      <div className="v2-fin-sub">{fmtDate(w.d, true)}{nEx ? ' · ' + exCount(nEx) : ''}</div>
+      {w.src2j && <div className="t2-done-line"><Icon name="checkCircle" />{t('2J workout completed')} · {t(w.src2j.name)}</div>}
+      <div className="v3pw-big">
+        {dur && <Stat value={dur} label={t('Duration')} />}
+        <Stat value={<CountUp value={safe(() => setsDone(w), 0)} />} label={t('Sets')} />
+        <Stat value={fmtVol(w.vol, S.unit)} label={t('Volume')}
+          delta={dv == null ? null : (dv > 0 ? '+' : '') + dv + '% ' + t('vs last session')} tone={dv == null ? undefined : dv >= 0 ? 'up' : 'down'} />
+      </div>
+      <div className="v3pw-chips">
+        {prEvents.length > 0 && <Pill tone="gold" icon="trophy">{t('PRs')} {prEvents.length}</Pill>}
+        {streak >= 1 && <Pill tone="gold" icon="flame">{t(streak === 1 ? '{0} week in a row' : '{0} weeks in a row', streak)}</Pill>}
+        {energy && <Pill icon="flame" className="nocap">{energyFigure(energy)} {t('kcal')} · {energySourceText(energy)}</Pill>}
+        {hr && hr.avgHr > 0 && <Pill icon="heart" className="nocap">{hr.avgHr} {t('bpm')} · {t(SOURCE_NAME[hr.source] || hr.source)}</Pill>}
+      </div>
     </div>
 
     {prCard && <div className="v2-fin-pr v2-rise"><AchievementCard kind="pr" title={prCard.title} value={prCard.value} subtitle={prCard.subtitle} delta={prCard.delta} date={w.d} /></div>}
