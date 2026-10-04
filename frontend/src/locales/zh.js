@@ -776,4 +776,12 @@ export default {
   'Streak': '连续',
   'Challenge': '挑战',
   'Program': '课程',
+  'Workout progress': '训练进度',
+  'Next up': '接下来',
+  'Next up: {0}': '接下来：{0}',
+  'Next session': '下次训练',
+  'Next: set {0} of {1}': '接下来：第 {0}/{1} 组',
+  'Quick effort': '快速强度',
+  'New record': '新纪录',
+  'Adding': '添加中',
 }

@@ -776,4 +776,12 @@ export default {
   'Streak': 'लगातार दिन',
   'Challenge': 'चुनौती',
   'Program': 'प्रोग्राम',
+  'Workout progress': 'वर्कआउट प्रगति',
+  'Next up': 'आगे',
+  'Next up: {0}': 'आगे: {0}',
+  'Next session': 'अगला सत्र',
+  'Next: set {0} of {1}': 'आगे: सेट {0} / {1}',
+  'Quick effort': 'त्वरित प्रयास',
+  'New record': 'नया रिकॉर्ड',
+  'Adding': 'जोड़ा जा रहा है',
 }

@@ -776,4 +776,12 @@ export default {
   'Streak': '연속',
   'Challenge': '챌린지',
   'Program': '프로그램',
+  'Workout progress': '운동 진행률',
+  'Next up': '다음',
+  'Next up: {0}': '다음: {0}',
+  'Next session': '다음 세션',
+  'Next: set {0} of {1}': '다음: {1}세트 중 {0}세트',
+  'Quick effort': '빠른 강도',
+  'New record': '신기록',
+  'Adding': '추가 중',
 }

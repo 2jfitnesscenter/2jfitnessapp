@@ -776,4 +776,12 @@ export default {
   'Streak': 'Seri',
   'Challenge': 'Meydan okuma',
   'Program': 'Program',
+  'Workout progress': 'Antrenman ilerlemesi',
+  'Next up': 'Sıradaki',
+  'Next up: {0}': 'Sıradaki: {0}',
+  'Next session': 'Sonraki seans',
+  'Next: set {0} of {1}': 'Sıradaki: set {0}/{1}',
+  'Quick effort': 'Hızlı efor',
+  'New record': 'Yeni rekor',
+  'Adding': 'Ekleniyor',
 }

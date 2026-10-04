@@ -4212,4 +4212,9 @@ export default {
   'Streak': 'Racha',
   'Challenge': 'Desafío',
   'Adding': 'Añadiendo',
+  'Next session': 'Próxima sesión',
+  'Next up': 'Después',
+  'Next up: {0}': 'Después: {0}',
+  'Next: set {0} of {1}': 'Siguiente: serie {0} de {1}',
+  'Quick effort': 'Esfuerzo rápido',
 }

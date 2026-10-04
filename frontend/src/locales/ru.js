@@ -776,4 +776,12 @@ export default {
   'Streak': 'Серия',
   'Challenge': 'Челлендж',
   'Program': 'Программа',
+  'Workout progress': 'Прогресс тренировки',
+  'Next up': 'Далее',
+  'Next up: {0}': 'Далее: {0}',
+  'Next session': 'Следующая тренировка',
+  'Next: set {0} of {1}': 'Далее: подход {0} из {1}',
+  'Quick effort': 'Быстрая нагрузка',
+  'New record': 'Новый рекорд',
+  'Adding': 'Добавляется',
 }

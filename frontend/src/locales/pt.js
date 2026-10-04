@@ -776,4 +776,12 @@ export default {
   'Streak': 'Sequência',
   'Challenge': 'Desafio',
   'Program': 'Programa',
+  'Workout progress': 'Progresso do treino',
+  'Next up': 'A seguir',
+  'Next up: {0}': 'A seguir: {0}',
+  'Next session': 'Próxima sessão',
+  'Next: set {0} of {1}': 'A seguir: série {0} de {1}',
+  'Quick effort': 'Esforço rápido',
+  'New record': 'Novo recorde',
+  'Adding': 'A adicionar',
 }
