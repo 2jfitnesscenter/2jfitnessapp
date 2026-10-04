@@ -28,7 +28,9 @@ test('--apply adds the release fingerprint and origin once, keeps the debug ones
   assert.equal(applyTo(tmp, fp), true);
   assert.equal(applyTo(tmp, fp), false, 'idempotent');
   const links = JSON.parse(fs.readFileSync(path.join(tmp, 'frontend/public/.well-known/assetlinks.json'), 'utf8'));
-  assert.deepEqual(links[0].target.sha256_cert_fingerprints, [DEBUG, RELEASE]);
+  const original = JSON.parse(fs.readFileSync(path.join(root, 'frontend/public/.well-known/assetlinks.json'), 'utf8'))[0].target.sha256_cert_fingerprints;
+  assert.deepEqual(links[0].target.sha256_cert_fingerprints, [...original, RELEASE]);
+  assert.ok(original.includes(DEBUG));
   assert.match(fs.readFileSync(path.join(tmp, 'api/lib/webauthn-origins.js'), 'utf8'), new RegExp(fp.hash));
   const origins = expectedOrigins('https://app.2jfitnesscenter.com', fp.hash);
   assert.ok(origins.includes('android:apk-key-hash:' + fp.hash));
@@ -48,4 +50,29 @@ test('Android project: release signing is external, nothing secret is committed,
   for (const p of ['keystore.properties', '*.jks', '*.keystore']) assert.ok(ignore.includes(p), p);
   const tracked = fs.readdirSync(path.join(root, 'frontend/android/app')).filter(f => /\.(jks|keystore)$/.test(f));
   assert.deepEqual(tracked, []);
+});
+
+const RELEASE_FP = '5E:D9:E5:F3:4C:36:03:ED:2C:70:0D:DF:E0:9B:5F:E4:3E:54:BC:06:74:76:02:7B:45:3A:59:B1:BA:AF:DE:D1';
+test('the real release fingerprint is trusted by Digital Asset Links and by the WebAuthn origin list, next to the debug one', () => {
+  const links = JSON.parse(fs.readFileSync(path.join(root, 'frontend/public/.well-known/assetlinks.json'), 'utf8'));
+  assert.deepEqual(links[0].target.sha256_cert_fingerprints, [DEBUG, RELEASE_FP]);
+  const hash = parseFingerprint(RELEASE_FP).hash;
+  assert.equal(hash, 'Xtnl80w2A-0scA3f4Jtf5D5UvAZ0dgJ7RTpZsbqv3tE');
+  const origins = expectedOrigins('https://app.2jfitnesscenter.com', '');
+  assert.ok(origins.includes('android:apk-key-hash:' + hash));
+  assert.ok(origins.includes('android:apk-key-hash:DLu_bybBDIMjVCyTrrPmGUTSkkZWCvidpoU2D3qDXqw'));
+});
+
+test('release verifier parses apksigner output and the build helper uses exactly the variables Gradle reads', async () => {
+  const { parseCertDigest, originHash, DEBUG_FINGERPRINT } = await import('../../scripts/android-release-verify.mjs');
+  const out = 'Verifies\nVerified using v2 scheme (APK Signature Scheme v2): true\nNumber of signers: 1\nSigner #1 certificate DN: CN=2J\nSigner #1 certificate SHA-256 digest: 5ed9e5f34c3603ed2c700ddfe09b5fe43e54bc067476027b453a59b1baafded1\n';
+  assert.equal(parseCertDigest(out), RELEASE_FP);
+  assert.equal(parseCertDigest('DOES NOT VERIFY'), null);
+  assert.equal(originHash(RELEASE_FP), 'Xtnl80w2A-0scA3f4Jtf5D5UvAZ0dgJ7RTpZsbqv3tE');
+  assert.equal(DEBUG_FINGERPRINT, DEBUG);
+  const gradle = fs.readFileSync(path.join(root, 'frontend/android/app/build.gradle'), 'utf8');
+  const ps1 = fs.readFileSync(path.join(root, 'scripts/android-release-build.ps1'), 'utf8');
+  for (const v of ['2J_KEYSTORE_FILE', '2J_KEYSTORE_PASSWORD', '2J_KEY_ALIAS', '2J_KEY_PASSWORD']) { assert.ok(gradle.includes(v), 'gradle ' + v); assert.ok(ps1.includes(v), 'ps1 ' + v); }
+  for (const k of ['storeFile', 'storePassword', 'keyAlias', 'keyPassword']) assert.ok(gradle.includes(`'${k}'`), 'gradle key ' + k);
+  assert.doesNotMatch(ps1, /Out-File|Set-Content|Add-Content|>>/, 'the helper never writes secrets to disk');
 });

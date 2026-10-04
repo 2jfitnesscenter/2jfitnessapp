@@ -10,6 +10,7 @@
 //   keytool -list -v -keystore <release.jks>  → SHA256 (colon hex) → base64url of those 32 bytes
 //   e.g. node -e "console.log(Buffer.from('0C:BB:...'.replace(/:/g,''),'hex').toString('base64url'))"
 export const ANDROID_APK_KEY_HASHES = [
+  'Xtnl80w2A-0scA3f4Jtf5D5UvAZ0dgJ7RTpZsbqv3tE',   // release keystore, com.twojfitnesscenter.app
   'DLu_bybBDIMjVCyTrrPmGUTSkkZWCvidpoU2D3qDXqw',   // debug keystore, com.twojfitnesscenter.app
 ];
 const HASH_SHAPE = /^[A-Za-z0-9_-]{43}$/;           // base64url of exactly 32 bytes, no padding

@@ -1,11 +1,15 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls", "delegate_permission/common.get_login_creds"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.twojfitnesscenter.app",
       "sha256_cert_fingerprints": [
-        "0C:BB:BF:6F:26:C1:0C:83:23:54:2C:93:AE:B3:E6:19:44:D2:92:46:56:0A:F8:9D:A6:85:36:0F:7A:83:5E:AC"
+        "0C:BB:BF:6F:26:C1:0C:83:23:54:2C:93:AE:B3:E6:19:44:D2:92:46:56:0A:F8:9D:A6:85:36:0F:7A:83:5E:AC",
+        "5E:D9:E5:F3:4C:36:03:ED:2C:70:0D:DF:E0:9B:5F:E4:3E:54:BC:06:74:76:02:7B:45:3A:59:B1:BA:AF:DE:D1"
       ]
     }
   }

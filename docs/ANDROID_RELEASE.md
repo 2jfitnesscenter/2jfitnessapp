@@ -31,17 +31,31 @@ Status (Sprint 3): the release build, Gradle signing hook, Digital Asset Links h
 
 ## Build, sign, verify
 
-```
-cd frontend
-npm run build:mobile                                   # web bundle into android/ (re-run after every web change)
-copy capacitor.remote.config.json android\app\src\main\assets\capacitor.config.json   # remote-shell mode
-cd android
-.\gradlew assembleRelease                              # signed automatically when keystore.properties exists
-```
+Release fingerprint `5E:D9:E5:F3:…:DE:D1` (alias `2jfitness`) is already trusted by `assetlinks.json` and `api/lib/webauthn-origins.js` (hash `Xtnl80w2A-0scA3f4Jtf5D5UvAZ0dgJ7RTpZsbqv3tE`), next to the debug one. They take effect for passkeys when the API/web are deployed.
 
-Output: `app/build/outputs/apk/release/app-release.apk` (unsigned `app-release-unsigned.apk` if no keystore is configured).
-Verify the signature and fingerprint: `apksigner verify --print-certs app-release.apk`. Bump `versionCode`/`versionName` in `app/build.gradle` for every release
-(`versionCode` must increase or Android refuses the update). Run `npm run build` again afterwards before deploying `frontend/dist` to a server.
+**Option A — helper (passwords typed at a prompt, never written anywhere):**
+```
+.\scripts\android-release-build.ps1 -Keystore C:\path\to\2jfitness-release.jks
+```
+**Option B — file.** Create `frontend/android/keystore.properties` (git-ignored) with exactly the keys Gradle reads (`app/build.gradle`):
+```
+storeFile=C:/path/to/2jfitness-release.jks
+storePassword=<keystore password>
+keyAlias=2jfitness
+keyPassword=<key password (same as storePassword if you set one password)>
+```
+then `cd frontend\android` and `.\gradlew.bat assembleRelease`. (Equivalent environment variables: `2J_KEYSTORE_FILE`, `2J_KEYSTORE_PASSWORD`, `2J_KEY_ALIAS`, `2J_KEY_PASSWORD`.)
+
+The remote-shell config (`frontend/capacitor.remote.config.json`) must be the one in `app/src/main/assets/capacitor.config.json` (git-ignored, generated; the helper copies it). The web bundle is NOT needed in this mode: the APK loads https://app.2jfitnesscenter.com.
+
+Output: `frontend/android/app/build/outputs/apk/release/app-release.apk` (an `app-release-unsigned.apk` means no keystore was configured).
+
+**Verify (no secrets involved):**
+```
+node scripts/android-release-verify.mjs frontend/android/app/build/outputs/apk/release/app-release.apk
+```
+It runs `apksigner verify`, prints the APK SHA-256 and the signer certificate SHA-256, and PASSes only if that certificate is valid, is **not** the debug one, is listed in `assetlinks.json`, its hash is allowed for WebAuthn, and the APK is zip-aligned.
+Bump `versionCode`/`versionName` in `app/build.gradle` for every release (`versionCode` must increase or Android refuses the update).
 
 ## Passkeys in the signed app (do this BEFORE handing the APK out)
 
