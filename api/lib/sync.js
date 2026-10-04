@@ -7,6 +7,19 @@ const kinds = ['workouts', 'routines', 'programs'];
 const fail = (code, message, status = 409) => { throw Object.assign(new Error(message), { code, status }); };
 export const envelope = state => ({ state, meta: state._sync });
 
+// Receipts exist so a retry whose response was lost is acknowledged instead of applied twice. They only matter while the client can still
+// hold that operation, so they are bounded: the newest RECEIPT_KEEP by revision stay. An operation older than that window that the
+// server had already applied fails the revision precondition (SYNC_CONFLICT) instead of applying twice, which is the existing safe path
+// (the client re-reads and resolves), so pruning never changes what gets applied - it only stops the encrypted state file growing forever.
+export const RECEIPT_KEEP = 1000;
+const receiptRevision = r => Number.isSafeInteger(r?.revision) ? r.revision : (Number.isSafeInteger(r?.result?.sync?.revision) ? r.result.sync.revision : 0);
+export function pruneReceipts(receipts, keep = RECEIPT_KEEP) {
+  const entries = Object.entries(receipts || {});
+  if (entries.length <= keep) return receipts || {};
+  entries.sort((a, b) => receiptRevision(a[1]) - receiptRevision(b[1]));
+  return Object.fromEntries(entries.slice(entries.length - keep));
+}
+
 export function directReceipt(state, body, kind) {
   if (!state._sync.enabled) return null;
   if (!body.operationId) fail('SYNC_UPGRADE_REQUIRED', 'Actualiza la aplicación: se requiere operationId');
@@ -24,6 +37,7 @@ export function saveTrainer(uid, state, body, kind, result) {
   if (body.operationId) state._sync.receipts['direct:' + kind + ':' + body.operationId] = {
     digest: createHash('sha256').update(JSON.stringify(body)).digest('hex'), result: { ...result, sync: { revision: state._sync.revision + 1, generation: state._sync.generation } },
   };
+  if (body.operationId) state._sync.receipts = pruneReceipts(state._sync.receipts);
   writeState(uid, state);
 }
 
@@ -80,7 +94,7 @@ export function mutate(uid, op) {
     next[op.kind] = (next[op.kind] || []).filter(x => x.id !== op.id);
   } else fail('INVALID_OPERATION', 'Operación no válida', 400);
   Object.defineProperty(next, '_sync', { value: structuredClone(meta), writable: true, configurable: true });
-  next._sync.receipts = { ...meta.receipts, [op.operationId]: { digest, revision: meta.revision + 1 } };
+  next._sync.receipts = pruneReceipts({ ...meta.receipts, [op.operationId]: { digest, revision: meta.revision + 1 } });
   // writeState compares the old generation. Advance the generation in a separate option
   // passed through the metadata only after the CAS check in writeState.
   if (op.type === 'reset' || op.type === 'replace') next._sync.nextGeneration = meta.generation + 1;
