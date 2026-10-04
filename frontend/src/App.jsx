@@ -4,7 +4,7 @@ import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'r
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { bindUI } from './components/ui.jsx'
-import { ACCENTS } from './lib/format.js'
+import { ACCENTS, LIQUID_GLASS } from './lib/format.js'
 import { setLang, useLang, t } from './lib/i18n.js'
 import { setNav } from './lib/nav.js'
 import { useWakeLock } from './lib/wakelock.js'
@@ -144,14 +144,14 @@ function Shell() {
   const langV = useLang()   // re-renders the whole shell when the language (pack) changes
   useEffect(() => { setNav(navigate) }, [navigate])
   useEffect(() => {
-    applyPrefs(S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur, S.textScale)
+    applyPrefs(S.theme, S.accent, LIQUID_GLASS.on, LIQUID_GLASS.opacity, LIQUID_GLASS.blur, S.textScale)
     if (S.theme !== 'system' || !window.matchMedia) return
     // live-follow the OS toggle (e.g. sunset auto dark mode) while on 'system', no reload needed
     const mq = window.matchMedia('(prefers-color-scheme: light)')
-    const onChange = () => applyPrefs(S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur, S.textScale)
+    const onChange = () => applyPrefs(S.theme, S.accent, LIQUID_GLASS.on, LIQUID_GLASS.opacity, LIQUID_GLASS.blur, S.textScale)
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
-  }, [S.theme, S.accent, S.glass, S.glassOpacity, S.glassBlur, S.textScale])
+  }, [S.theme, S.accent, S.textScale])
   useEffect(() => { setLang(S.lang || 'es') }, [S.lang])
   // Health energy reconciliation for workouts finished earlier (no-op without a native shell or consent).
   useEffect(() => {

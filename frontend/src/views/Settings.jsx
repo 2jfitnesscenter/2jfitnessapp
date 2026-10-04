@@ -22,7 +22,8 @@ import { ChangelogSheet } from './Changelog.jsx'
 import { LegalSheet } from './Legal.jsx'
 import './experience.css'
 import Icon from '../components/Icon.jsx'
-import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button, Slider } from '../components/ui.jsx'
+import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button } from '../components/ui.jsx'
+import { openAccent } from '../components/AccentSheet.jsx'
 
 // One-screen design trial (see the owner's ask for a less "colorful template" look): every row
 // here gets Row's muted `softIcon` badge instead of the solid-fill one the rest of the app still
@@ -41,6 +42,7 @@ export default function Settings() {
   const toast = useUI(s => s.toast)
   const fileRef = useRef(null)
   const importRef = useRef(null)
+  const [adv, setAdv] = useState(false)
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -88,7 +90,7 @@ export default function Settings() {
     {/* ---------- account (guests create/sign in from Perfil; nothing to show here until
          there's an account, or on the demo/mobile builds, which have their own message) ---------- */}
     {(MOBILE || DEMO || user) && (
-      <Section title={MOBILE ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
+      <Section>
         {MOBILE ? <>
           <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
         </> : DEMO ? <>
@@ -201,7 +203,7 @@ export default function Settings() {
 
     <h3 className="set-grp">{t('Appearance')}</h3>
     {/* ---------- appearance ---------- */}
-    <Section title={t('Appearance')} footer={DEMO || MOBILE ? undefined : t('synced with your profile')}>
+    <Section footer={DEMO || MOBILE ? undefined : t('synced with your profile')}>
       <SelectRow
         icon="globe" iconTint="var(--blue)" title={t('Language')}
         value={S.lang || 'es'} onChange={v => update(s => { s.lang = v })}
@@ -260,28 +262,10 @@ export default function Settings() {
       </Row>
       <Row icon="shield" iconTint="var(--acc)" title={t('Ranks')} subtitle={t('How ranks work, what you need, how many there are')} accessory="chevron"
         onClick={() => useUI.getState().openSheet(() => <RankGuideSheet />)} />
-      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12, paddingTop: 13, paddingBottom: 14 }}>
-        <span className="lrow-t">{t('Accent color')}</span>
-        <div className="swatches">
-          {Object.entries(ACCENTS).map(([k, c]) => (
-            <button key={k} className={'swatch' + ((S.accent || 'lime') === k ? ' on' : '')}
-              style={{ background: c }} onClick={() => update(s => { s.accent = k })} aria-label={k} />
-          ))}
-        </div>
-      </div>
-      <Row icon="sparkles" iconTint="var(--acc)" title={t('Liquid glass')} subtitle={t('A frosted, translucent look for cards, buttons and the tab bar')}>
-        <Switch checked={!!S.glass} onChange={v => update(s => { s.glass = v })} />
+      {/* Liquid glass is part of the look for everyone now (App.jsx applies it; no switch, no dials). */}
+      <Row icon="sparkles" iconTint="var(--acc)" title={t('Accent color')} accessory="chevron" onClick={openAccent}>
+        <span className="v3-accent-dot-cur" style={{ '--dot': ACCENTS[S.accent || 'lime'] || ACCENTS.lime }} role="img" aria-label={S.accent || 'lime'} />
       </Row>
-      {S.glass && <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 16, paddingTop: 13, paddingBottom: 14 }}>
-        <div>
-          <div className="row between" style={{ marginBottom: 8 }}><span className="lrow-t">{t('Opacity')}</span><span className="dim small">{S.glassOpacity}%</span></div>
-          <Slider value={S.glassOpacity} min={0} max={100} step={5} onChange={v => update(s => { s.glassOpacity = v })} />
-        </div>
-        <div>
-          <div className="row between" style={{ marginBottom: 8 }}><span className="lrow-t">{t('Thickness')}</span><span className="dim small">{S.glassBlur}%</span></div>
-          <Slider value={S.glassBlur} min={0} max={100} step={5} onChange={v => update(s => { s.glassBlur = v })} />
-        </div>
-      </div>}
     </Section>
 
     {(user || MOBILE) && <h3 className="set-grp">{t('Notifications')}</h3>}
@@ -294,7 +278,12 @@ export default function Settings() {
     </Section>
     </>}
 
-    <h3 className="set-grp">{t('Advanced')}<span>{t('Data, backups and resets')}</span></h3>
+    <h3 className="set-grp">{t('Advanced')}</h3>
+    <Section>
+      <Row icon="wrench" iconTint="var(--grey)" title={t('Data, backups and resets')} subtitle={t('Technical settings and additional options')}
+        accessory="chevron" onClick={() => setAdv(v => !v)} className={adv ? 'v3-adv-open' : ''} />
+    </Section>
+    {adv && <>
     {/* ---------- data: fill it, bring things over, back it up, wipe it ---------- */}
     <Section title={t('Data')} footer={t('Back up, import, or start over. Rarely needed.')}>
       <Row icon="sparkles" iconTint="var(--acc)" title={t('Load starter plan (PPL)')} accessory="chevron" onClick={loadStarterPlan} />
@@ -313,6 +302,7 @@ export default function Settings() {
           proposal on the server behind would be a wipe in name only. */}
       <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => confirmSheet({ title: t('Reset everything?'), message: t('Deletes your plan, workouts and body weight on this device. This cannot be undone.'), confirmText: t('Delete everything'), danger: true, onConfirm: () => { if (user) forgetCoach().catch(() => {}); replaceStateOnServer(JSON.parse(JSON.stringify(DEF)), 'reset'); nav('/home'); toast(t('All data reset')) } })} />
     </Section>
+    </>}
     <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={doImport} />
     {/* Reset after reading so picking the same file twice still fires onChange. */}
     <input ref={importRef} type="file" accept=".csv,.xml,text/csv,text/xml" style={{ display: 'none' }}
@@ -451,7 +441,7 @@ function MobileReminderCard({ S, update, toast }) {
     setReminder({ on })
   }
   return (
-    <Section title={t('Notifications')}
+    <Section
       footer={S.reminder?.on ? t('Reminds you at this time on days that have a routine planned.') : null}>
       <Row icon="calendar" iconTint="var(--orange)" title={t('Workout day reminder')}>
         <Switch checked={!!S.reminder?.on} onChange={toggle} />
@@ -490,14 +480,13 @@ function PushCard({ S, update, toast }) {
   }
 
   if (!supported) return (
-    <Section title={t('Notifications')}>
+    <Section>
       <Row icon="bellSlash" iconTint="var(--grey)" title={t('Not supported in this browser.')} />
     </Section>
   )
 
   return <>
     <Section
-      title={t('Notifications')}
       footer={on && S.reminder?.on
         ? t("Only sent on days you have a routine planned and haven't logged a workout yet.") +
           (S.reminder?.tz ? ' ' + t('Timezone: {0} (auto-detected, updates if you travel).', S.reminder.tz) : '')

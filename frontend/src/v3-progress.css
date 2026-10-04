@@ -47,8 +47,8 @@
 .v3-pass { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: 16px; padding: 18px 16px 16px; margin: 4px 0 12px; border-radius: 28px; color: #fff;
   background: linear-gradient(160deg, #1d2024 0%, #08090a 78%); border: 1px solid color-mix(in srgb, var(--tier, rgba(255,255,255,.2)) 38%, rgba(255,255,255,.08)); box-shadow: var(--v2-e3); }
 .v3-pass-bg { position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(90% 80% at 85% 0%, color-mix(in srgb, var(--tier, var(--acc)) 34%, transparent), transparent 62%), url('/brand/logo-mark.png') right -10% bottom -14% / 52% no-repeat; }
-.v3-pass-bg::after { content: ''; position: absolute; inset: 0; background: inherit; }
+  background: radial-gradient(90% 80% at 85% 0%, color-mix(in srgb, var(--tier, var(--acc)) 34%, transparent), transparent 62%); }
+.v3-pass-bg::after { content: ''; position: absolute; inset: 0; opacity: .07; background: url('/brand/logo-mark.png') right -10% bottom -14% / 46% no-repeat; }
 .v3-pass-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .v3-pass-k { font-size: calc(10.5px * var(--text-scale,1)); font-weight: 800; letter-spacing: .16em; color: rgba(255,255,255,.62); }
 .v3-pass-id { display: flex; align-items: center; gap: 14px; }
@@ -67,7 +67,7 @@
 .v3-pass .v2-stat.gold .v { color: var(--v2-gold); }
 .v3-pass .v2-pill.gold { background: var(--v2-gold-soft); color: var(--v2-gold); }
 .v3-pass-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.v3-pass-acts .btn { flex: 1 1 150px; min-height: 48px; border-radius: 16px; }
+.v3-pass-acts .btn { flex: 1 1 auto; min-height: 48px; border-radius: 16px; white-space: nowrap; font-size: 15px; padding-inline: 12px; }
 
 /* records + achievements */
 .v3-sec-row { align-items: baseline; margin-top: 18px; }
@@ -98,7 +98,7 @@
 .v3-story-brand { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .14em; color: rgba(255,255,255,.85); white-space: nowrap; }
 .v3-story-brand img { width: 18px; height: 18px; object-fit: contain; filter: brightness(0) invert(1); }
 .v3-story-period { font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: rgba(47,209,139,.16); color: #2fd18b; white-space: nowrap; }
-.v3-story-range { font-size: 13px; color: rgba(255,255,255,.62); text-transform: capitalize; margin-top: -4px; }
+.v3-story-range { font-size: 13px; color: rgba(255,255,255,.62); margin-top: -4px; }
 .v3-story-hero { display: flex; flex-direction: column; margin: 8px 0 2px; }
 .v3-story-num { font-size: 104px; font-weight: 800; letter-spacing: -.06em; line-height: .9; color: #fff; font-variant-numeric: tabular-nums; }
 .v3-story-lbl { font-size: 20px; font-weight: 700; letter-spacing: -.02em; color: rgba(255,255,255,.85); }
@@ -122,7 +122,8 @@
 .v3-story-foot { margin-top: auto; padding-top: 14px; font-size: 10px; font-weight: 700; letter-spacing: .14em; color: rgba(255,255,255,.4); }
 .v3-story-sheet { display: flex; flex-direction: column; gap: 12px; }
 .v3-story-sheet h3 { margin: 0 0 2px; }
-.v3-story-preview { display: flex; justify-content: center; max-height: min(58vh, 560px); overflow: auto; padding: 2px 0 6px; }
+.v3-story-preview { display: flex; justify-content: center; padding: 2px 0 6px; overflow: hidden; }
+.v3-story-fit { transform-origin: top center; flex: none; }
 .v3-story-none { text-align: center; padding: 28px 12px; color: var(--label-2); }
 .v3-story-none .icn { font-size: 32px; margin-bottom: 8px; }
 .v3-story-opt { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--label) 6%, transparent); }
@@ -131,3 +132,16 @@
 @media (max-width: 380px) { .v3-story { width: 270px; min-height: 480px; padding: 20px 16px 16px; } .v3-story-num { font-size: 88px; } }
 
 @media (prefers-reduced-motion: reduce) { .mrow.v3-zone .bar i { transition: none !important; } }
+
+/* ---- Settings: compact accent picker (Sprint 2.1) ---- */
+.v3-accent-dot-cur { width: 22px; height: 22px; border-radius: 50%; background: var(--dot); box-shadow: inset 0 0 0 1px rgba(127,127,127,.4); flex: none; display: inline-block; }
+.v3-accent-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px 8px; padding: 14px 0 10px; justify-items: center; }
+.v3-accent-dot { width: 44px; height: 44px; border-radius: 50%; background: var(--dot); position: relative; display: grid; place-items: center; color: #fff; font-size: 18px; box-shadow: inset 0 0 0 1px rgba(127,127,127,.4); transition: transform .15s ease; }
+.v3-accent-dot:active { transform: scale(.92); }
+.v3-accent-dot.on::after { content: ''; position: absolute; inset: -5px; border-radius: 50%; box-shadow: 0 0 0 2px var(--label); }
+.v3-accent-dot:focus-visible { outline: 2px solid var(--label); outline-offset: 4px; }
+.v3-adv-open .lrow-c { transition: transform .2s ease; }
+.v3-adv-open .lrow-c { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .v3-accent-dot, .lrow-c { transition: none; } }
+.v3-pass-acts .btn.tinted { color: var(--label); }
+.v3-pass-acts .btn.tinted .icn { color: var(--acc); }

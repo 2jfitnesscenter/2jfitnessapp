@@ -4242,4 +4242,5 @@ export default {
   'No workouts yet this month': 'Aún no has entrenado este mes',
   'vs last month': 'vs el mes pasado',
   'week streak': 'semanas seguidas',
+  'Technical settings and additional options': 'Ajustes técnicos y opciones adicionales',
 }

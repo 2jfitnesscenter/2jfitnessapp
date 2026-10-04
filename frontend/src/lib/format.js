@@ -93,3 +93,7 @@ export const ACCENTS = {
   lime: '#73b52e', grey: '#5E6263', black: '#3a3a3c', sky: '#0a84ff', red: '#ff453a', violet: '#bf5af2',
   orange: '#ff9f0a', yellow: '#ffd60a', teal: '#40c8e0', indigo: '#5e5ce6', pink: '#ff375f'
 }
+
+// Liquid glass is part of the look for everyone (it used to be a Settings switch with two dials). Old saved values — glass off, odd
+// opacity/blur — are left in the profile but ignored, so nobody can end up stuck on an unreadable or flat setting.
+export const LIQUID_GLASS = { on: true, opacity: 35, blur: 45 }

@@ -464,7 +464,7 @@ h4.sec{
 .glass-on .btn.primary{
   background:
     linear-gradient(155deg, rgba(255,255,255,calc(var(--glass-sheen) * .6)), transparent),
-    color-mix(in srgb, var(--acc) calc(18% + var(--glass-solid) * 82%), transparent);
+    color-mix(in srgb, var(--acc) calc(60% + var(--glass-solid) * 40%), transparent);
   border-color:color-mix(in srgb, var(--acc-2) calc(var(--glass-solid) * 100%), color-mix(in srgb, var(--acc) 60%, white 12%));
 }
 .glass-on .btn.tinted{
