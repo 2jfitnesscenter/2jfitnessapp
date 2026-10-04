@@ -8,6 +8,7 @@ import { expectedOrigins, androidOrigin, ANDROID_APK_KEY_HASHES } from '../lib/w
 const WEB = 'https://app.2jfitnesscenter.com';
 const RP_ID = 'app.2jfitnesscenter.com';
 const DEBUG = 'DLu_bybBDIMjVCyTrrPmGUTSkkZWCvidpoU2D3qDXqw';
+const RELEASE = 'Xtnl80w2A-0scA3f4Jtf5D5UvAZ0dgJ7RTpZsbqv3tE';   // the real release keystore (Sprint 3)
 const OTHER = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';   // well-formed but not approved
 
 // A real ES256 assertion signed over clientDataJSON with the given origin, verified by the real library.
@@ -30,9 +31,9 @@ const verify = origin => verifyAuthenticationResponse({
   credential: { id: credId, publicKey, counter: 0 },
 });
 
-test('the accepted list is the web origin plus exactly the approved Android debug hash', () => {
-  assert.deepEqual(expectedOrigins(WEB, ''), [WEB, 'android:apk-key-hash:' + DEBUG]);
-  assert.deepEqual(ANDROID_APK_KEY_HASHES, [DEBUG]);
+test('the accepted list is the web origin plus exactly the approved Android release and debug hashes', () => {
+  assert.deepEqual(expectedOrigins(WEB, ''), [WEB, 'android:apk-key-hash:' + RELEASE, 'android:apk-key-hash:' + DEBUG]);
+  assert.deepEqual(ANDROID_APK_KEY_HASHES, [RELEASE, DEBUG]);
 });
 
 test('a valid web origin verifies', async () => { assert.equal((await verify(WEB)).verified, true); });
@@ -53,5 +54,5 @@ test('a release hash can be added later without removing the debug one; malforme
   const release = 'Zm9vYmFyZm9vYmFyZm9vYmFyZm9vYmFyZm9vYmFyZm8';          // 43 base64url chars
   assert.deepEqual(expectedOrigins(WEB, release), [WEB, androidOrigin(DEBUG), androidOrigin(release)]);
   assert.deepEqual(expectedOrigins(WEB, `${release}, ${DEBUG}`), [WEB, androidOrigin(DEBUG), androidOrigin(release)]);   // de-duplicated
-  assert.deepEqual(expectedOrigins(WEB, '*, short, ' + DEBUG + '=, ../x'), [WEB, androidOrigin(DEBUG)]);
+  assert.deepEqual(expectedOrigins(WEB, '*, short, ' + DEBUG + '=, ../x'), [WEB, androidOrigin(RELEASE), androidOrigin(DEBUG)]);
 });
