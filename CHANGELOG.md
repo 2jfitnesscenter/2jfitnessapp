@@ -2,7 +2,7 @@
 
 ## Unreleased — v1.4.0 candidate (after v1.3.0, 2026-09-21)
 
-Everything since v1.3.0. Production is `eee3bc2` (2026-10-03: Experience V2 phases 1–4; `4c78ecb` carried phases 1–2). The
+Everything since v1.3.0. Production is `9fecb67` (2026-10-04: Experience V2 phases 1–4 plus the Progress section order; `4c78ecb` carried phases 1–2, `eee3bc2` phases 3–4). The
 version number in `package.json` is bumped when the release is tagged. Entries below say whether each item is deployed.
 
 ### Experience V2 / 2.0.1 — Visual V2, Health V2, Social V2, Seguimiento V2 (2026-10-02/03)
