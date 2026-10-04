@@ -5,6 +5,13 @@
 Everything since v1.3.0. Production is `e41f4f9` (2026-10-04: Experience V2 phases 1–4, Sprint 1 WOW, the Progress section order and the Settings add-place form fix; `4c78ecb` carried phases 1–2, `eee3bc2` phases 3–4). The
 version number in `package.json` is bumped when the release is tagged. Entries below say whether each item is deployed.
 
+### Sprint 2 WOW — Progress V3, Mi 2J V2, 2J Story (2026-10-04) — NOT DEPLOYED
+
+- **Progress V3.** Cover with week/month toggle, real-comparison deltas only (previous period must exist), volume zones bars, timeline month headings and streak milestones. Section order unchanged.
+- **Mi 2J V2.** Athlete passport, gold records with "before" evolution, achievements grouped Recent / Special / Almost there; empty blocks disappear.
+- **2J Story.** Shareable 9:16 week/month card built on the existing image export. Weight/composition only when explicitly included; Health, recovery, WHOOP, restrictions and notes are never read.
+- Tests (`views/s2.test.jsx`), i18n keys (es complete, core strings in the 10 delayed packs).
+
 ### Experience V2 / 2.0.1 — Visual V2, Health V2, Social V2, Seguimiento V2 (2026-10-02/03)
 
 - **Phase 1 Visual V2 — DEPLOYED (`4c78ecb`).** Design layer (`--v2-*` tokens, glass only on floating surfaces, 150–250 ms motion, reduced-motion), Home hero, premium body map, post-workout summary, record/achievement card, exercise meta hierarchy, bottom-nav capsule, optional activity indicators and progress timeline (new feature keys `activity` and `timeline`; the list is now **15** keys).
