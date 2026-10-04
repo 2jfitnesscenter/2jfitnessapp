@@ -1,6 +1,14 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
+// Release signing comes from android/keystore.properties (git-ignored, never committed) or from 2J_KEYSTORE_* environment
+// variables. Without either, `assembleRelease` still builds, just unsigned, exactly as before — nothing here invents a key.
+def signingProps = new Properties()
+def signingFile = rootProject.file('keystore.properties')
+if (signingFile.exists()) signingFile.withInputStream { signingProps.load(it) }
+def signingValue = { String key, String env -> signingProps.getProperty(key) ?: System.getenv(env) }
+def releaseStoreFile = signingValue('storeFile', '2J_KEYSTORE_FILE')
+
 android {
     namespace "com.twojfitnesscenter.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -22,8 +30,19 @@ android {
         targetCompatibility JavaVersion.VERSION_21
     }
     kotlinOptions { jvmTarget = "21" }
+    signingConfigs {
+        if (releaseStoreFile) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword signingValue('storePassword', '2J_KEYSTORE_PASSWORD')
+                keyAlias signingValue('keyAlias', '2J_KEY_ALIAS')
+                keyPassword signingValue('keyPassword', '2J_KEY_PASSWORD') ?: signingValue('storePassword', '2J_KEYSTORE_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseStoreFile) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

@@ -1,0 +1,74 @@
+# Android release (sideload) — signed APK for the gym app
+
+The gym app on Android is the Capacitor shell in **remote mode** (it loads `https://app.2jfitnesscenter.com`; passkeys, Sync V2 and the
+Health Connect plugin `TwoJHealth` work inside it). It is distributed as a signed APK, not through Play Store.
+
+Status (Sprint 3): the release build, Gradle signing hook, Digital Asset Links helper and WebAuthn origin hook are ready and tested.
+**Not done, needs the owner:** creating the release keystore (below). Until then only the debug-signed APK validated on the Galaxy S25 Ultra exists.
+
+## What the owner must do once (nothing here is stored in the repo)
+
+1. Create the release keystore **on your own machine** and back it up somewhere safe (lose it and nobody can update the app without uninstalling):
+
+   ```
+   keytool -genkeypair -v -keystore 2jfitness-release.jks -alias 2jfitness -keyalg RSA -keysize 4096 -validity 10950
+   ```
+
+2. Create `frontend/android/keystore.properties` (git-ignored; alternatively export `2J_KEYSTORE_FILE`, `2J_KEYSTORE_PASSWORD`, `2J_KEY_ALIAS`, `2J_KEY_PASSWORD`):
+
+   ```
+   storeFile=C:/path/to/2jfitness-release.jks
+   storePassword=...
+   keyAlias=2jfitness
+   keyPassword=...
+   ```
+
+3. Read the certificate fingerprint (public) and send it, or run the next step yourself:
+
+   ```
+   keytool -list -v -keystore 2jfitness-release.jks -alias 2jfitness     # copy the "SHA256:" line
+   ```
+
+## Build, sign, verify
+
+```
+cd frontend
+npm run build:mobile                                   # web bundle into android/ (re-run after every web change)
+copy capacitor.remote.config.json android\app\src\main\assets\capacitor.config.json   # remote-shell mode
+cd android
+.\gradlew assembleRelease                              # signed automatically when keystore.properties exists
+```
+
+Output: `app/build/outputs/apk/release/app-release.apk` (unsigned `app-release-unsigned.apk` if no keystore is configured).
+Verify the signature and fingerprint: `apksigner verify --print-certs app-release.apk`. Bump `versionCode`/`versionName` in `app/build.gradle` for every release
+(`versionCode` must increase or Android refuses the update). Run `npm run build` again afterwards before deploying `frontend/dist` to a server.
+
+## Passkeys in the signed app (do this BEFORE handing the APK out)
+
+Credential Manager only accepts passkeys if the server trusts the signing certificate in two places. The helper derives both from the public fingerprint:
+
+```
+node scripts/android-release-hashes.mjs <SHA256 colon-hex> --apply
+```
+
+It adds the fingerprint to `frontend/public/.well-known/assetlinks.json` (Digital Asset Links; the debug one stays) and the `android:apk-key-hash:` value to
+`api/lib/webauthn-origins.js` (exact values only, no wildcard). Then **deploy** (assetlinks is static; the API reads the origin list at boot). Without the API
+hash the server rejects release-signed passkey ceremonies; without assetlinks Android will not offer the credential.
+
+## Install (sideload)
+
+- From a computer: `adb install -r app-release.apk`.
+- From the phone: host the APK on a page you control, open it in the browser, allow "install unknown apps" for that browser once, install. Updates install over
+  the old version only when signed with the same keystore and a higher `versionCode`.
+- Android 13 and older also need the Health Connect app from Play; on Android 14+ it is part of the system.
+
+## Health Connect checklist (what the app does and does not do)
+
+- Read: exercise sessions (required), active calories, heart rate, steps (optional, each can be denied). Write: the workout session (after "send 2J workouts to Health")
+  and, only when no external energy exists after a grace period, one labelled `2j:<id>:kcal-est` estimate that is deleted if an external source later appears.
+- Idempotent writes: record id `2j:<id>`; re-reading drops 2J's own records. 2J never edits or deletes records it did not create.
+- Revoking a permission in Health Connect makes the next read return `permission_denied`; the UI then shows the connect state again and keeps no health cache.
+- Energy reconciliation (`lib/energy-reconcile.js`): measured wearable > aggregated Health > 2J estimate; never summed.
+- Auto-Backup is **off** (`allowBackup=false`): the WebView storage of the shell (session, Sync V2 journal, health aggregates) is never copied to Google Drive backups.
+- Validated on a Galaxy S25 Ultra with the debug build. **To validate on the release build once the keystore exists:** passkey login, a Health Connect read,
+  a workout write and permission revocation (10 minutes on the phone). Nothing in the code differs between debug and release except the signature.
