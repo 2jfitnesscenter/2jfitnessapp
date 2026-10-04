@@ -71,6 +71,9 @@ export function enqueue(trainerId, memberId, brief) {
 
   const S = readState(memberId);
   if (!S) throw new TrainerAIError('nostate', 'este socio nunca ha sincronizado — todavía no hay nada sobre lo que generar');
+  // Trainer/admin access to a member's plan is NOT consent to send that member's data to an external AI provider. The member's own
+  // Coach consent (the one the consent screen records) is required here too; without it nothing leaves the server.
+  if (!S.coach?.consent?.agreedAt) throw new TrainerAIError('consent', 'este socio no ha aceptado el uso de IA — no se envía nada al proveedor');
 
   const job = { id: crypto.randomBytes(8).toString('hex'), trainerId, memberId, brief, startedAt: Date.now() };
   inflight.add(key);
@@ -104,6 +107,8 @@ async function execute(job) {
 
   const S = readState(job.memberId);
   if (!S) return setResult(job, { state: 'failed', errorClass: 'nostate' });
+  // Consent can be withdrawn while the job waits in the queue: check again right before anything is built for the provider.
+  if (!S.coach?.consent?.agreedAt) return setResult(job, { state: 'failed', errorClass: 'consent' });
 
   const adapter = adapterOverride || adapterFor('claude');
   const payload = payloadLib.build(S, job.memberId, { kind: 'create', intake: job.brief });

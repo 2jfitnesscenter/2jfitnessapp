@@ -205,3 +205,18 @@ test('trainer generation: transient 529 retried → draft ready; auth → report
     assert.equal(s.errorClass, 'auth');
   } finally { restore(); delete process.env.FIXTURE_MODE; trainerJobs.setAdapterForTests(null); }
 });
+
+/* Sprint 3: trainer/admin access to a member's plan is not the member's consent to an external AI provider. */
+test('trainer AI never runs for a member who has not agreed to AI', async () => {
+  trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
+  let calls = 0;
+  const base = adapterFor('fixture');
+  trainerJobs.setAdapterForTests({ ...base, run: async (...a) => { calls++; return base.run(...a); } });
+  const brief = { goal: 'hypertrophy', experience: 'intermediate', daysPerWeek: 3 };
+  const restore = quiet();
+  try {
+    writeState(DIR, 'mem-noconsent', sampleState({ coach: {} }));
+    assert.throws(() => trainerJobs.enqueue('coach1', 'mem-noconsent', brief), e => e.code === 'consent');
+    assert.equal(calls, 0, 'nothing was sent to the provider');
+  } finally { restore(); delete process.env.FIXTURE_MODE; trainerJobs.setAdapterForTests(null); }
+});

@@ -55,6 +55,7 @@ export const TRAINER_AI_ERRORS = {
   busy: 'A routine is already being generated for this member.',
   cap: 'Today’s AI generation limit has been reached.',
   nostate: 'This member hasn’t synced yet — there’s nothing to generate from.',
+  consent: 'This member hasn’t agreed to AI features, so nothing is sent to the provider. Ask them to turn it on in their app, or build the routine by hand.',
   timeout: 'The AI took too long and gave up.',
   auth: 'The AI couldn’t sign in — check its setup in the admin panel.',
   missing: 'The AI runtime isn’t installed properly on this instance.',

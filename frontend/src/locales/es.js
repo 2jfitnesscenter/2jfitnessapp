@@ -2100,6 +2100,7 @@ export default {
   'The AI isn’t connected — ask an admin to set it up in the admin panel.': 'La IA no está conectada — pide a un administrador que la configure en el panel de administrador.',
   'A routine is already being generated for this member.': 'Ya se está generando una rutina para este socio.',
   'Today’s AI generation limit has been reached.': 'Se ha alcanzado el límite diario de generaciones con IA.',
+  'This member hasn’t agreed to AI features, so nothing is sent to the provider. Ask them to turn it on in their app, or build the routine by hand.': 'Este socio no ha aceptado el uso de IA, así que no se envía nada al proveedor. Pídele que lo active en su app o crea la rutina a mano.',
   'This member hasn’t synced yet — there’s nothing to generate from.': 'Este socio todavía no ha sincronizado — no hay nada sobre lo que generar.',
   'The AI took too long and gave up.': 'La IA tardó demasiado y se rindió.',
   'The AI couldn’t sign in — check its setup in the admin panel.': 'La IA no pudo iniciar sesión — revisa su configuración en el panel de administrador.',
