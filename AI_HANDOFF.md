@@ -14,8 +14,8 @@
 | 3 Social V2 | DONE | desplegada (`eee3bc2`, 2026-10-03) |
 | 4 Seguimiento V2 | DONE | desplegada (`eee3bc2`) |
 
-- **Rama `feat/v2.0.1-visual-v2`.** **Producción = `9fecb67175ce5aad11097c101122b13ceac425c7`** (Experience V2 + orden de Progreso; desplegado el 2026-10-04 con el canal `2j-prod`; rollback
-  `eee3bc2`, que fue el deploy de las fases 3–4 del 2026-10-03; backup previo `/root/backups/2jfitness-predeploy-9fecb67-2026-10-04_153345.tar.gz`). `eee3bc2` también deja de versionar el runner generado.
+- **Rama `feat/v2.0.1-visual-v2`.** **Producción = `8afe645c34c2081e4cabdd7eb2a79722aa78ab49`** (Experience V2 + orden de Progreso + arreglo del alta de lugares en Ajustes; desplegado el 2026-10-04 con el canal `2j-prod`; rollback
+  `9fecb67`; backup previo `/root/backups/2jfitness-predeploy-8afe645-2026-10-04_155249.tar.gz`). `eee3bc2` también deja de versionar el runner generado.
   **Todo deploy nuevo requiere la frase exacta «Autorizo deploy».** Para el deploy usar el kit ya validado (`ops/deploy-kit` en
   `ops/deploy-automation`, canal `2j-prod`); no rediseñarlo. Al preparar el release: el delta de producción→HEAD es solo `frontend/src`
   + docs; el runner se deriva del de `4c78ecb` (ver su guard «producción es ancestro del target»).
