@@ -31,11 +31,19 @@ self.addEventListener('notificationclick', event => {
   }))
 })
 
+// Cache Storage is bounded: a hashed bundle per release and ~1,300 exercise images/GIFs would otherwise only ever grow.
+// The oldest entries (insertion order) go first, and only after a new one is stored, so the working set always survives.
+const LIMITS = { [ASSETS]: 160, [MEDIA]: 400 }
+const trim = async (cache, cacheName) => {
+  const max = LIMITS[cacheName]; if (!max) return
+  const keys = await cache.keys()
+  for (const key of keys.slice(0, Math.max(0, keys.length - max))) await cache.delete(key)
+}
 const cacheFirst = (request, cacheName) => caches.open(cacheName).then(async cache => {
   const hit = await cache.match(request)
   if (hit) return hit
   const response = await fetch(request)
-  if (response.ok) await cache.put(request, response.clone())
+  if (response.ok) { await cache.put(request, response.clone()); trim(cache, cacheName).catch(() => {}) }
   return response
 })
 const navigation = request => fetch(request).then(async response => {
