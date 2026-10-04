@@ -72,3 +72,16 @@ hash the server rejects release-signed passkey ceremonies; without assetlinks An
 - Auto-Backup is **off** (`allowBackup=false`): the WebView storage of the shell (session, Sync V2 journal, health aggregates) is never copied to Google Drive backups.
 - Validated on a Galaxy S25 Ultra with the debug build. **To validate on the release build once the keystore exists:** passkey login, a Health Connect read,
   a workout write and permission revocation (10 minutes on the phone). Nothing in the code differs between debug and release except the signature.
+
+## Checklist — Galaxy S25 Ultra, release build (≈15 min)
+Pre: keystore created, fingerprint applied (`--apply`), server deployed with the new `assetlinks.json` and origin list, APK built with `assembleRelease` and verified with `apksigner verify --print-certs` (SHA-256 must equal the one you gave).
+1. Uninstall the debug build first (different signature; Android will not update over it). `adb install app-release.apk`.
+2. Open the app → it loads `https://app.2jfitnesscenter.com` (no certificate or CSP errors).
+3. Passkey: sign out, sign in with the existing passkey (Credential Manager sheet shows 2J). Then create nothing new — only verify login. If it fails: the fingerprint in assetlinks or the origin hash is wrong.
+4. Data: Sync V2 pill shows synced; open a workout from history.
+5. Health Connect: Settings → Health → Connect → grant read (workouts, calories, heart rate, steps). Last workout shows its external data.
+6. Write: finish a short workout with "send 2J workouts to Health" on → it appears once in Health Connect; finish/edit again → no duplicate. Energy: with a wearable feeding Health Connect, 2J writes no calories; without one, one labelled estimate only after the grace period.
+7. Revocation: Health Connect → 2J → revoke → back in 2J the connect state returns, no stale data, no crash.
+8. Backup/privacy: Settings → Apps → 2J → storage; "Auto-backup" is off (`allowBackup=false`); Settings → Export my data works inside the shell.
+9. Kill the app, reopen offline (airplane mode): shell loads cached app, a workout can be logged and syncs when back online.
+10. Record the APK SHA-256 and `versionCode` in `AI_HANDOFF.md`.

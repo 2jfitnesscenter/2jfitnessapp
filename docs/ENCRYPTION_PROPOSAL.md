@@ -1,4 +1,4 @@
-# Encryption — findings and proposal (NOT executed: needs an owner decision)
+# Encryption — findings and decisions (chat encryption: DONE in Sprint 3; key separation: DONE, opt-in)
 
 ## Verified today (code, not comments)
 - Encrypted at rest (AES-256-GCM, `api/lib/crypto.js`, HKDF per feature): every `state-<uid>.json` (workouts, body, measurements, Health aggregates, Sync V2 meta) via `lib/state-store.js`; Strava/WHOOP client secrets and tokens; Coach/Trainer-AI/Aux-AI credentials.
@@ -20,3 +20,8 @@
 
 ## Decision needed
 Approve "encrypt chat.json with fallback read" (recommended) — yes / no / later. Until then chat remains plain and documented.
+
+## Update (Sprint 3 close): approved and implemented
+- `chat.json` is AES-256-GCM (`chat/store.js`): dual read (legacy `{…}` or encrypted blob), atomic boot-time conversion verified by decrypting the temp file before the rename, **read-only mode on an unreadable file** so a wrong key can never overwrite the chat with an empty one. Rollback: `api/scripts/decrypt-chat.mjs --write` (keeps `chat.json.enc-bak`) or the pre-deploy tarball. Tests: `api/test/chat-encryption.test.js`.
+- The key can live outside `./data` (`SECRET_FILE`, `docs/KEY_SEPARATION.md`); nothing is re-encrypted. Activation is an ops step after deploy, with its own offline-copy safeguard.
+- Still plain by decision: `db.json`, social/friends/notifications, Bunker PINs (low sensitivity, high blast radius).
