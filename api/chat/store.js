@@ -27,10 +27,32 @@ let locked = false;
 export const isLocked = () => locked;
 
 const serialize = () => encrypt({ threads: store.threads, messages: store.messages }, INFO);
-function atomicWrite(file, content) {
+/* Replaces `file` atomically WITHOUT changing who owns it or who can read it.
+   - File already exists: the temp file gets exactly its mode, uid and gid BEFORE the rename, and is re-read to prove it. If any of that
+     cannot be done (e.g. chown not permitted), nothing is renamed, the temp file is removed and the error propagates: the original
+     chat.json stays byte-for-byte as it was. There is no silent fallback.
+   - New file: mode 0600, owner/group of the process.
+   `io` is the fs module; tests pass a wrapper to force failures. */
+export function atomicWrite(file, content, io = fs) {
   const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, content, { mode: 0o600 });
-  fs.renameSync(tmp, file);
+  let original = null;
+  try { original = io.statSync(file); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+  try {
+    if (original) {
+      const mode = original.mode & 0o7777;
+      io.writeFileSync(tmp, content, { mode });
+      io.chmodSync(tmp, mode);                         // writeFileSync's mode is masked by umask and ignored on an existing temp file
+      io.chownSync(tmp, original.uid, original.gid);   // no catch: failing to preserve ownership aborts the replacement
+      const check = io.statSync(tmp);
+      if ((check.mode & 0o7777) !== mode || check.uid !== original.uid || check.gid !== original.gid) throw new Error('chat.json metadata could not be preserved');
+    } else {
+      io.writeFileSync(tmp, content, { mode: 0o600 });
+    }
+    io.renameSync(tmp, file);
+  } catch (e) {
+    try { io.unlinkSync(tmp); } catch { /* nothing to clean */ }
+    throw e;
+  }
 }
 function loadFromDisk() {
   let raw;
