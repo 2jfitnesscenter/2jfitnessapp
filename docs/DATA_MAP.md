@@ -1,0 +1,29 @@
+# Data map — what 2J stores, where, and who can reach it (verified in code, Sprint 3)
+
+Legend: **AES** = AES-256-GCM at rest with a key derived (HKDF, per-feature `info`) from `./data/secret`; **plain** = readable JSON on disk. All traffic is HTTPS (Caddy/Let's Encrypt → nginx → API on a private network).
+The key sits next to the data (see Encryption caveat), so "AES" protects against a *partial* leak (one file, a stray copy), not against someone who can read the whole `./data`.
+
+| # | Category | Where | At rest | Who can read | In logs? | Third parties | Retention | Delete / export |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Account (name, avatar, role, flags, `sv`) | `db.json`, `uploads/` | plain | the user; admins (list); trainers (members they manage) | uid only | none | until account removed by hand | no self-service delete; admin can disable; no export of this record |
+| 2 | Personal (birth date, sex, height, goals, ux prefs) | inside `state-<uid>.json` | **AES** | the user; trainers/admin only through member endpoints | no | Coach payload only with consent (age/sex/height) | until reset | "Reset everything" (client replace), JSON export in Settings |
+| 3 | Workouts, routines, programs, PRs, notes | `state-<uid>.json` (+ Sync V2 meta: receipts, tombstones) | **AES** | user; trainer/admin for member plan endpoints; friends only via explicit shares | no | Coach/Trainer-AI payload = allowlist (plan, logged sets, effort; **session notes excluded since Sprint 3**) | receipts bounded to 1000 (Sprint 3); tombstones/journal unbounded | reset / JSON export |
+| 4 | Body measures (weight, composition, tests) | `state-<uid>.json` | **AES** | user; trainer/admin via member endpoints | no | weight series to Coach **only with consent**; composition never; scan photo → Gemini once, not stored | until reset | reset / export |
+| 5 | Health (steps, sleep, HR, Health Connect/HealthKit aggregates, WHOOP/Strava workout data) | `state-<uid>.json` (`fitness`, activity) — computed on device, no server Health endpoint | **AES** | the user only (Social never reads it; Bunker health privacy tested) | no | never to AI; WHOOP/Strava OAuth tokens → provider APIs | until reset | reset / export |
+| 6 | Social (friends, blocks, wall, shares, reports, challenges, privacy prefs) | `friends.json`, `social.json`, `notifications.json`, `sharing` store | **plain** | participants per privacy prefs; admin for reports | uid only | none | shares/reports capped 5000; notifications 100/user & 5000 | none self-service |
+| 7 | Messages (direct chat) | `chat.json` | **plain** | the two participants; anyone with file/host access | no | none | **unbounded** | none self-service |
+| 8 | AI (Coach config/log, Trainer AI, Aux AI, provider credentials) | `coach.json`, `coach/`, `trainer-ai.json`, `aux-ai.json`, `codex/` | credentials **AES** (per-feature key); logs/jobs plain | admin (config); member (own coach log in state) | job ids, no payload text | payload to provider: see AI section | coach log in member state; trainer-ai log 100 | member can revoke consent (server drops job residue) |
+| 9 | Logs | container stdout | n/a | host operator | uids, push error codes, "reminder firing" — **no workout/health/chat content** | none | host-managed (Docker json-file driver) | n/a |
+| 10 | Backups | `/root/backups/*.tar.gz` (VPS) + optional off-site `*.tar.gz.enc` | local: **plain tarball incl. `secret`**; off-site: AES-256-CBC, passphrase outside `data/` | root on the VPS; off-site only with passphrase | no | the owner's chosen destination (encrypted) | 14 days local; 30 remote | see docs/BACKUPS.md |
+| 11 | Tokens / sessions | cookie `gymsid` (HMAC, HttpOnly, Secure, SameSite=Lax, 90 d, revocable with `sv`); Bunker bearer (4 h) / admin kiosk (30 min) | n/a (signed, not stored) | holder | no | none | exp in token | "Sign out everywhere" bumps `sv` |
+| 12 | Secrets / config | `secret` (0600), `vapid.json`, `.env` | plain (root-only 0700 dir) | root/API user | never printed | none | permanent | rotate = re-login everyone and lose AES state unless re-keyed |
+
+Bunker PINs (4 digits per member, `bunker.json`, plain) and admin kiosk codes (6 digits) are by design shown to admins/trainers; they only mint a kiosk token for check-in/workout display, not an app session.
+
+## Encryption caveat (unchanged, now explicit)
+`state-*.json` and OAuth/AI credentials are encrypted; `db.json`, chat, friends, social, notifications, bunker are not. Because the AES key derives from `./data/secret` stored beside the files, a full copy of `./data` decrypts everything. Backups are therefore encrypted *before leaving the VPS* with a different key (passphrase). Proposed, **not executed** (needs a decision): see `docs/ENCRYPTION_PROPOSAL.md`.
+
+## AI — exact payload (code: `api/coach/payload.js`, allowlist built field by field)
+Sent (only with the member's consent for the Coach; trainers' "Generate with AI" uses the same builder for the member they manage): handle (HMAC pseudonym, never uid), language/unit, gym equipment, plan (routines/programs), recent logged sets/effort/PRs (review window ≤ 12 weeks / 60 sessions), weigh-ins + goal (review only), the member's own Coach intake (goal, days, limitations, likes, notes) and age/sex/height, library slice, protocol rules.
+Never sent: Health/activity/HR/sleep, WHOOP/Strava data or ids, body composition, measurement tests, workout session notes (**fixed in Sprint 3**), chat, social, Community, account name/uid, credentials, push data. Test: `api/test/payload.test.js` ("health, WHOOP, composition … never reach the provider"). Fallback without AI: the deterministic engine (progression, swaps, Intelligence) runs on the device.
+Open decision: Trainer AI does not need the member's Coach consent (documented design: the trainer already has read/write over that member's plan). See AI_HANDOFF "Decisiones".
