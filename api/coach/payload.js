@@ -256,7 +256,8 @@ function cleanWorkout(w) {
     name: w.name || null,
     minutes: w.end && w.start ? Math.round((w.end - w.start) / 60000) : null,
     ...(w.rating ? { rating: w.rating } : {}),
-    ...(w.note ? { note: String(w.note).slice(0, 300) } : {}),
+    // The free-text session note is private (it can say anything, including how a joint felt): it is not one of the consented
+    // categories and no prompt reads it, so it stays on the server.
     prs: (w.prs || []).length,
     entries: (w.entries || []).map(en => ({
       id: en.id,

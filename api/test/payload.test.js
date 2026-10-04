@@ -158,3 +158,25 @@ test('library exercises carry their muscleGroup so the model can tally weekly se
   const withCustom = payload.librarySlice({ customEx: [{ id: 'cx1', n: 'Sandbag carry', bp: 'back' }] }, []);
   assert.equal(withCustom.find(e => e.id === 'cx1').muscleGroup, undefined);
 });
+
+/* Sprint 3 privacy gate: Health, WHOOP, body composition, workout-level provider data, private notes and anything social
+   exist in a live state blob and must never ride along to the AI provider, in either payload kind. */
+test('health, WHOOP, composition, provider ids and private notes never reach the provider', () => {
+  const S = sampleState({
+    tests: [{ d: '2026-09-01', bodyFatPct: 17.4, muscleMassKg: 'CANARY-COMP' }],
+    measurements: [{ d: '2026-09-01', visceralFat: 'CANARY-VISC' }],
+    healthActivity: [{ d: '2026-09-02', steps: 'CANARY-STEPS', sleepMin: 'CANARY-SLEEP' }],
+    restingHR: [{ d: '2026-09-02', v: 'CANARY-HR' }],
+    whoop: { recovery: 'CANARY-WHOOP' }, strava: { athleteId: 'CANARY-STRAVA' },
+    chat: [{ text: 'CANARY-CHAT' }], social: { wall: [{ text: 'CANARY-SOCIAL' }] },
+    privateNote: 'CANARY-NOTE', notes: 'CANARY-NOTE2', ux: { uses: { health: true } },
+  });
+  S.workouts = (S.workouts || []).map((w, i) => i === 0
+    ? { ...w, note: 'CANARY-WNOTE', fitness: { source: 'whoop', externalId: 'CANARY-PROVIDER-ID', kcal: 'CANARY-KCAL', hrAvg: 'CANARY-HRAVG' }, health: { id: 'CANARY-HC' } }
+    : w);
+  for (const kind of ['review', 'create']) {
+    const json = JSON.stringify(payload.build(S, 'user-priv-1', { kind }));
+    assert.ok(!/CANARY/.test(json), `${kind}: a private field reached the payload: ${(json.match(/CANARY[\w-]*/) || [])[0]}`);
+    for (const k of ['whoop', 'strava', 'healthActivity', 'restingHR', 'visceral', 'bodyFat', 'externalId']) assert.ok(!json.includes(k), `${kind} leaked ${k}`);
+  }
+});
