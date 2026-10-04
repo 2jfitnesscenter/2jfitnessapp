@@ -2,14 +2,14 @@
 
 ## Unreleased — v1.4.0 candidate (after v1.3.0, 2026-09-21)
 
-Everything since v1.3.0. Production is `8afe645` (2026-10-04: Experience V2 phases 1–4, the Progress section order and the Settings add-place form fix; `4c78ecb` carried phases 1–2, `eee3bc2` phases 3–4). The
+Everything since v1.3.0. Production is `e41f4f9` (2026-10-04: Experience V2 phases 1–4, Sprint 1 WOW, the Progress section order and the Settings add-place form fix; `4c78ecb` carried phases 1–2, `eee3bc2` phases 3–4). The
 version number in `package.json` is bumped when the release is tagged. Entries below say whether each item is deployed.
 
 ### Experience V2 / 2.0.1 — Visual V2, Health V2, Social V2, Seguimiento V2 (2026-10-02/03)
 
 - **Phase 1 Visual V2 — DEPLOYED (`4c78ecb`).** Design layer (`--v2-*` tokens, glass only on floating surfaces, 150–250 ms motion, reduced-motion), Home hero, premium body map, post-workout summary, record/achievement card, exercise meta hierarchy, bottom-nav capsule, optional activity indicators and progress timeline (new feature keys `activity` and `timeline`; the list is now **15** keys).
 - **Phase 2 Health V2 — DEPLOYED (`4c78ecb`).** Health overview, energy source (measured / aggregated / estimated, `≈` only for estimates), indicators without invented percentages, body-map depth per muscle, Health timeline, single Composition entry. Presentation only; Health stays private.
-- **Sprint 1 WOW — NOT DEPLOYED.** Training V3 (session progress ring and stepper, next-up, grouped supersets, quick RPE/RIR values, rest ring with what comes next), a bigger post-workout recap with a gold hero only for records/achievements, and a Home that reacts to the moment (session in progress, just finished, fresh record, rest day with the next planned session). Presentation only; every piece follows the admin gates and the Simple/Detailed, image, effort and feedback preferences.
+- **Sprint 1 WOW — DEPLOYED (`e41f4f9`).** Training V3 (session progress ring and stepper, next-up, grouped supersets, quick RPE/RIR values, rest ring with what comes next), a bigger post-workout recap with a gold hero only for records/achievements, and a Home that reacts to the moment (session in progress, just finished, fresh record, rest day with the next planned session). Presentation only; every piece follows the admin gates and the Simple/Detailed, image, effort and feedback preferences.
 - **Phase 3 Social V2 — DEPLOYED (`eee3bc2`).** The existing Community, Friends, Chat and shared-moments screens in the same visual language (soft cards, skeleton loading, calm empty states, day-separated chat bubbles with a glass composer, moment-kind chips — gold only for records / achievements / streaks). No new features, no backend change, permissions untouched.
 - **Phase 4 Seguimiento V2 — DEPLOYED (`eee3bc2`).** The existing follow-up (next review, last review, weight since the last review, one action) as a member card in Health, Progress and (when due) Home, and a restyled staff card. No new data, no scores.
 - New strings are complete in Spanish; 39 core strings are translated in the ten delayed packs and the rest fall back to English.

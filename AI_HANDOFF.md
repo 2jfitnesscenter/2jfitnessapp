@@ -14,12 +14,12 @@
 | 3 Social V2 | DONE | desplegada (`eee3bc2`, 2026-10-03) |
 | 4 Seguimiento V2 | DONE | desplegada (`eee3bc2`) |
 
-- **Rama `feat/v2.0.1-visual-v2`.** **Producción = `8afe645c34c2081e4cabdd7eb2a79722aa78ab49`** (Experience V2 + orden de Progreso + arreglo del alta de lugares en Ajustes; desplegado el 2026-10-04 con el canal `2j-prod`; rollback
-  `9fecb67`; backup previo `/root/backups/2jfitness-predeploy-8afe645-2026-10-04_155249.tar.gz`). `eee3bc2` también deja de versionar el runner generado.
+- **Rama `feat/v2.0.1-visual-v2`.** **Producción = `e41f4f97a2e2a393a92959da7da9ce277a12ec15`** (Experience V2 + Sprint 1 WOW: Training V3, Post-entreno V3, Home Alive; desplegado el 2026-10-04 con el canal `2j-prod`; rollback
+  `8afe645`; backup previo `/root/backups/2jfitness-predeploy-e41f4f9-2026-10-04_165332.tar.gz`). `eee3bc2` también deja de versionar el runner generado.
   **Todo deploy nuevo requiere la frase exacta «Autorizo deploy».** Para el deploy usar el kit ya validado (`ops/deploy-kit` en
   `ops/deploy-automation`, canal `2j-prod`); no rediseñarlo. Al preparar el release: el delta de producción→HEAD es solo `frontend/src`
   + docs; el runner se deriva del de `4c78ecb` (ver su guard «producción es ancestro del target»).
-### Sprint 1 WOW — Entrenamiento V3 · Post-entreno V3 · Home Alive (2026-10-04; NO DESPLEGADO)
+### Sprint 1 WOW — Entrenamiento V3 · Post-entreno V3 · Home Alive (2026-10-04; DESPLEGADO en `e41f4f9`)
 - **Rama `feat/v2.0.1-visual-v2`** sobre producción `8afe645`. Solo frontend; motores (series, RPE, Series Feedback, Progressive Overload, supersets, descanso, guardado) intactos.
 - **Adaptativo, nunca con huecos:** admin OFF → `uxOn` (sin cambios); preferencias de usuario (`S.workoutView`, `showExerciseImages`, RPE/feedback/overload existentes) → cada pieza nueva solo se renderiza si hay dato y está activa
   (sin imágenes no hay caja ni miniatura de «Después»; sin esfuerzo/feedback no hay bloque). Simple y Detallado siguen siendo dos presentaciones distintas de la misma sesión.
@@ -32,7 +32,7 @@
 - **Componentes nuevos:** WorkoutProgress, NextUp (+ `v3-training.css`, `lib/training-v3.js`, `lib/home-alive.js`); reutilizados: Ring/ProgressBar/Pill/Stat/CountUp (v2.jsx), AchievementCard, BodyMapPanel, EnergyBadge, tokens `--v2-*`.
 - **Tests:** frontend 1214/1214 (+20 en `views/v3.test.jsx`), API 378/378, build y check-locales OK; 8 cadenas nuevas traducidas a los 10 packs retrasados. **QA:** 360 / 375 / tablet (DOM) en oscuro y claro.
 - **Limitaciones:** capturas con imágenes de ejercicio rotas (sin red) → el recorte real de GIF/imagen no se pudo ver; el Detallado con RPE real y el flujo completo con backend solo con datos simulados; la miniatura de «Después» omite superset.
-- **Siguiente:** Sprint 2 (Progreso V3, Mi 2J V2, 2J Story). **Deploy: bloqueado hasta «Autorizo deploy».**
+- **Siguiente:** Sprint 2 (Progreso V3, Mi 2J V2, 2J Story). **Todo deploy nuevo requiere «Autorizo deploy».**
 
 - **Identidad V2 (no cambiar):** grafito oscuro; acento = `--acc` del socio (verde por defecto); oro SOLO para récords, logros e hitos
   (`--v2-gold`; en tarjetas social: record/achievement/streak); glass solo en sheets, `.center`, tabbar y composer del chat; movimiento
