@@ -13,6 +13,9 @@ import { t, nameFor, instrFor } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
 import ExerciseMeta from '../components/ExerciseMeta.jsx'
+import WorkoutProgress from '../components/WorkoutProgress.jsx'
+import NextUp from '../components/NextUp.jsx'
+import { nextUnit } from '../lib/training-v3.js'
 import { startFlow, exercisePicker, alternativesSheet, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet } from '../sheets.jsx'
 import { handoffToBunker } from '../lib/bunker-api.js'
 import Icon from '../components/Icon.jsx'
@@ -738,9 +741,7 @@ function ActiveWorkout() {
   })
 
   return <div className="narrow workout">
-    {!A.past && <GymProfile />}
-    {!A.past && <IntelligenceToday S={S} user={user} max={1} compact types={['EQUIPMENT_CONFLICT', 'PROGRESSION_READY', 'LOAD_TOO_HIGH']} />}
-    <div className="hdr">
+    <div className="hdr v3-hdr">
       <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t(A.past ? 'Discard this log?' : 'Discard workout?'), message: t(A.past ? 'What you’ve entered for this day will be lost.' : 'The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => {
         const id = A.id
         update(s => { s.active = null })
@@ -752,7 +753,10 @@ function ActiveWorkout() {
       <div style={{ textAlign: 'center', minWidth: 0 }}><div className="wtitle">{A.name}</div><div className="sub">{A.past ? fmtDate(A.d, true) : <Elapsed start={A.start} />} · {t('{0} sets', done + '/' + total)}</div></div>
       <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t(A.past ? 'Save' : 'Finish')} onClick={finishWorkout}><Icon name="check" /></button>
     </div>
-    <div className="wprog" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
+    {A.entries.length > 0 && <WorkoutProgress entries={A.entries} units={units} unitIdx={Math.max(0, unitIdx)} done={done} total={total} superset={isSuperset}
+      onGo={i => update(s => { s.active.cur = units[i][0] })} />}
+    {!A.past && <GymProfile />}
+    {!A.past && <IntelligenceToday S={S} user={user} max={1} compact types={['EQUIPMENT_CONFLICT', 'PROGRESSION_READY', 'LOAD_TOO_HIGH']} />}
     {/* Entrena con 2J: the routine's own artwork carries into the session it started. */}
     {A.src2j && <div className="t2-inwork"><WorkoutCover r={{ id: A.src2j.id, category: A.src2j.category }} shape="square" />
       <span><span className="t2-promo-k">{t('Train with 2J')}</span><b>{A.name}</b></span></div>}
@@ -764,8 +768,7 @@ function ActiveWorkout() {
     {guidedRun ? <GuidedRunner key={guidedRun.iid} block={guidedRun} /> : A.entries.length ? <>
       {guidedHere && !A.past && <GuidedLaunch key={guidedHere.iid} block={guidedHere} />}
       <div className="wbar">
-        <div className="muted small">{isSuperset ? t('Superset {0} / {1}', unitIdx + 1, units.length) : t('Exercise {0} / {1}', unitIdx + 1, units.length)}</div>
-        {!A.past && <HeartRateLive S={S} workoutId={A.id} />}
+        {!A.past ? <HeartRateLive S={S} workoutId={A.id} /> : <span />}
         {/* Two presentations of the same session — switching never touches S.active. */}
         <Segmented className="seg-inline wview" value={prefs.view}
           options={[{ value: 'simple', label: t('Simple') }, { value: 'detailed', label: t('Detailed') }]}
@@ -785,6 +788,7 @@ function ActiveWorkout() {
         ) : <ExerciseBlock entryIdx={cur} rpFinished={rpFinished} {...blockProps(cur)} />}
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 
+    {!guidedRun && A.entries.length > 0 && <NextUp next={nextUnit(A.entries, units, unitIdx)} images={prefs.images} onGo={() => goUnit(1)} />}
     <div style={{ height: 12 }} />
     {!guidedRun && <>
     <div className="row">

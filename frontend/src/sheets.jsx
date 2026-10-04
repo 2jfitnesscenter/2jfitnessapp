@@ -9,6 +9,7 @@ import { EXDB, EXIDX, isCardio, allExercises, equipmentOf, exOr } from './lib/ex
 import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, uid, exCount, routineCount, DAYN, MONTHS_LONG, ACCENTS, ageFrom } from './lib/format.js'
 import { lastEntryFor, recentEntriesFor, bestWeightFor, effectiveRoutineId, activeWeek, workoutVolume, setsDone, setsDoneActive, lastBW, hasRecentWeighIn, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, insertWorkoutSorted, EFFORT, stepEffort, feelFor, effortColor, EFFORT_COLOR_VAR } from './lib/history.js'
 import { beep, vibrate } from './lib/sound.js'
+import { EFFORT_QUICK } from './lib/training-v3.js'
 import { t, instrFor, nameFor, getLang, dateLocale, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
 import { starterRoutines, buildPlan, GOALS } from './lib/starter.js'
@@ -1909,6 +1910,10 @@ function EffortPicker({ kind, current, onPick, close }) {
         {fmtNum(v)} <span className="dim" style={{ fontSize: 18, fontWeight: 500 }}>{e.hd}</span>
       </div>
       <div className="small" style={{ color: EFFORT_COLOR_VAR[color], fontWeight: 600, minHeight: 34, lineHeight: 1.3 }}>{t(feel.label)}</div>
+    </div>
+    <div className="v3-eff-quick" role="group" aria-label={t('Quick effort')}>
+      {EFFORT_QUICK[kind].map(q => <button key={q} type="button" className={'v3-eff-chip c-' + effortColor(kind === 'rpe' ? 10 - q : q) + (v === q ? ' on' : '')} aria-pressed={v === q} onClick={() => setV(q)}>
+        <span aria-hidden="true">{feelFor(kind, q).emoji}</span><b>{q}</b></button>)}
     </div>
     <div className="bwstep">
       <button className="bw-pm" aria-label={t('Decrease')} onClick={() => step(-1)}><Icon name="minus" /></button>
