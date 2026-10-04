@@ -14,12 +14,12 @@
 | 3 Social V2 | DONE | desplegada (`eee3bc2`, 2026-10-03) |
 | 4 Seguimiento V2 | DONE | desplegada (`eee3bc2`) |
 
-- **Rama `feat/v2.0.1-visual-v2`.** **Producción = `e41f4f97a2e2a393a92959da7da9ce277a12ec15`** (Experience V2 + Sprint 1 WOW: Training V3, Post-entreno V3, Home Alive; desplegado el 2026-10-04 con el canal `2j-prod`; rollback
+- **Rama `feat/v2.0.1-visual-v2`.** **Producción = `d39ba0319387cc7c98722a4d9c24d26585f2bdf0`** (Experience V2 + Sprint 1 WOW: Training V3, Post-entreno V3, Home Alive; desplegado el 2026-10-04 con el canal `2j-prod`; rollback
   `8afe645`; backup previo `/root/backups/2jfitness-predeploy-e41f4f9-2026-10-04_165332.tar.gz`). `eee3bc2` también deja de versionar el runner generado.
   **Todo deploy nuevo requiere la frase exacta «Autorizo deploy».** Para el deploy usar el kit ya validado (`ops/deploy-kit` en
   `ops/deploy-automation`, canal `2j-prod`); no rediseñarlo. Al preparar el release: el delta de producción→HEAD es solo `frontend/src`
   + docs; el runner se deriva del de `4c78ecb` (ver su guard «producción es ancestro del target»).
-### Sprint 2 WOW — Progreso V3 · Mi 2J V2 · 2J Story (2026-10-04; NO desplegado, producción sigue en `e41f4f9`)
+### Sprint 2 WOW — Progreso V3 · Mi 2J V2 · 2J Story (2026-10-04; DESPLEGADO en `d39ba03`, rollback `e41f4f9`)
 - **Rama `feat/v2.0.1-visual-v2`.** Solo frontend, sin tocar Sync V2, Auth, Health, Social backend, Bunker, Workout, API, programas ni persistencia. Sin preferencias, insignias ni niveles nuevos.
 - **Progreso V3:** portada `ProgressCover` al inicio de Progreso (Semana/Mes, entrenamientos en grande, minutos, volumen con % solo si hay periodo anterior real, PRs y racha en oro, músculos top, avance, peso solo con `uxOn('bodyweight')` y dos pesajes dentro del periodo). Periodo sin entrenos → portada calmada sin botón de Story. Orden acordado intacto (Composición → Peso; Zonas → Timeline). Zonas con barra hacia MRV (`v3-zone`, cálculo intacto); timeline con cabeceras de mes y racha como hito. Lógica pura en `lib/progress-v3.js` (`periodRange`, `periodSummary`).
 - **Mi 2J V2:** `AthleteHero` (pasaporte: avatar, nombre, miembro desde, rango global o fila de bloqueo, entrenos / ejercicios con récord / logros), acciones «Crear mi 2J Story» y «Compartir racha», récords con evolución («antes X»), logros en grupos Recientes / Especiales (último de cada categoría) / Casi lo tienes, Explorar al final. Cada bloque sin datos desaparece; el miembro nuevo ve identidad + invitación. `Carnet` se conserva en Perfil.
@@ -27,7 +27,7 @@
 - **Tests:** `views/s2.test.jsx` (16: periodos/comparaciones, peso, periodo vacío, orden y OFF de Progreso, Story nuevo/avanzado, privacidad por código, pasaporte, CSS) + `adaptive.test.jsx` y `Mi2J.test.jsx` actualizados al nuevo diseño. Frontend 1230/1230, API 378/378, build OK, `check-locales` es 4221/4221.
 - **QA:** revisado 375 px en preview (sin desbordes; corregido el selector Semana/Mes ilegible en tema claro). **Límites:** la Story se renderiza como imagen en el cliente (no hay enlace público); iconos de rango/logro dependen de las imágenes ya existentes; los 10 packs retrasados solo llevan las cadenas principales.
 - **Sprint 2.1 (Ajustes premium + QA visual):** cristal líquido SIEMPRE activo (`LIQUID_GLASS` en `lib/format.js`; se ignoran `S.glass/glassOpacity/glassBlur` guardados, sin borrarlos; sin interruptor ni sliders). Color de acento = una fila con el color actual + `AccentSheet` (misma persistencia `S.accent`, cierra al elegir). Avanzado (datos, copias, reset) tras UNA entrada colapsable; títulos duplicados eliminados. QA: comparación «como a como» mientras el periodo está en curso (no 4 días vs un mes entero), marca de agua del pasaporte, botones primarios en glass legibles, vista previa de la Story escalada para verse entera, mes con mayúscula inicial. Tests `views/settings21.test.jsx`.
-- **Deploy:** BLOQUEADO hasta la frase exacta «Autorizo deploy».
+- **Deploy:** hecho con «Autorizo deploy» (DEPLOY_OK, health 200, sin rollback). Todo deploy nuevo requiere la frase exacta.
 
 ### Sprint 1 WOW — Entrenamiento V3 · Post-entreno V3 · Home Alive (2026-10-04; DESPLEGADO en `e41f4f9`)
 - **Rama `feat/v2.0.1-visual-v2`** sobre producción `8afe645`. Solo frontend; motores (series, RPE, Series Feedback, Progressive Overload, supersets, descanso, guardado) intactos.
