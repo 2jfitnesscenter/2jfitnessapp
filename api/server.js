@@ -30,6 +30,10 @@ import * as notificationStore from './notifications/store.js';
 import { canViewSharedContent } from './notifications/privacy.js';
 import { sharingRoutes } from './social/sharing-routes.js';
 import * as sharingStore from './social/sharing-store.js';
+import * as chatStore from './chat/store.js';
+import * as bunkerStore from './bunker/store.js';
+import { exportMember, eraseMember, ErasureError } from './lib/account-erasure.js';
+import { stateFile } from './lib/state-store.js';
 import { bunkerRoutes } from './bunker/routes.js';
 import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
@@ -280,6 +284,14 @@ function cancelRestTimer(userId) {
   const t = restTimers.get(userId);
   if (t) { clearTimeout(t); restTimers.delete(userId); }
 }
+
+// Everything lib/account-erasure.js needs, in one place: the stores that hold a person's data.
+const erasureDeps = () => ({
+  db, social, saveDb, saveSocial, readState, stateFile, uploadsDir, deleteUploadedImage,
+  chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore,
+  isStaff: isTrainer, clearCoach: coachJobs.clearUser,
+  forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); },
+});
 
 // "Workout planned today" reminder — one per user per day, at their chosen time.
 // Duplicated (not imported) from frontend/src/lib/history.js activeWeek/effectiveRoutineId — tiny pure helpers, not worth sharing across the two runtimes.
@@ -903,6 +915,58 @@ const routes = {
     saveDb();
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
   },
+
+  /* ---------- the member's own data: export and erasure ---------- */
+  // Everything the server holds about the signed-in member, as one JSON download (account, state, chat they wrote, friends, community posts,
+  // notifications, shares). No passkey public keys and no other person's text. See lib/account-erasure.js.
+  'GET /api/me/export': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const name = '2jfitness-export-' + (user.username || 'cuenta') + '-' + new Date().toISOString().slice(0, 10) + '.json';
+    json(res, 200, exportMember(erasureDeps(), user.id), { 'Content-Disposition': 'attachment; filename="' + name.replace(/[^a-zA-Z0-9._-]/g, '_') + '"' });
+  },
+  // Erasure needs a FRESH passkey assertion from this very account (a stolen cookie is not enough) plus the typed username. Step 1: challenge.
+  'POST /api/me/delete/options': async (req, res) => {
+    if (!challengeGate(req, res)) return;
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    if (isTrainer(user)) return json(res, 403, { code: 'staff', error: 'las cuentas de administración o entrenador no se pueden borrar desde aquí: un administrador debe quitar antes el rol' });
+    const mine = db.creds.filter(c => c.userId === user.id);
+    if (!mine.length) return json(res, 409, { error: 'esta cuenta no tiene passkeys con las que confirmar' });
+    const options = await generateAuthenticationOptions({
+      rpID: RP_ID, userVerification: 'preferred',
+      allowCredentials: mine.map(c => ({ id: c.id, transports: c.transports }))
+    });
+    const cid = putChallenge({ challenge: options.challenge, uid: user.id, purpose: 'delete-account' });
+    json(res, 200, { cid, options, confirmWith: user.username || null });
+  },
+  // Step 2: assertion + typed username. Irreversible; the response clears the cookie.
+  'POST /api/me/delete': verifyGate(async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const body = await readBody(req);
+    if (String(body.confirm || '').trim().toLowerCase() !== String(user.username || '').toLowerCase() || !user.username) return json(res, 400, { error: 'escribe tu nombre de usuario exactamente para confirmar' });
+    const c = takeChallenge(body.cid);
+    if (!c || c.purpose !== 'delete-account' || c.uid !== user.id) return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
+    const cred = db.creds.find(x => x.id === body.credential?.id && x.userId === user.id);
+    if (!cred) return json(res, 403, { error: 'esa passkey no pertenece a esta cuenta' });
+    let verification;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response: body.credential, expectedChallenge: c.challenge, expectedOrigin: WEBAUTHN_ORIGINS, expectedRPID: RP_ID,
+        requireUserVerification: false,
+        credential: { id: cred.id, publicKey: b64uToBuf(cred.publicKey), counter: cred.counter, transports: cred.transports }
+      });
+    } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
+    if (!verification.verified) return json(res, 400, { error: 'no verificado' });
+    try {
+      const report = eraseMember(erasureDeps(), user.id);
+      json(res, 200, { ok: true, report }, { 'Set-Cookie': clearCookie });
+    } catch (e) {
+      if (e instanceof ErasureError) return json(res, e.status, { error: e.message, code: e.code });
+      throw e;
+    }
+  }),
 
   'GET /api/sync': async (req, res) => {
     const user = readSession(req);

@@ -44,3 +44,17 @@ export function resolveReport(reportId, adminId, status) {
   if (!row) return null;
   row.status = status; row.resolvedAt = Date.now(); row.resolvedBy = adminId; save(); return row;
 }
+
+/** Account erasure: shares the person authored (hard delete, not the soft `deletedAt` flag), their reports, and reports about those shares. */
+export function removeUser(uid) {
+  const mine = new Set(state.shares.filter(x => x.authorId === uid).map(x => x.id));
+  const n = state.shares.length + state.reports.length;
+  state.shares = state.shares.filter(x => x.authorId !== uid);
+  state.reports = state.reports.filter(r => r.reporterId !== uid && !(r.targetType === 'share' && mine.has(r.targetId)));
+  const left = state.shares.length + state.reports.length;
+  if (left !== n) save();
+  return { removed: n - left, shareIds: [...mine] };
+}
+export function exportUser(uid) {
+  return { shares: state.shares.filter(x => x.authorId === uid && !x.deletedAt), reports: state.reports.filter(r => r.reporterId === uid) };
+}

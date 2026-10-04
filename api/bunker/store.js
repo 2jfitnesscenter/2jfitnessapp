@@ -181,3 +181,16 @@ export function listSessions() {
   for (const uid of sessions.keys()) liveSession(uid, now);
   return [...sessions.values()].sort((a, b) => a.checkinAt - b.checkinAt);
 }
+
+/** Account erasure: the member's check-in PIN, admin-kiosk code and any live session. */
+export function removeUser(uid) {
+  const n = store.pins.length + store.adminCodes.length;
+  store.pins = store.pins.filter(p => p.userId !== uid);
+  store.adminCodes = store.adminCodes.filter(c => c.userId !== uid);
+  sessions.delete(uid);
+  const left = store.pins.length + store.adminCodes.length;
+  if (left !== n) save();
+  return { removed: n - left };
+}
+/** Data-portability: the existing check-in PIN, read without creating one. */
+export function exportUser(uid) { return { checkInPin: store.pins.find(p => p.userId === uid)?.pin || null }; }

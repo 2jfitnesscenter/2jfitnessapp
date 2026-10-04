@@ -124,3 +124,25 @@ export function setStatus(threadId, status) {
   save();
   return thread;
 }
+
+/* Account erasure: removes every thread the person is part of (support threads they started, direct threads with them) with all its
+   messages, plus any message they wrote elsewhere. Returns what was removed. A locked (unreadable) store is never touched. */
+export function removeUser(uid) {
+  if (locked) return { threads: 0, messages: 0, skipped: true };
+  const gone = new Set(store.threads.filter(t => t.memberId === uid || t.recipientId === uid).map(t => t.id));
+  const before = { threads: store.threads.length, messages: store.messages.length };
+  store.threads = store.threads.filter(t => !gone.has(t.id));
+  store.messages = store.messages.filter(m => !gone.has(m.threadId) && m.authorId !== uid);
+  store.threads.forEach(t => { if (t.readBy) delete t.readBy[uid]; });
+  if (before.threads !== store.threads.length || before.messages !== store.messages.length) save();
+  return { threads: before.threads - store.threads.length, messages: before.messages - store.messages.length };
+}
+/** Data-portability: the person's own messages (their words), with the thread each belongs to. Nobody else's text is included. */
+export function exportUser(uid) {
+  const mine = store.threads.filter(t => t.memberId === uid || t.recipientId === uid);
+  const ids = new Set(mine.map(t => t.id));
+  return {
+    threads: mine.map(t => ({ id: t.id, kind: t.kind || 'support', createdAt: t.createdAt, withUserId: t.kind === 'direct' ? (t.memberId === uid ? t.recipientId : t.memberId) : null })),
+    messages: store.messages.filter(m => ids.has(m.threadId) && m.authorId === uid).map(m => ({ id: m.id, threadId: m.threadId, type: m.type || 'text', text: m.text ?? null, createdAt: m.createdAt })),
+  };
+}

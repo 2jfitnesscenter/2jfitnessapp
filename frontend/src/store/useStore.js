@@ -2,7 +2,7 @@ import { stampWorkoutActivity } from '../lib/workout-activity.js'
 import { SyncClient } from '../lib/sync-client.js'
 import { retryStateActions } from '../lib/state-action.js'
 import { create } from 'zustand'
-import { api } from '../lib/api.js'
+import { api, passkeyDeleteAccount } from '../lib/api.js'
 import { localTZ } from '../lib/format.js'
 import { registerCustom, setHiddenExercises, setUnavailableEquipment } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
@@ -401,6 +401,13 @@ export const useStore = create((set, get) => {
     async signOutAll() {
       await get().pushState()   // pending operations remain in the account journal when offline
       await api('/api/logout/all', { method: 'POST', body: '{}' })
+      clearLocalSession()
+    },
+
+    // Erases the account on the server (fresh passkey + typed username, see api/lib/account-erasure.js), then this device's copy. Errors are NOT swallowed:
+    // if the server did not erase, nothing local is touched.
+    async deleteAccount(confirm) {
+      await passkeyDeleteAccount(confirm)
       clearLocalSession()
     },
 

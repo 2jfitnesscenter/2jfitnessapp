@@ -77,3 +77,16 @@ export function markTargetRead(uid, kind, id) {
   if (changed) save(); return changed;
 }
 export function resetForTests() { state.items = []; state.privacy = {}; state.preferences = {}; save(); }
+
+/** Account erasure: the person's inbox, preferences and privacy, and every notification elsewhere that names them as the actor. */
+export function removeUser(uid) {
+  const n = state.items.length;
+  state.items = state.items.filter(x => x.userId !== uid && x.actor?.id !== uid);
+  const had = !!state.privacy[uid] || !!state.preferences[uid];
+  delete state.privacy[uid]; delete state.preferences[uid];
+  if (n !== state.items.length || had) save();
+  return { removed: n - state.items.length };
+}
+export function exportUser(uid) {
+  return { items: state.items.filter(x => x.userId === uid), privacy: privacyFor(uid), preferences: preferencesFor(uid) };
+}

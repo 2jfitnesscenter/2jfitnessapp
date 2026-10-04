@@ -20,6 +20,8 @@ import { forgetCoach } from '../lib/coach-api.js'
 import { RankGuideSheet } from './Rank.jsx'
 import { ChangelogSheet } from './Changelog.jsx'
 import { LegalSheet } from './Legal.jsx'
+import DeleteAccountSheet from '../components/DeleteAccountSheet.jsx'
+import { api } from '../lib/api.js'
 import './experience.css'
 import Icon from '../components/Icon.jsx'
 import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button } from '../components/ui.jsx'
@@ -68,6 +70,15 @@ export default function Settings() {
     }
     rd.readAsText(f)
   }
+  // Everything the server holds about this member, as one JSON file (GET /api/me/export).
+  const exportMyData = async () => {
+    try {
+      const data = await api('/api/me/export')
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '2jfitness-account-' + todayISO() + '.json'; a.click(); URL.revokeObjectURL(a.href)
+      toast(t('Your data was exported'))
+    } catch (e) { toast(t('Could not export your data')) }
+  }
   // Ends the profile's sessions on every device — this one included, so on success it lands in
   // the same place as the plain sign-out above (home, local data cleared). On failure nothing
   // local is touched: still signed in here, and say so rather than leaving a half-signed-out app.
@@ -102,6 +113,8 @@ export default function Settings() {
           {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
           <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
           <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
+          <Row icon="download" iconTint="var(--blue)" title={t('Export my data')} subtitle={t('Everything 2J holds about you, as one file')} accessory="chevron" onClick={exportMyData} />
+          {!user.admin && !user.trainer && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} subtitle={t('Permanently deletes your profile and everything linked to it')} danger onClick={() => useUI.getState().openSheet(close => <DeleteAccountSheet close={close} />)} />}
         </>}
       </Section>
     )}

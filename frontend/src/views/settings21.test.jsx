@@ -91,3 +91,20 @@ describe('Advanced is one entry; empty groups disappear', () => {
     expect(html).not.toContain('Health &amp; activity'); expect(html).not.toContain('Social preferences'); expect(html).toContain('Account')
   })
 })
+
+describe('Account data: export and erasure entry points', () => {
+  it('a member can export and delete; staff can export but erasure is not offered', async () => {
+    await seed()
+    let html = await render()
+    expect(html).toContain('Export my data'); expect(html).toContain('Delete my account')
+    memory.set('gym_user', JSON.stringify({ id: 'u1', name: 'Coach', trainer: true }))
+    html = await render()
+    expect(html).toContain('Export my data'); expect(html).not.toContain('Delete my account')
+  })
+  it('the erasure sheet names what is deleted and needs the typed username before it can run', async () => {
+    const src = readFileSync(new URL('../components/DeleteAccountSheet.jsx', import.meta.url), 'utf8')
+    expect(src).toMatch(/const ok = !!name && typed\.trim\(\)\.toLowerCase\(\) === name\.toLowerCase\(\)/)
+    expect(src).toMatch(/disabled=\{!ok \|\| busy\}/)
+    expect(readFileSync(new URL('../lib/api.js', import.meta.url), 'utf8')).toMatch(/\/api\/me\/delete\/options[\s\S]*navigator\.credentials\.get[\s\S]*\/api\/me\/delete/)
+  })
+})

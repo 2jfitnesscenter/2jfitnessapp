@@ -107,3 +107,21 @@ export function removeFriendship(aId, bId) {
   );
   if (store.requests.length !== before) save();
 }
+
+/** Account erasure: friend code, every request in either direction and every block involving the person. */
+export function removeUser(uid) {
+  const n = store.codes.length + store.requests.length + store.blocked.length;
+  store.codes = store.codes.filter(c => c.userId !== uid);
+  store.requests = store.requests.filter(r => r.fromId !== uid && r.toId !== uid);
+  store.blocked = store.blocked.filter(b => b.ownerId !== uid && b.blockedId !== uid);
+  const left = store.codes.length + store.requests.length + store.blocked.length;
+  if (left !== n) save();
+  return { removed: n - left };
+}
+export function exportUser(uid) {
+  return {
+    friendCode: store.codes.find(c => c.userId === uid)?.code || null,
+    requests: store.requests.filter(r => r.fromId === uid || r.toId === uid).map(r => ({ id: r.id, direction: r.fromId === uid ? 'sent' : 'received', otherUserId: r.fromId === uid ? r.toId : r.fromId, status: r.status, createdAt: r.createdAt })),
+    blocked: store.blocked.filter(b => b.ownerId === uid).map(b => b.blockedId),
+  };
+}

@@ -66,3 +66,11 @@ export async function passkeyRecover(token) {
   const res = await api('/api/recover/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
   return res.user
 }
+
+// Account erasure needs a FRESH passkey assertion from this very account plus the typed username (api/server.js /api/me/delete).
+// Resolves when the server has erased everything; the caller then clears the local copy.
+export async function passkeyDeleteAccount(confirm) {
+  const { cid, options } = await api('/api/me/delete/options', { method: 'POST', body: '{}' })
+  const cred = await navigator.credentials.get({ publicKey: toRequestOptions(options) })
+  return api('/api/me/delete', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred), confirm }) })
+}
