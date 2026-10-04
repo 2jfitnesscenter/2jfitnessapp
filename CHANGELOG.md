@@ -5,6 +5,14 @@
 Everything since v1.3.0. Production is `e41f4f9` (2026-10-04: Experience V2 phases 1–4, Sprint 1 WOW, the Progress section order and the Settings add-place form fix; `4c78ecb` carried phases 1–2, `eee3bc2` phases 3–4). The
 version number in `package.json` is bumped when the release is tagged. Entries below say whether each item is deployed.
 
+### Sprint 3 — Hardening, privacy and release readiness (2026-10-04) — NOT DEPLOYED
+
+- Enforced Content-Security-Policy and Permissions-Policy, pinch-zoom viewport, bounded service-worker caches, screen-reader announcement of toasts.
+- Private workout notes no longer sent to the AI provider; privacy test across Health/WHOOP/composition/ids.
+- Android release signing hook, passkey fingerprint helper, no auto-backup; HealthKit status documented (READY_FOR_DEVICE_VALIDATION).
+- Encrypted off-site backup + restore rehearsal + disk guard (needs a destination and passphrase); data map and encryption proposal.
+- Sync V2 receipt table bounded without changing semantics.
+
 ### Sprint 2 WOW — Progress V3, Mi 2J V2, 2J Story (2026-10-04) — NOT DEPLOYED
 
 - **Progress V3.** Cover with week/month toggle, real-comparison deltas only (previous period must exist), volume zones bars, timeline month headings and streak milestones. Section order unchanged.
