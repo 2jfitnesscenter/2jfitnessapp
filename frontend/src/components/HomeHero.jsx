@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMemo } from 'react'
 import { t, dateLocale } from '../lib/i18n.js'
-import { exCount } from '../lib/format.js'
+import { exCount, fmtVol } from '../lib/format.js'
+import { setsDone, setsDoneActive } from '../lib/history.js'
+import { nextPlannedSession, justFinished, recentRecord } from '../lib/home-alive.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { homeIndicators } from '../lib/indicators.js'
 import Icon from './Icon.jsx'
@@ -35,6 +37,12 @@ export default function HomeHero({ S, user, routine, doneToday, rescheduled, wee
     : routine ? { label: t('Start workout'), icon: 'play' }
     : { label: t('Plan a workout'), icon: 'plus', ghost: true }
   const title = active ? active.name : routine ? routine.name : null
+  // Home Alive: what to lead with right now — all derived from the session in progress, the log and the plan (nothing stored).
+  const safe = (fn, d = null) => { try { return fn() } catch { return d } }
+  const live = active ? safe(() => ({ done: setsDoneActive(active), total: active.entries.reduce((n, e) => n + e.sets.length, 0) })) : null
+  const fresh = !active && doneToday ? safe(() => justFinished(S)) : null
+  const record = !active ? safe(() => recentRecord(S)) : null
+  const upNext = !active && !routine && !doneToday ? safe(() => nextPlannedSession(S, now)) : null
   const frac = week.planned ? Math.min(1, week.done / week.planned) : 0
 
   return <section className="v2-hero" aria-label={t('Today')}>
@@ -46,11 +54,19 @@ export default function HomeHero({ S, user, routine, doneToday, rescheduled, wee
       </div>
     </div>
 
+    {record && <div className="v3h-pr" role="status"><Icon name="trophy" /><div><div className="v3h-pr-k">{t('New record')}</div><div className="v3h-pr-v">{record.title} <small>· {record.value}</small></div></div></div>}
+
     {hasPlan && <div className="v2-hero-today">
       <div className="v2-eyebrow">{active ? t('In progress') : doneToday ? t('Done today') : t('Today')}</div>
       {title
         ? <div className="v2-hero-title"><span className="v2-hero-ico"><Icon name={active ? 'timer' : routine ? glyphOf(routine.emoji) : 'check'} /></span><span className="min0">{title}</span></div>
         : <div className="v2-hero-title rest"><span className="v2-hero-ico"><Icon name="moon" /></span><span>{t('Rest day')}</span></div>}
+      {live && live.total > 0 && <div className="v3h-live" role="group" aria-label={t('Workout progress')}>
+        <div className="v3h-live-row"><b>{live.done}<small> / {live.total}</small></b><span>{Math.round(live.done / live.total * 100)}% · {t('sets')}</span></div>
+        <ProgressBar value={live.done / live.total} label={t('Workout progress')} />
+      </div>}
+      {fresh && <div className="v3h-recap"><Pill tone="acc" icon="check">{t('{0} sets', safe(() => setsDone(fresh), 0))}</Pill>{fresh.vol > 0 && <Pill icon="dumbbell">{fmtVol(fresh.vol, S.unit)}</Pill>}</div>}
+      {upNext && <div className="v3h-next"><Icon name="calendar" /><span>{t('Next session')} · {upNext.date.toLocaleDateString(dateLocale(), { weekday: 'long' })} · <b>{upNext.routine.name}</b></span></div>}
       {(routine || active) && <div className="v2-hero-meta">
         {routine && <Pill icon="dumbbell">{exCount((routine.ex || []).length)}</Pill>}
         {minutes && <Pill icon="clock">{t('{0} min', minutes)}</Pill>}
