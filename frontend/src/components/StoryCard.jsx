@@ -21,7 +21,7 @@ const StoryCard = forwardRef(function StoryCard({ story, className = '' }, ref) 
       <span className="v3-story-brand"><img src="/brand/logo-mark.png" alt="" crossOrigin="anonymous" />2J FITNESS</span>
       <span className="v3-story-period">{t(period === 'week' ? 'My week' : 'My month')}</span>
     </div>
-    <div className="v3-story-range">{label}</div>
+    <div className="v3-story-range">{label.charAt(0).toUpperCase() + label.slice(1)}</div>
 
     <div className="v3-story-hero">
       <span className="v3-story-num">{story.hero.value}</span>

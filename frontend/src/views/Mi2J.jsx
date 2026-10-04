@@ -119,7 +119,7 @@ export default function Mi2J() {
       <Button variant="primary" icon="upload" onClick={() => openStory('month')}>{t('Create my 2J Story')}</Button>
       {streak > 0 && <Button variant="tinted" icon="flame" onClick={() => openSocialShare({ kind: 'streak', targetId: String(streak), title: t('My training streak'), metric: t('{0} weeks in a row', streak), subtitle: t('Consistency in motion'), date: new Date().toISOString().slice(0, 10) })}>{t('Share streak')}</Button>}
     </div>}
-    <IntelligenceToday S={S} user={user} max={2} compact types={['PR_RECENT', 'PLATEAU', 'ADHERENCE_GOOD']} />
+    <IntelligenceToday S={S} user={user} max={1} compact types={['PR_RECENT', 'PLATEAU', 'ADHERENCE_GOOD']} />
 
     {empty ? <div className="card m2-empty">
       <div className="m2-empty-ic"><Icon name="figureStrength" /></div>

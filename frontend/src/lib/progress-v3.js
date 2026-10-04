@@ -40,7 +40,11 @@ const safe = (fn, d) => { try { return fn() } catch { return d } }
 export function periodSummary(S, period, now = new Date()) {
   const r = periodRange(period, now)
   const all = S.workouts || []
-  const ws = all.filter(w => inRange(w, r.from, r.to)), pws = all.filter(w => inRange(w, r.prevFrom, r.prevTo))
+  // Like for like: while the period is still running, it is compared with the same stretch of the previous one (first 4 days of this
+  // month vs first 4 days of last month), never with a whole finished period.
+  const pd = new Date(r.prevFrom + 'T12:00:00'); pd.setDate(pd.getDate() + r.elapsed - 1)
+  const prevTo = r.elapsed >= r.days ? r.prevTo : (ymd(pd) < r.prevTo ? ymd(pd) : r.prevTo)
+  const ws = all.filter(w => inRange(w, r.from, r.to)), pws = all.filter(w => inRange(w, r.prevFrom, prevTo))
   const volume = sum(ws, w => w.vol), pvolume = sum(pws, w => w.vol)
   const load = safe(() => loadOfWorkouts(ws, null, muscleOptsOf(S)), {})
   const muscles = ws.length ? rankOf(load).worked.slice(0, 3) : []

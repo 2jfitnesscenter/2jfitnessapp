@@ -65,11 +65,13 @@ describe('Progress V3 — periods and comparisons from the real log', () => {
   it('a comparison exists only when the previous period has data; volume delta only when both sides have volume', async () => {
     await seed(HISTORY())
     const S = store.getState().S
-    const m = mod.p.periodSummary(S, 'month', new Date(NOW))
+    const m = mod.p.periodSummary(S, 'month', new Date('2026-09-30T12:00:00'))
     expect(m).toMatchObject({ workouts: 3, prevWorkouts: 2, empty: false }); expect(m.prevVolume).toBeGreaterThan(0)
     expect(m.minutes).toBe(150); expect(m.prs).toBeGreaterThanOrEqual(1)
-    const w = mod.p.periodSummary(S, 'week', new Date(NOW))
-    expect(w.workouts).toBe(1); expect(w.prevWorkouts).toBe(2)                                    // 08-31 week had s1? no → computed from data
+    const w = mod.p.periodSummary(S, 'week', new Date('2026-09-13T12:00:00'))
+    expect(w.workouts).toBe(1); expect(w.prevWorkouts).toBe(2)
+    // mid-period: compared with the same stretch of the previous one, not a whole finished period
+    expect(mod.p.periodSummary(S, 'week', new Date(NOW)).prevWorkouts).toBe(1)                                    // 08-31 week had s1? no → computed from data
     const fresh = mod.p.periodSummary({ ...S, workouts: S.workouts.filter(x => x.d >= '2026-09-01') }, 'month', new Date(NOW))
     expect(fresh.prevWorkouts).toBeNull(); expect(fresh.prevVolume).toBeNull()                  // nothing to compare with → no fake context
   })
@@ -131,6 +133,7 @@ describe('2J Story — adaptive content, privacy, share', () => {
     expect(html).toContain('2J FITNESS'); expect(html).toContain('v3-story-num'); expect(html).not.toMatch(/no data|sin datos/i)
   })
   it('an advanced member gets volume, records and the programme; at most four stats', async () => {
+    vi.setSystemTime(new Date('2026-09-30T12:00:00'))   // month complete: a like-for-like comparison with August exists
     await seed({ ...HISTORY(), programs: [{ id: 'p1', name: 'Fuerza 5x5', status: 'active', week: {}, routineIds: ['r1'] }], activeProgramId: 'p1' })
     const s = mod.story.buildStory(store.getState().S, 'month')
     expect(s.stats.length).toBeLessThanOrEqual(4); expect(s.stats.map(x => x.key)).toContain('volume')

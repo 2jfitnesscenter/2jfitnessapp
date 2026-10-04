@@ -39,7 +39,7 @@ export default function ProgressCover({ S, onStory }) {
         </div>
         <div className="v3-cover-stats">
           {p.minutes > 0 && <Stat value={<CountUp value={p.minutes} />} label={t('min trained')} />}
-          {p.volume > 0 && <Stat value={fmtVol(p.volume, S.unit)} label={t('Volume')} delta={volDelta == null ? null : (volDelta > 0 ? '+' : '') + volDelta + '%'} tone={volDelta == null ? undefined : volDelta >= 0 ? 'up' : 'down'} />}
+          {p.volume > 0 && <Stat value={fmtVol(Math.round(p.volume), S.unit)} label={t('Volume')} delta={volDelta == null ? null : (volDelta > 0 ? '+' : '') + volDelta + '%'} tone={volDelta == null ? undefined : volDelta >= 0 ? 'up' : 'down'} />}
           {p.prs > 0 && <Stat value={<CountUp value={p.prs} />} label={t('PRs')} tone="gold" />}
           {p.streak >= 1 && <Stat value={<CountUp value={p.streak} />} label={t(p.streak === 1 ? 'week in a row' : 'weeks in a row')} tone="gold" />}
           {p.perWeek != null && <Stat value={fmtNum(p.perWeek)} label={t('per week')} />}
