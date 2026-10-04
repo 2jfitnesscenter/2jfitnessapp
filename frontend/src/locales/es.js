@@ -4243,4 +4243,11 @@ export default {
   'vs last month': 'vs el mes pasado',
   'week streak': 'semanas seguidas',
   'Technical settings and additional options': 'Ajustes técnicos y opciones adicionales',
+  '2J Story: a shareable picture of your week or month — weight is never included unless you choose it': '2J Story: una imagen para compartir de tu semana o tu mes — el peso nunca se incluye salvo que tú lo elijas',
+  'Progress opens with your week or month at a glance, compared with the same stretch of the previous one': 'Progreso se abre con tu semana o tu mes de un vistazo, comparado con el mismo tramo del anterior',
+  'My 2J is now your athlete passport: records with their evolution and achievements grouped by what matters': 'Mi 2J es ahora tu pasaporte de atleta: récords con su evolución y logros agrupados por lo que importa',
+  'Simpler Settings: liquid glass for everyone, a compact accent colour picker and Advanced behind one entry': 'Ajustes más simples: cristal líquido para todos, selector de color de acento compacto y Avanzado tras una sola entrada',
+  'Training V3: session progress, next exercise, grouped supersets and quick RPE/RIR': 'Entrenamiento V3: progreso de la sesión, siguiente ejercicio, superseries agrupadas y RPE/RIR rápido',
+  'A premium post-workout summary, and a Home that adapts to your day': 'Un resumen post-entreno premium, y un Inicio que se adapta a tu día',
+  'Experience V2: a new visual layer, Health overview, Social and follow-up redesigned': 'Experience V2: nueva capa visual, resumen de Salud, y Social y seguimiento rediseñados',
 }

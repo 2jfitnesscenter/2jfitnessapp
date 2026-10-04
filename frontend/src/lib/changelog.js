@@ -13,6 +13,13 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      '2J Story: a shareable picture of your week or month — weight is never included unless you choose it',
+      'Progress opens with your week or month at a glance, compared with the same stretch of the previous one',
+      'My 2J is now your athlete passport: records with their evolution and achievements grouped by what matters',
+      'Simpler Settings: liquid glass for everyone, a compact accent colour picker and Advanced behind one entry',
+      'Training V3: session progress, next exercise, grouped supersets and quick RPE/RIR',
+      'A premium post-workout summary, and a Home that adapts to your day',
+      'Experience V2: a new visual layer, Health overview, Social and follow-up redesigned',
       'Personalise 2J: choose what you want to see, from just training to the full analysis — and your gym can switch modules off',
       'A simpler Home, with recovery, body weight and deeper analysis in Progress',
       'News and notices from 2J on Home, managed by the gym team',
