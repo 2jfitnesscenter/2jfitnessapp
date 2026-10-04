@@ -52,7 +52,7 @@ test('wildcards, other schemes and look-alike web origins are rejected', async (
 
 test('a release hash can be added later without removing the debug one; malformed values never become origins', () => {
   const release = 'Zm9vYmFyZm9vYmFyZm9vYmFyZm9vYmFyZm9vYmFyZm8';          // 43 base64url chars
-  assert.deepEqual(expectedOrigins(WEB, release), [WEB, androidOrigin(DEBUG), androidOrigin(release)]);
-  assert.deepEqual(expectedOrigins(WEB, `${release}, ${DEBUG}`), [WEB, androidOrigin(DEBUG), androidOrigin(release)]);   // de-duplicated
+  assert.deepEqual(expectedOrigins(WEB, release), [WEB, androidOrigin(RELEASE), androidOrigin(DEBUG), androidOrigin(release)]);
+  assert.deepEqual(expectedOrigins(WEB, `${release}, ${DEBUG}`), [WEB, androidOrigin(RELEASE), androidOrigin(DEBUG), androidOrigin(release)]);   // de-duplicated
   assert.deepEqual(expectedOrigins(WEB, '*, short, ' + DEBUG + '=, ../x'), [WEB, androidOrigin(RELEASE), androidOrigin(DEBUG)]);
 });
