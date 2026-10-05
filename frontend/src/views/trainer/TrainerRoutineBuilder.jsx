@@ -10,6 +10,8 @@ import { t, nameFor } from '../../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../../lib/history.js'
 import { supersetGroupInfo, supersetLabel } from '../../lib/superset-colors.js'
 import { Thumb } from '../../components/Media.jsx'
+import { coverSheet } from '../../components/CoverSheet.jsx'
+import { mediaUrl } from '../../lib/media.js'
 import { glyphPicker, exercisePicker, alternativesSheet, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, routineVersionsSheet, ExercisePicker } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
@@ -102,6 +104,7 @@ export default function TrainerRoutineBuilder() {
     setBusy(true)
     try {
       const payload = { sync, memberId, name: r.name.trim(), emoji: r.emoji, ex: r.ex, customExDefs: extractCustomDefs(r, S) }
+      if ('image' in r) payload.image = r.image || null   // the cover rides in the same authorised save; absent = the member's stays
       if (r.id) payload.routineId = r.id
       if (r.prog) payload.prog = r.prog
       const { routineId: savedId, sync: savedSync } = await saveMemberRoutine(payload)
@@ -122,6 +125,10 @@ export default function TrainerRoutineBuilder() {
       <button className="iconbtn" aria-label={t('Pick an icon')}
         onClick={() => glyphPicker(r.emoji, g => setR(cur => ({ ...cur, emoji: g })))}>
         <Icon name={glyphOf(r.emoji)} />
+      </button>
+      <button className="iconbtn" aria-label={t('Change cover')} title={t('Change cover')} style={r.image ? { overflow: 'hidden', padding: 0 } : undefined}
+        onClick={() => coverSheet({ image: r.image, name: r.name, onChange: id => setR(cur => ({ ...cur, image: id || null })) })}>
+        {r.image ? <img src={mediaUrl(r.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name="pencil" />}
       </button>
     </div>
 

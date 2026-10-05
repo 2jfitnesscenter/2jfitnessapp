@@ -209,6 +209,16 @@ function saveUploadedImage(dataUrl) {
   fs.writeFileSync(path.join(uploadsDir, name), buf);
   return name;
 }
+// A routine/program cover travelling inside a trainer save (member-routine / member-program), same id the member's own editor stores in `image`.
+// Absent key = keep what the member already has (a rebuilt object must never silently drop it); null/'' = back to the 2J cover; a string must be a file
+// this server itself stored (never an arbitrary path). Returns { image } or { error }.
+function coverFromBody(body, existing) {
+  if (!Object.prototype.hasOwnProperty.call(body, 'image')) return { image: existing?.image || null };
+  if (body.image === null || body.image === '') return { image: null };
+  const id = typeof body.image === 'string' ? body.image : '';
+  if (/^[a-zA-Z0-9_-]{1,40}\.jpg$/.test(id) && fs.existsSync(path.join(uploadsDir, id))) return { image: id };
+  return { error: 'portada no válida' };
+}
 function deleteUploadedImage(name) {
   if (!name) return;
   try { fs.unlinkSync(path.join(uploadsDir, String(name).replace(/[^a-zA-Z0-9_.-]/g, ''))); } catch {}
@@ -2525,6 +2535,9 @@ const routes = {
     const existingIdx = body.routineId ? S.routines.findIndex(r => r.id === body.routineId) : -1;
     const routine = { id: existingIdx >= 0 ? body.routineId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'dumbbell').slice(0, 20), ex };
     if (body.prog) routine.prog = String(body.prog).slice(0, 20);
+    const cover = coverFromBody(body, existingIdx >= 0 ? S.routines[existingIdx] : null);
+    if (cover.error) return json(res, 400, { error: cover.error });
+    if (cover.image) routine.image = cover.image;
     // Constructor V2: which blocks the day was built from, and under which goal/level/restrictions.
     const blocks = sanitizeRoutineBlocks(body.blocks, ex);
     if (blocks.length) routine.blocks = blocks;
@@ -2599,6 +2612,9 @@ const routes = {
     const program = { id: existingIdx >= 0 ? body.programId : crypto.randomBytes(9).toString('base64url'), name, emoji: String(body.emoji || 'folder').slice(0, 20), routineIds, week };
     const programMeta = sanitizePlanMeta(body.meta);
     if (programMeta) program.meta = programMeta;
+    const cover = coverFromBody(body, existingIdx >= 0 ? S.programs[existingIdx] : null);
+    if (cover.error) return json(res, 400, { error: cover.error });
+    if (cover.image) program.image = cover.image;
     if (existingIdx >= 0) {
       snapshotVersionIfChanged(S, 'programVersions', S.programs[existingIdx], program);
       S.programs[existingIdx] = program;

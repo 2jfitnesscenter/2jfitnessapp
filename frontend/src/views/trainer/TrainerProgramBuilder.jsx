@@ -8,6 +8,8 @@ import { exCount, DAYN } from '../../lib/format.js'
 import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
 import { fetchMemberPlan, saveMemberProgram } from '../../lib/trainer-api.js'
 import { programVersionsSheet } from '../../sheets.jsx'
+import { coverSheet } from '../../components/CoverSheet.jsx'
+import { mediaUrl } from '../../lib/media.js'
 import { Button } from '../../components/ui.jsx'
 import Icon from '../../components/Icon.jsx'
 
@@ -96,6 +98,7 @@ export default function TrainerProgramBuilder() {
     setBusy(true)
     try {
       const payload = { sync, memberId, name: p.name.trim(), emoji: p.emoji, routineIds: p.routineIds, week: p.week }
+      if ('image' in p) payload.image = p.image || null   // the cover rides in the same authorised save; absent = the member's stays
       if (p.id) payload.programId = p.id
       const { programId: savedId, sync: savedSync } = await saveMemberProgram(payload)
       setP(cur => ({ ...cur, id: savedId }))
@@ -112,6 +115,10 @@ export default function TrainerProgramBuilder() {
         <input className="input" value={p.name} style={{ fontWeight: 600, fontSize: 20 }}
           onChange={e => setP(cur => ({ ...cur, name: e.target.value }))} />
       </div>
+      <button className="iconbtn" aria-label={t('Change cover')} title={t('Change cover')} style={p.image ? { overflow: 'hidden', padding: 0 } : undefined}
+        onClick={() => coverSheet({ image: p.image, name: p.name, onChange: id => setP(cur => ({ ...cur, image: id || null })) })}>
+        {p.image ? <img src={mediaUrl(p.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name="pencil" />}
+      </button>
     </div>
 
     <div className="dim small" style={{ marginBottom: 14, maxWidth: 560 }}>

@@ -77,6 +77,19 @@ describe('Cover framing', () => {
   })
 })
 
+describe('Trainer builders carry the cover in the existing authorised save', () => {
+  it('the routine and program builders reuse CoverSheet and send image in the same payload (absent = the member keeps theirs)', () => {
+    for (const [f, v] of [['TrainerRoutineBuilder', 'r'], ['TrainerProgramBuilder', 'p']]) {
+      const src = readFileSync(new URL(`./trainer/${f}.jsx`, import.meta.url), 'utf8')
+      expect(src).toContain("from '../../components/CoverSheet.jsx'"); expect(src).toContain('coverSheet({')
+      expect(src).toContain(`if ('image' in ${v}) payload.image = ${v}.image || null`)
+    }
+    const api = readFileSync(new URL('../lib/trainer-api.js', import.meta.url), 'utf8')
+    expect(api).toMatch(/member-routine/); expect(api).toMatch(/member-program/)             // same two endpoints, no new one
+    expect(api).not.toMatch(/media|cover/i)
+  })
+})
+
 describe('Grid / Rows view', () => {
   it('is a per-user, per-device preference in localStorage, defaults to grid and ignores junk', async () => {
     await boot()
