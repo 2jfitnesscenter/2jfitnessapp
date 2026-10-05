@@ -21,7 +21,8 @@ const KINDS = [['free', 'Free weights'], ['machine', 'Machines'], ['cable', 'Cab
 // the member's habitual ones, deprecated → the preferred exercise replaces it). Nothing is hidden: a valid exercise always shows up.
 function ExerciseRow({ ex, fav, habitual }) {
   const f = facets(ex)
-  const parts = [t(ex.tg || ex.bp), f?.movement && movementLabel(f.movement) ? t(movementLabel(f.movement)) : null, f?.equipment && equipmentLabel(f.equipment) ? t(equipmentLabel(f.equipment)) : null].filter(Boolean)
+  const variant = variantLabel(ex) // already names the equipment, so the subtitle does not repeat it
+  const parts = [t(ex.tg || ex.bp), f?.movement && movementLabel(f.movement) ? t(movementLabel(f.movement)) : null, !variant && f?.equipment && equipmentLabel(f.equipment) ? t(equipmentLabel(f.equipment)) : null].filter(Boolean)
   const deprecated = isDeprecated(ex.id)
   return <div className={'item v3-ex' + (deprecated ? ' deprecated' : '')} onClick={() => exerciseDetailSheet(ex)}>
     <Thumb ex={ex} />
@@ -29,7 +30,7 @@ function ExerciseRow({ ex, fav, habitual }) {
       <div className="tt capitalize">{nameFor(ex)}</div>
       <div className="ss capitalize">{parts.join(' · ')}</div>
       <div className="v3-ex-tags">
-        {variantLabel(ex) && <span className="v3-chip">{variantLabel(ex)}</span>}
+        {variant && <span className="v3-chip">{variant}</span>}
         {isRecommended(ex.id) && <span className="lib-2j">2J</span>}
         {(fav || habitual) && <span className="v3-chip hab">{t('Habitual')}</span>}
         {deprecated && <span className="v3-chip dep">{t('Replaced')}</span>}
@@ -87,13 +88,13 @@ export default function Library() {
         options={[{ value: '*', label: t('Any movement') }, ...MOVEMENTS.map(m => ({ value: m.id, label: t(m.label) }))]} />
       <ChipSelect value={kind} onChange={v => setKind(v === '*' ? '' : v)} sheetTitle={t('Gear')} placeholder={t('Gear')}
         options={[{ value: '*', label: t('Any equipment') }, ...KINDS.map(([v, l]) => ({ value: v, label: t(l) }))]} />
-      {filtering && <button className="chip nocap" onClick={reset}><Icon name="xmark" />{t('Clear')}</button>}
+      {filtering && <button className="chip nocap" onClick={reset}><Icon name="xmark" />{t('Clear filters')}</button>}
     </div>
 
     {filtering ? <>
       <div className="list" style={{ marginTop: 8 }}>
         {list.slice(0, shown).map(e => <ExerciseRow key={e.id} ex={e} fav={fav.has(e.id)} habitual={recentSet.has(e.id)} />)}
-        {list.length === 0 && <div className="empty v3-empty"><div className="ico"><Icon name="magnifier" /></div>{t('No match in 2J exercises')}<div className="small dim" style={{ margin: '4px 0 12px' }}>{t('Try another word or clear the filters; the full library has every exercise.')}</div><Button size="sm" variant="tinted" icon="xmark" onClick={reset}>{t('Clear')}</Button></div>}
+        {list.length === 0 && <div className="empty v3-empty"><div className="ico"><Icon name="magnifier" /></div>{t('No match in 2J exercises')}<div className="small dim" style={{ margin: '4px 0 12px' }}>{t('Try another word or clear the filters; the full library has every exercise.')}</div><Button size="sm" variant="tinted" icon="xmark" onClick={reset}>{t('Clear filters')}</Button></div>}
       </div>
       {list.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(n => n + 40)}>{t('Show more')}</Button></>}
     </> : REGIONS.map(([region, label]) => {

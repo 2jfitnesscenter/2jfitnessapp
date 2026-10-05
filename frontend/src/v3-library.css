@@ -62,3 +62,4 @@
 .v3-hero-body .v3-card-go { width: 100%; }
 .v3-att .sec { display: flex; align-items: center; gap: 8px; }
 .v3-sec-row { flex-wrap: wrap; gap: 8px 12px; } .v3-sec-acts { flex-wrap: wrap; justify-content: flex-end; }
+.chat-failed { position: sticky; bottom: calc(86px + var(--sab) + 62px); z-index: 6; backdrop-filter: blur(10px); }
