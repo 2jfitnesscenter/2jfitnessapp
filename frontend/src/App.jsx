@@ -42,6 +42,8 @@ import BunkerLaunch from './views/BunkerLaunch.jsx'
 import BunkerAdminPage from './views/BunkerAdminPage.jsx'
 import Badges from './views/Badges.jsx'
 import Mi2J from './views/Mi2J.jsx'
+import Seguimiento from './views/Seguimiento.jsx'
+import AdminAttention from './views/AdminAttention.jsx'
 import HealthIntegrations from './views/HealthIntegrations.jsx'
 import Records from './views/Records.jsx'
 import { showPendingCelebration, autoFinishInactiveWorkout } from './sheets.jsx'
@@ -287,6 +289,7 @@ function Shell() {
               <Route path="/rank" element={<Rank />} />
               <Route path="/badges" element={<Badges />} />
               <Route path="/mi2j" element={<Mi2J />} />
+              <Route path="/seguimiento" element={<Seguimiento />} />
               <Route path="/records" element={<Records />} />
               {/* The Coach screens gate themselves on the instance config; the routes exist
                   unconditionally so a deep link from a notification lands somewhere sane
@@ -296,6 +299,7 @@ function Shell() {
               <Route path="/coach/proposal" element={<CoachProposal />} />
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
+              <Route path="/admin/attention" element={user?.admin ? <AdminAttention /> : <Navigate to="/home" replace />} />
               <Route path="/admin/ai" element={user?.admin ? <AdminAI /> : <Navigate to="/home" replace />} />
               <Route path="/admin/features" element={user?.admin ? <AdminFeatures /> : <Navigate to="/home" replace />} />
               <Route path="/admin/news" element={user?.admin ? <AdminNews /> : <Navigate to="/home" replace />} />

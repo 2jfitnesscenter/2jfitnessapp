@@ -3,19 +3,19 @@ import { useState } from 'react'
 import { uxOn } from '../lib/features.js'
 import { useStore } from '../store/useStore.js'
 import { uid } from '../lib/format.js'
-import { RoutineSummaryLine, ProgramSummaryLine } from '../components/PlanSummaryLine.jsx'
+import { RoutineCard, ProgramCard } from '../components/PlanCards.jsx'
 import { t } from '../lib/i18n.js'
-import { loadStarterPlan, planToolsSheet, scanRoutineSheet, celebrateBadges } from '../sheets.jsx'
+import { loadStarterPlan, planToolsSheet, scanRoutineSheet, celebrateBadges, startFlow, startOfficialRoutine } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
-import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
+import { DEFAULT_GLYPH } from '../lib/glyphs.js'
 import { coachAvailable } from '../lib/coach.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import Library from './Library.jsx'
-import { mediaUrl } from '../lib/media.js'
 import { printRoutines } from '../lib/plan-share.js'
 import { evaluateBadgesIn } from '../lib/badges.js'
+import { programMeta as programMetaOf } from '../lib/plan-cards.js'
 
 export default function Plan() {
   const nav = useNavigate()
@@ -60,6 +60,20 @@ export default function Plan() {
     }))
   }
 
+  // Same routine, new id, never favourited: edits to the copy never touch the original (history keeps pointing at the original id).
+  const duplicateRoutine = (ev, r) => {
+    ev.stopPropagation()
+    const copy = { ...JSON.parse(JSON.stringify(r)), id: uid(), name: r.name + ' ' + t('(copy)'), fav: false }
+    update(s => { s.routines.push(copy) })
+  }
+  // "Continue program": an official 2J program starts its next session through the existing guided flow; a personal one starts its next routine.
+  const continueProgram = (ev, p, meta) => {
+    ev.stopPropagation()
+    if (meta.kind === 'official' && meta.nextSession) {
+      const routine = p.routineSnapshots?.[meta.nextSession.routineId]
+      if (routine) startOfficialRoutine(routine, { programId: p.id, sessionId: meta.nextSession.sessionId, week: meta.nextSession.weekIndex + 1, day: meta.nextSession.day, routineId: meta.nextSession.routineId })
+    } else if (meta.nextRoutine) startFlow(meta.nextRoutine.id)
+  }
   const addRoutine = () => {
     const r = { id: uid(), name: t('New routine'), emoji: DEFAULT_GLYPH, ex: [] }
     update(s => { s.routines.push(r) })
@@ -97,13 +111,9 @@ export default function Plan() {
         <h4 className="sec" style={{ margin: 0 }}>{t('Programs')}</h4>
         <Button size="sm" variant="tinted" icon="plus" onClick={addProgram}>{t('New')}</Button>
       </div>
-      {(S.programs || []).length ? <div className="list">{S.programs.map(p => <div key={p.id} className="item" onClick={() => nav('/plan/p/' + p.id)}>
-        {p.image
-          ? <img src={mediaUrl(p.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
-          : <span className="lrow-i"><Icon name={glyphOf(p.emoji)} /></span>}
-        <div className="grow"><div className="tt">{p.name}</div><div className="ss"><ProgramSummaryLine p={p} routines={S.routines} /></div></div>
-        {S.activeProgramId === p.id && <span className="tag acc">{t('Active')}</span>}
-        <Icon name="chevronRight" className="chev" /></div>)}</div> : <>
+      {(S.programs || []).length ? <div className="v3-grid">{S.programs.map(p => <ProgramCard key={p.id} p={p} S={S}
+        onOpen={() => nav(p.source === 'guided-v2' && p.catalogId ? '/train2j/program/' + p.catalogId : '/plan/p/' + p.id)}
+        onContinue={ev => continueProgram(ev, p, programMetaOf(p, S))} />)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="folder" /></div>{t('No programs yet.')}<br />{t('Group a few routines together — a whole split, a block, a phase.')}</div>
         <Button icon="plus" onClick={addProgram}>{t('New program')}</Button>
       </>}
@@ -118,20 +128,9 @@ export default function Plan() {
           <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>
         </div>
       </div>
-      {loose.length ? <div className="list">{loose.map(r => <div key={r.id} className="item"
-        onClick={() => selectMode ? toggleSelected(r.id) : nav('/plan/r/' + r.id)}>
-        {selectMode
-          ? <span className="lrow-i" style={{ color: selected.has(r.id) ? 'var(--acc)' : 'var(--label-3)' }}>
-              {selected.has(r.id) ? <Icon name="checkCircle" /> : <span style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid currentColor', display: 'block' }} />}
-            </span>
-          : r.image
-            ? <img src={mediaUrl(r.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
-            : <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>}
-        <div className="grow"><div className="tt">{r.name}</div><div className="ss"><RoutineSummaryLine r={r} /></div></div>
-        {!selectMode && <button className="iconbtn" style={{ color: r.fav ? 'var(--yellow)' : 'var(--label-3)' }}
-          aria-label={r.fav ? t('Unfavorite') : t('Favorite')} title={r.fav ? t('Unfavorite') : t('Favorite')}
-          onClick={ev => toggleFav(ev, r.id)}><Icon name={r.fav ? 'starFill' : 'star'} /></button>}
-        {!selectMode && <Icon name="chevronRight" className="chev" />}</div>)}</div> : <>
+      {loose.length ? <div className="v3-grid">{loose.map(r => <RoutineCard key={r.id} r={r} S={S} selecting={selectMode} selected={selected.has(r.id)}
+        onOpen={() => selectMode ? toggleSelected(r.id) : nav('/plan/r/' + r.id)}
+        onStart={ev => { ev.stopPropagation(); startFlow(r.id) }} onFav={ev => toggleFav(ev, r.id)} onDuplicate={ev => duplicateRoutine(ev, r)} />)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>
         <Button icon="sparkles" onClick={loadStarterPlan}>{t('Load starter plan (Push / Pull / Legs)')}</Button>
       </>}

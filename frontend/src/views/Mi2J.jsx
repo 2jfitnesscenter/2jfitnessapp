@@ -16,6 +16,7 @@ import { Avatar, Button } from '../components/ui.jsx'
 import { openSocialShare } from '../lib/open-social-share.jsx'
 import IntelligenceToday from '../components/IntelligenceToday.jsx'
 import { Pill, Stat, CountUp } from '../components/v2.jsx'
+import { uxOn } from '../lib/features.js'
 import { openStory } from '../components/StorySheet.jsx'
 
 // The carnet: who this member is inside 2J, at a glance. Everything is derived (lib/mi2j.js).
@@ -101,6 +102,7 @@ export default function Mi2J() {
     { to: '/badges', icon: 'sparkles', title: t('My achievements'), sub: t('{0} of {1} unlocked', unlocked.length, BADGES.length), art: unlocked[0]?.badge.image },
     { to: '/records', icon: 'trophy', title: t('My records'), sub: records.length ? t('{0} exercises', records.length) : t('After your first sessions') },
     { to: '/stats', icon: 'chartLine', title: t('Progress'), sub: t('Charts and history') },
+    ...(uxOn(S, 'health') || (S.checkins || []).length ? [{ to: '/seguimiento', icon: 'target', title: t('My follow-up'), sub: t('Goal, reviews and check-ins') }] : []),
   ]
   const badgeBtn = ({ badge, unlockedAt }, extra = '') => <button key={badge.id} className={'m2-badge on' + extra} onClick={() => nav('/badges')}>
     {badge.image ? <img src={badge.image} alt="" /> : <Icon name={badge.icon} />}

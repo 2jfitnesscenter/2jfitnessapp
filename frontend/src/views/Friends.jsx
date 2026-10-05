@@ -12,6 +12,7 @@ import { addFriendSheet, confirmSheet, celebrateBadges } from '../sheets.jsx'
 import { fetchFriends, acceptFriendRequest, declineFriendRequest, cancelFriendRequest, removeFriend, sendFriendRequest, blockFriend, unblockFriend } from '../lib/friends-api.js'
 import { evaluateBadgesIn } from '../lib/badges.js'
 import { startDirectThread } from '../lib/chat-api.js'
+import PrivacySummary from '../components/PrivacySummary.jsx'
 
 export default function Friends() {
   const [params, setParams] = useSearchParams()
@@ -62,6 +63,8 @@ export default function Friends() {
       <div><h1>{t('Friends')}</h1></div>
       <Button size="sm" onClick={() => addFriendSheet(load)}>{t('Add')}</Button>
     </div>
+
+    {data.friends.length > 0 && <PrivacySummary />}
 
     {!!data.incoming.length && <>
       <h4 className="sec">{t('Requests')}<span className="v2-badge">{data.incoming.length}</span></h4>

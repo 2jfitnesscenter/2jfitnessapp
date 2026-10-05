@@ -27,6 +27,7 @@ export default function ChatThread() {
   const [messages, setMessages] = useState([])
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)   // the last send did not go through: the text stays in the box and can be retried
   const [online, setOnline] = useState(navigator.onLine)
   const bottomRef = useRef(null)
 
@@ -44,7 +45,8 @@ export default function ChatThread() {
     const msg = text.trim()
     if (!msg) return
     setBusy(true)
-    sendMessage(id, msg).then(() => { setText(current => current === msg ? '' : current); return load() }).catch(e => toast(e.message)).finally(() => setBusy(false))
+    setFailed(false)
+    sendMessage(id, msg).then(() => { setText(current => current === msg ? '' : current); return load() }).catch(e => { setFailed(true); toast(e.message) }).finally(() => setBusy(false))
   }
   const toggleStatus = () => setThreadStatus(id, thread.status === 'open' ? 'closed' : 'open').then(load).catch(e => toast(e.message))
 
@@ -61,7 +63,7 @@ export default function ChatThread() {
       </button>}
     </div>
 
-    <div className="chat-stream">
+    <div className="chat-stream" role="log" aria-live="polite">
       {!messages.length && <div className="empty"><div className="ico"><Icon name="message" /></div>{t('No messages yet')}</div>}
       {messages.map((m, i) => {
         const mine = m.authorId === user?.id
@@ -72,11 +74,12 @@ export default function ChatThread() {
           {m.share ? <><div className="chat-share-caption">{mine ? t('You shared a training moment') : t('{0} shared a training moment', thread.memberName)}</div><button className="chat-share-open" onClick={() => nav('/social/share/' + m.share.id)}><CommunityShareCard data={{ kind: m.share.kind, ...m.share.card }} /></button><div className="chat-share-foot"><ReportContentButton targetType="share" targetId={m.share.id} /></div></>
             : <div className="chat-share-unavailable"><Icon name="lock" /><span>{t('This shared moment is no longer available')}</span></div>}
         </article></Fragment>
-        return <Fragment key={m.id}>{sep}<div className={'chat-msg ' + (mine ? 'mine' : 'theirs')}>{m.text}</div></Fragment>
+        return <Fragment key={m.id}>{sep}<div className={'chat-msg ' + (mine ? 'mine' : 'theirs')}>{m.text}{m.createdAt && <time className="chat-time" dateTime={new Date(m.createdAt).toISOString()}>{new Date(m.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</time>}</div></Fragment>
       })}
       <div ref={bottomRef} />
     </div>
 
+    {failed && <div className="chat-failed" role="alert"><span>{t('Your message was not sent.')}</span><button type="button" className="v3-link" disabled={busy || !online} onClick={send}>{t('Retry')}</button></div>}
     {!online && <div className="offline-note" role="status">{t('You’re offline. Messages are not sent until you reconnect.')}</div>}
     {thread.status === 'closed' ? (
       <div className="dim small" style={{ textAlign: 'center', padding: '14px 0' }}>{t('This conversation is closed.')}</div>

@@ -582,6 +582,9 @@ export default function Admin() {
     <AdminNavCard icon="dumbbell" tint="var(--indigo)" title={t('Trainer panel')} tag={t('Desktop')}
       sub={t('Build and assign routines for your members — best used on a computer.')} onClick={() => nav('/trainer')} />
 
+    <AdminNavCard icon="bell" tint="var(--red)" title={t('Needs attention')}
+      sub={t('Alerts, upcoming reviews and who has gone quiet')} onClick={() => nav('/admin/attention')} />
+
     <AdminNavCard icon="users" tint="var(--blue)" title={t('Members')}
       sub={users ? t('{0} users · {1} active this week', users.length, activeCount) : t('Loading…')} onClick={() => nav('/admin/members')} />
 

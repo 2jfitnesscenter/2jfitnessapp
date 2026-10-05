@@ -9,7 +9,7 @@ import Icon from '../components/Icon.jsx'
 import { Thumb } from '../components/Media.jsx'
 import { MUSCLE_GROUPS, isInMuscleGroup } from '../lib/muscles.js'
 import { allExercises, EXIDX } from '../lib/exercises.js'
-import { familiesOf, searchExercises, scopeList, favSetOf, recentIdsOf, variantLabel, facets, isRecommended, MOVEMENTS } from '../lib/library/index.js'
+import { familiesOf, searchExercises, scopeList, favSetOf, recentIdsOf, variantLabel, facets, isRecommended, isDeprecated, movementLabel, equipmentLabel, MOVEMENTS } from '../lib/library/index.js'
 
 // Plan > Exercises — Exercise Library V2. A member sees "2J exercises" (the curated Recommended
 // 2J catalogue) grouped by movement family, can search it in plain words, and opens the full
@@ -17,12 +17,23 @@ import { familiesOf, searchExercises, scopeList, favSetOf, recentIdsOf, variantL
 const REGIONS = [['lower', 'Lower body'], ['upper', 'Upper body'], ['core', 'Core'], ['full', 'Full body & cardio']]
 const KINDS = [['free', 'Free weights'], ['machine', 'Machines'], ['cable', 'Cables'], ['bodyweight', 'Body weight'], ['accessory', 'Accessories'], ['cardio', 'Cardio machines']]
 
-function ExerciseRow({ ex, fav }) {
-  return <div className="item" onClick={() => exerciseDetailSheet(ex)}>
+// Library V3: an exercise as a card — picture, name, what it works, how it moves and with what, plus honest badges (2J recommended, one of
+// the member's habitual ones, deprecated → the preferred exercise replaces it). Nothing is hidden: a valid exercise always shows up.
+function ExerciseRow({ ex, fav, habitual }) {
+  const f = facets(ex)
+  const parts = [t(ex.tg || ex.bp), f?.movement && movementLabel(f.movement) ? t(movementLabel(f.movement)) : null, f?.equipment && equipmentLabel(f.equipment) ? t(equipmentLabel(f.equipment)) : null].filter(Boolean)
+  const deprecated = isDeprecated(ex.id)
+  return <div className={'item v3-ex' + (deprecated ? ' deprecated' : '')} onClick={() => exerciseDetailSheet(ex)}>
     <Thumb ex={ex} />
     <div className="grow">
-      <div className="tt capitalize">{nameFor(ex)}{isRecommended(ex.id) && <span className="lib-2j">2J</span>}</div>
-      <div className="ss capitalize">{[variantLabel(ex), t(ex.tg || ex.bp)].filter(Boolean).join(' · ')}</div>
+      <div className="tt capitalize">{nameFor(ex)}</div>
+      <div className="ss capitalize">{parts.join(' · ')}</div>
+      <div className="v3-ex-tags">
+        {variantLabel(ex) && <span className="v3-chip">{variantLabel(ex)}</span>}
+        {isRecommended(ex.id) && <span className="lib-2j">2J</span>}
+        {(fav || habitual) && <span className="v3-chip hab">{t('Habitual')}</span>}
+        {deprecated && <span className="v3-chip dep">{t('Replaced')}</span>}
+      </div>
       <GymCompatibility ex={ex} />
     </div>
     {fav && <span className="tag acc"><Icon name="heart" /></span>}
@@ -45,6 +56,7 @@ export default function Library() {
   const families = useMemo(() => familiesOf(two), [two])
   const fav = favSetOf(S)
   const recent = recentIdsOf(S)
+  const recentSet = useMemo(() => new Set(recent), [recent.join(',')])
   const filtering = !!(q.trim() || view || muscle || move || kind || available)
 
   let list = view === 'fav' ? all.filter(e => fav.has(e.id)) : view === 'recent' ? recent.map(id => EXIDX[id]).filter(Boolean) : two
@@ -64,7 +76,7 @@ export default function Library() {
         <div className="small dim">{t('{0} recommended exercises, grouped by movement', two.filter(e => !e.custom).length)}</div>
       </div>
     </div>
-    <div className="search" style={{ margin: '10px 0 8px' }}><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+    <div className="search v3-search" style={{ margin: '10px 0 8px' }}><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
       <input className="input" placeholder={t('Search: row machine, glute barbell, hinge…')} value={q} onChange={e => { setQ(e.target.value); setShown(40) }} /></div>
     <div className="chips lib-chips">
       {fav.size > 0 && <button className={'chip' + (view === 'fav' ? ' on' : '')} onClick={() => setView(view === 'fav' ? '' : 'fav')}><Icon name="heart" />{t('Favourites')}</button>}
@@ -80,8 +92,8 @@ export default function Library() {
 
     {filtering ? <>
       <div className="list" style={{ marginTop: 8 }}>
-        {list.slice(0, shown).map(e => <ExerciseRow key={e.id} ex={e} fav={fav.has(e.id)} />)}
-        {list.length === 0 && <div className="empty"><div className="ico"><Icon name="magnifier" /></div>{t('No match in 2J exercises')}</div>}
+        {list.slice(0, shown).map(e => <ExerciseRow key={e.id} ex={e} fav={fav.has(e.id)} habitual={recentSet.has(e.id)} />)}
+        {list.length === 0 && <div className="empty v3-empty"><div className="ico"><Icon name="magnifier" /></div>{t('No match in 2J exercises')}<div className="small dim" style={{ margin: '4px 0 12px' }}>{t('Try another word or clear the filters; the full library has every exercise.')}</div><Button size="sm" variant="tinted" icon="xmark" onClick={reset}>{t('Clear')}</Button></div>}
       </div>
       {list.length > shown && <><div style={{ height: 8 }} /><Button onClick={() => setShown(n => n + 40)}>{t('Show more')}</Button></>}
     </> : REGIONS.map(([region, label]) => {

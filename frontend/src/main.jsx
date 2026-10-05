@@ -11,6 +11,7 @@ import './v2-screens.css'
 import './v2-social.css'
 import './v3-training.css'
 import './v3-progress.css'
+import './v3-library.css'
 
 // The store synchronously restores gym_state_v1 from localStorage. Load its locale pack
 // before React's first render so users never see the English source strings flash on boot.
