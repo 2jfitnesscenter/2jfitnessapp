@@ -28,6 +28,7 @@ async function loadRows(users) {
 }
 
 function Row({ r, openUser, nav }) {
+  const shown = r.reviewIn != null ? r.alerts.filter(a => a.code !== 'review_overdue') : r.alerts // the pill already says it
   return <Surface className="v3-att-row">
     <div className="v3-att-top">
       <Avatar name={r.user.name} size={40} />
@@ -38,9 +39,9 @@ function Row({ r, openUser, nav }) {
           {r.perWeek != null && ' · ' + (r.plannedPerWeek ? t('{0} of {1} per week', r.perWeek, r.plannedPerWeek) : t('{0} per week', r.perWeek))}
         </div>
       </div>
-      {r.reviewIn != null && <Pill tone={r.reviewIn < 0 ? 'gold' : undefined}>{r.reviewIn < 0 ? t('Review overdue by {0} days', -r.reviewIn) : r.reviewIn === 0 ? t('Review today') : t('Review in {0} days', r.reviewIn)}</Pill>}
+      {r.reviewIn != null && <Pill tone={r.reviewIn < 0 ? 'gold' : undefined}>{r.reviewIn < 0 ? t(r.reviewIn === -1 ? 'Review overdue by {0} day' : 'Review overdue by {0} days', -r.reviewIn) : r.reviewIn === 0 ? t('Review today') : t(r.reviewIn === 1 ? 'Review in {0} day' : 'Review in {0} days', r.reviewIn)}</Pill>}
     </div>
-    {r.alerts.length > 0 && <ul className="v3-att-alerts">{r.alerts.map((a, i) => <li key={i}>{alertText(a)}</li>)}</ul>}
+    {shown.length > 0 && <ul className="v3-att-alerts">{shown.map((a, i) => <li key={i}>{alertText(a)}</li>)}</ul>}
     <div className="v3-att-acts">
       <Button size="sm" variant="tinted" icon="clipboard" onClick={() => nav('/trainer/' + r.user.id)}>{t('Plan')}</Button>
       <Button size="sm" icon="chartLine" onClick={() => openUser(r.user.id)}>{t('Follow-up')}</Button>
@@ -71,7 +72,7 @@ export default function AdminAttention() {
       {rank.urgent.length > 0 && <><h4 className="sec">{t('Urgent')}<span className="v2-badge">{rank.urgent.length}</span></h4>{rank.urgent.map(r => <Row key={r.user.id} r={r} openUser={openUser} nav={nav} />)}</>}
       {rank.soon.length > 0 && <><h4 className="sec">{t('Coming up')}<span className="v2-badge">{rank.soon.length}</span></h4>{rank.soon.map(r => <Row key={r.user.id} r={r} openUser={openUser} nav={nav} />)}</>}
       {none && <EmptyState icon="checkCircle" title={t('Everyone is on track')}><div className="muted small">{t('No alerts and no reviews due this week.')}</div></EmptyState>}
-      {rank.onTrack.length > 0 && <p className="small dim" style={{ textAlign: 'center', marginTop: 16 }}>{t('{0} members on track', rank.onTrack.length)}</p>}
+      {rank.onTrack.length > 0 && <p className="small dim" style={{ textAlign: 'center', marginTop: 16 }}>{t(rank.onTrack.length === 1 ? '{0} member on track' : '{0} members on track', rank.onTrack.length)}</p>}
     </>}
   </div>
 }

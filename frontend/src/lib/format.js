@@ -61,6 +61,9 @@ export const fmtVol = (v, unit) => fmtNum(v) + ' ' + unit
 // Plural forms are not automatic when the English string is the key.
 export const exCount = n => t(n === 1 ? '{0} exercise' : '{0} exercises', n)
 export const routineCount = n => t(n === 1 ? '{0} routine' : '{0} routines', n)
+export const daysPerWeekLabel = n => t(n === 1 ? '{0} day/week' : '{0} days/week', n)
+export const sessionsPerWeekLabel = n => t(n === 1 ? '{0} session/week' : '{0} sessions/week', n)
+export const weeksLabel = n => t(n === 1 ? '{0} week' : '{0} weeks', n)
 export const supersetCount = n => t(n === 1 ? '{0} superset' : '{0} supersets', n)
 export const unavailableCount = n => t(n === 1 ? '{0} exercise unavailable now' : '{0} exercises unavailable now', n)
 export const daysScheduledCount = n => t(n === 1 ? '{0} day scheduled' : '{0} days scheduled', n)

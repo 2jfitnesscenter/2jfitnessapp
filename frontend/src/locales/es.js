@@ -4320,4 +4320,10 @@ export default {
   'Only you': 'Solo tú',
   'Health, measurements and private notes are never shared.': 'La salud, las medidas y las notas privadas nunca se comparten.',
   'Your message was not sent.': 'Tu mensaje no se envió.',
+  '{0} day/week': '{0} día/semana',
+  '{0} session/week': '{0} sesión/semana',
+  '{0} week': '{0} semana',
+  '{0} member on track': '{0} socio al día',
+  'Review overdue by {0} day': 'Revisión atrasada {0} día',
+  'Review in {0} day': 'Revisión en {0} día',
 }

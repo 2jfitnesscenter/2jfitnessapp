@@ -5,6 +5,7 @@
 import { DAYS, isoOf } from './format.js'
 import { programProgress } from './guided-programs.js'
 
+export const GOAL_LABEL = { hypertrophy: 'Build muscle', toning: 'Tone up', fatloss: 'Lose fat', power: 'Power', plyometrics: 'Plyometrics', longevity: 'Health & longevity' }
 const pad = n => String(n).padStart(2, '0')
 const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
 const setsOf = e => { const n = Array.isArray(e?.sets) ? e.sets.length : Number(e?.sets); return Number.isFinite(n) && n > 0 ? n : 0 }

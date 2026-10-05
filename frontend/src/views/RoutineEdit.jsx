@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
+import { RoutineHero } from '../components/DetailHeroes.jsx'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -103,6 +104,8 @@ export default function RoutineEdit() {
           celebrateBadges(evaluateBadgesIn(update, s => { s.badgeFlags = { ...(s.badgeFlags || {}), sharedRoutine: true } }))
         }}><Icon name="download" /></button>
     </div>
+
+    <RoutineHero r={r} S={S} />
 
     {r.ex.length > 0 && (() => {
       const load = loadOfRoutine(r, muscleOptsOf(S))

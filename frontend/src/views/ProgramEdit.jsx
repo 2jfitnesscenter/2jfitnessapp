@@ -1,5 +1,6 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { ProgramHero } from '../components/DetailHeroes.jsx'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
@@ -67,6 +68,8 @@ export default function ProgramEdit() {
       <button className="iconbtn" aria-label={t('Print program')} title={t('Print program')} disabled={!routines.some(r => r.ex && r.ex.length)}
         onClick={() => printProgram(p, routines, user?.name || '', S.unit)}><Icon name="download" /></button>
     </div>
+
+    <ProgramHero p={p} S={S} />
 
     <div className="row" style={{ gap: 10, marginBottom: 16 }}>
       <button style={{ width: 52, height: 52, borderRadius: 14, fontSize: 26, flex: 'none', overflow: 'hidden', border: 'none', padding: 0 }}

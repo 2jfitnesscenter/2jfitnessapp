@@ -107,7 +107,7 @@ export default function Plan() {
     <div style={{ height: 14 }} />
 
     {tab === 'programs' ? <>
-      <div className="row between" style={{ marginBottom: 10 }}>
+      <div className="row between v3-sec-row" style={{ marginBottom: 10 }}>
         <h4 className="sec" style={{ margin: 0 }}>{t('Programs')}</h4>
         <Button size="sm" variant="tinted" icon="plus" onClick={addProgram}>{t('New')}</Button>
       </div>
@@ -118,9 +118,9 @@ export default function Plan() {
         <Button icon="plus" onClick={addProgram}>{t('New program')}</Button>
       </>}
     </> : tab === 'routines' ? <>
-      <div className="row between" style={{ marginBottom: 10 }}>
+      <div className="row between v3-sec-row" style={{ marginBottom: 10 }}>
         <h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row v3-sec-acts" style={{ gap: 8 }}>
           {loose.length > 0 && (selectMode
             ? <Button size="sm" onClick={exitSelect}>{t('Cancel')}</Button>
             : <Button size="sm" icon="checkCircle" onClick={() => setSelectMode(true)}>{t('Select to print')}</Button>)}

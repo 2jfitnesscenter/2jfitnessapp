@@ -2,7 +2,7 @@ import { t } from '../lib/i18n.js'
 import { mediaUrl } from '../lib/media.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { routineMeta, programMeta } from '../lib/plan-cards.js'
-import { exCount, routineCount } from '../lib/format.js'
+import { exCount, routineCount, daysPerWeekLabel, weeksLabel, sessionsPerWeekLabel } from '../lib/format.js'
 import { LEVEL_LABEL } from '../lib/protocol/index.js'
 import Icon from './Icon.jsx'
 import WorkoutCover from './WorkoutCover.jsx'
@@ -39,7 +39,7 @@ export function RoutineCard({ r, S, onOpen, onStart, onFav, onDuplicate, selecti
         <span className="v3-chips">
           <Chip>{exCount(m.exercises)}</Chip>
           <Chip>{m.minutes ? t('~{0} min', m.minutes) : null}</Chip>
-          <Chip>{m.daysPerWeek ? t('{0} days/week', m.daysPerWeek) : null}</Chip>
+          <Chip>{m.daysPerWeek ? daysPerWeekLabel(m.daysPerWeek) : null}</Chip>
           <Chip>{level}</Chip>
         </span>
         {(nextLabel(m.next) || m.done > 0) && <small className="v3-card-next">{nextLabel(m.next)}{nextLabel(m.next) && m.done > 0 ? ' · ' : ''}{m.done > 0 ? t('Trained {0} times', m.done) : ''}</small>}
@@ -70,8 +70,8 @@ export function ProgramCard({ p, S, onOpen, onContinue }) {
       <span className="v3-card-body">
         <b>{official ? t(p.name) : p.name}</b>
         <span className="v3-chips">
-          <Chip>{m.weeks ? t('{0} weeks', m.weeks) : null}</Chip>
-          <Chip>{m.perWeek ? t('{0} sessions/week', m.perWeek) : null}</Chip>
+          <Chip>{m.weeks ? weeksLabel(m.weeks) : null}</Chip>
+          <Chip>{m.perWeek ? sessionsPerWeekLabel(m.perWeek) : null}</Chip>
           <Chip>{!official && m.total ? routineCount(m.total) : null}</Chip>
         </span>
         {m.total > 0 && (m.done > 0 || m.state === 'active') && <>
@@ -80,6 +80,6 @@ export function ProgramCard({ p, S, onOpen, onContinue }) {
         </>}
       </span>
     </button>
-    {cta && <div className="v3-card-acts"><button type="button" className="btn primary v3-card-go" onClick={onContinue}><Icon name="play" />{cta}</button></div>}
+    {cta && <div className="v3-card-acts"><button type="button" className="btn primary v3-card-go" onClick={onContinue}><Icon name="play" /><span className="v3-go-t" title={cta}>{cta}</span></button></div>}
   </article>
 }

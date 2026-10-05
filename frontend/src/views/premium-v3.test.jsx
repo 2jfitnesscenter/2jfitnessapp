@@ -143,6 +143,23 @@ describe('Needs attention (staff) and permissions', () => {
   })
 })
 
+describe('Detail heroes (routine / program editors)', () => {
+  it('draw cover, source, only the figures that exist, singular/plural labels and one Start action', async () => {
+    await seed({ routines: [R1, R2], week: { 3: 'r1' }, workouts: [wk('a', '2026-09-03')], programs: [{ id: 'p1', name: 'Split', routineIds: ['r1', 'r2'], week: { 1: 'r1' } }], activeProgramId: 'p1' })
+    const S = JSON.parse(memory.get('gym_state_v1'))
+    const { RoutineHero, ProgramHero } = await import('../components/DetailHeroes.jsx')
+    const h = renderToStaticMarkup(<MemoryRouter><RoutineHero r={R1} S={S} /></MemoryRouter>)
+    for (const k of ['v3-hero', 'Push day', 'Mine', '2 exercises', '1 day/week', 'Planned today', 'v3-card-go']) expect(h).toContain(k)
+    expect(h).not.toContain('1 days/week')
+    const bare = renderToStaticMarkup(<MemoryRouter><RoutineHero r={{ id: 'e', name: 'Empty', ex: [] }} S={S} /></MemoryRouter>)
+    expect(bare).not.toContain('v3-card-go'); expect(bare).not.toContain('~'); expect(bare).not.toContain('exercises')
+    const p = renderToStaticMarkup(<MemoryRouter><ProgramHero p={S.programs[0]} S={S} /></MemoryRouter>)
+    for (const k of ['v3-hero', 'Split', 'Active', '2 routines', 'role="progressbar"', 'Start Push day']) expect(p).toContain(k)
+    const none = renderToStaticMarkup(<MemoryRouter><ProgramHero p={{ id: 'p2', name: 'Void', routineIds: [] }} S={S} /></MemoryRouter>)
+    expect(none).not.toContain('v3-card-go'); expect(none).not.toContain('progressbar')
+  })
+})
+
 describe('Social V3', () => {
   it('privacy summary reads the existing preferences: what is shared, with whom; health is never listed', async () => {
     await boot()
