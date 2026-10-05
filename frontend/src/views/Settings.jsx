@@ -129,6 +129,8 @@ export default function Settings() {
             onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
         </> : <>
           {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
+          {/* a trainer (not admin) has no Admin dashboard: this is their way into the management panel (/trainer; the server still decides what each call may do) */}
+          {user.trainer && !user.admin && <Row icon="dumbbell" iconTint="var(--indigo)" title={t('Trainer panel')} subtitle={t('Build and assign routines for your members — best used on a computer.')} accessory="chevron" onClick={() => nav('/trainer')} />}
           <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
           {!user.admin && !user.trainer && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} subtitle={t('Permanently deletes your profile and everything linked to it')} danger onClick={() => useUI.getState().openSheet(close => <DeleteAccountSheet close={close} />)} />}
         </>}

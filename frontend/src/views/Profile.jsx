@@ -156,13 +156,17 @@ export default function Profile() {
         {uxOn(S, 'chat') && <Row icon="personCircle" iconTint="var(--acc)" title={t('Chat with trainers')} accessory="chevron" onClick={() => nav('/chat')}>
           {chatUnread > 0 && <span aria-label={t('Unread messages')} style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--red)', flex: 'none' }} />}
         </Row>}
-        {user?.trainer && <Row icon="dumbbell" iconTint="var(--green)" title={t('Trainer panel')} subtitle={t('Best used on a computer.')} accessory="chevron" onClick={() => nav('/trainer')} />}
         <Row icon="key" iconTint="var(--orange)" title={t('Bunker check-in PIN')} subtitle={t('Train on the gym-floor screen without your phone')} accessory="chevron" onClick={bunkerPinSheet} />
     </Section>
     </Disclosure>}
 
     {/* ---------- staff-only quick access to the Bunker kiosk/admin — same admin||trainer gate
          Admin.jsx's own "Room admin" nav card and App.jsx's /admin/bunker route already use ---------- */}
+    {(user?.admin || user?.trainer) && (
+      <Section>
+        <Row icon="dumbbell" iconTint="var(--indigo)" title={t('Trainer panel')} subtitle={t('Build and assign routines for your members — best used on a computer.')} accessory="chevron" onClick={() => nav('/trainer')} />
+      </Section>
+    )}
     {(user?.admin || user?.trainer) && (
       <Section title={t('Bunker station')}>
         <Row icon="link" iconTint="var(--acc)" title={t('Copy launch link')}

@@ -297,7 +297,7 @@ function Shell() {
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/intake" element={<CoachIntake />} />
               <Route path="/coach/proposal" element={<CoachProposal />} />
-              <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
+              <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to={user?.trainer ? '/trainer' : '/home'} replace />} />
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
               <Route path="/admin/attention" element={user?.admin ? <AdminAttention /> : <Navigate to="/home" replace />} />
               <Route path="/admin/ai" element={user?.admin ? <AdminAI /> : <Navigate to="/home" replace />} />
