@@ -24,7 +24,9 @@ import DeleteAccountSheet from '../components/DeleteAccountSheet.jsx'
 import { api } from '../lib/api.js'
 import './experience.css'
 import Icon from '../components/Icon.jsx'
-import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button } from '../components/ui.jsx'
+import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button, Avatar } from '../components/ui.jsx'
+import PrivacySummary from '../components/PrivacySummary.jsx'
+import { bridgeState } from '../lib/health-bridge.js'
 import { openAccent } from '../components/AccentSheet.jsx'
 
 // One-screen design trial (see the owner's ask for a less "colorful template" look): every row
@@ -92,14 +94,31 @@ export default function Settings() {
     },
   })
 
-  return <div className="narrow">
+  const signedIn = !!user && !MOBILE && !DEMO
+  const healthOn = uxOn(S, 'health')
+  const connectedApps = !!(user && (config?.strava || config?.whoop))
+  const bioOn = uxOn(S, 'bioimpedance')
+  const bridge = user ? bridgeState(user.id) : null
+  const roleLabel = user?.admin ? t('Admin') : user?.trainer ? t('Trainer') : null
+
+  return <div className="narrow set-v3">
     <div className="hdr">
       <div><h1>{t('Settings')}</h1></div>
     </div>
 
-    {(MOBILE || DEMO || user) && <h3 className="set-grp">{t('Account')}</h3>}
-    {/* ---------- account (guests create/sign in from Perfil; nothing to show here until
-         there's an account, or on the demo/mobile builds, which have their own message) ---------- */}
+    {/* ---------- 1. account: who you are, your session, your account (guests create/sign in from Perfil; the demo/mobile builds have their own message) ---------- */}
+    {(MOBILE || DEMO || user) && <h3 className="set-grp">{t('Account')}<span>{t('Your profile and your session')}</span></h3>}
+    {signedIn && (
+      <button type="button" className="set-hero tap" onClick={() => nav('/profile')} aria-label={t('Your profile')}>
+        <Avatar name={user.name} size={52} />
+        <span className="set-hero-m">
+          <b className="capitalize">{user.name}</b>
+          <small>{t('Signed in with passkey — data syncs to this profile.')}</small>
+          {roleLabel && <i className="set-pill">{roleLabel}</i>}
+        </span>
+        <Icon name="chevronRight" className="lrow-c" />
+      </button>
+    )}
     {(MOBILE || DEMO || user) && (
       <Section>
         {MOBILE ? <>
@@ -109,32 +128,85 @@ export default function Settings() {
           <Row icon="reset" iconTint="var(--blue)" title={t('Reset demo data')} accessory="chevron"
             onClick={() => confirmSheet({ title: t('Reset demo data?'), message: t('Puts the example plan, workouts and weigh-ins back the way they started.'), confirmText: t('Reset'), onConfirm: () => { resetDemo(); nav('/home'); toast(t('Demo data reset')) } })} />
         </> : <>
-          <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
           {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
           <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
-          <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
-          <Row icon="download" iconTint="var(--blue)" title={t('Export my data')} subtitle={t('Everything 2J holds about you, as one file')} accessory="chevron" onClick={exportMyData} />
           {!user.admin && !user.trainer && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} subtitle={t('Permanently deletes your profile and everything linked to it')} danger onClick={() => useUI.getState().openSheet(close => <DeleteAccountSheet close={close} />)} />}
         </>}
       </Section>
     )}
 
-    <h3 className="set-grp">{t('My experience')}<span>{t('What you see in 2J, your way')}</span></h3>
+    {/* ---------- 2. appearance ---------- */}
+    <h3 className="set-grp">{t('Appearance')}<span>{t('How 2J looks and what you see')}</span></h3>
+    <Section footer={DEMO || MOBILE ? undefined : t('synced with your profile')}>
+      <SelectRow
+        icon="globe" iconTint="var(--blue)" title={t('Language')}
+        value={S.lang || 'es'} onChange={v => update(s => { s.lang = v })}
+        options={Object.entries(LANGS).map(([k, name]) => ({
+          value: k, label: name,
+          subtitle: INSTR_LANGS.includes(k) ? null : t("Exercise instructions aren't available in this language yet — they stay in English."),
+        }))}
+      />
+      <Row icon="moon" iconTint="var(--indigo)" title={t('Theme')}>
+        <Segmented
+          className="seg-inline"
+          options={[{ value: 'system', label: t('Auto') }, { value: 'dark', icon: 'moon', label: t('Dark') }, { value: 'light', icon: 'sun', label: t('Light') }]}
+          value={S.theme === 'light' || S.theme === 'dark' ? S.theme : 'system'}
+          onChange={v => update(s => { s.theme = v })}
+        />
+      </Row>
+      {/* Scales every font-size in the app (App.jsx's applyPrefs sets --text-scale from this). Stacked (title above, control below): 4 labels do not fit next to a
+          title, and at the top step the title itself wraps. */}
+      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 13, paddingBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="lrow-i soft" style={{ '--tint': 'var(--blue)' }}><Icon name="textSize" /></span>
+          <span className="lrow-t">{t('Text size')}</span>
+        </div>
+        <Segmented
+          options={[
+            { value: 0.9, label: t('Small') },
+            { value: 1, label: t('Default') },
+            { value: 1.15, label: t('Large') },
+            { value: 1.3, label: t('Extra large') }
+          ]}
+          value={S.textScale || 1}
+          onChange={v => update(s => { s.textScale = v })}
+        />
+      </div>
+      {/* Liquid glass is part of the look for everyone now (App.jsx applies it; no switch, no dials). */}
+      <Row icon="sparkles" iconTint="var(--acc)" title={t('Accent color')} accessory="chevron" onClick={openAccent}>
+        <span className="v3-accent-dot-cur" style={{ '--dot': ACCENTS[S.accent || 'lime'] || ACCENTS.lime }} role="img" aria-label={S.accent || 'lime'} />
+      </Row>
+      {/* Drives the muscle map illustration and, as "sex", is also sent to the AI Coach (api/coach/payload.js) — set here, not asked again in the intake. */}
+      <Row icon="figureStrength" iconTint="var(--teal)" title={t('Body diagram')}>
+        <Segmented
+          className="seg-inline"
+          options={[{ value: 'male', label: t('Male') }, { value: 'female', label: t('Female') }]}
+          value={S.body === 'female' ? 'female' : 'male'}
+          onChange={v => update(s => { s.body = v })}
+        />
+      </Row>
+      <Row icon="shield" iconTint="var(--acc)" title={t('Ranks')} subtitle={t('How ranks work, what you need, how many there are')} accessory="chevron"
+        onClick={() => useUI.getState().openSheet(() => <RankGuideSheet />)} />
+    </Section>
     <Section footer={t('Your gym may switch some features off for everyone; the rest is yours to show or hide. Nothing is deleted.')}>
       <Row icon="sparkles" iconTint="var(--acc)" title={t('Personalise my experience')}
         subtitle={S.ux ? t('Your choices are saved — change them any time') : t('Choose what you want to see: simple or complete')}
         accessory="chevron" onClick={() => nav('/settings/experience')} />
     </Section>
 
-    <h3 className="set-grp">{t('Training')}</h3>
+    {/* ---------- 3. training ---------- */}
+    <h3 className="set-grp">{t('Training')}<span>{t('Your gym, your sessions, your numbers')}</span></h3>
     <Section>
       <GymProfile editable />
-      {/* Which of Library's three tabs (Plan.jsx) opens first — stacked rather than sharing
-          the row like Weight unit above it, since "Programas"/"Rutinas"/"Ejercicios" are too
-          wide to sit next to a title without crowding it (same reasoning as Text size below). */}
+      <Row icon="scale" iconTint="var(--teal)" title={t('Weight unit')}>
+        <Segmented className="seg-inline"
+          options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]}
+          value={S.unit} onChange={v => update(s => { s.unit = v })} />
+      </Row>
+      {/* Which of Library's three tabs (Plan.jsx) opens first — stacked, since the three labels are too wide to share the row with a title. */}
       <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 13, paddingBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className="lrow-i" style={{ '--tint': 'var(--indigo)' }}><Icon name="folder" /></span>
+          <span className="lrow-i soft" style={{ '--tint': 'var(--indigo)' }}><Icon name="folder" /></span>
           <span className="lrow-t">{t('Default tab')}</span>
         </div>
         <Segmented
@@ -148,20 +220,20 @@ export default function Settings() {
         />
       </div>
     </Section>
-
-    {/* ---------- during a workout ---------- */}
     <Section title={t('During a workout')}>
-      {/* Everything about how a workout looks and behaves now lives on one ordered screen
-          (views/TrainingSettings.jsx); only the standalone plate tool stays here. */}
+      {/* Everything about how a workout looks and behaves lives on one ordered screen (views/TrainingSettings.jsx); only the standalone plate tool stays here. */}
       <Row icon="dumbbell" iconTint="var(--acc)" title={t('Training')}
         subtitle={t('View, sets, rest, progression and the training guide')}
         accessory="chevron" onClick={() => nav('/settings/training')} />
       <Row icon="barbell" iconTint="var(--blue)" title={t('Plate calculator')}
         subtitle={t('Work out what to load on any bar, outside of a set')}
         accessory="chevron" onClick={() => platesSheet(S.unit === 'lb' ? 45 : 20, S.unit)} />
+      <Row icon="figureStrength" iconTint="var(--purple)" title={t('Statistics')}
+        subtitle={t('How secondary muscles count toward volume and the muscle map')}
+        accessory="chevron" onClick={() => nav('/settings/stats')} />
     </Section>
 
-    {/* ---------- exercises excluded from your own picker (RoutineEdit's "…" menu) ---------- */}
+    {/* exercises excluded from your own picker (RoutineEdit's "…" menu) */}
     {S.excludedEx?.length > 0 && (
       <Section title={t('Not recommended to you')} footer={t('These won’t be offered when picking an exercise. Remove one here to see it again.')}>
         {S.excludedEx.map(exId => {
@@ -180,16 +252,22 @@ export default function Settings() {
         : t('An AI coach that can build your plan and adjust it from what you log. Off until you turn it on.')}>
         <Row icon="sparkles" iconTint="var(--acc)" title={hasConsent(S) ? t('Open the Coach') : t('Meet the Coach')}
           subtitle={hasConsent(S) ? t('Reviews, plan design, history and controls') : t('See what it would use, then decide')}
+          value={hasConsent(S) ? t('On') : t('Off')}
           accessory="chevron" onClick={() => nav('/coach')} />
       </Section>
     )}
 
-    <h3 className="set-grp">{t('Progress & metrics')}</h3>
+    {/* ---------- 4. health & activity ---------- */}
+    {(healthOn || connectedApps || bioOn) && <>
+    <h3 className="set-grp">{t('Health & activity')}<span>{t('Your watch, your steps, your body')}</span></h3>
     <Section>
-      <Row icon="figureStrength" iconTint="var(--purple)" title={t('Statistics')}
-        subtitle={t('How secondary muscles count toward volume and the muscle map')}
-        accessory="chevron" onClick={() => nav('/settings/stats')} />
-      {uxOn(S, 'bioimpedance') && <>
+      {healthOn && <Row icon="heart" iconTint="var(--red)" title={t('Health & activity')} subtitle={t('Steps, sleep, heart rate and your connected watch')}
+        value={bridge?.enabled ? t('Connected') : t('Not connected')} accessory="chevron" onClick={() => nav('/health')} />}
+      {connectedApps && (
+        <Row icon="link" iconTint="var(--indigo)" title={t('Connected apps')}
+          subtitle={t('Strava, Whoop')} accessory="chevron" onClick={() => nav('/connected-apps')} />
+      )}
+      {bioOn && <>
       <Row icon="calendar" iconTint="var(--orange)" title={t('Bioimpedance reminder')}
         subtitle={t('A nudge on Home when it’s been a while since your last body-composition scan')}>
         <Switch checked={S.enableBioimpedanceReminder !== false} onChange={v => {
@@ -202,117 +280,54 @@ export default function Settings() {
         options={[15, 30].map(d => ({ value: d, label: t('Every {0} days', d) }))} />}
       </>}
     </Section>
-
-    {(uxOn(S, 'health') || (user && (config?.strava || config?.whoop))) && <>
-    <h3 className="set-grp">{t('Health')}</h3>
-    <Section>
-      {uxOn(S, 'health') && <Row icon="heart" iconTint="var(--red)" title={t('Health & activity')} subtitle={t('Steps, sleep, heart rate and your connected watch')} accessory="chevron" onClick={() => nav('/health')} />}
-      {user && (config?.strava || config?.whoop) && (
-        <Row icon="link" iconTint="var(--indigo)" title={t('Connected apps')}
-          subtitle={t('Strava, Whoop')} accessory="chevron" onClick={() => nav('/connected-apps')} />
-      )}
-    </Section>
     </>}
 
-    <h3 className="set-grp">{t('Appearance')}</h3>
-    {/* ---------- appearance ---------- */}
-    <Section footer={DEMO || MOBILE ? undefined : t('synced with your profile')}>
-      <SelectRow
-        icon="globe" iconTint="var(--blue)" title={t('Language')}
-        value={S.lang || 'es'} onChange={v => update(s => { s.lang = v })}
-        options={Object.entries(LANGS).map(([k, name]) => ({
-          value: k, label: name,
-          subtitle: INSTR_LANGS.includes(k) ? null : t("Exercise instructions aren't available in this language yet — they stay in English."),
-        }))}
-      />
-      <Row icon="scale" iconTint="var(--teal)" title={t('Weight unit')}>
-        <Segmented className="seg-inline"
-          options={[{ value: 'kg', label: 'kg' }, { value: 'lb', label: 'lb' }]}
-          value={S.unit} onChange={v => update(s => { s.unit = v })} />
-      </Row>
-      <Row icon="moon" iconTint="var(--indigo)" title={t('Theme')}>
-        <Segmented
-          className="seg-inline"
-          options={[{ value: 'system', label: t('Auto') }, { value: 'dark', icon: 'moon', label: t('Dark') }, { value: 'light', icon: 'sun', label: t('Light') }]}
-          value={S.theme === 'light' || S.theme === 'dark' ? S.theme : 'system'}
-          onChange={v => update(s => { s.theme = v })}
-        />
-      </Row>
-      {/* Scales every font-size in the app (App.jsx's applyPrefs sets --text-scale from this) —
-          added after reports of reps/weight/RPE numbers clipping on iOS under the OS's own
-          Larger Text accessibility setting: fighting that from here is more reliable than
-          reacting to whatever the OS decides to do, and it means a member who just prefers
-          bigger numbers doesn't have to change their phone's system-wide setting to get them.
-          Stacked (title above, control below) rather than sharing a row like the other
-          Segmented rows above — 4 labels is one too many to sit next to a title without
-          crowding it, and at the top text-scale step the title itself wraps to multiple lines,
-          which used to leave the still-centered control sitting on top of it. */}
-      <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingTop: 13, paddingBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className="lrow-i" style={{ '--tint': 'var(--blue)' }}><Icon name="textSize" /></span>
-          <span className="lrow-t">{t('Text size')}</span>
-        </div>
-        <Segmented
-          options={[
-            { value: 0.9, label: t('Small') },
-            { value: 1, label: t('Default') },
-            { value: 1.15, label: t('Large') },
-            { value: 1.3, label: t('Extra large') }
-          ]}
-          value={S.textScale || 1}
-          onChange={v => update(s => { s.textScale = v })}
-        />
-      </div>
-      {/* Drives the muscle map illustration and, as "sex", is also sent to the AI Coach
-          (api/coach/payload.js) when it builds a plan — set here, not asked again in the intake. */}
-      <Row icon="figureStrength" iconTint="var(--teal)" title={t('Body diagram')}>
-        <Segmented
-          className="seg-inline"
-          options={[{ value: 'male', label: t('Male') }, { value: 'female', label: t('Female') }]}
-          value={S.body === 'female' ? 'female' : 'male'}
-          onChange={v => update(s => { s.body = v })}
-        />
-      </Row>
-      <Row icon="shield" iconTint="var(--acc)" title={t('Ranks')} subtitle={t('How ranks work, what you need, how many there are')} accessory="chevron"
-        onClick={() => useUI.getState().openSheet(() => <RankGuideSheet />)} />
-      {/* Liquid glass is part of the look for everyone now (App.jsx applies it; no switch, no dials). */}
-      <Row icon="sparkles" iconTint="var(--acc)" title={t('Accent color')} accessory="chevron" onClick={openAccent}>
-        <span className="v3-accent-dot-cur" style={{ '--dot': ACCENTS[S.accent || 'lime'] || ACCENTS.lime }} role="img" aria-label={S.accent || 'lime'} />
-      </Row>
-    </Section>
-
-    {(user || MOBILE) && <h3 className="set-grp">{t('Notifications')}</h3>}
-    {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
-
+    {/* ---------- 5. social & privacy ---------- */}
     {user && uxOn(S, 'social') && <>
-    <h3 className="set-grp">{t('Social & privacy')}</h3>
+    <h3 className="set-grp">{t('Social & privacy')}<span>{t('What you share, and with whom')}</span></h3>
+    <PrivacySummary />
     <Section>
       <Row icon="users" iconTint="var(--blue)" title={t('Social preferences')} subtitle={t('Who sees your activity and what you share')} accessory="chevron" onClick={() => nav('/social/preferences')} />
     </Section>
     </>}
 
+    {/* ---------- 6. notifications ---------- */}
+    {(user || MOBILE) && <h3 className="set-grp">{t('Notifications')}<span>{t('Alerts and reminders')}</span></h3>}
+    {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
+
+    {/* ---------- 7. data: your copy, in and out ---------- */}
+    <h3 className="set-grp">{t('Data')}<span>{t('Your information is yours')}</span></h3>
+    <Section footer={t('Take a copy any time, or bring one back.')}>
+      {signedIn && <Row icon="download" iconTint="var(--blue)" title={t('Export my data')} subtitle={t('Everything 2J holds about you, as one file')} accessory="chevron" onClick={exportMyData} />}
+      <Row icon="download" iconTint="var(--blue)" title={t('Export backup (JSON)')} subtitle={t('Your plan, workouts and body weight')} accessory="chevron" onClick={doExport} />
+      <Row icon="upload" iconTint="var(--blue)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
+    </Section>
+
+    {/* ---------- 8. security ---------- */}
+    {signedIn && <>
+    <h3 className="set-grp">{t('Security')}<span>{t('Your sessions and your sign-in')}</span></h3>
+    <Section footer={t('Your passkeys keep working — sign in with them again anytime.')}>
+      <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
+    </Section>
+    </>}
+
+    {/* ---------- 9. advanced: rarely needed, so one entry until opened ---------- */}
     <h3 className="set-grp">{t('Advanced')}</h3>
     <Section>
       <Row icon="wrench" iconTint="var(--grey)" title={t('Data, backups and resets')} subtitle={t('Technical settings and additional options')}
         accessory="chevron" onClick={() => setAdv(v => !v)} className={adv ? 'v3-adv-open' : ''} />
     </Section>
     {adv && <>
-    {/* ---------- data: fill it, bring things over, back it up, wipe it ---------- */}
-    <Section title={t('Data')} footer={t('Back up, import, or start over. Rarely needed.')}>
+    <Section title={t('Advanced options')} footer={t('Start over or bring things in from elsewhere. Rarely needed.')}>
       <Row icon="sparkles" iconTint="var(--acc)" title={t('Load starter plan (PPL)')} accessory="chevron" onClick={loadStarterPlan} />
       <Row icon="shuffle" iconTint="var(--teal)" title={t('Import from another app')}
         subtitle={t('FitNotes, Strong, Hevy, Gravl — or weight, body composition, steps, sleep and heart rate from Apple Health')}
         accessory="chevron" onClick={() => importRef.current.click()} />
-      {/* Health's own export is a .zip — iOS auto-extracts a tapped .zip in Files, so this
-          points there rather than adding an in-app unzip step (a multi-year export can run to
-          several hundred MB, and unzipping that again in the tab risks Safari killing it). */}
+      {/* Health's own export is a .zip — iOS auto-extracts a tapped .zip in Files, so this points there rather than adding an in-app unzip step. */}
       <div className="small dim" style={{ padding: '2px 14px 10px' }}>
         {t('From Apple Health: Settings → your name → Export All Health Data, then open the .zip in Files and pick export.xml from inside it.')}
       </div>
-      <Row icon="upload" iconTint="var(--blue)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
-      <Row icon="download" iconTint="var(--blue)" title={t('Export backup (JSON)')} accessory="chevron" onClick={doExport} />
-      {/* Also drops anything the Coach is holding server-side: a wipe that leaves a pending
-          proposal on the server behind would be a wipe in name only. */}
+      {/* Also drops anything the Coach is holding server-side: a wipe that leaves a pending proposal on the server behind would be a wipe in name only. */}
       <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => confirmSheet({ title: t('Reset everything?'), message: t('Deletes your plan, workouts and body weight on this device. This cannot be undone.'), confirmText: t('Delete everything'), danger: true, onConfirm: () => { if (user) forgetCoach().catch(() => {}); replaceStateOnServer(JSON.parse(JSON.stringify(DEF)), 'reset'); nav('/home'); toast(t('All data reset')) } })} />
     </Section>
     </>}
@@ -320,7 +335,6 @@ export default function Settings() {
     {/* Reset after reading so picking the same file twice still fires onChange. */}
     <input ref={importRef} type="file" accept=".csv,.xml,text/csv,text/xml" style={{ display: 'none' }}
       onChange={ev => { const f = ev.target.files[0]; if (f) importFromApp(f); ev.target.value = '' }} />
-
 
     <div className="dim small" style={{ textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
       2J Fitness Center · {t('based on openGym')} · {t('free & open source (AGPL v3)')}<br />

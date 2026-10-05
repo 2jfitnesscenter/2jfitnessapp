@@ -82,7 +82,7 @@ describe('Settings starts with the account', () => {
   it('Account is the first group, then the rest in the agreed order', async () => {
     await seed({})
     const html = await render(views.Settings)
-    const order = ['Account', 'My experience', 'Training', 'Progress &amp; metrics', 'Health', 'Appearance', 'Notifications', 'Social &amp; privacy', 'Advanced']
+    const order = ['Account', 'Appearance', 'Training', 'Health &amp; activity', 'Social &amp; privacy', 'Notifications', 'Data', 'Security', 'Advanced']
     const at = order.map(g => html.indexOf('<h3 class="set-grp">' + g))
     expect(at.every(i => i > 0)).toBe(true)
     expect([...at].sort((a, b) => a - b)).toEqual(at)

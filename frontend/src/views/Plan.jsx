@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { uxOn } from '../lib/features.js'
 import { useStore } from '../store/useStore.js'
 import { uid } from '../lib/format.js'
-import { RoutineCard, ProgramCard } from '../components/PlanCards.jsx'
+import { RoutineCard, ProgramCard, ViewToggle } from '../components/PlanCards.jsx'
+import { readViewModes, writeViewMode } from '../lib/view-pref.js'
 import { t } from '../lib/i18n.js'
 import { loadStarterPlan, planToolsSheet, scanRoutineSheet, celebrateBadges, startFlow, startOfficialRoutine } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -36,6 +37,8 @@ export default function Plan() {
 
   // Printing a hand-picked few routines instead of the whole loose list — see the "Select"
   // toggle in the Routines tab below.
+  const [modes, setModes] = useState(() => readViewModes(user?.id))
+  const setMode = (kind, mode) => setModes(writeViewMode(user?.id, kind, mode))
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(() => new Set())
   const exitSelect = () => { setSelectMode(false); setSelected(new Set()) }
@@ -108,10 +111,13 @@ export default function Plan() {
 
     {tab === 'programs' ? <>
       <div className="row between v3-sec-row" style={{ marginBottom: 10 }}>
-        <h4 className="sec" style={{ margin: 0 }}>{t('Programs')}</h4>
-        <Button size="sm" variant="tinted" icon="plus" onClick={addProgram}>{t('New')}</Button>
+        <div className="row" style={{ gap: 10 }}><h4 className="sec" style={{ margin: 0 }}>{t('Programs')}</h4>
+          {(S.programs || []).length > 0 && <ViewToggle value={modes.programs} onChange={m => setMode('programs', m)} />}</div>
+        <div className="row v3-sec-acts" style={{ gap: 8 }}>
+          <Button size="sm" variant="tinted" icon="plus" onClick={addProgram}>{t('New')}</Button>
+        </div>
       </div>
-      {(S.programs || []).length ? <div className="v3-grid">{S.programs.map(p => <ProgramCard key={p.id} p={p} S={S}
+      {(S.programs || []).length ? <div className={modes.programs === 'rows' ? 'v3-list' : 'v3-grid'}>{S.programs.map(p => <ProgramCard key={p.id} p={p} S={S} layout={modes.programs}
         onOpen={() => nav(p.source === 'guided-v2' && p.catalogId ? '/train2j/program/' + p.catalogId : '/plan/p/' + p.id)}
         onContinue={ev => continueProgram(ev, p, programMetaOf(p, S))} />)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="folder" /></div>{t('No programs yet.')}<br />{t('Group a few routines together — a whole split, a block, a phase.')}</div>
@@ -119,7 +125,8 @@ export default function Plan() {
       </>}
     </> : tab === 'routines' ? <>
       <div className="row between v3-sec-row" style={{ marginBottom: 10 }}>
-        <h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
+        <div className="row" style={{ gap: 10 }}><h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
+          {loose.length > 0 && <ViewToggle value={modes.routines} onChange={m => setMode('routines', m)} />}</div>
         <div className="row v3-sec-acts" style={{ gap: 8 }}>
           {loose.length > 0 && (selectMode
             ? <Button size="sm" onClick={exitSelect}>{t('Cancel')}</Button>
@@ -128,7 +135,7 @@ export default function Plan() {
           <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>
         </div>
       </div>
-      {loose.length ? <div className="v3-grid">{loose.map(r => <RoutineCard key={r.id} r={r} S={S} selecting={selectMode} selected={selected.has(r.id)}
+      {loose.length ? <div className={modes.routines === 'rows' ? 'v3-list' : 'v3-grid'}>{loose.map(r => <RoutineCard key={r.id} r={r} S={S} layout={modes.routines} selecting={selectMode} selected={selected.has(r.id)}
         onOpen={() => selectMode ? toggleSelected(r.id) : nav('/plan/r/' + r.id)}
         onStart={ev => { ev.stopPropagation(); startFlow(r.id) }} onFav={ev => toggleFav(ev, r.id)} onDuplicate={ev => duplicateRoutine(ev, r)} />)}</div> : <>
         <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>

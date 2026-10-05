@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { RoutineHero } from '../components/DetailHeroes.jsx'
+import { coverSheet } from '../components/CoverSheet.jsx'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -105,7 +106,7 @@ export default function RoutineEdit() {
         }}><Icon name="download" /></button>
     </div>
 
-    <RoutineHero r={r} S={S} />
+    <RoutineHero r={r} S={S} onCover={() => coverSheet({ image: r.image, name: r.name, onChange: imgId => update(s => { const x = s.routines.find(y => y.id === id); if (imgId) x.image = imgId; else delete x.image }) })} />
 
     {r.ex.length > 0 && (() => {
       const load = loadOfRoutine(r, muscleOptsOf(S))

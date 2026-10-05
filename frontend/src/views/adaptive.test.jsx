@@ -124,11 +124,11 @@ describe('Progress holds the depth, adaptively', () => {
 })
 
 describe('Settings, Profile and navigation follow the same rules', () => {
-  it('Settings is grouped and opens the configurator from "My experience"', async () => {
+  it('Settings is grouped and opens the configurator from Appearance', async () => {
     await seed({ ...HISTORY() })
     const html = await render(views.Settings)
-    for (const g of ['My experience', 'Personalise my experience', 'Training', 'Progress &amp; metrics', 'Appearance', 'Advanced']) expect(html).toContain(g)
-    expect(html.indexOf('My experience')).toBeLessThan(html.indexOf('Appearance'))
+    for (const g of ['Personalise my experience', 'Training', 'Data', 'Appearance', 'Advanced']) expect(html).toContain(g)
+    expect(html.indexOf('Personalise my experience')).toBeGreaterThan(html.indexOf('Appearance'))
     expect(html.indexOf('Appearance')).toBeLessThan(html.indexOf('Advanced'))
   })
   it('a feature the admin turned off is not offered in Settings at all', async () => {

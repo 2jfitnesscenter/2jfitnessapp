@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { ProgramHero } from '../components/DetailHeroes.jsx'
+import { coverSheet } from '../components/CoverSheet.jsx'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
@@ -69,7 +70,7 @@ export default function ProgramEdit() {
         onClick={() => printProgram(p, routines, user?.name || '', S.unit)}><Icon name="download" /></button>
     </div>
 
-    <ProgramHero p={p} S={S} />
+    <ProgramHero p={p} S={S} onCover={() => coverSheet({ image: p.image, name: p.name, onChange: imgId => patch(pr => { if (imgId) pr.image = imgId; else delete pr.image }) })} />
 
     <div className="row" style={{ gap: 10, marginBottom: 16 }}>
       <button style={{ width: 52, height: 52, borderRadius: 14, fontSize: 26, flex: 'none', overflow: 'hidden', border: 'none', padding: 0 }}

@@ -16,17 +16,18 @@ const COVER_FOR = { own: 'strength', trainer: 'circuit', '2j': 'mixed' }
 const STATE = { active: 'Active', saved: 'Saved', completed: 'Completed' }
 const Chip = ({ children }) => children ? <span className="v3-chip">{children}</span> : null
 
-function Cover({ item, category, children }) {
-  if (item.image) return <div className="v3-hero-cover v3-card-photo" style={{ backgroundImage: `url(${mediaUrl(item.image)})` }}>{children}</div>
-  return <WorkoutCover r={{ id: item.id, category }} shape="wide" className="v3-hero-cover">{children}</WorkoutCover>
+function Cover({ item, category, onCover, children }) {
+  const edit = onCover && <button type="button" className="v3-cover-edit" onClick={onCover}><Icon name="pencil" />{t('Change cover')}</button>
+  if (item.image) return <div className="v3-hero-cover v3-card-photo" style={{ backgroundImage: `url(${mediaUrl(item.image)})` }}>{children}{edit}</div>
+  return <WorkoutCover r={{ id: item.id, category }} shape="wide" className="v3-hero-cover">{children}{edit}</WorkoutCover>
 }
 
-export function RoutineHero({ r, S }) {
+export function RoutineHero({ r, S, onCover }) {
   const m = routineMeta(r, S)
   const level = m.level && LEVEL_LABEL?.[m.level] ? t(LEVEL_LABEL[m.level]) : null
   const goal = m.goal && GOAL_LABEL[m.goal] ? t(GOAL_LABEL[m.goal]) : null
   return <section className="v3-hero" aria-label={r.name}>
-    <Cover item={r} category={COVER_FOR[m.source]}>
+    <Cover item={r} category={COVER_FOR[m.source]} onCover={onCover}>
       <span className="v3-card-glyph"><Icon name={glyphOf(r.emoji)} /></span>
       <span className={'v3-src ' + m.source}>{t(SOURCE[m.source])}</span>
     </Cover>
@@ -44,13 +45,13 @@ export function RoutineHero({ r, S }) {
   </section>
 }
 
-export function ProgramHero({ p, S }) {
+export function ProgramHero({ p, S, onCover }) {
   const m = programMeta(p, S)
   const level = m.level && LEVEL_LABEL?.[m.level] ? t(LEVEL_LABEL[m.level]) : null
   const goal = m.goal && GOAL_LABEL[m.goal] ? t(GOAL_LABEL[m.goal]) : null
   const cta = m.state === 'completed' ? null : m.nextRoutine ? t('Start {0}', m.nextRoutine.name) : null
   return <section className="v3-hero" aria-label={p.name}>
-    <Cover item={p} category="strength">
+    <Cover item={p} category="strength" onCover={onCover}>
       <span className="v3-card-glyph"><Icon name={glyphOf(p.emoji || 'folder')} /></span>
       <span className={'v3-state ' + m.state}>{t(STATE[m.state])}</span>
     </Cover>

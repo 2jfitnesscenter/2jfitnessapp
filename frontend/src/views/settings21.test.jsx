@@ -73,11 +73,12 @@ describe('Accent colour: one row, palette in a sheet', () => {
 })
 
 describe('Advanced is one entry; empty groups disappear', () => {
-  it('data tools and resets stay behind Advanced until it is opened', async () => {
+  it('resets and bring-in tools stay behind Advanced until it is opened; the plain backup lives in Data', async () => {
     await seed()
     const html = await render()
     expect(html).toContain('Technical settings and additional options')
-    for (const hidden of ['Reset everything', 'Export backup (JSON)', 'Import from another app', 'Load starter plan']) expect(html).not.toContain(hidden)
+    for (const hidden of ['Reset everything', 'Import from another app', 'Load starter plan']) expect(html).not.toContain(hidden)
+    expect(html).toContain('Export backup (JSON)'); expect(html).toContain('Import backup')
   })
   it('a guest without features gets no Notifications / Social / Account groups', async () => {
     await seed({}, { user: false })
@@ -86,7 +87,7 @@ describe('Advanced is one entry; empty groups disappear', () => {
     expect(html).toContain('Appearance')
   })
   it('admin switching Health off removes the whole group; signed in keeps Account', async () => {
-    await seed({}, { admin: { health: false, social: false } })
+    await seed({}, { admin: { health: false, social: false, bioimpedance: false } })
     const html = await render()
     expect(html).not.toContain('Health &amp; activity'); expect(html).not.toContain('Social preferences'); expect(html).toContain('Account')
   })
