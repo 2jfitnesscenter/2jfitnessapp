@@ -39,11 +39,40 @@ describe('who gets the invitation', () => {
     expect(await mod.evaluateOnboarding({ uid: null, bridge: fake() })).toMatchObject({ show: false, reason: 'no_user' })
     expect(await mod.evaluateOnboarding({ uid: UID, bridge: fake() })).toEqual({ show: true, state: 'ready' })
   })
-  it('already granted access is detected WITHOUT prompting, and counts as done', async () => {
+  it('access granted AND 2J consent already active → no popup, counted as done (never prompts)', async () => {
+    bridgeMod.enableBridge({ uid: UID, granted: ['workouts'] })
     const b = fake({ checkPermissions: vi.fn(async () => ({ granted: ['workouts', 'steps'] })) })
-    expect(await mod.evaluateOnboarding({ uid: UID, bridge: b })).toMatchObject({ show: false, reason: 'already_granted' })
+    expect(await mod.evaluateOnboarding({ uid: UID, bridge: b })).toMatchObject({ show: false, reason: 'already_connected' })
     expect(b.requestPermissions).not.toHaveBeenCalled()
     expect(mod.onboardingSeen(UID)).toBe(true)
+  })
+  it('access granted but 2J consent NOT active → the invitation still shows (state "granted"), not yet marked', async () => {
+    const b = fake({ checkPermissions: vi.fn(async () => ({ granted: ['workouts', 'steps'] })) })
+    expect(await mod.evaluateOnboarding({ uid: UID, bridge: b })).toEqual({ show: true, state: 'granted' })
+    expect(b.requestPermissions).not.toHaveBeenCalled()
+    expect(mod.onboardingSeen(UID)).toBe(false)
+  })
+  it('accepting in the "granted" state turns 2J consent on directly, WITHOUT reopening Health Connect, and finishes the onboarding', async () => {
+    const b = fake({ checkPermissions: vi.fn(async () => ({ granted: ['workouts', 'heartRate'] })) })
+    const r = await mod.acceptOnboarding({ uid: UID, bridge: b, state: 'granted' })
+    expect(r).toMatchObject({ status: 'connected', granted: ['workouts', 'heartRate'] })
+    expect(b.requestPermissions).not.toHaveBeenCalled()
+    expect(bridgeMod.bridgeState(UID)).toMatchObject({ enabled: true, granted: ['workouts', 'heartRate'] })
+    expect(mod.onboardingSeen(UID)).toBe(true)
+  })
+  it('"granted" but revoked in the meantime, or permissions missing → the normal connect flow (system sheet)', async () => {
+    const b = fake({ checkPermissions: vi.fn(async () => ({ granted: [] })) })
+    const r = await mod.acceptOnboarding({ uid: UID, bridge: b, state: 'granted' })
+    expect(b.requestPermissions).toHaveBeenCalledTimes(1); expect(r.status).toBe('connected')
+    const missing = fake()      // state ready: permissions missing → connectBridge as before
+    await mod.acceptOnboarding({ uid: 'u9', bridge: missing })
+    expect(missing.requestPermissions).toHaveBeenCalledTimes(1)
+  })
+  it('"Ahora no" in the "granted" state still closes it for good', async () => {
+    mod.declineOnboarding(UID)
+    const b = fake({ checkPermissions: vi.fn(async () => ({ granted: ['workouts'] })) })
+    expect(await mod.evaluateOnboarding({ uid: UID, bridge: b })).toMatchObject({ show: false, reason: 'seen' })
+    expect(bridgeMod.bridgeState(UID).enabled).toBe(false)
   })
   it('a shell that cannot check, or a failing check, still shows the (harmless) invitation', async () => {
     expect(await mod.evaluateOnboarding({ uid: UID, bridge: fake({ checkPermissions: undefined }) })).toMatchObject({ show: true, state: 'ready' })

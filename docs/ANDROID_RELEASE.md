@@ -106,5 +106,5 @@ The Android app shows ONE invitation ("Conecta tu salud con 2J") after the first
 2. Clear app data again → **Activar datos de salud** → the Health Connect permission sheet opens (workouts, calories, heart rate, steps only).
 3. Grant → it never returns, Settings → Health & activity shows connected. Refuse or cancel on another clean install → it never returns either.
 4. Revoke the permissions in Health Connect afterwards → Settings → Health & activity offers reconnect; the onboarding does NOT reappear.
-5. Grant access in Health Connect BEFORE the first sign-in (clean app data) → no popup at all.
+5. Grant access in Health Connect BEFORE the first sign-in (clean app data) → the invitation still appears (2J has no consent of its own yet); **Activar datos de salud** turns 2J on directly, without reopening Health Connect. If 2J is already connected on that account, no popup at all.
 6. Phone without Health Connect / outdated → the sheet says so and its button opens Health Connect in the Play Store.

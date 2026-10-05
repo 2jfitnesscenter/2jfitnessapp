@@ -4,7 +4,7 @@
    Pure decision/flow logic on top of the EXISTING bridge (lib/health-bridge.js): nothing here reads health data, asks for any permission the app
    does not already use (PERMISSIONS), or changes how workouts are written. The "already seen" flag is a device-local preference, per account,
    stored beside the bridge's own keys — it is NOT part of the synced training state and never goes through Sync V2. */
-import { getBridge, connectBridge, PERMISSIONS } from './health-bridge.js'
+import { getBridge, connectBridge, enableBridge, bridgeState, PERMISSIONS } from './health-bridge.js'
 
 const KEY = uid => 'health_onboarding_v1:' + uid
 const read = k => { try { return JSON.parse(localStorage.getItem(k) || 'null') } catch { return null } }
@@ -23,9 +23,10 @@ export const resetOnboarding = uid => { if (uid) { try { localStorage.removeItem
 /**
  * Should the invitation appear now? Answers { show, state?, reason }:
  *  - show:true,  state:'ready'          Health Connect is there; the CTA opens the system permission sheet.
+ *  - show:true,  state:'granted'        the OS already granted access but 2J has no consent of its own yet; the CTA just turns 2J's consent on.
  *  - show:true,  state:'needs_install'  Health Connect must be installed/updated; the CTA goes to the store (never a dead button).
  *  - show:false, reason:…               not the native Android app · already seen · device cannot run Health Connect ·
- *                                       access was already granted (nothing to ask) · bridge hiccup (retried next launch).
+ *                                       access granted AND 2J consent already active (nothing left to do) · bridge hiccup (retried next launch).
  * Detecting existing access never prompts: it uses checkPermissions when the shell has it.
  */
 export async function evaluateOnboarding({ uid, bridge = getBridge() } = {}) {
@@ -43,16 +44,27 @@ export async function evaluateOnboarding({ uid, bridge = getBridge() } = {}) {
     try {
       const r = await bridge.checkPermissions()
       const granted = (Array.isArray(r?.granted) ? r.granted : []).filter(g => PERMISSIONS.includes(g))
-      if (granted.includes('workouts')) { markOnboardingSeen(uid, 'already_granted'); return { show: false, reason: 'already_granted' } }
+      if (granted.includes('workouts')) {
+        if (bridgeState(uid).enabled) { markOnboardingSeen(uid, 'already_connected'); return { show: false, reason: 'already_connected' } }
+        return { show: true, state: 'granted' }   // permissions exist but 2J is not connected: invite, no need to reopen Health Connect
+      }
     } catch { /* cannot tell: the invitation is harmless, show it */ }
   }
   return { show: true, state: 'ready' }
 }
 
 /** "Activar datos de salud": the existing connect flow (system permission sheet). Whatever the answer, the invitation is done. */
-export async function acceptOnboarding({ uid, bridge = getBridge() } = {}) {
+export async function acceptOnboarding({ uid, bridge = getBridge(), state = 'ready' } = {}) {
   let r
-  try { r = await connectBridge({ uid, bridge }) } catch { r = { status: 'error' } }
+  try {
+    // Access already granted by the OS: only 2J's own consent is missing, so no permission sheet. If anything was revoked meanwhile, fall back to the normal flow.
+    if (state === 'granted' && typeof bridge?.checkPermissions === 'function') {
+      const now = await bridge.checkPermissions()
+      const granted = (Array.isArray(now?.granted) ? now.granted : []).filter(g => PERMISSIONS.includes(g))
+      if (granted.includes('workouts')) r = enableBridge({ uid, granted }) ? { status: 'connected', granted } : { status: 'error' }
+    }
+    if (!r) r = await connectBridge({ uid, bridge })
+  } catch { r = { status: 'error' } }
   markOnboardingSeen(uid, r.status)
   return r
 }

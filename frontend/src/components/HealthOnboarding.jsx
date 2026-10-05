@@ -25,7 +25,7 @@ export function HealthOnboardingSheet({ uid, state = 'ready', close }) {
     if (busy) return
     if (needsInstall) { openInstall({ uid }); close(); return }
     setBusy(true)
-    const r = await acceptOnboarding({ uid })
+    const r = await acceptOnboarding({ uid, state })
     close()
     if (useStore.getState().user?.id !== uid) return
     if (r.status === 'connected') toast(t('Connected. Nothing is read until you sync.'))

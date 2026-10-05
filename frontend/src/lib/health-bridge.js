@@ -174,8 +174,15 @@ export async function connectBridge({ uid, bridge = getBridge(), now = Date.now(
   try { res = await bridge.requestPermissions() } catch { return { status: 'denied' } }
   const granted = (Array.isArray(res?.granted) ? res.granted : []).filter(g => PERMISSIONS.includes(g))
   if (!granted.includes('workouts')) return { status: 'denied' }
-  if (!write(KEY(uid), { enabled: true, at: now, lastSync: null, granted })) return { status: 'error' }
+  if (!enableBridge({ uid, granted, now })) return { status: 'error' }
   return { status: 'connected', granted }
+}
+
+/** 2J's own consent on this device, for access the OS already granted (no permission sheet involved). Needs the workout permission. */
+export function enableBridge({ uid, granted, now = Date.now() } = {}) {
+  const g = (Array.isArray(granted) ? granted : []).filter(x => PERMISSIONS.includes(x))
+  if (!uid || !g.includes('workouts')) return false
+  return write(KEY(uid), { enabled: true, at: now, lastSync: null, granted: g })
 }
 
 /**
