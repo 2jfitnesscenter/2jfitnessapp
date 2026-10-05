@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
  * TwoJHealth — Health Connect. The contract is frontend/src/lib/health-bridge.js:
  *
  *   isAvailable()                      → { available, reason?: 'not_installed' | 'unsupported' }
+ *   checkPermissions()                 → { granted: (same names) }   what is already granted, never prompts
  *   requestPermissions()               → { granted: ('workouts'|'activeCalories'|'heartRate'|'steps')[] }       READ
  *   readWorkouts({ start, end })       → { sessions: Session[] }   (the web adapter unwraps it)
  *   readActivity({ start, end })       → { steps?, activeCaloriesKcal? }   Health Connect's own de-duplicated aggregate
@@ -84,6 +85,16 @@ class TwoJHealthPlugin : Plugin() {
         val out = JSObject().put("available", reason == null)
         if (reason != null) out.put("reason", reason)
         call.resolve(out)
+    }
+
+    /** What is ALREADY granted, without ever showing a permission sheet (used to skip the onboarding when access exists). */
+    @PluginMethod
+    override fun checkPermissions(call: PluginCall) {
+        val hc = client() ?: return call.reject("Health Connect is not available", "unavailable")
+        scope.launch {
+            try { call.resolve(grantedResult(hc.permissionController.getGrantedPermissions(), "read")) }
+            catch (e: Exception) { call.reject("Could not read permissions", "permission_error") }
+        }
     }
 
     @PluginMethod

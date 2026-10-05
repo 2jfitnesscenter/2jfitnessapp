@@ -4266,4 +4266,10 @@ export default {
   'Your account was deleted': 'Tu cuenta se ha borrado',
   'Passkey confirmation was cancelled': 'Se canceló la confirmación con passkey',
   'Could not delete the account': 'No se pudo borrar la cuenta',
+  'Connect your health with 2J': 'Conecta tu salud con 2J',
+  '2J can use your health data to complete your activity, log workouts and improve your tracking.': '2J puede usar tus datos de salud para completar tu actividad, registrar entrenamientos y mejorar tu seguimiento.',
+  'You choose what to share, and you can change it any time in Settings → Health & activity.': 'Tú eliges qué compartir y puedes cambiarlo cuando quieras en Ajustes → Salud y actividad.',
+  'Activate health data': 'Activar datos de salud',
+  'Open Health Connect': 'Abrir Health Connect',
+  'Health Connect needs to be installed or updated on this phone.': 'Health Connect debe instalarse o actualizarse en este teléfono.',
 }

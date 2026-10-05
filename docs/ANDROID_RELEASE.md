@@ -99,3 +99,12 @@ Pre: keystore created, fingerprint applied (`--apply`), server deployed with the
 8. Backup/privacy: Settings → Apps → 2J → storage; "Auto-backup" is off (`allowBackup=false`); Settings → Export my data works inside the shell.
 9. Kill the app, reopen offline (airplane mode): shell loads cached app, a workout can be logged and syncs when back online.
 10. Record the APK SHA-256 and `versionCode` in `AI_HANDOFF.md`.
+
+## Health onboarding (first sign-in) — checks on the phone
+The Android app shows ONE invitation ("Conecta tu salud con 2J") after the first successful sign-in, once the app is stable (not mid-workout, profile wizards done). The flag is device-local (`health_onboarding_v1:<uid>`), never synced.
+1. Clean install (or clear app data), sign in → the sheet appears after ~2 s. Tap **Ahora no** → restart the app: it does not return.
+2. Clear app data again → **Activar datos de salud** → the Health Connect permission sheet opens (workouts, calories, heart rate, steps only).
+3. Grant → it never returns, Settings → Health & activity shows connected. Refuse or cancel on another clean install → it never returns either.
+4. Revoke the permissions in Health Connect afterwards → Settings → Health & activity offers reconnect; the onboarding does NOT reappear.
+5. Grant access in Health Connect BEFORE the first sign-in (clean app data) → no popup at all.
+6. Phone without Health Connect / outdated → the sheet says so and its button opens Health Connect in the Play Store.

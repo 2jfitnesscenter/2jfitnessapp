@@ -73,6 +73,7 @@ function capacitorBridge(cap) {
     platform: typeof cap.getPlatform === 'function' && cap.getPlatform() === 'ios' ? 'ios' : 'android',
     isAvailable: () => call('isAvailable'),
     requestPermissions: () => call('requestPermissions'),
+    checkPermissions: () => call('checkPermissions'),   // what is already granted, WITHOUT prompting (Health Native Onboarding)
     readWorkouts: async q => { const r = await call('readWorkouts', q); return Array.isArray(r) ? r : r?.sessions },
     requestWritePermissions: () => call('requestWritePermissions'),
     writeWorkout: payload => call('writeWorkout', payload),

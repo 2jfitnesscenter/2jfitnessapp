@@ -145,3 +145,19 @@
 @media (prefers-reduced-motion: reduce) { .v3-accent-dot, .lrow-c { transition: none; } }
 .v3-pass-acts .btn.tinted { color: var(--label); }
 .v3-pass-acts .btn.tinted .icn { color: var(--acc); }
+
+/* ---- Health Native Onboarding V1 (Android app, first sign-in) ---- */
+.v3-hob { display: flex; flex-direction: column; gap: 12px; text-align: center; padding: 4px 4px 2px; }
+.v3-hob-hero { width: 64px; height: 64px; margin: 2px auto 0; border-radius: 22px; display: grid; place-items: center; font-size: 30px; color: var(--acc);
+  background: radial-gradient(80% 80% at 30% 20%, color-mix(in srgb, var(--acc) 32%, transparent), color-mix(in srgb, var(--acc) 8%, transparent));
+  border: 1px solid color-mix(in srgb, var(--acc) 40%, transparent); box-shadow: 0 10px 30px color-mix(in srgb, var(--acc) 22%, transparent); }
+.v3-hob h3 { margin: 0; font-size: calc(22px * var(--text-scale, 1)); letter-spacing: -.02em; }
+.v3-hob-lead { margin: 0; color: var(--label-2); line-height: 1.45; }
+.v3-hob-cats { list-style: none; margin: 2px 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.v3-hob-cats li { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 16px; text-align: left; font-size: 14px; font-weight: 600;
+  background: color-mix(in srgb, var(--label) 6%, transparent); border: 1px solid color-mix(in srgb, var(--label) 10%, transparent); }
+.v3-hob-cats .icn { color: var(--acc); font-size: 18px; flex: none; }
+.v3-hob-note { margin: 0; font-size: 13px; color: var(--label-3); line-height: 1.4; }
+.v3-hob-acts { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.v3-hob-acts .btn { min-height: 50px; border-radius: 16px; }
+@media (max-width: 340px) { .v3-hob-cats { grid-template-columns: 1fr; } }

@@ -15,6 +15,7 @@ import Modals from './components/Modals.jsx'
 import Toast from './components/Toast.jsx'
 import SyncIndicator from './components/SyncIndicator.jsx'
 import RestTimer from './components/RestTimer.jsx'
+import HealthOnboardingGate from './components/HealthOnboarding.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
 import FriendsWatcher from './components/FriendsWatcher.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
@@ -308,6 +309,7 @@ function Shell() {
       {/* Hidden during the Physical Profile wizard — a tab bar would just be a way to skip past
           it without using its own "Skip for now" (which, unlike navigating away, marks
           onboarded so the wizard doesn't reappear). */}
+      <HealthOnboardingGate ready={ready} authed={!!user} blocked={needsOnboarding || needsUxSetup || !!S.active} />
       {!needsOnboarding && !needsUxSetup && <TabBar />}
       {syncStatus === 'conflict' && <SyncConflictDialog />}
       <RestTimer />
