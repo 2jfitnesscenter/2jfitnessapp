@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Exercise Library V2 in the app: search by name / alias / movement / muscle / equipment,
 // movement families, favourites and recents, and the scopes the pickers use
-// (Recommended 2J first, the master library one tap away). Deterministic — no model, no fuzzy
-// guessing beyond word prefixes (plural/singular), and deprecated duplicates never offered for
+// (Recommended 2J first, the master library one tap away). Deterministic — exact/prefix first,
+// with one bounded name/alias typo as fallback; deprecated duplicates never offered for
 // a new selection. Built on core.js; the only additions here are translations and the store.
 import { t, nameFor, getLang } from '../i18n.js'
 import { EXIDX, isUnavailable } from '../exercises.js'
 import { MOVEMENTS, MOVEMENT_BY_ID, EQUIPMENT_BY_ID } from '../protocol/movements.js'
 import { facetsOf, norm, aliasesOf, aliasIndexOf, isRecommended, isDeprecated, preferredOf, similarVariants, REASONS, RECOMMENDED } from './core.js'
+import { scoreTypoFallback } from './fuzzy.js'
 
 export { facetsOf, isRecommended, isDeprecated, preferredOf, similarVariants, REASONS, RECOMMENDED, MOVEMENTS, MOVEMENT_BY_ID, EQUIPMENT_BY_ID }
 
@@ -45,7 +46,7 @@ function haystack(ex) {
   ].filter(Boolean)
   for (const l of labels) { for (const w of tokens(l)) words.add(w); for (const w of tokens(t(l))) words.add(w) }
   if (f?.movement) for (const w of tokens(f.movement.replace(/_/g, ' '))) words.add(w)
-  const h = { name, words: [...words], alias, full: norm(nameFor(ex)) }
+  const h = { name, words: [...words], alias, aliasWords: new Set(alias.flatMap(a => tokens(a))), full: norm(nameFor(ex)) }
   if (!ex.custom) hay.set(ex.id, h)
   return h
 }
@@ -89,7 +90,25 @@ export function searchExercises(list, query) {
     out.push([score, ex])
   }
   out.sort((a, b) => b[0] - a[0] || (nameFor(a[1]) < nameFor(b[1]) ? -1 : 1))
-  return out.map(x => x[1])
+  if (out.length) return out.map(x => x[1])
+
+  // Keep established matching/ranking untouched. Typo matching is a fallback over names and
+  // aliases only; movement, muscle and equipment metadata cannot create fuzzy false positives.
+  const fuzzy = []
+  for (const ex of list) {
+    const h = haystack(ex)
+    const match = scoreTypoFallback(q, h.name, h.aliasWords)
+    if (!match) continue
+    let score = match.score
+    if (isRecommended(ex.id)) score += 3
+    if (isDeprecated(ex.id)) score -= 20
+    fuzzy.push([score, ex])
+  }
+  fuzzy.sort((a, b) => {
+    const an = nameFor(a[1]), bn = nameFor(b[1])
+    return b[0] - a[0] || (an < bn ? -1 : an > bn ? 1 : String(a[1].id).localeCompare(String(b[1].id)))
+  })
+  return fuzzy.map(x => x[1])
 }
 
 /** Short label for how this variant differs inside its family: equipment · angle · one side. */

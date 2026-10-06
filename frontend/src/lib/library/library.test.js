@@ -202,12 +202,42 @@ describe('search, families, scopes (app layer, Spanish)', () => {
     const s = q => lib.searchExercises(EXDB, q)
     expect(s('hip thrust')[0].id).toBe('0058')
     expect(s('press banca')[0].id).toBe('0025')
+    expect(s('pres banca')[0].id).toBe('0030') // existing prefix ranking still wins before fuzzy fallback
     expect(names(s('remo máquina'))).toContain('1350')
     expect(s('pecho mancuernas').slice(0, 10).every(e => ['dumbbell'].includes(e.eq))).toBe(true)
     expect(s('glúteo barra').slice(0, 5).map(e => e.id)).toEqual(expect.arrayContaining(['0058']))
     expect(s('bisagra').slice(0, 10).every(e => lib.facets(e).movement === 'hinge')).toBe(true)
     expect(names(s('treadmill'))).toEqual(expect.arrayContaining(['0684', '3666']))
     expect(s('zzzz')).toEqual([])
+  })
+  it('uses bounded typo fallback for Spanish/English names and aliases only after normal search misses', () => {
+    expect(lib.searchExercises(EXDB, 'sentadila').map(e => e.id)).toContain('0043')
+    expect(lib.searchExercises(EXDB, 'sentadila trasera').map(e => e.id)).toContain('0043') // Spanish alias
+    expect(lib.searchExercises(EXDB, 'hip trhust').map(e => e.id)).toContain('0058') // English name + Spanish alias
+    expect(lib.searchExercises(EXDB, 'dumbbel close grip press').map(e => e.id)).toContain('0296')
+  })
+  it('keeps exact results ahead of fuzzy candidates and does not fuzzy-match metadata or short tokens', () => {
+    const exact = { id: 'fuzzy-exact', n: 'presss banca', bp: 'chest', eq: 'custom', tg: '', custom: true }
+    expect(lib.searchExercises([exact, ...EXDB], 'presss banca')[0]).toBe(exact)
+    const metadataOnly = { id: 'fuzzy-metadata', n: 'barbell squat', bp: 'back', eq: 'dumbbell', tg: '', custom: true }
+    expect(lib.searchExercises([metadataOnly], 'dumbel')).toEqual([])
+    expect(lib.searchExercises(EXDB, 'pr')).toEqual([])
+  })
+  it('retains Recommended 2J priority when fuzzy scores otherwise tie', async () => {
+    await i18n.setLang('en')
+    try {
+      const custom = { id: 'fuzzy-unrecommended', n: 'barbell hip thrust', bp: 'glutes', eq: 'custom', tg: '', custom: true }
+      const recommended = EXDB.find(e => e.id === '0058')
+      expect(lib.isRecommended(recommended.id)).toBe(true)
+      expect(lib.searchExercises([custom, recommended], 'barbell hip trhust')[0]).toBe(recommended)
+    } finally { await i18n.setLang('es') }
+  })
+  it('keeps typo results deterministic and live/preferred variants ahead of deprecated duplicates', () => {
+    const query = 'dumbbel close grip press'
+    const first = lib.searchExercises(EXDB, query).map(e => e.id)
+    expect(lib.searchExercises(EXDB, query).map(e => e.id)).toEqual(first)
+    expect(first).toEqual(expect.arrayContaining(['0296', '1731']))
+    expect(first.indexOf('0296')).toBeLessThan(first.indexOf('1731'))
   })
   it('deprecated duplicates sink below their preferred twin', () => {
     const r = lib.searchExercises(EXDB, 'dumbbell close grip press').map(e => e.id)
