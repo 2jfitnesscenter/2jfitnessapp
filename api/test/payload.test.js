@@ -48,6 +48,12 @@ test('review payload carries the plan, the window, effort and aggregates', () =>
   assert.ok(Array.isArray(p.library) && p.library.length > 0);
 });
 
+test('a moved-session source marker is not counted as a second day-plan override', () => {
+  const S = sampleState({ dayPlan: { '2026-07-01': 'moved:2099-01-01:r1', '2099-01-01': 'r1' } });
+  const p = payload.build(S, 'u1', { kind: 'review' });
+  assert.equal(p.aggregates.adherence.dayOverrides, 1);
+});
+
 test('a stalling exercise shows up in the aggregates the way the engine counts it', () => {
   const S = sampleState();
   // Three sessions that all fell short of the 10-rep target.

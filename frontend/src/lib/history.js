@@ -2,6 +2,7 @@
 import { todayISO, isoOf, weekKey, fmtNum } from './format.js'
 import { isCardio } from './exercises.js'
 import { uxOn } from './features.js'
+import { dayPlanRoutineId, isMovedDayPlan } from './day-plan.js'
 
 // How an exercise is logged (issue #16). This used to be derived from the body part alone,
 // which meant a plank or a farmer's carry could only be timed by filing it under cardio.
@@ -216,9 +217,10 @@ export function activeWeek(S) {
   return p ? (p.week || {}) : (S.week || {})
 }
 export function effectiveRoutineId(S, iso) {
-  const ov = S.dayPlan[iso]
-  if (ov === 'rest') return null
-  if (ov && S.routines.some(r => r.id === ov)) return ov
+  const ov = S.dayPlan?.[iso]
+  if (ov === 'rest' || isMovedDayPlan(ov)) return null
+  const overrideId = dayPlanRoutineId(ov)
+  if (overrideId && S.routines.some(r => r.id === overrideId)) return overrideId
   const wd = new Date(iso + 'T12:00:00').getDay()
   return activeWeek(S)[wd] || null
 }

@@ -16,7 +16,7 @@ import ExerciseMeta from '../components/ExerciseMeta.jsx'
 import WorkoutProgress from '../components/WorkoutProgress.jsx'
 import NextUp from '../components/NextUp.jsx'
 import { nextUnit } from '../lib/training-v3.js'
-import { startFlow, exercisePicker, alternativesSheet, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet } from '../sheets.jsx'
+import { startFlow, expressSessionSheet, exercisePicker, alternativesSheet, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet } from '../sheets.jsx'
 import { handoffToBunker } from '../lib/bunker-api.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
@@ -88,12 +88,16 @@ function StartChooser() {
         <span className="lrow-i" style={{ width: 38, height: 38, borderRadius: 9, fontSize: 22 }}><Icon name={glyphOf(todayR.emoji)} /></span>
       </div>
       <Button variant="primary" icon="play" onClick={() => startFlow(todayR.id)}>{t('Start {0}', todayR.name)}</Button>
+      <div style={{ height: 8 }} />
+      <Button variant="plain" icon="timer" onClick={() => expressSessionSheet(todayR.id)}>{t('Express · 15 / 25 / 40 min')}</Button>
     </div>}
     {others.length > 0 && <><h4 className="sec">{t('Other routines')}</h4>
-      <div className="list">{others.map(r => <div key={r.id} className="item" onClick={() => startFlow(r.id)}>
+      <div className="list">{others.map(r => <div key={r.id} className="item">
         <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
-        <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
-        <span className="tag acc">{t('Start')}</span></div>)}</div></>}
+        <button className="grow" aria-label={t('Start {0}', r.name)} style={{ textAlign: 'left', border: 0, background: 'none', color: 'inherit', padding: 0 }} onClick={() => startFlow(r.id)}>
+          <span className="tt">{r.name}</span><span className="ss">{exCount(r.ex.length)}</span></button>
+        <button className="iconbtn" aria-label={t('Express · 15 / 25 / 40 min')} title={t('Express · 15 / 25 / 40 min')} onClick={() => expressSessionSheet(r.id)}><Icon name="timer" /></button>
+      </div>)}</div></>}
     {!S.routines.length && <><div style={{ height: 14 }} /><Button variant="primary" onClick={() => nav('/plan')}>{t('Build a plan first')}</Button></>}
     {uxOn(S, 'train2j') && <><h4 className="sec">{t('Or a ready-made one')}</h4>
     <button className="card tappable t2-promo" onClick={() => nav('/train2j')}>

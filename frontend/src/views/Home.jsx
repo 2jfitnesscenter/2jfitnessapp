@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks } from '../lib/history.js'
-import { todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
+import { todayISO, isoOf, weekKey, DAYS, fmtDate } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, workoutDetailSheet } from '../sheets.jsx'
+import { dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, workoutDetailSheet, weekReorderSheet } from '../sheets.jsx'
 import './experience.css'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
@@ -22,6 +22,7 @@ import { MOBILE } from '../lib/mobile.js'
 import IntelligenceToday from '../components/IntelligenceToday.jsx'
 import NewsBlock from '../components/NewsBlock.jsx'
 import { uxOn, configurable } from '../lib/features.js'
+import { weekReorderSuggestion } from '../lib/session-adaptation.js'
 
 // A job in flight or a proposal waiting is the only reason the Coach interrupts Home. When it
 // has nothing to say it renders nothing at all — and it only polls while Home is on screen.
@@ -78,6 +79,8 @@ export default function Home() {
   const today = new Date()
   const routine = effectiveRoutine(S, todayISO())
   const todayOvr = S.dayPlan[todayISO()] !== undefined
+  const reorder = useMemo(() => weekReorderSuggestion(S, todayISO()),
+    [S.active, S.dayPlan, S.week, S.programs, S.activeProgramId, S.routines, S.workouts, todayISO()])
 
   const monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay() + 6) % 7) + weekOffset * 7)
   const doneDays = new Set(S.workouts.map(w => w.d))
@@ -129,6 +132,16 @@ export default function Home() {
       </div>
       <div className="week">{strip}</div>
     </div>
+
+    {reorder && <div className="card" style={{ borderColor: 'var(--acc)' }}>
+      <div className="row" style={{ gap: 10, marginBottom: 8 }}>
+        <span className="lrow-i"><Icon name="calendar" /></span>
+        <div className="grow"><div className="ttl">{t('Rearrange week')}</div><div className="muted small">{reorder.expressAvailable
+          ? t('The full week has no suitable open day for {0}.', reorder.routine.name)
+          : t('Move {0} to {1}.', reorder.routine.name, fmtDate(reorder.target))}</div></div>
+      </div>
+      <Button variant="primary" onClick={() => weekReorderSheet(reorder)}>{reorder.expressAvailable ? t('See Express options') : t('Review week change')}</Button>
+    </div>}
 
     {/* Entrena con 2J: one discreet way into the official guided routines (no extra tab). */}
     {uxOn(S, 'train2j') && <button className="card tappable t2-promo" onClick={() => nav('/train2j')}>

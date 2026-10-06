@@ -229,7 +229,8 @@ function aggregates(S, workouts) {
   // Adherence: what the week asked for against what actually happened.
   const trained = new Set(workouts.map(w => w.d));
   const plannedDays = Object.keys(S.week || {}).filter(k => S.week[k]).length;
-  const reschedules = Object.entries(S.dayPlan || {}).filter(([d]) => workouts.some(w => w.d === d) || d >= (workouts[0]?.d || '')).length;
+  const reschedules = Object.entries(S.dayPlan || {}).filter(([d, value]) => !String(value).startsWith('moved:') &&
+    (workouts.some(w => w.d === d) || d >= (workouts[0]?.d || ''))).length;
 
   // Muscle coverage in the window, by body part — the "not trained" gap the Stats screen shows.
   const hit = {};

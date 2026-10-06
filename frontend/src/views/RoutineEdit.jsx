@@ -3,6 +3,7 @@ import { RoutineHero } from '../components/DetailHeroes.jsx'
 import { coverSheet } from '../components/CoverSheet.jsx'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
+import { dayPlanRoutineId, parseMovedDay } from '../lib/day-plan.js'
 import { useUI } from '../store/useUI.js'
 import { exOr, isUnavailable } from '../lib/exercises.js'
 import { uid } from '../lib/format.js'
@@ -190,7 +191,13 @@ export default function RoutineEdit() {
         update(s => {
           s.routines = s.routines.filter(x => x.id !== id)
           Object.keys(s.week).forEach(k => { if (s.week[k] === id) delete s.week[k] })
-          Object.keys(s.dayPlan).forEach(k => { if (s.dayPlan[k] === id) delete s.dayPlan[k] })
+          Object.keys(s.dayPlan).forEach(k => {
+            const value = s.dayPlan[k], move = parseMovedDay(value)
+            if (dayPlanRoutineId(value) === id) {
+              if (move && s.dayPlan[move.to] === id) delete s.dayPlan[move.to]
+              delete s.dayPlan[k]
+            }
+          })
           ;(s.programs || []).forEach(p => {
             p.routineIds = (p.routineIds || []).filter(x => x !== id)
             if (p.week) Object.keys(p.week).forEach(k => { if (p.week[k] === id) delete p.week[k] })

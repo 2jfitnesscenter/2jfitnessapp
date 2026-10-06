@@ -66,6 +66,7 @@ import { sendWorkoutToStrava } from './lib/strava-api.js'
 import { exportWorkout as exportWorkoutToHealth } from './lib/health-bridge.js'
 import { scheduleEnergy, runEnergyReconcile, GRACE_MS } from './lib/energy-reconcile.js'
 import { fetchRoutineVersions, fetchProgramVersions } from './lib/trainer-api.js'
+import { previewExpressSession, shortenExpressWarmups, weekReorderSuggestion, applyWeekReorder, movedFromForDate, clearRescheduleAtDate, sessionHistoryMetadata } from './lib/session-adaptation.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -1538,7 +1539,10 @@ function DayOverride({ iso, close }) {
   const hasOvr = st.dayPlan[iso] !== undefined
   const effId = effectiveRoutineId(st, iso)
   const set = v => {
-    update(s => { if (!v) delete s.dayPlan[iso]; else s.dayPlan[iso] = v })
+    update(s => {
+      s.dayPlan = clearRescheduleAtDate(s.dayPlan, iso)
+      if (!v) delete s.dayPlan[iso]; else s.dayPlan[iso] = v
+    })
     close()
     toast(v === '' ? t('Back to weekly plan') : v === 'rest' ? t('{0} set to rest', fmtDate(iso)) : t('{0} planned for {1}', (st.routines.find(r => r.id === v) || {}).name, fmtDate(iso)))
   }
@@ -1563,6 +1567,80 @@ function DayOverride({ iso, close }) {
   </>
 }
 export const dayOverrideSheet = iso => ui().openSheet(close => <DayOverride iso={iso} close={close} />)
+
+function ExpressSessionSheet({ routineId, scheduleMeta, close }) {
+  const st = useStore(s => s.S)
+  const routine = st.routines.find(r => r.id === routineId)
+  const [minutes, setMinutes] = useState(25)
+  const preview = previewExpressSession(routine, minutes, st)
+  if (!routine || !preview) return <div className="muted">{t('This session is no longer available.')}</div>
+  const apply = () => {
+    close()
+    startFlow(routineId, { sessionRoutine: preview.routine, sessionPlan: preview.info, ...scheduleMeta })
+  }
+  return <>
+    <h3>{t('How much time do you have?')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>{routine.name} · {t('The original routine stays unchanged.')}</div>
+    <Segmented value={minutes} onChange={setMinutes} options={[15, 25, 40].map(value => ({ value, label: `${value} min` }))} />
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="tt">{t('Preview')}</div>
+      <div className="muted small" style={{ marginTop: 6 }}>{t('{0} exercises · about {1} min', preview.routine.ex.length, Math.ceil(preview.info.estimatedMin))}</div>
+      {preview.info.removed.length > 0 && <div className="muted small" style={{ marginTop: 8 }}>{t('Removed accessories: {0}', preview.info.removed.map(x => nameFor(EXIDX[x.id]) || x.id).join(', '))}</div>}
+      {preview.info.reducedSets.length > 0 && <div className="muted small" style={{ marginTop: 6 }}>{t('Reduced sets: {0}', preview.info.reducedSets.map(x => `${nameFor(EXIDX[x.id]) || x.id} ${x.from}→${x.to}`).join(', '))}</div>}
+      {preview.info.removedDropSets.length > 0 && <div className="muted small" style={{ marginTop: 6 }}>{t('Optional drop sets removed first.')}</div>}
+      <div className="muted small" style={{ marginTop: 6 }}>{t('Accessories are adjusted first to protect basic, priority and restricted exercises.')}</div>
+      <div className="muted small" style={{ marginTop: 6 }}>{t('Accessory warm-ups may be shortened; main-exercise warm-ups stay.')}</div>
+      {preview.info.supersets.length > 0 && <div className="muted small" style={{ marginTop: 6 }}>{t('Compatible accessories paired to save rest time.')}</div>}
+      {preview.info.overBudget && <div className="progline warn" style={{ marginTop: 8 }}><Icon name="info" />{t('Priority exercises and restrictions are preserved, so this session may take longer.')}</div>}
+      {preview.info.removed.length === 0 && preview.info.reducedSets.length === 0 && preview.info.removedDropSets.length === 0 && <div className="muted small" style={{ marginTop: 8 }}>{t('No exercises need to be cut for this duration.')}</div>}
+    </div>
+    <Button variant="primary" onClick={apply}>{t('Apply Express session')}</Button>
+    <div style={{ height: 8 }} />
+    <Button variant="plain" onClick={() => { close(); startFlow(routineId, scheduleMeta) }}>{t('Keep original')}</Button>
+  </>
+}
+export function expressSessionSheet(routineId, scheduleMeta = {}) {
+  return ui().openSheet(close => <ExpressSessionSheet routineId={routineId} scheduleMeta={scheduleMeta} close={close} />)
+}
+
+function WeekReorderSheet({ proposal, close }) {
+  const st = useStore(s => s.S)
+  const routine = st.routines.find(r => r.id === proposal.routineId)
+  if (!routine) return <div className="muted">{t('This session is no longer available.')}</div>
+  const apply = () => {
+    const current = useStore.getState().S
+    const fresh = weekReorderSuggestion(current, todayISO())
+    if (!fresh || fresh.date !== proposal.date || fresh.target !== proposal.target || fresh.routineId !== proposal.routineId || fresh.expressAvailable) {
+      close(); toast(t('The week changed. Review the schedule again.')); return
+    }
+    const next = applyWeekReorder(current.dayPlan, fresh)
+    if (!next) { close(); toast(t('That day is no longer available.')); return }
+    update(s => { s.dayPlan = next })
+    close()
+    toast(t('Week updated'))
+  }
+  const express = () => {
+    close()
+    expressSessionSheet(routine.id, { rescheduledFrom: proposal.date })
+  }
+  return <>
+    <h3>{t('Rearrange week')}</h3>
+    <div className="card">
+      <div className="tt">{routine.name}</div>
+      <div className="muted small" style={{ marginTop: 5 }}>{t('{0} → {1}', fmtDate(proposal.date), fmtDate(proposal.target))}</div>
+      <div className="muted small" style={{ marginTop: 8 }}>{t('This day is free and leaves recovery time from nearby sessions.')}</div>
+    </div>
+    {proposal.expressAvailable
+      ? <div className="muted small" style={{ marginBottom: 10 }}>{t('The full week has no suitable open day. You can use an Express version instead.')}</div>
+      : null}
+    {!proposal.expressAvailable && <><Button variant="primary" onClick={apply}>{t('Move session')}</Button><div style={{ height: 8 }} /></>}
+    <Button variant={proposal.expressAvailable ? 'primary' : 'plain'} onClick={express}>{t('Choose an Express version')}</Button>
+  </>
+}
+export function weekReorderSheet(proposal) {
+  if (!proposal) return
+  return ui().openSheet(close => <WeekReorderSheet proposal={proposal} close={close} />)
+}
 
 // Assigns one weekday within one program's own schedule (program.week) — the only routines
 // offered are that program's own, since this is building that program's split, not the flat
@@ -1773,31 +1851,38 @@ function ActionsSheet({ close }) {
 export const actionsSheet = () => ui().openSheet(close => <ActionsSheet close={close} />)
 
 /* ============================ workout lifecycle ============================ */
-export function startFlow(routineId) {
+export function startFlow(routineId, options = {}) {
   // A brand-new member sees the visual training guide once, right before the first real
   // workout (lib/workout-prefs.js) — then the normal flow continues exactly where it would have.
-  if (shouldShowWorkoutGuide(S())) { openWorkoutGuide({ onDone: () => startFlow(routineId) }); return }
+  if (shouldShowWorkoutGuide(S())) { openWorkoutGuide({ onDone: () => startFlow(routineId, options) }); return }
   // The check-in is worth interrupting for when the weight curve is going stale, not every
   // single time — once there's a weigh-in within the last 15 days, walk straight into the
   // workout with whatever weight is already on file.
-  if (hasRecentWeighIn(S())) { beginWorkout(routineId, null); return }
-  bwSheet({ required: true, onDone: bw => beginWorkout(routineId, bw) })
+  if (hasRecentWeighIn(S())) { beginWorkout(routineId, null, options); return }
+  bwSheet({ required: true, onDone: bw => beginWorkout(routineId, bw, options) })
 }
-export function beginWorkout(routineId, bw) {
+export function beginWorkout(routineId, bw, options = {}) {
   const st = S()
   const r = routineId ? st.routines.find(x => x.id === routineId) : null
   // Exercises the gym has since hidden (out of equipment, retired from the floor) are left
   // out of the session entirely — this is what makes "hide" actually mean "not available",
   // not just "not offered for new picks" (buildRoutineEntries does this filtering + the
   // prescription-per-exercise work, shared with beginPastWorkout below and the Bunker kiosk).
-  const entries = buildRoutineEntries(st, r)
-  const skipped = (r ? r.ex.length : 0) - entries.length
+  const sessionRoutine = options.sessionRoutine || r
+  const built = buildRoutineEntries(st, sessionRoutine)
+  const warmups = shortenExpressWarmups(built, options.sessionPlan)
+  const entries = warmups.entries
+  const skipped = (sessionRoutine ? sessionRoutine.ex.length : 0) - built.length
   // Guided blocks (circuit/intervals/HIIT/mobility — Constructor V2.1): their labels and timing ride
   // along so the session can run them paced; everything else about the session is unchanged.
-  const guidedBlocks = guidedBlocksOf(r)
+  const guidedBlocks = guidedBlocksOf(sessionRoutine)
+  const movedFrom = options.rescheduledFrom || movedFromForDate(st, todayISO(), routineId)
+  const sessionPlan = options.sessionPlan ? { ...options.sessionPlan, shortenedWarmups: warmups.shortenedWarmups } : null
   update(s => {
     s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId, name: r ? r.name : t('Freestyle'), bw: bw || null, cur: 0, entries,
-      ...(guidedBlocks.length ? { guidedBlocks } : {}) }
+      ...(guidedBlocks.length ? { guidedBlocks } : {}),
+      ...(sessionPlan ? { sessionPlan } : {}),
+      ...(movedFrom ? { rescheduledFrom: movedFrom } : {}) }
   })
   useUI.getState().stopRest()
   nav('/workout')
@@ -2483,6 +2568,7 @@ async function doFinishWorkout({ automatic = false } = {}) {
     entries: A.entries.map(e => ({ id: e.id, sets: e.sets, topW: e.topW || null, target: e.target || null })).filter(e => e.sets.some(s => s.done)),
     prs
   }
+  Object.assign(w, sessionHistoryMetadata(A))
   if (automatic) Object.assign(w, inactivityFinishMetadata(A))
   // Guided blocks run in this session: one summary each (a run still open is closed here as it is).
   const openRun = A.guided && (A.guidedBlocks || []).find(b => b.iid === A.guided.iid)
