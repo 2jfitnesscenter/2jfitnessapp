@@ -21,7 +21,8 @@ import { handoffToBunker } from '../lib/bunker-api.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
 import { openSetPad } from '../components/SetPad.jsx'
-import { nextPrescription, applyPrescription } from '../lib/progression.js'
+import { nextPrescription, applyPrescription, targetForPrescription } from '../lib/progression.js'
+import { cardioWorkoutReference } from '../lib/cardio-tests.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { zoneOfSet } from '../lib/training-zones.js'
 import { isOverloadSet, isPotentialPR, recommendationFor, acceptRecommendation, keepPlan } from '../lib/overload.js'
@@ -242,10 +243,21 @@ function targetLine(entry, unit) {
   const tg = entry.target || {}
   const mode = modeOf({ ...tg, id: entry.id })
   const sets = workingCount(entry.sets) || tg.sets || 1
-  if (mode === 'cardio') return `${sets} × ${tg.min || 20} min`
+  if (mode === 'cardio') return `${sets} × ${tg.min || 20} min${tg.speed ? ` · ${fmtNum(tg.speed)} km/h` : ''}`
   if (mode === 'time') return `${sets} × ${fmtSec(tg.sec || 45)}` + plannedRpe(tg)
   const reps = tg.targetRepsMin != null && tg.targetRepsMax != null ? `${tg.targetRepsMin}-${tg.targetRepsMax}` : (tg.reps || '')
   return `${sets} × ${reps} ${t('reps')}` + (tg.targetRIR != null ? ' · RIR ' + fmtNum(tg.targetRIR) : plannedRpe(tg))
+}
+function CardioTestHint({ S, ex, entry }) {
+  if (modeOf({ ...(entry.target || {}), id: entry.id }) !== 'cardio') return null
+  const reference = cardioWorkoutReference(S.tests, ex, entry.target?.speed)
+  if (!reference) return null
+  return <div className="small dim" style={{ marginTop: 5 }}>
+    <Icon name={reference.type === 'vam' ? 'figureRun' : 'bike'} style={{ fontSize: 13, marginRight: 5 }} />
+    {reference.type === 'vam'
+      ? <>{t('VAM guide')}: {t(({ easy: 'Easy', aerobic: 'Aerobic', steady: 'Steady', interval: 'Intervals' })[reference.zone.key])} · {fmtNum(reference.zone.slow)}–{fmtNum(reference.zone.fast)} km/h</>
+      : <>{t('Test reference')}: {fmtNum(reference.latest.avgSpeed)} km/h · {t('Next test goal')} {fmtNum(reference.nextGoal)} km/h</>}
+  </div>
 }
 // The previous session's first working set, as the member logged it ("80 kg × 8"); null without history.
 const lastWorkingText = (id, last) => {
@@ -383,6 +395,7 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, prefs, onToggle
     {!S.active?.past && !compatibleWithGym(S, ex) && <button className="chip" onClick={onReplace}><GymCompatibility ex={ex} /> · {t('Change exercise')}</button>}
     <ExerciseMeta ex={ex} cardio={cardio} target={targetLine(entry, S.unit)} rest={restSecondsFor(entry, S)} best={best} unit={S.unit}
       lastText={lastWorkingText(entry.id, last)} />
+    <CardioTestHint S={S} ex={ex} entry={entry} />
     {rpGroup && rpLandmarks && <RpVolumeBar
       groupName={t(MUSCLE_GROUPS.find(g => g.key === rpGroup)?.name || rpGroup)}
       sets={rpVolume} landmarks={rpLandmarks} />}
@@ -482,6 +495,7 @@ function SimpleExercise({ entryIdx, unitEntries, ssInfo, prefs, onToggle, onPad,
       <div className="shero-meta">
         <ExerciseMeta ex={ex} cardio={mode === 'cardio'} target={targetLine(entry, S.unit)} rest={restSecondsFor(entry, S)} unit={S.unit}
           lastText={lastWorkingText(entry.id, last)} />
+        <CardioTestHint S={S} ex={ex} entry={entry} />
         <button className="tag swap nocap" onClick={onReplace}><Icon name="shuffle" />{t('Change exercise')}</button>
       </div>
       {/* the trainer's note sits above the set — it is part of what to do right now */}
@@ -799,7 +813,7 @@ function ActiveWorkout() {
     <Button onClick={() => exercisePicker(ex => exConfigSheet(ex, null, cfg => update(s => {
       const full = { ...cfg, id: ex.id }
       const plan = nextPrescription(s, full, s.routines.find(r => r.id === s.active.routineId))
-      s.active.entries.push({ id: ex.id, target: { ...cfg }, plan, sets: applyPrescription(buildSets(s, full), plan) })
+      s.active.entries.push({ id: ex.id, target: targetForPrescription(cfg, plan), plan, sets: applyPrescription(buildSets(s, full), plan) })
       s.active.cur = s.active.entries.length - 1
     }), null, S.routines.find(r => r.id === A.routineId)))} icon="plus">{t('Add exercise')}</Button>
     <div style={{ height: 10 }} />

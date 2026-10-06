@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   readSession, sessionsFor, stallCount, nextPrescription, applyPrescription, buildRoutineEntries,
-  buildFreeEntry, policyFor, defaultIncrement, POLICIES_FOR, DELOAD_AFTER
+  buildFreeEntry, policyFor, defaultIncrement, POLICIES_FOR, DELOAD_AFTER, targetForPrescription
 } from './progression.js'
 import { EXDB, setHiddenExercises } from './exercises.js'
 import { pctForReps } from './onerm.js'
@@ -80,18 +80,19 @@ describe('policyFor', () => {
   it('keeps the app\'s long-standing behaviour as the default for reps work', () => {
     expect(policyFor({ id: LIFT }, null, 'reps')).toBe('linear')
   })
-  it('leaves timed and cardio work alone unless asked', () => {
+  it('leaves timed work alone but enables the cardio policy by default', () => {
     expect(policyFor({ id: LIFT, mode: 'time' }, null, 'time')).toBe('off')
-    expect(policyFor({ id: CARDIO }, null, 'cardio')).toBe('off')
+    expect(policyFor({ id: CARDIO }, null, 'cardio')).toBe('cardio')
   })
   it('lets the exercise override the routine, and the routine override the default', () => {
     expect(policyFor({ id: LIFT }, { prog: 'greyskull' }, 'reps')).toBe('greyskull')
     expect(policyFor({ id: LIFT, prog: 'double' }, { prog: 'greyskull' }, 'reps')).toBe('double')
+    expect(policyFor({ id: CARDIO }, { prog: 'linear' }, 'cardio')).toBe('cardio')
   })
   it('refuses a policy that makes no sense for the mode', () => {
     expect(policyFor({ id: LIFT, mode: 'time', prog: 'greyskull' }, null, 'time')).toBe('off')
     expect(policyFor({ id: CARDIO, prog: 'linear' }, null, 'cardio')).toBe('off')
-    expect(POLICIES_FOR.cardio).toEqual(['off'])
+    expect(POLICIES_FOR.cardio).toEqual(['off', 'cardio'])
   })
 })
 
@@ -314,8 +315,44 @@ describe('policy "off"', () => {
     expect(p.kind).toBe('off')
     expect(p.weight).toBeUndefined()
   })
-  it('is what cardio always gets', () => {
-    expect(nextPrescription({ unit: 'kg', workouts: [] }, { id: CARDIO, sets: 1, min: 20 }).kind).toBe('off')
+  it('still lets members explicitly turn cardio progression off', () => {
+    expect(nextPrescription({ unit: 'kg', workouts: [] }, { id: CARDIO, sets: 1, min: 20, prog: 'off' }).kind).toBe('off')
+  })
+})
+
+describe('cardio progression', () => {
+  const cfg = { id: CARDIO, sets: 1, min: 20, speed: 8 }
+  const state = entries => ({ unit: 'kg', workouts: entries.map((entry, i) => ({ d: `2026-01-0${i + 1}`, entries: [{ id: CARDIO, ...entry }] })) })
+  const hit = (min, speed, targetMin = min, targetSpeed = speed) => ({ target: { ...cfg, min: targetMin, speed: targetSpeed }, sets: [{ min, speed, done: true }] })
+  const miss = (min, speed, targetMin = 20, targetSpeed = 8) => ({ target: { ...cfg, min: targetMin, speed: targetSpeed }, sets: [{ min, speed, done: true }] })
+
+  it('adds one minute at a time before changing speed', () => {
+    const p = nextPrescription(state([hit(20, 8)]), cfg)
+    expect(p).toMatchObject({ policy: 'cardio', kind: 'up', min: 21, speed: 8 })
+  })
+
+  it('increases speed only after the duration ceiling has been reached', () => {
+    const p = nextPrescription(state([hit(30, 8)]), cfg)
+    expect(p).toMatchObject({ kind: 'up', min: 30, speed: 8.5 })
+    expect(p.why.join(' ')).toContain('keep the time')
+  })
+
+  it('holds after one miss and eases speed after two consecutive misses', () => {
+    expect(nextPrescription(state([miss(18, 8)]), cfg)).toMatchObject({ kind: 'hold', min: 20, speed: 8 })
+    expect(nextPrescription(state([miss(18, 8), miss(19, 8)]), cfg)).toMatchObject({ kind: 'deload', min: 19, speed: 8 })
+    expect(nextPrescription(state([miss(20, 7), miss(20, 7)]), cfg)).toMatchObject({ kind: 'deload', min: 20, speed: 7.5 })
+  })
+
+  it('handles legacy cardio entries without target metadata or recorded speed', () => {
+    const legacy = state([{ sets: [{ min: 20, done: true }] }])
+    expect(nextPrescription(legacy, cfg)).toMatchObject({ kind: 'up', min: 21 })
+    const atCeiling = state([{ target: { ...cfg, min: 30 }, sets: [{ min: 30, done: true }] }])
+    expect(nextPrescription(atCeiling, cfg).kind).toBe('hold')
+  })
+
+  it('applies the target only to unfinished sets and stores the actual session target', () => {
+    expect(applyPrescription([{ min: 20, speed: 8, done: false }], { kind: 'up', min: 21, speed: 8 })).toEqual([{ min: 21, speed: 8, done: false }])
+    expect(targetForPrescription({ id: CARDIO, min: 20, speed: 8 }, { kind: 'up', min: 21, speed: 8 })).toMatchObject({ min: 21, speed: 8 })
   })
 })
 

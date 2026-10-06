@@ -14,6 +14,7 @@ import RecoveryCard from '../components/RecoveryCard.jsx'
 import ProgressTimeline from '../components/ProgressTimeline.jsx'
 import FollowUpCard from '../components/FollowUpCard.jsx'
 import ProgressCover from '../components/ProgressCover.jsx'
+import CardioTestsProgress from '../components/CardioTestsProgress.jsx'
 import { openStory } from '../components/StorySheet.jsx'
 import { useFollowUp } from '../lib/followup-view.js'
 import MuscleDetailCard from '../components/MuscleDetailCard.jsx'
@@ -364,6 +365,7 @@ export default function Stats() {
     {S.workouts.length > 0 && <MuscleBalance S={S} />}
     {S.enableRpVolumeZones && uxOn(S, 'volume') && <RpVolumeCard S={S} nav={nav} />}
     <ProgressTimeline S={S} />
+    <CardioTestsProgress tests={S.tests} onStart={() => nav('/tests')} />
     {anyEffort && uxOn(S, 'effort') && <EffortCard S={S} />}
     {!anyEffort && uxOn(S, 'effort') && effortOf(S) === 'none' && S.workouts.length > 0 && <button className="card tappable" style={{ textAlign: 'left', width: '100%' }} onClick={() => nav('/settings/training')}>
       <div className="row between"><div><h2 style={{ margin: 0 }}>{t('Effort')}</h2><div className="small dim">{t('Rate how hard your sets feel to see effort trends here.')}</div></div><Icon name="chevronRight" className="chev" /></div>

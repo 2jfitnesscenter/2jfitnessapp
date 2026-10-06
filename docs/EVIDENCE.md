@@ -22,6 +22,21 @@ una revisión; no diagnostican, no prescriben una carga universal y nunca modifi
 rutina o programa. La disponibilidad del material y las restricciones explícitas mandan. La
 ventana para mostrar patrones de ejercicio caduca a los diez días. No cambia el Protocolo 2J v1.0.
 
+## Cardio — progresión y referencias de ritmo (heurística de producto)
+
+La progresión cardio del sprint (sumar 1 min por sesión completada hasta 30 min, después
+sumar 0,5 km/h; dos incumplimientos consecutivos reducen solo una variable) es una regla
+conservadora de producto, no un umbral validado. Se aplica únicamente a las sesiones que usan
+el registro existente `min` + `speed`; no altera rutinas ni sesiones ya finalizadas. Las cuatro
+bandas VAM (60–70 %, 70–80 %, 80–90 %, 90–100 %) son referencias orientativas de velocidad y
+ritmo para carrera, no zonas ventilatorias individuales. La literatura muestra que los cortes
+dependen del protocolo y la población; un estudio de velocidad máxima de carrera halló
+asociaciones con umbrales en porcentajes concretos, pero no valida estas cuatro bandas para
+todo usuario ni convierte un test de campo en una medición de laboratorio
+([PubMed 24790484](https://pubmed.ncbi.nlm.nih.gov/24790484/)). Solo se muestran si el test VAM
+registrado duró aproximadamente seis minutos. El objetivo de +0,1 km/h o +1 % para repetir
+VAM/ergómetro es una meta de seguimiento, nunca una prescripción de entrenamiento.
+
 ---
 
 ## Fuente troncal

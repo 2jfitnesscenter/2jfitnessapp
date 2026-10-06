@@ -1,5 +1,11 @@
 # Changelog
 
+### Sprint 2 — Cardio inteligente + tests útiles (2026-10-06) — NOT DEPLOYED
+
+- El motor `progression.js` ahora progresa cardio de forma determinista: duración primero (+1 min hasta 30), ritmo después (+0,5 km/h); un fallo mantiene y dos reducen solo la variable incumplida. Guarda el objetivo de cada sesión dentro de la entrada histórica existente, sin editar la rutina.
+- Progreso muestra resultado reciente/mejor, comparación y fecha para VAM y cada tipo de ergómetro, meta para repetir el test y recordatorio suave a partir de 8 semanas. Una VAM cercana a seis minutos deriva bandas de ritmo orientativas. 1RM no cambia.
+- Frontend 1372/1372; API 422 passed, 5 skipped; build y locales correctos. **No desplegado**; producción de partida confirmada: `bcb3eae`.
+
 ## Unreleased — v1.4.0 candidate (after v1.3.0, 2026-09-21)
 
 Everything since v1.3.0. Production is `e41f4f9` (2026-10-04: Experience V2 phases 1–4, Sprint 1 WOW, the Progress section order and the Settings add-place form fix; `4c78ecb` carried phases 1–2, `eee3bc2` phases 3–4). The

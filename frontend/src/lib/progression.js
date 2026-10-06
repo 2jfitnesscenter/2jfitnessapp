@@ -30,7 +30,7 @@ export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'pct1rm', 'time
 export const POLICIES_FOR = {
   reps: ['off', 'linear', 'greyskull', 'double', 'pct1rm'],
   time: ['off', 'time'],
-  cardio: ['off']
+  cardio: ['off', 'cardio']
 }
 
 export const POLICY_NAME = {
@@ -39,7 +39,8 @@ export const POLICY_NAME = {
   greyskull: 'Greyskull LP',
   double: 'Double progression',
   pct1rm: '% of your tested 1RM',
-  time: 'Add time'
+  time: 'Add time',
+  cardio: 'Cardio progression'
 }
 export const POLICY_DESC = {
   off: 'Targets stay where you set them.',
@@ -47,7 +48,8 @@ export const POLICY_DESC = {
   greyskull: 'Two straight sets plus a final set taken to failure. Beat the target on that set and the weight goes up — double if you double the reps. One failure resets 10 %.',
   double: 'Work up through a rep range at the same weight. Reach the top of the range in every set and the weight goes up, reps back to the bottom.',
   pct1rm: 'Weight is calculated straight from a 1RM test you logged (Actions → Start a test session) — not from how past sessions went.',
-  time: 'Hold every set for the full duration and the target goes up.'
+  time: 'Hold every set for the full duration and the target goes up.',
+  cardio: 'Build duration by 1 minute to 30 minutes first. Then add 0.5 km/h. Repeated short sessions reduce the target slightly.'
 }
 
 // Sessions of repeated misses before a deload. Greyskull resets on the first failure by
@@ -73,7 +75,9 @@ export const DEFAULT_SEC_INCREMENT = 5
 export function policyFor(cfg, routine, mode) {
   const m = mode || modeOf(cfg || {})
   const allowed = POLICIES_FOR[m] || ['off']
-  const pick = (cfg && cfg.prog) || (routine && routine.prog) || (m === 'reps' ? 'linear' : 'off')
+  // A routine's strength policy (usually linear) does not disable cardio. Cardio has its own
+  // explicit per-exercise opt-out; an incompatible exercise override still safely resolves off.
+  const pick = cfg?.prog || (routine && allowed.includes(routine.prog) ? routine.prog : undefined) || (m === 'reps' ? 'linear' : m === 'cardio' ? 'cardio' : 'off')
   return allowed.includes(pick) ? pick : 'off'
 }
 
@@ -143,6 +147,20 @@ export function readSession(entry, fallback) {
       weight: Math.max(0, ...sets.filter(s => s.done).map(s => s.w || 0)),
       best: Math.max(0, ...held),
       ok: goal > 0 && enough && held.length > 0 && held.every(h => h >= goal)
+    }
+  }
+  if (mode === 'cardio') {
+    const goal = Math.max(0, Number(target.min) || 0)
+    const goalSpeed = Math.max(0, Number(target.speed) || 0)
+    const mins = sets.map(s => s.done ? Math.max(0, Number(s.min) || 0) : 0)
+    const speeds = sets.map(s => s.done && s.speed != null && Number.isFinite(Number(s.speed)) ? Math.max(0, Number(s.speed)) : null)
+    const hasSpeed = speeds.some(v => v != null)
+    const durationOk = goal > 0 && enough && mins.length > 0 && mins.every(m => m >= goal)
+    const speedOk = !goalSpeed || speeds.every(v => v == null || v >= goalSpeed)
+    return {
+      mode, goal, goalSpeed, mins, speeds, hasSpeed, durationOk, speedOk,
+      best: Math.max(0, ...mins),
+      ok: durationOk && speedOk
     }
   }
   const goal = target.reps || 0
@@ -222,6 +240,29 @@ function policyPrescription(S, cfg, routine) {
       return { policy, kind: 'deload', sec, why: ['Short {0} sessions in a row — back off to {1}s and build up again.', stalls, sec] }
     }
     return { policy, kind: 'hold', sec: last.goal || cfg.sec, why: ['Last time came up short — same target again.'] }
+  }
+
+  if (mode === 'cardio') {
+    const goal = Math.max(1, Number(last.goal) || Number(cfg.min) || 20)
+    const speed = Math.max(0, Number(last.goalSpeed) || Number(cfg.speed) || 0)
+    const durationCeiling = Math.max(30, Number(cfg.min) || 0)
+    const repeatedMisses = stalls >= 2
+    if (!last.ok) {
+      if (!repeatedMisses) return { policy, kind: 'hold', min: goal, speed: speed || undefined, why: ['Cardio target not completed — keep the same goal and build back up.'] }
+      if (last.durationOk && !last.speedOk && speed > 0.5) {
+        const nextSpeed = Math.max(0.5, round1(speed - 0.5))
+        return { policy, kind: 'deload', min: goal, speed: nextSpeed, why: ['Two cardio sessions came up short — keep the time and ease the pace to {0} km/h.', nextSpeed] }
+      }
+      const nextMin = Math.max(5, goal - 1)
+      return { policy, kind: 'deload', min: nextMin, speed: speed || undefined, why: ['Two cardio sessions came up short — reduce the time to {0} min, then build again.', nextMin] }
+    }
+    if (goal < durationCeiling) {
+      const nextMin = Math.min(durationCeiling, goal + 1)
+      return { policy, kind: 'up', min: nextMin, speed: speed || undefined, why: ['You completed the cardio time — add 1 minute, then build toward {0} min before increasing pace.', durationCeiling] }
+    }
+    if (!last.hasSpeed || !speed) return { policy, kind: 'hold', min: goal, why: ['Cardio time is at its ceiling. Log a speed so the next pace target can progress safely.'] }
+    const nextSpeed = round1(speed + 0.5)
+    return { policy, kind: 'up', min: goal, speed: nextSpeed, why: ['You reached {0} min — keep the time and increase pace by {1} km/h.', goal, nextSpeed - speed] }
   }
 
   const w = last.weight
@@ -336,8 +377,17 @@ export function applyPrescription(sets, p) {
     workIndex++
     if (p.reps != null) out.r = p.reps
     if (p.sec != null) out.sec = p.sec
+    if (p.min != null) out.min = p.min
+    if (p.speed != null) out.speed = p.speed
     return out
   })
+}
+
+// Cardio's effective target belongs to this workout entry, not the saved routine. Keeping it
+// beside the existing target lets history judge the result against what was actually prescribed.
+export function targetForPrescription(cfg, plan) {
+  if (modeOf(cfg) !== 'cardio' || !plan || plan.kind === 'off' || plan.kind === 'first') return { ...cfg }
+  return { ...cfg, ...(plan.min != null ? { min: plan.min } : {}), ...(plan.speed != null ? { speed: plan.speed } : {}) }
 }
 
 // Turns a routine into the `entries` a live session drives (S.active.entries and the finished
@@ -351,7 +401,7 @@ export function buildRoutineEntries(S, routine) {
   cleanupSg(usable)
   return usable.map(cfg => {
     const plan = nextPrescription(S, cfg, routine)
-    return withDeload(S, { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: applyPrescription(buildSets(S, cfg), plan) })
+    return withDeload(S, { id: cfg.id, sg: cfg.sg, target: targetForPrescription(cfg, plan), plan, sets: applyPrescription(buildSets(S, cfg), plan) })
   })
 }
 
@@ -395,5 +445,5 @@ export function withDeload(S, entry, today = todayISO()) {
 export function buildFreeEntry(S, exId, routine) {
   const cfg = { id: exId, ...defaultConfig(exId) }
   const plan = nextPrescription(S, cfg, routine || null)
-  return { id: cfg.id, target: { ...cfg }, plan, sets: applyPrescription(buildSets(S, cfg), plan) }
+  return { id: cfg.id, target: targetForPrescription(cfg, plan), plan, sets: applyPrescription(buildSets(S, cfg), plan) }
 }
