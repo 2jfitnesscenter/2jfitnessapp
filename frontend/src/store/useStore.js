@@ -12,6 +12,7 @@ import { setCachedOfficialGymEquipment } from '../lib/gym-profiles.js'
 import { applyConfigOverlay, restoreCachedOverlay } from '../lib/library/overlay-sync.js'
 import { useGuided } from '../lib/guided-api.js'
 import { setAdminFeatures } from '../lib/features.js'
+import { isolateSharedUser } from '../lib/shared-staff-state.js'
 
 const KEY = 'gym_state_v1'
 // A discard/finish that couldn't reach POST /api/active/clear (offline, a dropped request)
@@ -321,11 +322,28 @@ export const useStore = create((set, get) => {
     },
     setGuest(v) { if (v) localStorage.setItem('gym_guest', '1'); else localStorage.removeItem('gym_guest'); set({}) },
 
-    setUser(u) {
-      if (get().user && u && get().user.id !== u.id) { persist(clone(DEF), false); syncClient = null }
+    setUser(u, { preserveActive = false } = {}) {
+      const currentUser = get().user
+      const nextState = isolateSharedUser(localStorage, { currentUser, nextUser: u, state: get().S, defaultState: clone(DEF), preserveActive })
+      if (nextState !== get().S) {
+        clearTimeout(pushTm); pushTm = null
+        persist(clone(nextState), false)
+        syncClient = null
+      }
       if (u) { localStorage.setItem('gym_user', JSON.stringify(u)); localStorage.removeItem('gym_guest') }
       else localStorage.removeItem('gym_user')
       set({ user: u })
+    },
+
+    async lockSharedSession() {
+      const user = get().user
+      if (user?.authLevel !== 'pin') return false
+      clearTimeout(pushTm); pushTm = null
+      const remoteLock = api('/api/shared-device/lock', { method: 'POST', body: '{}' }).catch(() => {})
+      get().setUser(null, { preserveActive: true })
+      localStorage.removeItem('gym_guest')
+      await remoteLock
+      return true
     },
 
     // Flush immutable operations after revalidating; the server owns revisions.
@@ -389,6 +407,7 @@ export const useStore = create((set, get) => {
     },
 
     async signOut() {
+      if (get().user?.authLevel === 'pin') { await get().lockSharedSession(); return }
       try { await get().pushState(); await api('/api/logout', { method: 'POST', body: '{}' }) } catch (e) { /* */ }
       clearLocalSession()
     },
@@ -470,7 +489,7 @@ export const useStore = create((set, get) => {
           get().update(s => { s.reminder = { ...s.reminder, tz } })
         }
       } catch (e) {
-        if (e.status === 401) get().setUser(null)
+        if (e.status === 401) get().setUser(null, { preserveActive: get().user?.authLevel === 'pin' })
       }
       set({ ready: true })
     }

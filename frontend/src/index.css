@@ -3190,6 +3190,20 @@ body:has(.sync-pill) #app{padding-top:8px}
 .t2{--t2-em:#10B981;--t2-em2:#34D399;--t2-gold:#D4AF37;--t2-r:22px;
   --t2-card:color-mix(in srgb,var(--surface) 96%,#10B981 4%);--t2-line:color-mix(in srgb,var(--label) 9%,transparent)}
 @media (min-width:1000px){#app:has(.t2-page){max-width:1240px}}
+
+/* A shared staff session stays visibly attributable without taking space from normal accounts. */
+.shared-staff-session-bar{position:sticky;top:0;z-index:120;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px max(14px,env(safe-area-inset-left));background:var(--surface-2);border-bottom:1px solid var(--line);font-size:12px;color:var(--label-2)}
+.shared-staff-session-bar span{display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shared-staff-session-bar button,.shared-login-link{border:0;background:none;color:var(--accent);font:inherit;font-weight:650;cursor:pointer;padding:6px 2px;white-space:nowrap}
+.shared-login{margin-top:14px}
+.shared-login-panel{display:grid;gap:10px;margin-top:10px;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--surface-1);text-align:left}
+.shared-login-title{font-weight:700;color:var(--label);text-align:center}
+.shared-login-people{display:grid;gap:7px}
+.shared-login-person{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--label);text-align:left;cursor:pointer}
+.shared-login-person.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.shared-login-person small{color:var(--label-3);font-size:11px}
+.shared-login-error{color:var(--danger,#d34);font-size:12px;text-align:center}
+@media (min-width:700px){.shared-login-people{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .t2-page{display:flex;flex-direction:column;gap:22px;padding-bottom:24px}
 .t2-eyebrow{display:block;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--t2-em)}
 .t2-head{display:flex;align-items:center;gap:12px;margin-top:4px}

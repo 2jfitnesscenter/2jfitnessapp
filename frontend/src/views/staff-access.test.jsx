@@ -84,9 +84,10 @@ describe('Routes stay protected', () => {
     expect(app).toContain(`<Route path="/trainer/guided/program/:id" element={user?.admin ?`)
     expect(app).toContain(`<Route path="/trainer/library-quality" element={user?.admin ?`)
   })
-  it('the backend guards are untouched: trainer routes use requireTrainer, the role switch stays admin-only', () => {
+  it('trainer routes stay trainer-guarded and role changes stay admin-guarded', () => {
     const api = readFileSync(new URL('../../../api/server.js', import.meta.url), 'utf8')
-    expect(api).toMatch(/'POST \/api\/admin\/user\/trainer': async \(req, res\) => \{\s*if \(!requireAdmin\(req, res\)\) return;/)
+    expect(api).toMatch(/'POST \/api\/admin\/user\/trainer': async \(req, res\) => \{\s*const admin = requireAdmin\(req, res\); if \(!admin\) return;/)
+    expect(api).toMatch(/'POST \/api\/admin\/user\/role': async \(req, res\) => \{\s*const admin = requireAdmin\(req, res\); if \(!admin\) return;/)
     expect(api).toMatch(/'POST \/api\/trainer\/member-routine': async \(req, res\) => \{\s*if \(!requireTrainer\(req, res\)\) return;/)
     expect(api).toContain('const isTrainer = user => !!user && (user.trainer === true || isAdmin(user));')
   })

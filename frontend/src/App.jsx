@@ -19,6 +19,7 @@ import HealthOnboardingGate from './components/HealthOnboarding.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
 import FriendsWatcher from './components/FriendsWatcher.jsx'
 import InstallPrompt from './components/InstallPrompt.jsx'
+import SharedStaffSessionGuard from './components/SharedStaffSessionGuard.jsx'
 import SyncConflictDialog from './components/SyncConflictDialog.jsx'
 import Login from './views/Login.jsx'
 import Home from './views/Home.jsx'
@@ -33,6 +34,7 @@ import ClockRun from './views/ClockRun.jsx'
 import Stats from './views/Stats.jsx'
 import History from './views/History.jsx'
 import Settings from './views/Settings.jsx'
+import SharedStaffSettings from './views/SharedStaffSettings.jsx'
 import TrainingSettings from './views/TrainingSettings.jsx'
 import StatsSettings from './views/StatsSettings.jsx'
 import RpVolumeCalibration from './views/RpVolumeCalibration.jsx'
@@ -127,9 +129,15 @@ function applyPrefs(theme, accent, glass, glassOpacity, glassBlur, textScale) {
 
 function Shell() {
   useEffect(() => {
-    const check = () => { autoFinishInactiveWorkout().catch(() => {}) }
+    const check = () => {
+      const state = useStore.getState()
+      if (!state.ready && state.user?.authLevel === 'pin') return
+      autoFinishInactiveWorkout().catch(() => {})
+    }
     const reconnect = () => {
-      const active = useStore.getState().S.active
+      const state = useStore.getState()
+      if (!state.ready && state.user?.authLevel === 'pin') return
+      const active = state.S.active
       if (active?.lastActivityAt) api('/api/active/activity', { method: 'POST', body: JSON.stringify({ id: active.id, at: active.lastActivityAt }) }).catch(() => {})
       check()
     }
@@ -158,10 +166,10 @@ function Shell() {
   useEffect(() => { setLang(S.lang || 'es') }, [S.lang])
   // Health energy reconciliation for workouts finished earlier (no-op without a native shell or consent).
   useEffect(() => {
-    if (!user?.id) return
+    if (!ready || !user?.id) return
     const id = setTimeout(() => { import('./lib/energy-reconcile.js').then(m => m.runEnergyReconcile({ getState: useStore.getState, update: useStore.getState().update })).catch(() => {}) }, 5000)
     return () => clearTimeout(id)
-  }, [user?.id])
+  }, [user?.id, ready])
   useEffect(() => { document.documentElement.lang = S.lang || 'es' }, [langV, S.lang])
   // every tab/route change starts at the top of the page
   useEffect(() => { window.scrollTo(0, 0) }, [loc.pathname])
@@ -169,6 +177,13 @@ function Shell() {
   useWakeLock(!!S.active && S.keepAwake !== false)
 
   const authed = user || isGuest
+  // Never paint a locally cached PIN identity or its data before the server has revalidated
+  // the derived session (refresh, revoked device, role removal or idle expiry).
+  if (!ready && user?.authLevel === 'pin') return (
+    <div id="app" role="status" style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', color: 'var(--label-3)' }}>
+      {t('Loading…')}
+    </div>
+  )
   // Every hook runs before the trainer panel's early return below: an in-app navigation from
   // /home to /trainer must render the same hooks, or React throws and the shell goes blank.
   // Profile wizard once, right after registering, instead of Login.jsx's old single-sheet form.
@@ -192,6 +207,7 @@ function Shell() {
   if (loc.pathname.startsWith('/trainer')) {
     return (
       <>
+        <SharedStaffSessionGuard />
         <div id="trainer-app" key={loc.pathname}>
           <ErrorBoundary>
             {!authed ? <Login /> : !user?.trainer ? <Navigate to="/home" replace /> : (
@@ -225,7 +241,7 @@ function Shell() {
   // one route in the whole app that skips the authed gate entirely (no Login, no TabBar, no
   // guest bypass to think about). It owns its own full-bleed layout. The shared swap selector
   // uses Modals/Toast; training panels themselves remain independent.
-  if (loc.pathname === '/bunker') return <><Bunker /><Modals /><Toast /></>
+  if (loc.pathname === '/bunker') return <><SharedStaffSessionGuard /><Bunker /><Modals /><Toast /></>
   if (loc.pathname === '/bunker/launch') return <BunkerLaunch />
 
   // A genuinely brand-new profile only — one with no real data at all yet — sees the Physical
@@ -239,6 +255,7 @@ function Shell() {
 
   return (
     <>
+      <SharedStaffSessionGuard />
       {/* keyed on the route: a view that throws is contained, and switching tabs
           re-mounts the boundary, so the tab bar is always a way out */}
       {/* outside the route-keyed #app so its offline → synced state survives navigation */}
@@ -269,6 +286,7 @@ function Shell() {
               <Route path="/social/profile/:id" element={<Feat k="social"><SocialProfile /></Feat>} />
               <Route path="/social/share/:id" element={<Feat k="social"><SocialShareDetail /></Feat>} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/shared-staff" element={<SharedStaffSettings />} />
               <Route path="/settings/training" element={<TrainingSettings />} />
               <Route path="/settings/stats" element={<StatsSettings />} />
               <Route path="/settings/experience" element={<ExperienceSetup />} />

@@ -5,10 +5,27 @@ export const BIO = IS_APPLE ? 'Face ID / Touch ID' : IS_ANDROID ? 'fingerprint o
 export const VAULT = IS_APPLE ? 'iCloud Keychain' : IS_ANDROID ? 'Google Password Manager' : 'your password manager'
 export const webauthnOK = () => !!(window.PublicKeyCredential && navigator.credentials)
 
-export async function api(path, opts) {
+const STRONG_STEPUP_PATHS = new Set([
+  'POST /api/logout/all',
+  'POST /api/admin/user/role', 'POST /api/admin/user/disable', 'POST /api/admin/user/trainer',
+  'POST /api/admin/user/recovery-link', 'POST /api/admin/invites/new', 'POST /api/admin/invites/revoke'
+])
+export async function api(path, opts = {}, strongRetried = false) {
   const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts))
   const data = await r.json().catch(() => ({}))
-  if (!r.ok) { const e = new Error(data.error || ('HTTP ' + r.status)); e.status = r.status; e.data = data; throw e }
+  if (!r.ok) {
+    const method = String(opts.method || 'GET').toUpperCase()
+    if (r.status === 401 && typeof window !== 'undefined') {
+      try {
+        if (JSON.parse(localStorage.getItem('gym_user') || 'null')?.authLevel === 'pin') window.dispatchEvent(new Event('2j:shared-session-invalid'))
+      } catch { /* unavailable or malformed browser storage */ }
+    }
+    if (!strongRetried && r.status === 403 && data.code === 'passkey_required' && STRONG_STEPUP_PATHS.has(`${method} ${path}`)) {
+      await sharedDeviceStepUp()
+      return api(path, opts, true)
+    }
+    const e = new Error(data.error || ('HTTP ' + r.status)); e.status = r.status; e.data = data; throw e
+  }
   return data
 }
 
@@ -74,3 +91,22 @@ export async function passkeyDeleteAccount(confirm) {
   const cred = await navigator.credentials.get({ publicKey: toRequestOptions(options) })
   return api('/api/me/delete', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred), confirm }) })
 }
+
+async function passkeyAction(optionsPath, finishPath, values = {}) {
+  const { cid, options } = await api(optionsPath, { method: 'POST', body: JSON.stringify(values) })
+  const credential = await navigator.credentials.get({ publicKey: toRequestOptions(options) })
+  return api(finishPath, { method: 'POST', body: JSON.stringify({ ...values, cid, credential: credToJSON(credential) }) })
+}
+
+export const sharedDeviceStatus = () => api('/api/shared-device/status')
+export async function sharedStaffLogin(userId, pin) {
+  const result = await api('/api/shared-device/pin', { method: 'POST', body: JSON.stringify({ userId, pin }) })
+  return { ...result.user, authLevel: result.authLevel, sharedSessionExpiresAt: result.expiresAt }
+}
+export const lockSharedStaff = () => api('/api/shared-device/lock', { method: 'POST', body: '{}' })
+export const sharedDeviceStepUp = () => passkeyAction('/api/shared-device/step-up/options', '/api/shared-device/step-up')
+export const setOwnStaffPin = pin => passkeyAction('/api/shared-staff/pin/options', '/api/shared-staff/pin', { pin })
+export const authorizeSharedDevice = label => passkeyAction('/api/shared-device/authorize/options', '/api/shared-device/authorize', { label })
+export const listSharedDevices = () => api('/api/admin/shared-devices')
+export const revokeSharedDevice = id => passkeyAction('/api/admin/shared-device/revoke/options', '/api/admin/shared-device/revoke', { id })
+export const resetStaffPin = (userId, pin) => passkeyAction('/api/admin/shared-staff/pin/options', '/api/admin/shared-staff/pin', { userId, pin })

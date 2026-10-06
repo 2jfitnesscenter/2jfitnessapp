@@ -1,6 +1,6 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { webauthnOK, passkeyLogin, passkeyRegister, passkeyRecover, api, BIO } from '../lib/api.js'
+import { webauthnOK, passkeyLogin, passkeyRegister, passkeyRecover, api, BIO, sharedDeviceStatus, sharedStaffLogin } from '../lib/api.js'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { DEMO } from '../lib/demo.js'
@@ -123,9 +123,27 @@ export default function Login() {
   const { setUser, pullState, setGuest } = useStore()
   const [params] = useSearchParams()
   const recoveryToken = params.get('token')
+  const [sharedDevice, setSharedDevice] = useState(null)
+  const [sharedOpen, setSharedOpen] = useState(false)
+  const [sharedUser, setSharedUser] = useState('')
+  const [sharedPin, setSharedPin] = useState('')
+  const [sharedBusy, setSharedBusy] = useState(false)
+  const [sharedError, setSharedError] = useState('')
+  useEffect(() => { sharedDeviceStatus().then(setSharedDevice).catch(() => setSharedDevice(null)) }, [])
   const signIn = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
+  }
+  const sharedSignIn = async () => {
+    if (!sharedUser || !/^\d{6,8}$/.test(sharedPin)) { setSharedError(t('Choose your profile and enter your 6–8 digit PIN.')); return }
+    setSharedBusy(true); setSharedError('')
+    try {
+      const u = await sharedStaffLogin(sharedUser, sharedPin)
+      try { sessionStorage.setItem(`gym_shared_last_activity:${u.id}`, String(Date.now())) } catch { /* auto-lock still starts from now in memory */ }
+      setUser(u); await pullState(); setSharedPin(''); setSharedOpen(false)
+      useUI.getState().toast(t('Welcome back, {0}', u.name))
+    } catch (e) { setSharedError(e.status === 429 ? t('Too many attempts. Try again shortly.') : t('The profile or PIN is not correct.')) }
+    finally { setSharedBusy(false) }
   }
   const head = <>
     <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0 4px' }}>
@@ -166,6 +184,22 @@ export default function Login() {
           onClick={() => useUI.getState().openSheet(close => <LostPasskeySheet close={close} />)}>{t('I lost my passkey')}</button>
       </> : <div className="card small muted" style={{ textAlign: 'left' }}>{t("This browser doesn't support passkeys — try a different browser to create a profile.")}</div>}
       <div className="dim small" style={{ marginTop: 26, lineHeight: 1.5 }}>{t('Passkeys use {0} — no passwords.', t(BIO))}<br />{t('Each profile keeps its own plan, workouts & body weight.')}</div>
+      {sharedDevice?.authorized && <div className="shared-login">
+        {!sharedOpen ? <button type="button" className="shared-login-link" onClick={() => { setSharedOpen(true); setSharedError('') }}>{t('Trainer access')}</button> : <div className="shared-login-panel">
+          <div className="shared-login-title">{t('Shared access')}</div>
+          {!sharedDevice.staff?.length ? <div className="muted small">{t('No trainer PIN is configured on this computer yet.')}</div> : <>
+            <div className="shared-login-people" role="group" aria-label={t('Choose your profile')}>
+              {sharedDevice.staff.map(person => <button type="button" key={person.id} className={sharedUser === person.id ? 'shared-login-person active' : 'shared-login-person'} onClick={() => { setSharedUser(person.id); setSharedError('') }}>
+                <span>{person.name}</span><small>{person.role === 'admin' ? t('Administrator') : t('Trainer')}</small>
+              </button>)}
+            </div>
+            <input className="input" type="password" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={sharedPin} onChange={e => setSharedPin(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder={t('6–8 digit PIN')} aria-label={t('6–8 digit PIN')} onKeyDown={e => { if (e.key === 'Enter') sharedSignIn() }} />
+            {sharedError && <div role="alert" className="shared-login-error">{sharedError}</div>}
+            <Button variant="primary" disabled={sharedBusy || !sharedUser || !/^\d{6,8}$/.test(sharedPin)} onClick={sharedSignIn}>{sharedBusy ? t('Checking…') : t('Unlock')}</Button>
+          </>}
+          <button type="button" className="shared-login-link" onClick={() => { setSharedOpen(false); setSharedPin(''); setSharedError('') }}>{t('Back to passkey sign-in')}</button>
+        </div>}
+      </div>}
     </div>
   )
 }
