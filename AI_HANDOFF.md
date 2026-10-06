@@ -5,6 +5,16 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
+## Shared Staff Device PIN — código local, pendiente de PrepareOnly y deploy (2026-10-06)
+
+- Rama `feat/shared-staff-device`, parte del baseline de producción `cd4a542ea04b8c80848f3ea41926bce01c1bba1e`; commits locales `62568ea` (backend), `3e53b89` (API tests), `800591b` (UI); **NOT DEPLOYED / NOT PUSHED**. No incluye commits Android.
+- Backend aditivo en `db.json` (`sharedDevices`, `staffPins`, `sharedStaffSessions`, `sharedStaffAudit`), fuera de Sync V2. Passkey sigue siendo raíz; cookies del dispositivo son `HttpOnly`, `SameSite=Strict` y el servidor guarda solo SHA-256 del token. Las sesiones PIN firman UID, rol, dispositivo, sesión, `authLevel`, emisión, expiración y `sv`; sesiones antiguas de passkey siguen leyéndose como `authLevel=passkey`.
+- PIN personal de 6–8 cifras, secuencias simples rechazadas, scrypt con salt aleatorio, sin plaintext/hash en respuestas o auditoría. Límite por IP, dispositivo y UID con backoff creciente hasta 15 min; no hay bloqueo permanente. Sesiones PIN caducan a 12 h, se invalidan al bloquear/revocar/cambiar rol/desactivar/reiniciar PIN y tienen auto-lock de 15 min.
+- Admin autoriza/revoca dispositivos con assertion WebAuthn nueva; trainer/admin configura su PIN con passkey y admin puede restablecer el de otro staff con passkey. Operaciones críticas comunes exigen reautenticación; el propio flujo WebAuthn fresco protege cambios de PIN/dispositivo. Trainer no obtiene rutas admin.
+- Login discreto solo en un dispositivo autorizado; selector contiene solo trainers/admins habilitados con PIN (nombre/rol, sin email). Barra «Cambiar entrenador» bloquea la sesión. Estado local separado por UID; al bloquear solo se conserva el workout activo y operaciones pendientes del dueño. Refresh espera validación del servidor antes de pintar una sesión PIN; no se transfieren sesiones entre UID. Sin cambios de Sync V2, rutinas/programas/dayPlan/workouts persistidos en servidor, Health ni Social.
+- Validación local: frontend **1411/1411**, API **426 pass / 5 skipped** (scripts que requieren Bash/OpenSSL no disponibles en ejecución Windows), build OK, `check-locales` OK (español completo; packs retrasados con deuda histórica), `git diff --check` OK. Pruebas nuevas cubren WebAuthn de prueba, PIN/rate-limit/roles/revocación/step-up y aislamiento local.
+- Falta QA manual en navegador/PC compartido y confirmar comportamiento passkey del navegador del gimnasio. No hay runner/PrepareOnly disponible en este checkout: la carpeta `ops/deploy-automation` referida por el proceso no existe aquí. Producción permanece en `cd4a542`; no desplegar hasta preparar y verificar el runner autorizado.
+
 ## Estado actual — búsqueda tolerante de ejercicios (2026-10-06; NO desplegada)
 
 - Baseline/tag estable y producción de partida: `2j-baseline-2026-10-06` / `16a1bb779140cd28020551bf16c0628f88b46f4f`.

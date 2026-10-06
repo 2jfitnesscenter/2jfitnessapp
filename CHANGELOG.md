@@ -1,5 +1,11 @@
 # Changelog
 
+### Shared Staff Device PIN (2026-10-06) — LOCAL ONLY / NOT DEPLOYED
+
+- Añade acceso PIN personal para trainers/admins solo en un ordenador autorizado por admin con passkey. Cookies de dispositivo/sesión derivada revocables, PIN scrypt, límites por IP/dispositivo/UID, auto-lock a 15 min y reautenticación WebAuthn para acciones protegidas.
+- El selector no lista socios ni correo; cambio de entrenador limpia el estado sensible por UID y preserva únicamente el workout activo del mismo usuario. Auth y metadatos quedan en `db.json`, fuera de Sync V2; no se altera el modelo de entrenamiento.
+- Frontend 1411/1411; API 426 pass / 5 skipped en Windows; build/locales/diff-check OK. Base/producción `cd4a542`; falta QA manual y runner PrepareOnly. Sin commit/push/deploy en este momento.
+
 ### Búsqueda tolerante de ejercicios — candidato v1.4.0 (2026-10-06) — NOT DEPLOYED
 
 - Adapta únicamente el fallback de erratas probado en openGym v1.3.9 (`e6c920e`): la búsqueda actual y su ranking prevalecen; si no hay resultados, acepta hasta una edición (incluida inversión adyacente) en un token de nombre/alias de 5+ caracteres y exige que el resto de tokens también coincida con nombre o alias. Sin fuzzy sobre equipo/músculos/movimientos; mantiene Recommended 2J y deprecated-last.
