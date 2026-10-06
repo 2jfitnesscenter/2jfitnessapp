@@ -1,5 +1,10 @@
 # Changelog
 
+### Búsqueda tolerante de ejercicios — candidato v1.4.0 (2026-10-06) — NOT DEPLOYED
+
+- Adapta únicamente el fallback de erratas probado en openGym v1.3.9 (`e6c920e`): la búsqueda actual y su ranking prevalecen; si no hay resultados, acepta hasta una edición (incluida inversión adyacente) en un token de nombre/alias de 5+ caracteres y exige que el resto de tokens también coincida con nombre o alias. Sin fuzzy sobre equipo/músculos/movimientos; mantiene Recommended 2J y deprecated-last.
+- Frontend 1402/1402; build, español y catálogo OK. Sin cambios de API, IDs, catálogo ni datos. Producción de partida `16a1bb7`; no desplegado.
+
 ### Sprint 2 — Cardio inteligente + tests útiles (2026-10-06) — NOT DEPLOYED
 
 - El motor `progression.js` ahora progresa cardio de forma determinista: duración primero (+1 min hasta 30), ritmo después (+0,5 km/h); un fallo mantiene y dos reducen solo la variable incumplida. Guarda el objetivo de cada sesión dentro de la entrada histórica existente, sin editar la rutina.
