@@ -85,4 +85,39 @@ test('"Rutina revisada": admin closes the notice, the cycle restarts, the routin
   assert.equal((await req('GET', '/api/admin/user/followup?id=member1')).body.alerts.some(x => x.code === 'routine_review'), false);
 });
 
+test('manual cycle dates: admin-only, saved additively, they prevail, resetting goes back to automatic, "reviewed" clears them', async () => {
+  seed();
+  const post = (uid, payload) => req('POST', '/api/admin/user/routine-cycle', { uid, body: { id: 'member1', routineId: 'r1', ...payload } });
+  const withSync = async payload => { const sync = (await req('GET', '/api/admin/user/followup?id=member1')).body.sync; return { ...payload, ...(sync ? { sync, operationId: crypto.randomUUID() } : {}) }; };
+  for (const uid of ['member2', 'trainer1']) assert.equal((await post(uid, { start: todayIso() })).status, 403, uid);
+  assert.equal((await post('admin1', {})).status, 400, 'nothing to change');
+  assert.equal((await post('admin1', await withSync({ start: 'not-a-date' }))).status, 400);
+  assert.equal((await post('admin1', await withSync({ start: todayIso(), due: addDays(todayIso(), -3) }))).status, 400, 'review before start');
+  const readCycle = async () => (await req('GET', '/api/admin/user/followup?id=member1')).body.routineCycles.find(c => c.routineId === 'r1');
+  const auto = await readCycle();
+  assert.equal(auto.startManual, false); assert.equal(auto.dueManual, false); assert.equal(auto.status, 'due');
+  // a far-future manual review date prevails: no alert any more
+  const farDue = addDays(todayIso(), 30);
+  const set = await post('admin1', await withSync({ due: farDue }));
+  assert.equal(set.status, 200); assert.equal(set.body.cycle.dueManual, true); assert.equal(set.body.cycle.dueDate, farDue);
+  let r = await req('GET', '/api/admin/user/followup?id=member1');
+  assert.equal(r.body.alerts.some(x => x.code === 'routine_review'), false);
+  const S1 = (await req('GET', '/api/data', { uid: 'member1' })).body.state;
+  assert.equal(S1.routineReviews.r1.dueOverride, farDue); assert.equal(S1.routineReviews.r1.manualBy, 'admin1');
+  // a past manual start moves the cycle start; a past manual review date makes it due again
+  assert.equal((await post('admin1', await withSync({ start: addDays(todayIso(), -50), due: addDays(todayIso(), -1) }))).status, 200);
+  const c2 = await readCycle(); assert.equal(c2.startManual, true); assert.equal(c2.status, 'due');
+  assert.ok((await req('GET', '/api/admin/user/followup?id=member1')).body.alerts.some(x => x.code === 'routine_review'));
+  // reset both to automatic: nothing manual is left behind
+  assert.equal((await post('admin1', await withSync({ start: null, due: '' }))).status, 200);
+  const S2 = (await req('GET', '/api/data', { uid: 'member1' })).body.state;
+  assert.equal(S2.routineReviews, undefined); const c3 = await readCycle(); assert.equal(c3.startManual, false); assert.equal(c3.dueManual, false);
+  // "Rutina revisada" clears the manual values of the closed cycle and restarts it
+  await post('admin1', await withSync({ due: addDays(todayIso(), -2) }));
+  assert.equal((await req('POST', '/api/admin/user/routine-reviewed', { body: await withSync({ id: 'member1', routineId: 'r1' }) })).status, 200);
+  const S3 = (await req('GET', '/api/data', { uid: 'member1' })).body.state;
+  assert.deepEqual(Object.keys(S3.routineReviews.r1).sort(), ['by', 'n', 'reviewedAt']);
+  assert.equal((await readCycle()).dueManual, false);
+});
+
 test.after(() => { child.kill(); });

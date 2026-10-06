@@ -11,6 +11,7 @@ import { PAIN_ZONE } from '../lib/checkin.js'
 import { Button, Row, SelectRow } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
 import { Surface, Pill, Stat } from '../components/v2.jsx'
+import { stateAction } from '../lib/state-action.js'
 
 // Seguimiento V2 — staff follow-up card inside the admin member detail. Server:
 // api/lib/followup.js (admin-only; check-ins only when the member shared them). Everything
@@ -35,6 +36,40 @@ export function alertText(a) {
   if (a.code === 'high_fatigue') return t('High fatigue reported {0} times in 14 days', a.n)
   if (a.code === 'repeated_discomfort') return t('Discomfort in {0} reported {1} times in 14 days', t(PAIN_ZONE[a.zone]?.label || a.zone).toLowerCase(), a.n)
   return a.code
+}
+
+/* Routine review cycle (staff): when each routine started and when it is due for review. Automatic by default (first workout; week 5, or week 4 on a clear
+   plateau); a date typed here replaces the automatic one until cleared or until "Routine reviewed" restarts the cycle. Saves on change, no reload. */
+function CycleDate({ label, value, manual, onSet, onAuto }) {
+  return <label className="v3-cy-f"><span>{label}</span>
+    <input type="date" className="timef" value={value || ''} onChange={e => e.target.value && onSet(e.target.value)} />
+    <em className={manual ? 'man' : ''}>{manual ? t('Manual') : t('Automatic')}</em>
+    {manual && <button type="button" className="v3-link" onClick={onAuto}>{t('Use automatic')}</button>}
+  </label>
+}
+function RoutineCycles({ id, cycles, sync, setData }) {
+  const toast = useUI(s => s.toast)
+  const [busy, setBusy] = useState(false)
+  const write = (c, payload, done) => {
+    if (busy) return
+    setBusy(true)
+    stateAction('/api/admin/user/' + done.path, { id, routineId: c.routineId, ...payload }, sync)
+      .then(r => { setData(d => ({ ...d, sync: r.sync || d.sync, routineCycles: done.reviewed ? d.routineCycles : d.routineCycles.map(x => (x.routineId === c.routineId && r.cycle ? r.cycle : x)) })); toast(done.msg); if (done.reviewed) done.reload() })
+      .catch(e => toast(e.message || t('That date is not valid')))
+      .finally(() => setBusy(false))
+  }
+  return <Surface className="v3-cy">
+    <div className="v2-eyebrow"><Icon name="clipboard" /> {t('Routine review cycle')}</div>
+    {cycles.map(c => <div key={c.routineId} className="v3-cy-row">
+      <div className="row between" style={{ gap: 8 }}><b className="v3-cy-n">{c.name}</b>
+        {(c.status === 'due' || c.status === 'early') && <Pill tone="gold">{t('Review due')}</Pill>}</div>
+      <CycleDate label={t('Routine start')} value={c.start} manual={c.startManual}
+        onSet={v => write(c, { start: v }, { path: 'routine-cycle', msg: t('Cycle updated') })} onAuto={() => write(c, { start: null }, { path: 'routine-cycle', msg: t('Cycle updated') })} />
+      <CycleDate label={t('Review date')} value={c.dueDate} manual={c.dueManual}
+        onSet={v => write(c, { due: v }, { path: 'routine-cycle', msg: t('Cycle updated') })} onAuto={() => write(c, { due: null }, { path: 'routine-cycle', msg: t('Cycle updated') })} />
+      <Button size="sm" variant="tinted" icon="check" onClick={() => write(c, {}, { path: 'routine-reviewed', msg: t('Review closed'), reviewed: true, reload: () => api('/api/admin/user/followup?id=' + encodeURIComponent(id)).then(setData).catch(() => {}) })}>{t('Routine reviewed')}</Button>
+    </div>)}
+  </Surface>
 }
 
 function FollowUpSetup({ id, current, onSaved, close }) {
@@ -91,6 +126,7 @@ export default function AdminFollowUp({ id }) {
   const status = !f ? '' : overdue ? 'overdue' : s.nextReview && s.nextReview <= today ? 'due' : ''
   return <section className="fu">
     <h4 className="sec">{t('Follow-up')}</h4>
+    {(d.routineCycles || []).length > 0 && <RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync} setData={setD} />}
     {!f ? <div className="card fu-empty">
       <div className="muted small">{t('No follow-up yet. Choose an assessment template and how often to review.')}</div>
       <Button icon="plus" onClick={setup}>{t('Start follow-up')}</Button>

@@ -117,3 +117,9 @@
 .v3-rr-why { margin: 0; padding-left: 18px; color: var(--label-2); font-size: 13px; line-height: 1.45; }
 .v3-rr-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
 .v3-att-rr { list-style: none; margin-left: -18px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding: 8px 0 2px; } .v3-att-rr small { color: var(--label-3); }
+.v3-cy { padding: 14px 16px; margin: 0 0 12px; display: flex; flex-direction: column; gap: 12px; }
+.v3-cy-row { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--sep); } .v3-cy-row:first-of-type { border-top: 0; padding-top: 0; }
+.v3-cy-n { overflow-wrap: anywhere; }
+.v3-cy-f { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; } .v3-cy-f > span { grid-column: 1 / -1; font-size: 12px; color: var(--label-2); }
+.v3-cy-f .timef { min-height: 44px; min-width: 0; } .v3-cy-f em { font-style: normal; font-size: 12px; color: var(--label-3); } .v3-cy-f em.man { color: var(--acc); font-weight: 700; }
+.v3-cy-f .v3-link { grid-column: 1 / -1; justify-self: start; min-height: 32px; }

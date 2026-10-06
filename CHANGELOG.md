@@ -8,8 +8,8 @@ version number in `package.json` is bumped when the release is tagged. Entries b
 ### Seguimiento V4 — routine review loop (2026-10-06) — NOT DEPLOYED
 
 - A routine is reviewed in week 5 of its cycle, or in week 4 when the logged data shows a clear plateau (≥ 3 sessions; never from one bad session). Deterministic rules on loads/reps, missed sets, RPE/RIR and the post-set feeling; the routine is never edited.
-- Member: notice on Seguimiento and Home with the reason from their own numbers. Staff: `routine_review` alert in "Needs attention" with "Routine reviewed" (restarts the cycle). Cycle derived from existing data — no migration.
-- `POST /api/admin/user/routine-reviewed` (admin only); `GET /api/admin/user/followup` also returns the member's sync revision. Tests: `lib/routine-review.test.js`, `views/routine-review-ui.test.jsx`, `api/test/routine-review.test.js`.
+- Member: notice on Seguimiento and Home with the reason from their own numbers (cannot close it). Staff: `routine_review` alert in "Needs attention" with "Routine reviewed" (restarts the cycle, clears manual dates), and editable start / review dates in the staff Seguimiento (manual prevails; reset = automatic). Cycle derived from existing data; manual dates are additive fields — no migration.
+- `POST /api/admin/user/routine-reviewed` and `POST /api/admin/user/routine-cycle` (admin only); `GET /api/admin/user/followup` also returns the member's sync revision. Tests: `lib/routine-review.test.js`, `views/routine-review-ui.test.jsx`, `api/test/routine-review.test.js`.
 
 ### Sprint 3 — Hardening, privacy and release readiness (2026-10-04) — NOT DEPLOYED
 

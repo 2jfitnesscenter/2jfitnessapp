@@ -44,7 +44,8 @@ describe('member', () => {
   const routines = [{ id: 'r1', name: 'Push day', emoji: 'dumbbell', ex: [] }]
   it('Seguimiento shows the notice with the routine, the week, the data-based reason and both actions', async () => {
     const h = await renderView('Seguimiento', { routines, workouts: flat('2026-09-15') })      // 21 days → week 4, flat loads → brought forward
-    for (const k of ['Routine review', 'Push day', 'Week 4 with this routine', 'Brought forward: the data shows a plateau.', 'No progress in 2 of 2 exercises', 'View routine', 'Routine reviewed']) expect(h).toContain(k)
+    for (const k of ['Routine review', 'Push day', 'Week 4 with this routine', 'Brought forward: the data shows a plateau.', 'No progress in 2 of 2 exercises', 'View routine']) expect(h).toContain(k)
+    expect(h).not.toContain('Routine reviewed')            // only staff can close the review
   })
   it('no notice without a reason: normal progress in week 4, or fewer than 3 sessions', async () => {
     const progressing = flat('2026-09-15').map((w, i) => ({ ...w, entries: [{ id: 'A', target: w.entries[0].target, sets: [set(60 + i * 2.5, 8)] }, { id: 'B', target: w.entries[1].target, sets: [set(40 + i * 2.5, 8)] }] }))
@@ -53,13 +54,13 @@ describe('member', () => {
   })
   it('Home shows one compact notice when a review is due, nothing otherwise', async () => {
     const due = await renderView('Home', { routines, workouts: flat('2026-09-08') })            // 28 days → week 5
-    expect(due).toContain('Routine review'); expect(due).toContain('Routine reviewed')
+    expect(due).toContain('Routine review'); expect(due).toContain('View routine'); expect(due).not.toContain('Routine reviewed')
     expect(await renderView('Home', { routines, workouts: [] })).not.toContain('Routine review')
   })
-  it('the routine itself is never edited by the notice (only S.routineReviews is written)', () => {
+  it('the member cannot close or edit anything from the notice: no markReviewed / setCycleDates anywhere in the member screens', () => {
     const card = readFileSync(new URL('../components/RoutineReviewCard.jsx', import.meta.url), 'utf8')
-    expect(card).not.toMatch(/update\(|routines/)
-    for (const f of ['Seguimiento', 'Home']) expect(readFileSync(new URL(`./${f}.jsx`, import.meta.url), 'utf8')).toMatch(/markReviewed\(st, [A-Za-z.]*routineId, todayISO\(\), 'member'\)/)
+    expect(card).not.toMatch(/update\(|routines|onDone|Routine reviewed/)
+    for (const f of ['Seguimiento', 'Home']) expect(readFileSync(new URL(`./${f}.jsx`, import.meta.url), 'utf8')).not.toMatch(/markReviewed|setCycleDates|routineReviews/)
   })
 })
 
@@ -69,6 +70,10 @@ describe('staff ("Needs attention", admin only)', () => {
     expect(src).toContain("a.code === 'routine_review'"); expect(src).toContain("t('Routine reviewed')")
     expect(src).toContain("stateAction('/api/admin/user/routine-reviewed', { id: r.user.id, routineId: a.routineId }, r.sync)")
     expect(src).toContain("if (!user?.admin) return null")
+  })
+  it('the staff Seguimiento (AdminFollowUp) edits start and review date in place and can close the review', () => {
+    const fu = readFileSync(new URL('./AdminFollowUp.jsx', import.meta.url), 'utf8')
+    for (const k of ["t('Routine start')", "t('Review date')", "t('Use automatic')", "'routine-cycle'", "'routine-reviewed'", 'type="date"']) expect(fu).toContain(k)
   })
   it('alert text names the routine and its week', async () => {
     memory = new Map(); await boot()

@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The words for a routine-review notice (lib/routine-review.js decides; this only phrases the numbers behind it). Shared by the member card and the staff list.
 import { t } from './i18n.js'
-import { exCount } from './format.js'
+import { exCount, fmtDate } from './format.js'
 
 /** One short sentence for a reason { code, n, of, week }. */
 export function reasonText(r) {
   switch (r.code) {
+    case 'date': return t('Review date set by staff: {0}.', fmtDate(r.due))
     case 'week': return t('Week {0} with this routine — time to review it.', r.week)
     case 'stalled': return t('No progress in {0} of {1} exercises over their last 3 sessions.', r.n, r.of)
     case 'misses': return t('Missed reps or sets repeated in {0}.', exCount(r.n))

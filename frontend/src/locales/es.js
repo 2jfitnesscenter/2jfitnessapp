@@ -4369,4 +4369,13 @@ export default {
   'Routine review: {0} (week {1})': 'Revisión de rutina: {0} (semana {1})',
   'Routine reviewed': 'Rutina revisada',
   'Review closed': 'Revisión cerrada',
+  'Review date set by staff: {0}.': 'Fecha de revisión fijada por el equipo: {0}.',
+  'Routine review cycle': 'Ciclo de revisión de rutina',
+  'Routine start': 'Inicio de la rutina',
+  'Review date': 'Fecha de revisión',
+  'Manual': 'Manual',
+  'Use automatic': 'Usar automática',
+  'Review due': 'Toca revisión',
+  'Cycle updated': 'Ciclo actualizado',
+  'That date is not valid': 'Esa fecha no es válida',
 }

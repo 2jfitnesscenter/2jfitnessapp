@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { uxOn } from '../lib/features.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { fmtDate, fmtNum, todayISO } from '../lib/format.js'
+import { fmtDate, fmtNum } from '../lib/format.js'
 import { useFollowUp } from '../lib/followup-view.js'
 import { followupDigest } from '../lib/followup-v3.js'
 import { checkinOn } from '../lib/checkin.js'
@@ -13,8 +13,6 @@ import CheckInCard from '../components/CheckInCard.jsx'
 import { Surface, Stat, EmptyState } from '../components/v2.jsx'
 import { Button } from '../components/ui.jsx'
 import RoutineReviewCard from '../components/RoutineReviewCard.jsx'
-import { markReviewed } from '../lib/routine-review.js'
-import { useUI } from '../store/useUI.js'
 
 /* Seguimiento V3 — "how am I doing with my plan": goal, last weeks, next review, today's check-in, coach notes and plan changes. Reuses the gym's existing
    follow-up schedule (GET /api/followup) and the existing check-in; only blocks that have real content are drawn. */
@@ -23,8 +21,6 @@ export default function Seguimiento() {
   const S = useStore(s => s.S)
   useStore(s => s.features)
   const fu = useFollowUp()
-  const update = useStore(s => s.update)
-  const toast = useUI(s => s.toast)
   const [editing, setEditing] = useState(false)
   const d = followupDigest(S, fu)
   const checkinAllowed = uxOn(S, 'health')
@@ -38,8 +34,7 @@ export default function Seguimiento() {
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('My follow-up')}</h1></div>
     </div>
 
-    {d.reviews.map(rv => <RoutineReviewCard key={rv.routineId} review={rv} onView={() => nav('/plan/r/' + rv.routineId)}
-      onDone={() => { update(st => { markReviewed(st, rv.routineId, todayISO(), 'member') }); toast(t('Review closed')) }} />)}
+    {d.reviews.map(rv => <RoutineReviewCard key={rv.routineId} review={rv} onView={() => nav('/plan/r/' + rv.routineId)} />)}
 
     {(d.goal || ev) && <Surface raised className="v3-fu-hero">
       {d.goal && <div className="v3-fu-goal"><span className="v2-eyebrow">{t('Current goal')}</span><b>{t(d.goal)}</b></div>}

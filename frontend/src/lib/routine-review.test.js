@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cycleStart, markReviewed, pendingReviews, plateau, routineReviews } from './routine-review.js'
+import { cycleStart, markReviewed, pendingReviews, plateau, routineReviews, setCycleDates } from './routine-review.js'
 import { followupDigest } from './followup-v3.js'
 import { rankAttention } from './attention.js'
 
@@ -114,8 +114,8 @@ describe('"Rutina revisada"', () => {
     const today = addDays(FIRST, 28)
     const before = JSON.stringify(S.routines)
     expect(pendingReviews(S, today)).toHaveLength(1)
-    expect(markReviewed(S, 'r1', today, 'member')).toBe(true)
-    expect(S.routineReviews.r1).toEqual({ reviewedAt: today, by: 'member', n: 1 })
+    expect(markReviewed(S, 'r1', today, 'staff1')).toBe(true)
+    expect(S.routineReviews.r1).toEqual({ reviewedAt: today, by: 'staff1', n: 1 })
     expect(JSON.stringify(S.routines)).toBe(before)
     expect(pendingReviews(S, today)).toEqual([])
     expect(routineReviews(S, today)[0]).toMatchObject({ status: 'idle', week: 1, source: 'reviewed' })
@@ -124,6 +124,7 @@ describe('"Rutina revisada"', () => {
     expect(pendingReviews(S, addDays(today, 27))).toEqual([])
     expect(pendingReviews(S, addDays(today, 28))).toHaveLength(1)
     expect(markReviewed(S, 'r1', addDays(today, 28), 'staff1')).toBe(true)
+    expect(S.routineReviews.r1.by).toBe('staff1')
     expect(S.routineReviews.r1.n).toBe(2)
   })
   it('refuses an unknown routine or a bad date', () => {
@@ -160,5 +161,88 @@ describe('what the member and the staff get', () => {
     expect(rankAttention([row(false)], '2026-10-06').soon).toHaveLength(1)
     expect(rankAttention([row(true)], '2026-10-06').urgent).toHaveLength(1)
     expect(rankAttention([{ user: { id: 'u2' }, summary: {}, alerts: [] }], '2026-10-06').onTrack).toHaveLength(1)
+  })
+})
+
+describe('RPE / RIR are read on one scale before the trend is compared', () => {
+  const flatRows = [[60, 8, 40, 8], [60, 8, 40, 8], [60, 8, 40, 8], [60, 8, 40, 8], [60, 8, 40, 8]]
+  const effort = fn => plateau(sessions(FIRST, flatRows, fn)).reasons.some(r => r.code === 'effort_up')
+  it('higher RPE is harder; LOWER RIR is harder (RPE = 10 − RIR)', () => {
+    expect(effort(i => ({ rpe: [7, 7.5, 8.5, 9, 9][i] }))).toBe(true)         // RPE up → harder
+    expect(effort(i => ({ rir: [3, 3, 2, 1, 1][i] }))).toBe(true)             // RIR down → harder
+    expect(effort(i => ({ rpe: [9, 9, 8.5, 7.5, 7][i] }))).toBe(false)       // RPE down → easier
+    expect(effort(i => ({ rir: [1, 1, 2, 3, 3][i] }))).toBe(false)            // RIR up → easier
+  })
+  it('sets logged with RIR in some sessions and RPE in others are compared on the same scale', () => {
+    expect(effort(i => (i < 2 ? { rir: 3 } : { rpe: 9 }))).toBe(true)          // RIR 3 = RPE 7 → RPE 9
+    expect(effort(i => (i < 2 ? { rir: 1 } : { rpe: 7 }))).toBe(false)         // RIR 1 = RPE 9 → RPE 7
+    expect(effort(i => (i < 2 ? { rpe: 8 } : { rir: 2 }))).toBe(false)         // RPE 8 = RIR 2: same effort
+  })
+})
+
+describe('manual cycle dates (staff)', () => {
+  const S0 = () => state(sessions(FIRST, PROGRESSING))
+  it('without manual values the automatic rules are unchanged', () => {
+    const r = routineReviews(S0(), addDays(FIRST, 28))[0]
+    expect(r).toMatchObject({ start: FIRST, startManual: false, dueManual: false, dueDate: addDays(FIRST, 28), status: 'due' })
+  })
+  it('a manual start date prevails over the first workout (and its weeks follow it)', () => {
+    const S = S0()
+    expect(setCycleDates(S, 'r1', { start: '2026-09-10' }, 'staff1')).toBe(true)
+    expect(cycleStart(S, ROUTINE)).toMatchObject({ start: '2026-09-10', source: 'manual' })
+    const r = routineReviews(S, '2026-09-30')[0]
+    expect(r).toMatchObject({ startManual: true, start: '2026-09-10', week: 3 })
+    expect(r.status).not.toBe('due')
+    expect(routineReviews(S, '2026-10-08')[0]).toMatchObject({ week: 5 })
+    expect(S.routineReviews.r1.manualBy).toBe('staff1')
+  })
+  it('a manual review date prevails over week 5 and over the plateau rule, in both directions', () => {
+    const S = S0()
+    expect(setCycleDates(S, 'r1', { due: addDays(FIRST, 60) }, 's')).toBe(true)
+    expect(routineReviews(S, addDays(FIRST, 35))[0]).toMatchObject({ status: 'ok', dueManual: true, dueDate: addDays(FIRST, 60), early: false })   // week 6 but not due yet
+    expect(pendingReviews(S, addDays(FIRST, 35))).toEqual([])
+    expect(routineReviews(S, addDays(FIRST, 55))[0].status).toBe('soon')
+    const due = routineReviews(S, addDays(FIRST, 60))[0]
+    expect(due).toMatchObject({ status: 'due', dueManual: true })
+    expect(due.reasons[0]).toEqual({ code: 'date', due: addDays(FIRST, 60) })
+    // a plateau cannot bring a manual date forward; an earlier manual date makes it due before week 5
+    const S2 = state(sessions(FIRST, FLAT)); setCycleDates(S2, 'r1', { due: addDays(FIRST, 40) }, 's')
+    expect(routineReviews(S2, addDays(FIRST, 21))[0]).toMatchObject({ status: 'ok', early: false })
+    const S3 = S0(); setCycleDates(S3, 'r1', { due: addDays(FIRST, 10) }, 's')
+    expect(routineReviews(S3, addDays(FIRST, 10))[0].status).toBe('due')
+  })
+  it('clearing a manual value returns to the automatic calculation', () => {
+    const S = S0()
+    setCycleDates(S, 'r1', { start: '2026-09-10', due: '2026-10-30' }, 's')
+    expect(setCycleDates(S, 'r1', { start: null }, 's')).toBe(true)
+    expect(cycleStart(S, ROUTINE)).toMatchObject({ start: FIRST, source: 'first' })
+    expect(routineReviews(S, addDays(FIRST, 50))[0].dueManual).toBe(true)
+    expect(setCycleDates(S, 'r1', { due: '' }, 's')).toBe(true)
+    expect(S.routineReviews).toBeUndefined()                                   // nothing left over: back to a clean automatic state
+    expect(routineReviews(S, addDays(FIRST, 28))[0]).toMatchObject({ status: 'due', dueManual: false, startManual: false })
+  })
+  it('"Routine reviewed" restarts coherently: it clears the manual dates of the closed cycle', () => {
+    const S = S0()
+    setCycleDates(S, 'r1', { start: '2026-09-02', due: '2026-10-01' }, 's')
+    expect(pendingReviews(S, '2026-10-01')).toHaveLength(1)
+    markReviewed(S, 'r1', '2026-10-01', 'staff1')
+    expect(S.routineReviews.r1).toEqual({ reviewedAt: '2026-10-01', by: 'staff1', n: 1 })
+    expect(pendingReviews(S, '2026-10-01')).toEqual([])
+    expect(routineReviews(S, '2026-10-01')[0]).toMatchObject({ source: 'reviewed', startManual: false, dueManual: false, week: 1 })
+    // staff may then set a new manual date for the new cycle, and the review mark is kept
+    expect(setCycleDates(S, 'r1', { due: '2026-11-15' }, 's')).toBe(true)
+    expect(S.routineReviews.r1).toMatchObject({ reviewedAt: '2026-10-01', dueOverride: '2026-11-15' })
+  })
+  it('rejects invalid input and never touches the routine', () => {
+    const S = S0(); const before = JSON.stringify(S.routines)
+    for (const bad of [{ start: 'nope' }, { due: '2026-02-31' }, { start: '1999-01-01' }, { due: 20261001 }]) expect(setCycleDates(S, 'r1', bad, 's')).toBe(false)
+    expect(setCycleDates(S, 'zzz', { start: '2026-09-10' }, 's')).toBe(false)
+    expect(setCycleDates(S, 'r1', { start: '2026-09-20', due: '2026-09-10' }, 's')).toBe(false)   // review before start
+    expect(S.routineReviews).toBeUndefined()
+    expect(JSON.stringify(S.routines)).toBe(before)
+  })
+  it('a stored manual date that makes no sense (review before start) is ignored; entries without the new fields behave as before', () => {
+    const S = S0(); S.routineReviews = { r1: { reviewedAt: '2026-09-20', by: 'x', n: 1, dueOverride: '2026-09-01' } }
+    expect(routineReviews(S, '2026-10-01')[0]).toMatchObject({ dueManual: false, start: '2026-09-20' })
   })
 })

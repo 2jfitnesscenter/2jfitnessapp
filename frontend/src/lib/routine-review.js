@@ -5,6 +5,8 @@
 // It NEVER edits a routine, a load or a program: it only says "this routine is worth a look", and why, from numbers the member already logged.
 //
 // Cycle of a routine (nothing is stored when it starts — it is derived, so old data needs no migration):
+//   Staff may set the dates by hand (S.routineReviews[id].startOverride / dueOverride, additive — absent = automatic). A manual start replaces the derived one; a
+//   manual review date replaces the week-5/week-4 rule for that cycle. "Reviewed" clears both and restarts the cycle; setCycleDates(…, null) goes back to automatic.
 //   start  = the latest of: the day the member/staff marked it reviewed (S.routineReviews[id].reviewedAt) and the day staff last replaced it (the newest
 //            S.routineVersions[id] snapshot); with neither, the date of its first logged workout. No workout and no mark → no cycle, no notice.
 //   week   = floor(days since start / 7) + 1.   Review is due from week 5; from week 4 when the plateau is clear. Needs ≥ MIN_SESSIONS sessions.
@@ -41,10 +43,13 @@ const repFloor = entry => {
 const entriesOf = w => (Array.isArray(w?.entries) ? w.entries : []).filter(e => e && typeof e === 'object')
 const mean = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null)
 
-/** Start of the current cycle of routine `r`, or null when it has not started. { start, source: 'reviewed'|'version'|'first', exclusive } */
+const isDate = x => ISO.test(x || '') && new Date(day(x)).toISOString().slice(0, 10) === x && x >= '2000-01-01' && x <= '2100-12-31'
+
+/** Start of the current cycle of routine `r`, or null when it has not started. { start, source: 'manual'|'reviewed'|'version'|'first', exclusive } */
 export function cycleStart(S, r) {
   const id = r?.id
   if (!id) return null
+  if (isDate(S?.routineReviews?.[id]?.startOverride)) return { start: S.routineReviews[id].startOverride, source: 'manual', exclusive: false }
   const reviewed = S?.routineReviews?.[id]?.reviewedAt
   const versions = Array.isArray(S?.routineVersions?.[id]) ? S.routineVersions[id] : []
   const lastVersion = versions.reduce((m, v) => (num(v?.versionedAt) && v.versionedAt > m ? v.versionedAt : m), 0)
@@ -139,13 +144,22 @@ export function routineReviews(S, today) {
     const sessions = cycleSessions(S, r, cycle, today)
     const days = Math.max(0, daysBetween(cycle.start, today))
     const week = Math.floor(days / 7) + 1
-    const base = { routineId: r.id, name: r.name || '', start: cycle.start, source: cycle.source, week, days, sessions: sessions.length }
+    const manualDue = S?.routineReviews?.[r.id]?.dueOverride
+    const dueManual = isDate(manualDue) && manualDue >= cycle.start ? manualDue : null
+    const dueDate = dueManual || addDays(cycle.start, (REVIEW_WEEK - 1) * 7)
+    const base = { routineId: r.id, name: r.name || '', start: cycle.start, source: cycle.source, startManual: cycle.source === 'manual', dueDate, dueManual: !!dueManual, week, days, sessions: sessions.length }
+    if (dueManual) {      // the staff date decides, whatever the session count or plateau
+      const p0 = plateau(sessions)
+      const left = daysBetween(today, dueManual)
+      if (left <= 0) out.push({ ...base, status: 'due', early: false, late: -left >= LATE_DAYS, reasons: [{ code: 'date', due: dueManual }, ...p0.reasons] })
+      else out.push({ ...base, status: left <= 7 ? 'soon' : 'ok', early: false, late: false, reasons: p0.reasons })
+      continue
+    }
     if (sessions.length < MIN_SESSIONS) { out.push({ ...base, status: 'idle', reasons: [] }); continue }
     const p = plateau(sessions)
-    const dueDate = addDays(cycle.start, (REVIEW_WEEK - 1) * 7)
-    if (week >= REVIEW_WEEK) out.push({ ...base, status: 'due', early: false, dueDate, late: daysBetween(dueDate, today) >= LATE_DAYS, reasons: [{ code: 'week', week }, ...p.reasons] })
-    else if (week >= EARLY_WEEK && p.clear) out.push({ ...base, status: 'early', early: true, dueDate: today, late: false, reasons: p.reasons })
-    else if (week >= EARLY_WEEK) out.push({ ...base, status: 'soon', early: false, dueDate, late: false, reasons: p.reasons })
+    if (week >= REVIEW_WEEK) out.push({ ...base, status: 'due', early: false, late: daysBetween(dueDate, today) >= LATE_DAYS, reasons: [{ code: 'week', week }, ...p.reasons] })
+    else if (week >= EARLY_WEEK && p.clear) out.push({ ...base, status: 'early', early: true, late: false, reasons: p.reasons })
+    else if (week >= EARLY_WEEK) out.push({ ...base, status: 'soon', early: false, late: false, reasons: p.reasons })
     else out.push({ ...base, status: 'ok', reasons: p.reasons })
   }
   return out
@@ -155,11 +169,36 @@ export function routineReviews(S, today) {
 export const pendingReviews = (S, today) =>
   routineReviews(S, today).filter(r => r.status === 'due' || r.status === 'early').sort((a, b) => b.days - a.days)
 
-/** "Rutina revisada": closes the notice and restarts the cycle from today. Writes only S.routineReviews; never the routine. */
+/** "Rutina revisada" (staff): closes the notice and restarts the cycle from today; the manual dates of the closed cycle are cleared. Writes only S.routineReviews. */
 export function markReviewed(S, routineId, today, by) {
-  if (!(S?.routines || []).some(r => r.id === routineId) || !ISO.test(today || '')) return false
+  if (!(S?.routines || []).some(r => r.id === routineId) || !isDate(today)) return false
   S.routineReviews = S.routineReviews || {}
   const prev = S.routineReviews[routineId]
-  S.routineReviews[routineId] = { reviewedAt: today, by: by || 'member', n: (prev?.n || 0) + 1 }
+  S.routineReviews[routineId] = { reviewedAt: today, by: by || 'staff', n: (prev?.n || 0) + 1 }
+  return true
+}
+
+/**
+ * Manual control of the cycle (staff). patch = { start?, due? }: a YYYY-MM-DD sets it, null / '' goes back to automatic, undefined leaves it. Additive fields on
+ * S.routineReviews[id]; nothing else is written and the routine is never touched. false when the routine is unknown, a date is invalid, or review < start.
+ */
+export function setCycleDates(S, routineId, patch, by) {
+  const r = (S?.routines || []).find(x => x.id === routineId)
+  if (!r || !patch || typeof patch !== 'object') return false
+  const cur = { ...(S.routineReviews?.[routineId] || {}) }
+  for (const [k, field] of [['start', 'startOverride'], ['due', 'dueOverride']]) {
+    const v = patch[k]
+    if (v === undefined) continue
+    if (v === null || v === '') delete cur[field]
+    else if (isDate(v)) cur[field] = v
+    else return false
+  }
+  const probe = { ...S, routineReviews: { ...(S.routineReviews || {}), [routineId]: cur } }
+  const start = cycleStart(probe, r)?.start
+  if (cur.dueOverride && start && cur.dueOverride < start) return false
+  if (cur.startOverride || cur.dueOverride) cur.manualBy = by || 'staff'; else delete cur.manualBy
+  S.routineReviews = S.routineReviews || {}
+  if (Object.keys(cur).length) S.routineReviews[routineId] = cur; else delete S.routineReviews[routineId]
+  if (!Object.keys(S.routineReviews).length) delete S.routineReviews
   return true
 }

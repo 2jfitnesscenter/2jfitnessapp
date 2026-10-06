@@ -54,7 +54,7 @@ import { EQUIPMENT } from './lib/protocol/movements.js';
 import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesOf } from './lib/plan-meta.js';
 import { expectedOrigins } from './lib/webauthn-origins.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
-import { markReviewed } from './lib/routine-review.js';
+import { markReviewed, setCycleDates, routineReviews } from './lib/routine-review.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
@@ -121,6 +121,9 @@ const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(us
 // has to grant themselves a separate flag to use the trainer-only endpoints below.
 const isTrainer = user => !!user && (user.trainer === true || isAdmin(user));
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
+// What the staff Seguimiento shows of one routine-review cycle.
+const cycleView = r => ({ routineId: r.routineId, name: r.name, start: r.start, startManual: !!r.startManual, dueDate: r.dueDate, dueManual: !!r.dueManual,
+  status: r.status, week: r.week, sessions: r.sessions, early: !!r.early, late: !!r.late });
 function atomicWrite(file, content) {
   const tmp = file + '.tmp';
   fs.writeFileSync(tmp, content);
@@ -1342,8 +1345,10 @@ const routes = {
     const f = u.followUp || null;
     const S = readState(u.id) || {};
     const { summary, alerts } = followUpSummary(S, f, today);
+    // The routine-review cycles the staff can adjust (start / review date, automatic or manual) — see lib/routine-review.js.
+    const routineCycles = routineReviews(S, today).map(cycleView);
     // sync = the revision a staff write on this member (e.g. "Rutina revisada") must present, same contract as GET /api/admin/user.
-    json(res, 200, { followUp: f && { ...f, keys: templateKeys(f) }, summary, alerts, sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null });
+    json(res, 200, { followUp: f && { ...f, keys: templateKeys(f) }, summary, alerts, routineCycles, sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null });
   },
   // body: { id, template: basic|intermediate|pro|custom, keys?, cadence: weekly|biweekly|monthly|custom, days?, startedAt? } — or { id, stop: true }.
   'POST /api/admin/user/followup': async (req, res) => {
@@ -1366,6 +1371,26 @@ const routes = {
     if (!u.followUp) return json(res, 400, { error: 'este miembro no tiene seguimiento activo' });
     u.followUp = addReview(u.followUp, new Date().toISOString().slice(0, 10), staff.id); saveDb();
     json(res, 200, { ok: true, followUp: { ...u.followUp, keys: templateKeys(u.followUp) } });
+  },
+  // Manual control of one routine's review cycle (Seguimiento, staff): body { id, routineId, start?, due? } — a YYYY-MM-DD sets it, null/'' returns to automatic,
+  // absent leaves it. Additive fields on S.routineReviews[routineId]; nothing else is written. Admin-only; replay-safe like the other admin edits.
+  'POST /api/admin/user/routine-cycle': async (req, res) => {
+    const staff = requireAdmin(req, res); if (!staff) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const S = readState(u.id);
+    if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado' });
+    const replay = directReceipt(S, body, 'admin-routine-cycle');
+    if (replay) return json(res, 200, replay);
+    const patch = {};
+    for (const k of ['start', 'due']) if (Object.prototype.hasOwnProperty.call(body, k)) patch[k] = body[k];
+    if (!Object.keys(patch).length) return json(res, 400, { error: 'nada que cambiar' });
+    if (!setCycleDates(S, String(body.routineId || ''), patch, staff.id)) return json(res, 400, { error: 'fechas o rutina no válidas' });
+    S._ts = Date.now();
+    const cycle = routineReviews(S, new Date().toISOString().slice(0, 10)).map(cycleView).find(c => c.routineId === body.routineId) || null;
+    saveDirect(u.id, S, body, 'admin-routine-cycle', { ok: true, cycle });
+    json(res, 200, { ok: true, cycle, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
   // "Rutina revisada" from the staff side (Requiere atención): closes the routine-review notice and restarts that routine's cycle from today. Writes only
   // S.routineReviews[routineId] on the member's state (same admin write path and replay receipt as the other admin edits); the routine itself is never touched.
