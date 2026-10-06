@@ -5,6 +5,15 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
+## 00b. Sprint 3 — Modo Express + reordenación semanal (código; NO desplegado)
+
+- Producción de partida confirmada: `bcb3eae`; Sprint 2 cardio sigue intacto. Commit funcional: `361d3d4`.
+- Express (15/25/40 min) genera una copia solo para la sesión: preserva primer ejercicio, anclas/básicos/prioridades, restricciones y dolor declarado; elimina dropsets accesorios, reduce series accesorias, retira accesorios desde el final y solo al final reduce series ancla (nunca elimina el ancla). Superseries solo entre accesorios de repeticiones con material igual, grupos musculares disjuntos, descanso y series compatibles. Calentamiento accesorio puede reducirse al último ramp; no modifica objetivo ni progresión cardio. Si el trabajo protegido supera el tiempo, lo avisa en vez de prometer duración imposible.
+- “Recolocar semana” deriva la sesión pendiente más antigua de los últimos 7 días desde `dayPlan`/semana efectiva del programa e historial, y propone el primer hueco vacío en los próximos 7 días sin sesión completada/planificada y con recuperación de grupos grandes. Semana sin hueco: ofrece Express. Un marcador `moved:<fecha>:<routineId>` en el día fuente evita repetir la rutina; el destino conserva el ID normal. Solo se escribe el `dayPlan` existente, no hay planificador/estado paralelo; editar o borrar rutinas limpia vínculos. Sync V2 no se modifica.
+- El entrenamiento activo usa la rutina adaptada; el histórico conserva entradas realmente completadas y metadatos aditivos `sessionPlan`/`rescheduledFrom`; la rutina base queda intacta. `api/coach/payload.js` no cuenta el marcador de origen como otra asignación.
+- Tests Sprint 3: 22 frontend focalizados y 1 API. Suites al cerrar código: frontend 1394/1394; API 423 pass, 5 skipped en ejecución directa Windows (runner prepara Bash/OpenSSL para eliminar skips); build y locales OK. No hay QA manual de dispositivo/navegador reportada.
+- Limitaciones: duración estimada por heurística local, no cronometraje garantizado; reordenación es sugerencia y trabaja con la primera sesión perdida detectada; el miembro confirma cada acción. Estado: pendiente PrepareOnly, no desplegado ni push. No reabrir cardio.
+
 ## 000. Readiness + fatiga + autorregulación + descarga propuesta (código; NO desplegado hasta nuevo aviso; producción confirmada = `bcb3eae`)
 
 - **Autorregulación RPE/RIR** (`lib/autoreg.js`, capa pequeña en `progression.js` → `regulate`, no segundo motor): una sola escala (RPE = 10 − RIR; RPE mayor / RIR menor = más duro). `easy`: últimas 3 sesiones completas, cada una con ≥2 series valoradas a RPE ≤ 7 → un paso real más sobre el planeado (≤ +15 % sobre la última carga; solo linear/double que ya subían). `grind`: últimas 2 completas a RPE ≥ 9 (RIR ≤ 1) → mantener carga. Nunca por una serie o sesión; con `why`/`auto` ('faster'|'slower'); `S.autoreg=false` lo apaga. Las sesiones de descarga se excluyen del progreso (`target.deload`).

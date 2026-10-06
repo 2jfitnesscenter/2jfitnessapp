@@ -6,6 +6,12 @@
 - Progreso muestra resultado reciente/mejor, comparación y fecha para VAM y cada tipo de ergómetro, meta para repetir el test y recordatorio suave a partir de 8 semanas. Una VAM cercana a seis minutos deriva bandas de ritmo orientativas. 1RM no cambia.
 - Frontend 1372/1372; API 422 passed, 5 skipped; build y locales correctos. **No desplegado**; producción de partida confirmada: `bcb3eae`.
 
+### Sprint 3 — Modo Express + reordenación semanal (2026-10-06) — NOT DEPLOYED
+
+- Añade vista previa Express de 15/25/40 min aplicada solo a la sesión: recorta trabajo accesorio primero, protege anclas/restricciones y registra el plan realmente ejecutado sin editar la rutina base. Superseries solo con compatibilidad conservadora; cardio conserva sus objetivos.
+- Home puede proponer recolocar la sesión perdida al hueco cercano más temprano que respeta disponibilidad/recuperación; si no cabe, ofrece Express. Derivado de `dayPlan`, programa efectivo e historial, sin segundo planificador ni cambios a Sync V2.
+- Tests focalizados Sprint 3: frontend 22/22, API 1/1; suite frontend 1394/1394; API 423 pass, 5 skipped en Windows directo; build/locales OK. Producción de partida: `bcb3eae`.
+
 ## Unreleased — v1.4.0 candidate (after v1.3.0, 2026-09-21)
 
 Everything since v1.3.0. Production is `e41f4f9` (2026-10-04: Experience V2 phases 1–4, Sprint 1 WOW, the Progress section order and the Settings add-place form fix; `4c78ecb` carried phases 1–2, `eee3bc2` phases 3–4). The
