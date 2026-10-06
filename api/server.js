@@ -55,6 +55,8 @@ import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesO
 import { expectedOrigins } from './lib/webauthn-origins.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
 import { markReviewed, setCycleDates, routineReviews } from './lib/routine-review.js';
+import { appendSharedAudit, createPinLimiter, hashStaffPin, publicStaffUsers, validateStaffPin, verifyStaffPin } from './lib/shared-staff.js';
+import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
@@ -101,6 +103,11 @@ db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.recoveries = db.recoveries || [];
 db.recoveryRequests = db.recoveryRequests || [];
+// Shared staff access is an authentication subsystem in db.json, never part of per-user Sync V2.
+db.sharedDevices = Array.isArray(db.sharedDevices) ? db.sharedDevices : [];
+db.staffPins = Array.isArray(db.staffPins) ? db.staffPins : [];
+db.sharedStaffSessions = Array.isArray(db.sharedStaffSessions) ? db.sharedStaffSessions : [];
+db.sharedStaffAudit = Array.isArray(db.sharedStaffAudit) ? db.sharedStaffAudit : [];
 // Scanned-machine → library-exercise links (frontend/src/lib/machine-scan.js) — gym-wide, not
 // per-member: it's the same physical machine for every socio who scans it, so one member's
 // pick benefits everyone's next scan. Keyed by a normalised form of the AI's own recognised
@@ -121,6 +128,15 @@ const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(us
 // has to grant themselves a separate flag to use the trainer-only endpoints below.
 const isTrainer = user => !!user && (user.trainer === true || isAdmin(user));
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
+function revokeSharedStaffSessions(userId, actorId, reason) {
+  const at = new Date().toISOString(); let revoked = 0;
+  db.sharedStaffSessions.filter(s => s.userId === userId && s.active).forEach(s => {
+    s.active = false; s.revokedAt = at; revoked++;
+    const device = db.sharedDevices.find(d => d.id === s.deviceId);
+    if (device?.activeSessionId === s.id) device.activeSessionId = null;
+  });
+  if (revoked) appendSharedAudit(db, { event: 'staff_sessions_revoked', userId, actorId, reason });
+}
 // What the staff Seguimiento shows of one routine-review cycle.
 const cycleView = r => ({ routineId: r.routineId, name: r.name, start: r.start, startManual: !!r.startManual, dueDate: r.dueDate, dueManual: !!r.dueManual,
   status: r.status, week: r.week, sessions: r.sessions, early: !!r.early, late: !!r.late });
@@ -421,20 +437,35 @@ function verifySig(token) {
 // signing out the whole instance. Cookies minted before `sv` existed have no third field and are
 // read as version 0, matching a user who has never bumped — they stay valid until they expire.
 const sessionVersion = user => user.sv || 0;
-function makeSession(user) {
-  const exp = Date.now() + SESSION_DAYS * 86400000;
-  return sign(user.id + ':' + exp + ':' + sessionVersion(user));
+function makeSession(user, claims = {}) {
+  const issuedAt = claims.issuedAt || Date.now();
+  const exp = claims.exp || Date.now() + SESSION_DAYS * 86400000;
+  const parts = [user.id, exp, sessionVersion(user), claims.authLevel || 'passkey'];
+  if (claims.authLevel === 'pin') parts.push(claims.sharedDeviceId, claims.sessionId, claims.role, issuedAt);
+  else parts.push(issuedAt);
+  return sign(parts.join(':'));
 }
-function readSession(req) {
-  const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
+function requestCookies(req) {
+  return Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
     const i = c.indexOf('='); return i < 0 ? ['', ''] : [c.slice(0, i).trim(), c.slice(i + 1).trim()];
   }));
-  const tok = cookies.gymsid;
+}
+const sharedDeviceTokenHash = token => crypto.createHash('sha256').update(String(token || '')).digest('hex');
+function deviceForRequest(req) {
+  const token = requestCookies(req).j2shared;
+  if (!token) return null;
+  const hash = sharedDeviceTokenHash(token);
+  return db.sharedDevices.find(d => d.active && !d.revokedAt && d.tokenHash === hash) || null;
+}
+const pinLimiter = createPinLimiter();
+function readSession(req) {
+  const tok = requestCookies(req).gymsid;
   if (!tok) return null;
   const payload = verifySig(tok);
   if (!payload) return null;
-  const [uid, exp, ver] = payload.split(':');
+  const [uid, exp, ver, authLevelRaw, field5, field6, field7, field8] = payload.split(':');
   if (!uid || +exp < Date.now()) return null;
+  if (authLevelRaw !== undefined && !['pin', 'passkey'].includes(authLevelRaw)) return null;
   const user = db.users.find(u => u.id === uid) || null;
   if (!user) return null;
   if (user.disabled) return null;           // disabled accounts are locked out everywhere
@@ -442,7 +473,28 @@ function readSession(req) {
   // payload (it still had to pass the HMAC, so this is belt-and-braces) and is refused outright.
   const claimed = ver === undefined ? 0 : Number(ver);
   if (!Number.isInteger(claimed) || claimed !== sessionVersion(user)) return null;
-  return user;
+  const authLevel = authLevelRaw === 'pin' ? 'pin' : 'passkey';
+  if (authLevelRaw === 'pin' && payload.split(':').length !== 8) return null;
+  if (authLevelRaw === 'passkey' && field5 !== undefined && (!Number.isSafeInteger(Number(field5)) || Number(field5) <= 0)) return null;
+  let claims = { authLevel, issuedAt: authLevelRaw ? Number(field5) || 0 : 0 };
+  if (authLevel === 'pin') {
+    const sharedDeviceId = field5, sessionId = field6, role = field7, issuedAt = Number(field8) || 0;
+    const device = db.sharedDevices.find(d => d.id === sharedDeviceId && d.active && !d.revokedAt);
+    const pinSession = db.sharedStaffSessions.find(s => s.id === sessionId && s.active && s.userId === uid && s.deviceId === sharedDeviceId);
+    const cookieDevice = deviceForRequest(req);
+    const currentRole = isAdmin(user) ? 'admin' : isTrainer(user) ? 'trainer' : null;
+    const now = Date.now();
+    if (!device || !pinSession || device.activeSessionId !== sessionId || !cookieDevice || cookieDevice.id !== sharedDeviceId ||
+        pinSession.expiresAt <= now || !Number.isFinite(pinSession.lastActivityAt) || now - pinSession.lastActivityAt >= 15 * 60_000 ||
+        +exp !== pinSession.expiresAt || !currentRole || role !== currentRole || pinSession.role !== role || issuedAt !== pinSession.issuedAt) return null;
+    claims = { authLevel, sharedDeviceId, sessionId, role, issuedAt, strongUntil: pinSession.strongUntil || 0 };
+  }
+  // Keep existing route handlers' writes attached to the actual db user while exposing
+  // request-specific auth claims without leaking those fields into db.json.
+  return new Proxy(user, {
+    get(target, key, receiver) { if (Object.prototype.hasOwnProperty.call(claims, key)) return claims[key]; return Reflect.get(target, key, receiver); },
+    set(target, key, value, receiver) { return Reflect.set(target, key, value, receiver); }
+  });
 }
 // Guard for /api/admin/* — resolves the caller and 401/403s if they aren't an admin.
 function requireAdmin(req, res) {
@@ -474,10 +526,13 @@ function snapshotVersionIfChanged(S, key, oldObj, newObj) {
   list.push({ ...oldObj, versionedAt: Date.now() });
   if (list.length > VERSION_CAP) list.splice(0, list.length - VERSION_CAP);
 }
-function sessionCookie(user) {
-  return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly;${SECURE} SameSite=Lax`;
+function sessionCookie(user, claims = {}) {
+  const maxAge = claims.authLevel === 'pin' ? Math.floor((claims.exp - Date.now()) / 1000) : SESSION_DAYS * 86400;
+  return `gymsid=${makeSession(user, claims)}; Path=/; Max-Age=${maxAge}; HttpOnly;${SECURE} SameSite=Lax`;
 }
 const clearCookie = `gymsid=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
+const sharedDeviceCookie = token => `j2shared=${token}; Path=/; Max-Age=${365 * 86400}; HttpOnly;${SECURE} SameSite=Strict`;
+const clearSharedDeviceCookie = `j2shared=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Strict`;
 
 /* ---------- challenge store (in-memory, 5 min TTL) ---------- */
 const challenges = new Map(); // cid -> {challenge, name?, uid?, exp}
@@ -517,6 +572,67 @@ const verifyGate = handler => async (req, res) => {
   await handler(req, res);
   if (res.statusCode >= 400) authLimits.verify.fail(ip);
 };
+
+// The shared-device flow uses the existing WebAuthn keys and challenge store. A passkey session
+// is the trust root; PIN sessions can regain strong authority only through a fresh assertion.
+async function staffPasskeyOptions(req, res, { user, purpose, subjectId = null }) {
+  if (!challengeGate(req, res)) return null;
+  const credentials = db.creds.filter(c => c.userId === user.id);
+  if (!credentials.length) return json(res, 409, { error: 'esta cuenta no tiene passkeys registradas' });
+  const options = await generateAuthenticationOptions({
+    rpID: RP_ID, userVerification: 'required',
+    allowCredentials: credentials.map(c => ({ id: c.id, transports: c.transports || [] }))
+  });
+  const cid = putChallenge({ challenge: options.challenge, uid: user.id, purpose, subjectId });
+  json(res, 200, { cid, options });
+}
+async function verifyStaffPasskey(req, res, body, { purpose, subjectId = null }) {
+  const ip = authGate(req, res, authLimits.verify);
+  if (!ip) return null;
+  const fail = (status, payload) => { authLimits.verify.fail(ip); json(res, status, payload); return null; };
+  const user = readSession(req);
+  if (!user) return fail(401, { error: 'no has iniciado sesión' });
+  const challenge = takeChallenge(body.cid);
+  if (!challenge || challenge.uid !== user.id || challenge.purpose !== purpose || (challenge.subjectId || null) !== subjectId) {
+    return fail(400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
+  }
+  const cred = db.creds.find(c => c.id === body.credential?.id && c.userId === user.id);
+  if (!cred) return fail(403, { error: 'esa passkey no pertenece a esta cuenta' });
+  let verification;
+  try {
+    verification = await verifyAuthenticationResponse({
+      response: body.credential, expectedChallenge: challenge.challenge,
+      expectedOrigin: WEBAUTHN_ORIGINS, expectedRPID: RP_ID, requireUserVerification: true,
+      credential: { id: cred.id, publicKey: b64uToBuf(cred.publicKey), counter: cred.counter, transports: cred.transports || [] }
+    });
+  } catch { return fail(400, { error: 'no se pudo verificar la passkey' }); }
+  if (!verification.verified) return fail(400, { error: 'no verificado' });
+  cred.counter = verification.authenticationInfo.newCounter;
+  authLimits.verify.success(ip);
+  saveDb();
+  return user;
+}
+function requireSharedDevice(req, res) {
+  const device = deviceForRequest(req);
+  if (!device) { json(res, 403, { error: 'este ordenador no está autorizado para acceso de entrenadores' }); return null; }
+  return device;
+}
+function requireStrongAuth(req, res) {
+  const user = readSession(req);
+  if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
+  if (user.authLevel === 'pin' && !(user.strongUntil > Date.now())) {
+    json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'passkey_required' }); return null;
+  }
+  return user;
+}
+const STRONG_AUTH_ACTIONS = new Set([
+  'POST /api/me/delete', 'POST /api/logout/all', 'POST /api/admin/user/role', 'POST /api/admin/user/disable',
+  'POST /api/admin/user/trainer', 'POST /api/admin/user/recovery-link',
+  'POST /api/admin/invites/new', 'POST /api/admin/invites/revoke',
+]);
+const requiresStrongAuth = key => STRONG_AUTH_ACTIONS.has(key);
+const pinLoginIpLimiter = authLimiters().verify;
+const DUMMY_STAFF_PIN = await hashStaffPin('684205');
 
 /* ---------- helpers ---------- */
 function json(res, code, obj, extraHeaders) {
@@ -629,6 +745,14 @@ setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt 
 
 /* ---------- routes ---------- */
 const routes = {
+  ...sharedStaffRoutes({
+    db, json, readBody, readSession, requireAdmin, requireSharedDevice, isAdmin, isTrainer,
+    deviceForRequest, deviceTokenHash: sharedDeviceTokenHash, sessionCookie, clearCookie,
+    sharedDeviceCookie, staffPasskeyOptions, verifyStaffPasskey, pinLimiter,
+    pinLoginGate: (req, res) => authGate(req, res, pinLoginIpLimiter),
+    pinLoginFailure: ip => pinLoginIpLimiter.fail(ip), pinLoginSuccess: ip => pinLoginIpLimiter.success(ip),
+    dummyPin: DUMMY_STAFF_PIN, saveDb
+  }),
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
 
   // Public config the login screen needs before anyone is signed in. `coach` is absent unless
@@ -654,7 +778,7 @@ const routes = {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
-      strava: !!user.stravaAuth, whoop: !!user.whoopAuth
+      strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: user.authLevel
     } });
   },
 
@@ -771,7 +895,7 @@ const routes = {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
-      strava: !!user.stravaAuth, whoop: !!user.whoopAuth
+      strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
     } }, { 'Set-Cookie': sessionCookie(user) });
   }),
 
@@ -816,7 +940,7 @@ const routes = {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
-      strava: !!user.stravaAuth, whoop: !!user.whoopAuth
+      strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
     } }, { 'Set-Cookie': sessionCookie(user) });
   }),
 
@@ -912,11 +1036,22 @@ const routes = {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
-      strava: !!user.stravaAuth, whoop: !!user.whoopAuth
+      strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
     } }, { 'Set-Cookie': sessionCookie(user) });
   }),
 
-  'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
+  'POST /api/logout': async (req, res) => {
+    const user = readSession(req);
+    if (user?.authLevel === 'pin') {
+      const session = db.sharedStaffSessions.find(s => s.id === user.sessionId && s.active);
+      if (session) { session.active = false; session.revokedAt = new Date().toISOString(); }
+      const device = db.sharedDevices.find(d => d.id === user.sharedDeviceId);
+      if (device?.activeSessionId === user.sessionId) device.activeSessionId = null;
+      appendSharedAudit(db, { event: 'staff_locked', deviceId: user.sharedDeviceId, userId: user.id });
+      saveDb();
+    }
+    json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
+  },
 
   // "Sign out everywhere" — bumps this user's session version, which invalidates every cookie
   // ever issued for the account, on every device, including a copy someone else walked off with.
@@ -926,6 +1061,7 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     user.sv = sessionVersion(user) + 1;
+    db.sharedStaffSessions.filter(s => s.userId === user.id && s.active).forEach(s => { s.active = false; s.revokedAt = new Date().toISOString(); });
     saveDb();
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
   },
@@ -1423,16 +1559,19 @@ const routes = {
   // without an enabled admin (also covers an admin demoting themselves), and an admin that comes from ADMIN_UIDS (configuration) cannot be changed here.
   // body: { id, role }.
   'POST /api/admin/user/role': async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
     const role = String(body.role || '');
     if (!['member', 'trainer', 'admin'].includes(role)) return json(res, 400, { error: 'rol no válido' });
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const oldRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
     if (role !== 'admin' && ADMIN_UIDS.includes(u.id)) return json(res, 409, { error: 'este administrador viene de la configuración del servidor (ADMIN_UIDS)', code: 'admin_by_config' });
     if (role !== 'admin' && isAdmin(u) && !db.users.some(x => x.id !== u.id && !x.disabled && isAdmin(x))) return json(res, 409, { error: 'no puede quedar el sistema sin administradores', code: 'last_admin' });
     if (role === 'admin') { u.admin = true; delete u.trainer; }
     else { delete u.admin; if (role === 'trainer') u.trainer = true; else delete u.trainer; }
+    const newRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
+    if (oldRole !== newRole) revokeSharedStaffSessions(u.id, admin.id, 'role_changed');
     saveDb();
     json(res, 200, { ok: true, id: u.id, role: isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member', admin: isAdmin(u), trainer: isTrainer(u) });
   },
@@ -1624,12 +1763,13 @@ const routes = {
   },
 
   'POST /api/admin/user/disable': async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     if (isAdmin(u)) return json(res, 400, { error: 'no se puede desactivar a un administrador' });
     u.disabled = !!body.disabled;
+    if (u.disabled) revokeSharedStaffSessions(u.id, admin.id, 'account_disabled');
     if (u.disabled) presence.delete(u.id);   // drop them off "training now" at once
     saveDb();
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
@@ -1639,11 +1779,12 @@ const routes = {
   // "Entrenadores" section and assign one directly onto a member's plan. Admins are always
   // trainers too (isTrainer), so this flag only matters for non-admin staff accounts.
   'POST /api/admin/user/trainer': async (req, res) => {
-    if (!requireAdmin(req, res)) return;
+    const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     u.trainer = !!body.trainer;
+    if (!isTrainer(u)) revokeSharedStaffSessions(u.id, admin.id, 'trainer_role_removed');
     saveDb();
     json(res, 200, { ok: true, id: u.id, trainer: u.trainer });
   },
@@ -2814,6 +2955,7 @@ http.createServer(async (req, res) => {
   const key = req.method + ' ' + url.pathname;
   const handler = routes[key];
   if (!handler) return json(res, 404, { error: 'no encontrado' });
+  if (requiresStrongAuth(key) && !requireStrongAuth(req, res)) return;
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);
