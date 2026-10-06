@@ -14,7 +14,7 @@
 // Plateau rules (per routine, over the sessions of the current cycle; a single bad session can never trigger any of them):
 //   stalled exercise   ≥ 4 exposures and the best of the LAST 3 has not beaten the best of all EARLIER ones by ≥ 2 % (estimated 1RM, or reps when unloaded)
 //   repeated misses    ≥ 2 of the last 3 exposures of an exercise had a set marked "couldn't do it" or ≥ 2 sets under the rep target
-//   effort getting up  ≥ 4 exposures with RPE/RIR logged: the last 2 average ≥ 1.0 RPE harder than the first 2 at a similar load (±5 %)
+//   effort getting up  ≥ 4 exposures with RPE/RIR logged: the last 2 average ≥ 1.0 RPE harder than the first 2 at a similar load (±5 %), each of them ≥ 0.5 harder
 //   hard sessions      ≥ 2 of the last 3 routine sessions rated mostly "hard / couldn't" (≥ 2 rated sets, ≥ 50 % of them)
 //   incomplete         ≥ 2 of the last 3 routine sessions finished < 70 % of the planned working sets (needs a planned-sets target)
 //   CLEAR plateau      (stalled ≥ 2 exercises AND ≥ half of the evaluable ones) OR (stalled ≥ 1 AND at least one of the other four signals)
@@ -67,6 +67,7 @@ export function cycleSessions(S, r, cycle, today) {
   if (!cycle) return []
   return (S?.workouts || [])
     .filter(w => w?.routineId === r.id && ISO.test(w.d || '') && (cycle.exclusive ? w.d > cycle.start : w.d >= cycle.start) && w.d <= today)
+    .filter(w => !(Array.isArray(w.entries) && w.entries.some(e => e?.target?.deload)))      // a deload-week session is deliberately light: not evidence about the plan
     .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : (a.start || 0) - (b.start || 0)))
 }
 
@@ -74,7 +75,7 @@ function exposures(sessions) {
   const by = new Map()
   for (const w of sessions) {
     for (const e of entriesOf(w)) {
-      if (!e.id) continue
+      if (!e.id || e.target?.deload) continue
       const sets = (Array.isArray(e.sets) ? e.sets : []).filter(isWork)
       if (!sets.length) continue
       if (!by.has(e.id)) by.set(e.id, [])
@@ -110,7 +111,8 @@ export function plateau(sessions) {
       const a = withEffort.slice(0, 2), b = withEffort.slice(-2)
       const la = mean(a.map(load).filter(x => x != null)), lb = mean(b.map(load).filter(x => x != null))
       const similar = la == null || lb == null ? la == lb : Math.abs(lb - la) / la <= 0.05
-      if (similar && mean(b.map(avg)) - mean(a.map(avg)) >= 1) effortUp.push(id)
+      const base = mean(a.map(avg))
+      if (similar && mean(b.map(avg)) - base >= 1 && b.every(x => avg(x) - base >= 0.5)) effortUp.push(id)   // both recent exposures, not one bad day
     }
   }
   const last3 = sessions.slice(-3)

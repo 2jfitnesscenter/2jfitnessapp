@@ -4,7 +4,7 @@
 // sessions per week). Counts, dates and the codes the server raised; no scores and no diagnosis. A member with nothing to flag is "on track".
 const URGENT = new Set(['review_overdue', 'repeated_discomfort', 'high_fatigue'])
 const isUrgent = a => URGENT.has(a.code) || (a.code === 'routine_review' && a.late)   // a routine review left for 2+ weeks
-const WEIGHT = { review_overdue: 5, repeated_discomfort: 4, high_fatigue: 3, no_recent_workouts: 2, no_workouts_yet: 1, routine_review: 2 }
+const WEIGHT = { review_overdue: 5, repeated_discomfort: 4, high_fatigue: 3, no_recent_workouts: 2, no_workouts_yet: 1, routine_review: 2, fatigue_high: 3 }
 
 /**
  * rows: [{ user:{id,name,lastWorkout,...}, followUp, summary, alerts }] → { urgent, soon, onTrack } each sorted by what matters most.

@@ -5,6 +5,12 @@
 Everything since v1.3.0. Production is `e41f4f9` (2026-10-04: Experience V2 phases 1–4, Sprint 1 WOW, the Progress section order and the Settings add-place form fix; `4c78ecb` carried phases 1–2, `eee3bc2` phases 3–4). The
 version number in `package.json` is bumped when the release is tagged. Entries below say whether each item is deployed.
 
+### Readiness, fatigue and proposed deload (2026-10-06) — NOT DEPLOYED
+
+- RPE/RIR now shape the next load: three completed, clearly easy sessions allow one more real step; two completed sessions at RPE ≥ 9 hold the load (always with a reason, never from one session). `S.autoreg = false` turns it off.
+- Daily readiness (4 states, real reasons only, works without a wearable) and accumulated fatigue (normal / elevated / high) from effort trends, hard sessions, repeated misses, sleep, recovery and volume.
+- High fatigue proposes a 1-week deload (≈ 35 % fewer sets, ≈ 7.5 % lighter, RIR 3) the member can apply or decline; it is a temporary, reversible adjustment applied when sessions are built — routines are never changed. Staff see `fatigue_high` in "Needs attention".
+
 ### Seguimiento V4 — routine review loop (2026-10-06) — NOT DEPLOYED
 
 - A routine is reviewed in week 5 of its cycle, or in week 4 when the logged data shows a clear plateau (≥ 3 sessions; never from one bad session). Deterministic rules on loads/reps, missed sets, RPE/RIR and the post-set feeling; the routine is never edited.

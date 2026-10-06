@@ -12,6 +12,7 @@ import WorkoutCover from '../components/WorkoutCover.jsx'
 import HomeHero from '../components/HomeHero.jsx'
 import FollowUpCard from '../components/FollowUpCard.jsx'
 import RoutineReviewCard from '../components/RoutineReviewCard.jsx'
+import ReadinessSection from '../components/ReadinessSection.jsx'
 import { pendingReviews } from '../lib/routine-review.js'
 import { useFollowUp } from '../lib/followup-view.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
@@ -109,6 +110,8 @@ export default function Home() {
   return <div className="narrow">
     <HomeHero S={S} user={user} routine={routine} doneToday={doneToday} rescheduled={todayOvr}
       week={{ done: wThisWeek, planned: plannedPerWeek, streak }} onToday={onToday} onWeek={() => calendarSheet()} now={today} />
+
+    <ReadinessSection compact />
 
     {reviewNow && <RoutineReviewCard compact review={reviewNow} onView={() => nav('/plan/r/' + reviewNow.routineId)} />}
 

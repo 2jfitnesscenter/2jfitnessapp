@@ -13,6 +13,7 @@ import CheckInCard from '../components/CheckInCard.jsx'
 import { Surface, Stat, EmptyState } from '../components/v2.jsx'
 import { Button } from '../components/ui.jsx'
 import RoutineReviewCard from '../components/RoutineReviewCard.jsx'
+import ReadinessSection from '../components/ReadinessSection.jsx'
 
 /* Seguimiento V3 — "how am I doing with my plan": goal, last weeks, next review, today's check-in, coach notes and plan changes. Reuses the gym's existing
    follow-up schedule (GET /api/followup) and the existing check-in; only blocks that have real content are drawn. */
@@ -33,6 +34,8 @@ export default function Seguimiento() {
       <button className="iconbtn" onClick={() => nav(-1)} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('My follow-up')}</h1></div>
     </div>
+
+    <ReadinessSection />
 
     {d.reviews.map(rv => <RoutineReviewCard key={rv.routineId} review={rv} onView={() => nav('/plan/r/' + rv.routineId)} />)}
 

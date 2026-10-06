@@ -20,6 +20,9 @@ import { modeOf, workingSets, workingLoadEvidence, buildSets, cleanupSg, default
 import { EXIDX, isUnavailable } from './exercises.js'
 import { bestTestedOneRM, pctForReps } from './onerm.js'
 import { realizableToward, stepWeight } from './equipment.js'
+import { effortStats, effortSignal } from './autoreg.js'
+import { activeDeload } from './fatigue.js'
+import { todayISO } from './format.js'
 
 export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'pct1rm', 'time']
 
@@ -147,6 +150,7 @@ export function readSession(entry, fallback) {
   return {
     mode, goal, reps,
     ...workingLoadEvidence(sets),
+    ...effortStats(sets),                                  // { effort (RPE scale), rated } — lib/autoreg.js
     low: reps.length ? Math.min(...reps) : 0,
     amrap: reps.length ? reps[reps.length - 1] : 0,       // Greyskull's final set
     ok: goal > 0 && enough && reps.length > 0 && reps.every(r => r >= goal)
@@ -158,7 +162,7 @@ export function sessionsFor(S, exId, fallback) {
   const out = []
   ;(S.workouts || []).forEach(w => {
     const entry = w.entries.find(e => e.id === exId)
-    if (entry && entry.sets.some(s => s.done)) out.push({ d: w.d, ...readSession(entry, fallback) })
+    if (entry && !entry.target?.deload && entry.sets.some(s => s.done)) out.push({ d: w.d, ...readSession(entry, fallback) })
   })
   return out
 }
@@ -277,9 +281,36 @@ function policyPrescription(S, cfg, routine) {
   return { policy, kind: 'hold', weight: w, why: ['Missed reps last time — same weight again ({0} of {1} to go).', deloadAt - stalls, deloadAt] }
 }
 
+/**
+ * Autoregulation (lib/autoreg.js) as a small layer over a prescription that was already going UP on linear / double progression:
+ *   grind → the sessions were completed but at RPE ≥ 9 (RIR ≤ 1) twice: hold the load; easy → completed and clearly easy (RPE ≤ 7) three times: a bigger step.
+ * Every change carries its reason (why) and `auto` ('slower' | 'faster'). Turn it off with S.autoreg = false. Never touches a routine.
+ */
+function regulate(S, cfg, routine, p) {
+  if (S.autoreg === false || (p.kind !== 'up' && p.kind !== 'hold') || !(p.weight > 0) || modeOf(cfg) !== 'reps' || (p.policy !== 'linear' && p.policy !== 'double')) return p
+  const sessions = sessionsFor(S, cfg.id, cfg).filter(x => x.mode === 'reps')
+  const last = sessions[sessions.length - 1]
+  if (!last || !(last.weight > 0)) return p
+  const sig = effortSignal(sessions)
+  const unit = S.unit || 'kg'
+  const w = last.weight
+  if (sig.kind === 'grind' && p.weight >= w) {
+    return { ...p, kind: 'hold', weight: w, reps: p.policy === 'double' ? (last.goal || cfg.reps || p.reps) : undefined, auto: 'slower',
+      why: ['Completed twice, but at RPE {0} or higher (RIR 1 or less) — keep {1} {2} until it feels easier.', GRIND_LABEL, w, unit] }
+  }
+  if (sig.kind === 'easy' && p.kind === 'up') {
+    // one more real step on top of the planned one (what the equipment can actually hold), never more than +15 % over the last load
+    const inc = cfg.inc > 0 ? cfg.inc : defaultIncrement(cfg.id, unit)
+    const bigger = loadable(S, cfg, p.weight, snap(p.weight + (p.weight - w), inc))
+    if (bigger > p.weight && (bigger - w) / w <= 0.15) return { ...p, weight: bigger, auto: 'faster', why: ['Every rep, and clearly easy (RPE 7 or lower) three sessions running — {0} {1} more.', delta(bigger, w), unit] }
+  }
+  return p
+}
+const GRIND_LABEL = 9
+
 // Preserve observed ramp/backoff positions; explicit %1RM remains its own prescription.
 export function nextPrescription(S, cfg, routine) {
-  const p = policyPrescription(S, cfg, routine)
+  const p = regulate(S, cfg, routine, policyPrescription(S, cfg, routine))
   if (p.weight == null || p.policy === 'pct1rm' || modeOf(cfg) !== 'reps') return p
   const latest = sessionsFor(S, cfg.id, cfg).filter(s => s.mode === 'reps').at(-1)
   if (!latest?.weights?.length || latest.weights.every(w => w === latest.weight)) return p
@@ -320,8 +351,39 @@ export function buildRoutineEntries(S, routine) {
   cleanupSg(usable)
   return usable.map(cfg => {
     const plan = nextPrescription(S, cfg, routine)
-    return { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: applyPrescription(buildSets(S, cfg), plan) }
+    return withDeload(S, { id: cfg.id, sg: cfg.sg, target: { ...cfg }, plan, sets: applyPrescription(buildSets(S, cfg), plan) })
   })
+}
+
+/**
+ * The 1-week deload the member accepted (S.deload, lib/fatigue.js), applied on top of the freshly built entry: ~35 % fewer working sets, loads ~7.5 % lighter
+ * (to a load the equipment can really hold), an RIR 3 target. The routine, its targets and the progression history are untouched — this only shapes the
+ * session while the week lasts, the entry is flagged (target.deload) so progression, routine review and fatigue ignore it, and the next session after the
+ * week is built from the normal plan again. No active deload → the entry comes back unchanged.
+ */
+export function withDeload(S, entry, today = todayISO()) {
+  const d = activeDeload(S, today)
+  if (!d) return entry
+  const work = (entry.sets || []).filter(s => !s.done && s.type !== 'warmup' && s.type !== 'drop')
+  const keep = Math.max(1, Math.round(work.length * (1 - d.volumeCut)))
+  const eq = EXIDX[entry.id]?.eq
+  let seen = 0
+  const sets = (entry.sets || []).flatMap(s => {
+    if (s.done || s.type === 'warmup' || s.type === 'drop') return [s]
+    if (++seen > keep) return []
+    const out = { ...s }
+    if (out.w > 0) {
+      const lighter = realizableToward(S, eq, out.w, out.w * (1 - d.loadCut))
+      out.w = lighter != null && lighter < out.w ? lighter : out.w
+    }
+    return [out]
+  })
+  return {
+    ...entry, sets,
+    target: { ...entry.target, targetRIR: d.rir, deload: { from: d.from, until: d.until, rir: d.rir } },
+    plan: { ...(entry.plan || {}), deload: true, auto: 'deload',
+      why: ['Deload week: about {0} % fewer sets, a little lighter, aim for RIR {1}. Your normal plan comes back afterwards.', Math.round(d.volumeCut * 100), d.rir] },
+  }
 }
 
 // One exercise picked ad hoc — no routine slot to inherit sets/reps/weight from, so it starts

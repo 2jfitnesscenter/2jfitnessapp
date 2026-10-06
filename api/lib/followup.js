@@ -10,6 +10,7 @@
 // wellbeing data: they enter the summary only when the member turned on S.shareCheckins.
 //
 import { pendingReviews } from './routine-review.js';
+import { fatigueState, deloadProposal, activeDeload } from './fatigue.js';
 
 // Everything here is counts, dates and differences. No scores, no labels, no diagnosis.
 
@@ -127,9 +128,19 @@ export function followUpSummary(S, f, today) {
     checkins: S.shareCheckins === true ? checkinStats(S.checkins, from, today) : null,
     nextReview: nextReview(f),
     // Routine review loop (lib/routine-review.js): routines whose review is due, or advanced by a clear plateau. Derived from the member's own workouts.
+    // Accumulated fatigue from the member's own logged effort (lib/fatigue.js): a trend over several sessions, never one bad day. Only the level and the numbers.
+    fatigue: fatigueSummary(S, today),
     routineReviews: pendingReviews(S, today).slice(0, 3).map(r => ({ routineId: r.routineId, name: r.name, week: r.week, days: r.days, early: r.early, late: r.late, reasons: r.reasons })),
   };
   return { summary, alerts: followUpAlerts(summary, f) };
+}
+
+function fatigueSummary(S, today) {
+  const ctx = { checkins: S.shareCheckins === true };       // check-ins only when the member chose to share them
+  const f = fatigueState(S, today, ctx);
+  const dl = activeDeload(S, today);
+  return { level: f.level, points: f.points, signals: f.signals.map(x => ({ code: x.code, n: x.n ?? null, hours: x.hours ?? null, pct: x.pct ?? null })),
+    proposed: !!deloadProposal(S, today, ctx), deloadActive: dl ? { from: dl.from, until: dl.until } : null };
 }
 
 // Facts that may deserve a look, each with the number behind it. Never a diagnosis.
@@ -138,6 +149,7 @@ export function followUpAlerts(s, f) {
   if (f && s.nextReview && s.nextReview < s.today) out.push({ code: 'review_overdue', days: daysBetween(s.nextReview, s.today) });
   if (!s.lastWorkout) out.push({ code: 'no_workouts_yet' });
   else if (daysBetween(s.lastWorkout, s.today) >= 14) out.push({ code: 'no_recent_workouts', days: daysBetween(s.lastWorkout, s.today) });
+  if (s.fatigue?.level === 'high' && !s.fatigue.deloadActive) out.push({ code: 'fatigue_high', points: s.fatigue.points, signals: s.fatigue.signals, proposed: s.fatigue.proposed });
   for (const r of s.routineReviews || []) out.push({ code: 'routine_review', routineId: r.routineId, name: r.name, week: r.week, early: r.early, late: r.late, reasons: r.reasons });
   if (s.checkins) {
     if (s.checkins.highFatigue14 >= 3) out.push({ code: 'high_fatigue', n: s.checkins.highFatigue14 });
