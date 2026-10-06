@@ -11,6 +11,11 @@ vi.mock('../lib/api.js', () => ({
   passkeyRegister: vi.fn(), passkeyLogin: vi.fn(), passkeyRecover: vi.fn(),
 }))
 vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), vibrate: vi.fn() }))
+vi.mock('../lib/rest-notification.js', () => ({
+  cancelRestNotification: vi.fn(), isAndroidNative: vi.fn(() => false),
+  requestRestNotificationPermission: vi.fn().mockResolvedValue(true),
+  scheduleRestNotification: vi.fn().mockResolvedValue(true),
+}))
 vi.mock('../components/WorkoutGuide.jsx', () => ({ openWorkoutGuide: vi.fn() }))
 
 const clone = x => JSON.parse(JSON.stringify(x))
@@ -233,6 +238,24 @@ describe('rest V2', () => {
     ui.getState().startRest(5, 'Press')
     vi.advanceTimersByTime(6000)
     expect(api.mock.calls.filter(c => c[0] === '/api/push/rest-timer')).toEqual([])
+  })
+  it('native Android uses one local alert through rest edits and never sends a rest push', async () => {
+    vi.useFakeTimers()
+    const native = await import('../lib/rest-notification.js')
+    native.isAndroidNative.mockReturnValue(true)
+    ui.getState().startRest(60, 'private exercise name')
+    expect(native.scheduleRestNotification).toHaveBeenLastCalledWith(ui.getState().timer.endsAt)
+    expect(api).not.toHaveBeenCalled()
+    ui.getState().pauseRest()
+    expect(native.cancelRestNotification).toHaveBeenCalledTimes(1)
+    ui.getState().resumeRest()
+    expect(native.scheduleRestNotification).toHaveBeenCalledTimes(2)
+    ui.getState().addRest(15)
+    expect(native.scheduleRestNotification).toHaveBeenCalledTimes(3)
+    ui.getState().stopRest()
+    expect(native.cancelRestNotification).toHaveBeenCalledTimes(2)
+    expect(api).not.toHaveBeenCalled()
+    native.isAndroidNative.mockReturnValue(false)
   })
 })
 

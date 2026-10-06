@@ -10,6 +10,7 @@ import { effortOf } from '../lib/history.js'
 import { uxOn } from '../lib/features.js'
 import { LEVELS } from '../lib/rp-volume.js'
 import { workoutPrefs } from '../lib/workout-prefs.js'
+import { useUI } from '../store/useUI.js'
 import { DUMBBELL_WEIGHTS_2J, MACHINE_WEIGHTS_CONFIG, BARBELL_PLATES_2J } from '../lib/equipment.js'
 import { openWorkoutGuide } from '../components/WorkoutGuide.jsx'
 import { effortHelpSheet, trainingZonesHelpSheet, overloadHelpSheet, rpVolumeHelpSheet } from './Settings.jsx'
@@ -81,12 +82,12 @@ export default function TrainingSettings() {
       </Row>
     </Section>
 
-    <Section title={t('Rest')} footer={t('With the app open and the screen on, the end of a rest is announced on this device (vibration is not available on iPhone). With the screen locked or the app in the background the browser pauses it: then only a notification can arrive, if notifications are on and there is a connection.')}>
+    <Section title={t('Rest')} footer={t('Rest alert behavior: Android schedules a private local notification when permission is allowed. If notifications are denied, the timer still works; allow 2J notifications in Android settings and turn this alert off and on again. In a browser, background alerts require an internet connection.')}>
       <SelectRow icon="timer" iconTint="var(--orange)" title={t('Rest timer')}
         value={S.restSec} onChange={v => set('restSec', v)}
         options={[60, 90, 120, 150, 180].map(v => ({ value: v, label: v + 's' }))} />
       <Row icon="bell" iconTint="var(--pink)" title={t('Alert when rest ends')}>
-        <Switch checked={prefs.restAlert} onChange={v => set('restAlert', v)} />
+        <Switch checked={prefs.restAlert} onChange={v => useUI.getState().setRestAlertPreference(v)} />
       </Row>
       <Row icon="bell" iconTint="var(--pink)" title={t('Sound')} subtitle={t('Also the short beep when you complete a set.')}>
         <Switch checked={prefs.sound} onChange={v => set('sound', v)} />

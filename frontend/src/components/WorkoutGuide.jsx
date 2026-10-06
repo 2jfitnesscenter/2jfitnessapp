@@ -118,7 +118,7 @@ function WorkoutGuide({ close, onDone, replay }) {
       </div>
       <div className="sect-b g-opts">
         <div className="lrow"><span className="lrow-m"><span className="lrow-t">{t('Alert when rest ends')}</span></span>
-          <Switch checked={prefs.restAlert} onChange={v => pref('restAlert', v)} /></div>
+          <Switch checked={prefs.restAlert} onChange={v => useUI.getState().setRestAlertPreference(v)} /></div>
         <div className="lrow"><span className="lrow-m"><span className="lrow-t">{t('Sound')}</span></span>
           <Switch checked={prefs.sound} disabled={!prefs.restAlert} onChange={v => pref('sound', v)} /></div>
         <div className="lrow"><span className="lrow-m"><span className="lrow-t">{t('Vibration')}</span></span>

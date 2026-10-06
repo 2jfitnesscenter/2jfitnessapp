@@ -5,11 +5,21 @@ import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { useStore } from './useStore.js'
 import { workoutPrefs } from '../lib/workout-prefs.js'
+import { cancelRestNotification, isAndroidNative, requestRestNotificationPermission, scheduleRestNotification } from '../lib/rest-notification.js'
 
 // Fire-and-forget: lets the server push a "rest over" alert if this tab gets suspended
 // before the local timer completes. No-ops for guests / offline.
 const pushRestTimer = (sec, exercise) => { if (useStore.getState().user) api('/api/push/rest-timer', { method: 'POST', body: JSON.stringify({ seconds: sec, exercise }) }).catch(() => {}) }
 const cancelPushRestTimer = () => { if (useStore.getState().user) api('/api/push/rest-timer/cancel', { method: 'POST', body: '{}' }).catch(() => {}) }
+const syncRestNotification = (tm, enabled) => {
+  if (isAndroidNative()) {
+    if (tm && enabled && !tm.paused) scheduleRestNotification(tm.endsAt)
+    else cancelRestNotification()
+    return
+  }
+  if (tm && enabled && !tm.paused) pushRestTimer(tm.left, tm.exercise)
+  else cancelPushRestTimer()
+}
 
 let toastTm = null
 let timerInt = null
@@ -92,15 +102,16 @@ export const useUI = create((set, get) => {
   // to the member's rest preferences (lib/workout-prefs.js) read at the moment it matters, so a
   // switch flipped mid-rest applies at once. What a PWA can promise: while the app is open and
   // the screen on, the end is announced locally (sound via WebAudio, vibration where the device
-  // supports navigator.vibrate — Android yes, iOS no). In the background or with the screen
-  // locked the browser suspends timers and audio; there the only signal is the server's Web Push
-  // "rest over" (needs notification permission and a connection), which is skipped when the
-  // alert is off. On return the countdown catches up from its end time, never from ticks.
+  // supports navigator.vibrate — Android yes, iOS no). In the native Android shell, a single
+  // local notification is scheduled for the same end time; in a browser, background delivery
+  // still uses Web Push and needs a connection. On return the countdown catches up from its end
+  // time, never from ticks.
   startRest(sec, exercise) {
     get().stopRest()
     const endsAt = Date.now() + sec * 1000
-    set({ timer: { left: sec, total: sec, endsAt, exercise, paused: false } })
-    if (restPrefs().restAlert) pushRestTimer(sec, exercise)
+    const timer = { left: sec, total: sec, endsAt, exercise, paused: false }
+    set({ timer })
+    syncRestNotification(timer, restPrefs().restAlert)
     runRest()
   },
   addRest(sec) {
@@ -110,28 +121,43 @@ export const useUI = create((set, get) => {
     // taking off more than is left means "I'm ready now" — same as skipping, and it keeps a
     // negative duration out of both the progress bar and the server-side push schedule
     if (left <= 0) { get().stopRest(); return }
-    set({ timer: { ...tm, left, total: tm.total + sec, endsAt: tm.endsAt + sec * 1000 } })
-    if (!tm.paused && restPrefs().restAlert) pushRestTimer(left, tm.exercise)
+    const timer = { ...tm, left, total: tm.total + sec, endsAt: tm.endsAt + sec * 1000 }
+    set({ timer })
+    syncRestNotification(timer, restPrefs().restAlert)
   },
   pauseRest() {
     const tm = get().timer
     if (!tm || tm.paused) return
     clearRestTick()
     const left = Math.max(1, Math.round((tm.endsAt - Date.now()) / 1000))
-    cancelPushRestTimer()
+    syncRestNotification({ ...tm, paused: true }, false)
     set({ timer: { ...tm, left, paused: true } })
   },
   resumeRest() {
     const tm = get().timer
     if (!tm || !tm.paused) return
-    set({ timer: { ...tm, paused: false, endsAt: Date.now() + tm.left * 1000 } })
-    if (restPrefs().restAlert) pushRestTimer(tm.left, tm.exercise)
+    const timer = { ...tm, paused: false, endsAt: Date.now() + tm.left * 1000 }
+    set({ timer })
+    syncRestNotification(timer, restPrefs().restAlert)
     runRest()
   },
   stopRest() {
     clearRestTick()
-    if (get().timer) cancelPushRestTimer()
+    if (get().timer) syncRestNotification(null, false)
     set({ timer: null })
+  },
+  async setRestAlertPreference(enabled) {
+    if (enabled && isAndroidNative()) {
+      const granted = await requestRestNotificationPermission()
+      if (!granted) {
+        get().toast(t('Allow notifications for 2J in Android settings, then try again.'))
+        return false
+      }
+    }
+    useStore.getState().update(s => { s.restAlert = !!enabled })
+    const timer = get().timer
+    if (timer) syncRestNotification(timer, !!enabled)
+    return true
   },
 
   /* ---- work timer (issue #16) ----
