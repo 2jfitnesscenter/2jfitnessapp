@@ -1178,7 +1178,7 @@ const routes = {
     const S = readState(u.id) || {};
     const bw = S.bodyweight || [];
     json(res, 200, {
-      user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), trainer: isTrainer(u), invitedBy: u.invitedBy || null },
+      user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), trainer: isTrainer(u), invitedBy: u.invitedBy || null, adminByConfig: ADMIN_UIDS.includes(u.id) },
       unit: S.unit || 'kg',
       lastSync: S._ts || null,
       sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null,
@@ -1332,7 +1332,7 @@ const routes = {
   },
 
   /* ---------- Seguimiento V2: staff follow-up (api/lib/followup.js has the access rationale) ---------- */
-  // Admin-only, like the rest of /api/admin/user*: it reads nothing GET /api/admin/user doesn't
+  // Admin-only (the routine-cycle / routine-reviewed writes below also accept the trainer role), like the rest of /api/admin/user*: it reads nothing GET /api/admin/user doesn't
   // already show, except check-ins, which are included only when the member shared them. The
   // follow-up config lives on the roster entry, never in the member's synced state, so it can't
   // race Sync V2. Nothing here is logged.
@@ -1372,10 +1372,19 @@ const routes = {
     u.followUp = addReview(u.followUp, new Date().toISOString().slice(0, 10), staff.id); saveDb();
     json(res, 200, { ok: true, followUp: { ...u.followUp, keys: templateKeys(u.followUp) } });
   },
+  // The routine-review cycles of one member for the TRAINER panel (same data the cycle editor needs, nothing from the follow-up/health summary). Trainer or admin.
+  'GET /api/trainer/routine-cycles': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    const u = db.users.find(x => x.id === new URL(req.url, 'http://x').searchParams.get('id'));
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const S = readState(u.id);
+    if (!S) return json(res, 200, { routineCycles: [], sync: null });
+    json(res, 200, { routineCycles: routineReviews(S, new Date().toISOString().slice(0, 10)).map(cycleView), sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null });
+  },
   // Manual control of one routine's review cycle (Seguimiento, staff): body { id, routineId, start?, due? } — a YYYY-MM-DD sets it, null/'' returns to automatic,
   // absent leaves it. Additive fields on S.routineReviews[routineId]; nothing else is written. Admin-only; replay-safe like the other admin edits.
   'POST /api/admin/user/routine-cycle': async (req, res) => {
-    const staff = requireAdmin(req, res); if (!staff) return;
+    const staff = requireTrainer(req, res); if (!staff) return;       // trainer or admin — the existing trainer permission, nothing wider
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
@@ -1396,7 +1405,7 @@ const routes = {
   // S.routineReviews[routineId] on the member's state (same admin write path and replay receipt as the other admin edits); the routine itself is never touched.
   // body: { id, routineId }. Admin-only, like the rest of /api/admin/user*.
   'POST /api/admin/user/routine-reviewed': async (req, res) => {
-    const staff = requireAdmin(req, res); if (!staff) return;
+    const staff = requireTrainer(req, res); if (!staff) return;       // trainer or admin
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
@@ -1408,6 +1417,24 @@ const routes = {
     S._ts = Date.now();
     saveDirect(u.id, S, body, 'admin-routine-reviewed', { ok: true });
     json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation } });
+  },
+  // Role of a user: member | trainer | admin (admin ⇒ trainer, as isTrainer already says). Admin-only. It rewrites only the existing flags on the roster entry
+  // (u.admin / u.trainer — no second source of truth) and the next request already sees them (readSession reads the roster). Guards: the system never ends up
+  // without an enabled admin (also covers an admin demoting themselves), and an admin that comes from ADMIN_UIDS (configuration) cannot be changed here.
+  // body: { id, role }.
+  'POST /api/admin/user/role': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const role = String(body.role || '');
+    if (!['member', 'trainer', 'admin'].includes(role)) return json(res, 400, { error: 'rol no válido' });
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    if (role !== 'admin' && ADMIN_UIDS.includes(u.id)) return json(res, 409, { error: 'este administrador viene de la configuración del servidor (ADMIN_UIDS)', code: 'admin_by_config' });
+    if (role !== 'admin' && isAdmin(u) && !db.users.some(x => x.id !== u.id && !x.disabled && isAdmin(x))) return json(res, 409, { error: 'no puede quedar el sistema sin administradores', code: 'last_admin' });
+    if (role === 'admin') { u.admin = true; delete u.trainer; }
+    else { delete u.admin; if (role === 'trainer') u.trainer = true; else delete u.trainer; }
+    saveDb();
+    json(res, 200, { ok: true, id: u.id, role: isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member', admin: isAdmin(u), trainer: isTrainer(u) });
   },
   // The member's own view of their follow-up: only the schedule, never who reviewed.
   'GET /api/followup': async (req, res) => {

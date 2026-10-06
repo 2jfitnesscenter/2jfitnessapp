@@ -67,13 +67,11 @@ test('GET followup (admin) carries the alert and the sync revision the staff wri
   assert.ok(r.body.sync === null || Number.isSafeInteger(r.body.sync.revision));
 });
 
-test('"Rutina revisada": admin closes the notice, the cycle restarts, the routine is untouched; others get 403', async () => {
+test('"Rutina revisada": staff (admin or trainer) closes the notice, the cycle restarts, the routine is untouched; a member gets 403', async () => {
   seed();
   const before = JSON.parse(fs.readFileSync(path.join(dir, 'state-member1.json'), 'utf8')).routines;
-  for (const uid of ['member2', 'trainer1']) {
-    const denied = await req('POST', '/api/admin/user/routine-reviewed', { uid, body: { id: 'member1', routineId: 'r1' } });
-    assert.equal(denied.status, 403, uid);
-  }
+  const denied = await req('POST', '/api/admin/user/routine-reviewed', { uid: 'member2', body: { id: 'member1', routineId: 'r1' } });
+  assert.equal(denied.status, 403);
   assert.equal((await req('POST', '/api/admin/user/routine-reviewed', { body: { id: 'member1', routineId: 'nope' } })).status, 400);
   assert.equal((await req('POST', '/api/admin/user/routine-reviewed', { body: { id: 'ghost', routineId: 'r1' } })).status, 404);
   const sync = (await req('GET', '/api/admin/user/followup?id=member1')).body.sync;
@@ -85,11 +83,32 @@ test('"Rutina revisada": admin closes the notice, the cycle restarts, the routin
   assert.equal((await req('GET', '/api/admin/user/followup?id=member1')).body.alerts.some(x => x.code === 'routine_review'), false);
 });
 
-test('manual cycle dates: admin-only, saved additively, they prevail, resetting goes back to automatic, "reviewed" clears them', async () => {
+test('a trainer can read the cycles, edit them and mark the routine reviewed (existing trainer permission); a member cannot; admin keeps working', async () => {
+  seed();
+  const sync = async uid => (await req('GET', '/api/trainer/routine-cycles?id=member1', { uid })).body.sync;
+  assert.equal((await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'member2' })).status, 403);
+  assert.equal((await req('GET', '/api/trainer/routine-cycles?id=ghost', { uid: 'trainer1' })).status, 404);
+  const read = await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'trainer1' });
+  assert.equal(read.status, 200); assert.equal(read.body.routineCycles[0].routineId, 'r1'); assert.equal(read.body.routineCycles[0].status, 'due');
+  assert.equal(Object.keys(read.body).sort().join(), 'routineCycles,sync', 'nothing from the follow-up / health summary');
+  const sh = async uid => { const sy = await sync(uid); return sy ? { sync: sy, operationId: crypto.randomUUID() } : {}; };
+  const set = await req('POST', '/api/admin/user/routine-cycle', { uid: 'trainer1', body: { id: 'member1', routineId: 'r1', due: addDays(todayIso(), 20), ...(await sh('trainer1')) } });
+  assert.equal(set.status, 200); assert.equal(set.body.cycle.dueManual, true);
+  assert.equal((await req('POST', '/api/admin/user/routine-cycle', { uid: 'member2', body: { id: 'member1', routineId: 'r1', due: addDays(todayIso(), 1) } })).status, 403);
+  assert.equal((await req('POST', '/api/admin/user/routine-cycle', { uid: 'admin1', body: { id: 'member1', routineId: 'r1', due: null, ...(await sh('admin1')) } })).status, 200);
+  const done = await req('POST', '/api/admin/user/routine-reviewed', { uid: 'trainer1', body: { id: 'member1', routineId: 'r1', ...(await sh('trainer1')) } });
+  assert.equal(done.status, 200);
+  const S = (await req('GET', '/api/data', { uid: 'member1' })).body.state;
+  assert.equal(S.routineReviews.r1.by, 'trainer1');
+  // the follow-up summary itself (health, check-ins) stays admin-only
+  assert.equal((await req('GET', '/api/admin/user/followup?id=member1', { uid: 'trainer1' })).status, 403);
+});
+
+test('manual cycle dates: staff-only, saved additively, they prevail, resetting goes back to automatic, "reviewed" clears them', async () => {
   seed();
   const post = (uid, payload) => req('POST', '/api/admin/user/routine-cycle', { uid, body: { id: 'member1', routineId: 'r1', ...payload } });
   const withSync = async payload => { const sync = (await req('GET', '/api/admin/user/followup?id=member1')).body.sync; return { ...payload, ...(sync ? { sync, operationId: crypto.randomUUID() } : {}) }; };
-  for (const uid of ['member2', 'trainer1']) assert.equal((await post(uid, { start: todayIso() })).status, 403, uid);
+  assert.equal((await post('member2', { start: todayIso() })).status, 403, 'member');
   assert.equal((await post('admin1', {})).status, 400, 'nothing to change');
   assert.equal((await post('admin1', await withSync({ start: 'not-a-date' }))).status, 400);
   assert.equal((await post('admin1', await withSync({ start: todayIso(), due: addDays(todayIso(), -3) }))).status, 400, 'review before start');

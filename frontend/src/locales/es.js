@@ -4378,4 +4378,13 @@ export default {
   'Review due': 'Toca revisión',
   'Cycle updated': 'Ciclo actualizado',
   'That date is not valid': 'Esa fecha no es válida',
+  'Role': 'Rol',
+  'Change role?': '¿Cambiar el rol?',
+  'Change role': 'Cambiar rol',
+  '{0} will go from {1} to {2}. {3}': '{0} pasará de {1} a {2}. {3}',
+  'They keep their own data but lose access to the trainer and admin tools.': 'Conservan sus propios datos pero pierden el acceso a las herramientas de entrenador y de administración.',
+  'They can build routines and programs for members. No admin tools.': 'Pueden crear rutinas y programas para los socios. Sin herramientas de administración.',
+  'Full access: members, settings, roles and every trainer tool.': 'Acceso total: socios, ajustes, roles y todas las herramientas de entrenador.',
+  'Role changed to {0}': 'Rol cambiado a {0}',
+  'This administrator comes from the server configuration and cannot be changed here.': 'Este administrador viene de la configuración del servidor y no se puede cambiar aquí.',
 }

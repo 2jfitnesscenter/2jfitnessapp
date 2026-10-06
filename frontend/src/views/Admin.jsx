@@ -264,10 +264,20 @@ export function UserDetail({ id, onChanged, close }) {
       .then(() => { toast(disabled ? t('User disabled') : t('User enabled')); onChanged(); close() })
       .catch(e => toast(e.message))
   }
-  const setTrainer = trainer => {
-    api('/api/admin/user/trainer', { method: 'POST', body: JSON.stringify({ id: u.id, trainer }) })
-      .then(() => { toast(trainer ? t('Now a trainer') : t('No longer a trainer')); load() })
-      .catch(e => toast(e.message))
+  // Role of this user: Member / Trainer / Admin (POST /api/admin/user/role — admin only; the server keeps at least one enabled admin). Always asks first.
+  const currentRole = u.admin ? 'admin' : u.trainer ? 'trainer' : 'member'
+  const ROLE_LABEL = { member: 'Member', trainer: 'Trainer', admin: 'Admin' }
+  const ROLE_NOTE = { member: 'They keep their own data but lose access to the trainer and admin tools.', trainer: 'They can build routines and programs for members. No admin tools.', admin: 'Full access: members, settings, roles and every trainer tool.' }
+  const me = useStore.getState().user
+  const changeRole = role => {
+    if (role === currentRole) return
+    confirmSheet({
+      title: t('Change role?'), confirmText: t('Change role'), danger: role === 'member' || currentRole === 'admin',
+      message: t('{0} will go from {1} to {2}. {3}', u.name, t(ROLE_LABEL[currentRole]), t(ROLE_LABEL[role]), t(ROLE_NOTE[role])),
+      onConfirm: () => api('/api/admin/user/role', { method: 'POST', body: JSON.stringify({ id: u.id, role }) })
+        .then(() => { toast(t('Role changed to {0}', t(ROLE_LABEL[role]))); onChanged(); if (me?.id === u.id) { window.location.hash = '#/home'; window.location.reload() } else load() })
+        .catch(e => toast(e.message)),
+    })
   }
   const applyStarterPlan = () => openSheet(close2 => <StarterPlanSheet u={u} sync={d.sync} onApplied={load} close={close2} />)
   const setFeature = (key, value) => {
@@ -325,8 +335,11 @@ export function UserDetail({ id, onChanged, close }) {
       onClick={() => openSheet(close2 => <BioimpedanceSheet u={u} current={d.measurements} latestWeight={d.latestWeight?.w} sync={d.sync} onSaved={load} close={close2} />)}>{t('Log bioimpedance scan')}</Button>
     <Button style={{ width: '100%', margin: '0 0 4px' }} icon="key"
       onClick={() => openSheet(close2 => <RecoveryLinkSheet u={u} close={close2} />)}>{t('Recover access (lost device)')}</Button>
-    {!u.admin && <Button style={{ width: '100%', margin: '0 0 4px' }} icon="person" variant={u.trainer ? 'tinted' : 'plain'}
-      onClick={() => setTrainer(!u.trainer)}>{u.trainer ? t('Remove trainer role') : t('Make trainer')}</Button>}
+    <div className="v3-role" role="group" aria-label={t('Role')}>
+      <div className="v2-eyebrow">{t('Role')}: <b>{t(ROLE_LABEL[currentRole])}</b></div>
+      <Segmented options={['member', 'trainer', 'admin'].map(r => ({ value: r, label: t(ROLE_LABEL[r]) }))} value={currentRole} onChange={changeRole} />
+      {u.adminByConfig && <div className="small dim">{t('This administrator comes from the server configuration and cannot be changed here.')}</div>}
+    </div>
     {!u.admin && <button className={'btn ' + (u.disabled ? 'primary' : 'danger')} style={{ margin: '4px 0 4px' }}
       onClick={() => u.disabled ? setDisabled(false)
         : confirmSheet({ title: t('Disable {0}?', u.name), message: t('They are signed out everywhere and can no longer sync or log in until re-enabled.'), confirmText: t('Disable'), danger: true, onConfirm: () => setDisabled(true) })}>

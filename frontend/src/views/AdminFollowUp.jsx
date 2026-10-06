@@ -47,14 +47,15 @@ function CycleDate({ label, value, manual, onSet, onAuto }) {
     {manual && <button type="button" className="v3-link" onClick={onAuto}>{t('Use automatic')}</button>}
   </label>
 }
-function RoutineCycles({ id, cycles, sync, setData }) {
+// `reload` re-reads the parent's data after "Routine reviewed" (the admin Seguimiento and the trainer panel read it from different endpoints).
+export function RoutineCycles({ id, cycles, sync, setData, reload }) {
   const toast = useUI(s => s.toast)
   const [busy, setBusy] = useState(false)
   const write = (c, payload, done) => {
     if (busy) return
     setBusy(true)
     stateAction('/api/admin/user/' + done.path, { id, routineId: c.routineId, ...payload }, sync)
-      .then(r => { setData(d => ({ ...d, sync: r.sync || d.sync, routineCycles: done.reviewed ? d.routineCycles : d.routineCycles.map(x => (x.routineId === c.routineId && r.cycle ? r.cycle : x)) })); toast(done.msg); if (done.reviewed) done.reload() })
+      .then(r => { setData(d => ({ ...d, sync: r.sync || d.sync, routineCycles: done.reviewed ? d.routineCycles : d.routineCycles.map(x => (x.routineId === c.routineId && r.cycle ? r.cycle : x)) })); toast(done.msg); if (done.reviewed) done.reload?.() })
       .catch(e => toast(e.message || t('That date is not valid')))
       .finally(() => setBusy(false))
   }
@@ -67,7 +68,7 @@ function RoutineCycles({ id, cycles, sync, setData }) {
         onSet={v => write(c, { start: v }, { path: 'routine-cycle', msg: t('Cycle updated') })} onAuto={() => write(c, { start: null }, { path: 'routine-cycle', msg: t('Cycle updated') })} />
       <CycleDate label={t('Review date')} value={c.dueDate} manual={c.dueManual}
         onSet={v => write(c, { due: v }, { path: 'routine-cycle', msg: t('Cycle updated') })} onAuto={() => write(c, { due: null }, { path: 'routine-cycle', msg: t('Cycle updated') })} />
-      <Button size="sm" variant="tinted" icon="check" onClick={() => write(c, {}, { path: 'routine-reviewed', msg: t('Review closed'), reviewed: true, reload: () => api('/api/admin/user/followup?id=' + encodeURIComponent(id)).then(setData).catch(() => {}) })}>{t('Routine reviewed')}</Button>
+      <Button size="sm" variant="tinted" icon="check" onClick={() => write(c, {}, { path: 'routine-reviewed', msg: t('Review closed'), reviewed: true, reload })}>{t('Routine reviewed')}</Button>
     </div>)}
   </Surface>
 }
@@ -126,7 +127,7 @@ export default function AdminFollowUp({ id }) {
   const status = !f ? '' : overdue ? 'overdue' : s.nextReview && s.nextReview <= today ? 'due' : ''
   return <section className="fu">
     <h4 className="sec">{t('Follow-up')}</h4>
-    {(d.routineCycles || []).length > 0 && <RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync} setData={setD} />}
+    {(d.routineCycles || []).length > 0 && <RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync} setData={setD} reload={load} />}
     {!f ? <div className="card fu-empty">
       <div className="muted small">{t('No follow-up yet. Choose an assessment template and how often to review.')}</div>
       <Button icon="plus" onClick={setup}>{t('Start follow-up')}</Button>

@@ -7,6 +7,8 @@ import { api } from './api.js'
 import { stateAction } from './state-action.js'
 
 export { fetchTrainerMembers } from './social-api.js'
+// Routine-review cycles of one member (trainer or admin): { routineCycles, sync } — only what the cycle editor needs.
+export const fetchRoutineCycles = memberId => api('/api/trainer/routine-cycles?id=' + encodeURIComponent(memberId))
 export const fetchMemberPlan = memberId => api('/api/trainer/member-plan?id=' + encodeURIComponent(memberId))
 export const saveMemberRoutine = payload => savePlan('member-routine', payload)
 export const saveMemberProgram = payload => savePlan('member-program', payload)

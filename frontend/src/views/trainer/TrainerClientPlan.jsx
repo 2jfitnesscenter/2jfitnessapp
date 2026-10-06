@@ -6,7 +6,8 @@ import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
 import { glyphOf } from '../../lib/glyphs.js'
 import { RoutineSummaryLine, ProgramSummaryLine } from '../../components/PlanSummaryLine.jsx'
-import { fetchMemberPlan, fetchTrainerMembers } from '../../lib/trainer-api.js'
+import { fetchMemberPlan, fetchTrainerMembers, fetchRoutineCycles } from '../../lib/trainer-api.js'
+import { RoutineCycles } from '../AdminFollowUp.jsx'
 import { mediaUrl } from '../../lib/media.js'
 import { Button } from '../../components/ui.jsx'
 import Icon from '../../components/Icon.jsx'
@@ -21,9 +22,12 @@ export default function TrainerClientPlan() {
   const toast = useUI(s => s.toast)
   const [member, setMember] = useState(null)
   const [plan, setPlan] = useState(null)
+  const [cy, setCy] = useState(null)   // the routine-review cycles (start / review date), editable by the trainer
 
+  const loadCycles = () => fetchRoutineCycles(memberId).then(setCy).catch(() => setCy(null))
   const load = () => {
     fetchMemberPlan(memberId).then(setPlan).catch(e => toast(e.message))
+    loadCycles()
     fetchTrainerMembers().then(list => setMember(list.find(m => m.id === memberId) || null)).catch(() => {})
   }
   useEffect(load, [memberId])
@@ -41,6 +45,8 @@ export default function TrainerClientPlan() {
       </div>
       <a className="trainer-back" href="#/trainer"><Icon name="chevronLeft" />{t('All members')}</a>
     </div>
+
+    {cy?.routineCycles?.length > 0 && <RoutineCycles id={memberId} cycles={cy.routineCycles} sync={cy.sync} setData={setCy} reload={loadCycles} />}
 
     <div className="row" style={{ gap: 8, marginBottom: 20 }}>
       <Button icon="plus" onClick={() => nav('/trainer/' + memberId + '/build/r/new')}>{t('New routine')}</Button>
