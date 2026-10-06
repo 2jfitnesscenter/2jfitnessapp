@@ -578,7 +578,7 @@ h4.sec{
 /* --- text field --- */
 .field,.input{
   width:100%;background:var(--surface);border:none;border-radius:var(--r);
-  padding:13px 15px;font-size:calc(17px * var(--text-scale,1));letter-spacing:-.012em;outline:none;
+  padding:13px 15px;font-size:max(16px,calc(17px * var(--text-scale,1)));letter-spacing:-.012em;outline:none;
   transition:box-shadow var(--fast);
 }
 .field::placeholder,.input::placeholder{color:var(--label-3)}
@@ -682,7 +682,7 @@ h4.sec{
 /* native time input, restyled to sit in a row like a value label */
 .timef{
   background:var(--surface-2);border:none;border-radius:8px;padding:6px 10px;
-  font-size:calc(16px * var(--text-scale,1));color:var(--label);outline:none;font-variant-numeric:tabular-nums;
+  font-size:max(16px,calc(16px * var(--text-scale,1)));color:var(--label);outline:none;font-variant-numeric:tabular-nums;
 }
 .timef::-webkit-calendar-picker-indicator{filter:invert(.5)}
 :root[data-theme="light"] .timef::-webkit-calendar-picker-indicator{filter:none}
@@ -715,7 +715,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
    Now the row itself grows to whatever the number needs and the button centers within it instead. */
 .stp .num{
   width:100%;min-width:0;text-align:center;background:none;border:none;outline:none;
-  font-size:calc(17px * var(--text-scale,1));font-weight:500;letter-spacing:-.012em;line-height:1.25;padding:0;
+  font-size:max(16px,calc(17px * var(--text-scale,1)));font-weight:500;letter-spacing:-.012em;line-height:1.25;padding:0;
   font-variant-numeric:tabular-nums;
   -moz-appearance:textfield;appearance:textfield;
 }
@@ -863,7 +863,7 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .setrow.eff3 .stp.r,.sethead.eff3 .r-sp{flex:1}
 .setrow.eff3 .setmeta,.sethead.eff3 .setmeta-head{flex:.9}
 .setrow.eff3 .stp.w button,.setrow.eff3 .stp.r button{width:20px}
-.setrow.eff3 .stp .num{font-size:calc(14px * var(--text-scale,1))}
+.setrow.eff3 .stp .num{font-size:max(16px,calc(14px * var(--text-scale,1)))}
 .setrow.done{opacity:.45}
 /* The effort column, once it's a tap-to-open badge (EffortSheet) rather than a +/- stepper —
    sits inside the same .stp.eff wrapper so the existing eff3 width rules still size the column,
@@ -3232,7 +3232,7 @@ body:has(.sync-pill) #app{padding-top:8px}
 /* tools */
 .t2-tools{display:flex;flex-direction:column;gap:10px;position:sticky;top:0;z-index:5;padding:10px var(--pad);margin:0 calc(-1 * var(--pad));background:var(--bg);box-shadow:0 10px 16px -12px rgba(0,0,0,.5)}
 .t2-search{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--t2-line);border-radius:16px;padding:0 14px;color:var(--label-3)}
-.t2-search input{flex:1;background:none;border:0;color:var(--label);font-size:15px;padding:13px 0;outline:none;min-width:0}
+.t2-search input{flex:1;background:none;border:0;color:var(--label);font-size:16px;padding:13px 0;outline:none;min-width:0}
 .t2-search:focus-within{border-color:var(--t2-em);box-shadow:0 0 0 3px color-mix(in srgb,var(--t2-em) 16%,transparent)}
 .t2-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
 .t2-chips::-webkit-scrollbar,.t2-rail-s::-webkit-scrollbar,.t2-hero-dots::-webkit-scrollbar{display:none}
