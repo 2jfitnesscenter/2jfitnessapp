@@ -1,10 +1,14 @@
 # Changelog
 
-### Shared Staff Device PIN (2026-10-06) — LOCAL ONLY / NOT DEPLOYED
+### Shared Staff Device PIN (2026-10-06) — desplegado
 
-- Añade acceso PIN personal para trainers/admins solo en un ordenador autorizado por admin con passkey. Cookies de dispositivo/sesión derivada revocables, PIN scrypt, límites por IP/dispositivo/UID, auto-lock a 15 min y reautenticación WebAuthn para acciones protegidas.
-- El selector no lista socios ni correo; cambio de entrenador limpia el estado sensible por UID y preserva únicamente el workout activo del mismo usuario. Auth y metadatos quedan en `db.json`, fuera de Sync V2; no se altera el modelo de entrenamiento.
-- Frontend 1411/1411; API 426 pass / 5 skipped en Windows; build/locales/diff-check OK. Base/producción `cd4a542`; falta QA manual y runner PrepareOnly. Sin commit/push/deploy en este momento.
+- Acceso PIN personal para trainers/admins en dispositivos autorizados por passkey, con sesiones revocables, límites y reautenticación. El propietario confirmó despliegue en `831f691ca1b30a9c252bb60e8336d93edf448114` y QA real correcto.
+
+### Alerta local Android al terminar el descanso (2026-10-07) — NOT DEPLOYED
+
+- Android nativo programa una notificación local privada usando el final del temporizador JS existente; el mismo aviso se sustituye o cancela al ajustar, pausar, reanudar, cancelar o iniciar otro descanso. No duplica el push PWA ni cambia Bunker.
+- El permiso POST_NOTIFICATIONS solo se solicita al activar el ajuste; si se deniega, el temporizador continúa y Ajustes explica cómo habilitarlo. `allowWhileIdle` se usa con el permiso de alarma exacta existente cuando Android lo permite y mantiene fallback inexacto.
+- Origen: `deb9f7d`; mantiene el timer existente como verdad, una sola notificación local Android y los flujos PWA/Bunker. Pendiente validar suites completas y prueba física Android en Doze/pantalla apagada.
 
 ### Búsqueda tolerante de ejercicios — candidato v1.4.0 (2026-10-06) — NOT DEPLOYED
 
