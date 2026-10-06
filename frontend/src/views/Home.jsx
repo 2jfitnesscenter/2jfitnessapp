@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useUI } from '../store/useUI.js'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks } from '../lib/history.js'
 import { todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
@@ -11,6 +12,8 @@ import { Button } from '../components/ui.jsx'
 import WorkoutCover from '../components/WorkoutCover.jsx'
 import HomeHero from '../components/HomeHero.jsx'
 import FollowUpCard from '../components/FollowUpCard.jsx'
+import RoutineReviewCard from '../components/RoutineReviewCard.jsx'
+import { pendingReviews, markReviewed } from '../lib/routine-review.js'
 import { useFollowUp } from '../lib/followup-view.js'
 import { coachAvailable, hasConsent } from '../lib/coach.js'
 import { useCoachStatus } from '../lib/coach-api.js'
@@ -67,8 +70,10 @@ export default function Home() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const config = useStore(s => s.config)
+  const update = useStore(s => s.update)
   const [weekOffset, setWeekOffset] = useState(0)
   const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
+  const reviewNow = pendingReviews(S, todayISO())[0] || null   // a routine due for review (shown only then)
   const followUp = useFollowUp()   // the gym's follow-up schedule; Home only shows it when a review is near or overdue
 
   const today = new Date()
@@ -106,6 +111,9 @@ export default function Home() {
   return <div className="narrow">
     <HomeHero S={S} user={user} routine={routine} doneToday={doneToday} rescheduled={todayOvr}
       week={{ done: wThisWeek, planned: plannedPerWeek, streak }} onToday={onToday} onWeek={() => calendarSheet()} now={today} />
+
+    {reviewNow && <RoutineReviewCard compact review={reviewNow} onView={() => nav('/plan/r/' + reviewNow.routineId)}
+      onDone={() => { update(st => { markReviewed(st, reviewNow.routineId, todayISO(), 'member') }); useUI.getState().toast(t('Review closed')) }} />}
 
     <FollowUpCard fu={followUp} S={S} nav={nav} compact />
 

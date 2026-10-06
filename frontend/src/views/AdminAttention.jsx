@@ -6,6 +6,8 @@ import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { fmtDate } from '../lib/format.js'
 import { rankAttention } from '../lib/attention.js'
+import { stateAction } from '../lib/state-action.js'
+import { reviewReasons } from '../lib/routine-review-text.js'
 import Icon from '../components/Icon.jsx'
 import { Surface, Pill, ListSkeleton, EmptyState } from '../components/v2.jsx'
 import { Button, Avatar } from '../components/ui.jsx'
@@ -27,7 +29,7 @@ async function loadRows(users) {
   return rows
 }
 
-function Row({ r, openUser, nav }) {
+function Row({ r, openUser, nav, onReviewed }) {
   const shown = r.reviewIn != null ? r.alerts.filter(a => a.code !== 'review_overdue') : r.alerts // the pill already says it
   return <Surface className="v3-att-row">
     <div className="v3-att-top">
@@ -41,7 +43,11 @@ function Row({ r, openUser, nav }) {
       </div>
       {r.reviewIn != null && <Pill tone={r.reviewIn < 0 ? 'gold' : undefined}>{r.reviewIn < 0 ? t(r.reviewIn === -1 ? 'Review overdue by {0} day' : 'Review overdue by {0} days', -r.reviewIn) : r.reviewIn === 0 ? t('Review today') : t(r.reviewIn === 1 ? 'Review in {0} day' : 'Review in {0} days', r.reviewIn)}</Pill>}
     </div>
-    {shown.length > 0 && <ul className="v3-att-alerts">{shown.map((a, i) => <li key={i}>{alertText(a)}</li>)}</ul>}
+    {shown.length > 0 && <ul className="v3-att-alerts">{shown.map((a, i) => a.code === 'routine_review'
+      ? <li key={i} className="v3-att-rr"><b>{alertText(a)}</b>
+          {reviewReasons(a, 2).map((w, j) => <small key={j}>{w}</small>)}
+          <Button size="sm" variant="tinted" icon="check" onClick={() => onReviewed(r, a)}>{t('Routine reviewed')}</Button></li>
+      : <li key={i}>{alertText(a)}</li>)}</ul>}
     <div className="v3-att-acts">
       <Button size="sm" variant="tinted" icon="clipboard" onClick={() => nav('/trainer/' + r.user.id)}>{t('Plan')}</Button>
       <Button size="sm" icon="chartLine" onClick={() => openUser(r.user.id)}>{t('Follow-up')}</Button>
@@ -62,6 +68,9 @@ export default function AdminAttention() {
   useEffect(() => { if (user?.admin) load() }, [])
   if (!user?.admin) return null
   const openUser = id => openSheet(close => <UserDetail id={id} onChanged={load} close={close} />)
+  // "Rutina revisada": closes that routine's review notice and restarts its cycle (the routine itself is never touched)
+  const reviewed = (r, a) => stateAction('/api/admin/user/routine-reviewed', { id: r.user.id, routineId: a.routineId }, r.sync)
+    .then(() => { toast(t('Review closed')); load() }).catch(e => toast(e.message))
   const none = rank && !rank.urgent.length && !rank.soon.length
   return <div className="narrow v3-att">
     <div className="hdr">
@@ -69,8 +78,8 @@ export default function AdminAttention() {
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Needs attention')}</h1><div className="sub">{t('Who to look at today')}</div></div>
     </div>
     {!rank ? <ListSkeleton rows={3} /> : <>
-      {rank.urgent.length > 0 && <><h4 className="sec">{t('Urgent')}<span className="v2-badge">{rank.urgent.length}</span></h4>{rank.urgent.map(r => <Row key={r.user.id} r={r} openUser={openUser} nav={nav} />)}</>}
-      {rank.soon.length > 0 && <><h4 className="sec">{t('Coming up')}<span className="v2-badge">{rank.soon.length}</span></h4>{rank.soon.map(r => <Row key={r.user.id} r={r} openUser={openUser} nav={nav} />)}</>}
+      {rank.urgent.length > 0 && <><h4 className="sec">{t('Urgent')}<span className="v2-badge">{rank.urgent.length}</span></h4>{rank.urgent.map(r => <Row key={r.user.id} r={r} openUser={openUser} nav={nav} onReviewed={reviewed} />)}</>}
+      {rank.soon.length > 0 && <><h4 className="sec">{t('Coming up')}<span className="v2-badge">{rank.soon.length}</span></h4>{rank.soon.map(r => <Row key={r.user.id} r={r} openUser={openUser} nav={nav} onReviewed={reviewed} />)}</>}
       {none && <EmptyState icon="checkCircle" title={t('Everyone is on track')}><div className="muted small">{t('No alerts and no reviews due this week.')}</div></EmptyState>}
       {rank.onTrack.length > 0 && <p className="small dim" style={{ textAlign: 'center', marginTop: 16 }}>{t(rank.onTrack.length === 1 ? '{0} member on track' : '{0} members on track', rank.onTrack.length)}</p>}
     </>}

@@ -110,3 +110,10 @@
 .set-v3 .lrow-v { color: var(--label-2); font-size: 13px; font-weight: 650; }
 .set-v3 .v3-privacy { margin-bottom: 12px; }
 .v3-privacy { padding: 14px 16px; }
+
+/* ---- routine review notice (member card + staff alert) ---- */
+.v3-rr { padding: 14px 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; border: 1px solid color-mix(in srgb, var(--acc) 35%, var(--sep)); }
+.v3-rr-t { display: flex; flex-direction: column; gap: 2px; } .v3-rr-t b { font-size: 17px; letter-spacing: -.01em; overflow-wrap: anywhere; } .v3-rr-t small { color: var(--label-3); }
+.v3-rr-why { margin: 0; padding-left: 18px; color: var(--label-2); font-size: 13px; line-height: 1.45; }
+.v3-rr-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.v3-att-rr { list-style: none; margin-left: -18px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding: 8px 0 2px; } .v3-att-rr small { color: var(--label-3); }

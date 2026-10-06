@@ -1,0 +1,164 @@
+import { describe, expect, it } from 'vitest'
+import { cycleStart, markReviewed, pendingReviews, plateau, routineReviews } from './routine-review.js'
+import { followupDigest } from './followup-v3.js'
+import { rankAttention } from './attention.js'
+
+/* Routine review loop: normal review in week 5, brought forward to week 4 only by a CLEAR plateau, never by one bad session, never edits a routine,
+   "Rutina revisada" restarts the cycle, and data without any of this metadata is simply not in a cycle. */
+const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10)
+const set = (w, r, extra = {}) => ({ w, r, done: true, ...extra })
+const entry = (id, sets, tg = { sets: sets.length, reps: 8 }) => ({ id, target: tg, sets })
+const workout = (d, entries, routineId = 'r1') => ({ id: 'w' + d + routineId, d, routineId, entries })
+const ROUTINE = { id: 'r1', name: 'Push day', ex: [{ id: 'A' }, { id: 'B' }] }
+const state = (workouts, over = {}) => ({ routines: [ROUTINE], workouts, ...over })
+// `loads`: one [weightA, repsA, weightB, repsB] per session, every 2–3 days from `first`
+const sessions = (first, rows, extra = () => ({})) => rows.map(([wa, ra, wb, rb], i) =>
+  workout(addDays(first, i * 3), [entry('A', [set(wa, ra, extra(i, 'A')), set(wa, ra, extra(i, 'A'))]), entry('B', [set(wb, rb, extra(i, 'B')), set(wb, rb, extra(i, 'B'))])]))
+const PROGRESSING = [[60, 8, 40, 8], [62.5, 8, 40, 10], [62.5, 10, 42.5, 8], [65, 8, 42.5, 10], [65, 10, 45, 8]]
+const FLAT = [[60, 8, 40, 8], [60, 8, 40, 8], [60, 8, 40, 8], [60, 8, 40, 8], [60, 8, 40, 8]]
+const FIRST = '2026-09-01'
+
+describe('cycle', () => {
+  it('starts at the first logged workout; no workout and no mark means no cycle', () => {
+    expect(cycleStart(state(sessions(FIRST, FLAT)), ROUTINE)).toEqual({ start: FIRST, source: 'first', exclusive: false })
+    expect(cycleStart(state([]), ROUTINE)).toBeNull()
+    expect(routineReviews(state([]), '2026-10-30')).toEqual([])
+  })
+  it('a staff replacement (routine version) restarts it; so does "reviewed" — whichever is later', () => {
+    const v = Date.parse('2026-09-20T10:00:00Z')
+    expect(cycleStart(state(sessions(FIRST, FLAT), { routineVersions: { r1: [{ versionedAt: v }] } }), ROUTINE)).toMatchObject({ start: '2026-09-20', source: 'version' })
+    const S = state(sessions(FIRST, FLAT), { routineVersions: { r1: [{ versionedAt: v }] }, routineReviews: { r1: { reviewedAt: '2026-09-25' } } })
+    expect(cycleStart(S, ROUTINE)).toMatchObject({ start: '2026-09-25', source: 'reviewed' })
+  })
+})
+
+describe('when a review is due', () => {
+  it('week 5 → normal review', () => {
+    const S = state(sessions(FIRST, PROGRESSING))
+    const r = routineReviews(S, addDays(FIRST, 28))[0]
+    expect(r).toMatchObject({ week: 5, status: 'due', early: false, sessions: 5 })
+    expect(r.reasons[0]).toEqual({ code: 'week', week: 5 })
+    expect(pendingReviews(S, addDays(FIRST, 28))).toHaveLength(1)
+    expect(routineReviews(S, addDays(FIRST, 27))[0].status).not.toBe('due')   // still week 4
+  })
+  it('week 4 + a clear plateau → brought forward', () => {
+    const S = state(sessions(FIRST, FLAT))
+    const r = routineReviews(S, addDays(FIRST, 21))[0]
+    expect(r).toMatchObject({ week: 4, status: 'early', early: true })
+    expect(r.reasons).toContainEqual({ code: 'stalled', n: 2, of: 2 })
+  })
+  it('week 4 with normal progress → not brought forward', () => {
+    const S = state(sessions(FIRST, PROGRESSING))
+    expect(routineReviews(S, addDays(FIRST, 21))[0]).toMatchObject({ week: 4, status: 'soon', early: false })
+    expect(pendingReviews(S, addDays(FIRST, 21))).toEqual([])
+  })
+  it('never before week 4, and never with fewer than 3 sessions', () => {
+    expect(routineReviews(state(sessions(FIRST, FLAT)), addDays(FIRST, 20))[0].status).toBe('ok')
+    expect(routineReviews(state(sessions(FIRST, FLAT.slice(0, 2))), addDays(FIRST, 40))[0].status).toBe('idle')
+    expect(pendingReviews(state(sessions(FIRST, FLAT.slice(0, 2))), addDays(FIRST, 40))).toEqual([])
+  })
+  it('a routine left for 2+ weeks past its review date is marked late', () => {
+    const S = state(sessions(FIRST, PROGRESSING))
+    expect(routineReviews(S, addDays(FIRST, 28 + 13))[0].late).toBe(false)
+    expect(routineReviews(S, addDays(FIRST, 28 + 14))[0].late).toBe(true)
+  })
+})
+
+describe('plateau rules are explainable and one bad session never triggers', () => {
+  it('a single bad session after real progress is not a plateau', () => {
+    const rows = [...PROGRESSING, [55, 5, 35, 5]]
+    const bad = sessions(FIRST, rows, (i) => (i === 5 ? { feel: 'fail', rpe: 10 } : {}))
+    const p = plateau(bad)
+    expect(p.clear).toBe(false)
+    expect(routineReviews(state(bad), addDays(FIRST, 21))[0].early).toBe(false)
+  })
+  it('one stalled exercise alone is not clear; with a supporting signal it is', () => {
+    // A flat, B progressing
+    const rows = [[60, 8, 40, 8], [60, 8, 42.5, 8], [60, 8, 45, 8], [60, 8, 47.5, 8], [60, 8, 50, 8]]
+    expect(plateau(sessions(FIRST, rows)).clear).toBe(false)
+    expect(plateau(sessions(FIRST, rows)).stalled).toEqual(['A'])
+    // …and the last 2 of 3 sessions had failures on A
+    const misses = plateau(sessions(FIRST, rows, (i, id) => (id === 'A' && i >= 3 ? { feel: 'fail' } : {})))
+    expect(misses.clear).toBe(true)
+    expect(misses.reasons.map(r => r.code)).toEqual(expect.arrayContaining(['stalled', 'misses']))
+  })
+  it('real effort getting worse at the same load is a signal (RPE up ≥ 1)', () => {
+    const rows = [[60, 8, 40, 8], [60, 8, 40, 8], [60, 8, 40, 8], [60, 8, 40, 8], [60, 8, 40, 8]]
+    const p = plateau(sessions(FIRST, rows, (i) => ({ rpe: [7, 7.5, 8.5, 9, 9][i] })))
+    expect(p.reasons.some(r => r.code === 'effort_up')).toBe(true)
+    // RIR is read through the same scale; better effort is not a signal
+    expect(plateau(sessions(FIRST, rows, (i) => ({ rir: [1, 1, 2, 3, 3][i] }))).reasons.some(r => r.code === 'effort_up')).toBe(false)
+  })
+  it('repeatedly "hard" sessions and cut-short sessions count only when it repeats (≥ 2 of the last 3)', () => {
+    const hard = plateau(sessions(FIRST, FLAT, (i) => (i >= 4 ? { feel: 'hard' } : { feel: 'good' })))
+    expect(hard.reasons.some(r => r.code === 'hard')).toBe(false)           // only the last session was hard: 1 of 3
+    const hard2 = plateau(sessions(FIRST, FLAT, (i) => (i >= 2 ? { feel: 'hard' } : { feel: 'good' })))
+    expect(hard2.reasons).toContainEqual({ code: 'hard', n: 3 })
+    const cut = FLAT.map((r, i) => workout(addDays(FIRST, i * 3), [entry('A', [set(60, 8)], { sets: 4, reps: 8 }), entry('B', [set(40, 8)], { sets: 4, reps: 8 })]))
+    expect(plateau(cut).reasons).toContainEqual({ code: 'incomplete', n: 3 })
+    expect(plateau(sessions(FIRST, FLAT)).reasons.some(r => r.code === 'incomplete')).toBe(false)
+  })
+  it('warm-up and undone sets never count; unloaded exercises use reps', () => {
+    const w = [workout('2026-09-01', [entry('A', [{ w: 100, r: 1, done: true, type: 'warmup' }, { w: 60, r: 8, done: false }, set(60, 8)])])]
+    expect(plateau(w).evaluable).toBe(0)
+    const bw = [5, 5, 5, 5, 5].map((r, i) => workout(addDays(FIRST, i * 3), [entry('P', [set(0, r)])]))
+    expect(plateau(bw).stalled).toEqual(['P'])
+    const bw2 = [5, 6, 7, 8, 9].map((r, i) => workout(addDays(FIRST, i * 3), [entry('P', [set(0, r)])]))
+    expect(plateau(bw2).stalled).toEqual([])
+  })
+})
+
+describe('"Rutina revisada"', () => {
+  it('closes the notice and restarts the cycle from that day; the routine is untouched', () => {
+    const S = state(sessions(FIRST, PROGRESSING))
+    const today = addDays(FIRST, 28)
+    const before = JSON.stringify(S.routines)
+    expect(pendingReviews(S, today)).toHaveLength(1)
+    expect(markReviewed(S, 'r1', today, 'member')).toBe(true)
+    expect(S.routineReviews.r1).toEqual({ reviewedAt: today, by: 'member', n: 1 })
+    expect(JSON.stringify(S.routines)).toBe(before)
+    expect(pendingReviews(S, today)).toEqual([])
+    expect(routineReviews(S, today)[0]).toMatchObject({ status: 'idle', week: 1, source: 'reviewed' })
+    // new sessions after the mark count for the new cycle, and it comes back at week 5 of THAT cycle
+    S.workouts.push(...sessions(addDays(today, 1), PROGRESSING))
+    expect(pendingReviews(S, addDays(today, 27))).toEqual([])
+    expect(pendingReviews(S, addDays(today, 28))).toHaveLength(1)
+    expect(markReviewed(S, 'r1', addDays(today, 28), 'staff1')).toBe(true)
+    expect(S.routineReviews.r1.n).toBe(2)
+  })
+  it('refuses an unknown routine or a bad date', () => {
+    const S = state([])
+    expect(markReviewed(S, 'nope', '2026-10-01', 'x')).toBe(false)
+    expect(markReviewed(S, 'r1', 'yesterday', 'x')).toBe(false)
+    expect(S.routineReviews).toBeUndefined()
+  })
+})
+
+describe('old or odd data never breaks it', () => {
+  it('missing everything', () => {
+    for (const S of [undefined, null, {}, { routines: [{ id: 'r1' }] }, { routines: [ROUTINE], workouts: [{}, null, { routineId: 'r1' }, { routineId: 'r1', d: 'bad' }] },
+      { routines: [ROUTINE], workouts: [{ routineId: 'r1', d: FIRST }, { routineId: 'r1', d: addDays(FIRST, 2), entries: [null, {}, { id: 'A' }, { id: 'A', sets: [null] }] }, { routineId: 'r1', d: addDays(FIRST, 4) }] }]) {
+      expect(() => routineReviews(S, '2026-11-30')).not.toThrow()
+      expect(() => pendingReviews(S, '2026-11-30')).not.toThrow()
+      expect(Array.isArray(pendingReviews(S, '2026-11-30'))).toBe(true)   // three logged sessions with no detail are still three sessions in week 5+
+    }
+  })
+})
+
+describe('what the member and the staff get', () => {
+  const S = state(sessions(FIRST, FLAT))
+  const today = addDays(FIRST, 21)
+  it('the member digest carries the same review (Seguimiento / Home)', () => {
+    const d = followupDigest(S, null, today)
+    expect(d.reviews).toHaveLength(1)
+    expect(d.reviews[0]).toMatchObject({ routineId: 'r1', name: 'Push day', status: 'early' })
+    expect(d.empty).toBe(false)
+    expect(followupDigest(state(sessions(FIRST, PROGRESSING)), null, today).reviews).toEqual([])
+  })
+  it('the staff list ranks a pending review under "coming up", and a late one as urgent', () => {
+    const row = (late) => ({ user: { id: 'u1', name: 'Ana' }, summary: {}, alerts: [{ code: 'routine_review', routineId: 'r1', name: 'Push day', week: 5, early: false, late, reasons: [] }] })
+    expect(rankAttention([row(false)], '2026-10-06').soon).toHaveLength(1)
+    expect(rankAttention([row(true)], '2026-10-06').urgent).toHaveLength(1)
+    expect(rankAttention([{ user: { id: 'u2' }, summary: {}, alerts: [] }], '2026-10-06').onTrack).toHaveLength(1)
+  })
+})

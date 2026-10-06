@@ -6,6 +6,7 @@
 import { todayISO } from './format.js'
 import { followUpView } from './followup-view.js'
 import { checkinOn } from './checkin.js'
+import { pendingReviews } from './routine-review.js'
 
 const DAY = 86400000
 const GOAL_LABEL = { hypertrophy: 'Build muscle', toning: 'Tone up', fatloss: 'Lose fat', power: 'Power', plyometrics: 'Plyometrics', longevity: 'Health & longevity' }
@@ -58,7 +59,8 @@ export function followupDigest(S, fu, today = todayISO()) {
     checkin: { today: todayCheckin, week, asked: true },
     coach,
     changes: changes.slice(0, 3),
+    reviews: pendingReviews(S || {}, today).slice(0, 2),   // routine reviews due now (lib/routine-review.js); never edits a routine
   }
-  out.empty = !out.goal && !out.evolution && !out.review && !out.coach && !out.changes.length && !week.length && !todayCheckin
+  out.empty = !out.goal && !out.evolution && !out.review && !out.coach && !out.changes.length && !out.reviews.length && !week.length && !todayCheckin
   return out
 }

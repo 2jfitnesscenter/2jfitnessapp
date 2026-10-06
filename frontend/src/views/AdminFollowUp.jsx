@@ -6,6 +6,7 @@ import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { fmtDate, fmtNum } from '../lib/format.js'
 import { MEASUREMENTS } from '../lib/measurements.js'
+import { reviewAlertText } from '../lib/routine-review-text.js'
 import { PAIN_ZONE } from '../lib/checkin.js'
 import { Button, Row, SelectRow } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
@@ -27,6 +28,7 @@ const MEAS = Object.fromEntries(MEASUREMENTS.map(m => [m.key, m]))
 const signed = n => (n > 0 ? '+' : '') + fmtNum(n)
 
 export function alertText(a) {
+  if (a.code === 'routine_review') return reviewAlertText(a)
   if (a.code === 'review_overdue') return t('Review overdue by {0} days', a.days)
   if (a.code === 'no_workouts_yet') return t('No workouts logged yet')
   if (a.code === 'no_recent_workouts') return t('No workouts in the last {0} days', a.days)

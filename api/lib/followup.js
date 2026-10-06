@@ -9,6 +9,8 @@
 // relation to scope one to, so it gets none here either. Check-ins are new, member-authored
 // wellbeing data: they enter the summary only when the member turned on S.shareCheckins.
 //
+import { pendingReviews } from './routine-review.js';
+
 // Everything here is counts, dates and differences. No scores, no labels, no diagnosis.
 
 export const MEASURE_KEYS = ['neck', 'shoulders', 'chest', 'bicepsL', 'bicepsR', 'forearmL', 'forearmR', 'waist', 'hips',
@@ -124,6 +126,8 @@ export function followUpSummary(S, f, today) {
     checkinsShared: S.shareCheckins === true,
     checkins: S.shareCheckins === true ? checkinStats(S.checkins, from, today) : null,
     nextReview: nextReview(f),
+    // Routine review loop (lib/routine-review.js): routines whose review is due, or advanced by a clear plateau. Derived from the member's own workouts.
+    routineReviews: pendingReviews(S, today).slice(0, 3).map(r => ({ routineId: r.routineId, name: r.name, week: r.week, days: r.days, early: r.early, late: r.late, reasons: r.reasons })),
   };
   return { summary, alerts: followUpAlerts(summary, f) };
 }
@@ -134,6 +138,7 @@ export function followUpAlerts(s, f) {
   if (f && s.nextReview && s.nextReview < s.today) out.push({ code: 'review_overdue', days: daysBetween(s.nextReview, s.today) });
   if (!s.lastWorkout) out.push({ code: 'no_workouts_yet' });
   else if (daysBetween(s.lastWorkout, s.today) >= 14) out.push({ code: 'no_recent_workouts', days: daysBetween(s.lastWorkout, s.today) });
+  for (const r of s.routineReviews || []) out.push({ code: 'routine_review', routineId: r.routineId, name: r.name, week: r.week, early: r.early, late: r.late, reasons: r.reasons });
   if (s.checkins) {
     if (s.checkins.highFatigue14 >= 3) out.push({ code: 'high_fatigue', n: s.checkins.highFatigue14 });
     for (const p of s.checkins.pain14) if (p.n >= 3) out.push({ code: 'repeated_discomfort', zone: p.zone, n: p.n });
