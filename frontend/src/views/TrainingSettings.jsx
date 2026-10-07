@@ -15,7 +15,9 @@ import { DUMBBELL_WEIGHTS_2J, MACHINE_WEIGHTS_CONFIG, BARBELL_PLATES_2J } from '
 import { openWorkoutGuide } from '../components/WorkoutGuide.jsx'
 import { effortHelpSheet, trainingZonesHelpSheet, overloadHelpSheet, rpVolumeHelpSheet } from './Settings.jsx'
 import Icon from '../components/Icon.jsx'
-import { Section, Row, SelectRow, Switch, Slider, Segmented } from '../components/ui.jsx'
+import { Section, Row, SelectRow, Switch, Slider, Segmented, Button } from '../components/ui.jsx'
+import { isAndroidNative } from '../lib/rest-notification.js'
+import { enablePush, pushPermission, pushSupported, scheduleTestRestAlert } from '../lib/push.js'
 
 const DEFAULT_INC = { barbell: 5, dumbbell: 2, machineOther: 5 }
 
@@ -89,6 +91,7 @@ export default function TrainingSettings() {
       <Row icon="bell" iconTint="var(--pink)" title={t('Alert when rest ends')}>
         <Switch checked={prefs.restAlert} onChange={v => useUI.getState().setRestAlertPreference(v)} />
       </Row>
+      {!MOBILE && !isAndroidNative() && <WebRestAlertSetup />}
       <Row icon="bell" iconTint="var(--pink)" title={t('Sound')} subtitle={t('Also the short beep when you complete a set.')}>
         <Switch checked={prefs.sound} onChange={v => set('sound', v)} />
       </Row>
@@ -190,6 +193,48 @@ export default function TrainingSettings() {
         </Row>
       </Section>}
     </>}
+  </div>
+}
+
+function WebRestAlertSetup() {
+  const supported = pushSupported()
+  const [permission, setPermission] = useState(() => pushPermission())
+  const [subscribed, setSubscribed] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    if (!supported) return
+    let active = true
+    navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(sub => {
+      if (active) setSubscribed(!!sub)
+    }).catch(() => {})
+    return () => { active = false }
+  }, [supported])
+
+  const test = async () => {
+    setBusy(true); setMessage('')
+    try {
+      const result = await enablePush()
+      setPermission(pushPermission())
+      setSubscribed(true)
+      await scheduleTestRestAlert(result.subscriptionId)
+      setMessage(t('Test scheduled. Minimize 2J now; the notification should arrive in about 5 seconds.'))
+    } catch (error) {
+      setPermission(pushPermission())
+      setMessage(error?.message || t('Could not schedule the notification test.'))
+    } finally { setBusy(false) }
+  }
+
+  return <div style={{ padding: '8px 14px 14px' }}>
+    <div className="dim small" style={{ marginBottom: 8 }}>
+      {t('Web push status')}: {!supported ? t('Not supported in this browser.') : permission === 'denied' ? t('Notifications blocked') : permission === 'granted' ? (subscribed ? t('Allowed and configured on this device') : t('Allowed, not configured yet')) : t('Not configured')}
+    </div>
+    {permission === 'denied' && <div className="dim small" style={{ marginBottom: 8 }}>{t('Notifications are blocked. Open your browser or device settings, allow notifications for app.2jfitnesscenter.com, then return here.')}</div>}
+    {supported && permission !== 'denied' && <Button variant="tinted" icon="bell" disabled={busy} onClick={test}>
+      {busy ? t('Preparing test…') : t('Enable web notifications and test')}
+    </Button>}
+    {message && <div className="dim small" role="status" aria-live="polite" style={{ marginTop: 8 }}>{message}</div>}
   </div>
 }
 

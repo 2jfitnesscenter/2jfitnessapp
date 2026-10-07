@@ -3,6 +3,7 @@ const VERSION = 'v2'
 const SHELL = `2jfitness-shell-${VERSION}`
 const ASSETS = `2jfitness-assets-${VERSION}`
 const MEDIA = `2jfitness-media-${VERSION}`
+const REST_ALERTS = '2jfitness-rest-alert-dedupe-v1'
 
 // Do not skipWaiting: a downloaded update activates after existing tabs release the previous
 // worker, so a live workout never swaps code halfway through the session.
@@ -10,16 +11,53 @@ self.addEventListener('install', event => {
   event.waitUntil(caches.open(SHELL).then(cache => cache.addAll(['./', './index.html'])))
 })
 self.addEventListener('activate', event => {
-  const current = new Set([SHELL, ASSETS, MEDIA])
+  const current = new Set([SHELL, ASSETS, MEDIA, REST_ALERTS])
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => !current.has(key)).map(key => caches.delete(key))))
     .then(() => self.clients.claim()))
 })
+const restAlertInFlight = new Map()
+async function claimRestAlert(id) {
+  if (restAlertInFlight.has(id)) { await restAlertInFlight.get(id); return false }
+  const work = (async () => {
+    const cache = await caches.open(REST_ALERTS)
+    const key = new URL(`__2j_rest_alert/${encodeURIComponent(id)}`, self.registration.scope).href
+    const existing = await cache.match(key)
+    if (existing && Date.now() - Number(await existing.text()) < 7 * 86400000) return false
+    if (existing) await cache.delete(key)
+    await cache.put(key, new Response(String(Date.now()), { headers: { 'Content-Type': 'text/plain' } }))
+    const keys = await cache.keys()
+    for (const old of keys.slice(0, Math.max(0, keys.length - 256))) await cache.delete(old)
+    return true
+  })().finally(() => restAlertInFlight.delete(id))
+  restAlertInFlight.set(id, work)
+  return work
+}
 self.addEventListener('push', event => {
-  const data = event.data ? event.data.json() : {}
-  event.waitUntil(self.registration.showNotification(data.title || '2J Fitness Center', {
-    body: data.body || '', icon: 'icon-512.png', badge: 'icon-180.png',
-    tag: data.tag || '2jfitness', renotify: true, data: { url: data.url || './' }
-  }))
+  event.waitUntil((async () => {
+    let data = {}
+    try { data = event.data ? event.data.json() : {} } catch { return }
+    if (data.type === 'rest-alert' || data.type === 'rest-alert-test') {
+      const id = typeof data.id === 'string' && /^[A-Za-z0-9_-]{12,80}$/.test(data.id) ? data.id : ''
+      if (!id || !await claimRestAlert(id)) return
+      const test = data.type === 'rest-alert-test'
+      try {
+        await self.registration.showNotification(test ? 'Prueba 2J' : 'Descanso terminado', {
+          body: test ? 'Notificación Web Push funcionando' : 'Siguiente serie',
+          icon: 'icon-512.png', badge: 'icon-180.png',
+          tag: `2j-rest-${id}`, renotify: false, data: { url: data.url || '#/workout', alertId: id },
+        })
+      } catch (error) {
+        const cache = await caches.open(REST_ALERTS)
+        await cache.delete(new URL(`__2j_rest_alert/${encodeURIComponent(id)}`, self.registration.scope).href)
+        throw error
+      }
+      return
+    }
+    await self.registration.showNotification(data.title || '2J Fitness Center', {
+      body: data.body || '', icon: 'icon-512.png', badge: 'icon-180.png',
+      tag: data.tag || '2jfitness', renotify: true, data: { url: data.url || './' }
+    })
+  })())
 })
 self.addEventListener('notificationclick', event => {
   event.notification.close()

@@ -6,6 +6,17 @@ import { t } from './i18n.js'
 export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 export const pushPermission = () => (pushSupported() ? Notification.permission : 'unsupported')
 
+function pushDeviceId() {
+  const key = '2j_push_device_v1'
+  let value
+  try { value = localStorage.getItem(key) } catch {}
+  if (!/^[A-Za-z0-9_-]{8,100}$/.test(value || '')) {
+    value = globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
+    try { localStorage.setItem(key, value) } catch {}
+  }
+  return value
+}
+
 const urlBase64ToUint8Array = b64 => {
   const padded = (b64 + '='.repeat((4 - b64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(padded)
@@ -14,14 +25,16 @@ const urlBase64ToUint8Array = b64 => {
 
 export async function enablePush() {
   if (!pushSupported()) throw new Error(t('Push notifications are not supported in this browser'))
-  const perm = await Notification.requestPermission()
+  if (Notification.permission === 'denied') throw new Error(t('Notifications are blocked. Open your browser or device settings to allow them for 2J Fitness.'))
+  const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
   if (perm !== 'granted') throw new Error(t('Notifications permission was not granted'))
   const reg = await navigator.serviceWorker.ready
   const { key } = await api('/api/push/public-key')
   // Reusing the current browser subscription makes opt-in idempotent when a member previously
   // enabled push under the existing rest-timer settings.
   const subscription = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) })
-  await api('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: subscription.toJSON() }) })
+  const result = await api('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: subscription.toJSON(), deviceId: pushDeviceId() }) })
+  return { subscriptionId: result.subscriptionId, subscription }
 }
 
 export async function disablePush() {
@@ -34,3 +47,7 @@ export async function disablePush() {
 }
 
 export const sendTestPush = () => api('/api/push/test', { method: 'POST', body: '{}' })
+
+export const scheduleTestRestAlert = subscriptionId => api('/api/rest-alert/test', {
+  method: 'POST', body: JSON.stringify({ subscriptionId }),
+})
