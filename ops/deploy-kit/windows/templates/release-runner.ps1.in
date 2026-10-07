@@ -2023,12 +2023,12 @@ run_api_runtime_probe() {
   local source_api=$1 api_path data_path expect=${GYM_CONFIG_EXPECT:-}
   api_path=$(cygpath -m "$source_api")
   data_path=$(cygpath -m "$APP/data")
-  PROBE_BASE="file:///$api_path/" DATA_DIR="$data_path" GYM_CONFIG_EXPECT="$expect" node "$RUNTIME_PROBE"
+  PROBE_BASE="file:///$api_path/" DATA_DIR="$data_path" GYM_CONFIG_EXPECT="$expect" node "$(cygpath -m "$RUNTIME_PROBE")"
 }
 run_mutable_probe() {
   local data_path
   data_path=$(cygpath -m "$APP/data")
-  DATA_DIR="$data_path" MUTABLE_CRYPTO_MODULE="$(cygpath -m "$TARGET_TREE/api/lib/crypto.js")" REQUIRED_MUTABLE_FILES='db.json,notifications.json,friends.json,chat.json,social.json,social-sharing.json,gym-profile.json' node "$MUTABLE_PROBE"
+  DATA_DIR="$data_path" MUTABLE_CRYPTO_MODULE="$(cygpath -m "$TARGET_TREE/api/lib/crypto.js")" REQUIRED_MUTABLE_FILES='db.json,notifications.json,friends.json,chat.json,social.json,social-sharing.json,gym-profile.json' node "$(cygpath -m "$MUTABLE_PROBE")"
 }
 
 remove_obsolete_release_files() {

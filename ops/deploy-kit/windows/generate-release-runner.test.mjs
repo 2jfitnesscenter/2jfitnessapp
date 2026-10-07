@@ -128,6 +128,8 @@ test('megasprint release manifest is exact production delta with all safety prob
     'vapid.json',
     'notificationApi().permission',
     'notifications.permission',
+    'node "$(cygpath -m "$RUNTIME_PROBE")"',
+    'node "$(cygpath -m "$MUTABLE_PROBE")"',
     'https://app.2jfitnesscenter.com/api/push/public-key',
     'https://app.2jfitnesscenter.com/api/data',
     'https://app.2jfitnesscenter.com/api/sync'
