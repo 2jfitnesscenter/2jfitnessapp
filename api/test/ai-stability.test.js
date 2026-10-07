@@ -206,17 +206,26 @@ test('trainer generation: transient 529 retried → draft ready; auth → report
   } finally { restore(); delete process.env.FIXTURE_MODE; trainerJobs.setAdapterForTests(null); }
 });
 
-/* Sprint 3: trainer/admin access to a member's plan is not the member's consent to an external AI provider. */
-test('trainer AI never runs for a member who has not agreed to AI', async () => {
+/* Trainer AI uses professional permissions and plan-only data, independent of member Coach consent. */
+test('trainer AI works without member AI consent and its provider payload excludes private history/profile data', async () => {
   trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
-  let calls = 0;
+  let prompt = '';
   const base = adapterFor('fixture');
-  trainerJobs.setAdapterForTests({ ...base, run: async (...a) => { calls++; return base.run(...a); } });
+  trainerJobs.setAdapterForTests({ ...base, invoke: async args => { prompt = args.prompt; return base.invoke(args); } });
   const brief = { goal: 'hypertrophy', experience: 'intermediate', daysPerWeek: 3 };
   const restore = quiet();
   try {
-    writeState(DIR, 'mem-noconsent', sampleState({ coach: {} }));
-    assert.throws(() => trainerJobs.enqueue('coach1', 'mem-noconsent', brief), e => e.code === 'consent');
-    assert.equal(calls, 0, 'nothing was sent to the provider');
+    writeState(DIR, 'mem-noconsent', sampleState({
+      coach: { profile: { notes: 'PRIVATE_MEMBER_COACH_NOTE' } },
+      workouts: [{ id: 'private', d: '2026-01-01', privateNote: 'PRIVATE_WORKOUT_NOTE', entries: [] }],
+      checkins: [{ d: '2026-01-01', fatigue: 5, note: 'PRIVATE_CHECKIN' }],
+      bodyweight: [{ d: '2026-01-01', w: 9876.5 }],
+      sleep: [{ d: '2026-01-01', v: 240 }]
+    }));
+    trainerJobs.enqueue('coach1', 'mem-noconsent', brief);
+    const result = await settleTrainer('coach1', 'mem-noconsent');
+    assert.ok(result.pending?.bundle?.routines?.length);
+    assert.match(prompt, /Full body A/);
+    for (const secret of ['PRIVATE_MEMBER_COACH_NOTE', 'PRIVATE_WORKOUT_NOTE', 'PRIVATE_CHECKIN', '9876.5']) assert.ok(!prompt.includes(secret), `${secret} was not sent`);
   } finally { restore(); delete process.env.FIXTURE_MODE; trainerJobs.setAdapterForTests(null); }
 });

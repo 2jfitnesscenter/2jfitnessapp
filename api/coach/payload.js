@@ -20,6 +20,7 @@ import { ZONES as TRAINING_ZONES } from './training-zones.js';
 import { protocolContext, protocolPayload, readUnavailableEq } from './protocol-gate.js';
 import { activeProgramContext } from '../lib/guided-store.js';
 import { gymEquipmentContext } from '../lib/gym-profiles.js';
+import { countsForProgression } from '../lib/workout-policy.js';
 import { equipmentIdOf } from '../lib/protocol/movements.js';
 import * as libraryAdmin from '../lib/library-admin.js';
 
@@ -213,11 +214,14 @@ function aggregates(S, workouts) {
   const byEx = new Map();
   const planCfg = new Map();
   (S.routines || []).forEach(r => (r.ex || []).forEach(e => planCfg.set(e.id, e)));
-  (S.workouts || []).forEach(w => (w.entries || []).forEach(en => {
-    if (!en.sets?.some(s => s.done)) return;
-    if (!byEx.has(en.id)) byEx.set(en.id, []);
-    byEx.get(en.id).push(readSession(en, planCfg.get(en.id)));
-  }));
+  (S.workouts || []).forEach(w => {
+    if (!countsForProgression(w)) return;
+    (w.entries || []).forEach(en => {
+      if (!en.sets?.some(s => s.done)) return;
+      if (!byEx.has(en.id)) byEx.set(en.id, []);
+      byEx.get(en.id).push(readSession(en, planCfg.get(en.id)));
+    });
+  });
   const exercises = [];
   for (const [id, sessions] of byEx) {
     const stalls = stallCount(sessions);
@@ -235,6 +239,7 @@ function aggregates(S, workouts) {
   // Muscle coverage in the window, by body part — the "not trained" gap the Stats screen shows.
   const hit = {};
   workouts.forEach(w => (w.entries || []).forEach(en => {
+    if (!countsForProgression(w)) return;
     if (!en.sets?.some(s => s.done)) return;
     const bp = LIB_BY_ID.get(en.id)?.bp;
     if (bp) hit[bp] = (hit[bp] || 0) + en.sets.filter(s => s.done).length;
@@ -253,15 +258,17 @@ function aggregates(S, workouts) {
 
 /** One workout, reduced to what a coach reads. */
 function cleanWorkout(w) {
+  const excluded = !countsForProgression(w);
   return {
     d: w.d,
     name: w.name || null,
     minutes: w.end && w.start ? Math.round((w.end - w.start) / 60000) : null,
-    ...(w.rating ? { rating: w.rating } : {}),
+    ...(excluded ? { excludedFromProgression: true } : {}),
+    ...(!excluded && w.rating ? { rating: w.rating } : {}),
     // The free-text session note is private (it can say anything, including how a joint felt): it is not one of the consented
     // categories and no prompt reads it, so it stays on the server.
-    prs: (w.prs || []).length,
-    entries: (w.entries || []).map(en => ({
+    prs: excluded ? 0 : (w.prs || []).length,
+    entries: excluded ? [] : (w.entries || []).map(en => ({
       id: en.id,
       name: libraryName(en.id),
       target: en.target ? { sets: en.target.sets, reps: en.target.reps, sec: en.target.sec, weight: en.target.weight } : null,
@@ -366,13 +373,14 @@ export function build(S, uid, opts = {}) {
     // Creation for a returning user: what they have actually handled, so proposed baselines
     // start from evidence rather than optimism (B2/FR-20).
     const best = {};
-    (S.workouts || []).forEach(w => (w.entries || []).forEach(en => en.sets?.forEach(s => {
+    const progressionHistory = (S.workouts || []).filter(countsForProgression);
+    progressionHistory.forEach(w => (w.entries || []).forEach(en => en.sets?.forEach(s => {
       if (s.done && s.w > 0) best[en.id] = Math.max(best[en.id] || 0, s.w);
     })));
     if (Object.keys(best).length) {
       p.history = {
-        sessions: (S.workouts || []).length,
-        since: (S.workouts || [])[0]?.d || null,
+        sessions: progressionHistory.length,
+        since: progressionHistory[0]?.d || null,
         workingWeights: Object.entries(best).map(([id, w]) => ({ id, name: libraryName(id), best: w }))
       };
     }
@@ -381,4 +389,20 @@ export function build(S, uid, opts = {}) {
     }
   }
   return p;
+}
+
+/** Trainer AI is separate from member Coach consent. Keep its provider payload to the same
+ * member plan the current trainer endpoint exposes, plus the trainer-supplied brief. Never
+ * attach workout history, Health, body metrics, member Coach notes/log, or identity. */
+export function buildTrainer(S, uid, brief = {}) {
+  const scoped = {
+    routines: Array.isArray(S?.routines) ? S.routines : [],
+    programs: Array.isArray(S?.programs) ? S.programs : [],
+    coach: {},
+    lang: 'en',
+    unit: 'kg'
+  }
+  const payload = build(scoped, uid, { kind: 'create', intake: brief })
+  delete payload.meta.profile
+  return payload
 }

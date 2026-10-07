@@ -14,9 +14,8 @@ const USER_ERROR = {
   busy: 'ya se está generando una rutina para este socio',
   cap: 'se ha alcanzado el límite diario de generaciones con IA',
   nostate: 'este socio nunca ha sincronizado — todavía no hay nada sobre lo que generar',
-  consent: 'este socio no ha aceptado el uso de IA: no se envía nada al proveedor. Pídele que lo active en su app o crea la rutina a mano'
 };
-const HTTP_FOR = { off: 503, busy: 409, cap: 429, nostate: 400, consent: 403 };
+const HTTP_FOR = { off: 503, busy: 409, cap: 429, nostate: 400 };
 
 async function testRun() {
   const adapter = adapterFor('claude');
