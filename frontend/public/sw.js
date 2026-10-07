@@ -39,10 +39,9 @@ self.addEventListener('push', event => {
     if (data.type === 'rest-alert' || data.type === 'rest-alert-test') {
       const id = typeof data.id === 'string' && /^[A-Za-z0-9_-]{12,80}$/.test(data.id) ? data.id : ''
       if (!id || !await claimRestAlert(id)) return
-      const test = data.type === 'rest-alert-test'
       try {
-        await self.registration.showNotification(test ? 'Prueba 2J' : 'Descanso terminado', {
-          body: test ? 'Notificación Web Push funcionando' : 'Siguiente serie',
+        await self.registration.showNotification('Descanso terminado', {
+          body: 'Siguiente serie',
           icon: 'icon-512.png', badge: 'icon-180.png',
           tag: `2j-rest-${id}`, renotify: false, data: { url: data.url || '#/workout', alertId: id },
         })

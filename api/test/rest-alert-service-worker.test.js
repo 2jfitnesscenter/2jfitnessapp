@@ -45,12 +45,12 @@ test('rest push uses fixed private-safe copy and suppresses duplicate alert ids'
   assert.equal(JSON.stringify(worker.shown[0]).includes('private name'), false)
 })
 
-test('test push shows its fixed test text and generic social push remains compatible', async () => {
+test('diagnostic test push uses the real rest-alert copy and generic social push remains compatible', async () => {
   const worker = loadWorker(), handler = worker.handlers.get('push')
   await pushEvent(handler, { type: 'rest-alert-test', id: 'rest_test_123456', title: 'untrusted', body: 'untrusted' })
   await pushEvent(handler, { title: 'Social', body: 'New message', tag: 'message' })
-  assert.deepEqual(worker.shown.map(item => item.title), ['Prueba 2J', 'Social'])
-  assert.equal(worker.shown[0].options.body, 'Notificación Web Push funcionando')
+  assert.deepEqual(worker.shown.map(item => item.title), ['Descanso terminado', 'Social'])
+  assert.equal(worker.shown[0].options.body, 'Siguiente serie')
   assert.equal(worker.shown[1].options.body, 'New message')
 })
 
