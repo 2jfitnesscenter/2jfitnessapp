@@ -8,7 +8,7 @@
 
 - Android nativo programa una notificación local privada usando el final del temporizador JS existente; el mismo aviso se sustituye o cancela al ajustar, pausar, reanudar, cancelar o iniciar otro descanso. No duplica el push PWA ni cambia Bunker.
 - El permiso POST_NOTIFICATIONS solo se solicita al activar el ajuste; si se deniega, el temporizador continúa y Ajustes explica cómo habilitarlo. `allowWhileIdle` se usa con el permiso de alarma exacta existente cuando Android lo permite y mantiene fallback inexacto.
-- Origen: `deb9f7d`; mantiene el timer existente como verdad, una sola notificación local Android y los flujos PWA/Bunker. Pendiente validar suites completas y prueba física Android en Doze/pantalla apagada.
+- Origen `deb9f7d`, integrado en `90085e2` sobre producción `831f691`. Focalizados 25/25, frontend 1417/1417, API 431/431 sin skips, build web y Android OK. Capacitor sync, `testDebugUnitTest` y `assembleDebug` OK. QA física Android y PrepareOnly pendientes; no desplegado.
 
 ### Búsqueda tolerante de ejercicios — candidato v1.4.0 (2026-10-06) — NOT DEPLOYED
 
