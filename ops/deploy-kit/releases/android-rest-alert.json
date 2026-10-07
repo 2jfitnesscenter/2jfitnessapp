@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "title": "Android local rest alert on Shared Staff production baseline"
+  },
+  "targetCommit": "cca6dc4137afb28e4df823f229e939933efeae78",
+  "expectedCurrentCommit": "831f691ca1b30a9c252bb60e8336d93edf448114",
+  "rollbackCommit": "831f691ca1b30a9c252bb60e8336d93edf448114",
+  "expectedCommitCount": 3,
+  "maxCommits": 3,
+  "expectedFrontendTests": 1417,
+  "expectedApiTests": 431,
+  "expectedApiPassed": 431,
+  "expectedApiSkipped": 0,
+  "deltaPaths": [
+    "AI_HANDOFF.md",
+    "CHANGELOG.md",
+    "docs/ANDROID_REST_ALERT_QA.md",
+    "frontend/src/components/WorkoutGuide.jsx",
+    "frontend/src/lib/rest-notification.js",
+    "frontend/src/lib/rest-notification.test.js",
+    "frontend/src/locales/es.js",
+    "frontend/src/store/useUI.js",
+    "frontend/src/views/TrainingSettings.jsx",
+    "frontend/src/views/Workout.test.jsx"
+  ],
+  "sync": {
+    "rollbackBase": "51a221d8ef524776334d8d67109fb9102407eff2",
+    "syncJsSha256Lf": "8b402562d3a5eccfe7054db5246ca4e9f796b70b24306f9c2f8e0c53470fd586",
+    "syncJsSha256CrLf": "6cd72a0fbf910612efba88fa1a56700664e4b3e322103632ae025c1174085859"
+  },
+  "probes": {
+    "sourceFiles": [
+      "api/lib/shared-staff.js",
+      "api/lib/shared-staff-routes.js",
+      "api/test/shared-staff.test.js",
+      "frontend/src/lib/shared-staff-state.js",
+      "frontend/src/components/SharedStaffSessionGuard.jsx",
+      "frontend/src/lib/rest-notification.js",
+      "frontend/src/lib/rest-notification.test.js",
+      "frontend/src/views/Workout.test.jsx"
+    ],
+    "sourceMarkers": [
+      { "file": "api/server.js", "marker": "sharedStaffRoutes({" },
+      { "file": "api/lib/shared-staff.js", "marker": "export function createPinLimiter" },
+      { "file": "api/lib/shared-staff-routes.js", "marker": "'POST /api/shared-device/pin'" },
+      { "file": "api/lib/shared-staff-routes.js", "marker": "'POST /api/shared-device/step-up'" },
+      { "file": "api/lib/shared-staff-routes.js", "marker": "'POST /api/admin/shared-device/revoke'" },
+      { "file": "api/lib/shared-staff-routes.js", "marker": "'POST /api/admin/shared-staff/pin'" },
+      { "file": "frontend/src/components/SharedStaffSessionGuard.jsx", "marker": "IDLE_MS = 15 * 60_000" },
+      { "file": "frontend/src/lib/rest-notification.js", "marker": "export const REST_NOTIFICATION_ID = 20261006" },
+      { "file": "frontend/src/lib/rest-notification.js", "marker": "allowWhileIdle: true" },
+      { "file": "frontend/src/store/useUI.js", "marker": "setRestAlertPreference(enabled)" },
+      { "file": "frontend/src/views/TrainingSettings.jsx", "marker": "setRestAlertPreference(v)" }
+    ],
+    "unauthenticatedRoutes": [
+      { "method": "GET", "path": "/api/shared-device/status", "status": 200, "expectUnauthenticated": true, "requiredBodyMarker": "\"authorized\":false" },
+      { "method": "POST", "path": "/api/shared-device/pin", "status": 403, "expectUnauthenticated": true },
+      { "method": "POST", "path": "/api/shared-device/step-up", "status": 403, "expectUnauthenticated": true },
+      { "method": "GET", "path": "/api/admin/shared-devices", "status": 401, "expectUnauthenticated": true },
+      { "method": "POST", "path": "/api/admin/shared-device/revoke", "status": 401, "expectUnauthenticated": true },
+      { "method": "POST", "path": "/api/shared-staff/pin", "status": 403, "expectUnauthenticated": true },
+      { "method": "POST", "path": "/api/admin/shared-staff/pin", "status": 401, "expectUnauthenticated": true }
+    ]
+  }
+}

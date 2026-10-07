@@ -1,0 +1,63 @@
+#!/bin/bash
+# 2J Fitness — root wrapper run through sudo by the deploy user (sudoers allows ONLY this file).
+#
+# It does not contain any deploy logic: the existing per-release runner (deploy-<short>-<run-id>.sh — backup, checks, install,
+# probes, data validation, rollback) keeps doing all of that exactly as before. This wrapper only
+#   · re-validates its three arguments and the three uploaded files (names derived here, regular files, owned by the deploy
+#     user, not symlinks, non-empty),
+#   · serialises deployments (flock) so two can never overlap,
+#   · moves the files into /root/backups with the names and root ownership the runner expects,
+#   · writes an audit line before and after, and
+#   · runs the runner with a clean root environment.
+# Usage: 2j-deploy-run <short> <rollback-short> <run-id>
+set -euo pipefail
+umask 077
+
+# Test hooks work ONLY when not root (the real thing always runs as root through sudo, which also resets the environment).
+if [[ $(id -u) -ne 0 ]]; then
+  INCOMING=${RUN_INCOMING:?}; BACKUPS=${RUN_BACKUPS:?}; OWNER=${RUN_OWNER:-$(id -un)}; AUDIT=${RUN_AUDIT:?}; LOCK=${RUN_LOCK:?}
+  RUNNER_CMD=${RUN_RUNNER_CMD:-bash}
+else
+  INCOMING=/home/deploy2j/incoming; BACKUPS=/root/backups; OWNER=deploy2j; AUDIT=/var/log/2j-deploy-audit.log; LOCK=/var/lock/2j-deploy.lock
+  RUNNER_CMD=bash
+fi
+
+SHORT='^[0-9a-f]{7,40}$'
+RUNID='^[0-9a-f]{32}$'
+short=${1:-}; rshort=${2:-}; runid=${3:-}
+[[ $# -eq 3 && "$short" =~ $SHORT && "$rshort" =~ $SHORT && "$runid" =~ $RUNID ]] || { echo "2j-deploy-run: bad arguments" >&2; exit 2; }
+
+rel="2jfitness-code-${short}-${runid}.tar.gz"
+rb="2jfitness-code-${short}-rollback-${rshort}-${runid}.tar.gz"
+rn="deploy-${short}-${runid}.sh"
+audit() { printf '%s %s who=%s %s\n' "$(date -u +%FT%TZ)" "$1" "${SUDO_USER:-$(id -un)}" "short=$short rollback=$rshort run=$runid" >>"$AUDIT"; }
+
+for f in "$rel" "$rb" "$rn"; do
+  p="$INCOMING/$f"
+  [[ -f "$p" && ! -L "$p" ]] || { echo "2j-deploy-run: missing or not a regular file: $f" >&2; audit "REFUSED(missing:$f)"; exit 3; }
+  [[ -s "$p" ]] || { echo "2j-deploy-run: empty: $f" >&2; audit "REFUSED(empty:$f)"; exit 3; }
+  [[ "$(stat -c %U "$p")" == "$OWNER" ]] || { echo "2j-deploy-run: unexpected owner for $f" >&2; audit "REFUSED(owner:$f)"; exit 3; }
+done
+
+exec 9>"$LOCK"
+flock -n 9 || { echo "2j-deploy-run: another deployment is running" >&2; audit "REFUSED(locked)"; exit 4; }
+
+mkdir -p "$BACKUPS"
+if [[ $(id -u) -eq 0 ]]; then
+  for f in "$rel" "$rb" "$rn"; do install -m 0600 -o root -g root "$INCOMING/$f" "$BACKUPS/$f"; done
+else
+  for f in "$rel" "$rb" "$rn"; do install -m 0600 "$INCOMING/$f" "$BACKUPS/$f"; done
+fi
+rm -f "$INCOMING/$rel" "$INCOMING/$rb" "$INCOMING/$rn"
+
+audit START
+set +e
+if [[ $(id -u) -eq 0 ]]; then
+  env -i HOME=/root PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 bash "$BACKUPS/$rn"
+else
+  $RUNNER_CMD "$BACKUPS/$rn"
+fi
+code=$?
+set -e
+audit "END(exit=$code)"
+exit "$code"
