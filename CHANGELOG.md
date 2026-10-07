@@ -1,5 +1,11 @@
 # Changelog
 
+### Web Push diagnóstico para alertas de descanso PWA (2026-10-07) — NO DESPLEGADO
+
+- Se añade alta explícita de suscripciones por cuenta/dispositivo y una cola persistente `db.restAlerts` con recuperación tras reinicio, cancelación, idempotencia, expiración y reintentos acotados. Reutiliza VAPID, `db.subs` y el service worker actual.
+- Ajustes → Entrenamiento permite activar notificaciones web y programar una prueba independiente a +5 s. El aviso usa texto genérico y no incluye datos de entrenamiento. El temporizador real todavía no agenda Web Push; el comportamiento Capacitor Android permanece intacto.
+- Incluye tests de rutas, pertenencia, privacidad, scheduler/recovery, deduplicación del service worker y limpieza al borrar cuenta. Validación local frontend 1420/1420, API 442 pass + 5 skips operativos (los cinco ejecutados por separado en contenedor compatible), build/locales/diff-check OK. Sin deploy; la prueba física PWA minimizada/pantalla apagada sigue pendiente.
+
 ### Shared Staff Device PIN (2026-10-06) — desplegado
 
 - Acceso PIN personal para trainers/admins en dispositivos autorizados por passkey, con sesiones revocables, límites y reautenticación. El propietario confirmó despliegue en `831f691ca1b30a9c252bb60e8336d93edf448114` y QA real correcto.
