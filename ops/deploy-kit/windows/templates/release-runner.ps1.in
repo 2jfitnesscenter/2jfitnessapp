@@ -1979,7 +1979,9 @@ set -Eeuo pipefail
 export PATH="/usr/bin:/mingw64/bin:$PATH"
 wait_status() {
   local expected=$1 url=$2 body=$3 headers=$4
-  if [[ "$url" == */api/shared-device/status ]]; then printf '{"authorized":false}\n' > "$body"; else : > "$body"; fi
+  if [[ "$url" == */api/shared-device/status ]]; then printf '{"authorized":false}\n' > "$body"
+  elif [[ "$url" == */api/push/public-key ]]; then printf '{"key":"synthetic-public-key"}\n' > "$body"
+  else : > "$body"; fi
   : > "$headers"
   printf '%s' "$expected"
 }

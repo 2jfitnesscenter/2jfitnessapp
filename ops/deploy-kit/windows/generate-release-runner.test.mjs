@@ -131,6 +131,7 @@ test('megasprint release manifest is exact production delta with all safety prob
     'node "$(cygpath -m "$RUNTIME_PROBE")"',
     'node "$(cygpath -m "$MUTABLE_PROBE")"',
     'https://app.2jfitnesscenter.com/api/push/public-key',
+    '{"key":"synthetic-public-key"}',
     'https://app.2jfitnesscenter.com/api/data',
     'https://app.2jfitnesscenter.com/api/sync'
   ]) assert.ok(rendered.includes(marker), marker)
