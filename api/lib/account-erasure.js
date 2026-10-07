@@ -87,14 +87,15 @@ export function eraseMember(d, uid) {
   report.uploads = removedUploads;
 
   // 5. accounts file last: if anything above failed halfway the account still exists and the operation can simply be repeated
-  const before = { creds: d.db.creds.length, subs: d.db.subs.length, rec: d.db.recoveries.length, req: (d.db.recoveryRequests || []).length };
+  const before = { creds: d.db.creds.length, subs: d.db.subs.length, restAlerts: (d.db.restAlerts || []).length, rec: d.db.recoveries.length, req: (d.db.recoveryRequests || []).length };
   d.db.creds = d.db.creds.filter(c => c.userId !== uid);
   d.db.subs = d.db.subs.filter(x => x.userId !== uid);
+  d.db.restAlerts = (d.db.restAlerts || []).filter(x => x.userId !== uid);
   d.db.recoveries = d.db.recoveries.filter(r => r.userId !== uid);
   d.db.recoveryRequests = (d.db.recoveryRequests || []).filter(r => r.matchedUserId !== uid);
   d.db.invites.forEach(i => { if (i.usedBy === uid) i.usedBy = 'deleted-account'; });
   d.db.users = d.db.users.filter(u => u.id !== uid);
-  report.account = { passkeys: before.creds - d.db.creds.length, pushSubscriptions: before.subs - d.db.subs.length, recoveryLinks: before.rec - d.db.recoveries.length };
+  report.account = { passkeys: before.creds - d.db.creds.length, pushSubscriptions: before.subs - d.db.subs.length, restAlerts: before.restAlerts - d.db.restAlerts.length, recoveryLinks: before.rec - d.db.recoveries.length };
   d.saveDb();
   d.forgetRuntime?.(uid);
   return report;

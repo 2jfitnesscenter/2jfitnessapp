@@ -44,6 +44,10 @@ write('db.json', {
     { id: 'cred-t', userId: 'trainer', publicKey: keyB.cose, counter: 1 },
   ],
   subs: [{ userId: 'member-a', endpoint: 'https://push.example/CANARY-A', keys: {} }, { userId: 'member-b', endpoint: 'https://push.example/b', keys: {} }],
+  restAlerts: [
+    { id: 'rest-a', userId: 'member-a', subscriptionId: 'sub-a', alertId: 'private-alert-a', endsAt: 1, status: 'scheduled' },
+    { id: 'rest-b', userId: 'member-b', subscriptionId: 'sub-b', alertId: 'private-alert-b', endsAt: 1, status: 'scheduled' },
+  ],
   invites: [{ code: 'INV-USED', usedBy: 'member-a' }], recoveries: [{ token: 'tok', userId: 'member-a' }],
   recoveryRequests: [{ id: 'rr', name: 'Member A', matchedUserId: 'member-a' }],
   machineAliases: [{ key: 'k', exId: '0001', name: 'Leg press' }],
@@ -147,6 +151,7 @@ test('erasure with a fresh passkey assertion removes the person everywhere and l
   // the rest of the community is untouched
   const db = JSON.parse(fs.readFileSync(path.join(dir, 'db.json'), 'utf8'));
   assert.deepEqual(db.users.map(u => u.id).sort(), ['member-b', 'trainer']);
+  assert.deepEqual(db.restAlerts.map(alert => alert.userId), ['member-b'], 'the erased account’s pending push alerts are removed');
   assert.equal(db.invites[0].usedBy, 'deleted-account', 'an invite stays single-use without naming anyone');
   assert.equal(db.machineAliases.length, 1);
   assert.ok(fs.existsSync(path.join(dir, 'state-member-b.json')));

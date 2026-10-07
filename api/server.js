@@ -10,6 +10,7 @@ import {
   generateAuthenticationOptions, verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import webpush from 'web-push';
+import { createRestAlertRateLimiter, createRestAlertScheduler, normalizePushSubscription, pushRequestError, upsertPushSubscription } from './lib/rest-alerts.js';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
@@ -103,6 +104,7 @@ db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.recoveries = db.recoveries || [];
 db.recoveryRequests = db.recoveryRequests || [];
+db.restAlerts = Array.isArray(db.restAlerts) ? db.restAlerts : [];
 // Shared staff access is an authentication subsystem in db.json, never part of per-user Sync V2.
 db.sharedDevices = Array.isArray(db.sharedDevices) ? db.sharedDevices : [];
 db.staffPins = Array.isArray(db.staffPins) ? db.staffPins : [];
@@ -263,8 +265,14 @@ function readSpecFields(body) {
 /* ---------- push notifications (Web Push / VAPID) ---------- */
 const vapidFile = path.join(DATA, 'vapid.json');
 let vapid;
-try { vapid = JSON.parse(fs.readFileSync(vapidFile, 'utf8')); }
-catch { vapid = webpush.generateVAPIDKeys(); fs.writeFileSync(vapidFile, JSON.stringify(vapid), { mode: 0o600 }); }
+const envVapidPublic = process.env.VAPID_PUBLIC_KEY || '';
+const envVapidPrivate = process.env.VAPID_PRIVATE_KEY || '';
+if (!!envVapidPublic !== !!envVapidPrivate) throw new Error('both VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are required');
+if (envVapidPublic && envVapidPrivate) vapid = { publicKey: envVapidPublic, privateKey: envVapidPrivate };
+else {
+  try { vapid = JSON.parse(fs.readFileSync(vapidFile, 'utf8')); }
+  catch { vapid = webpush.generateVAPIDKeys(); fs.writeFileSync(vapidFile, JSON.stringify(vapid), { mode: 0o600 }); }
+}
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || (SECURE ? ORIGIN : 'mailto:admin@localhost');
 webpush.setVapidDetails(VAPID_SUBJECT, vapid.publicKey, vapid.privateKey);
 
@@ -288,6 +296,22 @@ async function sendPush(userId, payload) {
     }
   }));
   if (dirty) saveDb();
+}
+async function sendPushToSubscription(sub, payload) {
+  return webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, JSON.stringify(payload), { urgency: 'high', TTL: 300 });
+}
+const restAlertScheduler = createRestAlertScheduler({ db, saveDb, send: sendPushToSubscription });
+restAlertScheduler.recover();
+const restAlertTimer = setInterval(() => { restAlertScheduler.processDue().catch(() => {}) }, 1000);
+restAlertTimer.unref?.();
+const restAlertRateLimit = createRestAlertRateLimiter();
+function pushSession(req, res) {
+  const user = readSession(req);
+  const error = pushRequestError({ origin: req.headers.origin, expectedOrigin: new URL(ORIGIN).origin, user });
+  if (error === 'origin_not_allowed') { json(res, 403, { error: 'origen no permitido' }); return null }
+  if (error === 'not_authenticated') { json(res, 401, { error: 'no has iniciado sesión' }); return null }
+  if (error === 'passkey_required') { json(res, 403, { error: 'se requiere acceso con passkey' }); return null }
+  return user;
 }
 async function sendSocialPush(userId, payload, type) {
   const prefs = notificationStore.preferencesFor(userId);
@@ -713,12 +737,12 @@ function removeReportedContent(type, id, actor) {
   if (social[key].length === before) return false;
   saveSocial(); return true;
 }
-function readBody(req) {
+function readBody(req, maxBytes = MAX_BODY) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
     req.on('data', d => {
       size += d.length;
-      if (size > MAX_BODY) { reject(new Error('body too large')); req.destroy(); return; }
+      if (size > maxBytes) { reject(new Error('body too large')); req.destroy(); return; }
       chunks.push(d);
     });
     req.on('end', () => {
@@ -1222,31 +1246,69 @@ const routes = {
   'GET /api/push/public-key': async (req, res) => json(res, 200, { key: vapid.publicKey }),
 
   'POST /api/push/subscribe': async (req, res) => {
-    const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const body = await readBody(req);
-    const sub = body.subscription;
-    if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) return json(res, 400, { error: 'suscripción no válida' });
-    db.subs = db.subs.filter(s => s.endpoint !== sub.endpoint);
-    db.subs.push({ userId: user.id, endpoint: sub.endpoint, keys: sub.keys, created: new Date().toISOString() });
+    const user = pushSession(req, res);
+    if (!user) return;
+    const body = await readBody(req, 8192);
+    const normalized = normalizePushSubscription(body.subscription, user.id, body.deviceId);
+    if (normalized.error) return json(res, 400, { error: 'suscripción no válida' });
+    const sub = normalized.subscription;
+    upsertPushSubscription(db, sub);
     saveDb();
-    json(res, 200, { ok: true });
+    json(res, 200, { ok: true, subscriptionId: sub.id });
   },
 
   'POST /api/push/unsubscribe': async (req, res) => {
-    const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const body = await readBody(req);
-    db.subs = db.subs.filter(s => !(s.userId === user.id && s.endpoint === body.endpoint));
+    const user = pushSession(req, res);
+    if (!user) return;
+    const body = await readBody(req, 4096);
+    const sub = db.subs.find(item => item.userId === user.id && item.endpoint === body.endpoint);
+    if (sub) {
+      for (const alert of db.restAlerts) if (alert.subscriptionId === sub.id && ['scheduled', 'sending'].includes(alert.status)) {
+        alert.status = 'cancelled'; alert.updatedAt = new Date().toISOString();
+      }
+    }
+    db.subs = db.subs.filter(item => !(item.userId === user.id && item.endpoint === body.endpoint));
     saveDb();
     json(res, 200, { ok: true });
   },
 
   'POST /api/push/test': async (req, res) => {
-    const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    const user = pushSession(req, res);
+    if (!user) return;
+    if (!restAlertRateLimit(`test:${user.id}`, 3, 10 * 60_000)) return json(res, 429, { error: 'demasiadas pruebas; inténtalo más tarde' });
     await sendPush(user.id, { title: '2J Fitness Center', body: 'Notificación de prueba ✅ — así se ven las alertas.', tag: 'test' });
     json(res, 200, { ok: true });
+  },
+
+  'POST /api/rest-alert': async (req, res) => {
+    const user = pushSession(req, res);
+    if (!user) return;
+    const body = await readBody(req, 1024);
+    if (!restAlertRateLimit(`schedule:${user.id}`, 40, 60 * 60_000)) return json(res, 429, { error: 'demasiados avisos; inténtalo más tarde' });
+    const result = restAlertScheduler.schedule({ userId: user.id, subscriptionId: body.subscriptionId, alertId: body.alertId, endsAt: body.endsAt });
+    if (result.error) return json(res, result.error === 'subscription_not_found' ? 404 : 400, { error: result.error });
+    json(res, 200, { ok: true, duplicate: result.duplicate });
+  },
+
+  'POST /api/rest-alert/cancel': async (req, res) => {
+    const user = pushSession(req, res);
+    if (!user) return;
+    const body = await readBody(req, 1024);
+    if (!restAlertRateLimit(`cancel:${user.id}`, 60, 60_000)) return json(res, 429, { error: 'demasiadas solicitudes' });
+    const result = restAlertScheduler.cancel({ userId: user.id, subscriptionId: body.subscriptionId, alertId: body.alertId });
+    if (result.error) return json(res, 404, { error: result.error });
+    json(res, 200, { ok: true, cancelled: result.cancelled });
+  },
+
+  'POST /api/rest-alert/test': async (req, res) => {
+    const user = pushSession(req, res);
+    if (!user) return;
+    const body = await readBody(req, 1024);
+    const subscriptionId = String(body.subscriptionId || '');
+    if (!restAlertRateLimit(`test:${user.id}`, 3, 10 * 60_000)) return json(res, 429, { error: 'máximo 3 pruebas cada 10 minutos' });
+    const result = restAlertScheduler.schedule({ userId: user.id, subscriptionId, alertId: crypto.randomUUID(), endsAt: Date.now() + 5000, kind: 'test' });
+    if (result.error) return json(res, result.error === 'subscription_not_found' ? 404 : 400, { error: result.error });
+    json(res, 200, { ok: true, scheduledFor: result.alert.endsAt });
   },
 
   'POST /api/push/rest-timer': async (req, res) => {
