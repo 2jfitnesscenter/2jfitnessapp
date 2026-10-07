@@ -29,7 +29,8 @@ Este bloque es la referencia vigente para el trabajo posterior a producción 423
 - API: **450/450**, sin skips al incluir Git Bash/OpenSSL para los tests operativos de backup.
 - Web build: OK; español completo en check de locales (4540/4540; otros idiomas conservan la cobertura parcial conocida).
 - Generated checks: Coach Library 1324 ejercicios; 198 bloques; 155 rutinas / 15 colecciones; Sync Gym Profiles, Guided Program model, Library overlay, Protocol (9 copias) y Workout Activity coinciden con generadores.
-- Deploy-kit: Node 18/18; Docker Ubuntu 24.04 48/48; PowerShell/Bash syntax y diff-check OK. Estos son tests/simulaciones locales; no prueban una instalación en VPS.
+- Deploy-kit: Node 18/18; Docker Ubuntu 24.04 48/48; PowerShell/Bash syntax y diff-check OK. `PrepareOnly` final para `8458b54` pasó: exact delta, API image/imports/health, release protocol, install y rollback simulado, preservación de fixtures de datos y rechazo de artefacto manipulado. No prueba una instalación en VPS.
+- Falsos negativos del runner corregidos sin tocar producto: el smoke Community verifica la inicialización real `db.subs = db.subs || []`; Push verifica el acceso protegido `notificationApi().permission`; la simulación Windows convierte las rutas de probes Node con `cygpath -m` y proporciona una clave pública sintética a `/api/push/public-key`. PrepareOnly confirmó `PREPARE_ONLY_OK` y `DEPLOY_SCRIPT_OK` para el target exacto. Tooling-only commits: `9c48b50`, `bdc4bb9`, `2238428`, `eb52fd3`.
 
 ### Commits de código
 
