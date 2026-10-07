@@ -51,6 +51,9 @@ export function sanitizeFollowUp(body, prev, today) {
   if (!days) return { error: 'frecuencia no válida' };
   const startedAt = ISO.test(body.startedAt || '') ? body.startedAt : prev?.startedAt || today;
   const out = { template, cadence, days, startedAt, reviews: prev?.reviews || [] };
+  // The encrypted private staff note is intentionally opaque to this config sanitizer. A
+  // template/cadence edit must preserve it without ever copying plaintext into the roster.
+  if (typeof prev?.privateNotesEncrypted === 'string') out.privateNotesEncrypted = prev.privateNotesEncrypted;
   if (keys) out.keys = keys;
   return { value: out };
 }
@@ -117,6 +120,7 @@ export function followUpSummary(S, f, today) {
   const lastWorkout = (S.workouts || []).reduce((m, w) => (w?.d && (!m || w.d > m) ? w.d : m), null);
   const summary = {
     from, today, days: span,
+    objective: typeof S.coach?.profile?.goal === 'string' ? S.coach.profile.goal.slice(0, 80) : null,
     workouts: workouts.length,
     perWeek: Math.round(workouts.length / span * 7 * 10) / 10,
     plannedPerWeek: planned || null,

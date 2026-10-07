@@ -55,6 +55,7 @@ import { EQUIPMENT } from './lib/protocol/movements.js';
 import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesOf } from './lib/plan-meta.js';
 import { expectedOrigins } from './lib/webauthn-origins.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
+import { encrypt as encryptAtRest, decrypt as decryptAtRest } from './lib/crypto.js';
 import { markReviewed, setCycleDates, routineReviews } from './lib/routine-review.js';
 import { appendSharedAudit, createPinLimiter, hashStaffPin, publicStaffUsers, validateStaffPin, verifyStaffPin } from './lib/shared-staff.js';
 import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
@@ -82,6 +83,7 @@ const MAX_BODY = 12 * 1024 * 1024;
 const MAX_SCAN_BYTES = 8 * 1024 * 1024;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
+const FOLLOWUP_PRIVATE_CRYPTO_INFO = '2j-followup-private-v1';
 
 fs.mkdirSync(DATA, { recursive: true });
 // 0700 is what stops the unprivileged user that Coach jobs run as from reading any of this —
@@ -1543,10 +1545,14 @@ const routes = {
     const f = u.followUp || null;
     const S = readState(u.id) || {};
     const { summary, alerts } = followUpSummary(S, f, today);
+    const { privateNotesEncrypted, ...publicFollowUp } = f || {};
+    const privateData = privateNotesEncrypted ? decryptAtRest(privateNotesEncrypted, FOLLOWUP_PRIVATE_CRYPTO_INFO) : { notes: '', events: [] };
     // The routine-review cycles the staff can adjust (start / review date, automatic or manual) — see lib/routine-review.js.
     const routineCycles = routineReviews(S, today).map(cycleView);
     // sync = the revision a staff write on this member (e.g. "Rutina revisada") must present, same contract as GET /api/admin/user.
-    json(res, 200, { followUp: f && { ...f, keys: templateKeys(f) }, summary, alerts, routineCycles, sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null });
+    const privateNotesValid = privateData?.version === 1 && typeof privateData.notes === 'string' && Array.isArray(privateData.events);
+    const privateHistory = privateNotesValid ? privateData.events.filter(e => e && typeof e.at === 'string' && typeof e.action === 'string' && typeof e.by === 'string').slice(-5).reverse() : [];
+    json(res, 200, { followUp: f && { ...publicFollowUp, keys: templateKeys(f) }, privateNotes: privateNotesValid ? privateData.notes.slice(0, 2000) : '', privateHistory, privateNotesAvailable: !privateNotesEncrypted || privateNotesValid, summary, alerts, routineCycles, sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null });
   },
   // body: { id, template: basic|intermediate|pro|custom, keys?, cadence: weekly|biweekly|monthly|custom, days?, startedAt? } — or { id, stop: true }.
   'POST /api/admin/user/followup': async (req, res) => {
@@ -1558,7 +1564,27 @@ const routes = {
     const r = sanitizeFollowUp(body, u.followUp, new Date().toISOString().slice(0, 10));
     if (r.error) return json(res, 400, { error: r.error });
     u.followUp = r.value; saveDb();
-    json(res, 200, { ok: true, followUp: { ...u.followUp, keys: templateKeys(u.followUp) } });
+    const { privateNotesEncrypted, ...publicFollowUp } = u.followUp;
+    json(res, 200, { ok: true, followUp: { ...publicFollowUp, keys: templateKeys(u.followUp) } });
+  },
+  // Private follow-up notes are roster-only, encrypted with a feature-specific key, and visible
+  // solely through this existing admin-gated surface. They never enter member state/Sync, AI or
+  // Community. Trainers remain excluded until 2J has an explicit trainer↔member scope.
+  'POST /api/admin/user/followup/notes': async (req, res) => {
+    const admin = requireAdmin(req, res); if (!admin) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    if (!u.followUp) return json(res, 400, { error: 'activa el seguimiento antes de guardar notas' });
+    if (typeof body.notes !== 'string' || body.notes.length > 2000) return json(res, 400, { error: 'la nota debe tener hasta 2000 caracteres' });
+    const current = u.followUp.privateNotesEncrypted ? decryptAtRest(u.followUp.privateNotesEncrypted, FOLLOWUP_PRIVATE_CRYPTO_INFO) : { version: 1, notes: '', events: [] };
+    if (!current || current.version !== 1 || typeof current.notes !== 'string' || !Array.isArray(current.events)) return json(res, 409, { error: 'no se pudo leer la nota privada guardada; no se ha sobrescrito' });
+    const notes = body.notes.trim();
+    const events = current.events.slice();
+    if (notes !== current.notes) events.push({ at: new Date().toISOString(), by: admin.id, action: notes ? 'note_updated' : 'note_cleared' });
+    u.followUp.privateNotesEncrypted = encryptAtRest({ version: 1, notes, events: events.slice(-50) }, FOLLOWUP_PRIVATE_CRYPTO_INFO);
+    saveDb();
+    json(res, 200, { ok: true, privateNotes: notes, privateHistory: events.slice(-5).reverse() });
   },
   // Marks today's review as done. Measurements themselves go through /api/admin/user/measurements.
   'POST /api/admin/user/review': async (req, res) => {

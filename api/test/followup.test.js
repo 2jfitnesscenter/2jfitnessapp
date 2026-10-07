@@ -112,4 +112,22 @@ test('only admin staff can read or change a member follow-up (no IDOR for traine
   assert.equal((await req('POST', '/api/admin/user/followup', 'ad', { id: 'u1', stop: true })).body.followUp, null);
 });
 
+test('private follow-up notes are encrypted at rest and visible only on the admin follow-up route', async () => {
+  assert.equal((await req('POST', '/api/admin/user/followup', 'ad', { id: 'u1', template: 'basic', cadence: 'monthly' })).status, 200);
+  const note = 'Seguimiento privado - revisar adherencia';
+  assert.equal((await req('POST', '/api/admin/user/followup/notes', 'tr', { id: 'u1', notes: note })).status, 403);
+  assert.equal((await req('POST', '/api/admin/user/followup/notes', 'ad', { id: 'u1', notes: note })).status, 200);
+  const rawDb = fs.readFileSync(path.join(dir, 'db.json'), 'utf8');
+  assert.ok(!rawDb.includes(note), 'plaintext note is not persisted in db.json');
+  assert.match(rawDb, /privateNotesEncrypted/);
+  const adminView = await req('GET', '/api/admin/user/followup?id=u1', 'ad');
+  assert.equal(adminView.body.privateNotes, note);
+  assert.equal(adminView.body.privateHistory[0].action, 'note_updated');
+  assert.equal((await req('GET', '/api/admin/users', 'ad')).body.users.some(u => JSON.stringify(u).includes(note)), false);
+  const memberView = await req('GET', '/api/followup', 'u1');
+  assert.deepEqual(Object.keys(memberView.body).sort(), ['active', 'days', 'lastReview', 'nextReview', 'template']);
+  assert.equal(JSON.stringify(memberView.body).includes(note), false);
+  assert.equal((await req('POST', '/api/admin/user/followup/notes', 'ad', { id: 'u1', notes: 'x'.repeat(2001) })).status, 400);
+});
+
 test.after(() => { child.kill(); fs.rmSync(dir, { recursive: true, force: true }); });

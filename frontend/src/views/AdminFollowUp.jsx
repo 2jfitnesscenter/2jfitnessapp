@@ -9,7 +9,7 @@ import { MEASUREMENTS } from '../lib/measurements.js'
 import { reviewAlertText } from '../lib/routine-review-text.js'
 import { fatigueAlertText } from '../lib/fatigue-text.js'
 import { PAIN_ZONE } from '../lib/checkin.js'
-import { Button, Row, SelectRow } from '../components/ui.jsx'
+import { Button, Row, SelectRow, TextArea } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
 import { Surface, Pill, Stat } from '../components/v2.jsx'
 import { stateAction } from '../lib/state-action.js'
@@ -114,7 +114,9 @@ export default function AdminFollowUp({ id }) {
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
   const [d, setD] = useState(null)
-  const load = () => api('/api/admin/user/followup?id=' + encodeURIComponent(id)).then(setD).catch(e => toast(e.message))
+  const [privateNotes, setPrivateNotes] = useState('')
+  const [savingNotes, setSavingNotes] = useState(false)
+  const load = () => { setD(null); setPrivateNotes(''); return api('/api/admin/user/followup?id=' + encodeURIComponent(id)).then(data => { setD(data); setPrivateNotes(data.privateNotes || '') }).catch(e => toast(e.message)) }
   useEffect(() => { load() }, [id])
   if (!d) return null
   const f = d.followUp, s = d.summary
@@ -123,6 +125,13 @@ export default function AdminFollowUp({ id }) {
     .then(() => { toast(t('Review recorded')); load() }).catch(e => toast(e.message))
   const stop = () => api('/api/admin/user/followup', { method: 'POST', body: JSON.stringify({ id, stop: true }) })
     .then(() => { toast(t('Follow-up stopped')); load() }).catch(e => toast(e.message))
+  const savePrivateNotes = () => {
+    if (savingNotes || d.privateNotesAvailable === false) return
+    setSavingNotes(true)
+    api('/api/admin/user/followup/notes', { method: 'POST', body: JSON.stringify({ id, notes: privateNotes }) })
+      .then(() => { toast(t('Private note saved')); load() })
+      .catch(e => toast(e.message)).finally(() => setSavingNotes(false))
+  }
   const last = f?.reviews?.length ? f.reviews[f.reviews.length - 1].d : null
   const overdue = d.alerts.some(x => x.code === 'review_overdue')
   const today = new Date().toISOString().slice(0, 10)
@@ -147,6 +156,7 @@ export default function AdminFollowUp({ id }) {
       </div>
       {!!d.alerts.length && <ul className="v2-fu-alerts">{d.alerts.map((a, i) => <li key={i}><Icon name="info" />{alertText(a)}</li>)}</ul>}
       <div className="v2-eyebrow">{t('Since {0}', fmtDate(s.from))}</div>
+      {s.objective && <div className="dim small" style={{ marginBottom: 8 }}>{t('Current objective')}: <b>{t(s.objective)}</b></div>}
       <div className="v2-fu-facts">
         <Stat value={s.workouts} label={t('workouts')} />
         <Stat value={fmtNum(s.perWeek)} label={s.plannedPerWeek ? t('per week · {0} planned', s.plannedPerWeek) : t('per week')} />
@@ -169,6 +179,16 @@ export default function AdminFollowUp({ id }) {
           <span>{t('Fatigue')} <b>{fmtNum(s.checkins.avg.fatigue ?? 0)}</b>/5</span>
         </div>}
       </div> : <div className="dim small">{t('Check-ins are private unless the member shares them in their settings.')}</div>}
+      <div className="fu-ci" style={{ marginTop: 12 }}>
+        <div className="fu-h">{t('Private follow-up notes')}</div>
+        <div className="dim small">{t('Visible only to administrators. Not shared with the member, AI or Community.')}</div>
+        {d.privateNotesAvailable === false
+          ? <div className="dim small">{t('Saved note could not be decrypted; it was kept unchanged.')}</div>
+          : <><TextArea aria-label={t('Private follow-up notes')} maxLength={2000} value={privateNotes} onChange={e => setPrivateNotes(e.target.value)} rows={4} />
+            <div className="row between"><span className="dim small">{privateNotes.length}/2000</span><Button size="sm" variant="tinted" disabled={savingNotes} onClick={savePrivateNotes}>{t('Save private note')}</Button></div>
+            {!!d.privateHistory?.length && <div className="dim small">{t('Recent note changes')}: {d.privateHistory.map(e => fmtDate(e.at.slice(0, 10))).join(' · ')}</div>}
+          </>}
+      </div>
       <div className="v2-fu-acts">
         <Button variant="primary" icon="check" onClick={review}>{t('Mark review done')}</Button>
         <Button onClick={setup}>{t('Edit')}</Button>
