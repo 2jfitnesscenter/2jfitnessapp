@@ -5,6 +5,54 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
+## Megasprint 2J — checkpoint autoritativo (2026-10-07)
+
+Este bloque es la referencia vigente para el trabajo posterior a producción 4230b17. Los estados fechados más abajo son historial, no sustituyen este checkpoint.
+
+### Producción y release
+
+- Producción confirmada al inicio: `4230b17f3b4f9703f4706df9df65f36315e21eff`.
+- Último commit funcional: `7f9a89e4d0815af34113442d21a9dd03c3931139`. La punta candidata `8458b54` integra además el remoto documental/legal 2J sin cambiar producto. **NOT DEPLOYED**.
+- No se ha conectado a producción, creado backup predeploy ni ejecutado un deploy en este trabajo.
+- Web Push diagnóstico sigue sin prueba física confirmada y el temporizador real no usa esa cola. Android Rest Alert física y PWA no deben declararse validadas por los tests locales.
+
+### Implementado en el megasprint
+
+- **IA profesional vs personal:** la generación profesional usa su propia ruta y un payload allowlist del plan y briefing del entrenador; no requiere consentimiento de IA personal del socio. El payload profesional excluye identidad, historial, Health, medidas, notas privadas y datos sociales. Las rutas conservan los guards de rol existentes. Limitación real: el modelo actual autoriza por rol y no implementa una relación trainer↔socio; no afirmar aislamiento por asignación individual.
+- **Progresión e historial:** campo aditivo `excludeFromProgression` y política común para no usar sesiones excluidas en cargas, tendencias, PR/e1RM, fatiga, cobertura ni evidencia de Coach/IA. Siguen contando como asistencia/duración. Edición de entrenamiento finalizado valida los campos permitidos, conserva el registro existente y no cambia la rutina base. Legacy sin el campo sigue incluido.
+- **Seguimiento:** amplía la superficie existente con objetivo actual y nota privada administrativa cifrada en reposo, con historial acotado y guardado explícito. Solo admin puede leer/escribir esa nota; no entra en estado del socio/Sync, proveedor IA o Community. La plantilla/cadencia existente preserva el blob cifrado. No hay scope trainer↔socio; acceso de entrenador a notas queda pendiente de una ACL explícita.
+- **Repositorio/tooling:** política Git EOL acotada (fuentes y generados LF, PowerShell CRLF, binarios no normalizados) sin renormalización masiva; `docs/GENERATED_FILES.md` documenta fuentes y checks reproducibles. El deploy-kit está versionado como tooling propuesto, pero no instalado ni verificado en VPS; los scripts que cambian claves, usuarios, sudoers o SSH no se ejecutaron.
+
+### Evidencia local
+
+- Frontend: **1445/1445**, corrido secuencialmente para evitar timeouts ambientales; hubo un primer intento paralelo con fallos solo de timeout.
+- API: **450/450**, sin skips al incluir Git Bash/OpenSSL para los tests operativos de backup.
+- Web build: OK; español completo en check de locales (4540/4540; otros idiomas conservan la cobertura parcial conocida).
+- Generated checks: Coach Library 1324 ejercicios; 198 bloques; 155 rutinas / 15 colecciones; Sync Gym Profiles, Guided Program model, Library overlay, Protocol (9 copias) y Workout Activity coinciden con generadores.
+- Deploy-kit: Node 17/17; Docker Ubuntu 24.04 48/48; PowerShell/Bash syntax y diff-check OK. Estos son tests/simulaciones locales; no prueban una instalación en VPS.
+
+### Commits de código
+
+- `937741e` — separación IA entrenador/socio.
+- `26529e9` — exclusión de progresión y edición segura del histórico.
+- `7f9a89e` — Seguimiento con contexto y notas privadas admin.
+- `8458b54` — merge de los cambios legales/documentales presentes en el remoto 2J, sin cambios funcionales upstream.
+
+### Decisiones y límites
+
+- No se cambió Sync V2, autenticación, Bunker, Health, roles, planificador, formato histórico base ni los motores de entrenamiento existentes.
+- Las acciones del usuario/entrenador siguen siendo explícitas. Health y datos sociales no se envían a IA.
+- Backups off-site de producción: pendientes de destino/passphrase del operador y ensayo real; los tests usan fixtures temporales.
+- No reabrir bloques ya cerrados ni implementar roadmap como parte de este checkpoint.
+
+### Próximos pasos
+
+1. Resolver explícitamente el alcance trainer↔socio antes de exponer seguimientos/notas privadas a trainers; por ahora las notas son admin-only.
+2. Completar QA física pendiente de Web Push/PWA de descanso, sin conectar el temporizador real hasta que la prueba independiente pase con PWA minimizada y pantalla apagada.
+3. Revisar el deploy-kit antes de activar su instalación en servidor; mantener el deploy manual existente y no usarlo sin aprobación del operador.
+4. Después, agrupar incidencias de uso normal. Roadmap no comprometido: Bunker evolución, entrenamiento temporizado, UI/UX, Health/progreso visual, Library/análisis, seguridad/passkeys, Sync V3, Social, catálogo y reservas.
+
+---
 ## Estado actual — producción y alerta Android de descanso (2026-10-07)
 
 - **Producción actual reportada por el propietario:** `cca6dc4137afb28e4df823f229e939933efeae78` (release Android Rest Alert). Shared Staff Device permanece desplegado y validado; no reabrirlo.
