@@ -8,6 +8,7 @@
 // Off by default (Settings → enableRpVolumeZones) — it's a bodybuilding/hypertrophy tool, not
 // something every member needs turned on.
 import { MUSCLE_GROUPS, loadOfWorkouts, loadOfActive } from './muscles.js'
+import { countsForProgression } from './workout-policy.js'
 import { weekKey, todayISO } from './format.js'
 import { dateLocale } from './i18n.js'
 
@@ -118,7 +119,7 @@ export function rollupToGroups(load) {
 // means everywhere else in the app.
 export function weeklyGroupVolumeFinished(S, opts) {
   const wk = weekKey(todayISO())
-  const finishedThisWeek = (S.workouts || []).filter(w => weekKey(w.d) === wk)
+  const finishedThisWeek = (S.workouts || []).filter(w => countsForProgression(w) && weekKey(w.d) === wk)
   return rollupToGroups(loadOfWorkouts(finishedThisWeek, null, opts))
 }
 
@@ -190,7 +191,7 @@ export function groupVolumeForWeek(S, offset, opts) {
   if (offset === 0) return weeklyGroupVolume(S, opts)
   const { monday } = weekDates(offset)
   const wk = weekKey(monday.toISOString().slice(0, 10))
-  const finishedThatWeek = (S.workouts || []).filter(w => weekKey(w.d) === wk)
+  const finishedThatWeek = (S.workouts || []).filter(w => countsForProgression(w) && weekKey(w.d) === wk)
   return rollupToGroups(loadOfWorkouts(finishedThatWeek, null, opts))
 }
 

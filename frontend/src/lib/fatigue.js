@@ -17,6 +17,7 @@
 //   volume      a group over MRV / ≥ 2 groups in MAV         +2 / +1                          family load        (caller supplies it)
 //   level: high = ≥ 6 points from ≥ 2 families · elevated = ≥ 3 points · otherwise normal. Only a repeated pattern ever gets there.
 import { plateau } from './routine-review.js'
+import { countsForProgression } from './workout-policy.js'
 
 export const HIGH_POINTS = 6
 export const ELEVATED_POINTS = 3
@@ -41,7 +42,7 @@ const mean = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null)
 export function recentSessions(S, today, days = 28) {
   const from = addDays(today, -(days - 1))
   return (S?.workouts || [])
-    .filter(w => w && ISO.test(w.d || '') && w.d >= from && w.d <= today)
+    .filter(w => countsForProgression(w) && ISO.test(w.d || '') && w.d >= from && w.d <= today)
     .map(w => ({ ...w, entries: (Array.isArray(w.entries) ? w.entries : []).filter(e => e && typeof e === 'object' && !e.target?.deload) }))
     .filter(w => w.entries.length)
     .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : (a.start || 0) - (b.start || 0)))

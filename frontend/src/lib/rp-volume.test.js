@@ -98,6 +98,14 @@ describe('weeklyGroupVolume', () => {
     const vol = weeklyGroupVolume(S({ workouts: [w] }))
     expect(vol.chest).toBe(4)
   })
+  it('excludes flagged workouts from adaptive weekly and historical volume while retaining normal workouts', () => {
+    const included = { id: 'included', d: todayISO(), entries: [{ id: BENCH, sets: doneSets(2) }] }
+    const excluded = { id: 'excluded', d: todayISO(), excludeFromProgression: true, entries: [{ id: BENCH, sets: doneSets(7) }] }
+    expect(weeklyGroupVolume(S({ workouts: [included, excluded] })).chest).toBe(2)
+    const lastWeek = { ...included, id: 'last-week', d: mondayOf(1).toISOString().slice(0, 10) }
+    const excludedLastWeek = { ...excluded, id: 'excluded-last-week', d: lastWeek.d }
+    expect(groupVolumeForWeek(S({ workouts: [lastWeek, excludedLastWeek] }), 1).chest).toBe(2)
+  })
   it('ignores a finished workout from a different week', () => {
     const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)
     const w = { id: 'w2', d: twoWeeksAgo, entries: [{ id: BENCH, sets: doneSets(4) }] }

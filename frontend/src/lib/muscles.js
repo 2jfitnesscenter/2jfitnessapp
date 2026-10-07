@@ -8,6 +8,7 @@
 // ankles, "cardiovascular system") maps to null and is dropped rather than guessed at.
 
 import { EXIDX } from './exercises.js'
+import { countsForProgression } from './workout-policy.js'
 
 // The muscles a map can shade, in head-to-toe order — also the order of any list
 // built from them, so "what am I neglecting" reads top-down like a body.
@@ -183,6 +184,7 @@ export function loadOf(items, opts) {
  */
 export const loadOfWorkouts = (workouts, pick, opts) =>
   loadOf((workouts || []).flatMap(w =>
+    !countsForProgression(w) ? [] :
     (w.entries || []).map(e => ({ id: e.id, sets: (e.sets || []).filter(s => s.done && s.type !== 'warmup' && (!pick || pick(s))).length }))), opts)
 
 /** Load a routine *would* produce, from its planned set counts. */

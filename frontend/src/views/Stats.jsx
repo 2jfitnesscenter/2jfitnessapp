@@ -30,6 +30,7 @@ import { ZONES, zoneOfSet } from '../lib/training-zones.js'
 import { Button, Segmented, SelectRow } from '../components/ui.jsx'
 import { uxOn } from '../lib/features.js'
 import { ProgressInsights, LastWorkoutCard, BioimpedanceReminderCard, BodyCompositionCard, WhoopCard } from '../components/ProgressModules.jsx'
+import { countsForProgression } from '../lib/workout-policy.js'
 
 // Steps, sleep and resting heart rate only ever arrive via an Apple Health import (Settings →
 // Import from another app) — nothing in the app logs these by hand, so the card just doesn't
@@ -61,10 +62,10 @@ function MuscleBalance({ S }) {
   const [hard, setHard] = useState(false)
   const [sel, setSel] = useState(null)
   const now = Date.now()
-  const inWin = S.workouts.filter(w =>
+  const inWin = S.workouts.filter(w => countsForProgression(w) && (
     win === 0 ? true
       : win === 7 ? weekKey(w.d) === weekKey(todayISO())
-        : (w.start || new Date(w.d).getTime()) > now - win * 86400000)
+        : (w.start || new Date(w.d).getTime()) > now - win * 86400000))
   // Counting only the sets taken near failure turns the map from "where did the volume go"
   // into "where did the stimulus go" — a muscle can lead on sets and still never be trained
   // hard. Offered only when the window holds ratings at all, since with none the hard map
@@ -210,7 +211,7 @@ function EffortCard({ S }) {
 // as its own share rather than silently folded into one, so the percentages stay honest.
 function ZoneDistributionCard({ S }) {
   const [win, setWin] = useState('week')
-  const inWin = S.workouts.filter(w => win === 'week' ? weekKey(w.d) === weekKey(todayISO()) : w.d.slice(0, 7) === todayISO().slice(0, 7))
+  const inWin = S.workouts.filter(w => countsForProgression(w) && (win === 'week' ? weekKey(w.d) === weekKey(todayISO()) : w.d.slice(0, 7) === todayISO().slice(0, 7)))
   const vol = {}
   ZONES.forEach(z => { vol[z.id] = 0 })
   let classified = 0, unclassified = 0
@@ -274,7 +275,8 @@ export default function Stats() {
   const bwDelta30 = bw30.length > 1 ? bw30[bw30.length - 1].w - bw30[0].w : null
   const monthW = S.workouts.filter(w => w.d.slice(0, 7) === todayISO().slice(0, 7)).length
 
-  const trainedHist = [...new Set(S.workouts.flatMap(w => w.entries.map(e => e.id)))].filter(id => EXIDX[id]).sort((a, b) => nameFor(EXIDX[a]) < nameFor(EXIDX[b]) ? -1 : 1)
+  const performanceWorkouts = S.workouts.filter(countsForProgression)
+  const trainedHist = [...new Set(performanceWorkouts.flatMap(w => w.entries.map(e => e.id)))].filter(id => EXIDX[id]).sort((a, b) => nameFor(EXIDX[a]) < nameFor(EXIDX[b]) ? -1 : 1)
   // A deep link should show its exercise even with zero sessions — otherwise the picker below
   // silently falls back to whichever trained exercise sorts first.
   const exHist = deepLinkId && EXIDX[deepLinkId] && !trainedHist.includes(deepLinkId) ? [...trainedHist, deepLinkId] : trainedHist
@@ -283,8 +285,8 @@ export default function Stats() {
   // longest hold or top speed. Sets logged in another mode lack the field and score 0, so a
   // switched exercise drops its old points instead of mixing seconds into a weight chart.
   const curMode = curEx ? (() => {
-    for (let i = S.workouts.length - 1; i >= 0; i--) {
-      const en = S.workouts[i].entries.find(e => e.id === curEx)
+    for (let i = performanceWorkouts.length - 1; i >= 0; i--) {
+      const en = performanceWorkouts[i].entries.find(e => e.id === curEx)
       if (en) return modeOf({ ...(en.target || {}), id: curEx })
     }
     return modeOf({ id: curEx })
@@ -295,7 +297,7 @@ export default function Stats() {
   const exUnit = curCardio ? 'km/h' : curTimed ? 's' : S.unit
   let exPts = [], exList = [], exBest = 0
   if (curEx) {
-    S.workouts.forEach(w => {
+    performanceWorkouts.forEach(w => {
       const en = w.entries.find(e => e.id === curEx)
       if (en) { const mx = Math.max(0, ...en.sets.filter(s => s.done).map(metric), curCardio || curTimed ? 0 : (en.topW || 0)); if (mx > 0) { exPts.push({ t: w.start, y: mx, d: w.d, sets: en.sets.filter(s => s.done), target: en.target }); if (mx > exBest) exBest = mx } }
     })

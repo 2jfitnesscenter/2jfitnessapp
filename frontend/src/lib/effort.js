@@ -8,6 +8,7 @@
 // floor of 6 is only a convention about which sets are worth rating. RPE 8 == RIR 2.
 import { EFFORT, effortOf } from './history.js'
 import { weekKey } from './format.js'
+import { countsForProgression } from './workout-policy.js'
 
 // At or below this a set is close enough to failure to be the kind that drives adaptation.
 // 3 rather than 2: the line is a convention, and drawn one rep too generously it still
@@ -43,7 +44,7 @@ export const scaleName = kind => EFFORT[kind].hd
 // belongs to, which is what the windowed and per-week views need.
 function eachDoneSet(S, fn) {
   ;(S.workouts || []).forEach(w =>
-    (w.entries || []).forEach(e =>
+    countsForProgression(w) && (w.entries || []).forEach(e =>
       (e.sets || []).forEach(s => { if (s.done) fn(s, w, e) })))
 }
 

@@ -6,6 +6,7 @@ import { isoOf } from './format.js'
 import { setsDone, streakWeeks } from './history.js'
 import { loadOfWorkouts, muscleOptsOf, rankOf, MUSCLE_NAME } from './muscles.js'
 import { postWorkoutEvents } from './mi2j.js'
+import { progressionWorkouts } from './workout-policy.js'
 
 const pad = n => String(n).padStart(2, '0')
 const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
@@ -45,9 +46,10 @@ export function periodSummary(S, period, now = new Date()) {
   const pd = new Date(r.prevFrom + 'T12:00:00'); pd.setDate(pd.getDate() + r.elapsed - 1)
   const prevTo = r.elapsed >= r.days ? r.prevTo : (ymd(pd) < r.prevTo ? ymd(pd) : r.prevTo)
   const ws = all.filter(w => inRange(w, r.from, r.to)), pws = all.filter(w => inRange(w, r.prevFrom, prevTo))
-  const volume = sum(ws, w => w.vol), pvolume = sum(pws, w => w.vol)
-  const load = safe(() => loadOfWorkouts(ws, null, muscleOptsOf(S)), {})
-  const muscles = ws.length ? rankOf(load).worked.slice(0, 3) : []
+  const performanceWs = progressionWorkouts(ws), previousPerformanceWs = progressionWorkouts(pws)
+  const volume = sum(performanceWs, w => w.vol), pvolume = sum(previousPerformanceWs, w => w.vol)
+  const load = safe(() => loadOfWorkouts(performanceWs, null, muscleOptsOf(S)), {})
+  const muscles = performanceWs.length ? rankOf(load).worked.slice(0, 3) : []
   let advance = null, prs = 0
   ws.slice(-12).forEach(w => {
     const evs = safe(() => postWorkoutEvents(S, w.id), [])
@@ -60,7 +62,7 @@ export function periodSummary(S, period, now = new Date()) {
   const weeksElapsed = r.elapsed / 7
   return {
     period, range: r, workouts: ws.length, prevWorkouts: pws.length ? pws.length : null,
-    minutes: Math.round(sum(ws, minutesOf)), sets: sum(ws, w => safe(() => setsDone(w), 0)),
+    minutes: Math.round(sum(ws, minutesOf)), sets: sum(performanceWs, w => safe(() => setsDone(w), 0)),
     volume: volume || null, prevVolume: volume && pvolume ? pvolume : null,
     prs, advance, muscles: muscles.map(slug => ({ slug, name: MUSCLE_NAME[slug], sets: Math.round((load[slug] || 0) * 10) / 10 })),
     streak: streakWeeks(S), weight,

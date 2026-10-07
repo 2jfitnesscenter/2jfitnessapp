@@ -3,6 +3,7 @@ import { todayISO, isoOf, weekKey, fmtNum } from './format.js'
 import { isCardio } from './exercises.js'
 import { uxOn } from './features.js'
 import { dayPlanRoutineId, isMovedDayPlan } from './day-plan.js'
+import { countsForProgression } from './workout-policy.js'
 
 // How an exercise is logged (issue #16). This used to be derived from the body part alone,
 // which meant a plank or a farmer's carry could only be timed by filing it under cardio.
@@ -174,7 +175,9 @@ export function workingLoadEvidence(sets) {
 export function recentEntriesFor(S, exId, n = 3) {
   const out = []
   for (let i = S.workouts.length - 1; i >= 0 && out.length < n; i--) {
-    const en = S.workouts[i].entries.find(e => e.id === exId)
+    const workout = S.workouts[i]
+    if (!countsForProgression(workout)) continue
+    const en = (workout.entries || []).find(e => e.id === exId)
     if (!en) continue
     // `target` is what the session prescribed; finished workouts carry it so labels and the
     // progression engine can read a session back the way it was logged. Older workouts have
@@ -200,13 +203,28 @@ export function insertWorkoutSorted(workouts, w) {
 }
 export function bestWeightFor(S, exId) {
   let best = 0
-  S.workouts.forEach(w => w.entries.forEach(e => {
+  S.workouts.forEach(w => {
+    if (!countsForProgression(w)) return
+    ;(w.entries || []).forEach(e => {
     if (e.id === exId) {
       e.sets.forEach(s => { if (s.done && s.w > best) best = s.w })
       if (e.topW && e.topW > best) best = e.topW
     }
-  }))
+    })
+  })
   return best
+}
+// `exWeights` predates source ids and may be a manually confirmed cache. Keep it intact, but
+// don't let a cache sourced from an excluded session (or an untraceable legacy cache for an
+// exercise that now has excluded history) seed future progression.
+export function trackedWeightFor(S, exId) {
+  const cached = S?.exWeights?.[exId]
+  if (!cached) return null
+  if (cached.sourceWorkoutId) {
+    const source = (S.workouts || []).find(w => w?.id === cached.sourceWorkoutId)
+    if (source?.excludeFromProgression === true) return null
+  } else if ((S.workouts || []).some(w => w?.excludeFromProgression === true && (w.entries || []).some(e => e.id === exId))) return null
+  return cached
 }
 // The week currently in effect. An active program is the whole picture for the week it drives —
 // a day it doesn't list is a rest day, not a peek at whatever the flat week has for that day —
@@ -258,7 +276,7 @@ export function buildSets(S, cfg) {
   }
   // exWeights can be a maximum/PR. Completed positional work wins; tracked weight
   // is only a legacy fallback when no performed rep set exists.
-  const conf = S.showPreviousResults !== false ? S.exWeights[cfg.id] : null
+  const conf = S.showPreviousResults !== false ? trackedWeightFor(S, cfg.id) : null
   for (let i = 0; i < n; i++) {
     const prev = prevAt(i)
     const usable = prev && prev.r > 0 ? prev : null

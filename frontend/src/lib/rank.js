@@ -18,6 +18,7 @@ import { EXIDX } from './exercises.js'
 import { musclesOf } from './muscles.js'
 import { estimate1RM, bestKnownOneRM, oneRMTests } from './onerm.js'
 import { lastBW } from './history.js'
+import { countsForProgression } from './workout-policy.js'
 import { t } from './i18n.js'
 
 export const TIERS = ['Iron', 'Bronze', 'Silver', 'Gold', 'Ruby', 'Emerald', 'Diamond', 'Champion', 'Symmetric']
@@ -98,7 +99,8 @@ export const STANDARDS = {
 function bestKnownOneRMBW(S, exId, bw) {
   let best = -Infinity
   ;(S.workouts || []).forEach(w => {
-    const entry = w.entries.find(e => e.id === exId)
+    if (!countsForProgression(w)) return
+    const entry = (w.entries || []).find(e => e.id === exId)
     ;(entry?.sets || []).forEach(s => {
       if (!s.done) return
       const est = estimate1RM((s.w || 0) + bw, s.r)
@@ -164,7 +166,8 @@ export function allLiftRanks(S) {
 function totalSetsFor(S, exId) {
   let n = 0
   ;(S.workouts || []).forEach(w => {
-    const e = w.entries.find(x => x.id === exId)
+    if (!countsForProgression(w)) return
+    const e = (w.entries || []).find(x => x.id === exId)
     ;(e?.sets || []).forEach(s => { if (s.done && s.type !== 'warmup') n++ })
   })
   return n

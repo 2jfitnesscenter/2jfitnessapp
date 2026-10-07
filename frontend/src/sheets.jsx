@@ -1,4 +1,6 @@
 import { workoutInactive, inactivityFinishMetadata, workoutActivityKey } from './lib/workout-activity.js'
+import { replaceWorkoutEntries, setWorkoutExcluded, reconcileExerciseWeightCache } from './lib/workout-edit.js'
+import { trackedWeightFor } from './lib/history.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { uxOn } from './lib/features.js'
 import { useStore } from './store/useStore.js'
@@ -1742,8 +1744,19 @@ function DayHealthSummary({ d, S }) {
 
 function WorkoutDetail({ w: w0, close }) {
   const st = useStore(s => s.S)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(null)
   // Read live: unlinking cardio data below changes the stored workout while this is open.
   const w = st.workouts.find(x => x.id === w0.id) || w0
+  const saveEdit = () => {
+    try {
+      update(s => {
+        s.workouts = replaceWorkoutEntries(s.workouts, w.id, draft)
+        s.exWeights = reconcileExerciseWeightCache(s.exWeights, s.workouts, w)
+      })
+      setEditing(false); setDraft(null); toast(t('Workout updated'))
+    } catch { toast(t('Could not update workout')) }
+  }
   return <>
     <h3>{w.name}</h3>
     {w.finishReason === 'inactivity_timeout' && <div className="muted small">{t('Automatically finished after inactivity')}</div>}
@@ -1754,6 +1767,27 @@ function WorkoutDetail({ w: w0, close }) {
     <DayHealthSummary d={w.d} S={st} />
     {w.src2j && <div className="t2-done-line left"><Icon name="play" />{t('Train with 2J')} · {t(w.src2j.name)}</div>}
     <GuidedSummary guided={w.guided} />
+    {w.excludeFromProgression === true && <div className="card muted small" style={{ marginBottom: 12 }}>{t('Excluded from progression, PRs and performance trends. It still counts in your history.')}</div>}
+    {editing && <div className="card" style={{ marginBottom: 14 }}>
+      <div className="small dim" style={{ marginBottom: 10 }}>{t('Edit completed sets. Exercise identity stays unchanged.')}</div>
+      {(draft || []).map((entry, ei) => <div key={entry.id} style={{ marginBottom: 12 }}>
+        <strong>{EXIDX[entry.id] ? nameFor(EXIDX[entry.id]) : entry.id}</strong>
+        {(() => {
+          const fields = modeOf(entry.target || { id: entry.id }) === 'cardio' ? ['min', 'speed'] : modeOf(entry.target || { id: entry.id }) === 'time' ? ['sec', 'w'] : ['w', 'r']
+          return entry.sets.map((set, si) => <div className="row" key={si} style={{ gap: 6, marginTop: 6 }}>
+            {fields.map(field => <TextField key={field} aria-label={t(field === 'w' ? 'Weight' : field === 'r' ? 'Reps' : field === 'sec' ? 'Seconds' : field === 'min' ? 'Minutes' : 'Speed')} type="number" min="0" value={set[field] ?? ''} onChange={ev => setDraft(rows => rows.map((row, ri) => ri !== ei ? row : { ...row, sets: row.sets.map((x, xi) => xi === si ? { ...x, [field]: ev.target.value } : x) }))} />)}
+            <button className="btn ghost" aria-label={t('Remove set')} disabled={entry.sets.length <= 1} onClick={() => setDraft(rows => rows.map((row, ri) => ri !== ei ? row : { ...row, sets: row.sets.filter((_, xi) => xi !== si) }))}>{t('Remove')}</button>
+          </div>)
+        })()}
+        <Button size="sm" variant="ghost" onClick={() => setDraft(rows => rows.map((row, ri) => {
+          if (ri !== ei) return row
+          const prev = row.sets.at(-1) || {}
+          const fields = modeOf(row.target || { id: row.id }) === 'cardio' ? ['min', 'speed'] : modeOf(row.target || { id: row.id }) === 'time' ? ['sec', 'w'] : ['w', 'r']
+          return { ...row, sets: [...row.sets, { ...Object.fromEntries(fields.filter(k => prev[k] != null).map(k => [k, prev[k]])), done: true }] }
+        }))}>{t('Add set')}</Button>
+      </div>)}
+      <div className="row"><Button variant="primary" onClick={saveEdit}>{t('Save changes')}</Button><Button variant="ghost" onClick={() => { setEditing(false); setDraft(null) }}>{t('Cancel')}</Button></div>
+    </div>}
     {w.entries.map((e, i) => {
       const ex = EXIDX[e.id]
       return <div key={i} className="row" style={{ marginBottom: 12, alignItems: 'flex-start' }}>
@@ -1762,8 +1796,12 @@ function WorkoutDetail({ w: w0, close }) {
           <div className="ss">{e.sets.filter(s => s.done).map(s => setLabel(e.id, s, e.target)).join('  ·  ') || t('no sets')}</div></div>
       </div>
     })}
+    {!editing && <div className="row" style={{ flexWrap: 'wrap', marginBottom: 10 }}>
+      <Button variant="ghost" onClick={() => { setDraft(w.entries.map(e => ({ ...e, sets: (e.sets || []).map(s => ({ ...s })) }))); setEditing(true) }}>{t('Edit workout')}</Button>
+      <Button variant="ghost" onClick={() => confirmSheet({ title: t(w.excludeFromProgression === true ? 'Include in progression?' : 'Exclude from progression?'), message: t('This changes performance metrics only. The workout stays in history and attendance.'), confirmText: t(w.excludeFromProgression === true ? 'Include' : 'Exclude'), onConfirm: () => { update(s => { s.workouts = setWorkoutExcluded(s.workouts, w.id, w.excludeFromProgression !== true); s.exWeights = reconcileExerciseWeightCache(s.exWeights, s.workouts, w) }); toast(t('Workout updated')) } })}>{t(w.excludeFromProgression === true ? 'Include in progression' : 'Exclude from progression')}</Button>
+    </div>}
     <Button variant="danger" onClick={() => confirmSheet({ title: t('Delete workout?'), message: t('This removes it from your history for good.'), confirmText: t('Delete'), danger: true, onConfirm: () => {
-      update(s => { s.workouts = s.workouts.filter(x => x.id !== w.id) })
+      update(s => { s.workouts = s.workouts.filter(x => x.id !== w.id); s.exWeights = reconcileExerciseWeightCache(s.exWeights, s.workouts, w) })
       // v1.3.1 (A1 fix) — a normal sync no longer lets a workout actually disappear just
       // because a PUT doesn't mention it (server.js's own PUT /api/data comment); this explicit
       // call is the one real signal "delete this one for good."
@@ -2263,7 +2301,7 @@ function TopWeight({ entryIdx, close }) {
   const entry = A ? A.entries[entryIdx] : null
   const ex = entry && EXIDX[entry.id]
   const maxSet = entry ? Math.max(0, ...entry.sets.filter(s => s.done).map(s => s.w || 0)) : 0
-  const prevBest = entry ? Math.max((st.exWeights[entry.id] || {}).w || 0, bestWeightFor(st, entry.id)) : 0
+  const prevBest = entry ? Math.max(trackedWeightFor(st, entry.id)?.w || 0, bestWeightFor(st, entry.id)) : 0
   const [v, setV] = useState(entry ? (Math.max(maxSet, prevBest) || entry.target.weight || 0) : 0)
   useEffect(() => { if (!entry) close() }, [!entry])
 
@@ -2528,14 +2566,15 @@ function SwapKeepSheet({ swaps, routineId, onDone }) {
   </>
 }
 
-export function finishWorkout() {
+export function finishWorkout(options = {}) {
   const A = S().active
   if (!A) return
   const done = setsDoneActive(A)
   const total = A.entries.reduce((n, e) => n + e.sets.length, 0)
-  if (!done) { confirmSheet({ title: t('Nothing logged yet'), message: t('You haven’t checked off any sets. Finish the workout anyway?'), confirmText: t('Finish anyway'), onConfirm: doFinishWorkout }); return }
-  if (done < total) { confirmSheet({ title: t('Finish early?'), message: t(total - done === 1 ? '{0} set still unchecked. Finish the workout now?' : '{0} sets still unchecked. Finish the workout now?', total - done), confirmText: t('Finish workout'), onConfirm: doFinishWorkout }); return }
-  doFinishWorkout()
+  const finish = () => doFinishWorkout({ excludeFromProgression: options.excludeFromProgression === true })
+  if (!done) { confirmSheet({ title: t('Nothing logged yet'), message: t('You haven’t checked off any sets. Finish the workout anyway?'), confirmText: t('Finish anyway'), onConfirm: finish }); return }
+  if (done < total) { confirmSheet({ title: t('Finish early?'), message: t(total - done === 1 ? '{0} set still unchecked. Finish the workout now?' : '{0} sets still unchecked. Finish the workout now?', total - done), confirmText: t('Finish workout'), onConfirm: finish }); return }
+  finish()
 }
 let inactivityFinishInFlight = false
 export async function autoFinishInactiveWorkout() {
@@ -2543,13 +2582,13 @@ export async function autoFinishInactiveWorkout() {
   inactivityFinishInFlight = true
   try { await doFinishWorkout({ automatic: true }) } finally { inactivityFinishInFlight = false }
 }
-async function doFinishWorkout({ automatic = false } = {}) {
+async function doFinishWorkout({ automatic = false, excludeFromProgression = false } = {}) {
   const st = S()
   const A = st.active
   if (!A) return
   const prs = []
   const e1prs = []
-  A.entries.forEach(e => {
+  if (!excludeFromProgression) A.entries.forEach(e => {
     const mx = Math.max(0, ...e.sets.filter(s => s.done).map(s => s.w))
     if (mx > 0 && mx > bestWeightFor(st, e.id)) prs.push(e.id)
     // A heavier estimate without a heavier top set is its own kind of progress —
@@ -2566,7 +2605,8 @@ async function doFinishWorkout({ automatic = false } = {}) {
     // finished workout cannot say whether it hit its reps, and a timed session reads back
     // as "0 reps". It is what the progression engine works from.
     entries: A.entries.map(e => ({ id: e.id, sets: e.sets, topW: e.topW || null, target: e.target || null })).filter(e => e.sets.some(s => s.done)),
-    prs
+    prs,
+    ...(excludeFromProgression ? { excludeFromProgression: true } : {})
   }
   Object.assign(w, sessionHistoryMetadata(A))
   if (automatic) Object.assign(w, inactivityFinishMetadata(A))
@@ -2598,9 +2638,9 @@ async function doFinishWorkout({ automatic = false } = {}) {
     : []
   let newBadges = []
   update(s => {
-    w.entries.forEach(e => {
+    if (!excludeFromProgression) w.entries.forEach(e => {
       const mx = Math.max(0, ...e.sets.filter(x => x.done).map(x => x.w || 0), e.topW || 0)
-      if (mx > 0) { const cur = s.exWeights[e.id]; if (!cur || mx > cur.w) s.exWeights[e.id] = { w: mx, d: w.d } }
+      if (mx > 0) { const cur = s.exWeights[e.id]; if (!cur || mx > cur.w) s.exWeights[e.id] = { w: mx, d: w.d, sourceWorkoutId: w.id } }
     })
     // A push here would put a backdated log after workouts that actually happened more
     // recently — insertWorkoutSorted keeps S.workouts chronological either way.
@@ -2636,7 +2676,7 @@ async function doFinishWorkout({ automatic = false } = {}) {
   // Mi 2J: derive what this workout earned from the state that now contains it — the same
   // derivation a later recap uses — and remember (device-locally) that it hasn't been seen yet,
   // so closing the app right now can't lose it. Nothing new is synced.
-  const events = postWorkoutEvents(S(), w.id, newBadges.map(b => b.id))
+  const events = excludeFromProgression ? [] : postWorkoutEvents(S(), w.id, newBadges.map(b => b.id))
   if (events.length) markPending(localStorage, celebrationUid(), w.id, newBadges.map(b => b.id))
   recapChecked = true
   const openSummary = () => withHero(events, w, () => ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} events={events} newBadges={newBadges} close={close} />, { kind: 'center', locked: true }))

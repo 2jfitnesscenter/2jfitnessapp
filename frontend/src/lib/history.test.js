@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, repsLabel, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted, feelFor, effortColor, swapEntryExercise, recentEntriesFor, lastEntryFor } from './history.js'
+import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, repsLabel, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted, feelFor, effortColor, swapEntryExercise, recentEntriesFor, lastEntryFor, bestWeightFor, trackedWeightFor } from './history.js'
 import { EXDB } from './exercises.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
@@ -322,6 +322,14 @@ describe('buildSets', () => {
     expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 50 })).toEqual([{ w: 60, r: 10, done: false }])
   })
 
+  it('does not use an excluded workout weight cache to seed a new session', () => {
+    const S = {
+      exWeights: { [LIFT]: { w: 90, d: '2026-01-01', sourceWorkoutId: 'w1' } }, warmupEnabled: false,
+      workouts: [{ id: 'w1', excludeFromProgression: true, entries: [{ id: LIFT, sets: [{ w: 90, r: 5, done: true }] }] }],
+    }
+    expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 50 })).toEqual([{ w: 50, r: 8, done: false }])
+  })
+
   // Settings → Training → "Show previous results" (default on) — off means a fresh set starts
   // from the routine's own target only, ignoring history and the tracked working weight, same
   // as a brand-new exercise with nothing logged yet.
@@ -331,6 +339,31 @@ describe('buildSets', () => {
       workouts: [{ d: '2026-01-01', entries: [{ id: LIFT, sets: [{ w: 60, r: 10, done: true }] }] }],
     }
     expect(buildSets(S, { id: LIFT, sets: 1, reps: 8, weight: 50 })).toEqual([{ w: 50, r: 8, done: false }])
+  })
+})
+
+describe('trackedWeightFor', () => {
+  it('keeps ordinary legacy and manual caches usable when there is no excluded history', () => {
+    const cache = { w: 75, d: 'manual' }
+    expect(trackedWeightFor({ workouts: [], exWeights: { [LIFT]: cache } }, LIFT)).toBe(cache)
+  })
+
+  it('ignores an untraceable legacy cache when the exercise has excluded history without deleting it', () => {
+    const cache = { w: 75, d: '2026-01-01' }
+    const state = { workouts: [{ excludeFromProgression: true, entries: [{ id: LIFT }] }], exWeights: { [LIFT]: cache } }
+    expect(trackedWeightFor(state, LIFT)).toBeNull()
+    expect(state.exWeights[LIFT]).toBe(cache)
+  })
+
+  it('ignores a cache explicitly sourced from an excluded workout', () => {
+    const state = { workouts: [{ id: 'w1', excludeFromProgression: true, entries: [{ id: LIFT }] }], exWeights: { [LIFT]: { w: 75, sourceWorkoutId: 'w1' } } }
+    expect(trackedWeightFor(state, LIFT)).toBeNull()
+  })
+
+  it('keeps a cache explicitly sourced from an included workout', () => {
+    const cache = { w: 75, sourceWorkoutId: 'w1' }
+    const state = { workouts: [{ id: 'w1', entries: [{ id: LIFT }] }], exWeights: { [LIFT]: cache } }
+    expect(trackedWeightFor(state, LIFT)).toBe(cache)
   })
 })
 
@@ -468,6 +501,13 @@ describe('recentEntriesFor / lastEntryFor', () => {
     expect(recent).toHaveLength(1)
     expect(recent[0].d).toBe('2026-09-01')
     expect(lastEntryFor(S, LIFT)).toEqual(recent[0])
+  })
+
+  it('explicitly excluded sessions stay in history but do not provide progression history or PR weight', () => {
+    const S = { workouts: [w('old', '2026-09-01', [{ w: 60, r: 8, done: true }]), { ...w('test', '2026-09-08', [{ w: 120, r: 1, done: true }]), excludeFromProgression: true }] }
+    expect(S.workouts).toHaveLength(2)
+    expect(recentEntriesFor(S, LIFT, 3).map(x => x.d)).toEqual(['2026-09-01'])
+    expect(bestWeightFor(S, LIFT)).toBe(60)
   })
 
   it('exactly 3 sessions available: returns all 3, most recent first', () => {

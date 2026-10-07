@@ -11,6 +11,7 @@ import { e1rmSeries, bestTestedOneRM } from './onerm.js'
 import { forYou, memberContext } from './train2j.js'
 import { workingLoadEvidence, effectiveRoutine } from './history.js'
 import { isoOf } from './format.js'
+import { progressionWorkouts } from './workout-policy.js'
 
 const DAY = 86400000
 const workSets = e => (e?.sets || []).filter(s => s.done && s.type !== 'warmup' && s.type !== 'drop')
@@ -23,7 +24,7 @@ const repRange = target => {
 }
 
 export function intelligenceContext(S, { now = Date.now() } = {}) {
-  const workouts = (S.workouts || []).filter(w => stamp(w) && stamp(w) <= now).slice(-36).map(w => ({
+  const workouts = progressionWorkouts(S.workouts).filter(w => stamp(w) && stamp(w) <= now).slice(-36).map(w => ({
     d: w.d, start: w.start, end: w.end,
     src2j: w.src2j?.program ? { program: { programId: w.src2j.program.programId, sessionId: w.src2j.program.sessionId } } : undefined,
     entries: (w.entries || []).map(e => ({ id: e.id,

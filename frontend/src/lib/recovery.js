@@ -20,6 +20,7 @@ import { EXIDX } from './exercises.js'
 import { musclesOf, muscleOptsOf, MUSCLES, MUSCLE_NAME } from './muscles.js'
 import { modeOf } from './history.js'
 import { rirOf } from './effort.js'
+import { countsForProgression } from './workout-policy.js'
 
 const WINDOW_DAYS = 10   // comfortably covers even the slowest (72h) window's decay tail
 const STANDARD_REPS = 10
@@ -68,6 +69,7 @@ export function recoveryOf(S) {
   const fatigue = {}
   const muscleOpts = muscleOptsOf(S)
   ;(S.workouts || []).forEach(w => {
+    if (!countsForProgression(w)) return
     const at = w.start || new Date(w.d + 'T12:00:00').getTime()
     if (at < cutoff) return
     const hoursAgo = Math.max(0, (now - at) / hourMs)

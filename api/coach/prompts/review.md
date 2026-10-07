@@ -1,6 +1,6 @@
 # Task: review their training and propose plan changes
 
-Read `window` (what they actually did), `aggregates` (stalls, adherence, coverage), `bodyweight`, and `userNote` if present. Then decide whether the **plan** should change.
+Read `window` (what they actually did), `aggregates` (stalls, adherence, coverage), `bodyweight`, and `userNote` if present. A workout marked `excludedFromProgression: true` counts for attendance and duration only; it intentionally contains no performance entries and must not be used as evidence for load/reps progression, fatigue, stalls, PRs or muscle coverage. Then decide whether the **plan** should change.
 
 ## How to decide
 

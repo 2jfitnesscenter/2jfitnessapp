@@ -48,6 +48,32 @@ test('review payload carries the plan, the window, effort and aggregates', () =>
   assert.ok(Array.isArray(p.library) && p.library.length > 0);
 });
 
+test('excluded workouts count for attendance but never enter Coach performance evidence', () => {
+  const S = sampleState();
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const entry = (weight, reps) => ({ id: '0001', target: { sets: 2, reps: 10, weight: 20 }, sets: [
+    { w: weight, r: reps, done: true }, { w: weight, r: reps, done: true }
+  ] });
+  S.workouts = [
+    { id: 'excluded', d: yesterday, name: 'Test', start: 1000, end: 1801000, rating: 'hard', prs: ['0001'], excludeFromProgression: true, entries: [entry(100, 4)] },
+    { id: 'normal', d: today, name: 'Training', start: 1000, end: 3601000, prs: [], entries: [entry(20, 10)] }
+  ];
+
+  const review = payload.build(S, 'u1', { kind: 'review' });
+  assert.equal(review.window.workouts.length, 2, 'both sessions remain visible for attendance');
+  assert.deepEqual(review.window.workouts[0], {
+    d: yesterday, name: 'Test', minutes: 30, excludedFromProgression: true, prs: 0, entries: []
+  });
+  assert.equal(review.aggregates.adherence.sessionsInWindow, 2);
+  assert.equal(review.aggregates.setsByBodyPart.waist, 2, 'coverage uses only included performance');
+  assert.equal(review.aggregates.exercises.some(x => x.id === '0001'), false, 'one included good session is not a plateau or performance trend');
+
+  const create = payload.build(S, 'u1', { kind: 'create' });
+  assert.equal(create.history.sessions, 1);
+  assert.equal(create.history.workingWeights.find(x => x.id === '0001').best, 20, 'excluded loads do not set a proposed baseline');
+});
+
 test('a moved-session source marker is not counted as a second day-plan override', () => {
   const S = sampleState({ dayPlan: { '2026-07-01': 'moved:2099-01-01:r1', '2099-01-01': 'r1' } });
   const p = payload.build(S, 'u1', { kind: 'review' });

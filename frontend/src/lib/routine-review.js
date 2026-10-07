@@ -1,7 +1,8 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Routine review loop (Seguimiento V4): routine → real workouts → plateau detection → a review notice. Pure and deterministic — no AI, no I/O, no imports —
-// so the member's app and the server compute exactly the same thing (api/lib/routine-review.js is a byte copy; api/test/routine-review-sync.test.js keeps them equal).
+import { countsForProgression } from './workout-policy.js'
+// Routine review loop (Seguimiento V4): routine → real workouts → plateau detection → a review notice. Pure and deterministic — no AI, no I/O —
+// so the member's app and the server compute exactly the same thing (api/lib/routine-review.js mirrors its rules).
 // It NEVER edits a routine, a load or a program: it only says "this routine is worth a look", and why, from numbers the member already logged.
 //
 // Cycle of a routine (nothing is stored when it starts — it is derived, so old data needs no migration):
@@ -58,7 +59,7 @@ export function cycleStart(S, r) {
   if (lastVersion) candidates.push({ start: isoOfMs(lastVersion), source: 'version', exclusive: true })
   if (candidates.length) return candidates.reduce((a, b) => (b.start >= a.start ? b : a))
   let first = null
-  for (const w of S?.workouts || []) if (w?.routineId === id && ISO.test(w.d || '') && (!first || w.d < first)) first = w.d
+  for (const w of S?.workouts || []) if (countsForProgression(w) && w?.routineId === id && ISO.test(w.d || '') && (!first || w.d < first)) first = w.d
   return first ? { start: first, source: 'first', exclusive: false } : null
 }
 
@@ -66,7 +67,7 @@ export function cycleStart(S, r) {
 export function cycleSessions(S, r, cycle, today) {
   if (!cycle) return []
   return (S?.workouts || [])
-    .filter(w => w?.routineId === r.id && ISO.test(w.d || '') && (cycle.exclusive ? w.d > cycle.start : w.d >= cycle.start) && w.d <= today)
+    .filter(w => countsForProgression(w) && w?.routineId === r.id && ISO.test(w.d || '') && (cycle.exclusive ? w.d > cycle.start : w.d >= cycle.start) && w.d <= today)
     .filter(w => !(Array.isArray(w.entries) && w.entries.some(e => e?.target?.deload)))      // a deload-week session is deliberately light: not evidence about the plan
     .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : (a.start || 0) - (b.start || 0)))
 }

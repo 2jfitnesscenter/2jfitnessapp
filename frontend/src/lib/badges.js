@@ -13,9 +13,10 @@ import { rirOf } from './effort.js'
 import { loadOfWorkouts, muscleOptsOf } from './muscles.js'
 import { globalRank } from './rank.js'
 import { GROUPS, GROUP_MUSCLES } from './recovery.js'
+import { countsForProgression } from './workout-policy.js'
 
 export const totalWorkouts = S => (S.workouts || []).length
-export const totalVolumeKg = S => (S.workouts || []).reduce((a, w) => a + (w.vol || 0), 0)
+export const totalVolumeKg = S => (S.workouts || []).filter(countsForProgression).reduce((a, w) => a + (w.vol || 0), 0)
 
 // { weekKey/monthKey: Set of distinct workout dates } — deduped by calendar day first (two
 // sessions logged the same day count once, per the Calendar badges' own "don't double-count a

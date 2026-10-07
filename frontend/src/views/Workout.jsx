@@ -5,7 +5,7 @@ import GymProfile, { GymCompatibility } from '../components/GymProfile.jsx'
 import { compatibleWithGym } from '../lib/gym-profiles.js'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
-import { effectiveRoutine, workingSets, lastEntryFor, bestWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, effortOf, feelFor, effortColor, EFFORT_COLOR_VAR, fmtSec } from '../lib/history.js'
+import { effectiveRoutine, workingSets, lastEntryFor, bestWeightFor, trackedWeightFor, buildSets, setsDoneActive, supersetUnits, unitOf, setLabel, modeOf, effortOf, feelFor, effortColor, EFFORT_COLOR_VAR, fmtSec } from '../lib/history.js'
 import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
 import { fmtNum, fmtDate, todayISO, exCount, DAYN, ageFrom } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
@@ -297,7 +297,7 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, prefs, onToggle
   const timed = mode === 'time'
   const showPrev = S.showPreviousResults !== false
   const last = showPrev ? lastEntryFor(S, entry.id) : null
-  const best = cardio ? 0 : Math.max(bestWeightFor(S, entry.id), (S.exWeights[entry.id] || {}).w || 0)
+  const best = cardio ? 0 : Math.max(bestWeightFor(S, entry.id), trackedWeightFor(S, entry.id)?.w || 0)
   const plan = entry.plan
   const fields = fieldsFor(entry, S)
   const effField = fields.find(f => f.effort)
@@ -529,7 +529,7 @@ function SimpleExercise({ entryIdx, unitEntries, ssInfo, prefs, onToggle, onPad,
       {mode === 'time' && !set.done && <Button icon="play" disabled={!!working} onClick={() => onStartTimed(setIdx)} style={{ marginBottom: 8 }}>{t('Start set')}</Button>}
       {unitDone && allDone
         ? (isLastUnit
-          ? <Button variant="primary" icon="flag" onClick={finishWorkout}>{t('Finish workout')}</Button>
+          ? <><Button variant="primary" icon="flag" onClick={finishWorkout}>{t('Finish workout')}</Button><Button variant="ghost" onClick={() => finishWorkout({ excludeFromProgression: true })}>{t('Finish without progression')}</Button></>
           : <Button variant="primary" trailingIcon="chevronRight" onClick={onNextUnit}>{t('Next exercise')}</Button>)
         : <Button variant={set.done ? 'plain' : 'primary'} icon={set.done ? 'reset' : 'check'} className="scomplete" onClick={() => onToggle(setIdx)}>
           {set.done ? t('Mark as not done') : t('Complete set')}
@@ -829,9 +829,9 @@ function ActiveWorkout() {
     {(() => {
       const exDone = A.entries.filter(e => e.sets.length && e.sets.every(s => s.done)).length
       const allDone = A.entries.length > 0 && exDone === A.entries.length
-      return <button className={allDone || A.past ? 'btn primary' : 'btn ghost dim'} onClick={finishWorkout}>
+      return <><button className={allDone || A.past ? 'btn primary' : 'btn ghost dim'} onClick={finishWorkout}>
         {A.past ? t('Save workout') : allDone ? t('Finish workout') : t('Finish workout early · {0} exercises', exDone + '/' + A.entries.length)}
-      </button>
+      </button>{!A.past && <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => finishWorkout({ excludeFromProgression: true })}>{t('Finish without progression')}</button>}</>
     })()}
     <div style={{ height: 40 }} />
   </div>

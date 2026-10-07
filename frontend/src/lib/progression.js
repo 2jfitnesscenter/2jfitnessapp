@@ -23,6 +23,7 @@ import { realizableToward, stepWeight } from './equipment.js'
 import { effortStats, effortSignal } from './autoreg.js'
 import { activeDeload } from './fatigue.js'
 import { todayISO } from './format.js'
+import { countsForProgression } from './workout-policy.js'
 
 export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'pct1rm', 'time']
 
@@ -179,7 +180,8 @@ export function readSession(entry, fallback) {
 export function sessionsFor(S, exId, fallback) {
   const out = []
   ;(S.workouts || []).forEach(w => {
-    const entry = w.entries.find(e => e.id === exId)
+    if (!countsForProgression(w)) return
+    const entry = (w.entries || []).find(e => e.id === exId)
     if (entry && !entry.target?.deload && entry.sets.some(s => s.done)) out.push({ d: w.d, ...readSession(entry, fallback) })
   })
   return out

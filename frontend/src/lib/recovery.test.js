@@ -35,6 +35,13 @@ describe('recoveryOf', () => {
     expect(recovery.quadriceps).toBe(100)
   })
 
+  it('keeps excluded workouts visible to history but out of recovery fatigue', () => {
+    const included = recoveryOf({ workouts: [workoutAgo(0, SQUAT, [set(), set(), set(), set()])] })
+    const excluded = recoveryOf({ workouts: [{ ...workoutAgo(0, SQUAT, [set(), set(), set(), set()]), excludeFromProgression: true }] })
+    expect(included.quadriceps).toBeLessThan(100)
+    expect(excluded.quadriceps).toBe(100)
+  })
+
   it('excludes cardio/time-mode entries — only reps-mode sets fatigue a muscle', () => {
     const recovery = recoveryOf({
       workouts: [{

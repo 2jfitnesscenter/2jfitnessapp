@@ -14,6 +14,7 @@ import { modeOf, lastBW, streakWeeks, activeWeek } from './history.js'
 import { musclesOf } from './muscles.js'
 import { EXIDX } from './exercises.js'
 import { weekKey, todayISO } from './format.js'
+import { countsForProgression } from './workout-policy.js'
 
 /* ------------------------------------------------------------------ ranks --- */
 
@@ -69,7 +70,9 @@ function heaviestSet(entry) {
 // ESTIMATED 1RM. One chronological pass over the history.
 export function personalRecords(S) {
   const by = new Map()
-  ;(S.workouts || []).forEach(w => (w.entries || []).forEach(e => {
+  ;(S.workouts || []).forEach(w => {
+    if (!countsForProgression(w)) return
+    ;(w.entries || []).forEach(e => {
     if (!isRepsEntry(e)) return
     const set = heaviestSet(e)
     if (!set) return
@@ -85,7 +88,8 @@ export function personalRecords(S) {
       const est = estimate1RM(s.w, s.r)
       if (est != null && (!rec.e1rm || est > rec.e1rm.est)) rec.e1rm = { est, w: s.w, r: s.r, d: w.d }
     })
-  }))
+    })
+  })
   return [...by.values()].sort((a, b) => (a.best.d < b.best.d ? 1 : a.best.d > b.best.d ? -1 : 0))
 }
 
@@ -102,12 +106,15 @@ export const isStreakMilestone = weeks => STREAK_MILESTONES.includes(weeks) || (
 
 function heaviestBefore(S, exId) {
   let best = null
-  ;(S.workouts || []).forEach(w => (w.entries || []).forEach(e => {
+  ;(S.workouts || []).forEach(w => {
+    if (!countsForProgression(w)) return
+    ;(w.entries || []).forEach(e => {
     if (e.id !== exId) return
     const set = heaviestSet(e)
     if (set && (!best || set.w > best.w || (set.w === best.w && set.r > best.r))) best = { ...set, d: w.d }
     if (e.topW > 0 && (!best || e.topW > best.w)) best = { w: e.topW, r: null, d: w.d }
-  }))
+    })
+  })
   return best
 }
 
@@ -128,7 +135,7 @@ export function postWorkoutEvents(S, workoutId, badgeIds = []) {
   // Records: the workout's own `prs` (doFinishWorkout's heaviest-weight rule), but only against a
   // real previous best — a first-ever log of an exercise is a baseline, not a record.
   const prIds = new Set()
-  ;(w.prs || []).forEach(id => {
+  ;(countsForProgression(w) ? w.prs || [] : []).forEach(id => {
     const entry = w.entries.find(e => e.id === id)
     const now = heaviestSet(entry)
     const prev = heaviestBefore(before, id)
@@ -138,7 +145,7 @@ export function postWorkoutEvents(S, workoutId, badgeIds = []) {
   })
   // A better estimated 1RM without a heavier set (same weight, more reps) — labelled as an
   // estimate everywhere it shows.
-  w.entries.forEach(e => {
+  ;(countsForProgression(w) ? w.entries : []).forEach(e => {
     if (prIds.has(e.id) || !isRepsEntry(e)) return
     const rec = is1RMRecord(before, e.id, e)
     if (rec && rec.prev > 0) push('e1rm', e.id, { exId: e.id, est: rec.est, w: rec.w, r: rec.r, prev: rec.prev })
