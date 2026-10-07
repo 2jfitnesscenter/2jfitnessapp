@@ -3,8 +3,15 @@
 import { api } from './api.js'
 import { t } from './i18n.js'
 
-export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
-export const pushPermission = () => (pushSupported() ? Notification.permission : 'unsupported')
+const notificationApi = () => globalThis.Notification || globalThis.window?.Notification
+
+export const pushSupported = () => Boolean(
+  globalThis.navigator?.serviceWorker && globalThis.window?.PushManager && notificationApi(),
+)
+export const pushPermission = () => {
+  try { return pushSupported() ? notificationApi().permission || 'unsupported' : 'unsupported' }
+  catch { return 'unsupported' }
+}
 
 function pushDeviceId() {
   const key = '2j_push_device_v1'
@@ -25,11 +32,15 @@ const urlBase64ToUint8Array = b64 => {
 
 export async function enablePush() {
   if (!pushSupported()) throw new Error(t('Push notifications are not supported in this browser'))
-  if (Notification.permission === 'denied') throw new Error(t('Notifications are blocked. Open your browser or device settings to allow them for 2J Fitness.'))
-  const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
+  const notifications = notificationApi()
+  if (notifications.permission === 'denied') throw new Error(t('Notifications are blocked. Open your browser or device settings to allow them for 2J Fitness.'))
+  const perm = notifications.permission === 'granted' ? 'granted' : await notifications.requestPermission()
   if (perm !== 'granted') throw new Error(t('Notifications permission was not granted'))
-  const reg = await navigator.serviceWorker.ready
-  const { key } = await api('/api/push/public-key')
+  const reg = await globalThis.navigator?.serviceWorker?.ready
+  if (!reg?.pushManager?.getSubscription || !reg.pushManager.subscribe) throw new Error(t('Push notifications are not supported in this browser'))
+  const keyResponse = await api('/api/push/public-key')
+  const key = keyResponse?.key
+  if (typeof key !== 'string' || !key) throw new Error(t('Could not schedule the notification test.'))
   // Reusing the current browser subscription makes opt-in idempotent when a member previously
   // enabled push under the existing rest-timer settings.
   const subscription = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) })

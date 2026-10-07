@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { wakeLockSupported } from '../lib/wakelock.js'
@@ -214,16 +214,13 @@ function WebRestAlertSetup() {
 
   const test = async () => {
     setBusy(true); setMessage('')
-    try {
-      const result = await enablePush()
-      setPermission(pushPermission())
+    const outcome = await runWebPushRestAlertTest()
+    setPermission(pushPermission())
+    if (outcome.ok) {
       setSubscribed(true)
-      await scheduleTestRestAlert(result.subscriptionId)
       setMessage(t('Test scheduled. Minimize 2J now; the notification should arrive in about 5 seconds.'))
-    } catch (error) {
-      setPermission(pushPermission())
-      setMessage(error?.message || t('Could not schedule the notification test.'))
-    } finally { setBusy(false) }
+    } else setMessage(outcome.error?.message || t('Could not schedule the notification test.'))
+    setBusy(false)
   }
 
   return <div style={{ padding: '8px 14px 14px' }}>
@@ -236,6 +233,17 @@ function WebRestAlertSetup() {
     </Button>}
     {message && <div className="dim small" role="status" aria-live="polite" style={{ marginTop: 8 }}>{message}</div>}
   </div>
+}
+
+export async function runWebPushRestAlertTest() {
+  try {
+    const result = await enablePush()
+    if (!result?.subscriptionId) throw new Error(t('Could not schedule the notification test.'))
+    await scheduleTestRestAlert(result.subscriptionId)
+    return { ok: true, result }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error : new Error(t('Could not schedule the notification test.')) }
+  }
 }
 
 function IncrementSlider({ icon, tint, label, value, unit, min, max, step, onChange }) {

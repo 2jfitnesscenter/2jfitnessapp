@@ -70,4 +70,24 @@ describe('Web Push setup', () => {
     expect(reg.pushManager.subscribe).not.toHaveBeenCalled()
     expect(api.mock.calls.some(([path]) => path === '/api/push/private-key')).toBe(false)
   })
+
+  it('keeps feature detection safe when browser globals are missing', async () => {
+    const { pushSupported, pushPermission } = await import('./push.js')
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: undefined })
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: undefined })
+    Object.defineProperty(globalThis, 'Notification', { configurable: true, value: undefined })
+    expect(pushSupported()).toBe(false)
+    expect(pushPermission()).toBe('unsupported')
+  })
+
+  it('rejects an unavailable registration PushManager and a failed public-key request without leaking the error into render', async () => {
+    browser({ ready: Promise.resolve({}) }, { permission: 'granted', requestPermission: vi.fn() })
+    const { enablePush } = await import('./push.js')
+    await expect(enablePush()).rejects.toThrow('not supported')
+
+    const reg = { pushManager: { getSubscription: vi.fn().mockResolvedValue(null), subscribe: vi.fn() } }
+    browser({ ready: Promise.resolve(reg) }, { permission: 'granted', requestPermission: vi.fn() })
+    api.mockRejectedValueOnce(new Error('public key unavailable'))
+    await expect(enablePush()).rejects.toThrow('public key unavailable')
+  })
 })
