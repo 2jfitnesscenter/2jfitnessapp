@@ -124,6 +124,8 @@ test('megasprint release manifest is exact production delta with all safety prob
     'export const countsForProgression',
     'export function setWorkoutExcluded',
     '2j-followup-private-v1',
+    'db.subs = db.subs || [];',
+    'vapid.json',
     'https://app.2jfitnesscenter.com/api/push/public-key',
     'https://app.2jfitnesscenter.com/api/data',
     'https://app.2jfitnesscenter.com/api/sync'
