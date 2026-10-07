@@ -126,6 +126,8 @@ test('megasprint release manifest is exact production delta with all safety prob
     '2j-followup-private-v1',
     'db.subs = db.subs || [];',
     'vapid.json',
+    'notificationApi().permission',
+    'notifications.permission',
     'https://app.2jfitnesscenter.com/api/push/public-key',
     'https://app.2jfitnesscenter.com/api/data',
     'https://app.2jfitnesscenter.com/api/sync'
