@@ -29,7 +29,7 @@ Este bloque es la referencia vigente para el trabajo posterior a producción 423
 - API: **450/450**, sin skips al incluir Git Bash/OpenSSL para los tests operativos de backup.
 - Web build: OK; español completo en check de locales (4540/4540; otros idiomas conservan la cobertura parcial conocida).
 - Generated checks: Coach Library 1324 ejercicios; 198 bloques; 155 rutinas / 15 colecciones; Sync Gym Profiles, Guided Program model, Library overlay, Protocol (9 copias) y Workout Activity coinciden con generadores.
-- Deploy-kit: Node 17/17; Docker Ubuntu 24.04 48/48; PowerShell/Bash syntax y diff-check OK. Estos son tests/simulaciones locales; no prueban una instalación en VPS.
+- Deploy-kit: Node 18/18; Docker Ubuntu 24.04 48/48; PowerShell/Bash syntax y diff-check OK. Estos son tests/simulaciones locales; no prueban una instalación en VPS.
 
 ### Commits de código
 
