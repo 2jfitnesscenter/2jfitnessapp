@@ -23,6 +23,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { sameGeneratedText } from './generated-text.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, 'frontend', 'src', 'lib', 'exercises-data.js');
@@ -43,7 +44,7 @@ const json = JSON.stringify({ generated_from: 'frontend/src/lib/exercises-data.j
 if (process.argv.includes('--check')) {
   let current = null;
   try { current = readFileSync(out, 'utf8'); } catch { /* missing counts as stale */ }
-  if (current !== json) {
+  if (!sameGeneratedText(current, json)) {
     console.error('api/coach/library.json is out of date — run: node scripts/build-coach-library.mjs');
     process.exit(1);
   }
