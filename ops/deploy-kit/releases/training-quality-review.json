@@ -1,47 +1,46 @@
 {
   "metadata": {
-    "title": "Training Quality V1 and final Program Review UX"
+    "title": "Program Review legacy grouping hotfix"
   },
-  "targetCommit": "c4b30c5b71db20dc11939f0ae48ee7797e518f34",
-  "expectedCurrentCommit": "8458b54f51cd074c63c0623c9192f63f5f6f6f2a",
-  "rollbackCommit": "8458b54f51cd074c63c0623c9192f63f5f6f6f2a",
-  "expectedCommitCount": 13,
-  "maxCommits": 13,
-  "expectedFrontendTests": 1469,
-  "expectedApiTests": 456,
-  "expectedApiPassed": 456,
+  "targetCommit": "bd48dc12c23bc99234defa34fd9481c13a6398e1",
+  "expectedCurrentCommit": "c4b30c5b71db20dc11939f0ae48ee7797e518f34",
+  "rollbackCommit": "c4b30c5b71db20dc11939f0ae48ee7797e518f34",
+  "expectedCommitCount": 9,
+  "maxCommits": 9,
+  "expectedFrontendTests": 1474,
+  "expectedApiTests": 457,
+  "expectedApiPassed": 457,
   "expectedApiSkipped": 0,
   "deltaPaths": [
     "AI_HANDOFF.md",
-    "api/coach/payload.js",
-    "api/coach/prompts/common.md",
-    "api/lib/followup.js",
-    "api/lib/routine-review.js",
-    "api/server.js",
-    "api/test/blocks.test.js",
-    "api/test/protocol-ai.test.js",
-    "api/test/routine-review.test.js",
     "CHANGELOG.md",
-    "frontend/src/components/RoutineReviewCard.jsx",
-    "frontend/src/components/training-quality-panel.css",
-    "frontend/src/components/TrainingQualityPanel.jsx",
-    "frontend/src/index.css",
-    "frontend/src/lib/routine-review-text.js",
+    "api/lib/routine-review.js",
+    "api/test/routine-review.test.js",
     "frontend/src/lib/routine-review.js",
     "frontend/src/lib/routine-review.test.js",
-    "frontend/src/lib/routine-structure.js",
-    "frontend/src/lib/routine-structure.test.js",
-    "frontend/src/locales/es.js",
-    "frontend/src/v3-library.css",
-    "frontend/src/views/AdminAttention.jsx",
     "frontend/src/views/AdminFollowUp.jsx",
-    "frontend/src/views/Home.jsx",
+    "frontend/src/views/adaptive.test.jsx",
     "frontend/src/views/routine-review-ui.test.jsx",
-    "frontend/src/views/Seguimiento.jsx",
-    "frontend/src/views/trainer/Constructor.jsx",
-    "frontend/src/views/trainer/TrainerAIGenerate.jsx",
-    "frontend/src/views/trainer/TrainerClientPlan.jsx",
-    "frontend/src/views/trainer/TrainerRoutineBuilder.jsx"
+    "ops/deploy-kit/README.md",
+    "ops/deploy-kit/releases/831f691.json",
+    "ops/deploy-kit/releases/android-rest-alert.json",
+    "ops/deploy-kit/releases/training-quality-review.json",
+    "ops/deploy-kit/server/2j-deploy-gate",
+    "ops/deploy-kit/server/2j-deploy-run",
+    "ops/deploy-kit/server/diagnose-on-server.sh",
+    "ops/deploy-kit/server/install-on-server.sh",
+    "ops/deploy-kit/tests/run-tests-in-docker.sh",
+    "ops/deploy-kit/tests/test-deploy-kit.sh",
+    "ops/deploy-kit/windows/2j-transport.ps1",
+    "ops/deploy-kit/windows/bootstrap-2j-deploy.ps1",
+    "ops/deploy-kit/windows/convert-runner.mjs",
+    "ops/deploy-kit/windows/frontend-test-policy.mjs",
+    "ops/deploy-kit/windows/frontend-test-policy.test.mjs",
+    "ops/deploy-kit/windows/generate-release-runner.mjs",
+    "ops/deploy-kit/windows/generate-release-runner.test.mjs",
+    "ops/deploy-kit/windows/prepare-local.ps1",
+    "ops/deploy-kit/windows/templates/release-runner.ps1.in",
+    "ops/deploy-kit/windows/verify-2j-deploy.ps1"
   ],
   "sync": {
     "rollbackBase": "51a221d8ef524776334d8d67109fb9102407eff2",
@@ -61,7 +60,8 @@
       "frontend/src/components/RoutineReviewCard.jsx",
       "frontend/src/components/TrainingQualityPanel.jsx",
       "frontend/src/views/Home.jsx",
-      "frontend/src/views/Seguimiento.jsx"
+      "frontend/src/views/Seguimiento.jsx",
+      "frontend/src/views/AdminFollowUp.jsx"
     ],
     "sourceMarkers": [
       {
@@ -107,6 +107,26 @@
       {
         "marker": "analyzeRoutineStructure",
         "file": "frontend/src/components/TrainingQualityPanel.jsx"
+      },
+      {
+        "file": "api/lib/routine-review.js",
+        "marker": "function getProgramRoutineIds(program)"
+      },
+      {
+        "file": "frontend/src/lib/routine-review.js",
+        "marker": "function getProgramRoutineIds(program)"
+      },
+      {
+        "file": "api/test/routine-review.test.js",
+        "marker": "legacy three-routine program uses program review without direct routine programIds"
+      },
+      {
+        "file": "frontend/src/views/routine-review-ui.test.jsx",
+        "marker": "legacy program memberships render as one review in Home and Seguimiento, then close until nextReviewAt"
+      },
+      {
+        "file": "frontend/src/views/AdminFollowUp.jsx",
+        "marker": "done.reviewed ? d.routineCycles"
       }
     ],
     "unauthenticatedRoutes": [

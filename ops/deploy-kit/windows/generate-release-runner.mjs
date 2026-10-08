@@ -8,6 +8,7 @@ const root = path.resolve(here, '../../..')
 const TEMPLATE = path.join(here, 'templates', 'release-runner.ps1.in')
 const SHA40 = /^[0-9a-f]{40}$/
 const SAFE_PATH = /^(?:AI_HANDOFF\.md|CHANGELOG\.md|(?:api|frontend|scripts|web|docs)\/[A-Za-z0-9._/-]+)$/
+const SAFE_DELTA_PATH = /^(?:AI_HANDOFF\.md|CHANGELOG\.md|(?:api|frontend|scripts|web|docs)\/[A-Za-z0-9._/-]+|ops\/deploy-kit\/[A-Za-z0-9._/-]+)$/
 const NO_CREDENTIAL_PIN_PROBES = [
   { method: 'POST', path: '/api/shared-device/pin', status: 403 },
   { method: 'POST', path: '/api/shared-staff/pin', status: 403 },
@@ -55,7 +56,7 @@ export function validateConfig(c) {
   if (!Number.isInteger(c.expectedFrontendTests) || c.expectedFrontendTests < 1) fail('INVALID_FRONTEND_TEST_COUNT')
   if (!Number.isInteger(c.expectedApiTests) || c.expectedApiTests < 1) fail('INVALID_API_TEST_COUNT')
   if (!Number.isInteger(c.expectedApiPassed) || !Number.isInteger(c.expectedApiSkipped) || c.expectedApiPassed + c.expectedApiSkipped !== c.expectedApiTests) fail('API_TEST_TOTAL_MISMATCH')
-  if (!Array.isArray(c.deltaPaths) || !c.deltaPaths.length || new Set(c.deltaPaths).size !== c.deltaPaths.length || c.deltaPaths.some(p => !SAFE_PATH.test(p))) fail('INVALID_EXACT_DELTA_PATHS')
+  if (!Array.isArray(c.deltaPaths) || !c.deltaPaths.length || new Set(c.deltaPaths).size !== c.deltaPaths.length || c.deltaPaths.some(p => !SAFE_DELTA_PATH.test(p))) fail('INVALID_EXACT_DELTA_PATHS')
   if (c.maxCommits !== c.expectedCommitCount || !Number.isInteger(c.expectedCommitCount) || c.expectedCommitCount < 1) fail('INVALID_COMMIT_COUNT')
   if (!c.sync || !SHA40.test(c.sync.rollbackBase || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256Lf || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256CrLf || '')) fail('INVALID_SYNC_GUARD')
   if (!c.probes || !Array.isArray(c.probes.sourceFiles) || !Array.isArray(c.probes.sourceMarkers) || !Array.isArray(c.probes.unauthenticatedRoutes)) fail('INVALID_RELEASE_PROBES')

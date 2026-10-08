@@ -39,6 +39,12 @@ test('rejects missing/duplicate delta paths and malformed probes', () => {
   assert.throws(() => validateConfig({ ...base, probes: { ...base.probes, unauthenticatedRoutes: [{ method: 'DELETE', path: '/api/x', status: 401 }] } }), /INVALID_UNAUTHENTICATED_ROUTE/)
 })
 
+test('release deltas may include only versioned deploy-kit paths, while source probes stay app-scoped', () => {
+  assert.doesNotThrow(() => validateConfig({ ...base, deltaPaths: ['ops/deploy-kit/windows/generate-release-runner.mjs'] }))
+  assert.throws(() => validateConfig({ ...base, deltaPaths: ['ops/unreviewed/anything.sh'] }), /INVALID_EXACT_DELTA_PATHS/)
+  assert.throws(() => validateConfig({ ...base, probes: { ...base.probes, sourceFiles: ['ops/deploy-kit/server/2j-deploy-run'] } }), /INVALID_PROBE_PATH/)
+})
+
 test('all no-credential PIN probes require the exact contract status 403', () => {
   for (const routePath of ['/api/shared-device/pin', '/api/shared-staff/pin']) {
     const pinRoute = base.probes.unauthenticatedRoutes.find(r => r.path === routePath)
