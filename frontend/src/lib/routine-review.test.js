@@ -81,6 +81,8 @@ describe('program-level review', () => {
     expect(markProgramReviewed(S, 'p1', today, 'trainer1')).toBe(true)
     expect(pendingReviews(S, addDays(today, 1))).toEqual([])
     expect(routineReviews(S, addDays(today, 1))[0]).toMatchObject({ status: 'upcoming', nextReviewAt: addDays(today, 28) })
+    expect(routineReviews(S, addDays(today, 27))[0].status).toBe('soon')
+    expect(routineReviews(S, addDays(today, 28))[0].status).toBe('due')
     expect(pendingReviews(S, addDays(today, 28))).toHaveLength(1)
   })
   it('a staff date override is explicit and is cleared when that program review is completed', () => {
@@ -204,6 +206,20 @@ describe('"Rutina revisada"', () => {
     expect(markReviewed(S, 'nope', '2026-10-01', 'x')).toBe(false)
     expect(markReviewed(S, 'r1', 'yesterday', 'x')).toBe(false)
     expect(S.routineReviews).toBeUndefined()
+  })
+  it('an independent routine with plateau evidence stays closed until its inclusive nextReviewAt', () => {
+    const S = state(sessions(FIRST, FLAT))
+    const reviewedAt = addDays(FIRST, 28)
+    expect(markReviewed(S, 'r1', reviewedAt, 'staff1')).toBe(true)
+    S.workouts.push(...sessions(addDays(reviewedAt, 1), FLAT))
+
+    const beforeDue = routineReviews(S, addDays(reviewedAt, 21))[0]
+    expect(beforeDue.reasons.some(reason => reason.code === 'stalled')).toBe(true)
+    expect(beforeDue).toMatchObject({ status: 'soon', nextReviewAt: addDays(reviewedAt, 28) })
+    expect(pendingReviews(S, addDays(reviewedAt, 21))).toEqual([])
+    expect(pendingReviews(S, addDays(reviewedAt, 27))).toEqual([])
+    expect(routineReviews(S, addDays(reviewedAt, 28))[0].status).toBe('due')
+    expect(pendingReviews(S, addDays(reviewedAt, 28))).toHaveLength(1)
   })
 })
 

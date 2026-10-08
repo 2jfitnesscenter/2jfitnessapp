@@ -67,6 +67,38 @@ describe('member', () => {
     expect(h.match(/Routine review/g)).toBeNull()
     expect(h).not.toContain('Program day')
   })
+  it('a persisted reviewed program has no member card until the inclusive nextReviewAt, then returns once', async () => {
+    const program = { id: 'member-program', catalogId: 'g2j-strength', source: 'guided-v2', status: 'active', name: 'Strength block',
+      startedAt: Date.parse('2026-09-08T12:00:00Z'), weeks: [{ sessions: [{ day: 0, routineId: 'r1' }, { day: 1, routineId: 'r2' }] }] }
+    const persistedReview = { 'member-program': { lastReviewAt: '2026-10-06', nextReviewAt: '2026-11-03', by: 'trainer1', n: 1 } }
+    const reviewed = { routines: [{ id: 'r1', name: 'Day 1', ex: [] }, { id: 'r2', name: 'Day 2', ex: [] }],
+      programs: [program], activeProgramId: program.id, programReviews: persistedReview }
+
+    for (const surface of ['Home', 'Seguimiento']) {
+      const html = await renderView(surface, reviewed) // models the reloaded, persisted state
+      expect(html).not.toContain('Program review')
+      expect(html).not.toContain('Program reviewed')
+      expect(html).not.toContain('Week 5 with this program')
+      expect(html).not.toContain('time to review it')
+    }
+
+    vi.setSystemTime(new Date('2026-11-03T12:00:00'))
+    const due = await renderView('Seguimiento', reviewed)
+    expect(due).toContain('Program review')
+    expect(due).toContain('Strength block')
+    expect(due.match(/class="v2-surface v3-rr"/g)).toHaveLength(1)
+  })
+  it('a persisted independent routine is absent during its plateau-protected interval and visible at nextReviewAt', async () => {
+    const reviewedAt = '2026-09-15'
+    const reviewed = { routines, workouts: flat('2026-09-16'), routineReviews: { r1: { reviewedAt, by: 'trainer1', n: 1 } } }
+    const html = await renderView('Seguimiento', reviewed) // plateau remains true, but this is before the next review date
+    expect(html).not.toContain('Routine review')
+    expect(html).not.toContain('Routine reviewed')
+    vi.setSystemTime(new Date('2026-10-13T12:00:00'))
+    const due = await renderView('Seguimiento', reviewed)
+    expect(due).toContain('Routine review')
+    expect(due).toContain('Push day')
+  })
   it('the member cannot close or edit anything from the notice: no markReviewed / setCycleDates anywhere in the member screens', () => {
     const card = readFileSync(new URL('../components/RoutineReviewCard.jsx', import.meta.url), 'utf8')
     expect(card).not.toMatch(/update\(|routines|onDone|Routine reviewed/)

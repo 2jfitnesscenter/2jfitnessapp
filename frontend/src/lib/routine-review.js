@@ -208,7 +208,7 @@ export function routineReviews(S, today) {
     const manualDue = S?.routineReviews?.[r.id]?.dueOverride
     const dueManual = isDate(manualDue) && manualDue >= cycle.start ? manualDue : null
     const dueDate = dueManual || addDays(cycle.start, (REVIEW_WEEK - 1) * 7)
-    const base = { routineId: r.id, name: r.name || '', start: cycle.start, source: cycle.source, startManual: cycle.source === 'manual', dueDate, dueManual: !!dueManual, week, days, sessions: sessions.length }
+    const base = { routineId: r.id, name: r.name || '', start: cycle.start, source: cycle.source, startManual: cycle.source === 'manual', dueDate, nextReviewAt: dueDate, dueManual: !!dueManual, week, days, sessions: sessions.length }
     if (dueManual) {      // the staff date decides, whatever the session count or plateau
       const p0 = plateau(sessions)
       const left = daysBetween(today, dueManual)
@@ -218,8 +218,12 @@ export function routineReviews(S, today) {
     }
     if (sessions.length < MIN_SESSIONS) { out.push({ ...base, status: 'idle', reasons: [] }); continue }
     const p = plateau(sessions)
+    // A completed review closes this cycle until its scheduled date, even if
+    // the same plateau evidence remains in the history. The due date itself
+    // is inclusive, so the review can return on that day.
+    const reviewedInCurrentCycle = isDate(S?.routineReviews?.[r.id]?.reviewedAt) && today < dueDate
     if (week >= REVIEW_WEEK) out.push({ ...base, status: 'due', early: false, late: daysBetween(dueDate, today) >= LATE_DAYS, reasons: [{ code: 'week', week }, ...p.reasons] })
-    else if (week >= EARLY_WEEK && p.clear) out.push({ ...base, status: 'early', early: true, late: false, reasons: p.reasons })
+    else if (!reviewedInCurrentCycle && week >= EARLY_WEEK && p.clear) out.push({ ...base, status: 'early', early: true, late: false, reasons: p.reasons })
     else if (week >= EARLY_WEEK) out.push({ ...base, status: 'soon', early: false, late: false, reasons: p.reasons })
     else out.push({ ...base, status: 'ok', reasons: p.reasons })
   }

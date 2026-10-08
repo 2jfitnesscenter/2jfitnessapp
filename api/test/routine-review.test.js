@@ -36,6 +36,16 @@ test('the staff summary raises a routine_review alert (normal, early, none) from
   assert.equal(followUpSummary({ workouts: [{ d: '2026-09-01' }] }, null, '2026-10-06').alerts.some(x => x.code === 'routine_review'), false);
 });
 
+test('a reviewed independent routine stays out of staff alerts despite plateau until its inclusive next review date', () => {
+  const reviewedAt = '2026-09-01';
+  const workouts = [0, 1, 2, 3, 4].map(i => ({ ...flat[i], id: `after-review-${i}`, d: addDays(reviewedAt, i * 3 + 1) }));
+  const state = member({ workouts, routineReviews: { r1: { reviewedAt } } });
+  const beforeDue = addDays(reviewedAt, 21);
+  assert.equal(followUpSummary(state, null, beforeDue).alerts.some(x => x.code === 'routine_review'), false);
+  const due = addDays(reviewedAt, 28);
+  assert.equal(followUpSummary(state, null, due).alerts.some(x => x.code === 'routine_review'), true);
+});
+
 /* ---- real server: admin-only endpoint, replay-safe, never touches the routine ---- */
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'routine-review-'));
 const SECRET = 'e'.repeat(64);
