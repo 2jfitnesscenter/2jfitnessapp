@@ -55,6 +55,8 @@ import { EQUIPMENT } from './lib/protocol/movements.js';
 import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesOf } from './lib/plan-meta.js';
 import { expectedOrigins } from './lib/webauthn-origins.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
+import { coachFollowUpRoutes, recordPrivateEvent } from './lib/coach-followup-routes.js';
+import * as followUpAI from './coach/followup-ai.js';
 import { encrypt as encryptAtRest, decrypt as decryptAtRest } from './lib/crypto.js';
 import { markReviewed, setCycleDates, markProgramReviewed, setProgramCycleDates, routineReviews } from './lib/routine-review.js';
 import { appendSharedAudit, createPinLimiter, hashStaffPin, publicStaffUsers, validateStaffPin, verifyStaffPin } from './lib/shared-staff.js';
@@ -84,6 +86,8 @@ const MAX_SCAN_BYTES = 8 * 1024 * 1024;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 const FOLLOWUP_PRIVATE_CRYPTO_INFO = '2j-followup-private-v1';
+// Seguimiento V3: a trainer who loses the role (or is demoted) must not keep the members an admin had assigned to them.
+function dropTrainerAssignments(trainerId) { for (const m of db.users) if (Array.isArray(m.assignedTrainers) && m.assignedTrainers.includes(trainerId)) { m.assignedTrainers = m.assignedTrainers.filter(id => id !== trainerId); if (!m.assignedTrainers.length) delete m.assignedTrainers; } }
 
 fs.mkdirSync(DATA, { recursive: true });
 // 0700 is what stops the unprivileged user that Coach jobs run as from reading any of this —
@@ -770,7 +774,10 @@ function livePresence(uid) {
 setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt > PRESENCE_TTL) presence.delete(k); }, 30000).unref();
 
 /* ---------- routes ---------- */
+// Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, explicit trainer assignment, roster-side private data.
+const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI };
 const routes = {
+  ...coachFollowUpRoutes(coachDeps),
   ...sharedStaffRoutes({
     db, json, readBody, readSession, requireAdmin, requireSharedDevice, isAdmin, isTrainer,
     deviceForRequest, deviceTokenHash: sharedDeviceTokenHash, sessionCookie, clearCookie,
@@ -1625,6 +1632,8 @@ const routes = {
     S._ts = Date.now();
     const cycle = routineReviews(S, new Date().toISOString().slice(0, 10)).map(cycleView).find(c => isProgram ? c.programId === body.programId : c.routineId === body.routineId) || null;
     saveDirect(u.id, S, body, 'admin-routine-cycle', { ok: true, cycle });
+    // The decision trail (staff only, roster side): a moved review date is something the trainer chose.
+    if (Object.prototype.hasOwnProperty.call(patch, 'due')) recordPrivateEvent(coachDeps, u, { kind: 'review_rescheduled', by: staff.id, ref: isProgram ? { kind: 'program', id: body.programId } : { kind: 'routine', id: String(body.routineId || '') } });
     json(res, 200, { ok: true, cycle, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
   // "Rutina revisada" from the staff side (Requiere atención): closes the routine-review notice and restarts that routine's cycle from today. Writes only
@@ -1665,6 +1674,7 @@ const routes = {
     else { delete u.admin; if (role === 'trainer') u.trainer = true; else delete u.trainer; }
     const newRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
     if (oldRole !== newRole) revokeSharedStaffSessions(u.id, admin.id, 'role_changed');
+    if (newRole === 'member') dropTrainerAssignments(u.id);
     saveDb();
     json(res, 200, { ok: true, id: u.id, role: isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member', admin: isAdmin(u), trainer: isTrainer(u) });
   },
@@ -1877,7 +1887,7 @@ const routes = {
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
     u.trainer = !!body.trainer;
-    if (!isTrainer(u)) revokeSharedStaffSessions(u.id, admin.id, 'trainer_role_removed');
+    if (!isTrainer(u)) { revokeSharedStaffSessions(u.id, admin.id, 'trainer_role_removed'); dropTrainerAssignments(u.id); }
     saveDb();
     json(res, 200, { ok: true, id: u.id, trainer: u.trainer });
   },
