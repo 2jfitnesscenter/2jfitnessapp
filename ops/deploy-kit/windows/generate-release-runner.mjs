@@ -20,7 +20,7 @@ const WEB_PUSH_SUBSCRIPTION_MARKERS = [
   { file: 'api/test/rest-alert-routes.test.js', marker: "call('POST', '/api/push/subscribe'" },
   { file: 'api/test/rest-alert-routes.test.js', marker: 'assert.equal(db.subs.length, 1)' },
 ]
-export const isAllowedPostTargetPath = p => p === 'AI_HANDOFF.md' || p === '.gitattributes' || p.startsWith('ops/deploy-kit/')
+export const isAllowedPostTargetPath = p => p === 'AI_HANDOFF.md' || p === '.gitattributes' || p === 'frontend/src/views/adaptive.test.jsx' || p.startsWith('ops/deploy-kit/')
 
 function fail(message) { throw new Error(message) }
 function psQuote(value) { return `'${String(value).replaceAll("'", "''")}'` }

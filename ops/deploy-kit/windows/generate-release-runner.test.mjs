@@ -100,10 +100,12 @@ test('Android rest alert release is exact-target and keeps Shared Staff probes',
   ]) assert.ok(rendered.includes(marker), marker)
 })
 
-test('post-target commits allow only deploy tooling, handoff, and line-ending metadata', () => {
+test('post-target commits allow deploy tooling, handoff, line-ending metadata, and the test-only timeout harness fix', () => {
   assert.equal(isAllowedPostTargetPath('ops/deploy-kit/windows/generate-release-runner.mjs'), true)
   assert.equal(isAllowedPostTargetPath('AI_HANDOFF.md'), true)
   assert.equal(isAllowedPostTargetPath('.gitattributes'), true)
+  assert.equal(isAllowedPostTargetPath('frontend/src/views/adaptive.test.jsx'), true)
+  assert.equal(isAllowedPostTargetPath('frontend/src/views/Home.jsx'), false)
   assert.equal(isAllowedPostTargetPath('frontend/src/store/useUI.js'), false)
   assert.ok(template.includes("$_ -ne '.gitattributes'"), 'PrepareOnly must apply the same narrow allowlist')
 })
