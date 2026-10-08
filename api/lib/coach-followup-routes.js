@@ -9,6 +9,7 @@
 // The roster entry holds the staff data (followUp.goalPlan, followUp.flag, the encrypted notes/events). Nothing is written to the member's synced state.
 import crypto from 'node:crypto';
 import { sanitizeFollowUp, templateKeys } from './followup.js';
+import { routineReviews } from './routine-review.js';
 import { memberView, overviewRow, bucketRows, sanitizeGoal, aiFacts, cleanStructure } from './coach-followup.js';
 import { emptyPrivate, normalizePrivate, pushEvent, addNote, deleteNote, timeline, DECISION_KINDS } from './coach-followup-private.js';
 
@@ -23,7 +24,7 @@ export function canAccessMember(staff, member, isAdmin) {
 }
 
 export function coachFollowUpRoutes(d) {
-  const { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info, ai } = d;
+  const { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info, ai, cycleView } = d;
   const isMember = u => !u.disabled && !isTrainer(u);
   const names = () => Object.fromEntries(db.users.filter(isTrainer).map(u => [u.id, u.name]));
 
@@ -84,6 +85,8 @@ export function coachFollowUpRoutes(d) {
       json(res, 200, {
         member: { id: u.id, name: u.name, avatar: u.avatar || null, created: u.created || null, disabled: !!u.disabled, synced: !!S },
         view, followUp: publicFollowUp(u.followUp),
+        // The same cycle shape the existing Routine Review editor consumes (date overrides, 'reviewed'), so the sheet reuses that editor instead of copying it.
+        routineCycles: routineReviews(S || {}, today).map(cycleView),
         privateAvailable: !pr.corrupt, legacyNote: pr.priv ? pr.priv.notes.slice(0, 2000) : '', notes,
         timeline: timeline({ S: S || {}, f: u.followUp, priv: pr.priv, names: nm }),
         sync: S?._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null,

@@ -149,10 +149,13 @@ describe('member', () => {
 
 describe('staff ("Needs attention", admin only)', () => {
   const src = readFileSync(new URL('./AdminAttention.jsx', import.meta.url), 'utf8')
-  it('shows the routine, week and reason, with a "Routine reviewed" button that posts to the admin-only endpoint with the member sync', () => {
-    expect(src).toContain("a.code === 'routine_review'"); expect(src).toContain("t(a.kind === 'program' ? 'Program reviewed' : 'Routine reviewed')")
-    expect(src).toContain("...(a.kind === 'program' ? { programId: a.programId } : { routineId: a.routineId })")
-    expect(src).toContain("if (!user?.admin) return null")
+  it('the staff sheet mounts the review editor ("Routine reviewed" posts to the admin-only endpoint with the member sync) behind the admin gate', () => {
+    const sheet = readFileSync(new URL('../components/coach/CoachMember.jsx', import.meta.url), 'utf8')
+    expect(sheet).toContain('<RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync}')
+    const fu = readFileSync(new URL('./AdminFollowUp.jsx', import.meta.url), 'utf8')
+    expect(fu).toContain("t('Program reviewed')"); expect(fu).toContain("t('Routine reviewed')"); expect(fu).toContain("'routine-reviewed'")
+    expect(fu).toContain('{ programId: c.programId } : { routineId: c.routineId }')
+    expect(src).toContain('if (!user?.admin) return null')
   })
   it('the staff Seguimiento (AdminFollowUp) edits start and review date in place and can close the review', () => {
     const fu = readFileSync(new URL('./AdminFollowUp.jsx', import.meta.url), 'utf8')

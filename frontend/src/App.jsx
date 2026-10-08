@@ -45,7 +45,7 @@ import BunkerAdminPage from './views/BunkerAdminPage.jsx'
 import Badges from './views/Badges.jsx'
 import Mi2J from './views/Mi2J.jsx'
 import Seguimiento from './views/Seguimiento.jsx'
-import AdminAttention from './views/AdminAttention.jsx'
+import AdminAttention, { AdminAttentionMember } from './views/AdminAttention.jsx'
 import HealthIntegrations from './views/HealthIntegrations.jsx'
 import Records from './views/Records.jsx'
 import { showPendingCelebration, autoFinishInactiveWorkout } from './sheets.jsx'
@@ -83,6 +83,7 @@ import Coach from './views/Coach.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachProposal from './views/CoachProposal.jsx'
 import TrainerClients from './views/trainer/TrainerClients.jsx'
+import { TrainerFollowBoard, TrainerFollowMember } from './views/trainer/TrainerFollowUp.jsx'
 import TrainerClientPlan from './views/trainer/TrainerClientPlan.jsx'
 import TrainerRoutineBuilder from './views/trainer/TrainerRoutineBuilder.jsx'
 import TrainerProgramBuilder from './views/trainer/TrainerProgramBuilder.jsx'
@@ -213,6 +214,8 @@ function Shell() {
             {!authed ? <Login /> : !user?.trainer ? <Navigate to="/home" replace /> : (
               <Suspense fallback={<div className="narrow" role="status" style={{ paddingTop: 24 }}>{t('Loading…')}</div>}><Routes>
                 <Route path="/trainer" element={<TrainerClients />} />
+                <Route path="/trainer/seguimiento" element={<TrainerFollowBoard />} />
+                <Route path="/trainer/seguimiento/:id" element={<TrainerFollowMember />} />
                 <Route path="/trainer/blocks" element={<BlockLibrary />} />
                 <Route path="/trainer/blocks/edit/:blockId" element={<BlockEditor />} />
                 <Route path="/trainer/guided" element={<GuidedAdmin />} />
@@ -318,6 +321,7 @@ function Shell() {
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to={user?.trainer ? '/trainer' : '/home'} replace />} />
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
               <Route path="/admin/attention" element={user?.admin ? <AdminAttention /> : <Navigate to="/home" replace />} />
+              <Route path="/admin/attention/:id" element={user?.admin ? <AdminAttentionMember /> : <Navigate to="/home" replace />} />
               <Route path="/admin/ai" element={user?.admin ? <AdminAI /> : <Navigate to="/home" replace />} />
               <Route path="/admin/features" element={user?.admin ? <AdminFeatures /> : <Navigate to="/home" replace />} />
               <Route path="/admin/news" element={user?.admin ? <AdminNews /> : <Navigate to="/home" replace />} />

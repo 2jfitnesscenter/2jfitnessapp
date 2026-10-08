@@ -775,7 +775,7 @@ setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt 
 
 /* ---------- routes ---------- */
 // Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, explicit trainer assignment, roster-side private data.
-const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI };
+const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
 const routes = {
   ...coachFollowUpRoutes(coachDeps),
   ...sharedStaffRoutes({

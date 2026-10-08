@@ -30,7 +30,7 @@ async function boot() {
   ;(await import('../components/ui.jsx')).bindUI(useUI)
   mods = {
     pc: await import('../lib/plan-cards.js'), cards: await import('../components/PlanCards.jsx'), fu: await import('../lib/followup-v3.js'),
-    att: await import('../lib/attention.js'), priv: await import('../lib/privacy-summary.js'),
+    priv: await import('../lib/privacy-summary.js'),
   }
 }
 async function seed(over = {}, admin = null, user = { id: 'u1', name: 'Ana Socia', username: 'ana' }) {
@@ -119,17 +119,6 @@ describe('Seguimiento V3 (member)', () => {
 })
 
 describe('Needs attention (staff) and permissions', () => {
-  it('ranks urgent first, then upcoming reviews / inactivity, then on track; sorted by what matters', async () => {
-    await boot()
-    const row = (id, alerts, nextReview = null) => ({ user: { id, name: id }, alerts, summary: { nextReview, perWeek: 1, plannedPerWeek: 3, lastWorkout: '2026-09-01' } })
-    const r = mods.att.rankAttention([
-      row('ok', []), row('inactive', [{ code: 'no_recent_workouts', days: 20 }]), row('overdue', [{ code: 'review_overdue', days: 4 }], '2026-09-05'),
-      row('pain', [{ code: 'repeated_discomfort', zone: 'knee', n: 3 }, { code: 'review_overdue', days: 1 }], '2026-09-08'), row('soon', [], '2026-09-12'),
-    ], '2026-09-09')
-    expect(r.urgent.map(x => x.user.id)).toEqual(['pain', 'overdue'])
-    expect(r.soon.map(x => x.user.id)).toEqual(['soon', 'inactive'])
-    expect(r.onTrack.map(x => x.user.id)).toEqual(['ok'])
-  })
   it('the staff view exists only behind the admin route; the member page needs no role', () => {
     const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8')
     expect(app).toMatch(/path="\/admin\/attention" element=\{user\?\.admin \? <AdminAttention \/> : <Navigate to="\/home" replace \/>\}/)

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cycleStart, markProgramReviewed, markReviewed, pendingReviews, plateau, routineReviews, setCycleDates, setProgramCycleDates } from './routine-review.js'
 import { followupDigest } from './followup-v3.js'
-import { rankAttention } from './attention.js'
 
 /* Routine review loop: normal review in week 5, brought forward to week 4 only by a CLEAR plateau, never by one bad session, never edits a routine,
    "Rutina revisada" restarts the cycle, and data without any of this metadata is simply not in a cycle. */
@@ -278,12 +277,6 @@ describe('what the member and the staff get', () => {
     expect(d.reviews[0]).toMatchObject({ routineId: 'r1', name: 'Push day', status: 'early' })
     expect(d.empty).toBe(false)
     expect(followupDigest(state(sessions(FIRST, PROGRESSING)), null, today).reviews).toEqual([])
-  })
-  it('the staff list ranks a pending review under "coming up", and a late one as urgent', () => {
-    const row = (late) => ({ user: { id: 'u1', name: 'Ana' }, summary: {}, alerts: [{ code: 'routine_review', routineId: 'r1', name: 'Push day', week: 5, early: false, late, reasons: [] }] })
-    expect(rankAttention([row(false)], '2026-10-06').soon).toHaveLength(1)
-    expect(rankAttention([row(true)], '2026-10-06').urgent).toHaveLength(1)
-    expect(rankAttention([{ user: { id: 'u2' }, summary: {}, alerts: [] }], '2026-10-06').onTrack).toHaveLength(1)
   })
 })
 

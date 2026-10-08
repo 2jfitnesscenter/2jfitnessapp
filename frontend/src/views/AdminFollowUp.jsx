@@ -166,6 +166,7 @@ export default function AdminFollowUp({ id }) {
   const status = !f ? '' : overdue ? 'overdue' : s.nextReview && s.nextReview <= today ? 'due' : ''
   return <section className="fu">
     <h4 className="sec">{t('Follow-up')}</h4>
+    <a className="btn tinted sm" href={'#/admin/attention/' + encodeURIComponent(id)} style={{ marginBottom: 10, display: 'inline-flex' }}><Icon name="chartLine" /><span>{t('Open professional follow-up')}</span></a>
     {(d.routineCycles || []).length > 0 && <RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync} setData={setD} reload={load} plan={plan} />}
     {!f ? <div className="card fu-empty">
       <div className="muted small">{t('No follow-up yet. Choose an assessment template and how often to review.')}</div>

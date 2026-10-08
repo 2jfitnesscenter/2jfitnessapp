@@ -29,6 +29,7 @@ export default function TrainerClients() {
         <h1>{t('Trainer panel')}</h1>
         <div className="sub">{t('Build and assign routines for your members.')}</div>
       </div>
+      <a className="trainer-back" href="#/trainer/seguimiento" style={{ marginRight: 10 }}><Icon name="chartLine" />{t('Follow-up')}</a>
       <a className="trainer-back" href="#/trainer/blocks" style={{ marginRight: 10 }}><Icon name="list" />{t('Block library')}</a>
       <a className="trainer-back" href="#/trainer/guided" style={{ marginRight: 10 }}><Icon name="play" />{t('Train with 2J')}</a>
       <a className="trainer-back" href="#/admin/bunker" style={{ marginRight: 10 }}><Icon name="dumbbell" />{t('Room admin')}</a>

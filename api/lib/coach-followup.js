@@ -134,9 +134,11 @@ export function adherence(S, today, since = null) {
   }
   const lastWorkout = workouts.reduce((m, w) => (!m || w.d > m ? w.d : m), null);
   const sessions = w => w.full + w.partial;
+  // Strength sessions per week for the last 8 weeks (oldest first): the micro-graphic of the sheet. Counts, no smoothing.
+  const weekly = Array.from({ length: 8 }, (_, i) => sessions(windowStats(S, workouts, plan, addDays(today, -(7 - i) * 7), 7, null)));
   return {
     plannedPerWeek: plan.known ? plan.strength : null, otherPerWeek: plan.known ? plan.other : null,
-    d7: strip(d7), d28: strip(d28), trend,
+    d7: strip(d7), d28: strip(d28), trend, weekly,
     perWeek: { last: Math.round(sessions(last14) / 2 * 10) / 10, before: Math.round(sessions(prev14) / 2 * 10) / 10 },
     lastWorkout, daysSince: lastWorkout ? daysBetween(lastWorkout, today) : null,
     historyDays: startRef ? Math.max(0, daysBetween(startRef, today) + 1) : 0,
@@ -171,8 +173,9 @@ export function progress(S, today, cycles) {
 }
 
 /* ---------------------------------------------------------------- goal */
-export const GOAL_KEYS = ['hypertrophy', 'toning', 'fatloss', 'power', 'plyometrics', 'longevity'];
-const LENS = { fatloss: 'body', hypertrophy: 'performance', power: 'performance', plyometrics: 'performance', toning: 'performance', longevity: 'health' };
+// The goals the product already has (CoachIntake): nothing new is invented here.
+export const GOAL_KEYS = ['hypertrophy', 'toning', 'fatloss', 'power', 'plyometrics', 'longevity', 'padel', 'basketball', 'examfitness'];
+const LENS = { fatloss: 'body', hypertrophy: 'performance', power: 'performance', plyometrics: 'performance', toning: 'performance', longevity: 'health', padel: 'performance', basketball: 'performance', examfitness: 'performance' };
 export const PRIORITIES = ['normal', 'high'];
 
 /** The staff's own reading of the goal (additive, on the roster) when set; otherwise the member's. */
