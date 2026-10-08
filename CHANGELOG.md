@@ -1,5 +1,14 @@
 # Changelog
 
+### Coach & Seguimiento PRO V3 — candidato, NO desplegado
+
+- Seguimiento del personal reconstruido sobre datos que ya existen (revisión de programa/rutina, fatiga, check-ins compartidos, historial, objetivos): un tablero (necesitan atención · revisiones próximas · seguimiento estable) en una sola petición y una ficha por socio con resumen, ahora, progreso, adherencia, revisión, análisis 2J, check-in, historial profesional y notas. Sustituye la lista antigua de "Requiere atención" (una petición por socio).
+- Triage determinista y explicado (Normal · Revisar · Prioritario): cada señal lleva fuente, evidencia, explicación y acción sugerida. Adherencia = sesiones de fuerza previstas vs hechas, con parciales, cardio (aparte), movidas y excluidas por separado; sin porcentaje sin plan, sin ≥3 sesiones previstas o con menos de 7 días de historial.
+- Permisos: el administrador ve a todos; el entrenador solo a los socios que un administrador le asigna (`assignedTrainers`); el socio, nada. Quitar el rol borra sus asignaciones. Los endpoints antiguos del panel de entrenador no cambian.
+- Notas privadas con fecha, historial de decisiones y objetivo/prioridad del personal, en el mismo bloque cifrado de la ficha de seguimiento (aditivo, versión 1). Nunca llegan al socio, a la IA, a Social, a Sync ni a las exportaciones.
+- "Analizar seguimiento": la IA profesional recibe solo hechos calculados (máx. 6000 caracteres, sin nombre ni notas), responde en formato etiquetado hecho/inferencia/sugerencia y no puede proponer nada aplicable; el entrenador abre el programa, crea una propuesta o añade una nota y su decisión queda registrada.
+- Política de evidencia y mapa de datos en `docs/COACH_FOLLOWUP_EVIDENCE.md` y `docs/COACH_FOLLOWUP_V3.md`. Sin cambios en Sync V2, auth, WebAuthn, Bunker ni Health.
+
 ### Training Quality V1 + Routine Review por programa — candidato, NO desplegado
 
 - Revisión del programa activo agrupada en una sola tarjeta/ciclo; los días incluidos ya no generan tarjetas individuales. Las rutinas independientes mantienen su ciclo anterior.
