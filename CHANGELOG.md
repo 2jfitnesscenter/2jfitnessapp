@@ -7,7 +7,7 @@
 - El resumen de revisión incorpora adherencia de las semanas transcurridas, tendencia de progresión, señales de plateau/omisiones y el análisis estructural existente. La IA profesional recibe facts acotados y solo genera un borrador para revisión del entrenador.
 - QA local sintética encontró y corrigió dos defectos: el panel Training Quality carecía de estilos para patrones/hallazgos/días y una revisión marcada podía volver de inmediato a pendientes por la misma señal de plateau. La revisión no reabre antes de `nextReviewAt` (+28 días); el test comprueba también que vuelve a ser elegible al llegar esa fecha.
 - QA visual manual autenticada en claro/oscuro a 1280×720: panel de análisis, Admin Follow Up y Trainer Client Plan; ciclo de programa compacto y separado de la rutina independiente. 1440/768/390 y caso equilibrado/sin hallazgos aún no certificados por limitación de viewport/fixtures.
-- Validación final: frontend 1466/1466 secuencial (la ejecución paralela bajo carga tuvo timeouts); API 455/455 sin skips con Git Bash/OpenSSL; build, español 4577/4577 y diff-check OK. PrepareOnly/simulaciones y verificación del marker/runtime remoto pendientes. Sin deploy.
+- Validación final: frontend 1466/1466 secuencial (la paralela inicial tuvo 16 timeouts y un `localStorage is not defined` posterior al timeout); API 455/455 sin skips con Git Bash/OpenSSL; build, español 4577/4577 y diff-check OK. La base remota sigue sin confirmarse: handoff señala 8458b54 y HYDRA local b4e7baa; leer marker/runtime antes de crear runner. PrepareOnly/simulaciones pendientes. Sin deploy.
 
 ### Web Push diagnóstico para alertas de descanso PWA (2026-10-07) — NO DESPLEGADO
 
