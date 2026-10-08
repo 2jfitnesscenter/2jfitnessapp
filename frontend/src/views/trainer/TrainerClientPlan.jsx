@@ -48,7 +48,7 @@ export default function TrainerClientPlan() {
 
     {cy?.routineCycles?.length > 0 && <RoutineCycles id={memberId} cycles={cy.routineCycles} sync={cy.sync} setData={setCy} reload={loadCycles} plan={plan} />}
 
-    <div className="row" style={{ gap: 8, marginBottom: 20 }}>
+    <div className="row" style={{ gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
       <Button icon="plus" onClick={() => nav('/trainer/' + memberId + '/build/r/new')}>{t('New routine')}</Button>
       <Button icon="plus" variant="tinted" onClick={() => nav('/trainer/' + memberId + '/build/p/new')}>{t('New program')}</Button>
       <Button icon="sparkles" variant="tinted" onClick={() => nav('/trainer/' + memberId + '/ai')}>{t('Generate with AI')}</Button>

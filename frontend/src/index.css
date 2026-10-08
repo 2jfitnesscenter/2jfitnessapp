@@ -2566,6 +2566,10 @@ body:has(.sync-pill) #app{padding-top:8px}
   flex:0 0 360px;background:var(--surface);border-radius:var(--r-lg);padding:14px;
   position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;
 }
+@media (max-width:900px){
+  .builder-layout{flex-direction:column}
+  .builder-side{flex:none;position:static;width:100%;max-height:none;overflow:visible;box-sizing:border-box}
+}
 
 .day-cols{display:flex;gap:16px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
 .day-col{
