@@ -18,7 +18,7 @@ fs.writeFileSync(path.join(dir, 'secret'), SECRET, { mode: 0o600 });
 fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({
   users: [
     { id: 'trainer1', name: 'Trainer One', trainer: true },
-    { id: 'member1', name: 'Member One' },
+    { id: 'member1', name: 'Member One', assignedTrainers: ['trainer1'] },
     { id: 'member2', name: 'Member Two' },
   ],
   creds: [], subs: [], invites: [], recoveries: [],

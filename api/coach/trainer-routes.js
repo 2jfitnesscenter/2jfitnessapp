@@ -42,7 +42,7 @@ async function testRun() {
   }
 }
 
-export function trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer }) {
+export function trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer, memberFor }) {
   return {
     /* ------------------------------ admin ------------------------------ */
 
@@ -98,6 +98,7 @@ export function trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer }
       const body = await readBody(req);
       const memberId = String(body.memberId || '');
       if (!memberId) return json(res, 400, { error: 'falta el socio' });
+      if (!memberFor(res, trainer, memberId, 'ese miembro no existe')) return;      // admin: any member; trainer: only the ones assigned to them
       try {
         const job = trainerJobs.enqueue(trainer.id, memberId, body.brief || {});
         json(res, 202, { job });
@@ -110,12 +111,14 @@ export function trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer }
     'GET /api/trainer/ai/status': async (req, res) => {
       const trainer = requireTrainer(req, res); if (!trainer) return;
       const memberId = new URL(req.url, 'http://x').searchParams.get('memberId') || '';
+      if (!memberFor(res, trainer, memberId, 'ese miembro no existe')) return;
       json(res, 200, trainerJobs.status(trainer.id, memberId));
     },
 
     'POST /api/trainer/ai/discard': async (req, res) => {
       const trainer = requireTrainer(req, res); if (!trainer) return;
       const body = await readBody(req);
+      if (!memberFor(res, trainer, String(body.memberId || ''), 'ese miembro no existe')) return;
       json(res, 200, trainerJobs.discard(trainer.id, String(body.memberId || '')));
     }
   };

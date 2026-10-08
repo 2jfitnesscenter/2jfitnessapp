@@ -51,7 +51,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'routine-review-'));
 const SECRET = 'e'.repeat(64);
 fs.writeFileSync(path.join(dir, 'secret'), SECRET, { mode: 0o600 });
 fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({ users: [
-  { id: 'admin1', name: 'Admin', admin: true }, { id: 'trainer1', name: 'Trainer', trainer: true }, { id: 'member1', name: 'Member One' }, { id: 'member2', name: 'Member Two' }],
+  { id: 'admin1', name: 'Admin', admin: true }, { id: 'trainer1', name: 'Trainer', trainer: true }, { id: 'member1', name: 'Member One', assignedTrainers: ['trainer1'] }, { id: 'member2', name: 'Member Two' }],
 creds: [], subs: [], invites: [], recoveries: [] }, null, 2));
 const PORT = 34631, base = `http://localhost:${PORT}`;
 const child = spawn(process.execPath, ['server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base }, stdio: ['ignore', 'ignore', 'ignore'] });
@@ -103,7 +103,8 @@ test('a trainer can read the cycles, edit them and mark the routine reviewed (ex
   seed();
   const sync = async uid => (await req('GET', '/api/trainer/routine-cycles?id=member1', { uid })).body.sync;
   assert.equal((await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'member2' })).status, 403);
-  assert.equal((await req('GET', '/api/trainer/routine-cycles?id=ghost', { uid: 'trainer1' })).status, 404);
+  assert.equal((await req('GET', '/api/trainer/routine-cycles?id=ghost', { uid: 'trainer1' })).status, 403, 'a trainer cannot tell a missing id from an unassigned one');
+  assert.equal((await req('GET', '/api/trainer/routine-cycles?id=ghost', { uid: 'admin1' })).status, 404);
   const read = await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'trainer1' });
   assert.equal(read.status, 200); assert.equal(read.body.routineCycles[0].routineId, 'r1'); assert.equal(read.body.routineCycles[0].status, 'due');
   assert.equal(Object.keys(read.body).sort().join(), 'routineCycles,sync', 'nothing from the follow-up / health summary');

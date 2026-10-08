@@ -175,8 +175,10 @@ test('disabled members cannot be written to; moving a review date leaves a decis
   const m0 = (await get('/api/trainer/followup/member?id=u2', 'ad')).body;
   assert.equal(m0.followUp, null);
   await post('/api/trainer/followup/start', 'ad', { id: 'u2' });
+  assert.equal((await get('/api/trainer/routine-cycles?id=u2', 'tr1')).status, 403, 'the legacy routine-cycle surface follows the same assignment rule');
+  assert.equal((await post('/api/admin/user/trainers', 'ad', { id: 'u2', trainerIds: ['tr1'] })).status, 200);
   const cyc = (await get('/api/trainer/routine-cycles?id=u2', 'tr1'));
-  assert.equal(cyc.status, 200, 'the legacy routine-cycle surface keeps its role-based access');
+  assert.equal(cyc.status, 200);
   const due = addDays(today(), 12);
   const r = await post('/api/admin/user/routine-cycle', 'tr1', { id: 'u2', routineId: 'r1', due, receipt: 'x1', sync: cyc.body.sync });
   assert.ok([200, 409].includes(r.status), String(r.status));

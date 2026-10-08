@@ -55,7 +55,7 @@ import { EQUIPMENT } from './lib/protocol/movements.js';
 import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesOf } from './lib/plan-meta.js';
 import { expectedOrigins } from './lib/webauthn-origins.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
-import { coachFollowUpRoutes, recordPrivateEvent } from './lib/coach-followup-routes.js';
+import { coachFollowUpRoutes, recordPrivateEvent, canAccessMember } from './lib/coach-followup-routes.js';
 import * as followUpAI from './coach/followup-ai.js';
 import { encrypt as encryptAtRest, decrypt as decryptAtRest } from './lib/crypto.js';
 import { markReviewed, setCycleDates, markProgramReviewed, setProgramCycleDates, routineReviews } from './lib/routine-review.js';
@@ -774,6 +774,14 @@ function livePresence(uid) {
 setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt > PRESENCE_TTL) presence.delete(k); }, 30000).unref();
 
 /* ---------- routes ---------- */
+// The ONE rule for every staff route that targets a member: admin → any user; trainer → only members an admin assigned (user.assignedTrainers). Anything else — unknown id,
+// unassigned member, staff account — answers the same 403 to a trainer, so ids cannot be probed; an admin gets a 404 for an id that does not exist.
+function memberFor(res, staff, memberId, notFound) {
+  const m = db.users.find(x => x.id === String(memberId || ''));
+  if (!m && isAdmin(staff)) { json(res, 404, { error: notFound }); return null; }
+  if (!m || !canAccessMember(staff, m, isAdmin)) { json(res, 403, { error: 'prohibido' }); return null; }
+  return m;
+}
 // Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, explicit trainer assignment, roster-side private data.
 const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
 const routes = {
@@ -1605,9 +1613,8 @@ const routes = {
   },
   // The routine-review cycles of one member for the TRAINER panel (same data the cycle editor needs, nothing from the follow-up/health summary). Trainer or admin.
   'GET /api/trainer/routine-cycles': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
-    const u = db.users.find(x => x.id === new URL(req.url, 'http://x').searchParams.get('id'));
-    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const staff = requireTrainer(req, res); if (!staff) return;
+    const u = memberFor(res, staff, new URL(req.url, 'http://x').searchParams.get('id'), 'ese usuario no existe'); if (!u) return;
     const S = readState(u.id);
     if (!S) return json(res, 200, { routineCycles: [], sync: null });
     json(res, 200, { routineCycles: routineReviews(S, new Date().toISOString().slice(0, 10)).map(cycleView), sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null });
@@ -1617,8 +1624,7 @@ const routes = {
   'POST /api/admin/user/routine-cycle': async (req, res) => {
     const staff = requireTrainer(req, res); if (!staff) return;       // trainer or admin — the existing trainer permission, nothing wider
     const body = await readBody(req);
-    const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const u = memberFor(res, staff, body.id, 'ese usuario no existe'); if (!u) return;
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado' });
     const replay = directReceipt(S, body, 'admin-routine-cycle');
@@ -1642,8 +1648,7 @@ const routes = {
   'POST /api/admin/user/routine-reviewed': async (req, res) => {
     const staff = requireTrainer(req, res); if (!staff) return;       // trainer or admin
     const body = await readBody(req);
-    const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const u = memberFor(res, staff, body.id, 'ese usuario no existe'); if (!u) return;
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado' });
     const replay = directReceipt(S, body, 'admin-routine-reviewed');
@@ -2743,8 +2748,8 @@ const routes = {
   // Trimmed member list for a trainer's "assign to..." picker — just enough to search/identify
   // someone, not the full admin detail view.
   'GET /api/trainer/members': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
-    const members = db.users.filter(u => !u.disabled).map(u => ({ id: u.id, name: u.name, avatar: u.avatar || null }));
+    const staff = requireTrainer(req, res); if (!staff) return;
+    const members = db.users.filter(u => !u.disabled && canAccessMember(staff, u, isAdmin)).map(u => ({ id: u.id, name: u.name, avatar: u.avatar || null }));
     json(res, 200, { members });
   },
 
@@ -2759,8 +2764,7 @@ const routes = {
     const post = social.routines.find(r => r.id === body.routineId);
     if (!post) return json(res, 404, { error: 'esa rutina no existe' });
     if (post.authorId !== trainer.id) return json(res, 403, { error: 'solo puedes asignar rutinas que hayas publicado tú mismo' });
-    const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, trainer, body.memberId, 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
     const replay = directReceipt(S, body, 'assign-routine');
@@ -2784,8 +2788,7 @@ const routes = {
     const post = social.programs.find(p => p.id === body.programId);
     if (!post) return json(res, 404, { error: 'ese programa no existe' });
     if (post.authorId !== trainer.id) return json(res, 403, { error: 'solo puedes asignar programas que hayas publicado tú mismo' });
-    const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, trainer, body.memberId, 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
     const replay = directReceipt(S, body, 'assign-program');
@@ -2812,10 +2815,8 @@ const routes = {
   // purpose — never the member's workout history or body weight, same reduced blast radius
   // GET /api/trainer/members already keeps to.
   'GET /api/trainer/member-plan': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
-    const memberId = new URL(req.url, 'http://x').searchParams.get('id') || '';
-    const member = db.users.find(x => x.id === memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const staff = requireTrainer(req, res); if (!staff) return;
+    const member = memberFor(res, staff, new URL(req.url, 'http://x').searchParams.get('id') || '', 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
     json(res, 200, { routines: S?.routines || [], programs: S?.programs || [],
       gym: S ? { availableEquipment: gymEquipmentContext(S).availableEquipment } : null,
@@ -2827,10 +2828,9 @@ const routes = {
   // replaces it in place (same id, so a program's routineIds referencing it stay valid);
   // omitting it (or passing one that doesn't match) appends a new routine instead.
   'POST /api/trainer/member-routine': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
+    const staff = requireTrainer(req, res); if (!staff) return;
     const body = await readBody(req);
-    const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, staff, body.memberId, 'ese miembro no existe'); if (!member) return;
     const name = String(body.name || '').trim().slice(0, 60);
     const ex = Array.isArray(body.ex) ? body.ex : null;
     if (!name || !ex || !ex.length) return json(res, 400, { error: 'una rutina necesita un nombre y al menos un ejercicio' });
@@ -2877,10 +2877,9 @@ const routes = {
   // `week` travels with it (weekday -> routineId), since here the trainer is scheduling it
   // directly rather than leaving that step for the member to do afterward.
   'POST /api/trainer/member-program': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
+    const staff = requireTrainer(req, res); if (!staff) return;
     const body = await readBody(req);
-    const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, staff, body.memberId, 'ese miembro no existe'); if (!member) return;
     const name = String(body.name || '').trim().slice(0, 60);
     const routineIds = Array.isArray(body.routineIds) ? body.routineIds : null;
     const guidedProgramId = typeof body.guidedProgramId === 'string' ? body.guidedProgramId : '';
@@ -2949,10 +2948,9 @@ const routes = {
   // brief only asks to be able to SEE that a meaningfully-changed assignment used to look
   // different, not to revert it.
   'GET /api/trainer/routine-versions': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
+    const staff = requireTrainer(req, res); if (!staff) return;
     const q = new URL(req.url, 'http://x').searchParams;
-    const member = db.users.find(x => x.id === (q.get('memberId') || ''));
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, staff, q.get('memberId') || '', 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
     const routineId = q.get('routineId') || '';
     const current = (S?.routines || []).find(r => r.id === routineId) || null;
@@ -2962,10 +2960,9 @@ const routes = {
 
   // Same idea for programs.
   'GET /api/trainer/program-versions': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
+    const staff = requireTrainer(req, res); if (!staff) return;
     const q = new URL(req.url, 'http://x').searchParams;
-    const member = db.users.find(x => x.id === (q.get('memberId') || ''));
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, staff, q.get('memberId') || '', 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
     const programId = q.get('programId') || '';
     const current = (S?.programs || []).find(p => p.id === programId) || null;
@@ -2983,7 +2980,7 @@ const routes = {
   // Same factory shape as coachRoutes, but its own file (coach/trainer-ai.js) so this instance's
   // member-facing Coach and the trainer panel's "Generate with AI" can be configured, connected
   // and even enabled/disabled completely independently of each other.
-  ...trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer }),
+  ...trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer, memberFor }),
 
   /* ---------- IA auxiliar de 2J (siempre Gemini, hoy solo exercise_import_matching) ---------- */
   // Same factory shape again — its own file (lib/aux-ai-config.js), its own credential, its own

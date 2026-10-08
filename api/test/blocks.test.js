@@ -13,7 +13,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blocks-'));
 const SECRET = 'f'.repeat(64);
 fs.writeFileSync(path.join(dir, 'secret'), SECRET, { mode: 0o600 });
 fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({
-  users: [{ id: 'm1', name: 'Member' }, { id: 't1', name: 'Trainer', trainer: true }, { id: 't2', name: 'Trainer 2', trainer: true }, { id: 'ad', name: 'Admin', admin: true }],
+  users: [{ id: 'm1', name: 'Member', assignedTrainers: ['t1'] }, { id: 't1', name: 'Trainer', trainer: true }, { id: 't2', name: 'Trainer 2', trainer: true }, { id: 'ad', name: 'Admin', admin: true }],
   creds: [], subs: [], invites: [], recoveries: [],
 }, null, 2));
 fs.writeFileSync(path.join(dir, 'state-m1.json'), JSON.stringify({ unit: 'kg', routines: [], programs: [], workouts: [], week: {}, gymProfiles: { activeId: 'home', overrides: { home: ['bodyweight', 'dumbbell'] } }, health: { private: true } }));
