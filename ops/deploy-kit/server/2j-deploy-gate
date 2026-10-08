@@ -1,0 +1,57 @@
+#!/bin/bash
+# 2J Fitness — SSH forced command for the dedicated deploy key (user deploy2j).
+#
+# This is the ONLY thing the deploy key can do on the server: authorized_keys pins it with
+#   restrict,command="/usr/local/sbin/2j-deploy-gate"
+# so there is no shell, no pty, no port/agent/X11 forwarding and no arbitrary command. The key may:
+#   ping                                   → "gate=ok", the user name (a harmless connectivity probe)
+#   put <file-name>                        → store stdin as <incoming>/<file-name> (strict name whitelist, size cap, atomic)
+#   run <short> <rollback-short> <run-id>  → hand over to the root wrapper (sudo → 2j-deploy-run), which re-validates everything
+# Anything else is refused. Nothing here reads or writes application data.
+set -euo pipefail
+umask 077
+
+INCOMING=${GATE_INCOMING:-/home/deploy2j/incoming}
+MAX_BYTES=${GATE_MAX_BYTES:-419430400}                      # 400 MiB: a release archive is a few MB
+RUN_CMD=${GATE_RUN_CMD:-"/usr/bin/sudo -n /usr/local/sbin/2j-deploy-run"}
+SHORT='[0-9a-f]{7,40}'
+RUNID='[0-9a-f]{32}'
+NAME_RE="^(2jfitness-code-${SHORT}-${RUNID}\.tar\.gz|2jfitness-code-${SHORT}-rollback-${SHORT}-${RUNID}\.tar\.gz|deploy-${SHORT}-${RUNID}\.sh)$"
+
+deny() { echo "2j-deploy-gate: refused: $*" >&2; exit 126; }
+
+cmd=${SSH_ORIGINAL_COMMAND:-}
+[[ -n "$cmd" ]] || deny "no command (interactive shells are not available)"
+[[ "$cmd" =~ ^[A-Za-z0-9._\ -]{1,200}$ ]] || deny "unexpected characters"
+read -r -a args <<<"$cmd"
+
+case "${args[0]}" in
+  ping)
+    [[ ${#args[@]} -eq 1 ]] || deny "ping takes no arguments"
+    echo "gate=ok user=$(id -un)"
+    ;;
+  put)
+    [[ ${#args[@]} -eq 2 ]] || deny "put <file-name>"
+    name=${args[1]}
+    [[ "$name" =~ $NAME_RE ]] || deny "file name not allowed"
+    mkdir -p "$INCOMING"
+    tmp=$(mktemp "$INCOMING/.part.XXXXXX")
+    trap 'rm -f "$tmp"' EXIT
+    head -c $((MAX_BYTES + 1)) >"$tmp"
+    size=$(stat -c %s "$tmp")
+    (( size > 0 )) || deny "empty upload"
+    (( size <= MAX_BYTES )) || deny "upload too large"
+    mv -f "$tmp" "$INCOMING/$name"
+    trap - EXIT
+    echo "put=ok name=$name bytes=$size sha256=$(sha256sum "$INCOMING/$name" | cut -d' ' -f1)"
+    ;;
+  run)
+    [[ ${#args[@]} -eq 4 ]] || deny "run <short> <rollback-short> <run-id>"
+    [[ "${args[1]}" =~ ^${SHORT}$ && "${args[2]}" =~ ^${SHORT}$ && "${args[3]}" =~ ^${RUNID}$ ]] || deny "bad run arguments"
+    # shellcheck disable=SC2086
+    exec $RUN_CMD "${args[1]}" "${args[2]}" "${args[3]}"
+    ;;
+  *)
+    deny "command not allowed"
+    ;;
+esac

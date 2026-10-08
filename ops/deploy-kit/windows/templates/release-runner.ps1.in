@@ -1,0 +1,2333 @@
+# @@RELEASE_TITLE@@
+#   .\deploy-@@TARGET_SHORT@@.ps1                 full run: local validation, archives, restricted channel + remote deploy
+#   .\deploy-@@TARGET_SHORT@@.ps1 -PrepareOnly    local validation + archives + simulation (no production connection)
+param([switch]$PrepareOnly, [string]$AuthorizedBy = '')
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+Set-Location -LiteralPath $PSScriptRoot
+
+# ---- 2J restricted deploy channel (ops/deploy-kit) ----
+# 2J Fitness deploy kit — transport + authorization functions, INLINED into every converted runner by convert-runner.mjs
+# (so a runner stays one self-contained file, whichever branch is checked out). Uses only the `2j-prod` ssh alias: the dedicated
+# restricted key, strict pinned host key, BatchMode (never prompts, never falls back to a password).
+
+# The runner refuses to touch production unless the person typed the authorization phrase. This is a guard-rail for the
+# agent workflow (an agent must pass back exactly what the owner wrote in chat); it is not a security boundary against the owner's own PC.
+function Assert-2JAuthorized {
+  param([string]$AuthorizedBy, [string]$Commit)
+  if ($AuthorizedBy -cne 'AUTORIZO DEPLOY') {
+    throw "NOT AUTHORIZED: a real deployment needs the owner's exact phrase. Re-run with -AuthorizedBy 'AUTORIZO DEPLOY' ONLY after the owner wrote it in chat for commit $Commit."
+  }
+  $dir = Join-Path $HOME '.2jfitness-deploy'
+  New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  Add-Content -LiteralPath (Join-Path $dir 'audit.log') -Value ("{0} AUTHORIZED commit={1} user={2}" -f (Get-Date -Format o), $Commit, $env:USERNAME)
+}
+
+function Invoke-2JSsh {
+  param([string[]]$Arguments)
+  & ssh -o BatchMode=yes 2j-prod @Arguments
+  return $LASTEXITCODE
+}
+
+# Harmless probe: key login works and the server-side forced command answers (no shell, no root).
+function Test-2JChannel {
+  $out = & ssh -o BatchMode=yes 2j-prod ping 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0 -or $out -notmatch 'gate=ok user=deploy2j') {
+    throw "Deploy channel not ready (run ops/deploy-kit/windows/verify-2j-deploy.ps1). Production was not changed. $out"
+  }
+  Write-Host ("2J_CHANNEL_OK " + $out.Trim())
+}
+
+# Streams one file over the restricted channel (binary-safe through cmd redirection; the server checks the name, size and re-hashes).
+function Send-2JFile {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Missing file to upload: $Path" }
+  $name = Split-Path -Leaf $Path
+  $out = & cmd.exe /d /c "ssh -o BatchMode=yes 2j-prod put $name < `"$Path`"" 2>&1 | Out-String
+  if ($LASTEXITCODE -ne 0 -or $out -notmatch ('put=ok name=' + [regex]::Escape($name))) {
+    throw "Upload failed for $name (exit $LASTEXITCODE). Production was not changed. $out"
+  }
+  $local = (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+  if ($out -notmatch ('sha256=' + $local)) { throw "Upload hash mismatch for $name. Production was not changed. Remote said: $out" }
+  Write-Host ("UPLOADED $name sha256=$local")
+}
+
+# Hands over to the root wrapper through sudo: the existing remote runner (backup, checks, install, probes, data validation, rollback) does everything.
+function Invoke-2JRun {
+  param([string]$Short, [string]$RollbackShort, [string]$RunId)
+  # Stream the remote output to the console only: anything left in the pipeline would be returned with the exit code
+  # and make the caller treat a successful deployment as failed.
+  & ssh -o BatchMode=yes 2j-prod run $Short $RollbackShort $RunId | Out-Host
+  $code = $LASTEXITCODE
+  return [int]$code
+}
+# ---- end channel ----
+
+# The API suite exercises the backup/restore/secret scripts and needs bash + openssl. Put Git for Windows' on THIS run's PATH (ahead of System32's WSL bash.exe;
+# tar stays the system one). The configured API pass/skip counts below are exact release gates.
+$GitForTests = Split-Path (Split-Path (Get-Command git.exe -ErrorAction Stop).Source -Parent) -Parent
+foreach ($p in @((Join-Path $GitForTests 'mingw64\bin'), (Join-Path $GitForTests 'bin'))) { if (Test-Path -LiteralPath $p) { $env:PATH = "$p;$env:PATH" } }
+
+$Commit = '@@TARGET_COMMIT@@'
+$ShortCommit = $Commit.Substring(0, 7)
+$ExpectedCurrentCommit = '@@EXPECTED_CURRENT_COMMIT@@'
+$ExpectedCurrentShort = $ExpectedCurrentCommit.Substring(0, 7)
+$RollbackCommit = '@@ROLLBACK_COMMIT@@'
+$RollbackShort = $RollbackCommit.Substring(0, 7)
+if ($Commit -cnotmatch '^[0-9a-f]{40}$') { throw 'TARGET_COMMIT_MUST_BE_FULL_LOWERCASE_SHA40' }
+if ($ExpectedCurrentCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'EXPECTED_CURRENT_COMMIT_MUST_BE_FULL_LOWERCASE_SHA40' }
+if ($RollbackCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'ROLLBACK_COMMIT_MUST_BE_FULL_LOWERCASE_SHA40' }
+if ($RollbackCommit -cne $ExpectedCurrentCommit) { throw 'ROLLBACK_MUST_EQUAL_EXPECTED_CURRENT' }
+if (-not $RollbackCommit.StartsWith($RollbackShort, [StringComparison]::Ordinal)) { throw 'ROLLBACK_SHORT_SHA_DOES_NOT_MATCH_FULL_SHA' }
+if (-not $Commit.StartsWith($ShortCommit, [StringComparison]::Ordinal)) { throw 'TARGET_SHORT_SHA_DOES_NOT_MATCH_FULL_SHA' }
+if (-not $ExpectedCurrentCommit.StartsWith($ExpectedCurrentShort, [StringComparison]::Ordinal)) { throw 'ROLLBACK_SHORT_SHA_DOES_NOT_MATCH_FULL_SHA' }
+$ExpectedFrontendTests = @@FRONTEND_TESTS@@
+$ExpectedApiTests = @@API_TESTS@@
+$ExpectedApiPassed = @@API_PASSED@@
+$ExpectedApiSkipped = @@API_SKIPPED@@
+$MaxCommitsForThisRelease = @@MAX_COMMITS@@
+$SyncBase = '@@SYNC_BASE@@'
+$Server = 'root@213.136.77.197'
+$RunId = [guid]::NewGuid().ToString('N')
+$Release = Join-Path $env:TEMP "2jfitness-code-$ShortCommit-$RunId.tar.gz"
+$RollbackRelease = Join-Path $env:TEMP "2jfitness-code-$ShortCommit-rollback-$ExpectedCurrentShort-$RunId.tar.gz"
+$RemoteRelease = "/root/backups/2jfitness-code-$ShortCommit-$RunId.tar.gz"
+$RemoteRollback = "/root/backups/2jfitness-code-$ShortCommit-rollback-$ExpectedCurrentShort-$RunId.tar.gz"
+$RemoteRunner = "/root/backups/deploy-$ShortCommit-$RunId.sh"
+$LocalRunner = Join-Path $env:TEMP "deploy-$ShortCommit-$RunId.sh"
+$SimulationRunner = Join-Path $env:TEMP "simulate-deploy-$ShortCommit-$RunId.sh"
+$ProtocolCheckRunner = Join-Path $env:TEMP "verify-release-protocol-$ShortCommit-$RunId.sh"
+$DockerShimDirectory = Join-Path $env:TEMP "verify-release-protocol-docker-shim-$ShortCommit-$RunId"
+$DockerShim = Join-Path $DockerShimDirectory 'docker'
+$RuntimeProbe = Join-Path $env:TEMP "gym-profile-runtime-probe-$ShortCommit-$RunId.mjs"
+$MutableProbe = Join-Path $env:TEMP "community-data-probe-$ShortCommit-$RunId.mjs"
+
+Write-Host "Preparando el release exacto $Commit..."
+$Head = (git rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'No se pudo leer HEAD' }
+if ($Head -ne $Commit) {
+  git merge-base --is-ancestor $Commit $Head
+  if ($LASTEXITCODE -ne 0) { throw "El target $Commit no es HEAD ni ancestro del commit tooling actual $Head" }
+  $LaterPaths = @(git diff-tree --no-commit-id --name-only -r $Commit $Head | Sort-Object -Unique)
+  if ($LASTEXITCODE -ne 0) { throw 'No se pudo verificar el delta posterior de tooling' }
+  $UnexpectedLaterPaths = @($LaterPaths | Where-Object { $_ -ne 'AI_HANDOFF.md' -and $_ -ne '.gitattributes' -and $_ -notlike 'ops/deploy-kit/*' })
+  if ($UnexpectedLaterPaths.Count -gt 0) { throw "El commit posterior incluye cambios ajenos al tooling: $($UnexpectedLaterPaths -join ', ')" }
+  Write-Host "TARGET_ANCESTOR_TOOLING_ONLY=OK target=$Commit head=$Head"
+}
+git merge-base --is-ancestor $ExpectedCurrentCommit $Commit
+if ($LASTEXITCODE -ne 0) { throw "PRODUCTION_NOT_ANCESTOR_OF_TARGET=$ExpectedCurrentCommit" }
+$Commits = @(git rev-list --reverse "$ExpectedCurrentCommit..$Commit")
+if ($Commits.Count -lt 1 -or $Commits.Count -gt $MaxCommitsForThisRelease) { throw "UNEXPECTED_COMMIT_COUNT=$($Commits.Count)" }
+Write-Host "TARGET_COMMITS=$($Commits.Count) over production (delta is checked file by file below)"
+$DeltaPaths = @(git diff-tree --no-commit-id --name-only -r $ExpectedCurrentCommit $Commit | Sort-Object -Unique)
+$ExpectedDeltaPaths = @(@@DELTA_PATHS_PS@@)
+if ($LASTEXITCODE -ne 0 -or (Compare-Object $ExpectedDeltaPaths $DeltaPaths)) { throw "UNEXPECTED_TARGET_DELTA=$($DeltaPaths -join ',')" }
+Write-Host 'TARGET_DELTA=OK @@DELTA_COUNT@@ files (delta from verified production @@EXPECTED_CURRENT_SHORT@@)'
+git diff --quiet --exit-code
+if ($LASTEXITCODE -ne 0) { throw 'Hay cambios tracked sin commit en el working tree' }
+git diff --cached --quiet --exit-code
+if ($LASTEXITCODE -ne 0) { throw 'Hay cambios staged sin commit en el working tree' }
+
+# The tree must be clean except the untracked deploy-*.ps1 runners (never committed).
+function Assert-CleanTree([string]$When) {
+  $lines = @(git status --porcelain --untracked-files=all)
+  if ($LASTEXITCODE -ne 0) { throw 'git status failed' }
+  $dirty = @($lines | Where-Object { $_ -and $_ -notmatch '^\?\? (GEMINI|HYDRA)\.md$|^\?\? deploy-[0-9a-f]+(\.2j)?\.ps1$|^\?\? verify-prod-7ebb722\.ps1$|^\?\? ops/deploy-kit/' })
+  if ($dirty.Count -gt 0) { throw "El arbol no esta limpio ($When): $($dirty -join '; ')" }
+  Write-Host "LOCAL_TREE_CLEAN=$When"
+}
+Assert-CleanTree 'antes-de-validar'
+git merge-base --is-ancestor c4e005a260e34d5ab60123f6d2c187d1e4cdd3a3 $Commit
+if ($LASTEXITCODE -ne 0) { throw 'AI_ANCESTOR_MISSING=c4e005a260e34d5ab60123f6d2c187d1e4cdd3a3' }
+git merge-base --is-ancestor 946abddf383cd1e7d53a123a81183dfb07337223 $Commit
+if ($LASTEXITCODE -ne 0) { throw 'AI_ANCESTOR_MISSING=946abddf383cd1e7d53a123a81183dfb07337223' }
+git merge-base --is-ancestor 7563be5cae5ae4c4b10212817d9579ee87506720 $Commit
+if ($LASTEXITCODE -ne 0) { throw 'AI_ANCESTOR_MISSING=7563be5cae5ae4c4b10212817d9579ee87506720' }
+git merge-base --is-ancestor d87ec1823ea07ef43de3ea7b166cce3a89487c4a $Commit
+if ($LASTEXITCODE -ne 0) { throw 'AI_ANCESTOR_MISSING=d87ec1823ea07ef43de3ea7b166cce3a89487c4a' }
+git merge-base --is-ancestor 25b3dda688ce2094523de23101daf0255e215178 $Commit
+if ($LASTEXITCODE -ne 0) { throw 'AI_ANCESTOR_MISSING=25b3dda688ce2094523de23101daf0255e215178' }
+Write-Host 'AI_CHANGES_INCLUDED=YES c4e005a 946abdd 7563be5 d87ec18 25b3dda'
+
+# Local validation: every command must pass, with the exact test counts of this HEAD. Output goes
+# to a log per step (cmd redirection, so native stderr never trips PowerShell's Stop policy).
+$ValidationDir = Join-Path $env:TEMP "2jfitness-validate-$ShortCommit-$RunId"
+New-Item -ItemType Directory -Force -Path $ValidationDir | Out-Null
+function Invoke-Checked([string]$Name, [string]$Dir, [string]$CommandLine, [string[]]$MustMatch = @()) {
+  $log = Join-Path $ValidationDir "$Name.log"
+  Push-Location -LiteralPath $Dir
+  try {
+    & cmd.exe /d /c "$CommandLine > `"$log`" 2>&1"
+    $code = $LASTEXITCODE
+  } finally { Pop-Location }
+  $text = ''
+  if (Test-Path -LiteralPath $log) { $text = [System.IO.File]::ReadAllText($log) -replace '\x1b\[[0-9;]*m', '' }
+  if ($code -ne 0) {
+    Write-Host (($text -split "`n" | Select-Object -Last 40) -join "`n")
+    throw "LOCAL_$Name FAILED (exit $code). Log: $log"
+  }
+  foreach ($re in $MustMatch) {
+    if ($text -notmatch $re) {
+      Write-Host (($text -split "`n" | Select-Object -Last 40) -join "`n")
+      throw "LOCAL_$Name FAILED: output does not match '$re'. Log: $log"
+    }
+  }
+  Write-Host "LOCAL_$Name=OK"
+}
+function Invoke-FrontendTests {
+  $policy = Join-Path $Root 'ops/deploy-kit/windows/frontend-test-policy.mjs'
+  if (-not (Test-Path -LiteralPath $policy -PathType Leaf)) { throw 'FRONTEND_TEST_POLICY_MISSING' }
+  $normalLog = Join-Path $ValidationDir 'FRONTEND_TESTS.log'
+  $normalJson = Join-Path $ValidationDir 'FRONTEND_TESTS.json'
+  $normalDecisionLog = Join-Path $ValidationDir 'FRONTEND_TESTS_POLICY.log'
+  Push-Location -LiteralPath $Frontend
+  try {
+    & cmd.exe /d /c "npx vitest run --reporter=json --outputFile=`"$normalJson`" > `"$normalLog`" 2>&1"
+    $normalCode = $LASTEXITCODE
+  } finally { Pop-Location }
+  & cmd.exe /d /c "node `"$policy`" initial `"$normalJson`" $ExpectedFrontendTests $normalCode > `"$normalDecisionLog`" 2>&1"
+  $normalDecisionCode = $LASTEXITCODE
+  $normalDecision = if (Test-Path -LiteralPath $normalDecisionLog) { [System.IO.File]::ReadAllText($normalDecisionLog).Trim() } else { '' }
+  if ($normalCode -eq 0 -and $normalDecisionCode -eq 0 -and $normalDecision.StartsWith('VITEST_POLICY=PASS ', [StringComparison]::Ordinal)) {
+    Write-Host 'LOCAL_FRONTEND_TESTS=OK'
+    return
+  }
+  if ($normalCode -ne 0 -and $normalDecisionCode -eq 2 -and $normalDecision.StartsWith('VITEST_POLICY=TIMEOUT_ONLY ', [StringComparison]::Ordinal)) {
+    $initialFailed = 0
+    if ($normalDecision -match '"failed":(\d+)') { $initialFailed = [int]$Matches[1] }
+    $retryLog = Join-Path $ValidationDir 'FRONTEND_TESTS_RETRY.log'
+    $retryJson = Join-Path $ValidationDir 'FRONTEND_TESTS_RETRY.json'
+    $retryDecisionLog = Join-Path $ValidationDir 'FRONTEND_TESTS_RETRY_POLICY.log'
+    Push-Location -LiteralPath $Frontend
+    try {
+      & cmd.exe /d /c "npx vitest run --maxWorkers=1 --reporter=json --outputFile=`"$retryJson`" > `"$retryLog`" 2>&1"
+      $retryCode = $LASTEXITCODE
+    } finally { Pop-Location }
+    & cmd.exe /d /c "node `"$policy`" retry `"$retryJson`" $ExpectedFrontendTests $retryCode > `"$retryDecisionLog`" 2>&1"
+    $retryDecisionCode = $LASTEXITCODE
+    $retryDecision = if (Test-Path -LiteralPath $retryDecisionLog) { [System.IO.File]::ReadAllText($retryDecisionLog).Trim() } else { '' }
+    if ($retryCode -eq 0 -and $retryDecisionCode -eq 0 -and $retryDecision.StartsWith('VITEST_POLICY=PASS ', [StringComparison]::Ordinal)) {
+      Write-Host "LOCAL_FRONTEND_TESTS_RETRY=PASS reason=timeout-only initial_failed=$initialFailed final=$ExpectedFrontendTests/$ExpectedFrontendTests"
+      return
+    }
+    if (Test-Path -LiteralPath $retryLog) { Write-Host (([System.IO.File]::ReadAllText($retryLog) -split "`n" | Select-Object -Last 40) -join "`n") }
+    throw "LOCAL_FRONTEND_TESTS FAILED: single-worker retry was not a complete pass ($retryDecision). Log: $retryLog"
+  }
+  if (Test-Path -LiteralPath $normalLog) { Write-Host (([System.IO.File]::ReadAllText($normalLog) -split "`n" | Select-Object -Last 40) -join "`n") }
+  throw "LOCAL_FRONTEND_TESTS FAILED: initial run was not a complete pass or timeout-only report ($normalDecision). Log: $normalLog"
+}
+$Root = (Get-Location).Path
+$Frontend = Join-Path $Root 'frontend'
+$Api = Join-Path $Root 'api'
+
+# Target-image check for the Community modules: the API image must contain and import the
+# server.js dependencies, then its own /api/health must return 200 before any release is prepared.
+$ApiImageTag = "2jfitness-api:$ShortCommit-runner-check"
+Write-Host "Validating target API image $ApiImageTag..."
+# BuildKit writes its normal progress to stderr; with ErrorActionPreference=Stop Windows PowerShell turns that into a NativeCommandError.
+# Keep the output visible (and in the transcript/log), and use docker.exe's real exit code as the only criterion.
+$PreviousEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try { & docker build --file (Join-Path $Api 'Dockerfile') --tag $ApiImageTag $Api 2>&1 | ForEach-Object { "$_" } | Out-Host }
+finally { $ErrorActionPreference = $PreviousEap }
+$DockerBuildExit = $LASTEXITCODE
+Write-Host "DOCKER_BUILD_EXIT=$DockerBuildExit"
+if ($DockerBuildExit -ne 0) { throw 'TARGET_API_IMAGE_BUILD_FAILED' }
+$ModuleCheck = @'
+import fs from 'node:fs';
+for (const path of ['/app/notifications/routes.js', '/app/social/sharing-routes.js', '/app/lib/guided-store.js', '/app/lib/library-admin.js', '/app/lib/library-admin-routes.js', '/app/lib/library-overlay.js', '/app/lib/guided-programs-official.json', '/app/coach/ai-run.js', '/app/coach/intelligence.js', '/app/lib/guided-program-model.js', '/app/bunker/routes.js', '/app/lib/workout-activity.js']) {
+  if (!fs.existsSync(path)) throw new Error(`Missing image module: ${path}`);
+}
+await import('file:///app/notifications/routes.js');
+await import('file:///app/social/sharing-routes.js');
+await import('file:///app/lib/guided-store.js');
+await import('file:///app/lib/library-admin.js');
+await import('file:///app/lib/library-admin-routes.js');
+await import('file:///app/lib/news-store.js');
+await import('file:///app/lib/news-routes.js');
+const fe = await import('file:///app/lib/features-store.js');
+await import('file:///app/lib/features-routes.js');
+if (fe.FEATURE_KEYS.length !== 15) throw new Error('features module wrong');
+const wo = await import('file:///app/lib/webauthn-origins.js');
+if (wo.expectedOrigins('https://x.test', '').length !== 3 || !wo.expectedOrigins('https://x.test', '').includes('android:apk-key-hash:Xtnl80w2A-0scA3f4Jtf5D5UvAZ0dgJ7RTpZsbqv3tE')) throw new Error('webauthn origins module wrong');
+const ai = await import('file:///app/coach/ai-run.js');
+const intelligence = await import('file:///app/coach/intelligence.js');
+const jobs = await import('file:///app/coach/jobs.js');
+await import('file:///app/coach/trainer-jobs.js');
+if (typeof ai.invokeWithRetry !== 'function' || typeof ai.classify !== 'function' || typeof jobs.claimExplanation !== 'function' || typeof intelligence.explainSignal !== 'function') throw new Error('Coach Intelligence exports missing');
+await import('file:///app/lib/guided-program-model.js');
+await import('file:///app/bunker/routes.js');
+const activity = await import('file:///app/lib/workout-activity.js');
+if (activity.WORKOUT_INACTIVITY_MS !== 3600000 || typeof activity.buildFinishedWorkout !== 'function') throw new Error('Inactivity module missing');
+const source = fs.readFileSync('/app/server.js', 'utf8');
+for (const match of source.matchAll(/(?:from\s*|import\s*)['"](\.\/[^'"]+)['"]/g)) {
+  if (!fs.existsSync('/app/' + match[1])) throw new Error('Missing server import: ' + match[1]);
+}
+console.log('TARGET_IMAGE_IMPORTS=OK');
+'@
+$ModuleCheck | & docker run -i --rm --network none --read-only --entrypoint node $ApiImageTag --input-type=module -
+if ($LASTEXITCODE -ne 0) { throw 'TARGET_API_IMAGE_MODULE_CHECK_FAILED' }
+Write-Host 'TARGET_API_IMAGE_FILES=OK community guided library-admin coach/ai-run.js coach/intelligence.js'
+$ImageSmokeName = "2j-api-image-smoke-$RunId"
+$ImageSmokeData = "/tmp/2j-api-image-smoke-$RunId"
+& docker run --detach --name $ImageSmokeName --network none --env PORT=3000 --env "DATA_DIR=$ImageSmokeData" $ApiImageTag
+if ($LASTEXITCODE -ne 0) { throw 'TARGET_API_IMAGE_START_FAILED' }
+try {
+  $HealthScript = 'try { const r=await fetch("http://127.0.0.1:3000/api/health"); const b=await r.json(); console.log(`HTTP=${r.status} BODY=${JSON.stringify(b)}`); if(r.status!==200 || b.ok!==true) process.exit(1); } catch { process.exit(2); }'
+  $ImageHealthy = $false
+  $ImageHealthOutput = ''
+  $ImageDeadline = (Get-Date).AddSeconds(30)
+  do {
+    $ImageHealthOutput = ($HealthScript | & docker exec -i $ImageSmokeName node --input-type=module - 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -eq 0 -and $ImageHealthOutput -match '^HTTP=200 BODY=') { $ImageHealthy = $true; break }
+    Start-Sleep -Seconds 1
+  } while ((Get-Date) -lt $ImageDeadline)
+  if (-not $ImageHealthy) { & docker logs $ImageSmokeName; throw "TARGET_API_IMAGE_HEALTH_FAILED $ImageHealthOutput" }
+  Write-Host "TARGET_API_IMAGE_HEALTH=OK $ImageHealthOutput"
+} finally {
+  & docker rm --force $ImageSmokeName | Out-Null
+}
+Write-Host 'Validacion local (tests, build, locales, generadores)...'
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs' @('tests 21', 'pass 21', 'fail 0', 'skipped 0')
+Invoke-FrontendTests
+Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend 'npx vitest run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx' @('Tests\s+61 passed \(61\)')
+Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
+Invoke-Checked 'SHARED_STAFF_AUTH_TESTS' $Api 'node --test test/shared-staff.test.js test/auth-rate-limit.test.js test/roles.test.js test/webauthn-origins.test.js test/bunker-revocation.test.js test/sync.test.js' @('tests 39', 'pass 39', 'fail 0', 'skipped 0')
+Invoke-Checked 'BUILD' $Frontend 'npm run build' @('built in')
+$Dist = Join-Path $Frontend 'dist'
+$BuiltIndex = Join-Path $Dist 'index.html'
+if (-not (Test-Path -LiteralPath $BuiltIndex -PathType Leaf)) { throw 'LOCAL_SMOKE: frontend dist/index.html missing' }
+$BuiltHtml = [System.IO.File]::ReadAllText($BuiltIndex)
+$BuiltAssets = [regex]::Matches($BuiltHtml, '/assets/index-[A-Za-z0-9_-]+\.(?:js|css)') | ForEach-Object { $_.Value } | Sort-Object -Unique
+if (@($BuiltAssets | Where-Object { $_ -match '\.js$' }).Count -ne 1 -or @($BuiltAssets | Where-Object { $_ -match '\.css$' }).Count -ne 1) { throw 'LOCAL_SMOKE: built index must reference one main JS and CSS asset' }
+foreach ($asset in $BuiltAssets) {
+  $assetPath = Join-Path $Dist ($asset.TrimStart('/').Replace('/', '\'))
+  if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf) -or (Get-Item -LiteralPath $assetPath).Length -le 0) { throw "LOCAL_SMOKE: built asset missing or empty: $asset" }
+}
+$BuiltJsAsset = [string]($BuiltAssets | Where-Object { $_ -match '\.js$' } | Select-Object -First 1)
+$BuiltCssAsset = [string]($BuiltAssets | Where-Object { $_ -match '\.css$' } | Select-Object -First 1)
+$BuiltJs = Join-Path $Dist ($BuiltJsAsset.TrimStart([char]'/').Replace('/', '\'))
+$BuiltCss = Join-Path $Dist ($BuiltCssAsset.TrimStart([char]'/').Replace('/', '\'))
+$BuiltJsText = [System.IO.File]::ReadAllText($BuiltJs)
+$BuiltCssText = [System.IO.File]::ReadAllText($BuiltCss)
+foreach ($marker in @('gym-profile-card', 'gym-equipment-chip', 'gym-row-info')) {
+  if (-not $BuiltJsText.Contains($marker) -or -not $BuiltCssText.Contains($marker)) { throw "LOCAL_GYM_UI_ASSET_SMOKE: missing technical marker $marker" }
+}
+if (-not $BuiltJsText.Contains('gym-official-editor') -or -not $BuiltJsText.Contains('saveOfficialGymEquipment') -or -not $BuiltCssText.Contains('gym-official-group')) { throw 'LOCAL_GYM_V11_ASSET_SMOKE: admin editor markers missing' }Write-Host 'LOCAL_GYM_UI_ASSET_SMOKE=OK js_css=visual_picker+equipment+settings_info'
+if (-not $BuiltCssText.Contains('news-track') -or -not $BuiltCssText.Contains('news-card')) { throw 'LOCAL_NEWS_ASSET_SMOKE: news styles missing from the built CSS' }
+if (@(Get-ChildItem -LiteralPath (Join-Path $Dist 'assets') -Filter 'AdminNews-*.js' | Where-Object { $_.Length -gt 0 }).Count -ne 1) { throw 'LOCAL_NEWS_ASSET_SMOKE: AdminNews lazy chunk missing or duplicated' }
+if (-not $BuiltCssText.Contains('ux-card') -or -not $BuiltCssText.Contains('set-grp') -or -not $BuiltCssText.Contains('ai-block')) { throw 'LOCAL_UX_ASSET_SMOKE: adaptive UX styles missing from the built CSS' }
+foreach ($uxChunk in @('AdminFeatures', 'AdminAI')) { if (@(Get-ChildItem -LiteralPath (Join-Path $Dist 'assets') -Filter "$uxChunk-*.js" | Where-Object { $_.Length -gt 0 }).Count -ne 1) { throw "LOCAL_UX_ASSET_SMOKE: $uxChunk lazy chunk missing or duplicated" } }
+foreach ($pwaPath in @('manifest.json', 'sw.js', 'icon-192.png', 'icon-512.png')) {
+  $fullPwaPath = Join-Path $Dist $pwaPath
+  if (-not (Test-Path -LiteralPath $fullPwaPath -PathType Leaf) -or (Get-Item -LiteralPath $fullPwaPath).Length -le 0) { throw "LOCAL_SMOKE: PWA asset missing or empty: $pwaPath" }
+}
+foreach ($chunk in @('StudioAdmin', 'ProgramEditor', 'LibraryQuality')) {
+  $found = @(Get-ChildItem -LiteralPath (Join-Path $Dist 'assets') -Filter "$chunk-*.js" | Where-Object { $_.Length -gt 0 })
+  if ($found.Count -ne 1) { throw "LOCAL_STUDIO_CHUNK_SMOKE: lazy chunk $chunk missing or duplicated" }
+}
+if (-not $BuiltJsText.Contains('StudioAdmin-') -or -not $BuiltJsText.Contains('LibraryQuality-')) { throw 'LOCAL_STUDIO_CHUNK_SMOKE: main bundle does not reference the lazy Studio chunks' }
+Write-Host 'LOCAL_STUDIO_CHUNKS=OK StudioAdmin+ProgramEditor+LibraryQuality referenced by the main bundle'
+Write-Host 'LOCAL_ASSET_SMOKE=OK main_js_css=nonempty pwa=manifest+sw+icons'
+Invoke-Checked 'CHECK_LOCALES' $Frontend 'node scripts/check-locales.mjs' @('(?m)^es: (\d+)/\1 \(100%\)')
+# 2J Training Protocol v1.0: the API runtime copy, the official block library (155 master blocks),
+# the official guided routines (39 + 7 collections) and the AI index must be exactly what this
+# HEAD generates. Nothing is written.
+Invoke-Checked 'SYNC_PROTOCOL' $Root 'node scripts/sync-protocol.mjs --check' @('in sync \(9 files\)')
+Invoke-Checked 'SYNC_GYM_PROFILES' $Root 'node scripts/sync-gym-profiles.mjs --check' @('Gym profile model in sync')
+Invoke-Checked 'SYNC_LIBRARY_OVERLAY' $Root 'node scripts/sync-library-overlay.mjs --check' @('Library overlay rules in sync')
+Invoke-Checked 'GUIDED_PROGRAM_MODEL' $Root 'node scripts/sync-guided-program-model.mjs --check' @('GUIDED_PROGRAM_MODEL=OK')
+Invoke-Checked 'WORKOUT_ACTIVITY_MODEL' $Root 'node scripts/sync-workout-activity.mjs --check' @('WORKOUT_ACTIVITY_MODEL=OK')
+Invoke-Checked 'STARTING_LOAD_TESTS' $Frontend 'npm test -- --run src/lib/starting-load.test.js src/lib/workout-activity.test.js' @('26 passed')
+Invoke-Checked 'BUNKER_TESTS' $Frontend 'npm test -- --run src/lib/bunker-workout.test.js src/lib/bunker-persistence.test.js src/lib/bunker-credentials.test.js' @('24 passed')
+Invoke-Checked 'OFFICIAL_BLOCKS' $Root 'node scripts/build-official-blocks.mjs --check' @('in sync: 198 blocks')
+Invoke-Checked 'OFFICIAL_ROUTINES' $Root 'node scripts/build-official-routines.mjs --check' @('in sync: 155 routines, 15 collections')
+Invoke-Checked 'COACH_LIBRARY' $Root 'node scripts/build-coach-library.mjs --check' @('in sync \(1324 exercises\)')
+# Exercise Library V2: integrity (ids, taxonomy, deprecations, aliases, Recommended 2J) and the
+# reproducible audit, with the exact metrics of this HEAD.
+Invoke-Checked 'CHECK_EXERCISE_LIBRARY' $Root 'node scripts/check-exercise-library.mjs' @('Exercise library OK: 1324 exercises, 210 recommended, 26 deprecated, 1305 with a canonical movement\.')
+Invoke-Checked 'AUDIT_EXERCISE_LIBRARY' $Root 'node scripts/audit-exercise-library.mjs --check' @('in sync \(1324 exercises, 0 possible-duplicate groups\)')
+git diff --check
+if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed' }
+Write-Host 'LOCAL_DIFF_CHECK=OK'
+git diff --quiet --exit-code
+if ($LASTEXITCODE -ne 0) { throw 'The local validation changed tracked files' }
+Assert-CleanTree 'despues-de-validar'
+
+if (Test-Path -LiteralPath $Release) { throw "Release artifact already exists; preserve it and choose a new temp path: $Release" }
+git archive --format=tar.gz --output=$Release $Commit
+if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
+if (Test-Path -LiteralPath $RollbackRelease) { throw "Rollback artifact already exists; preserve it and choose a new temp path: $RollbackRelease" }
+git archive --format=tar.gz --output=$RollbackRelease $RollbackCommit
+if ($LASTEXITCODE -ne 0) { throw 'git archive for rollback failed' }
+
+$Marker = tar -xOf $Release SYNC_V2_ROLLBACK_BASE
+if ($LASTEXITCODE -ne 0 -or ($Marker -join "`n") -notmatch [regex]::Escape($SyncBase)) {
+  throw 'El release no contiene el checkpoint Sync V2 compatible'
+}
+$LocalHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Release).Hash.ToLowerInvariant()
+$RollbackMarker = tar -xOf $RollbackRelease SYNC_V2_ROLLBACK_BASE
+if ($LASTEXITCODE -ne 0 -or ($RollbackMarker -join "`n") -notmatch [regex]::Escape($SyncBase)) {
+  throw 'El rollback no contiene el checkpoint Sync V2 compatible'
+}
+$RollbackHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $RollbackRelease).Hash.ToLowerInvariant()
+$TamperRoot = Join-Path $env:TEMP "verify-tampered-rollback-$RunId"
+$TamperedRollback = Join-Path $env:TEMP "2jfitness-code-tampered-rollback-$RunId.tar.gz"
+New-Item -ItemType Directory -Force -Path $TamperRoot | Out-Null
+& tar.exe -xzf $RollbackRelease -C $TamperRoot
+if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the negative rollback test' }
+[IO.File]::AppendAllText((Join-Path $TamperRoot 'README.md'), "`nrunner-negative-test`n", [Text.Encoding]::UTF8)
+& tar.exe -czf $TamperedRollback -C $TamperRoot .
+if ($LASTEXITCODE -ne 0) { throw 'Could not repack the manipulated rollback test archive' }
+$TamperedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $TamperedRollback).Hash.ToLowerInvariant()
+if ($TamperedHash -eq $RollbackHash) { throw 'Negative rollback test failed: modified archive retained pinned SHA-256' }
+Write-Host 'NEGATIVE_ROLLBACK_REJECTED=OK manipulated_archive_sha256_mismatch'
+Remove-Item -LiteralPath $TamperRoot -Recurse -Force;Remove-Item -LiteralPath $TamperedRollback -Force
+# The release never carries data/: production data is never overwritten by an archive.
+$DataEntries = @(tar -tzf $Release | Where-Object { $_ -match '^data(/|$)|(^|/)(node_modules|coverage|\.cache|\.vite)(/|$)|^frontend/dist(/|$)|^\.env$|\.(pem|key)$' })
+if ($LASTEXITCODE -ne 0) { throw 'tar -t failed on the release' }
+if ($DataEntries.Count -gt 0) { throw "El release contiene data/: $($DataEntries -join ', ')" }
+$SeriesFeedbackTarget = @(tar -tzf $Release | Where-Object { $_ -eq 'frontend/src/lib/set-feedback.js' })
+$SeriesFeedbackRollback = @(tar -tzf $RollbackRelease | Where-Object { $_ -eq 'frontend/src/lib/set-feedback.js' })
+if ($SeriesFeedbackTarget.Count -ne 1 -or $SeriesFeedbackRollback.Count -ne 1) { throw 'Series Feedback V1 debe estar presente en target y rollback' }
+$GymFiles = @(tar -tzf $Release | Where-Object { $_ -in @('frontend/src/lib/gym-profile-model.js', 'frontend/src/lib/gym-profiles.js', 'api/lib/gym-profiles.js', 'scripts/sync-gym-profiles.mjs', 'api/test/gym-profiles.test.js') })
+if ($GymFiles.Count -ne 5) { throw 'El release no contiene todos los archivos base de Gym Profiles V1' }
+$RollbackGymModel = @(tar -tzf $RollbackRelease | Where-Object { $_ -eq 'frontend/src/lib/gym-profile-model.js' })
+if ($GymFiles.Count -ne 5 -or $RollbackGymModel.Count -ne 1) { throw 'Gym Profiles V1 must remain in both target and rollback' }
+Write-Host 'LOCAL_BASELINE=OK Sync V2 marker and Gym Profiles V1 present in target and rollback'
+Write-Host "LOCAL_RELEASE=$Release"
+Write-Host "LOCAL_SHA256=$LocalHash"
+Write-Host "LOCAL_ROLLBACK=$RollbackRelease"
+Write-Host "LOCAL_ROLLBACK_SHA256=$RollbackHash"
+
+$RemoteScriptTemplate = @'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+APP=/opt/2jfitness
+RELEASE=__REMOTE_RELEASE__
+ROLLBACK=__REMOTE_ROLLBACK__
+EXPECTED_HASH=__EXPECTED_HASH__
+EXPECTED_ROLLBACK_HASH=__EXPECTED_ROLLBACK_HASH__
+TARGET_COMMIT=__TARGET_COMMIT__
+ROLLBACK_COMMIT=__ROLLBACK_COMMIT__
+SYNC_BASE=@@SYNC_BASE@@
+COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+STEP=bootstrap
+DEPLOY_STARTED=0
+STAMP=$(date +%F_%H%M%S)
+LOG=/root/backups/deploy-@@TARGET_SHORT@@-$STAMP.log
+READINESS_TIMEOUT_SEC=120
+SMOKE_TIMEOUT_SEC=45
+RETRY_INTERVAL_SEC=2
+exec > >(tee -a "$LOG") 2>&1
+
+header_value() {
+  local file=$1 name=$2
+  awk -v wanted="$name" '{key=$0; sub(/:.*/, "", key); if (tolower(key) == tolower(wanted)) {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}}' "$file"
+}
+
+asset_bodies_ready() {
+  local js_type css_type
+  [[ -s /tmp/2j-asset-body && -s /tmp/2j-style-body ]] || return 1
+  js_type=$(header_value /tmp/2j-asset-headers Content-Type)
+  css_type=$(header_value /tmp/2j-style-headers Content-Type)
+  case "$js_type" in application/javascript*|text/javascript*) ;; *) return 1 ;; esac
+  case "$css_type" in text/css*) ;; *) return 1 ;; esac
+  grep -Fq 'gym-profile-card' /tmp/2j-asset-body || return 1
+  grep -Fq 'gym-equipment-chip' /tmp/2j-asset-body || return 1
+  grep -Fq 'gym-row-info' /tmp/2j-asset-body || return 1
+  grep -Fq 'gym-official-editor' /tmp/2j-asset-body || return 1
+  grep -Fq 'saveOfficialGymEquipment' /tmp/2j-asset-body || return 1
+  grep -Fq 'gym-profile-card' /tmp/2j-style-body || return 1
+  grep -Fq 'gym-equipment-chip' /tmp/2j-style-body || return 1
+  grep -Fq 'gym-row-info' /tmp/2j-style-body || return 1
+  grep -Fq 'gym-official-group' /tmp/2j-style-body || return 1
+}
+
+http_probe() {
+  local url=$1 body=$2 headers=$3 encoding=${4:-} method=${5:-GET} data=${6:-} max_time=${7:-10}
+  local connect_time=4
+  if (( max_time < connect_time )); then
+    connect_time=$max_time
+  fi
+  local -a args=(--silent --show-error --connect-timeout "$connect_time" --max-time "$max_time" -D "$headers" -o "$body" --write-out '%{http_code}')
+  : > "$headers"
+  : > "$body"
+  if [[ "$method" != GET ]]; then
+    args+=(--request "$method")
+  fi
+  if [[ -n "$data" ]]; then
+    args+=(-H 'Content-Type: application/json' --data "$data")
+  fi
+  if [[ -n "$encoding" ]]; then
+    args+=(--compressed -H "Accept-Encoding: $encoding")
+  fi
+  curl "${args[@]}" "$url"
+}
+
+http_probe_for_retry() {
+  # This function always runs inside wait_status' command-substitution
+  # subshell. Keep the global ERR/rollback trap active everywhere else, but
+  # never let curl's nonzero transport status escape this retry boundary.
+  trap - ERR
+  set +e
+  local response transport
+  response=$(http_probe "$@")
+  transport=$?
+  [[ -n "$response" ]] || response=000
+  printf '%s %s' "$transport" "$response"
+  return 0
+}
+
+wait_status() {
+  local expected=$1 url=$2 body=$3 headers=$4 timeout=${5:-45} encoding=${6:-} method=${7:-GET} data=${8:-}
+  local status=000 transport=0 probe_result deadline=$((SECONDS + timeout)) remaining attempt_time sleep_time attempt=0 transient
+  while (( SECONDS < deadline )); do
+    attempt=$((attempt + 1))
+    remaining=$((deadline - SECONDS))
+    attempt_time=$((remaining < 10 ? remaining : 10))
+    if (( attempt_time < 1 )); then
+      attempt_time=1
+    fi
+    probe_result=$(http_probe_for_retry "$url" "$body" "$headers" "$encoding" "$method" "$data" "$attempt_time")
+    read -r transport status <<< "$probe_result"
+    [[ -n "$status" ]] || status=000
+    transient=0
+    if (( transport == 0 )) && [[ "$status" == "$expected" ]]; then
+      printf 'HTTP_OK attempt=%s url=%s status=%s\n' "$attempt" "$url" "$status" >&2
+      printf '%s' "$status"
+      return 0
+    fi
+    # Only startup/network failures that can recover by themselves are retried.
+    # Keep all other transport errors and HTTP responses immediately fatal.
+    if (( transport != 0 )); then
+      case "$transport" in
+        6|7|28|52|56) transient=1 ;;
+        *)
+          printf 'HTTP_FATAL url=%s expected=%s status=%s transport=%s reason=non-transient-transport\n' "$url" "$expected" "$status" "$transport" >&2
+          printf '%s' "$status"
+          return 1
+          ;;
+      esac
+    elif [[ "$status" == 000 || "$status" == 502 || "$status" == 503 ]]; then
+      transient=1
+    else
+      printf 'HTTP_FATAL url=%s expected=%s status=%s transport=0 reason=non-transient-http\n' "$url" "$expected" "$status" >&2
+      printf '%s' "$status"
+      return 1
+    fi
+    printf 'HTTP_RETRY attempt=%s url=%s expected=%s status=%s transport=%s remaining=%ss\n' "$attempt" "$url" "$expected" "$status" "$transport" "$((deadline - SECONDS))" >&2
+    if (( SECONDS >= deadline )); then
+      break
+    fi
+    remaining=$((deadline - SECONDS))
+    sleep_time=$((remaining < RETRY_INTERVAL_SEC ? remaining : RETRY_INTERVAL_SEC))
+    if (( sleep_time > 0 )); then
+      sleep "$sleep_time"
+    fi
+  done
+  printf 'HTTP_RETRY_EXHAUSTED url=%s expected=%s status=%s transport=%s timeout=%ss\n' "$url" "$expected" "$status" "$transport" "$timeout" >&2
+  printf '%s' "$status"
+  return 1
+}
+
+wait_services() {
+  local timeout=${1:-45}
+  local deadline=$((SECONDS + timeout)) running missing service remaining sleep_time api_id api_health
+  while (( SECONDS < deadline )); do
+    running=$("${COMPOSE[@]}" ps --status running --services 2>/dev/null || true)
+    missing=''
+    for service in api web caddy; do
+      awk -v wanted="$service" '$0 == wanted {found=1} END {exit !found}' <<< "$running" || missing="$missing $service"
+    done
+    api_id=$("${COMPOSE[@]}" ps -q api 2>/dev/null || true)
+    api_health=$(docker inspect --format '{{.State.Health.Status}}' "$api_id" 2>/dev/null || true)
+    [[ "$api_health" == healthy ]] || missing="$missing api-health:$api_health"
+    if [[ -z "$missing" ]]; then printf '%s' "$running"; return 0; fi
+    printf 'SERVICE_RETRY missing=%s remaining=%ss\n' "$missing" "$((deadline - SECONDS))" >&2
+    remaining=$((deadline - SECONDS))
+    sleep_time=$((remaining < RETRY_INTERVAL_SEC ? remaining : RETRY_INTERVAL_SEC))
+    if (( sleep_time > 0 )); then
+      sleep "$sleep_time"
+    fi
+  done
+  printf 'SERVICE_RETRY_EXHAUSTED timeout=%ss\n' "$timeout" >&2
+  return 1
+}
+
+chown_archive_files() {
+  local archive=$1
+  while IFS= read -r rel; do
+    [[ -z "$rel" || "$rel" == data || "$rel" == data/* ]] && continue
+    [[ -e "$APP/$rel" || -L "$APP/$rel" ]] && chown -h 2jfitness:2jfitness "$APP/$rel"
+  done < <(tar -tzf "$archive")
+}
+
+# Read-only check of the deployed 2J protocol inside the running api container: official master
+# blocks (155, curated, no FAIL/unverified), the official guided routines (39 + 7 collections), the
+# treadmill fix and the save policy on pure functions. It never calls a route, never writes /data
+# (listFor only reads blocks.json / guided.json when they exist) and never creates anything.
+write_protocol_probe() {
+  cat > "$1" <<'JS'
+const B = process.env.PROBE_BASE || 'file:///app/';
+const fail = m => { console.log('PROBE_FAIL=' + m); process.exit(1); };
+const fs = await import('node:fs');
+const activity = await import(B + 'lib/workout-activity.js');
+if (activity.WORKOUT_INACTIVITY_MS !== 3600000) fail('inactivity_timeout');
+const clock = 36000000;
+const draft = { id: 'synthetic-inactivity', start: clock, lastActivityAt: clock, d: '2026-10-01', entries: [] };
+if (activity.workoutInactive(draft, clock + 3599999) || !activity.workoutInactive(draft, clock + 3600000)) fail('inactivity_boundary');
+if (activity.stampWorkoutActivity(draft, { ...draft }, clock + 3000000).lastActivityAt !== clock) fail('passive_activity');
+const closed = activity.inactivityFinishMetadata(draft, clock + 3600000);
+if (closed.end !== clock || closed.finishedAt !== clock + 3600000 || closed.finishReason !== 'inactivity_timeout') fail('inactivity_duration');
+console.log('INACTIVITY_MODEL_PROBE=OK deadline=60min passive_no_reset duration_excludes_idle');
+const store = await import(B + 'lib/blocks-store.js');
+const P = await import(B + 'lib/protocol/index.js');
+const meta = await import(B + 'lib/plan-meta.js');
+const gate = await import(B + 'coach/protocol-gate.js');
+if (P.PROTOCOL_VERSION !== '1.0') fail('protocol_version');
+if (typeof P.savePolicy !== 'function' || P.OVERRIDE_REASON_MIN !== 8) fail('save_policy_export');
+// ---- official library: 155 MASTER blocks (118 of V2.1 + 37 guided masters for Guided Routines V1),
+// all PASS, curated (or cardio machines), no unverified. Copies inside guided routines are NOT masters.
+const MASTERS = 198;
+const info = store.seedInfo();
+if (info.protocolVersion !== '1.0' || info.count !== MASTERS) fail('seed_info');
+const seed = JSON.parse(fs.readFileSync(new URL(B + 'lib/blocks-official.json'), 'utf8'));
+const ids = new Set(seed.blocks.map(b => b.id));
+if (seed.blocks.length !== MASTERS || ids.size !== MASTERS) fail('seed_count');
+const sig = b => b.type + '|' + JSON.stringify(b.timing || null) + '|' + b.ex.map(e => e.id).join(',');
+if (new Set(seed.blocks.map(sig)).size !== MASTERS) fail('master_content_duplicate');
+let pass = 0, withReason = 0;
+for (const b of seed.blocks) {
+  if (!b.id.startsWith('off-') || b.official !== true) fail('seed_shape:' + b.id);
+  if (!b.ex.every(e => P.CATALOG[e.id] || P.classify(e.id, store.lookup).cardio || store.lookup(e.id)?.bp === 'cardio')) fail('seed_uncurated:' + b.id);
+  const v = store.check(b, { official: true });
+  if (v.result === 'FAIL') fail('seed_fail:' + b.id);
+  if (v.issues.some(i => i.severity === 'unverified')) fail('seed_unverified:' + b.id);
+  if (v.result === 'PASS') pass++; else withReason++;
+}
+if (pass !== MASTERS || withReason !== 0) fail('seed_not_all_pass');
+// what GET /api/blocks lists (admin view of an id without personal blocks): exactly the 155 masters
+const listed = store.listFor('__deploy_probe__', true).blocks;
+if (listed.filter(b => ids.has(b.id)).length !== MASTERS) fail('api_blocks_masters');
+// ---- the six guided official blocks of V2.1 are still there, with valid timing (43 guided masters now)
+const GUIDED = { 'off-fullbody-endurance-beginner-x-circuit': 'circuit', 'off-abs-general-intermediate-x-circuit': 'circuit',
+  'off-cardio-general-intermediate-x-interval': 'interval', 'off-cardio-general-advanced-x-hiit': 'hiit',
+  'off-fullbody-general-beginner-x-mobility': 'mobility', 'off-lower-general-intermediate-x-mobility': 'mobility' };
+const guided = seed.blocks.filter(b => P.isGuided(b.type));
+if (guided.length !== 86) fail('guided_count');
+for (const b of guided) {
+  if (JSON.stringify(P.sanitizeTiming(b.timing, b.type)) !== JSON.stringify(b.timing)) fail('guided_timing_invalid:' + b.id);
+  if (b.timing.rounds < 1 || b.timing.rounds > 10 || !b.ex.every(e => e.sets === b.timing.rounds)) fail('guided_rounds:' + b.id);
+}
+for (const [id, type] of Object.entries(GUIDED)) {
+  const b = seed.blocks.find(x => x.id === id);
+  if (!b || b.type !== type) fail('guided_missing:' + id);
+  if (JSON.stringify(P.sanitizeTiming(b.timing, b.type)) !== JSON.stringify(b.timing)) fail('guided_timing_invalid:' + id);
+  if (b.timing.rounds < 1 || b.timing.rounds > 10 || !b.ex.every(e => e.sets === b.timing.rounds)) fail('guided_rounds:' + id);
+}
+// ---- timing model: rounds 1-10, Tabata is an editable preset (not hardcoded 20/10), circuit mixes modes
+if (P.sanitizeTiming({ rounds: 99 }, 'hiit').rounds !== 10 || P.sanitizeTiming({ rounds: 0 }, 'hiit').rounds !== 1) fail('rounds_clamp');
+const tab = P.sanitizeTiming({ preset: 'tabata', work: 30, rest: 15, rounds: 6 }, 'hiit');
+if (tab.work !== 30 || tab.rest !== 15 || tab.rounds !== 6 || tab.preset !== 'tabata') fail('tabata_not_editable');
+if (P.sanitizeTiming({ work: 30 }, 'strength') !== null) fail('timing_on_strength');
+const mixed = P.applyTiming([{ id: '0175', sets: 3, mode: 'reps', reps: 15 }, { id: '2135', sets: 3, mode: 'time', sec: 45 }], 'circuit', { work: 30, rounds: 4 });
+if (mixed[0].mode !== 'reps' || mixed[0].reps !== 15 || mixed[1].mode !== 'time' || mixed[1].sec !== 30 || mixed[0].sets !== 4) fail('circuit_mix');
+// ---- 2J-HEU-INTERVAL-ROUNDS: interval rounds and mobility are never direct weekly sets
+if (!P.RULE_BY_ID['2J-HEU-INTERVAL-ROUNDS']) fail('heuristic_missing');
+const lk = { lookup: store.lookup };
+const hiitDay = [{ id: '0514', sets: 8, mode: 'time', sec: 20, blk: 'k1' }, { id: '0043', sets: 3, mode: 'reps', reps: 8, blk: 'k2' }];
+const vh = P.validateAgainst2JProtocol({ kind: 'routine', goal: 'hypertrophy', level: 'intermediate', entries: hiitDay, blockTypes: { k1: 'hiit', k2: 'strength' } }, lk);
+if (vh.issues.some(i => i.code === 'sets_outside_allowed') || vh.stats.weeklySets.quads !== 3) fail('hiit_rounds_counted');
+if (P.validateAgainst2JProtocol({ kind: 'routine', goal: 'hypertrophy', level: 'intermediate', entries: hiitDay }, lk).result !== 'FAIL') fail('block_type_ignored');
+const tooMany = P.validateAgainst2JProtocol({ kind: 'block', goal: 'general', level: 'intermediate', type: 'hiit', entries: [{ id: '0514', sets: 12, mode: 'time', sec: 20 }] }, lk);
+if (!tooMany.issues.some(i => i.code === 'rounds_outside_allowed' && i.severity === 'fail')) fail('rounds_limit');
+const mob = P.validateAgainst2JProtocol({ kind: 'routine', goal: 'general', level: 'beginner', entries: [{ id: '1604', sets: 1, mode: 'time', sec: 40, blk: 'm' }], blockTypes: { m: 'mobility' } }, lk);
+if (Object.keys(mob.stats.weeklySets).length) fail('mobility_counted');
+// the save policy (API) uses the block types too, and restrictions stay non-overridable inside them
+if (meta.enforcePlanPolicy([hiitDay.slice(0, 1)], meta.sanitizePlanMeta({ goal: 'general', level: 'intermediate' }), { k1: 'hiit' }) !== null) fail('api_policy_rounds');
+const rj = meta.enforcePlanPolicy([hiitDay.slice(0, 1)], meta.sanitizePlanMeta({ goal: 'general', level: 'intermediate', restrictions: ['no-jumps'] }), { k1: 'hiit' });
+if (!rj || rj.status !== 400) fail('api_policy_restriction');
+// ---- AI knows guided blocks; the validator stays the authority
+const offer = store.compatibleOfficial({ goal: 'general', level: 'advanced', max: 60 }).find(b => b.id === 'off-cardio-general-advanced-x-hiit');
+if (!offer || offer.type !== 'hiit' || offer.timing?.rounds !== 8) fail('ai_guided_offer');
+const exp = gate.expandBlocks({ routines: [{ id: 'r1', name: 'x', blocks: ['off-cardio-general-advanced-x-hiit'], ex: [] }] });
+if (exp.errors.length || exp.data.routines[0]._blockMeta[0].timing?.rounds !== 8) fail('ai_guided_expand');
+const aiPlan = { name: 'p', routines: [{ id: 'r1', name: 'x', ex: exp.data.routines[0].ex, blocks: exp.data.routines[0]._blockMeta }], week: { 1: 'r1' } };
+if (gate.gatePlan(aiPlan, { goal: 'general', level: 'advanced', restrictions: [], unavailableEq: [] }).ok !== true) fail('ai_guided_rejected');
+const jumpPlan = { name: 'p', routines: [{ id: 'r1', name: 'x', ex: [{ id: '0514', sets: 8, mode: 'time', sec: 20, blk: 'k1' }], blocks: [{ iid: 'k1', type: 'hiit' }] }], week: { 1: 'r1' } };
+if (gate.gatePlan(jumpPlan, { goal: 'general', level: 'advanced', restrictions: ['no-jumps'], unavailableEq: [] }).ok !== false) fail('ai_restriction_in_guided');
+// ---- barbell hip thrust = 0058, the floor glute bridge 1409 stays separate, no duplicate
+const ht = store.lookup('0058'), gb = store.lookup('1409');
+if (!ht || ht.n !== 'barbell hip thrust' || ht.eq !== 'barbell') fail('hip_thrust_0058');
+if (!gb || gb.n !== 'barbell glute bridge') fail('glute_bridge_1409');
+const lib = JSON.parse(fs.readFileSync(new URL(B + 'coach/library.json'), 'utf8')).exercises;
+if (lib.filter(e => /hip thrust/.test(e.n) && e.eq === 'barbell').length !== 1) fail('hip_thrust_duplicate');
+const c58 = P.classify('0058', store.lookup), c09 = P.classify('1409', store.lookup);
+if (!c58.curated || c58.pattern !== 'bridge' || P.redundancyKey(c58) === P.redundancyKey(c09)) fail('hip_thrust_curation');
+if (!['off-glutes-hypertrophy-intermediate-a', 'off-glutes-hypertrophy-advanced-a'].every(id => seed.blocks.find(b => b.id === id)?.ex.some(e => e.id === '0058'))) fail('hip_thrust_blocks');
+// ---- V2 save policy and AI gate (unchanged)
+const squat = [{ id: '0043', sets: 3, mode: 'reps', reps: 10, targetRepsMin: 6, targetRepsMax: 10, rpe: [8, 8, 8], rest: 150 }];
+const allOut = [{ id: '0585', sets: 3, mode: 'reps', reps: 12, rpe: [10, 10, 10] }, { id: '0294', sets: 3, mode: 'reps', reps: 12, rpe: [10, 10, 10] }];
+const hyp = { goal: 'hypertrophy', level: 'intermediate' };
+const enforce = (ex, m) => meta.enforcePlanPolicy([ex], meta.sanitizePlanMeta(m));
+const restricted = enforce(squat, { ...hyp, restrictions: ['no-deep-knee-flexion'], override: { reason: 'Smoke probe reason text', codes: ['restriction'] } });
+if (!restricted || restricted.status !== 400 || !P.savePolicy(restricted.validation).blocked.length) fail('restriction_overridable');
+const noReason = enforce(allOut, hyp);
+if (!noReason || noReason.status !== 400 || !P.savePolicy(noReason.validation).needsReason) fail('fail_without_reason_saved');
+const shortReason = enforce(allOut, { ...hyp, override: { reason: 'short' } });
+if (!shortReason || shortReason.status !== 400) fail('short_reason_accepted');
+if (enforce(allOut, { ...hyp, override: { reason: 'Smoke probe reason text', codes: ['rpe10_all'] } }) !== null) fail('override_with_reason_rejected');
+if (meta.enforcePlanPolicy([allOut], null) !== null) fail('legacy_path_changed');
+const plan = ex => ({ name: 'probe', routines: [{ id: 'r1', name: 'probe', ex }], week: { 1: 'r1' } });
+if (gate.gatePlan(plan(allOut), { ...hyp, restrictions: [], unavailableEq: [] }).ok !== false) fail('ai_fail_accepted');
+if (gate.gatePlan(plan(squat), { ...hyp, restrictions: ['no-deep-knee-flexion'], unavailableEq: [] }).ok !== false) fail('ai_restriction_accepted');
+const guessed = plan([{ id: '3543', sets: 3, mode: 'reps', reps: 5 }]);
+const g = gate.gatePlan(guessed, { goal: 'general', level: 'intermediate', restrictions: ['no-jumps'], unavailableEq: [] });
+if (g.ok !== false || !g.errors.join(' ').includes('restriction_unverified')) fail('ai_unverified_accepted');
+// ---- Guided Routines V1: 39 official routines + 7 collections + 3 featured, composed of masters
+const G = await import(B + 'lib/guided-store.js');
+const gseed = JSON.parse(fs.readFileSync(new URL(B + 'lib/guided-official.json'), 'utf8'));
+const gi = G.seedInfo();
+if (gi.protocolVersion !== '1.0' || gi.seedVersion !== 1 || gi.count !== 155 || gi.collections !== 15) fail('guided_seed_info');
+if (gseed.routines.length !== 155 || gseed.collections.length !== 15) fail('guided_seed_count');
+const rids = new Set(gseed.routines.map(r => r.id));
+const cids = new Set(gseed.collections.map(c => c.id));
+if (rids.size !== 155 || cids.size !== 15 || ![...rids].every(id => id.startsWith('r2j-')) || ![...cids].every(id => id.startsWith('c2j-'))) fail('guided_ids');
+const iids = gseed.routines.flatMap(r => r.blocks.map(b => b.iid));
+if (new Set(iids).size !== iids.length) fail('guided_copy_ids');
+const allIds = [...ids, ...rids, ...cids, ...iids];
+if (new Set(allIds).size !== allIds.length) fail('id_collision');
+if (listed.some(b => rids.has(b.id) || iids.includes(b.id) || b.id.startsWith('r2j'))) fail('routine_copies_in_api_blocks');
+const featured = gseed.routines.filter(r => r.featured);
+if (featured.length !== 3) fail('guided_featured');
+const usedMasters = new Set();
+for (const r of gseed.routines) {
+  if (r.official !== true || r.seedVersion !== 1 || r.validation?.result !== 'PASS') fail('guided_shape:' + r.id);
+  const v = G.check(r, { official: true });
+  if (v.result !== 'PASS') fail('guided_not_pass:' + r.id);
+  if (v.issues.some(i => i.severity === 'unverified')) fail('guided_unverified:' + r.id);
+  for (const b of r.blocks) { if (!ids.has(b.src)) fail('guided_bad_master:' + r.id); usedMasters.add(b.src); }
+  if (!r.ex.every(e => r.blocks.some(b => b.iid === e.blk))) fail('guided_orphan_entry:' + r.id);
+  const f = P.routineFacts(r, store.lookup, r.tags.includes('low-impact') ? ['low-impact'] : []);
+  if (f.minutes !== r.estimatedMinutes || JSON.stringify(f.equipment) !== JSON.stringify(r.equipment) || JSON.stringify(f.tags) !== JSON.stringify(r.tags)) fail('guided_facts:' + r.id);
+}
+if (usedMasters.size !== 145) fail('guided_masters_used');
+for (const c of gseed.collections) if (!c.routineIds.length || !c.routineIds.every(id => rids.has(id))) fail('collection_refs:' + c.id);
+// what GET /api/guided returns (read-only): every seed routine for an admin; members never see "mine"
+const adminView = G.listFor({ id: '__deploy_probe__' }, { admin: true, trainer: true });
+if (![...rids].every(id => adminView.routines.some(r => r.id === id))) fail('guided_list_admin');
+const memberView = G.listFor({ id: '__deploy_probe__' }, {});
+if (memberView.mine.length !== 0 || memberView.routines.some(r => r.active === false)) fail('guided_list_member');
+const programs = JSON.parse(fs.readFileSync(new URL(B + 'lib/guided-programs-official.json'), 'utf8')).programs;
+if (programs.length !== 22 || adminView.programs.length < 22 || memberView.programs.length > adminView.programs.length) fail('program_count');
+for (const p of programs) {
+  if (!p.weeks?.length || !p.weeks.every(w => w.sessions?.length && w.sessions.every(s => rids.has(s.routineId)))) fail('program_refs:' + p.id);
+}
+// a protocol FAIL is refused before anything is stored (pure check, nothing saved)
+const badR = { goal: 'power', level: 'advanced', ex: [{ id: '0514', sets: 3, mode: 'reps', reps: 5, rpe: [10, 10, 10] }], blocks: [] };
+if (G.check(badR, { official: false }).result !== 'FAIL') fail('guided_fail_not_detected');
+// the AI receives compact official routines built from masters
+const pay = gate.protocolPayload({ goal: 'general', level: 'beginner', restrictions: [], unavailableEq: [] });
+if (!pay.officialRoutines?.length || !pay.officialRoutines.every(r => rids.has(r.id) && r.blocks.every(id => ids.has(id)))) fail('ai_official_routines');
+// ---- treadmill: 0684 and 3666 carry their real equipment in the library itself (same ids/names)
+const t84 = store.lookup('0684'), t66 = store.lookup('3666');
+if (!t84 || t84.n !== 'treadmill run' || t84.eq !== 'treadmill') fail('treadmill_0684');
+if (!t66 || t66.n !== 'walking on incline treadmill' || t66.eq !== 'treadmill') fail('treadmill_3666');
+const tm = seed.blocks.filter(b => b.ex.some(e => e.id === '0684' || e.id === '3666'));
+if (tm.length !== 6 || !tm.every(b => (b.equipment || []).includes('treadmill'))) fail('treadmill_blocks');
+const tr = gseed.routines.filter(r => r.ex.some(e => e.id === '0684' || e.id === '3666'));
+if (tr.length !== 8 || !tr.every(r => r.equipment.includes('treadmill') && !r.tags.includes('no-equipment'))) fail('treadmill_routines');
+if ('GEAR_OVERRIDE' in P || 'equipmentOf' in P) fail('gear_override_left');
+// ---- Exercise Library V2: AI index, taxonomy, deprecations, the Coach slice, classifier, validator
+const payload = await import(B + 'coach/payload.js');
+const gym = await import(B + 'lib/gym-profiles.js');
+const gymConfig = await import(B + 'lib/gym-profile-config.js');
+const configuredEquipment = gymConfig.load();
+const configPath = (process.env.DATA_DIR || '/data') + '/gym-profile.json';
+const gymTaxonomy = await import(B + 'lib/protocol/movements.js');
+const equipmentIds = new Set(gymTaxonomy.EQUIPMENT.map(e => e.id));
+if (!Array.isArray(configuredEquipment) || configuredEquipment.some(id => !equipmentIds.has(id)) || configuredEquipment.length > 19) fail('gym_official_config_shape');
+if (!fs.existsSync(configPath) && JSON.stringify(configuredEquipment) !== JSON.stringify(gym.DEFAULT_2J_EQUIPMENT)) fail('gym_official_fallback');
+if (process.env.GYM_CONFIG_EXPECT === 'custom' && JSON.stringify(configuredEquipment) !== JSON.stringify(['bodyweight', 'smith'])) fail('gym_official_persisted_read');
+const LIB = payload.LIBRARY;
+const libById = new Map(LIB.map(e => [e.id, e]));
+if (LIB.length !== 1324 || libById.size !== 1324) fail('lib_ids');
+const recN = LIB.filter(e => e.rec).length, mvN = LIB.filter(e => e.mv).length, depL = LIB.filter(e => e.pref);
+const overlayRev0 = (await import(B + 'lib/library-admin.js')).overlay().rev;
+// The code library is exactly these numbers; once an admin has edited the overlay it may legitimately differ.
+if (overlayRev0 === 0 && (recN !== 210 || mvN !== 1305 || depL.length !== 26)) fail(`lib_counts:${recN}/${mvN}/${depL.length}`);
+if (P.MOVEMENTS.length !== 35 || P.EQUIPMENT.length !== 28 || P.EQUIPMENT_KINDS.length !== 6) fail('taxonomy_counts');
+const mvIds = new Set(P.MOVEMENTS.map(m => m.id));
+if (!LIB.every(e => !e.mv || mvIds.has(e.mv))) fail('lib_movement_invalid');
+if (!LIB.every(e => P.EQUIPMENT_BY_ID[P.equipmentIdOf(e)])) fail('lib_equipment_invalid');
+const officialEx = new Set([...seed.blocks.flatMap(b => b.ex.map(e => e.id)), ...gseed.routines.flatMap(r => r.ex.map(e => e.id))]);
+for (const e of depL) {
+  const pr = libById.get(e.pref);
+  if (!pr || pr.pref || pr.mv !== e.mv) fail('deprecated_preferred:' + e.id);
+  if (officialEx.has(e.id)) fail('deprecated_in_official_seed:' + e.id);
+}
+const slice = payload.librarySlice({}, []);
+if (slice.some(e => e.pref)) fail('ai_offers_deprecated');
+const gymState = { coach: {}, workouts: [], routines: [], programs: [], week: {}, dayPlan: {},
+  gymProfiles: { activeId: 'hotel' } };
+const gymContext = gym.gymEquipmentContext(gymState);
+if (!gymContext.availableEquipment.includes('bodyweight') || gymContext.type !== 'hotel'
+  || gymContext.scope !== 'equipment_categories_not_machine_inventory') fail('gym_context');
+const gymPayload = payload.build(gymState, '__deploy_probe__', {});
+if (gymPayload.gymProfile?.type !== 'hotel' || !gymPayload.gymProfile.availableEquipment.includes('bodyweight'))
+  fail('gym_ai_context');
+const gymSlice = payload.librarySlice(gymState, []);
+if (P.equipmentIdOf(gymSlice[0]) !== 'bodyweight') fail('gym_compatible_not_first');
+// Policy: recommended > non-recommended inside what the gym offers. The gym blacklist
+// (DATA/hidden-exercises.json, read-only here, the same file librarySlice reads) legitimately
+// removes exercises, so the expected count comes from the data, never from a fixed floor.
+let hiddenEx = new Set();
+try { const h = JSON.parse(fs.readFileSync((process.env.DATA_DIR || '/data') + '/hidden-exercises.json', 'utf8')); if (Array.isArray(h)) hiddenEx = new Set(h); } catch { /* absent = nothing hidden */ }
+const expectedRec = LIB.filter(e => e.rec && !e.pref && !hiddenEx.has(e.id)).length;
+const expectedAll = LIB.filter(e => !e.pref && !hiddenEx.has(e.id)).length;
+const recInSlice = slice.filter(e => e.rec).length, firstNonRec = slice.findIndex(e => !e.rec);
+if (recInSlice !== expectedRec || slice.length !== expectedAll || slice.some(e => hiddenEx.has(e.id))
+  || (firstNonRec !== -1 && firstNonRec !== recInSlice) || (firstNonRec === -1 && recInSlice !== slice.length))
+  fail(`ai_recommended_first:rec=${recInSlice}/${expectedRec} first_non_rec=${firstNonRec} slice=${slice.length}/${expectedAll} hidden=${hiddenEx.size}`);
+if (!payload.libraryHas(depL[0].id)) fail('old_plan_id_unresolvable');
+const pat = id => P.classify(id, store.lookup).pattern;
+if (pat('0705') !== 'anti-lat' || pat('2466') !== 'cond-climber' || pat('3645') !== 'bridge' || pat('0058') !== 'bridge'
+  || pat('0125') !== 'wrist' || pat('0031') !== 'curl' || pat('1259') !== 'mobility') fail('classifier_regression');
+if (P.classify('1259', store.lookup).group !== null) fail('stretch_counts_as_volume');
+const vo = P.validateAgainst2JProtocol({ kind: 'routine', goal: 'hypertrophy', level: 'intermediate',
+  entries: [{ id: '0289', sets: 3, mode: 'reps', reps: 10 }, { id: '0296', sets: 3, mode: 'reps', reps: 10 }] }, { lookup: store.lookup });
+if (vo.result !== 'PASS' || !vo.issues.some(i => i.code === 'high_overlap' && i.severity === 'note')) fail('high_overlap_note');
+// ---- Sprint 4.5 release safety. Read-only: DATA_DIR points nowhere while any call that could write runs,
+// so an unexpected write throws here instead of touching production data.
+const LA = await import(B + 'lib/library-admin.js');
+const realDir = process.env.DATA_DIR;
+const guidedFile = (realDir || '/data') + '/guided.json', libFile = (realDir || '/data') + '/library-admin.json';
+const snap = f => { try { const st = fs.statSync(f); return st.size + ':' + st.mtimeMs; } catch { return 'absent'; } };
+const filesBefore = JSON.stringify([snap(guidedFile), snap(libFile)]);
+const overlayRev = LA.overlay().rev;
+if (!Number.isInteger(overlayRev) || overlayRev < 0) fail('overlay_rev');
+const pubOverlay = LA.publicOverlay();
+if (pubOverlay.v !== 1 || pubOverlay.rev !== overlayRev || typeof pubOverlay.entries !== 'object' || JSON.stringify(pubOverlay).includes('"note"')) fail('public_overlay_shape');
+const guidedRev = G.contentRev();
+if (!/^\d+\.\d+\.\d+$/.test(guidedRev)) fail('guided_rev_shape');
+process.env.DATA_DIR = '/nonexistent-2j-readonly-probe';
+try {
+  const probeMember = { id: '__deploy_probe_member__' };
+  const officialInput = { scope: 'official', name: 'Probe', category: 'strength', goal: 'general', level: 'beginner', focus: 'upper', status: 'active', ex: [{ id: '0043', sets: 3, mode: 'reps', reps: 8 }] };
+  for (const [what, r] of [['upsert', G.upsert(probeMember, false, officialInput)], ['status', G.setStatus(probeMember, false, 'r2j-tabata-start', 'hidden')],
+    ['active', G.setActive(probeMember, false, 'r2j-tabata-start', false)], ['remove', G.remove(probeMember, false, 'r2j-tabata-start')]]) {
+    if (!r || r.status !== 403 || !r.error) fail('member_write_not_refused:' + what);
+  }
+  const depIds = new Set(LIB.filter(e => e.pref).map(e => e.id));
+  const routineById = new Map(gseed.routines.map(r => [r.id, r]));
+  let aiOffered = 0;
+  for (const goal of ['general', 'hypertrophy', 'strength', 'endurance', 'beginner']) for (const level of ['beginner', 'intermediate', 'advanced']) {
+    for (const c of G.compatibleRoutines({ goal, level, max: 500 })) {
+      const full = routineById.get(c.id);
+      if (!full) continue;
+      aiOffered++;
+      if (full.ex.some(e => depIds.has(e.id))) fail('ai_routine_uses_deprecated:' + c.id);
+    }
+    for (const c of G.compatiblePrograms({ goal, level })) {
+      const full = programs.find(p => p.id === c.id);
+      for (const w of full?.weeks || []) for (const sess of w.sessions) if (routineById.get(sess.routineId)?.ex.some(e => depIds.has(e.id))) fail('ai_program_uses_deprecated:' + c.id);
+    }
+  }
+  if (!aiOffered) fail('ai_offers_no_official_routine');
+  if (slice.some(e => depIds.has(e.id))) fail('ai_library_slice_deprecated');
+} finally {
+  if (realDir === undefined) delete process.env.DATA_DIR; else process.env.DATA_DIR = realDir;
+}
+if (JSON.stringify([snap(guidedFile), snap(libFile)]) !== filesBefore) fail('probe_wrote_data');
+console.log('PROBE_OK');
+console.log(`PROBE_DATA exlib=${LIB.length} recommended=${recN} with_movement=${mvN} deprecated=${depL.length} movements=${P.MOVEMENTS.length} equipment=${P.EQUIPMENT.length} kinds=${P.EQUIPMENT_KINDS.length} ai_rec_first=${recInSlice} hidden_ex=${hiddenEx.size} gym_profiles=ok gym_config_source=${fs.existsSync(configPath) ? "persisted" : "fallback"} gym_ai_context=hotel gym_compatible_first=bodyweight protocol=${P.PROTOCOL_VERSION} masters=${info.count} pass=${pass} pass_with_reason=${withReason} fail=0 unverified=0 api_blocks=${listed.filter(b => ids.has(b.id)).length} guided_masters=${guided.length} routines=${gseed.routines.length} programs=${programs.length} collections=${gseed.collections.length} featured=${featured.length} masters_used=${usedMasters.size} copies=${iids.length} treadmill=0684+3666 rounds=1-10 tabata=editable circuit=mixed interval_rounds=not_volume mobility=not_volume ai_guided=offered hip_thrust=0058 glute_bridge=1409 restriction=blocked fail_needs_reason=yes ai_fail=rejected ai_unverified=rejected member_writes=refused ai_deprecated=0 overlay_rev=${overlayRev} guided_rev=${guidedRev}`);
+JS
+}
+
+write_mutable_data_probe() {
+  cat > "$1" <<'JS'
+import fs from 'node:fs';
+import path from 'node:path';
+const dir = process.env.DATA_DIR || '/data';
+const required = new Set((process.env.REQUIRED_MUTABLE_FILES || '').split(',').filter(Boolean));
+const specs = {
+  'db.json': { users: 'array' },
+  'notifications.json': { items: 'array', privacy: 'object', preferences: 'object' },
+  'friends.json': { codes: 'array', requests: 'array', blocked: 'array' },
+  'chat.json': { threads: 'array', messages: 'array' },
+  'social.json': { routines: 'array', programs: 'array', wall: 'array' },
+  'social-sharing.json': { shares: 'array', reports: 'array' },
+  'blocks.json': {}, 'guided.json': {}, 'library-admin.json': {}, 'news.json': { items: 'array' }, 'features.json': { off: 'array' }, 'gym-profile.json': { availableEquipment: 'array' },
+};
+const fail = (name, why) => { console.error(`MUTABLE_DATA_INVALID=${name} reason=${why}`); process.exitCode = 1; };
+// chat.json is AES-GCM at rest since Sprint 3 (legacy plaintext JSON is still accepted). The encrypted form is validated with the
+// application's OWN crypto layer and the live key, never with a copy of it; only PASS/FAIL and the reason are printed, never content.
+const cryptoModule = process.env.MUTABLE_CRYPTO_MODULE || '/app/lib/crypto.js';
+let cryptoLayer = null;
+const readEncryptedChat = async text => {
+  cryptoLayer = cryptoLayer || await import(cryptoModule.startsWith('file:') ? cryptoModule : (await import('node:url')).pathToFileURL(cryptoModule).href);
+  const value = cryptoLayer.decrypt(text, 'chat-store');   // null on a wrong key, tampering or corruption
+  if (!value) throw new Error('encrypted_unreadable');
+  return value;
+};
+for (const [name, fields] of Object.entries(specs)) {
+  const file = path.join(dir, name);
+  if (!fs.existsSync(file)) { if (required.has(name)) fail(name, 'missing'); continue; }
+  let value;
+  try {
+    const raw = fs.readFileSync(file, 'utf8');
+    if (raw.trim().length < 3) throw new Error('empty_or_truncated');
+    value = (name === 'chat.json' && !raw.trim().startsWith('{')) ? await readEncryptedChat(raw.trim()) : JSON.parse(raw);
+  } catch (e) { fail(name, e && e.message === 'encrypted_unreadable' ? 'encrypted_unreadable' : 'invalid_json_or_empty'); continue; }
+  if (!value || typeof value !== 'object' || Array.isArray(value) || !Object.keys(value).length) {
+    fail(name, 'invalid_root'); continue;
+  }
+  const strict = name === 'db.json' || name === 'gym-profile.json';
+  if (!strict && Object.keys(fields).length && !Object.keys(fields).some(key => key in value)) {
+    fail(name, 'missing_known_fields'); continue;
+  }
+  for (const [key, kind] of Object.entries(fields)) {
+    if (!strict && !(key in value)) continue;
+    if (kind === 'array' ? !Array.isArray(value[key]) : !value[key] || typeof value[key] !== 'object' || Array.isArray(value[key])) {
+      fail(name, `invalid_${key}`);
+    }
+  }
+}
+if (!process.exitCode) console.log('COMMUNITY_MUTABLE_DATA=preserved-valid');
+JS
+}
+
+verify_poststart_data() {
+  local name file meta mode probe_file
+  test -d "$APP/data" && test -s "$APP/data/db.json" && test -s "$APP/data/secret"
+  [[ "$(stat -c '%d:%i' "$APP/data")" == "$DATA_DIR_ID_BEFORE" ]]
+  [[ "$(stat -c '%U:%G' "$APP/data")" == "$DATA_OWNER_BEFORE" ]]
+  [[ "$(stat -c '%a' "$APP/data")" == "$DATA_MODE_BEFORE" ]]
+  [[ "$(sha256sum "$APP/data/secret" | awk '{print $1}')" == "$SECRET_HASH_BEFORE" ]]
+  [[ "$(sha256sum "$APP/.env" | awk '{print $1}')" == "$ENV_HASH_BEFORE" ]]
+  if [[ "$VAPID_BEFORE" == present ]]; then
+    test -s "$APP/data/vapid.json"
+    [[ "$(sha256sum "$APP/data/vapid.json" | awk '{print $1}')" == "$VAPID_HASH_BEFORE" ]]
+  fi
+  for name in db.json notifications.json friends.json chat.json social.json social-sharing.json blocks.json guided.json library-admin.json news.json features.json gym-profile.json; do
+    file="$APP/data/$name"
+    if [[ ${MUTABLE_META_BEFORE[$name]+set} ]]; then
+      test -s "$file"
+      [[ "$(stat -c '%U:%G:%a' "$file")" == "${MUTABLE_META_BEFORE[$name]}" ]]
+    elif [[ -e "$file" ]]; then
+      test -s "$file"
+      [[ "$(stat -c '%U:%G' "$file")" == "$DATA_OWNER_BEFORE" ]]
+      mode=$(stat -c '%a' "$file")
+      (( (8#$mode & 022) == 0 ))
+    fi
+  done
+  probe_file=$(mktemp /tmp/2j-mutable-data-probe.XXXXXX)
+  write_mutable_data_probe "$probe_file"
+  "${COMPOSE[@]}" exec -T -e "REQUIRED_MUTABLE_FILES=$REQUIRED_MUTABLE_FILES" api node --input-type=module - < "$probe_file"
+  rm -f -- "$probe_file"
+  printf 'COMMUNITY_POSTSTART_HASH_CHECK=skipped-live-mutable\n'
+  printf 'IMMUTABLE_DATA_HASHES=OK secret,.env,vapid:%s\n' "$VAPID_BEFORE"
+}
+
+remove_obsolete_release_files() {
+  local old_archive=$1 new_archive=$2 old_list new_list
+  old_list=$(mktemp /tmp/2j-old-release.XXXXXX)
+  new_list=$(mktemp /tmp/2j-new-release.XXXXXX)
+  tar -tzf "$old_archive" | sort > "$old_list"
+  tar -tzf "$new_archive" | sort > "$new_list"
+  while IFS= read -r rel; do
+    [[ -z "$rel" || "$rel" == */ || "$rel" == data || "$rel" == data/* ]] && continue
+    rm -f -- "$APP/$rel"
+  done < <(comm -23 "$old_list" "$new_list")
+  # Directories that only the outgoing release had, deepest first, once empty: the code tree ends
+  # up exactly as the incoming archive (before this, a rollback left them behind, empty, and the
+  # next deploy's verify-current-production stopped on them). data/ is never touched; a directory
+  # that still holds something is left in place and reported, never force-removed.
+  while IFS= read -r rel; do
+    [[ -z "$rel" || "$rel" == data/ || "$rel" == data/* ]] && continue
+    [[ -d "$APP/$rel" ]] || continue
+    rmdir -- "$APP/$rel" 2>/dev/null || { printf 'ORPHAN_DIR_NOT_EMPTY=%s\n' "$rel" >&2; return 1; }
+  done < <(comm -23 "$old_list" "$new_list" | grep '/$' | sort -r)
+  rm -f -- "$old_list" "$new_list"
+}
+
+verify_archive_tree() {
+  local archive=$1 expected rel bad=0 extras
+  expected=$(mktemp -d /tmp/2j-verify-tree.XXXXXX)
+  tar -xzf "$archive" -C "$expected" || { rm -rf -- "$expected"; return 1; }
+  while IFS= read -r rel; do
+    [[ -z "$rel" || "$rel" == */ ]] && continue
+    if [[ -L "$expected/$rel" ]]; then
+      [[ -L "$APP/$rel" && "$(readlink "$expected/$rel")" == "$(readlink "$APP/$rel")" ]] || { printf 'TREE_MISMATCH=%s\n' "$rel"; bad=1; }
+    elif [[ ! -f "$APP/$rel" || -L "$APP/$rel" ]] || ! cmp -s "$expected/$rel" "$APP/$rel"; then
+      printf 'TREE_MISMATCH=%s\n' "$rel"; bad=1
+    fi
+  done < <(tar -tzf "$archive")
+  extras=$(cd "$APP" && find frontend api scripts web \
+    \( -type d \( -name node_modules -o -name dist -o -name coverage -o -name .cache -o -name .vite -o -name build -o -name .next \) -prune \) -o \
+    \( -type f -o -type l \) -print | sort | comm -23 - <(tar -tzf "$archive" | awk '!/\/$/' | sort))
+  if [[ -n "$extras" ]]; then printf 'EXTRA_CODE_FILE=%s\n' "$extras"; bad=1; fi
+  rm -rf -- "$expected"
+  (( bad == 0 ))
+}
+
+# Last step of every rollback: put the PRODUCTION MARKER back to the rollback commit and prove it. The next deployment's pre-flight compares this
+# marker with the baseline it was built for, so a rollback that leaves the target's marker behind is not a clean rollback. Runs after compose and
+# the health check so nothing in between can leave the target's marker in place; a mismatch makes the rollback report FAILED.
+finish_rollback_verification() {
+  local extract_status=$1 compose_status=$2 tree_status=$3 rollback_health=$4 residue=$5 residue_dirs=$6
+  local marker_status=0
+  printf '%s\n' "$ROLLBACK_COMMIT" > "$APP/.deployed-commit" || marker_status=1
+  [[ "$(cat "$APP/.deployed-commit" 2>/dev/null)" == "$ROLLBACK_COMMIT" ]] || marker_status=1
+  if [[ $marker_status -eq 0 ]]; then
+    printf 'ROLLBACK_MARKER=ok:%s\n' "$ROLLBACK_COMMIT"
+  else
+    printf 'ROLLBACK_MARKER=MISMATCH expected=%s\n' "$ROLLBACK_COMMIT"
+  fi
+  if [[ $extract_status -eq 0 && $compose_status -eq 0 && $tree_status -eq 0 && "$rollback_health" == 200 && -z "$residue" && -z "$residue_dirs" && $marker_status -eq 0 ]]; then
+    printf 'ROLLBACK=OK:%s\n' "$ROLLBACK_COMMIT"
+    return 0
+  fi
+  printf 'ROLLBACK=FAILED:extract=%s,compose=%s,marker=%s\n' "$extract_status" "$compose_status" "$marker_status"
+  return 1
+}
+
+rollback() {
+  local original_status=$1 original_command=$2 original_step=$3
+  trap - ERR
+  set +e
+  printf 'ORIGINAL_FAIL_STEP=%s\n' "$original_step"
+  printf 'ORIGINAL_STATUS=%s\n' "$original_status"
+  printf 'ORIGINAL_COMMAND=%s\n' "$original_command"
+  if [[ "$DEPLOY_STARTED" != 1 ]]; then
+    printf 'ROLLBACK=NOT_NEEDED_PRODUCTION_UNTOUCHED\n'
+    exit "$original_status"
+  fi
+
+  cd "$APP" || true
+  "${COMPOSE[@]}" logs --tail=80 --no-color api web caddy || true
+  if ! remove_obsolete_release_files "$RELEASE" "$ROLLBACK"; then
+    printf 'ROLLBACK=FAILED:ORPHAN_DIR_NOT_EMPTY\n'
+    exit "$original_status"
+  fi
+  tar -xzf "$ROLLBACK" -C "$APP"
+  local extract_status=$?
+  if [[ $extract_status -eq 0 ]]; then chown_archive_files "$ROLLBACK"; fi
+  # The code tree must now be exactly the rollback archive: no path that only the target had.
+  local residue='' residue_dirs=''
+  while IFS= read -r rel; do
+    [[ -z "$rel" || "$rel" == */ || "$rel" == data/ || "$rel" == data/* ]] && continue
+    if [[ -e "$APP/$rel" || -L "$APP/$rel" ]]; then residue="$residue $rel"; fi
+  done < <(comm -23 <(tar -tzf "$RELEASE" | sort) <(tar -tzf "$ROLLBACK" | sort))
+  while IFS= read -r rel; do
+    [[ -z "$rel" || "$rel" == data/ || "$rel" == data/* ]] && continue
+    if [[ -e "$APP/$rel" || -L "$APP/$rel" ]]; then residue_dirs="$residue_dirs $rel"; fi
+  done < <(comm -23 <(tar -tzf "$RELEASE" | sort) <(tar -tzf "$ROLLBACK" | sort) | grep '/$' || true)
+  local tree_status=0
+  verify_archive_tree "$ROLLBACK" || tree_status=$?
+  if [[ $tree_status -eq 0 && -z "$residue" && -z "$residue_dirs" ]]; then
+    printf 'ROLLBACK_TREE=exact no_target_only_paths\n'
+  else
+    [[ -z "$residue" ]] || printf 'ROLLBACK_TREE_RESIDUE=%s\n' "$residue"
+    [[ -z "$residue_dirs" ]] || printf 'ROLLBACK_DIR_RESIDUE=%s\n' "$residue_dirs"
+  fi
+  printf '%s\n' "$ROLLBACK_COMMIT" > "$APP/.deployed-commit"
+  "${COMPOSE[@]}" up -d --build
+  local compose_status=$?
+  local rollback_health=000
+  if [[ $extract_status -eq 0 && $compose_status -eq 0 ]]; then
+    rollback_health=$(wait_status 200 "http://127.0.0.1:$WEB_PORT/api/health" /tmp/2j-rollback-body /tmp/2j-rollback-headers "$READINESS_TIMEOUT_SEC" || true)
+  fi
+  finish_rollback_verification "$extract_status" "$compose_status" "$tree_status" "$rollback_health" "$residue" "$residue_dirs"
+  printf 'ROLLBACK_HEALTH=%s\n' "$rollback_health"
+  printf 'LOG=%s\n' "$LOG"
+  exit "$original_status"
+}
+
+on_error() {
+  local status=$?
+  local command=${BASH_COMMAND:-unknown}
+  local step=$STEP
+  # ERR is inherited by command substitutions. They must propagate failure;
+  # only the top-level shell may mutate production by executing rollback.
+  if (( BASH_SUBSHELL > 0 )); then
+    printf 'SUBSHELL_FAIL_STEP=%s STATUS=%s COMMAND=%s\n' "$step" "$status" "$command" >&2
+    exit "$status"
+  fi
+  rollback "$status" "$command" "$step"
+}
+trap on_error ERR
+
+STEP=verify-transfer
+test -s "$RELEASE"
+REMOTE_HASH=$(sha256sum "$RELEASE" | awk '{print $1}')
+[[ "$REMOTE_HASH" == "$EXPECTED_HASH" ]]
+gzip -t "$RELEASE"
+RELEASE_MARKER=$(tar -xOf "$RELEASE" SYNC_V2_ROLLBACK_BASE)
+[[ "$RELEASE_MARKER" == *"$SYNC_BASE"* ]]
+printf 'REMOTE_SHA256=%s\n' "$REMOTE_HASH"
+
+STEP=verify-rollback
+test -s "$ROLLBACK"
+ROLLBACK_REMOTE_HASH=$(sha256sum "$ROLLBACK" | awk '{print $1}')
+[[ "$ROLLBACK_REMOTE_HASH" == "$EXPECTED_ROLLBACK_HASH" ]]
+gzip -t "$ROLLBACK"
+ROLLBACK_MARKER=$(tar -xOf "$ROLLBACK" SYNC_V2_ROLLBACK_BASE)
+[[ "$ROLLBACK_MARKER" == *"$SYNC_BASE"* ]]
+printf 'ROLLBACK_OK=%s sha256=%s\n' "$ROLLBACK" "$ROLLBACK_REMOTE_HASH"
+
+STEP=verify-release-protocol
+# Validate exact release scope against the approved production baseline instead of grepping
+# source prose, UI labels, or test names. This release contains the approved cumulative branch delta: prior work, cardio,
+# This target adds only the bounded Exercise Library typo fallback; unrelated runtime modules remain baseline guards.
+RELEASE_CHECK_DIR=$(mktemp -d /tmp/2j-release-@@EXPECTED_CURRENT_SHORT@@.XXXXXX)
+BASELINE_CHECK_DIR=$(mktemp -d /tmp/2j-baseline-@@EXPECTED_CURRENT_SHORT@@.XXXXXX)
+DELTA_CHECK_DIR=$(mktemp -d /tmp/2j-delta-@@EXPECTED_CURRENT_SHORT@@.XXXXXX)
+tar -xzf "$RELEASE" -C "$RELEASE_CHECK_DIR"
+tar -xzf "$ROLLBACK" -C "$BASELINE_CHECK_DIR"
+if tar -tzf "$RELEASE" | awk '$0 == "data" || $0 ~ /^data\// {found=1} END {exit !found}'; then
+  printf 'RELEASE_HAS_DATA\n'; false
+fi
+TARGET_PATHS="$DELTA_CHECK_DIR/target-paths.txt"
+BASELINE_PATHS="$DELTA_CHECK_DIR/baseline-paths.txt"
+DELTA_PATHS="$DELTA_CHECK_DIR/delta-paths.txt"
+EXPECTED_DELTA="$DELTA_CHECK_DIR/expected-delta.txt"
+(cd "$RELEASE_CHECK_DIR" && find . -mindepth 1 ! -type d -printf '%P\n' | sort) > "$TARGET_PATHS"
+(cd "$BASELINE_CHECK_DIR" && find . -mindepth 1 ! -type d -printf '%P\n' | sort) > "$BASELINE_PATHS"
+: > "$DELTA_PATHS"
+comm -23 "$TARGET_PATHS" "$BASELINE_PATHS" >> "$DELTA_PATHS"
+comm -13 "$TARGET_PATHS" "$BASELINE_PATHS" >> "$DELTA_PATHS"
+while IFS= read -r rel; do
+  if [[ -L "$RELEASE_CHECK_DIR/$rel" || -L "$BASELINE_CHECK_DIR/$rel" ]]; then
+    if [[ ! -L "$RELEASE_CHECK_DIR/$rel" || ! -L "$BASELINE_CHECK_DIR/$rel" ]] \
+      || [[ "$(readlink "$RELEASE_CHECK_DIR/$rel")" != "$(readlink "$BASELINE_CHECK_DIR/$rel")" ]]; then
+      printf '%s\n' "$rel" >> "$DELTA_PATHS"
+    fi
+  elif ! cmp -s "$RELEASE_CHECK_DIR/$rel" "$BASELINE_CHECK_DIR/$rel"; then
+    printf '%s\n' "$rel" >> "$DELTA_PATHS"
+  fi
+done < <(comm -12 "$TARGET_PATHS" "$BASELINE_PATHS")
+LC_ALL=C sort -u -o "$DELTA_PATHS" "$DELTA_PATHS"
+cat > "$EXPECTED_DELTA" <<'DELTA'
+@@EXPECTED_DELTA_PATHS@@
+DELTA
+if ! cmp -s "$EXPECTED_DELTA" "$DELTA_PATHS"; then
+  printf 'RELEASE_DELTA_MISMATCH\n'
+  diff -u "$EXPECTED_DELTA" "$DELTA_PATHS" || true
+  false
+fi
+# Required Coach modules and Intelligence UI remain baseline guards for the deployed app;
+# they are not part of this release delta.
+for rel in api/coach/ai-run.js api/coach/intelligence.js api/coach/adapters/claude.js \
+  api/coach/jobs.js api/coach/trainer-jobs.js api/coach/routes.js \
+  api/test/ai-stability.test.js api/test/intelligence-explanation.test.js \
+  frontend/src/lib/intelligence.js frontend/src/lib/intelligence.test.js \
+  frontend/src/components/IntelligenceToday.jsx frontend/src/components/intelligence-today.css \
+  frontend/src/views/Admin.jsx frontend/src/lib/admin-intelligence.js \
+  frontend/src/views/Home.jsx frontend/src/views/Workout.jsx; do
+  test -s "$RELEASE_CHECK_DIR/$rel"
+done
+grep -Fq "COPY coach/ ./coach/" "$RELEASE_CHECK_DIR/api/Dockerfile"
+grep -Fq 'invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/jobs.js"
+grep -Fq 'invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/trainer-jobs.js"
+grep -Fq 'is_error' "$RELEASE_CHECK_DIR/api/coach/adapters/claude.js"
+grep -Fq 'api_error_status' "$RELEASE_CHECK_DIR/api/coach/adapters/claude.js"
+grep -Fq "'POST /api/coach/intelligence/explain'" "$RELEASE_CHECK_DIR/api/coach/routes.js"
+grep -Fq 'export function intelligenceSignals' "$RELEASE_CHECK_DIR/frontend/src/lib/intelligence.js"
+grep -Fq 'export function intelligenceRecommendations' "$RELEASE_CHECK_DIR/frontend/src/lib/intelligence.js"
+grep -Fq 'intelligence2j:intro:v1:' "$RELEASE_CHECK_DIR/frontend/src/components/IntelligenceToday.jsx"
+grep -Fq 'intelligenceRecommendations' "$RELEASE_CHECK_DIR/frontend/src/components/IntelligenceToday.jsx"
+grep -Fq 'AdminIntelligence' "$RELEASE_CHECK_DIR/frontend/src/views/Admin.jsx"
+grep -Fq 'result.ok ?' "$RELEASE_CHECK_DIR/frontend/src/components/IntelligenceToday.jsx"
+printf 'INTELLIGENCE_RELEASE=OK engine recommendations onboarding admin_surface optional_explanation deterministic_fallback\n'
+for rel in api/lib/guided-programs-official.json api/lib/guided-store.js \
+  api/lib/guided-routes.js frontend/src/lib/guided-programs.js \
+  frontend/src/components/constructor/drag.js frontend/src/components/constructor/DayCanvas.jsx \
+  frontend/src/components/constructor/Library.jsx frontend/src/views/trainer/Constructor.jsx \
+  frontend/src/views/trainer/constructor-ux.test.jsx; do
+  test -s "$RELEASE_CHECK_DIR/$rel"
+done
+grep -Fq "'POST /api/guided/program/curate'" "$RELEASE_CHECK_DIR/api/lib/guided-routes.js"
+grep -Fq 'cx-daybar' "$RELEASE_CHECK_DIR/frontend/src/views/trainer/Constructor.jsx"
+grep -Fq 'cx-grid tri' "$RELEASE_CHECK_DIR/frontend/src/views/trainer/Constructor.jsx"
+grep -Fq 'gymProfiles' "$RELEASE_CHECK_DIR/frontend/src/views/trainer/constructor-ux.test.jsx"
+# Gym Profiles V1.1 checks use exported fields, route registration, authorization calls,
+# persisted-file contract, imports and focused test files; no localized/UI prose is authoritative.
+for rel in api/lib/gym-profile-config.js api/lib/gym-profiles.js api/server.js \
+  api/test/gym-profile-admin.test.js api/test/gym-profiles.test.js \
+  frontend/src/components/GymProfile.jsx frontend/src/lib/gym-profile-model.js \
+  frontend/src/lib/gym-profiles.js frontend/src/store/useStore.js \
+  frontend/src/views/Library.jsx frontend/src/views/Workout.jsx \
+  frontend/src/components/train2j/parts.jsx api/coach/payload.js; do
+  test -s "$RELEASE_CHECK_DIR/$rel"
+done
+# The API's generated model must be byte-identical to the frontend's canonical model.
+head -n 1 "$RELEASE_CHECK_DIR/api/lib/gym-profiles.js" | grep -q '^// GENERATED by scripts/sync-gym-profiles.mjs'
+tail -n +2 "$RELEASE_CHECK_DIR/api/lib/gym-profiles.js" | cmp -s - "$RELEASE_CHECK_DIR/frontend/src/lib/gym-profile-model.js"
+# The canonical taxonomy is precisely the approved 18 IDs; default, reader, protected writer,
+# persistent config and separate offline cache are structural contracts.
+cat > "$EXPECTED_DELTA.equipment-ids" <<'IDS'
+bodyweight
+barbell
+ez_bar
+dumbbell
+kettlebell
+cable
+weighted
+selectorized
+machine
+plate_loaded
+smith
+sled
+stability_ball
+roller
+treadmill
+bike
+elliptical
+stepmill
+skierg
+IDS
+grep -F "export const DEFAULT_2J_EQUIPMENT" "$RELEASE_CHECK_DIR/frontend/src/lib/gym-profile-model.js" | sed 's/.*= //' | grep -oE "[a-z][a-z0-9_]+" | sort > "$DELTA_CHECK_DIR/equipment-ids.actual"
+sort -o "$EXPECTED_DELTA.equipment-ids" "$EXPECTED_DELTA.equipment-ids"
+cmp -s "$EXPECTED_DELTA.equipment-ids" "$DELTA_CHECK_DIR/equipment-ids.actual"
+grep -Fq "export const DEFAULT_2J_EQUIPMENT = ['bodyweight', 'barbell', 'ez_bar', 'dumbbell', 'kettlebell', 'cable', 'weighted', 'selectorized', 'machine', 'plate_loaded', 'smith', 'sled', 'stability_ball', 'roller', 'treadmill', 'bike', 'elliptical', 'stepmill', 'skierg']" "$RELEASE_CHECK_DIR/frontend/src/lib/gym-profile-model.js"
+grep -Fq "path.join(process.env.DATA_DIR || '/data', 'gym-profile.json')" "$RELEASE_CHECK_DIR/api/lib/gym-profile-config.js"
+grep -Fq "export function load()" "$RELEASE_CHECK_DIR/api/lib/gym-profile-config.js"
+grep -Fq "export function save(availableEquipment)" "$RELEASE_CHECK_DIR/api/lib/gym-profile-config.js"
+grep -Fq "'GET /api/config'" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "'POST /api/admin/gym-profile/official'" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq 'requireAdmin' "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "gym_official_equipment_v1" "$RELEASE_CHECK_DIR/frontend/src/lib/gym-profiles.js"
+grep -Fq "setCachedOfficialGymEquipment" "$RELEASE_CHECK_DIR/frontend/src/store/useStore.js"
+grep -Fq "'/api/admin/gym-profile/official'" "$RELEASE_CHECK_DIR/frontend/src/store/useStore.js"
+grep -Fq "gymProfile: { availableEquipment: gymProfileConfig.load() }" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "gym-profile.json" "$RELEASE_CHECK_DIR/api/test/gym-profile-admin.test.js"
+grep -Fq "api/config" "$RELEASE_CHECK_DIR/api/test/gym-profile-admin.test.js"
+grep -Fq "admin/gym-profile/official" "$RELEASE_CHECK_DIR/api/test/gym-profile-admin.test.js"
+# Verify exact release source model synchronization in the controlled Node 22 Docker image.
+# Community V2 technical contracts: source paths and route/store symbols, never UI copy.
+for rel in api/friends/routes.js api/friends/store.js api/chat/routes.js api/chat/store.js \
+ api/notifications/routes.js api/notifications/store.js api/notifications/privacy.js api/social/sharing-routes.js api/social/sharing-store.js api/server.js \
+ frontend/src/lib/friends-api.js frontend/src/lib/chat-api.js frontend/src/lib/notifications-api.js frontend/src/lib/social-api.js frontend/src/lib/social-share.js frontend/src/lib/share-image.js frontend/src/lib/push.js frontend/src/lib/share-card.js frontend/src/lib/community-onboarding.js frontend/public/sw.js \
+ frontend/src/components/NotificationWatcher.jsx frontend/src/components/CommunityShareCard.jsx frontend/src/components/SocialShareSheet.jsx frontend/src/views/Notifications.jsx frontend/src/views/SocialPreferences.jsx frontend/src/views/SocialReports.jsx; do test -s "$RELEASE_CHECK_DIR/$rel"; done
+grep -Fq "'POST /api/friends/block'" "$RELEASE_CHECK_DIR/api/friends/routes.js";grep -Fq "'POST /api/friends/unblock'" "$RELEASE_CHECK_DIR/api/friends/routes.js";grep -Fq "'POST /api/friends/request'" "$RELEASE_CHECK_DIR/api/friends/routes.js";grep -Fq "'GET /api/friends'" "$RELEASE_CHECK_DIR/api/friends/routes.js"
+grep -Fq "'POST /api/chat/direct'" "$RELEASE_CHECK_DIR/api/chat/routes.js";grep -Fq "'GET /api/notifications'" "$RELEASE_CHECK_DIR/api/notifications/routes.js";grep -Fq "'POST /api/notifications/read'" "$RELEASE_CHECK_DIR/api/notifications/routes.js";grep -Fq "'POST /api/notifications/read-all'" "$RELEASE_CHECK_DIR/api/notifications/routes.js"
+grep -Fq "'GET /api/social/preferences'" "$RELEASE_CHECK_DIR/api/notifications/routes.js";grep -Fq "'POST /api/social/preferences'" "$RELEASE_CHECK_DIR/api/notifications/routes.js"
+grep -Fq "'POST /api/social/shares'" "$RELEASE_CHECK_DIR/api/social/sharing-routes.js";grep -Fq "'POST /api/social/reports'" "$RELEASE_CHECK_DIR/api/social/sharing-routes.js";grep -Fq "'GET /api/admin/social-reports'" "$RELEASE_CHECK_DIR/api/social/sharing-routes.js";grep -Fq "'POST /api/admin/social-reports/resolve'" "$RELEASE_CHECK_DIR/api/social/sharing-routes.js"
+grep -Fq "const FILE = path.join(DATA, 'notifications.json')" "$RELEASE_CHECK_DIR/api/notifications/store.js";grep -Fq "const FILE = path.join(DATA, 'friends.json')" "$RELEASE_CHECK_DIR/api/friends/store.js";grep -Fq "const FILE = path.join(DATA, 'chat.json')" "$RELEASE_CHECK_DIR/api/chat/store.js";grep -Fq "const FILE = path.join(DATA, 'social-sharing.json')" "$RELEASE_CHECK_DIR/api/social/sharing-store.js"
+grep -Fq "push: false" "$RELEASE_CHECK_DIR/api/notifications/store.js";grep -Fq "type: 'share'" "$RELEASE_CHECK_DIR/api/chat/store.js";grep -Fq "shareId" "$RELEASE_CHECK_DIR/api/chat/routes.js";grep -Fq "canViewProfile" "$RELEASE_CHECK_DIR/api/friends/routes.js";grep -Fq "isAdmin(user)" "$RELEASE_CHECK_DIR/api/social/sharing-routes.js";grep -Fq "dedupeKey" "$RELEASE_CHECK_DIR/api/notifications/store.js";grep -Fq "unreadCount" "$RELEASE_CHECK_DIR/api/notifications/store.js"
+for kind in workout record achievement streak routine program challenge; do grep -Fq "'$kind'" "$RELEASE_CHECK_DIR/frontend/src/lib/social-share.js"; done
+@@WEB_PUSH_SUBSCRIPTION_PROBE@@
+grep -Fq "vapid.json" "$RELEASE_CHECK_DIR/api/server.js";grep -Fq "const socialFile = path.join(DATA, 'social.json')" "$RELEASE_CHECK_DIR/api/server.js";grep -Fq "directAllowed" "$RELEASE_CHECK_DIR/api/social/sharing-routes.js";grep -Fq "canViewSharedContent" "$RELEASE_CHECK_DIR/api/notifications/privacy.js";grep -Fq "profile: { id: target.id, name: target.name, avatar: target.avatar || null, isFriend:" "$RELEASE_CHECK_DIR/api/friends/routes.js"
+grep -Fq "self.addEventListener('push'" "$RELEASE_CHECK_DIR/frontend/public/sw.js";grep -Fq "showNotification" "$RELEASE_CHECK_DIR/frontend/public/sw.js";grep -Fq "Notification.permission" "$RELEASE_CHECK_DIR/frontend/src/lib/push.js";grep -Fq "await enablePush()" "$RELEASE_CHECK_DIR/frontend/src/views/Notifications.jsx";grep -Fq "fetchNotifications" "$RELEASE_CHECK_DIR/frontend/src/views/Notifications.jsx";grep -Fq "fetchNotifications" "$RELEASE_CHECK_DIR/frontend/src/components/NotificationWatcher.jsx";grep -Fq "sharePng" "$RELEASE_CHECK_DIR/frontend/src/lib/share-image.js"
+printf 'COMMUNITY_RELEASE_CONTRACTS=OK friends=V2 requests+blocks+privacy direct_chat=share_ref notifications=read+unread+dedupe sharing=7_types+community+chat+external moderation=admin_only push=explicit_opt_in\n'
+docker run --rm --network none --read-only \
+  -v "$RELEASE_CHECK_DIR:/release:ro" -w /release \
+  2jfitness-api:latest node scripts/sync-gym-profiles.mjs --check
+docker run --rm --network none --read-only \
+  -v "$RELEASE_CHECK_DIR:/release:ro" -w /release \
+  2jfitness-api:latest node scripts/sync-guided-program-model.mjs --check
+docker run --rm --network none --read-only \
+  -v "$RELEASE_CHECK_DIR:/release:ro" -w /release \
+  2jfitness-api:latest node scripts/sync-workout-activity.mjs --check
+docker run --rm --network none --read-only \
+  -v "$RELEASE_CHECK_DIR:/release:ro" -w /release \
+  2jfitness-api:latest node scripts/sync-library-overlay.mjs --check
+for rel in api/bunker/routes.js api/lib/guided-program-model.js api/test/bunker-live.test.js frontend/src/lib/bunker-persistence.js; do
+  test -s "$RELEASE_CHECK_DIR/$rel"
+done
+grep -Fq 'completeGuidedProgramSession' "$RELEASE_CHECK_DIR/api/bunker/routes.js"
+grep -Fq 'WORKOUT_COMPLETED' "$RELEASE_CHECK_DIR/api/bunker/routes.js"
+grep -Fq 'drainPendingActive' "$RELEASE_CHECK_DIR/frontend/src/lib/bunker-persistence.js"
+printf 'BUNKER_LIVE_RELEASE=OK generated_program_model guards pending_queue\n'
+for rel in api/lib/library-admin.js api/lib/library-admin-routes.js api/lib/library-overlay.js frontend/src/lib/library/overlay.js \
+  frontend/src/lib/library/overlay-sync.js frontend/src/lib/studio.js frontend/src/lib/library-quality.js \
+  frontend/src/views/trainer/studio/StudioAdmin.jsx frontend/src/views/trainer/studio/ProgramEditor.jsx frontend/src/views/trainer/studio/LibraryQuality.jsx \
+  api/test/studio-admin.test.js api/test/library-admin.test.js api/test/predeploy-compat.test.js; do
+  test -s "$RELEASE_CHECK_DIR/$rel"
+done
+for route in "'POST /api/guided/status'" "'POST /api/guided/reorder'" "'POST /api/guided/program/save'" "'POST /api/guided/program/curate'" \
+  "'POST /api/guided/program/duplicate'" "'POST /api/guided/program/delete'" "'POST /api/guided/collection/delete'"; do
+  grep -Fq "$route" "$RELEASE_CHECK_DIR/api/lib/guided-routes.js"
+done
+grep -Fq "'GET /api/admin/library'" "$RELEASE_CHECK_DIR/api/lib/library-admin-routes.js"
+grep -Fq "'POST /api/admin/library/save'" "$RELEASE_CHECK_DIR/api/lib/library-admin-routes.js"
+[[ "$(grep -c 'requireAdmin(req, res)' "$RELEASE_CHECK_DIR/api/lib/library-admin-routes.js")" == 2 ]]
+grep -Fq 'libraryOverlay: libraryAdmin.publicOverlay(), guidedRev: guidedStore.contentRev()' "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "'library-admin.json'" "$RELEASE_CHECK_DIR/api/lib/library-admin.js"
+grep -Fq "lib_overlay_v1" "$RELEASE_CHECK_DIR/frontend/src/lib/library/overlay-sync.js"
+grep -Fq 'notifyRev' "$RELEASE_CHECK_DIR/frontend/src/lib/guided-api.js"
+printf 'STUDIO_RELEASE=OK admin_routes=requireAdmin library_overlay=config+offline_cache guidedRev=config lazy_studio_chunks=3\n'
+printf 'GYM_PROFILES_V11_RELEASE=OK equipment=19 api_frontend_model=identical config_persistence=global default_fallback=present read=/api/config write=admin_only offline_cache=separate library+swap+constructor+workout+train2j+ai+bunker_context=present\n'
+@@SOURCE_PROBES@@
+printf 'RELEASE_SCOPE=OK changed=@@DELTA_COUNT@@ exact_delta_from_@@EXPECTED_CURRENT_SHORT@@ outside_delta_identical=yes\n'
+# Seguimiento V4 (routine review loop): the shared engine is one byte-identical file on both sides, the staff write is admin-only and only touches S.routineReviews,
+# the review never edits a routine, and Sync V2 / auth / the follow-up endpoints keep their guards.
+cmp -s "$RELEASE_CHECK_DIR/api/lib/routine-review.js" "$RELEASE_CHECK_DIR/frontend/src/lib/routine-review.js" || { printf 'ROUTINE_REVIEW_COPY_DIFFERS\n'; false; }
+grep -Fq 'export const REVIEW_WEEK = 5' "$RELEASE_CHECK_DIR/api/lib/routine-review.js"
+grep -Fq 'export const EARLY_WEEK = 4' "$RELEASE_CHECK_DIR/api/lib/routine-review.js"
+grep -Fq 'export const MIN_SESSIONS = 3' "$RELEASE_CHECK_DIR/api/lib/routine-review.js"
+grep -Fq "import { pendingReviews } from './routine-review.js';" "$RELEASE_CHECK_DIR/api/lib/followup.js"
+grep -Fq "code: 'routine_review'" "$RELEASE_CHECK_DIR/api/lib/followup.js"
+grep -Fq "import { markReviewed, setCycleDates, routineReviews } from './lib/routine-review.js';" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "'POST /api/admin/user/routine-reviewed': async (req, res) => {" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "directReceipt(S, body, 'admin-routine-reviewed')" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "if (!requireAdmin(req, res)) return;" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "'GET /api/admin/user/followup': async (req, res) => {" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "if (!user?.admin) return null" "$RELEASE_CHECK_DIR/frontend/src/views/AdminAttention.jsx"
+grep -Fq "stateAction('/api/admin/user/routine-reviewed'" "$RELEASE_CHECK_DIR/frontend/src/views/AdminAttention.jsx"
+cmp -s "$RELEASE_CHECK_DIR/api/lib/sync.js" "$BASELINE_CHECK_DIR/api/lib/sync.js" || { printf 'SYNC_JS_CHANGED\n'; false; }
+cmp -s "$RELEASE_CHECK_DIR/frontend/src/lib/sync-client.js" "$BASELINE_CHECK_DIR/frontend/src/lib/sync-client.js" || { printf 'SYNC_CLIENT_CHANGED\n'; false; }
+cmp -s "$RELEASE_CHECK_DIR/api/lib/webauthn-origins.js" "$BASELINE_CHECK_DIR/api/lib/webauthn-origins.js" || { printf 'WEBAUTHN_ORIGINS_CHANGED\n'; false; }
+test -s "$RELEASE_CHECK_DIR/api/test/routine-review.test.js"
+grep -Fq "'POST /api/admin/user/routine-cycle': async (req, res) => {" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "directReceipt(S, body, 'admin-routine-cycle')" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "export function setCycleDates(" "$RELEASE_CHECK_DIR/api/lib/routine-review.js"
+grep -Fq "startOverride" "$RELEASE_CHECK_DIR/api/lib/routine-review.js"
+grep -Fq "dueOverride" "$RELEASE_CHECK_DIR/api/lib/routine-review.js"
+! grep -Eq "markReviewed|setCycleDates|routineReviews" "$RELEASE_CHECK_DIR/frontend/src/views/Seguimiento.jsx" "$RELEASE_CHECK_DIR/frontend/src/views/Home.jsx" "$RELEASE_CHECK_DIR/frontend/src/components/RoutineReviewCard.jsx"
+grep -Fq "'routine-cycle'" "$RELEASE_CHECK_DIR/frontend/src/views/AdminFollowUp.jsx"
+grep -Fq 'type="date"' "$RELEASE_CHECK_DIR/frontend/src/views/AdminFollowUp.jsx"
+grep -A1 -F "'POST /api/admin/user/routine-reviewed'" "$RELEASE_CHECK_DIR/api/server.js" | grep -Fq 'requireTrainer(req, res)'
+grep -A1 -F "'POST /api/admin/user/routine-cycle'" "$RELEASE_CHECK_DIR/api/server.js" | grep -Fq 'requireTrainer(req, res)'
+grep -A1 -F "'GET /api/trainer/routine-cycles'" "$RELEASE_CHECK_DIR/api/server.js" | grep -Fq 'requireTrainer(req, res)'
+grep -A1 -F "'POST /api/admin/user/role'" "$RELEASE_CHECK_DIR/api/server.js" | grep -Fq 'requireAdmin(req, res)'
+grep -Fq "code: 'last_admin'" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "code: 'admin_by_config'" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "if (role === 'admin') { u.admin = true; delete u.trainer; }" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq "'/api/admin/user/role'" "$RELEASE_CHECK_DIR/frontend/src/views/Admin.jsx"
+grep -Fq "t('Change role?')" "$RELEASE_CHECK_DIR/frontend/src/views/Admin.jsx"
+grep -Fq "RoutineCycles" "$RELEASE_CHECK_DIR/frontend/src/views/trainer/TrainerClientPlan.jsx"
+test -s "$RELEASE_CHECK_DIR/api/test/roles.test.js"
+cmp -s "$RELEASE_CHECK_DIR/api/lib/fatigue.js" "$RELEASE_CHECK_DIR/frontend/src/lib/fatigue.js" || { printf 'FATIGUE_COPY_DIFFERS\n'; false; }
+cmp -s "$RELEASE_CHECK_DIR/api/lib/routine-review.js" "$RELEASE_CHECK_DIR/frontend/src/lib/routine-review.js" || { printf 'ROUTINE_REVIEW_COPY_DIFFERS\n'; false; }
+grep -Fq 'export function deloadProposal(' "$RELEASE_CHECK_DIR/api/lib/fatigue.js"
+grep -Fq 'export function applyDeload(' "$RELEASE_CHECK_DIR/api/lib/fatigue.js"
+grep -Fq 'export const DELOAD_VOLUME_CUT = 0.35' "$RELEASE_CHECK_DIR/api/lib/fatigue.js"
+grep -Fq 'export const DELOAD_DAYS = 7' "$RELEASE_CHECK_DIR/api/lib/fatigue.js"
+grep -Fq "import { fatigueState, deloadProposal, activeDeload } from './fatigue.js';" "$RELEASE_CHECK_DIR/api/lib/followup.js"
+grep -Fq "code: 'fatigue_high'" "$RELEASE_CHECK_DIR/api/lib/followup.js"
+grep -Fq 'function regulate(S, cfg, routine, p)' "$RELEASE_CHECK_DIR/frontend/src/lib/progression.js"
+grep -Fq 'export function withDeload(' "$RELEASE_CHECK_DIR/frontend/src/lib/progression.js"
+grep -Fq "!entry.target?.deload" "$RELEASE_CHECK_DIR/frontend/src/lib/progression.js"
+grep -Fq "S.autoreg === false" "$RELEASE_CHECK_DIR/frontend/src/lib/progression.js"
+! grep -Eq "applyDeload|cancelDeload|S.deload" "$RELEASE_CHECK_DIR/frontend/src/views/AdminAttention.jsx" "$RELEASE_CHECK_DIR/frontend/src/views/AdminFollowUp.jsx"
+grep -Fq "applyDeload" "$RELEASE_CHECK_DIR/frontend/src/components/ReadinessSection.jsx"
+grep -Fq "uxOn(S, 'recovery')" "$RELEASE_CHECK_DIR/frontend/src/components/ReadinessSection.jsx"
+# api/server.js has exact role/routine-review deltas in the pinned file list; route guards + API tests below validate them.
+cmp -s "$RELEASE_CHECK_DIR/api/lib/sync.js" "$BASELINE_CHECK_DIR/api/lib/sync.js" || { printf 'SYNC_JS_CHANGED\n'; false; }
+cmp -s "$RELEASE_CHECK_DIR/api/lib/webauthn-origins.js" "$BASELINE_CHECK_DIR/api/lib/webauthn-origins.js" || { printf 'WEBAUTHN_ORIGINS_CHANGED\n'; false; }
+cmp -s "$RELEASE_CHECK_DIR/frontend/src/lib/sync-client.js" "$BASELINE_CHECK_DIR/frontend/src/lib/sync-client.js" || { printf 'SYNC_CLIENT_CHANGED\n'; false; }
+test -s "$RELEASE_CHECK_DIR/api/test/fatigue.test.js"
+printf 'READINESS_FATIGUE=OK engine_copy_identical autoreg_layer_over_progression deload_proposal_only member_applies staff_cannot_apply server_sync_auth_unchanged\n'
+printf 'ROUTINE_REVIEW=OK engine_copy_identical week5+week4_plateau manual_dates trainer_cycle_access role_management_admin_only last_admin_guard member_cannot_close sync_auth_unchanged\n'
+# Sync V2 runtime is an exact baseline copy. Approved history selectors changed only within the exact delta above.
+cmp -s "$RELEASE_CHECK_DIR/frontend/src/lib/sync-client.js" "$BASELINE_CHECK_DIR/frontend/src/lib/sync-client.js" || { printf 'SYNC_OR_HISTORY_CHANGED=%s\n' frontend/src/lib/sync-client.js; false; }
+# Sprint 3 (owner-approved, this release only): api/lib/sync.js may differ from the baseline ONLY if it is byte-identical to the approved
+# receipt-pruning version, pinned by SHA-256. Any other content aborts.
+# Owner-approved: exactly two digests for the same content - LF (the git blob) and CRLF (what `git archive` ships on the release machine,
+# core.autocrlf=true, like every other file in the release). Any third digest aborts.
+APPROVED_SYNC_JS_SHA256_LF=@@SYNC_JS_SHA256_LF@@
+APPROVED_SYNC_JS_SHA256_CRLF=@@SYNC_JS_SHA256_CRLF@@
+ACTUAL_SYNC_JS_SHA256=$(sha256sum "$RELEASE_CHECK_DIR/api/lib/sync.js" | cut -d' ' -f1)
+[[ "$ACTUAL_SYNC_JS_SHA256" == "$APPROVED_SYNC_JS_SHA256_LF" || "$ACTUAL_SYNC_JS_SHA256" == "$APPROVED_SYNC_JS_SHA256_CRLF" ]] || { printf 'SYNC_JS_HASH_MISMATCH=%s\n' "$ACTUAL_SYNC_JS_SHA256"; false; }
+printf 'SYNC_JS_SHA256=%s\n' "$ACTUAL_SYNC_JS_SHA256"
+printf 'SYNC_GUARD=OK sync-client=baseline sync.js=approved-sha256\n'
+PROTOCOL_FILES=0
+for src in "$RELEASE_CHECK_DIR"/frontend/src/lib/protocol/*.js; do
+  name=$(basename "$src")
+  [[ "$name" == *.test.js ]] && continue
+  dst="$RELEASE_CHECK_DIR/api/lib/protocol/$name"
+  test -s "$dst"
+  tail -n +2 "$dst" | cmp -s - "$src"
+  PROTOCOL_FILES=$((PROTOCOL_FILES + 1))
+done
+[[ "$PROTOCOL_FILES" == 9 ]]
+printf 'RELEASE_PROTOCOL=OK v1.0 runtime_copy=%s files in sync\n' "$PROTOCOL_FILES"
+rm -rf -- "$BASELINE_CHECK_DIR"
+rm -rf -- "$DELTA_CHECK_DIR"
+STEP=verify-current-production
+test -d "$APP/data"
+test -s "$APP/.env"
+WEB_PORT=$(awk -F= '$1 == "WEB_PORT" {gsub(/[[:space:]#].*$/, "", $2); print $2; exit}' "$APP/.env")
+WEB_PORT=${WEB_PORT:-8080}
+[[ "$WEB_PORT" =~ ^[0-9]{2,5}$ ]] && (( WEB_PORT >= 1 && WEB_PORT <= 65535 ))
+test -s "$APP/data/db.json"
+test -s "$APP/data/secret"
+test -s "$APP/.deployed-commit"
+[[ "$(cat "$APP/.deployed-commit")" == "$ROLLBACK_COMMIT" ]]
+CURRENT_CHECK_DIR=$(mktemp -d /tmp/2j-current-@@EXPECTED_CURRENT_SHORT@@.XXXXXX)
+tar -xzf "$ROLLBACK" -C "$CURRENT_CHECK_DIR"
+tar -tzf "$ROLLBACK" | sort > "$CURRENT_CHECK_DIR/rollback-files.txt"
+tar -tzf "$RELEASE" | sort > "$CURRENT_CHECK_DIR/target-files.txt"
+while IFS= read -r rel; do
+  [[ -z "$rel" || -d "$CURRENT_CHECK_DIR/$rel" ]] && continue
+  if [[ -L "$CURRENT_CHECK_DIR/$rel" ]]; then
+    [[ -L "$APP/$rel" && "$(readlink "$APP/$rel")" == "$(readlink "$CURRENT_CHECK_DIR/$rel")" ]] || {
+      printf 'CURRENT_MISMATCH=%s\n' "$rel"
+      false
+    }
+  else
+    test -f "$APP/$rel"
+    cmp -s "$CURRENT_CHECK_DIR/$rel" "$APP/$rel" || {
+      printf 'CURRENT_MISMATCH=%s\n' "$rel"
+      false
+    }
+  fi
+done < "$CURRENT_CHECK_DIR/rollback-files.txt"
+comm -23 "$CURRENT_CHECK_DIR/target-files.txt" "$CURRENT_CHECK_DIR/rollback-files.txt" > "$CURRENT_CHECK_DIR/target-only.txt"
+# A target-only FILE already in production is contamination: abort, production untouched.
+while IFS= read -r rel; do
+  [[ -z "$rel" || "$rel" == */ || "$rel" == data || "$rel" == data/* ]] && continue
+  if [[ -e "$APP/$rel" || -L "$APP/$rel" ]]; then
+    printf 'UNEXPECTED_TARGET_FILE_ALREADY_PRESENT=%s\n' "$rel"
+    false
+  fi
+done < "$CURRENT_CHECK_DIR/target-only.txt"
+# A target-only DIRECTORY can be residue from an older rollback. Inspect and report it here, but
+# do not mutate production before the verified data backup. The install phase removes empty stale
+# directories after the backup; a non-empty directory remains a hard precheck failure.
+STALE_EMPTY_DIRS=''
+while IFS= read -r rel; do
+  [[ -z "$rel" || "$rel" == data/ || "$rel" == data/* ]] && continue
+  [[ -d "$APP/$rel" ]] || continue
+  if [[ -n "$(find "$APP/$rel" -mindepth 1 -print -quit)" ]]; then
+    printf 'UNEXPECTED_TARGET_DIR_NOT_EMPTY=%s\n' "$rel"
+    find "$APP/$rel" -mindepth 1 | head -20 | sed 's/^/  /'
+    false
+  fi
+  printf 'STALE_EMPTY_DIR_PRESENT=%s\n' "$rel"
+  STALE_EMPTY_DIRS="$STALE_EMPTY_DIRS$rel,"
+done < <(grep '/$' "$CURRENT_CHECK_DIR/target-only.txt" | sort -r || true)
+# Check all real frontend/API/script/web source files, pruning generated/build/dependency output.
+# Compare repository-relative paths against the exact release archive; no unexpected source passes silently.
+EXTRA_CODE=$(cd "$APP" && { find frontend api scripts web \
+  \( -type d \( -name node_modules -o -name dist -o -name coverage -o -name .cache -o -name .vite -o -name build -o -name .next \) -prune \) -o \
+  \( -type f -o -type l \) -print 2>/dev/null || true; } | sort | comm -23 - <(grep -v '/$' "$CURRENT_CHECK_DIR/rollback-files.txt"))
+if [[ -n "$EXTRA_CODE" ]]; then printf 'CURRENT_EXTRA_CODE_FILE=%s\n' $EXTRA_CODE; false; fi
+rm -rf -- "$CURRENT_CHECK_DIR"
+printf 'PREDEPLOY_PRODUCTION=%s source-tree=exact-release-match extra_code_files=0 stale_empty_dirs_present=[%s]\n' "$ROLLBACK_COMMIT" "$STALE_EMPTY_DIRS"
+DATA_KB=$(du -sk "$APP/data" | awk '{print $1}')
+FREE_KB=$(df -Pk "$APP" | awk 'END {print $4}')
+(( FREE_KB > DATA_KB * 2 + 100000 )) || { printf 'INSUFFICIENT_SPACE free_kb=%s data_kb=%s\n' "$FREE_KB" "$DATA_KB"; false; }
+
+STEP=backup-data
+# Compose uses relative file names, so every `docker compose` below (the features.json check needs it) must run inside $APP.
+cd "$APP"
+BACKUP=/root/backups/2jfitness-predeploy-@@TARGET_SHORT@@-$STAMP.tar.gz
+# The whole data/ directory, with numeric owners and modes (db.json, secret, state-*.json,
+# blocks.json, guided.json and anything else that lives there), not a list of known files.
+tar --numeric-owner -czpf "$BACKUP" -C "$APP" data
+test -s "$BACKUP"
+gzip -t "$BACKUP"
+tar -tzf "$BACKUP" data/db.json data/secret >/dev/null
+STATE_COUNT=$(tar -tzf "$BACKUP" | awk '/^data\/state-.*\.json$/ {count++} END {print count+0}')
+(( STATE_COUNT > 0 ))
+SECRET_HASH_BEFORE=$(sha256sum "$APP/data/secret" | awk '{print $1}')
+ENV_HASH_BEFORE=$(sha256sum "$APP/.env" | awk '{print $1}')
+DATA_DIR_ID_BEFORE=$(stat -c '%d:%i' "$APP/data")
+VAPID_BEFORE=absent
+if [[ -f "$APP/data/vapid.json" ]]; then
+  VAPID_HASH_BEFORE=$(sha256sum "$APP/data/vapid.json" | awk '{print $1}')
+  VAPID_BEFORE=present
+fi
+DATA_OWNER_BEFORE=$(stat -c '%U:%G' "$APP/data")
+DATA_MODE_BEFORE=$(stat -c '%a' "$APP/data")
+SECRET_META_BEFORE=$(stat -c '%U:%G:%a' "$APP/data/secret")
+DB_META_BEFORE=$(stat -c '%U:%G:%a' "$APP/data/db.json")
+LIVE_STATE_BEFORE=$(find "$APP/data" -maxdepth 1 -name 'state-*.json' | wc -l)
+[[ "$LIVE_STATE_BEFORE" == "$STATE_COUNT" ]]
+declare -A MUTABLE_META_BEFORE=()
+REQUIRED_MUTABLE_FILES=''
+for name in db.json notifications.json friends.json chat.json social.json social-sharing.json blocks.json guided.json library-admin.json news.json features.json gym-profile.json; do
+  if [[ -f "$APP/data/$name" ]]; then
+    MUTABLE_META_BEFORE["$name"]=$(stat -c '%U:%G:%a' "$APP/data/$name")
+    REQUIRED_MUTABLE_FILES="${REQUIRED_MUTABLE_FILES}${name},"
+  fi
+done
+# Global block store (Constructor V2). It exists only if a trainer already saved a block:
+# it is written by an explicit block save, never at boot. If it exists it must be in the backup and survive the deploy untouched.
+BLOCKS_FILE="$APP/data/blocks.json"
+BLOCKS_BEFORE=absent
+if [[ -e "$BLOCKS_FILE" ]]; then
+  test -s "$BLOCKS_FILE"
+  tar -tzf "$BACKUP" data/blocks.json >/dev/null
+  BLOCKS_BEFORE=present
+fi
+# Guided routine store (Guided Routines V1: admin overlays, admin-made official routines, trainers'
+# own routines, collection edits). It is written only by an explicit guided save/curate/collection
+# call, never at boot. b890a26 writes it only when an admin curated or a trainer saved/duplicated a
+# guided routine; if it exists it is kept exactly (backup + hash + owner/mode), never replaced.
+GUIDED_FILE="$APP/data/guided.json"
+GUIDED_BEFORE=absent
+if [[ -e "$GUIDED_FILE" ]]; then
+  test -s "$GUIDED_FILE"
+  tar -tzf "$BACKUP" data/guided.json >/dev/null
+  GUIDED_BEFORE=present
+fi
+# Library admin overlay (Sprint 4.5). It does not exist in production before this release and is created
+# only by the first admin edit, never at boot or on read; if it exists it is kept exactly (backup + shape).
+LIBADMIN_FILE="$APP/data/library-admin.json"
+LIBADMIN_BEFORE=absent
+if [[ -e "$LIBADMIN_FILE" ]]; then
+  test -s "$LIBADMIN_FILE"
+  tar -tzf "$BACKUP" data/library-admin.json >/dev/null
+  LIBADMIN_BEFORE=present
+fi
+# Home news / notices (news.json): admin-authored, written only by an explicit save, never at boot. If it exists
+# it is in the backup and must come out of the deploy byte-identical; if it does not, it is created by the first save.
+NEWS_FILE="$APP/data/news.json"
+NEWS_BEFORE=absent
+NEWS_SHA_BEFORE=none
+if [[ -e "$NEWS_FILE" ]]; then
+  test -s "$NEWS_FILE"
+  tar -tzf "$BACKUP" data/news.json >/dev/null
+  NEWS_BEFORE=present
+  NEWS_SHA_BEFORE=$(sha256sum "$NEWS_FILE" | awk '{print $1}')
+fi
+# App features (features.json): the admin's module switches. It is data, not release content: never in the archive, never written at boot,
+# written only by an explicit admin save. If it exists it is in the backup and must come out byte-identical; if it does not exist
+# everything stays ON (the safe default) and the first admin change creates it.
+FEATURES_FILE="$APP/data/features.json"
+FEATURES_BEFORE=absent
+FEATURES_SHA_BEFORE=none
+if [[ -e "$FEATURES_FILE" ]]; then
+  test -s "$FEATURES_FILE"
+  "${COMPOSE[@]}" exec -T api node -e 'const j=JSON.parse(require("fs").readFileSync("/data/features.json","utf8")); if(!j||typeof j!=="object"||(j.off!==undefined&&!Array.isArray(j.off))) process.exit(1)'
+  tar -tzf "$BACKUP" data/features.json >/dev/null
+  FEATURES_BEFORE=present
+  FEATURES_SHA_BEFORE=$(sha256sum "$FEATURES_FILE" | awk '{print $1}')
+fi
+# Gym-wide official equipment is persistent data (not release content); snapshot its exact state.
+GYM_PROFILE_FILE="$APP/data/gym-profile.json"
+GYM_PROFILE_BEFORE=absent
+if [[ -e "$GYM_PROFILE_FILE" ]]; then
+  test -s "$GYM_PROFILE_FILE"
+  tar -tzf "$BACKUP" data/gym-profile.json >/dev/null
+  GYM_PROFILE_BEFORE=present
+fi
+BACKUP_SHA256=$(sha256sum "$BACKUP" | awk '{print $1}')
+BACKUP_FILES=$(tar -tzf "$BACKUP" | grep -vc '/$' || true)
+DATA_TOP_BEFORE=$(find "$APP/data" -mindepth 1 -maxdepth 1 -printf '%f\n' | grep -vE '^state-.*\.json$|\.tmp$' | sort | tr '\n' ' ')
+printf 'BACKUP_OK=%s\n' "$BACKUP"
+printf 'BACKUP_SHA256=%s files=%s\n' "$BACKUP_SHA256" "$BACKUP_FILES"
+printf 'BACKUP_SECRET_SHA256=%s\n' "$SECRET_HASH_BEFORE"
+printf 'BACKUP_IMMUTABLES=secret,.env,vapid:%s data_dir_id=%s\n' "$VAPID_BEFORE" "$DATA_DIR_ID_BEFORE"
+printf 'BACKUP_BLOCKS_JSON=%s\n' "$BLOCKS_BEFORE"
+printf 'BACKUP_GUIDED_JSON=%s\n' "$GUIDED_BEFORE"
+printf 'BACKUP_LIBRARY_ADMIN_JSON=%s\n' "$LIBADMIN_BEFORE"
+printf 'BACKUP_NEWS_JSON=%s sha256=%s\n' "$NEWS_BEFORE" "$NEWS_SHA_BEFORE"
+printf 'BACKUP_FEATURES_JSON=%s sha256=%s\n' "$FEATURES_BEFORE" "$FEATURES_SHA_BEFORE"
+printf 'DATA_FILES_BEFORE=%s\n' "$DATA_TOP_BEFORE"
+printf 'BACKUP_STATE_FILES=%s\n' "$STATE_COUNT"
+printf 'DATA_META=owner:%s mode:%s secret:%s db:%s live_states:%s\n' "$DATA_OWNER_BEFORE" "$DATA_MODE_BEFORE" "$SECRET_META_BEFORE" "$DB_META_BEFORE" "$LIVE_STATE_BEFORE"
+
+STEP=install-release
+DEPLOY_STARTED=1
+remove_obsolete_release_files "$ROLLBACK" "$RELEASE"
+tar -xzf "$RELEASE" -C "$APP"
+chown_archive_files "$RELEASE"
+printf '%s\n' "$TARGET_COMMIT" > "$APP/.deployed-commit"
+cd "$APP"
+grep -Fq "$SYNC_BASE" SYNC_V2_ROLLBACK_BASE
+
+verify_archive_tree "$RELEASE"
+printf 'INSTALL_TREE=exact\n'
+
+STEP=docker-build-up
+"${COMPOSE[@]}" up -d --build
+
+STEP=health-internal
+INTERNAL_STATUS=$(wait_status 200 "http://127.0.0.1:$WEB_PORT/api/health" /tmp/2j-internal-body /tmp/2j-internal-headers "$READINESS_TIMEOUT_SEC")
+awk 'index($0,"\"ok\":true") {found=1} END {exit !found}' /tmp/2j-internal-body
+
+STEP=health-external
+EXTERNAL_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/api/health /tmp/2j-external-body /tmp/2j-external-headers "$READINESS_TIMEOUT_SEC")
+awk 'index($0,"\"ok\":true") {found=1} END {exit !found}' /tmp/2j-external-body
+
+STEP=bunker-live-smoke
+for action in active finish handoff; do
+  BUNKER_ROUTE_STATUS=$(wait_status 401 "https://app.2jfitnesscenter.com/api/bunker/$action" "/tmp/2j-bunker-$action-body" "/tmp/2j-bunker-$action-headers" "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+  printf 'BUNKER_ROUTE=OK action=%s status=%s no_credentials_no_mutation\n' "$action" "$BUNKER_ROUTE_STATUS"
+done
+STEP=auth-smoke
+AUTH_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/api/login/options /tmp/2j-auth-body /tmp/2j-auth-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+printf 'AUTH=OK passkey_options=%s no_registration_no_login\n' "$AUTH_STATUS"
+STEP=ai-intelligence-smoke
+# Import and exercise only pure classifiers in the deployed Node 22 image. No provider call.
+"${COMPOSE[@]}" exec -T api node --input-type=module - <<'JS'
+import { classify, invokeWithRetry } from '/app/coach/ai-run.js';
+import { readStream } from '/app/coach/adapters/claude.js';
+import { compactSignal, explainSignal } from '/app/coach/intelligence.js';
+import { claimExplanation } from '/app/coach/jobs.js';
+import '/app/coach/trainer-jobs.js';
+if ([invokeWithRetry, explainSignal, claimExplanation].some(x => typeof x !== 'function')) process.exit(1);
+const failed = await readStream((async function* () { yield { type: 'result', subtype: 'success', is_error: true, api_error_status: 529, result: 'overloaded' }; })());
+const retry = classify(failed);
+if (failed.status !== 529 || retry.ok || !retry.transient || retry.errorClass !== 'provider') process.exit(2);
+const denied = classify({ code: 1, text: '', stderr: 'HTTP 401 unauthorized', status: 401 });
+if (denied.ok || denied.transient || denied.errorClass !== 'auth') process.exit(3);
+const signal = compactSignal({ type: 'PLATEAU', facts: { sessions: 3, health: 'private', community: 'private' } });
+if (JSON.stringify(signal) !== '{"type":"PLATEAU","facts":{"sessions":3}}') process.exit(4);
+console.log('AI_INTELLIGENCE_RUNTIME=OK retry_529 auth_401 coach_jobs trainer_jobs explanation_minimal');
+JS
+COACH_EXPLAIN_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/coach/intelligence/explain /tmp/2j-coach-explain-body /tmp/2j-coach-explain-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+COACH_PLAN_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/coach/plan /tmp/2j-coach-plan-body /tmp/2j-coach-plan-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+ADMIN_HISTORY_STATUS=$(wait_status 401 'https://app.2jfitnesscenter.com/api/admin/user?id=smoke' /tmp/2j-admin-history-body /tmp/2j-admin-history-headers "$SMOKE_TIMEOUT_SEC")
+printf 'AI_INTELLIGENCE_AUTH=OK explain=%s plan=%s admin_history=%s no_provider_call\n' "$COACH_EXPLAIN_STATUS" "$COACH_PLAN_STATUS" "$ADMIN_HISTORY_STATUS"
+
+STEP=data-sync-smoke
+DATA_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/data /tmp/2j-data-body /tmp/2j-data-headers "$SMOKE_TIMEOUT_SEC")
+SYNC_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/sync /tmp/2j-sync-body /tmp/2j-sync-headers "$SMOKE_TIMEOUT_SEC")
+test -s "$APP/data/db.json"
+test -s "$APP/data/secret"
+[[ "$(sha256sum "$APP/data/secret" | awk '{print $1}')" == "$SECRET_HASH_BEFORE" ]]
+[[ "$(stat -c '%U:%G' "$APP/data")" == "$DATA_OWNER_BEFORE" ]]
+[[ "$(stat -c '%a' "$APP/data")" == "$DATA_MODE_BEFORE" ]]
+[[ "$(stat -c '%U:%G:%a' "$APP/data/secret")" == "$SECRET_META_BEFORE" ]]
+[[ "$(stat -c '%U:%G:%a' "$APP/data/db.json")" == "$DB_META_BEFORE" ]]
+LIVE_STATE_AFTER=$(find "$APP/data" -maxdepth 1 -name 'state-*.json' | wc -l)
+(( LIVE_STATE_AFTER >= LIVE_STATE_BEFORE ))
+[[ "$(stat -c '%d:%i' "$APP/data")" == "$DATA_DIR_ID_BEFORE" ]]
+[[ "$(sha256sum "$APP/.env" | awk '{print $1}')" == "$ENV_HASH_BEFORE" ]]
+if [[ "$VAPID_BEFORE" == present ]]; then
+  [[ "$(sha256sum "$APP/data/vapid.json" | awk '{print $1}')" == "$VAPID_HASH_BEFORE" ]]
+fi
+BLOCKS_AFTER=$([[ -f "$BLOCKS_FILE" ]] && printf 'present-live-validating' || printf 'absent')
+GUIDED_AFTER=$([[ -f "$GUIDED_FILE" ]] && printf 'present-live-validating' || printf 'absent')
+GYM_PROFILE_AFTER=$([[ -f "$GYM_PROFILE_FILE" ]] && printf 'present-live-validating' || printf 'absent-fallback')
+
+STEP=inactivity-endpoints-smoke
+for action in activity finish-inactive; do
+  status=$(wait_status 401 "https://app.2jfitnesscenter.com/api/active/$action" \
+    "/tmp/2j-inactive-$action-body" "/tmp/2j-inactive-$action-headers" "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+  [[ "$status" == 401 ]]
+done
+printf 'INACTIVITY_ENDPOINTS=OK unauthenticated_activity+finish=401\n'
+STEP=gym-profile-v11-smoke
+GYM_CONFIG_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/api/config /tmp/2j-community-config-body /tmp/2j-community-config-headers "$SMOKE_TIMEOUT_SEC")
+awk 'index($0,"\"gymProfile\"") && index($0,"\"availableEquipment\"") {found=1} END {exit !found}' /tmp/2j-community-config-body
+GYM_ADMIN_WRITE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/gym-profile/official \
+  /tmp/2j-community-admin-body /tmp/2j-community-admin-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+[[ "$GYM_ADMIN_WRITE_STATUS" == 401 || "$GYM_ADMIN_WRITE_STATUS" == 403 ]]
+if grep -Eq '"(availableEquipment|gymProfile|ok)"' /tmp/2j-community-admin-body; then printf 'GYM_ADMIN_UNAUTH_RESPONSE_EXPOSED\n'; false; fi
+
+printf 'GYM_PROFILES_V11_RUNTIME=OK config=%s get=%s unauthenticated_write=%s\n' "$GYM_PROFILE_BEFORE" "$GYM_CONFIG_STATUS" "$GYM_ADMIN_WRITE_STATUS"
+STEP=health-fitness-api-smoke
+# Health V2 / Seguimiento V2 / WHOOP workouts (regression): a 401 without a session proves they
+# stay protected. Nothing is created.
+WHOOP_WORKOUTS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/whoop/workouts /tmp/2j-whoop-workouts-body /tmp/2j-whoop-workouts-headers "$SMOKE_TIMEOUT_SEC")
+WHOOP_RECOVERY_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/whoop/recovery /tmp/2j-whoop-recovery-body /tmp/2j-whoop-recovery-headers "$SMOKE_TIMEOUT_SEC")
+FOLLOWUP_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/followup /tmp/2j-followup-body /tmp/2j-followup-headers "$SMOKE_TIMEOUT_SEC")
+ADMIN_FOLLOWUP_STATUS=$(wait_status 401 'https://app.2jfitnesscenter.com/api/admin/user/followup?id=smoke' /tmp/2j-admin-followup-body /tmp/2j-admin-followup-headers "$SMOKE_TIMEOUT_SEC")
+ADMIN_FOLLOWUP_POST_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/user/followup \
+  /tmp/2j-admin-followup-post-body /tmp/2j-admin-followup-post-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+ADMIN_REVIEW_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/user/review \
+  /tmp/2j-admin-review-body /tmp/2j-admin-review-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+BUNKER_SESSION_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/bunker/session /tmp/2j-bunker-session-body /tmp/2j-bunker-session-headers "$SMOKE_TIMEOUT_SEC")
+for f in /tmp/2j-whoop-workouts-body /tmp/2j-whoop-recovery-body /tmp/2j-followup-body /tmp/2j-admin-followup-body \
+  /tmp/2j-admin-followup-post-body /tmp/2j-admin-review-body /tmp/2j-bunker-session-body; do
+  # A negated `! grep` would be ignored by set -e and the ERR trap: fail explicitly instead.
+  if grep -Eqi 'token|whoopAuth|hrMax|checkins|workouts|summary' "$f"; then printf 'PRIVACY_LEAK=%s\n' "$f"; false; fi
+done
+
+STEP=constructor-protocol-smoke
+# Block library API (regression): a 401 without a session proves it is still not public. Every POST carries an empty body and is rejected by
+# requireTrainer before the body is read: no block, routine or favourite is created or changed.
+BLOCKS_GET_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/blocks /tmp/2j-blocks-get-body /tmp/2j-blocks-get-headers "$SMOKE_TIMEOUT_SEC")
+BLOCKS_POST_STATUSES=''
+for action in save duplicate active delete favorite; do
+  status=$(wait_status 401 "https://app.2jfitnesscenter.com/api/blocks/$action" \
+    "/tmp/2j-blocks-$action-body" "/tmp/2j-blocks-$action-headers" "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+  BLOCKS_POST_STATUSES="$BLOCKS_POST_STATUSES $action=$status"
+done
+MEMBER_ROUTINE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/trainer/member-routine \
+  /tmp/2j-member-routine-body /tmp/2j-member-routine-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+MEMBER_PROGRAM_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/trainer/member-program \
+  /tmp/2j-member-program-body /tmp/2j-member-program-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+for f in /tmp/2j-blocks-get-body /tmp/2j-blocks-save-body /tmp/2j-blocks-duplicate-body /tmp/2j-blocks-active-body \
+  /tmp/2j-blocks-delete-body /tmp/2j-blocks-favorite-body /tmp/2j-member-routine-body /tmp/2j-member-program-body; do
+  if grep -Eqi '"(blocks|official|personal|overrides|favorites|officialCustom|seed|uid|canEditOfficial|routineId|validation)"|off-' "$f"; then
+    printf 'BLOCKS_LEAK=%s\n' "$f"; false
+  fi
+done
+# Deployed code inside the running api image (read-only; see write_protocol_probe).
+PROBE_FILE=$(mktemp /tmp/2j-protocol-probe.XXXXXX)
+write_protocol_probe "$PROBE_FILE"
+PROBE_OUT=''
+PROBE_OUT=$("${COMPOSE[@]}" exec -T api node --input-type=module < "$PROBE_FILE" 2>&1) || { printf '%s\n' "$PROBE_OUT"; false; }
+rm -f -- "$PROBE_FILE"
+printf '%s\n' "$PROBE_OUT"
+printf '%s\n' "$PROBE_OUT" | grep -Fxq 'PROBE_OK'
+if [[ "$BLOCKS_BEFORE" == present ]]; then
+  "${COMPOSE[@]}" exec -T api node -e 'JSON.parse(require("fs").readFileSync("/data/blocks.json","utf8"))'
+fi
+[[ "$(sha256sum "$APP/data/secret" | awk '{print $1}')" == "$SECRET_HASH_BEFORE" ]]
+
+STEP=guided-smoke
+# Entrena con 2J API: without a session the catalogue is 401 and carries no data; every write,
+# curation and collection endpoint is refused (requireTrainer / requireAdmin) before its body is
+# read, so an empty POST creates, changes or curates nothing.
+GUIDED_GET_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/guided /tmp/2j-guided-get-body /tmp/2j-guided-get-headers "$SMOKE_TIMEOUT_SEC")
+GUIDED_POST_STATUSES=''
+for action in save duplicate active delete curate collection; do
+  status=$(wait_status 401 "https://app.2jfitnesscenter.com/api/guided/$action" \
+    "/tmp/2j-guided-$action-body" "/tmp/2j-guided-$action-headers" "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+  GUIDED_POST_STATUSES="$GUIDED_POST_STATUSES $action=$status"
+done
+for f in /tmp/2j-guided-get-body /tmp/2j-guided-save-body /tmp/2j-guided-duplicate-body /tmp/2j-guided-active-body \
+  /tmp/2j-guided-delete-body /tmp/2j-guided-curate-body /tmp/2j-guided-collection-body; do
+  if grep -Eqi '"(routines|collections|mine|seed|uid|canEdit|canAssign|personal|overrides|officialCustom|validation)"|r2j-|c2j-|off-' "$f"; then
+    printf 'GUIDED_LEAK=%s\n' "$f"; false
+  fi
+done
+# Live trainer activity may update these stores while the smoke runs; validate shape below.
+if [[ "$GUIDED_BEFORE" == present ]]; then
+  "${COMPOSE[@]}" exec -T api node -e 'JSON.parse(require("fs").readFileSync("/data/guided.json","utf8"))'
+fi
+[[ "$(sha256sum "$APP/data/secret" | awk '{print $1}')" == "$SECRET_HASH_BEFORE" ]]
+PROBE_FIELD() { printf '%s' "$PROBE_OUT" | tr ' ' '\n' | awk -F= -v k="$1" '$1 == k {print $2; exit}'; }
+
+STEP=studio-admin-smoke
+# Entrena con 2J Studio and Library Admin: every new write is admin-only and refused before its body is
+# read (401 without a session, no data in the answer). Nothing is created, changed or curated.
+STUDIO_POST_STATUSES=''
+for action in status reorder program/save program/curate program/duplicate program/delete collection/delete; do
+  status=$(wait_status 401 "https://app.2jfitnesscenter.com/api/guided/$action" /tmp/2j-studio-body /tmp/2j-studio-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+  [[ "$status" == 401 ]]
+  if grep -Eqi '"(routines|collections|programs|mine|seed|overrides|validation|program|routine)"|r2j-|c2j-|g2j-' /tmp/2j-studio-body; then printf 'STUDIO_LEAK=%s\n' "$action"; false; fi
+  STUDIO_POST_STATUSES="$STUDIO_POST_STATUSES $action=$status"
+done
+LIBADMIN_GET_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/library /tmp/2j-libadmin-get-body /tmp/2j-libadmin-get-headers "$SMOKE_TIMEOUT_SEC")
+LIBADMIN_POST_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/library/save /tmp/2j-libadmin-post-body /tmp/2j-libadmin-post-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+for f in /tmp/2j-libadmin-get-body /tmp/2j-libadmin-post-body; do
+  if grep -Eqi '"(overlay|entries|variants|note)"' "$f"; then printf 'LIBADMIN_LEAK=%s\n' "$f"; false; fi
+done
+[[ "$(sha256sum "$APP/data/secret" | awk '{print $1}')" == "$SECRET_HASH_BEFORE" ]]
+
+STEP=guided-rev-overlay-smoke
+# /api/config is public: it carries the catalogue revision (cache invalidation) and the library overlay
+# without curatorial notes. A server without library-admin.json answers the empty overlay (rev 0).
+REVCFG_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/api/config /tmp/2j-revcfg-body /tmp/2j-revcfg-headers "$SMOKE_TIMEOUT_SEC")
+grep -Eq '"guidedRev"[[:space:]]*:[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' /tmp/2j-revcfg-body
+grep -Eq '"libraryOverlay"[[:space:]]*:[[:space:]]*\{' /tmp/2j-revcfg-body
+if grep -Eqi '"note"' /tmp/2j-revcfg-body; then printf 'OVERLAY_NOTE_LEAK\n'; false; fi
+if [[ "$LIBADMIN_BEFORE" == absent ]]; then grep -Eq '"rev"[[:space:]]*:[[:space:]]*0' /tmp/2j-revcfg-body; fi
+GUIDED_REV=$(tr -d '\n ' < /tmp/2j-revcfg-body | grep -oE '"guidedRev":"[0-9.]+"' | head -1)
+LIBADMIN_AFTER=$([[ -f "$APP/data/library-admin.json" ]] && printf present || printf absent)
+[[ "$LIBADMIN_AFTER" == "$LIBADMIN_BEFORE" ]]
+printf 'GUIDED_REV_OVERLAY=OK config=%s %s library_admin_json=%s->%s no_note_in_public_overlay\n' "$REVCFG_STATUS" "$GUIDED_REV" "$LIBADMIN_BEFORE" "$LIBADMIN_AFTER"
+
+STEP=bunker-smoke
+BUNKER_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/api/bunker/board /tmp/2j-bunker-body /tmp/2j-bunker-headers "$SMOKE_TIMEOUT_SEC")
+awk 'index($0,"\"sessions\"") && index($0,"\"todayPrs\"") {found=1} END {exit !found}' /tmp/2j-bunker-body
+BUNKER_SETTINGS_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/api/bunker/settings /tmp/2j-bunker-settings-body /tmp/2j-bunker-settings-headers "$SMOKE_TIMEOUT_SEC")
+# Privacy: the public gym screen never carries fitness/health fields (key names only, nothing printed).
+HEALTH_KEYS='"(fitness|hrZones|avgHr|calories|checkins|shareCheckins|hrMax|measurements|bodyweight|sleep|restingHR)"'
+if grep -Eq "$HEALTH_KEYS" /tmp/2j-bunker-body; then printf 'PRIVACY_LEAK=bunker-board\n'; false; fi
+if grep -Eq "$HEALTH_KEYS" /tmp/2j-bunker-settings-body; then printf 'PRIVACY_LEAK=bunker-settings\n'; false; fi
+# V2.1: when members are checked in right now, each card carries its rest length (read-only look;
+# no session is created). An empty board is fine: the release-tree check already covered it.
+if grep -q '"uid"' /tmp/2j-bunker-body; then grep -q '"restSec"' /tmp/2j-bunker-body || { printf 'BUNKER_REST_SEC_MISSING\n'; false; }; fi
+
+STEP=social-smoke
+SOCIAL_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/wall /tmp/2j-social-body /tmp/2j-social-headers "$SMOKE_TIMEOUT_SEC")
+
+STEP=community-v2-smoke
+FRIENDS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends /tmp/2j-friends-body /tmp/2j-friends-headers "$SMOKE_TIMEOUT_SEC")
+FRIENDS_REQUEST_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/request /tmp/2j-friends-request-body /tmp/2j-friends-request-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+FRIENDS_BLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/block /tmp/2j-friends-block-body /tmp/2j-friends-block-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+FRIENDS_UNBLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/unblock /tmp/2j-friends-unblock-body /tmp/2j-friends-unblock-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+CHAT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/threads /tmp/2j-chat-body /tmp/2j-chat-headers "$SMOKE_TIMEOUT_SEC")
+CHAT_DIRECT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/direct /tmp/2j-chat-direct-body /tmp/2j-chat-direct-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+NOTIFICATIONS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/notifications /tmp/2j-notifications-body /tmp/2j-notifications-headers "$SMOKE_TIMEOUT_SEC")
+NOTIFICATION_READ_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/notifications/read /tmp/2j-notification-read-body /tmp/2j-notification-read-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+NOTIFICATION_READ_ALL_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/notifications/read-all /tmp/2j-notification-read-all-body /tmp/2j-notification-read-all-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+SOCIAL_PREFS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/preferences /tmp/2j-social-prefs-body /tmp/2j-social-prefs-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+SOCIAL_SHARE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/shares /tmp/2j-social-share-body /tmp/2j-social-share-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+SOCIAL_REPORT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/reports /tmp/2j-social-report-body /tmp/2j-social-report-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+MODERATION_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/social-reports /tmp/2j-moderation-body /tmp/2j-moderation-headers "$SMOKE_TIMEOUT_SEC")
+MODERATION_RESOLVE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/social-reports/resolve /tmp/2j-moderation-resolve-body /tmp/2j-moderation-resolve-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+for status in "$FRIENDS_STATUS" "$FRIENDS_REQUEST_STATUS" "$FRIENDS_BLOCK_STATUS" "$FRIENDS_UNBLOCK_STATUS" "$CHAT_STATUS" "$CHAT_DIRECT_STATUS" "$NOTIFICATIONS_STATUS" "$NOTIFICATION_READ_STATUS" "$NOTIFICATION_READ_ALL_STATUS" "$SOCIAL_PREFS_STATUS" "$SOCIAL_SHARE_STATUS" "$SOCIAL_REPORT_STATUS" "$MODERATION_STATUS" "$MODERATION_RESOLVE_STATUS"; do [[ "$status" == 401 ]]; done
+verify_poststart_data
+printf 'COMMUNITY_V2=OK friends=%s requests=%s blocks=%s direct_chat=%s auth_boundary=401\n' "$FRIENDS_STATUS" "$FRIENDS_REQUEST_STATUS" "$FRIENDS_BLOCK_STATUS" "$CHAT_DIRECT_STATUS"
+printf 'NOTIFICATIONS=OK inbox=%s read=%s read_all=%s dedupe=release_contract push_opt_in=release_contract\n' "$NOTIFICATIONS_STATUS" "$NOTIFICATION_READ_STATUS" "$NOTIFICATION_READ_ALL_STATUS"
+printf 'COMMUNITY_SHARING=OK write=%s references=release_contract export_renderer=release_contract\n' "$SOCIAL_SHARE_STATUS"
+printf 'MODERATION=OK report=%s admin_list=%s resolve=%s admin_only=auth_boundary\n' "$SOCIAL_REPORT_STATUS" "$MODERATION_STATUS" "$MODERATION_RESOLVE_STATUS"
+printf 'WEB_PUSH=OK infrastructure=existing explicit_opt_in=release_contract device_delivery=pending_real_device\n'
+printf 'COMMUNITY_PRIVACY=OK prefs=%s health_excluded=source_contract blocks=%s visibility_revalidated=source_contract\n' "$SOCIAL_PREFS_STATUS" "$FRIENDS_STATUS"
+STEP=affected-api-smoke
+AUX_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/aux-ai /tmp/2j-aux-body /tmp/2j-aux-headers "$SMOKE_TIMEOUT_SEC")
+IMPORT_MATCH_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/exercises/import-match \
+  /tmp/2j-import-match-body /tmp/2j-import-match-headers "$SMOKE_TIMEOUT_SEC" '' POST '{"items":[]}')
+
+STEP=pwa-assets-smoke
+INDEX_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/ /tmp/2j-index-body /tmp/2j-index-headers "$SMOKE_TIMEOUT_SEC")
+MANIFEST_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/manifest.json /tmp/2j-manifest-body /tmp/2j-manifest-headers "$SMOKE_TIMEOUT_SEC")
+SW_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/sw.js /tmp/2j-sw-body /tmp/2j-sw-headers "$SMOKE_TIMEOUT_SEC")
+ICON192_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/icon-192.png /tmp/2j-icon192-body /tmp/2j-icon192-headers "$SMOKE_TIMEOUT_SEC")
+ICON512_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/icon-512.png /tmp/2j-icon512-body /tmp/2j-icon512-headers "$SMOKE_TIMEOUT_SEC")
+
+STEP=news-smoke
+NEWS_GET_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/news /tmp/2j-news-get-body /tmp/2j-news-get-headers "$SMOKE_TIMEOUT_SEC")
+NEWS_ADMIN_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/news /tmp/2j-news-admin-body /tmp/2j-news-admin-headers "$SMOKE_TIMEOUT_SEC")
+NEWS_POST_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/news/save /tmp/2j-news-post-body /tmp/2j-news-post-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+for f in /tmp/2j-news-get-body /tmp/2j-news-admin-body /tmp/2j-news-post-body; do
+  if grep -Eqi '"(news|title|items)"' "$f"; then printf 'NEWS_LEAK=%s\n' "$f"; false; fi
+done
+NEWS_AFTER=$([[ -f "$APP/data/news.json" ]] && printf present || printf absent)
+[[ "$NEWS_AFTER" == "$NEWS_BEFORE" ]]
+if [[ "$NEWS_BEFORE" == present ]]; then [[ "$(sha256sum "$APP/data/news.json" | awk '{print $1}')" == "$NEWS_SHA_BEFORE" ]]; fi
+printf 'NEWS=OK anonymous_get=%s admin_get=%s admin_save=%s news_json=%s->%s unchanged=yes\n' "$NEWS_GET_STATUS" "$NEWS_ADMIN_STATUS" "$NEWS_POST_STATUS" "$NEWS_BEFORE" "$NEWS_AFTER"
+
+STEP=features-smoke
+FEATURES_GET_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/features /tmp/2j-features-get-body /tmp/2j-features-get-headers "$SMOKE_TIMEOUT_SEC")
+FEATURES_POST_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/features /tmp/2j-features-post-body /tmp/2j-features-post-headers "$SMOKE_TIMEOUT_SEC" '' POST '{"features":{"coach":false}}')
+for f in /tmp/2j-features-get-body /tmp/2j-features-post-body; do
+  if grep -Eqi '"(features|coach|social)"' "$f"; then printf 'FEATURES_LEAK=%s\n' "$f"; false; fi
+done
+FEATURES_AFTER=$([[ -f "$APP/data/features.json" ]] && printf present || printf absent)
+[[ "$FEATURES_AFTER" == "$FEATURES_BEFORE" ]]
+if [[ "$FEATURES_BEFORE" == present ]]; then [[ "$(sha256sum "$APP/data/features.json" | awk '{print $1}')" == "$FEATURES_SHA_BEFORE" ]]; fi
+# Sync V2 runtime on the installed tree (the release-protocol step already enforced the same rules on the release): the client is byte-identical to
+# production, and api/lib/sync.js is EXACTLY one of the two owner-approved digests (LF blob / CRLF as shipped). Anything else fails.
+cmp -s "$APP/frontend/src/lib/sync-client.js" <(tar -xOf "$ROLLBACK" frontend/src/lib/sync-client.js) || { printf 'SYNC_V2_CHANGED=%s\n' frontend/src/lib/sync-client.js; false; }
+SYNC_JS_INSTALLED_SHA256=$(sha256sum "$APP/api/lib/sync.js" | awk '{print $1}')
+if [[ "$SYNC_JS_INSTALLED_SHA256" != 8b402562d3a5eccfe7054db5246ca4e9f796b70b24306f9c2f8e0c53470fd586 && "$SYNC_JS_INSTALLED_SHA256" != 6cd72a0fbf910612efba88fa1a56700664e4b3e322103632ae025c1174085859 ]]; then
+  printf 'SYNC_V2_CHANGED=%s\n' api/lib/sync.js; false
+fi
+printf 'FEATURES=OK anonymous_get=%s admin_write=%s features_json=%s->%s unchanged=yes defaults=all_on_without_file sync_v2=client_identical+sync.js_approved_sha256\n' "$FEATURES_GET_STATUS" "$FEATURES_POST_STATUS" "$FEATURES_BEFORE" "$FEATURES_AFTER"
+
+STEP=assetlinks-smoke
+AL_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/.well-known/assetlinks.json /tmp/2j-al-body /tmp/2j-al-headers "$SMOKE_TIMEOUT_SEC")
+AL_TYPE=$(header_value /tmp/2j-al-headers Content-Type)
+case "$AL_TYPE" in application/json*) ;; *) printf 'ASSETLINKS_BAD_CONTENT_TYPE=%s\n' "$AL_TYPE"; false ;; esac
+grep -Fq '"package_name": "com.twojfitnesscenter.app"' /tmp/2j-al-body
+grep -Fq '0C:BB:BF:6F:26:C1:0C:83:23:54:2C:93:AE:B3:E6:19:44:D2:92:46:56:0A:F8:9D:A6:85:36:0F:7A:83:5E:AC' /tmp/2j-al-body
+grep -Fq 'delegate_permission/common.get_login_creds' /tmp/2j-al-body
+grep -Fq 'delegate_permission/common.handle_all_urls' /tmp/2j-al-body
+DOT_STATUS=$(curl -sS --max-time 15 -D /tmp/2j-aldot-headers -o /tmp/2j-aldot-body -w '%{http_code}' --resolve app.2jfitnesscenter.com.:443:127.0.0.1 https://app.2jfitnesscenter.com./.well-known/assetlinks.json)
+DOT_TYPE=$(header_value /tmp/2j-aldot-headers Content-Type)
+[[ "$DOT_STATUS" == 200 ]]
+case "$DOT_TYPE" in application/json*) ;; *) printf 'ASSETLINKS_DOT_BAD_CONTENT_TYPE=%s\n' "$DOT_TYPE"; false ;; esac
+cmp -s /tmp/2j-al-body /tmp/2j-aldot-body
+printf 'ASSETLINKS=OK status=%s content_type=%s dot_host_status=%s dot_content_type=%s identical=yes\n' "$AL_STATUS" "$AL_TYPE" "$DOT_STATUS" "$DOT_TYPE"
+printf 'DAL_GOOGLE=%s\n' "$(curl -s --max-time 20 'https://digitalassetlinks.googleapis.com/v1/assetlinks:check?source.web.site=https://app.2jfitnesscenter.com&relation=delegate_permission/common.get_login_creds&target.android_app.package_name=com.twojfitnesscenter.app&target.android_app.certificate.sha256_fingerprint=0C:BB:BF:6F:26:C1:0C:83:23:54:2C:93:AE:B3:E6:19:44:D2:92:46:56:0A:F8:9D:A6:85:36:0F:7A:83:5E:AC' | tr -d '\n ' | cut -c1-200 || true)"
+
+STEP=main-asset-smoke
+ASSET_READY=0
+ASSET=''
+STYLE=''
+ASSET_STATUS=000
+STYLE_STATUS=000
+ASSET_DEADLINE=$((SECONDS + SMOKE_TIMEOUT_SEC))
+while (( SECONDS < ASSET_DEADLINE )); do
+  remaining=$((ASSET_DEADLINE - SECONDS))
+  attempt_timeout=$((remaining < 10 ? remaining : 10))
+  INDEX_STATUS=$(wait_status 200 https://app.2jfitnesscenter.com/ /tmp/2j-index-body /tmp/2j-index-headers "$attempt_timeout" || true)
+  ASSET=$(tr '"' '\n' < /tmp/2j-index-body | awk '/^\/assets\/index-[A-Za-z0-9_-]+\.js$/ {print; exit}')
+  STYLE=$(tr '"' '\n' < /tmp/2j-index-body | awk '/^\/assets\/index-[A-Za-z0-9_-]+\.css$/ {print; exit}')
+  if [[ -n "$ASSET" && -n "$STYLE" ]]; then
+    remaining=$((ASSET_DEADLINE - SECONDS))
+    attempt_timeout=$((remaining < 10 ? remaining : 10))
+    (( attempt_timeout < 1 )) && attempt_timeout=1
+    ASSET_STATUS=$(wait_status 200 "https://app.2jfitnesscenter.com$ASSET" /tmp/2j-asset-body /tmp/2j-asset-headers "$attempt_timeout" gzip || true)
+    remaining=$((ASSET_DEADLINE - SECONDS))
+    (( remaining > 0 )) || break
+    attempt_timeout=$((remaining < 10 ? remaining : 10))
+    STYLE_STATUS=$(wait_status 200 "https://app.2jfitnesscenter.com$STYLE" /tmp/2j-style-body /tmp/2j-style-headers "$attempt_timeout" gzip || true)
+    if [[ "$ASSET_STATUS" == 200 && "$STYLE_STATUS" == 200 ]] \
+      && asset_bodies_ready; then
+      ASSET_READY=1
+      break
+    fi
+  fi
+  printf 'ASSET_RETRY js=%s js_status=%s css=%s css_status=%s remaining=%ss\n' "$ASSET" "$ASSET_STATUS" "$STYLE" "$STYLE_STATUS" "$((ASSET_DEADLINE - SECONDS))" >&2
+  (( SECONDS >= ASSET_DEADLINE )) && break
+  sleep "$RETRY_INTERVAL_SEC"
+done
+[[ "$ASSET_READY" == 1 ]]
+printf 'ASSETS=OK js=%s css=%s bodies=nonempty content_types=valid\n' "$ASSET" "$STYLE"
+for chunk in StudioAdmin ProgramEditor LibraryQuality; do
+  CHUNK_FILE=$(grep -oE "$chunk-[A-Za-z0-9_-]+\.js" /tmp/2j-asset-body | head -1)
+  [[ -n "$CHUNK_FILE" ]]
+  CHUNK_STATUS=$(wait_status 200 "https://app.2jfitnesscenter.com/assets/$CHUNK_FILE" /tmp/2j-chunk-body /tmp/2j-chunk-headers "$SMOKE_TIMEOUT_SEC")
+  [[ -s /tmp/2j-chunk-body ]]
+done
+printf 'STUDIO_CHUNKS=OK lazy admin chunks served status=%s\n' "$CHUNK_STATUS"
+printf 'GYM_PROFILES_UI_ASSETS=OK js=picker+active+equipment css=cards+chips+settings_info\n'
+
+STEP=headers-gzip-cache
+INDEX_CACHE=$(header_value /tmp/2j-index-headers Cache-Control)
+INDEX_NOSNIFF=$(header_value /tmp/2j-index-headers X-Content-Type-Options)
+INDEX_FRAME=$(header_value /tmp/2j-index-headers X-Frame-Options)
+INDEX_REFERRER=$(header_value /tmp/2j-index-headers Referrer-Policy)
+INDEX_HSTS=$(header_value /tmp/2j-index-headers Strict-Transport-Security)
+ASSET_CACHE=$(header_value /tmp/2j-asset-headers Cache-Control)
+ASSET_ENCODING=$(header_value /tmp/2j-asset-headers Content-Encoding)
+STYLE_CACHE=$(header_value /tmp/2j-style-headers Cache-Control)
+STYLE_ENCODING=$(header_value /tmp/2j-style-headers Content-Encoding)
+[[ "$INDEX_CACHE" == *no-cache* ]]
+[[ "$INDEX_NOSNIFF" == nosniff ]]
+[[ "$INDEX_FRAME" == SAMEORIGIN ]]
+[[ "$INDEX_REFERRER" == strict-origin-when-cross-origin ]]
+[[ "$INDEX_HSTS" == *max-age=31536000* ]]
+[[ "$ASSET_CACHE" == *max-age=31536000* && "$ASSET_CACHE" == *immutable* ]]
+[[ "$ASSET_ENCODING" == gzip ]]
+[[ "$STYLE_CACHE" == *max-age=31536000* && "$STYLE_CACHE" == *immutable* ]]
+[[ "$STYLE_ENCODING" == gzip ]]
+printf 'GZIP=OK js=%s css=%s\n' "$ASSET_ENCODING" "$STYLE_ENCODING"
+printf 'CACHE=OK index=%s js=%s css=%s\n' "$INDEX_CACHE" "$ASSET_CACHE" "$STYLE_CACHE"
+printf 'HEADERS=OK nosniff=%s frame=%s referrer=%s hsts=%s\n' "$INDEX_NOSNIFF" "$INDEX_FRAME" "$INDEX_REFERRER" "$INDEX_HSTS"
+
+STEP=services
+RUNNING=$(wait_services "$READINESS_TIMEOUT_SEC")
+"${COMPOSE[@]}" ps
+
+STEP=finalize
+verify_archive_tree "$RELEASE"
+[[ "$(cat "$APP/.deployed-commit")" == "$TARGET_COMMIT" ]]
+printf 'DEPLOY_OK=%s\n' "$TARGET_COMMIT"
+printf 'ROLLBACK=NOT_NEEDED\n'
+printf 'HEALTH=OK internal=%s external=%s\n' "$INTERNAL_STATUS" "$EXTERNAL_STATUS"
+printf 'DATA=OK status=%s immutable_hashes_unchanged owner=%s mode=%s live_states=%s->%s blocks_json=%s guided_json=%s gym_profile=%s mutable_json_valid backup=%s\n' "$DATA_STATUS" "$DATA_OWNER_BEFORE" "$DATA_MODE_BEFORE" "$LIVE_STATE_BEFORE" "$LIVE_STATE_AFTER" "$BLOCKS_AFTER" "$GUIDED_AFTER" "$GYM_PROFILE_AFTER" "$BACKUP"
+printf 'PROTOCOL=OK v1.0 runtime_copy_in_sync(9) docs_present gate=restriction_unverified\n'
+printf 'BLOCK_LIBRARY=OK masters=%s pass=%s pass_with_reason=%s no_fail no_unverified no_duplicate_ids no_duplicate_content api_blocks=%s seed_read_from_release blocks_json=%s\n' \
+  "$(PROBE_FIELD masters)" "$(PROBE_FIELD pass)" "$(PROBE_FIELD pass_with_reason)" "$(PROBE_FIELD api_blocks)" "$BLOCKS_AFTER"
+printf 'GUIDED_LIBRARY=OK guided_masters=%s masters_used_by_routines=%s copies_in_routines=%s not_in_api_blocks\n' \
+  "$(PROBE_FIELD guided_masters)" "$(PROBE_FIELD masters_used)" "$(PROBE_FIELD copies)"
+printf 'GUIDED_ROUTINES=OK routines=%s all_pass no_pass_with_reason stable_ids facts_recomputed ai_offered seed_read_from_release guided_json=%s\n' "$(PROBE_FIELD routines)" "$GUIDED_AFTER"
+printf 'COLLECTIONS=OK collections=%s featured=%s refs_valid\n' "$(PROBE_FIELD collections)" "$(PROBE_FIELD featured)"
+printf 'GUIDED_PROGRAMS=OK programs=%s week_session_refs_valid admin_curation_present\n' "$(PROBE_FIELD programs)"
+printf 'TRAIN2J=OK guided_get=%s posts=[%s ] routes=/train2j,/train2j/c/:id,/train2j/r/:id,/trainer/guided covers=svg start=free_session_snapshot history=src2j favorites=g2j_favs:<uid> offline=g2j_catalog:<uid>\n' "$GUIDED_GET_STATUS" "$GUIDED_POST_STATUSES"
+printf 'PERMISSIONS=OK read=session writes=trainer(4) curate+collections+programs+library=admin_only own_only fail_never_stored member_writes=%s (api tests %s/%s)\n' "$(PROBE_FIELD member_writes)" @@API_PASSED@@ @@API_TESTS@@
+printf 'TREADMILL=OK 0684+3666 eq=treadmill same_id/media 0684=treadmill_run blocks=6 routines=8 not_no_equipment no_override\n'
+printf 'LEGAL=OK license=AGPL-3.0-or-later(unmodified_text) original=openGym/Duarte_Santos fork=Juan_Jose_Perez_Sanchez/2J_Fitness_Center notices=NOTICE,AUTHORS,TRADEMARKS,THIRD_PARTY headers=210 legal_screen=bundle source=github.com/2jfitnesscenter/2jfitnessapp\n'
+printf 'EXERCISE_LIBRARY_V2=OK exercises=%s recommended=%s with_movement=%s deprecated=%s dup_groups=0 aliases=102 living_dup_names=0 ids_unchanged no_history_migration\n' \
+  "$(PROBE_FIELD exlib)" "$(PROBE_FIELD recommended)" "$(PROBE_FIELD with_movement)" "$(PROBE_FIELD deprecated)"
+printf 'EXERCISE_TAXONOMY=OK movements=%s equipment=%s kinds=%s preferred_valid no_chains not_in_official_seeds classifier=bridge/side_bridge/climber/outstretched/wrist/stretch\n' \
+  "$(PROBE_FIELD movements)" "$(PROBE_FIELD equipment)" "$(PROBE_FIELD kinds)"
+printf 'EXERCISE_SEARCH=OK es/en name+alias+movement+muscle+equipment deprecated_last (tests + bundle)\n'
+printf 'EXERCISE_SWAP=OK similar_variants_first reasons max=8 constructor+trainer_builder+workout+bunker(same_sheet)\n'
+printf 'EXERCISE_IMPORT=OK spanish_aliases translated_names deprecated_to_preferred ties_not_guessed\n'
+printf 'EXERCISE_AI=OK ids=1324 rec_first=%s gym_hidden=%s deprecated_excluded old_ids_validate high_overlap=note_only\n' "$(PROBE_FIELD ai_rec_first)" "$(PROBE_FIELD hidden_ex)"
+printf 'GYM_PROFILES_V11=OK equipment=19 source=official_global admin_write=protected offline_cache=yes sync=separate config=%s\n' "$GYM_PROFILE_AFTER"
+printf 'GUIDED_BLOCKS=OK circuit/interval/hiit/tabata/mobility rounds=1-10 tabata=editable circuit=time+reps interval_rounds+mobility=not_direct_volume ai=offered validator=authority\n'
+printf 'BUNKER_REST=OK prescribed_rest fallback=90s superset_pair guided_timing board_restSec\n'
+printf 'RECOMMENDER=OK direct_sets_only suggest_preview_add dismissible (bundle)\n'
+printf 'HIP_THRUST=OK id=0058 renamed_in_place glute_bridge=1409 separate no_duplicate\n'
+printf 'CONSTRUCTOR_V2=OK get=%s posts=[%s ] member_routine=%s member_program=%s markers=cx/blocks/2J\n' "$BLOCKS_GET_STATUS" "$BLOCKS_POST_STATUSES" "$MEMBER_ROUTINE_STATUS" "$MEMBER_PROGRAM_STATUS"
+printf 'SAVE_POLICY=OK restriction=never_overridable methodological_fail=override_with_reason ai_fail=repair_or_discard\n'
+printf 'HEALTH_FITNESS_API=OK whoop_workouts=%s whoop_recovery=%s followup=%s admin_followup=%s/%s admin_review=%s bunker_session=%s\n' \
+  "$WHOOP_WORKOUTS_STATUS" "$WHOOP_RECOVERY_STATUS" "$FOLLOWUP_STATUS" "$ADMIN_FOLLOWUP_STATUS" "$ADMIN_FOLLOWUP_POST_STATUS" "$ADMIN_REVIEW_STATUS" "$BUNKER_SESSION_STATUS"
+printf 'PRIVACY=OK bunker_board_settings_without_health_keys protected_bodies_clean\n'
+@@POSTSTART_PROBES@@
+printf 'RELEASE_SCOPE=OK SyncV2_unchanged=yes SharedStaff=guarded\n'
+printf 'HOME=OK no_body_composition_card health_measurements_keep_it\n'
+printf 'SYNC=OK status=%s no_second_sync week/dayPlan/activeProgramId/routines untouched_by_2j_start\n' "$SYNC_STATUS"
+printf 'BUNKER=OK board=%s settings=%s\n' "$BUNKER_STATUS" "$BUNKER_SETTINGS_STATUS"
+printf 'SOCIAL=OK status=%s\n' "$SOCIAL_STATUS"
+printf 'AUX_IMPORT=OK aux=%s import=%s\n' "$AUX_STATUS" "$IMPORT_MATCH_STATUS"
+printf 'PWA=OK manifest=%s sw=%s icons=%s/%s\n' "$MANIFEST_STATUS" "$SW_STATUS" "$ICON192_STATUS" "$ICON512_STATUS"
+printf 'ASSET=%s status=%s style=%s style_status=%s\n' "$ASSET" "$ASSET_STATUS" "$STYLE" "$STYLE_STATUS"
+printf 'STUDIO_ADMIN=OK posts=[%s ] library_get=%s library_post=%s member_writes=%s ai_deprecated=%s overlay_rev=%s %s\n' "$STUDIO_POST_STATUSES" "$LIBADMIN_GET_STATUS" "$LIBADMIN_POST_STATUS" "$(PROBE_FIELD member_writes)" "$(PROBE_FIELD ai_deprecated)" "$(PROBE_FIELD overlay_rev)" "$GUIDED_REV"
+printf 'SERVICES=OK api,web,caddy\n'
+printf 'LOG=%s\n' "$LOG"
+'@
+
+function Render-RemoteCommitAssignments {
+  param([string]$Template, [string]$Target, [string]$Rollback)
+  $Template = $Template -replace "`r`n?", "`n"
+  if ($Target -cnotmatch '^[0-9a-f]{40}$') { throw 'TARGET_COMMIT_MUST_BE_FULL_LOWERCASE_SHA40' }
+  if ($Rollback -cnotmatch '^[0-9a-f]{40}$') { throw 'ROLLBACK_COMMIT_MUST_BE_FULL_LOWERCASE_SHA40' }
+  if ([regex]::Matches($Template, '(?m)^TARGET_COMMIT=__TARGET_COMMIT__$').Count -ne 1) { throw 'TARGET_COMMIT_TEMPLATE_TOKEN_INVALID' }
+  if ([regex]::Matches($Template, '(?m)^ROLLBACK_COMMIT=__ROLLBACK_COMMIT__$').Count -ne 1) { throw 'ROLLBACK_COMMIT_TEMPLATE_TOKEN_INVALID' }
+  $rendered = $Template.Replace('TARGET_COMMIT=__TARGET_COMMIT__', "TARGET_COMMIT=$Target").Replace('ROLLBACK_COMMIT=__ROLLBACK_COMMIT__', "ROLLBACK_COMMIT=$Rollback")
+  $targetLine = [regex]::Match($rendered, '(?m)^TARGET_COMMIT=([0-9a-f]{40})$')
+  $rollbackLine = [regex]::Match($rendered, '(?m)^ROLLBACK_COMMIT=([0-9a-f]{40})$')
+  if (-not $targetLine.Success -or $targetLine.Groups[1].Value -cne $Target) { throw 'REMOTE_TARGET_COMMIT_MISMATCH' }
+  if (-not $rollbackLine.Success -or $rollbackLine.Groups[1].Value -cne $Rollback) { throw 'REMOTE_ROLLBACK_COMMIT_MISMATCH' }
+  if ([regex]::Matches($rendered, '(?m)^TARGET_COMMIT=').Count -ne 1 -or [regex]::Matches($rendered, '(?m)^ROLLBACK_COMMIT=').Count -ne 1) { throw 'REMOTE_COMMIT_ASSIGNMENT_DUPLICATED' }
+  return $rendered
+}
+
+# Regression test for the historical short-SHA substring corruption.
+$OldFullSha = '0b34b9bbc5584c345d91727e93007fd6f8750b76'
+$RegressionNewSha = '16a1bb779140cd28020551bf16c0628f88b46f4f'
+$HistoricalCorruption = $OldFullSha.Replace('0b34b9b', '16a1bb7')
+if ($HistoricalCorruption -cne '16a1bb7bc5584c345d91727e93007fd6f8750b76') { throw 'HISTORICAL_SHA_CORRUPTION_FIXTURE_INVALID' }
+$RegressionTemplate = "TARGET_COMMIT=__TARGET_COMMIT__`nROLLBACK_COMMIT=__ROLLBACK_COMMIT__"
+$RegressionOutput = Render-RemoteCommitAssignments -Template $RegressionTemplate -Target $RegressionNewSha -Rollback $OldFullSha
+if ($RegressionOutput -cnotmatch ('(?m)^TARGET_COMMIT=' + [regex]::Escape($RegressionNewSha) + '$')) { throw 'FULL_SHA_TEMPLATE_REGRESSION_POSITIVE_FAILED' }
+if ($RegressionOutput.Contains('16a1bb7bc5584c345d91727e93007fd6f8750b76')) { throw 'FULL_SHA_TEMPLATE_REGRESSION_CORRUPTED_SHA_PRESENT' }
+Write-Host 'RUNNER_SHA_TEMPLATE_REGRESSION=PASS old/new full SHA remain independent'
+
+$RemoteScript = Render-RemoteCommitAssignments -Template $RemoteScriptTemplate -Target $Commit -Rollback $RollbackCommit
+
+$RemoteScript = $RemoteScript.Replace('__EXPECTED_HASH__', $LocalHash)
+$RemoteScript = $RemoteScript.Replace('__REMOTE_RELEASE__', $RemoteRelease)
+$RemoteScript = $RemoteScript.Replace('__REMOTE_ROLLBACK__', $RemoteRollback)
+$RemoteScript = $RemoteScript.Replace('__EXPECTED_ROLLBACK_HASH__', $RollbackHash)
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($LocalRunner, ($RemoteScript -replace "`r`n", "`n"), $Utf8NoBom)
+
+$SimulationScript = @'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+# Codex launches Git Bash with a Windows-only PATH; prefer its Unix tools for this simulation.
+export PATH="/usr/bin:/mingw64/bin:$PATH"
+wait_status() {
+  local expected=$1 url=$2 body=$3 headers=$4
+  if [[ "$url" == */api/shared-device/status ]]; then printf '{"authorized":false}\n' > "$body"; else : > "$body"; fi
+  : > "$headers"
+  printf '%s' "$expected"
+}
+ROLLBACK=$1
+RELEASE=$2
+ROLLBACK_COMMIT=$3
+TARGET_COMMIT=$4
+EXPECTED_ROLLBACK_HASH=$5
+EXPECTED_RELEASE_HASH=$6
+RUNTIME_PROBE=$7
+MUTABLE_PROBE=$8
+test -s "$ROLLBACK" && test -s "$RELEASE"
+gzip -t "$ROLLBACK" && gzip -t "$RELEASE"
+[[ "$(sha256sum "$ROLLBACK" | awk '{print $1}')" == "$EXPECTED_ROLLBACK_HASH" ]]
+[[ "$(sha256sum "$RELEASE" | awk '{print $1}')" == "$EXPECTED_RELEASE_HASH" ]]
+printf 'SIM_TRANSFER=OK release=%s rollback=%s\n' "$EXPECTED_RELEASE_HASH" "$EXPECTED_ROLLBACK_HASH"
+SIM_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/2j-community-deploy-sim.XXXXXX")
+trap 'rm -rf -- "$SIM_ROOT"' EXIT
+APP=$SIM_ROOT/app
+RB_TREE=$SIM_ROOT/rollback-expected
+TARGET_TREE=$SIM_ROOT/target-expected
+mkdir -p "$APP" "$RB_TREE" "$TARGET_TREE"
+tar -xzf "$ROLLBACK" -C "$APP"
+tar -xzf "$ROLLBACK" -C "$RB_TREE"
+printf '%s\n' "$ROLLBACK_COMMIT" > "$APP/.deployed-commit"
+printf 'WEB_PORT=8080\n' > "$APP/.env"
+mkdir -p "$APP/data"
+printf 'synthetic-secret\n' > "$APP/data/secret"
+printf '{"users":[]}\n' > "$APP/data/db.json"
+for i in $(seq -w 1 17); do printf '{"workouts":[],"slot":%s}\n' "$i" > "$APP/data/state-$i.json"; done
+printf '{"items":[{"id":"notice-synthetic"}],"privacy":{},"preferences":{}}\n' > "$APP/data/notifications.json"
+printf '{"threads":[{"id":"chat-synthetic"}],"messages":[]}\n' > "$APP/data/chat.json"
+printf '{"codes":[],"requests":[],"blocked":[]}\n' > "$APP/data/friends.json"
+printf '{"routines":[],"programs":[],"wall":[],"challenges":[],"goals":[],"topics":[],"board":[]}\n' > "$APP/data/social.json"
+printf '{"shares":[{"id":"share-synthetic"}],"reports":[{"id":"report-synthetic"}]}\n' > "$APP/data/social-sharing.json"
+printf '{"publicKey":"synthetic","privateKey":"synthetic"}\n' > "$APP/data/vapid.json"
+DATA_BEFORE=$(find "$APP/data" -type f -print0 | sort -z | xargs -0 sha256sum)
+__VERIFY_CURRENT_PRODUCTION__
+
+run_api_runtime_probe() {
+  local source_api=$1 api_path data_path expect=${GYM_CONFIG_EXPECT:-}
+  api_path=$(cygpath -m "$source_api")
+  data_path=$(cygpath -m "$APP/data")
+  PROBE_BASE="file:///$api_path/" DATA_DIR="$data_path" GYM_CONFIG_EXPECT="$expect" node "$RUNTIME_PROBE"
+}
+run_mutable_probe() {
+  local data_path
+  data_path=$(cygpath -m "$APP/data")
+  DATA_DIR="$data_path" MUTABLE_CRYPTO_MODULE="$(cygpath -m "$TARGET_TREE/api/lib/crypto.js")" REQUIRED_MUTABLE_FILES='db.json,notifications.json,friends.json,chat.json,social.json,social-sharing.json,gym-profile.json' node "$MUTABLE_PROBE"
+}
+
+remove_obsolete_release_files() {
+  local old_archive=$1 new_archive=$2 old_list new_list
+  old_list=$(mktemp "$SIM_ROOT/old.XXXXXX")
+  new_list=$(mktemp "$SIM_ROOT/new.XXXXXX")
+  tar -tzf "$old_archive" | sort > "$old_list"
+  tar -tzf "$new_archive" | sort > "$new_list"
+  while IFS= read -r rel; do
+    [[ -z "$rel" || "$rel" == */ || "$rel" == data || "$rel" == data/* ]] && continue
+    rm -f -- "$APP/$rel"
+  done < <(comm -23 "$old_list" "$new_list")
+  while IFS= read -r rel; do
+    [[ -z "$rel" || "$rel" == data/ || "$rel" == data/* ]] && continue
+    [[ -d "$APP/$rel" ]] || continue
+    rmdir -- "$APP/$rel" 2>/dev/null || printf 'SIM_ORPHAN_DIR_NOT_EMPTY=%s\n' "$rel" >&2
+  done < <(comm -23 "$old_list" "$new_list" | grep '/$' | sort -r || true)
+  rm -f -- "$old_list" "$new_list"
+}
+code_tree() {
+  (cd "$1" && find . -mindepth 1 ! -path './data' ! -path './data/*' ! -path './.env' ! -path './.deployed-commit' \
+    -printf '%y %m %P %l\n' | sort)
+}
+code_hashes() {
+  (cd "$1" && find . -type f ! -path './data/*' ! -path './.env' ! -path './.deployed-commit' -print0 | sort -z | xargs -0 sha256sum)
+}
+verify_tree() {
+  local expected=$1 label=$2
+  diff -u <(code_tree "$expected") <(code_tree "$APP")
+  diff -u <(code_hashes "$expected") <(code_hashes "$APP")
+  [[ "$(cat "$APP/.deployed-commit")" == "$label" ]]
+}
+
+tar -xzf "$RELEASE" -C "$TARGET_TREE"
+run_api_runtime_probe "$TARGET_TREE/api"
+printf 'SIM_RELEASE_RUNTIME_PROBE=OK gym-profile.json=absent fallback=verified\n'
+printf '{"v":1,"availableEquipment":["bodyweight","smith"]}\n' > "$APP/data/gym-profile.json"
+DATA_BEFORE=$(find "$APP/data" -type f -print0 | sort -z | xargs -0 sha256sum)
+GYM_CONFIG_EXPECT=custom run_api_runtime_probe "$TARGET_TREE/api"
+printf 'SIM_GYM_CONFIG=OK absent=fallback present=readable\n'
+remove_obsolete_release_files "$ROLLBACK" "$RELEASE"
+tar -xzf "$RELEASE" -C "$APP"
+printf '%s\n' "$TARGET_COMMIT" > "$APP/.deployed-commit"
+verify_tree "$TARGET_TREE" "$TARGET_COMMIT"
+run_api_runtime_probe "$APP/api"
+printf 'SIM_INSTALLED_RUNTIME_PROBE=OK\n'
+printf 'SIM_INSTALL=OK commit=%s exact_tree=yes\n' "$TARGET_COMMIT"
+printf '{"items":[{"id":"notice-synthetic","readAt":123}],"privacy":{},"preferences":{}}\n' > "$APP/data/notifications.json"
+run_mutable_probe
+printf 'SIM_COMMUNITY_LIVE_MUTATION=PASS changed_notifications_json_accepted\n'
+cp -p "$APP/data/friends.json" "$SIM_ROOT/friends-original.json"
+rm -f -- "$APP/data/friends.json"
+if run_mutable_probe >/dev/null 2>&1; then printf 'SIM_MUTABLE_MISSING_NOT_REJECTED\n' >&2; exit 1; fi
+cp -p "$SIM_ROOT/friends-original.json" "$APP/data/friends.json"
+cp -p "$APP/data/chat.json" "$SIM_ROOT/chat-original.json"
+: > "$APP/data/chat.json"
+if run_mutable_probe >/dev/null 2>&1; then printf 'SIM_MUTABLE_TRUNCATED_NOT_REJECTED\n' >&2; exit 1; fi
+cp -p "$SIM_ROOT/chat-original.json" "$APP/data/chat.json"
+cp -p "$APP/data/social-sharing.json" "$SIM_ROOT/shares-original.json"
+printf '{\n' > "$APP/data/social-sharing.json"
+if run_mutable_probe >/dev/null 2>&1; then printf 'SIM_MUTABLE_CORRUPT_NOT_REJECTED\n' >&2; exit 1; fi
+cp -p "$SIM_ROOT/shares-original.json" "$APP/data/social-sharing.json"
+# chat.json encrypted at rest (Sprint 3): the probe must ACCEPT a valid encrypted chat and REJECT corrupted ciphertext and a wrong key.
+chat_crypto() {
+  local data_path crypto_path
+  data_path=$(cygpath -m "$APP/data"); crypto_path=$(cygpath -m "$TARGET_TREE/api/lib/crypto.js")
+  DATA_DIR="$data_path" CRYPTO_FILE="$crypto_path" CHAT_FILE="$data_path/chat.json" CHAT_ACTION="$1" node --input-type=module -e '
+    import fs from "node:fs"; import { pathToFileURL } from "node:url";
+    const c = await import(pathToFileURL(process.env.CRYPTO_FILE).href);
+    const f = process.env.CHAT_FILE;
+    if (process.env.CHAT_ACTION === "encrypt") fs.writeFileSync(f, c.encrypt({ threads: [{ id: "chat-synthetic" }], messages: [{ id: "m-synthetic" }] }, "chat-store"));
+    else { const t = fs.readFileSync(f, "utf8"); const i = Math.floor(t.length / 2); fs.writeFileSync(f, t.slice(0, i) + (t[i] === "A" ? "B" : "A") + t.slice(i + 1)); }'
+}
+chat_crypto encrypt
+run_mutable_probe
+printf 'SIM_ENCRYPTED_CHAT=PASS valid_ciphertext_accepted\n'
+chat_crypto corrupt
+if run_mutable_probe >/dev/null 2>&1; then printf 'SIM_ENCRYPTED_CHAT_CORRUPT_NOT_REJECTED\n' >&2; exit 1; fi
+chat_crypto encrypt
+printf 'different-synthetic-secret\n' > "$APP/data/secret"
+if run_mutable_probe >/dev/null 2>&1; then printf 'SIM_ENCRYPTED_CHAT_WRONG_KEY_NOT_REJECTED\n' >&2; exit 1; fi
+printf 'synthetic-secret\n' > "$APP/data/secret"
+printf 'not-json-and-not-ciphertext {\n' > "$APP/data/chat.json"
+if run_mutable_probe >/dev/null 2>&1; then printf 'SIM_PLAINTEXT_CHAT_INVALID_NOT_REJECTED\n' >&2; exit 1; fi
+cp -p "$SIM_ROOT/chat-original.json" "$APP/data/chat.json"
+printf 'SIM_ENCRYPTED_CHAT_GUARDS=PASS corrupted+wrong_key+invalid_plaintext_rejected\n'
+run_mutable_probe
+DATA_BEFORE=$(find "$APP/data" -type f -print0 | sort -z | xargs -0 sha256sum)
+printf 'SIM_COMMUNITY_CORRUPTION=PASS missing+truncated+invalid_json_rejected\n'
+__FINALIZE_SUMMARY__
+
+remove_obsolete_release_files "$RELEASE" "$ROLLBACK"
+tar -xzf "$ROLLBACK" -C "$APP"
+# The marker is restored and verified by the REAL rollback function (as a failed install leaves it at the target), with a live health answer of 200.
+printf '%s\n' "$TARGET_COMMIT" > "$APP/.deployed-commit"
+printf 'const http = require("http"); const fs = require("fs"); const s = http.createServer((q, r) => { r.writeHead(200); r.end("{}"); }); s.listen(0, "127.0.0.1", () => fs.writeFileSync(process.argv[2], String(s.address().port)));\n' > "$SIM_ROOT/health-server.cjs"
+# node.exe is a Windows program: it cannot resolve Git Bash's /tmp paths, so it gets the same cygpath -m form the other simulation probes use.
+node "$(cygpath -m "$SIM_ROOT/health-server.cjs")" "$(cygpath -m "$SIM_ROOT/health-port")" > /dev/null 2>&1 &
+HEALTH_PID=$!
+for _ in $(seq 1 50); do [[ -s "$SIM_ROOT/health-port" ]] && break; sleep 0.1; done
+SIM_HEALTH=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$(cat "$SIM_ROOT/health-port")/api/health" || true)
+kill "$HEALTH_PID" 2>/dev/null || true
+[[ "$SIM_HEALTH" == 200 ]]
+finish_rollback_verification 0 0 0 "$SIM_HEALTH" '' ''
+[[ "$(cat "$APP/.deployed-commit")" == "$ROLLBACK_COMMIT" ]]
+printf 'SIM_ROLLBACK_MARKER=PASS tree_exact marker=%s health=%s\n' "$ROLLBACK_COMMIT" "$SIM_HEALTH"
+# negatives: a rollback whose health is not 200, or whose marker cannot be restored, must NOT report OK
+# Each negative case runs in its OWN fresh directory (APP is overridden inside a subshell), so an unwritable marker can never leak into another case or
+# into the real simulated tree, and the expected stderr of the failing write is not surfaced (Windows PowerShell treats native stderr as an error).
+NEG_HEALTH=$(mktemp -d "$SIM_ROOT/neg-health.XXXXXX")
+NEG_MARKER=$(mktemp -d "$SIM_ROOT/neg-marker.XXXXXX")
+printf '%s\n' "$TARGET_COMMIT" > "$NEG_HEALTH/.deployed-commit"
+if (APP=$NEG_HEALTH; finish_rollback_verification 0 0 0 000 '' '') >/dev/null 2>&1; then printf 'SIM_ROLLBACK_BAD_HEALTH_NOT_REJECTED\n' >&2; exit 1; fi
+mkdir "$NEG_MARKER/.deployed-commit"
+if (APP=$NEG_MARKER; finish_rollback_verification 0 0 0 200 '' '') >/dev/null 2>&1; then printf 'SIM_ROLLBACK_BAD_MARKER_NOT_REJECTED\n' >&2; exit 1; fi
+rmdir "$NEG_MARKER/.deployed-commit"
+(APP=$NEG_MARKER; finish_rollback_verification 0 0 0 200 '' '') >/dev/null 2>&1
+[[ -f "$NEG_MARKER/.deployed-commit" && "$(cat "$NEG_MARKER/.deployed-commit")" == "$ROLLBACK_COMMIT" ]]
+[[ -f "$APP/.deployed-commit" && "$(cat "$APP/.deployed-commit")" == "$ROLLBACK_COMMIT" ]]
+printf 'SIM_ROLLBACK_MARKER_GUARDS=PASS bad_health_and_unwritable_marker_rejected isolated_dirs\n'
+verify_tree "$RB_TREE" "$ROLLBACK_COMMIT"
+DATA_AFTER=$(find "$APP/data" -type f -print0 | sort -z | xargs -0 sha256sum)
+[[ "$DATA_AFTER" == "$DATA_BEFORE" ]]
+printf 'SIM_ROLLBACK=OK commit=%s exact_tree=yes data=unchanged state_files=17 secret=unchanged gym-profile=preserved notifications/chat/friends/social/shares/reports/vapid=preserved\n' "$ROLLBACK_COMMIT"
+'@
+$RemoteForExtract = $RemoteScript -replace "`r`n", "`n"
+$treeStart = $RemoteForExtract.IndexOf('verify_archive_tree() {')
+$treeEnd = $RemoteForExtract.IndexOf('rollback() {', $treeStart)
+$archiveTreeFunction = $RemoteForExtract.Substring($treeStart, $treeEnd - $treeStart)
+$finalizeStart = $RemoteForExtract.IndexOf('STEP=finalize' + "`n")
+if ($finalizeStart -lt 0) { throw 'Could not extract final deployment summary for local simulation' }
+$finalizeBlock = $RemoteForExtract.Substring($finalizeStart).TrimEnd()
+$finalizePrefix = @'
+printf 'SIMULATED_FINALIZE_BEGIN production_mutation=no\n'
+INTERNAL_STATUS=200
+EXTERNAL_STATUS=200
+DATA_STATUS=401
+DATA_OWNER_BEFORE=2jfitness:2jfitness
+DATA_MODE_BEFORE=700
+LIVE_STATE_BEFORE=17
+LIVE_STATE_AFTER=17
+BLOCKS_AFTER=absent-unchanged
+GUIDED_AFTER=absent-unchanged
+GYM_PROFILE_AFTER=present-unchanged
+BACKUP=/simulation/predeploy.tar.gz
+PROBE_OUT='INACTIVITY_MODEL_PROBE=OK deadline=60min passive_no_reset duration_excludes_idle
+PROBE_OK
+PROBE_DATA exlib=1324 recommended=210 with_movement=1305 deprecated=26 movements=35 equipment=28 kinds=6 ai_rec_first=210 hidden_ex=0 gym_profiles=ok gym_config_source=persisted gym_ai_context=hotel gym_compatible_first=bodyweight protocol=1.0 masters=198 pass=198 pass_with_reason=0 fail=0 unverified=0 api_blocks=198 guided_masters=86 routines=155 programs=22 collections=15 featured=3 masters_used=145 copies=363 member_writes=refused ai_deprecated=0 overlay_rev=0 guided_rev=1.2.0'
+GUIDED_GET_STATUS=401
+STUDIO_POST_STATUSES='status=401 reorder=401 program/save=401 program/curate=401 program/duplicate=401 program/delete=401 collection/delete=401'
+LIBADMIN_GET_STATUS=401
+LIBADMIN_POST_STATUS=401
+GUIDED_REV='"guidedRev":"1.2.0"'
+GUIDED_POST_STATUSES='save=401 duplicate=401 active=401 delete=401 curate=401 collection=401'
+BLOCKS_GET_STATUS=401
+BLOCKS_POST_STATUSES='save=401 duplicate=401 active=401 delete=401 favorite=401'
+MEMBER_ROUTINE_STATUS=401
+MEMBER_PROGRAM_STATUS=401
+WHOOP_WORKOUTS_STATUS=401
+WHOOP_RECOVERY_STATUS=401
+FOLLOWUP_STATUS=401
+ADMIN_FOLLOWUP_STATUS=401
+ADMIN_FOLLOWUP_POST_STATUS=401
+ADMIN_REVIEW_STATUS=401
+BUNKER_SESSION_STATUS=401
+SYNC_STATUS=401
+BUNKER_STATUS=200
+BUNKER_SETTINGS_STATUS=200
+SOCIAL_STATUS=401
+AUX_STATUS=401
+IMPORT_MATCH_STATUS=401
+MANIFEST_STATUS=200
+SW_STATUS=200
+ICON192_STATUS=200
+ICON512_STATUS=200
+ASSET=/assets/index-simulated.js
+ASSET_STATUS=200
+STYLE=/assets/index-simulated.css
+STYLE_STATUS=200
+LOG=/tmp/simulation.log
+PROBE_FIELD() { printf '%s' "$PROBE_OUT" | tr ' ' '\n' | awk -F= -v k="$1" '$1 == k {print $2; exit}'; }
+'@
+$SimulationScript = $SimulationScript.Replace('__FINALIZE_SUMMARY__', $archiveTreeFunction + "`n" + $finalizePrefix + "`n" + $finalizeBlock)
+$currentStart = $RemoteForExtract.IndexOf('STEP=verify-current-production' + "`n")
+$currentEnd = $RemoteForExtract.IndexOf('STEP=backup-data' + "`n", $currentStart)
+if ($currentStart -lt 0 -or $currentEnd -lt 0) { throw 'Could not extract verify-current-production for local simulation' }
+$currentProductionBlock = $RemoteForExtract.Substring($currentStart, $currentEnd - $currentStart)
+$currentProductionBlock = $currentProductionBlock -replace '^STEP=verify-current-production\n', ''
+if (-not $SimulationScript.Contains('__VERIFY_CURRENT_PRODUCTION__')) { throw 'Simulation precheck placeholder missing' }
+$SimulationScript = $SimulationScript.Replace('__VERIFY_CURRENT_PRODUCTION__', $currentProductionBlock)
+[System.IO.File]::WriteAllText($SimulationRunner, ($SimulationScript -replace "`r`n", "`n"), $Utf8NoBom)
+$GitExe = (Get-Command git.exe -ErrorAction Stop).Source
+$GitRoot = Split-Path (Split-Path $GitExe -Parent) -Parent
+$Bash = Join-Path $GitRoot 'bin\bash.exe'
+if (-not (Test-Path -LiteralPath $Bash)) { throw "Git Bash no encontrado junto a Git: $Bash" }
+function ConvertTo-GitBashPath([string]$Path) {
+  $full = [System.IO.Path]::GetFullPath($Path)
+  $drive = $full.Substring(0, 1).ToLowerInvariant()
+  return '/' + $drive + '/' + $full.Substring(3).Replace('\', '/')
+}
+$RemoteRunnerUnix = ConvertTo-GitBashPath $LocalRunner
+& $Bash -n $RemoteRunnerUnix
+if ($LASTEXITCODE -ne 0) { throw 'Bash syntax validation failed for the generated remote runner' }
+Write-Host 'REMOTE_BASH_SYNTAX=OK'
+$protocolStart = $RemoteForExtract.IndexOf('STEP=verify-release-protocol' + "`n")
+$protocolEnd = $RemoteForExtract.IndexOf('STEP=verify-current-production' + "`n", $protocolStart)
+if ($protocolStart -lt 0 -or $protocolEnd -lt 0) { throw 'Could not extract verify-release-protocol for local execution' }
+$protocolBlock = $RemoteForExtract.Substring($protocolStart, $protocolEnd - $protocolStart)
+$ProtocolHarness = @'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+export PATH="/usr/bin:/mingw64/bin"
+docker() { bash '__DOCKER_SHIM_FILE__' "$@"; }
+RELEASE=$1
+ROLLBACK=$2
+SYNC_BASE=@@SYNC_BASE@@
+if command -v node >/dev/null 2>&1; then
+  printf 'HOST_NODE_UNEXPECTEDLY_AVAILABLE=%s\n' "$(command -v node)" >&2
+  exit 90
+fi
+'@
+$DockerShimBody = @'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ "$#" -ge 13 && "$1" == run && "$2" == --rm && "$3" == --network && "$4" == none \
+  && "$5" == --read-only && "$6" == -v && "$8" == -w && "$9" == /release \
+  && "${10}" == 2jfitness-api:latest && "${11}" == node ]] || {
+  printf 'DOCKER_SHIM_UNEXPECTED_ARGS=%s\n' "$*" >&2
+  exit 91
+}
+[[ "$7" == *:/release:ro ]] || { printf 'DOCKER_SHIM_MOUNT_NOT_READONLY=%s\n' "$7" >&2; exit 92; }
+mount="$(cygpath -m "${7%:/release:ro}"):/release:ro"
+shift 11
+MSYS_NO_PATHCONV=1 '__DOCKER_EXE__' run --rm --network none --read-only -v "$mount" -w /release '__LOCAL_API_IMAGE__' node "$@"
+'@
+$DockerShimUnix = ConvertTo-GitBashPath $DockerShimDirectory
+$DockerShimFileUnix = ConvertTo-GitBashPath $DockerShim
+$DockerShimBody = $DockerShimBody.Replace('__DOCKER_EXE__', (ConvertTo-GitBashPath (Get-Command docker.exe -ErrorAction Stop).Source)).Replace('__LOCAL_API_IMAGE__', $ApiImageTag)
+$ProtocolHarness = $ProtocolHarness.Replace('__DOCKER_SHIM_FILE__', $DockerShimFileUnix)
+New-Item -ItemType Directory -Force -Path $DockerShimDirectory | Out-Null
+[System.IO.File]::WriteAllText($DockerShim, ($DockerShimBody -replace "`r`n", "`n"), $Utf8NoBom)
+$ProtocolHarness += "`n" + $protocolBlock
+[System.IO.File]::WriteAllText($ProtocolCheckRunner, ($ProtocolHarness -replace "`r`n", "`n"), $Utf8NoBom)
+$ProtocolCheckRunnerUnix = ConvertTo-GitBashPath $ProtocolCheckRunner
+$ReleaseUnix = ConvertTo-GitBashPath $Release
+$RollbackUnix = ConvertTo-GitBashPath $RollbackRelease
+& $Bash --noprofile --norc $ProtocolCheckRunnerUnix $ReleaseUnix $RollbackUnix
+if ($LASTEXITCODE -ne 0) { throw 'LOCAL_VERIFY_RELEASE_PROTOCOL_FAILED; no production connection was made' }
+Write-Host 'LOCAL_VERIFY_RELEASE_PROTOCOL=OK'
+
+
+# Extract the exact read-only API runtime probe from the remote runner. The simulation runs it
+# against both the extracted target tar and the installed simulated release with synthetic data.
+$probeToken = '  cat > "$1" <<''JS''' + "`n"
+$probeTokenStart = $RemoteForExtract.IndexOf($probeToken)
+if ($probeTokenStart -lt 0) { throw 'Could not extract the runner API runtime probe' }
+$probeBodyStart = $probeTokenStart + $probeToken.Length
+$probeBodyEnd = $RemoteForExtract.IndexOf("`nJS`n}", $probeBodyStart)
+if ($probeBodyEnd -lt 0) { throw 'Could not locate the end of the runner API runtime probe' }
+$probeCode = $RemoteForExtract.Substring($probeBodyStart, $probeBodyEnd - $probeBodyStart)
+[System.IO.File]::WriteAllText($RuntimeProbe, $probeCode, $Utf8NoBom)
+$mutableFunctionStart = $RemoteForExtract.IndexOf('write_mutable_data_probe() {' + "`n")
+if ($mutableFunctionStart -lt 0) { throw 'Could not locate the mutable data probe function' }
+$mutableTokenStart = $RemoteForExtract.IndexOf($probeToken, $mutableFunctionStart)
+if ($mutableTokenStart -lt 0) { throw 'Could not extract the mutable data probe' }
+$mutableBodyStart = $mutableTokenStart + $probeToken.Length
+$mutableBodyEnd = $RemoteForExtract.IndexOf("`nJS`n}", $mutableBodyStart)
+if ($mutableBodyEnd -lt 0) { throw 'Could not locate the end of the mutable data probe' }
+$mutableCode = $RemoteForExtract.Substring($mutableBodyStart, $mutableBodyEnd - $mutableBodyStart)
+[System.IO.File]::WriteAllText($MutableProbe, $mutableCode, $Utf8NoBom)
+
+$SimulationRunnerUnix = ConvertTo-GitBashPath $SimulationRunner
+$RuntimeProbeUnix = ConvertTo-GitBashPath $RuntimeProbe
+$MutableProbeUnix = ConvertTo-GitBashPath $MutableProbe
+$rollbackHashArg = $RollbackHash.ToLowerInvariant()
+$releaseHashArg = $LocalHash.ToLowerInvariant()
+& $Bash --noprofile --norc $SimulationRunnerUnix $RollbackUnix $ReleaseUnix $RollbackCommit $Commit $rollbackHashArg $releaseHashArg $RuntimeProbeUnix $MutableProbeUnix
+if ($LASTEXITCODE -ne 0) { throw 'LOCAL_TAR_ROLLBACK_SIMULATION_FAILED; production was not touched' }
+Write-Host 'LOCAL_TAR_ROLLBACK_SIMULATION=OK'
+
+if ($PrepareOnly) {
+  Write-Host "LOCAL_RUNNER=$LocalRunner"
+  Write-Host "PREPARE_ONLY_OK=$Commit (no scp, no ssh: production untouched)"
+  Write-Host 'SIMULATION_ONLY=final summary exercised; no deployment was performed'
+  Write-Host "DEPLOY_SCRIPT_OK=$Commit"
+  return
+}
+
+Assert-2JAuthorized -AuthorizedBy $AuthorizedBy -Commit $Commit
+Write-Host '2J_DEPLOY_CHANNEL=2j-prod (dedicated restricted key, no password)'
+Test-2JChannel
+Send-2JFile $Release
+Send-2JFile $RollbackRelease
+Send-2JFile $LocalRunner
+$RunCode = Invoke-2JRun -Short $ShortCommit -RollbackShort $RollbackShort -RunId $RunId
+if ($RunCode -ne 0) {
+  throw "Remote deployment ended with code $RunCode. Check ORIGINAL_FAIL_STEP and ROLLBACK in the output."
+}
+
+Write-Host ''
+Write-Host "DEPLOY_SCRIPT_OK=$Commit"

@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "title": "Shared Staff Device PIN sessions over production baseline"
+  },
+  "targetCommit": "831f691ca1b30a9c252bb60e8336d93edf448114",
+  "expectedCurrentCommit": "cd4a542ea04b8c80848f3ea41926bce01c1bba1e",
+  "rollbackCommit": "cd4a542ea04b8c80848f3ea41926bce01c1bba1e",
+  "expectedCommitCount": 4,
+  "maxCommits": 4,
+  "expectedFrontendTests": 1411,
+  "expectedApiTests": 431,
+  "expectedApiPassed": 431,
+  "expectedApiSkipped": 0,
+  "deltaPaths": [
+    "AI_HANDOFF.md",
+    "CHANGELOG.md",
+    "api/lib/shared-staff-routes.js",
+    "api/lib/shared-staff.js",
+    "api/server.js",
+    "api/test/shared-staff.test.js",
+    "frontend/src/App.jsx",
+    "frontend/src/components/SharedStaffSessionGuard.jsx",
+    "frontend/src/index.css",
+    "frontend/src/lib/api.js",
+    "frontend/src/lib/shared-staff-state.js",
+    "frontend/src/lib/shared-staff-state.test.js",
+    "frontend/src/locales/es.js",
+    "frontend/src/store/useStore.js",
+    "frontend/src/views/Login.jsx",
+    "frontend/src/views/Settings.jsx",
+    "frontend/src/views/SharedStaffSettings.jsx",
+    "frontend/src/views/shared-staff.test.jsx",
+    "frontend/src/views/staff-access.test.jsx"
+  ],
+  "sync": {
+    "rollbackBase": "51a221d8ef524776334d8d67109fb9102407eff2",
+    "syncJsSha256Lf": "8b402562d3a5eccfe7054db5246ca4e9f796b70b24306f9c2f8e0c53470fd586",
+    "syncJsSha256CrLf": "6cd72a0fbf910612efba88fa1a56700664e4b3e322103632ae025c1174085859"
+  },
+  "probes": {
+    "sourceFiles": [
+      "api/lib/shared-staff.js",
+      "api/lib/shared-staff-routes.js",
+      "api/test/shared-staff.test.js",
+      "frontend/src/lib/shared-staff-state.js",
+      "frontend/src/components/SharedStaffSessionGuard.jsx"
+    ],
+    "sourceMarkers": [
+      { "file": "api/server.js", "marker": "sharedStaffRoutes({" },
+      { "file": "api/lib/shared-staff.js", "marker": "export function createPinLimiter" },
+      { "file": "api/lib/shared-staff-routes.js", "marker": "'POST /api/shared-device/pin'" },
+      { "file": "api/lib/shared-staff-routes.js", "marker": "'POST /api/shared-device/step-up'" },
+      { "file": "api/lib/shared-staff-routes.js", "marker": "'POST /api/admin/shared-device/revoke'" },
+      { "file": "api/lib/shared-staff-routes.js", "marker": "'POST /api/admin/shared-staff/pin'" },
+      { "file": "frontend/src/components/SharedStaffSessionGuard.jsx", "marker": "IDLE_MS = 15 * 60_000" }
+    ],
+    "unauthenticatedRoutes": [
+      { "method": "GET", "path": "/api/shared-device/status", "status": 200, "expectUnauthenticated": true, "requiredBodyMarker": "\"authorized\":false" },
+      { "method": "POST", "path": "/api/shared-device/pin", "status": 403, "expectUnauthenticated": true },
+      { "method": "POST", "path": "/api/shared-device/step-up", "status": 403, "expectUnauthenticated": true },
+      { "method": "GET", "path": "/api/admin/shared-devices", "status": 401, "expectUnauthenticated": true },
+      { "method": "POST", "path": "/api/admin/shared-device/revoke", "status": 401, "expectUnauthenticated": true },
+      { "method": "POST", "path": "/api/shared-staff/pin", "status": 403, "expectUnauthenticated": true },
+      { "method": "POST", "path": "/api/admin/shared-staff/pin", "status": 401, "expectUnauthenticated": true }
+    ]
+  }
+}
