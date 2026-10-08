@@ -30,7 +30,7 @@ const withShared = { ...absent, shareCheckins: true, checkins: [0, 1, 2].map(i =
 fs.writeFileSync(path.join(dir, 'state-u1.json'), JSON.stringify(withShared));
 fs.writeFileSync(path.join(dir, 'state-u2.json'), JSON.stringify(regular));
 fs.writeFileSync(path.join(dir, 'state-u3.json'), JSON.stringify(absent));
-const PORT = 34597;
+const PORT = 34881;
 const base = `http://localhost:${PORT}`;
 const child = spawn(process.execPath, ['server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base }, stdio: ['ignore', 'ignore', 'ignore'] });
 for (let i = 0; i < 60; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* not up yet */ } await new Promise(r => setTimeout(r, 100)); }

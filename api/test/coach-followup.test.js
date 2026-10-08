@@ -257,3 +257,40 @@ test('the whole list for 10 / 25 / 50 / 100 synthetic members stays fast', () =>
     assert.ok(ms < 2000, `${n} members took ${Math.round(ms)} ms`);
   }
 });
+
+/* ---------------------------------------------------------------- signals carried over from the engines that already exist */
+test('accumulated fatigue (several effort signals over time) is a review-level signal; one bad session is not', () => {
+  const sessions = extra => [0, 1, 2, 3, 4, 5].map(i => ({ id: 'f' + i, d: addDays(TODAY, -(6 - i) * 3), routineId: 'r1',
+    entries: ['A', 'B'].map(id => ({ id, target: { id, sets: 2, reps: 8 }, sets: [set(60, 8, extra(i, id)), set(60, 8, extra(i, id))] })) }));
+  const high = sessions((i, id) => ({ rpe: 7 + i / 2, feel: i >= 4 && id === 'A' ? 'fail' : i >= 3 ? 'hard' : 'good' }));
+  const sigs = signalsFor({ S: member({ workouts: high }), u: roster(), today: TODAY });
+  const f = sigs.find(s => s.id === 'fatigue_trend');
+  assert.ok(f, ids(sigs).join()); assert.equal(f.severity, 'review'); assert.equal(f.source, 'effort'); assert.ok(f.evidence.points >= 6);
+  const oneBad = sessions((i) => (i === 5 ? { rpe: 10, feel: 'fail' } : { rpe: 7, feel: 'good' }));
+  assert.equal(signalsFor({ S: member({ workouts: oneBad }), u: roster(), today: TODAY }).some(s => s.id === 'fatigue_trend'), false);
+  // an accepted deload quiets it: the trainer already has the member in a lighter week
+  const deload = { from: addDays(TODAY, -1), until: addDays(TODAY, 6), volumeCut: 0.35, loadCut: 0.075, rir: 3 };
+  assert.equal(signalsFor({ S: member({ workouts: high, deload }), u: roster(), today: TODAY }).some(s => s.id === 'fatigue_trend'), false);
+});
+
+test('a review left for two weeks is priority; one that just came due is only "review"; a review that was closed disappears', () => {
+  const flat = n => Array.from({ length: n }, (_, i) => strength(addDays(TODAY, -(i * 3) - 1))).reverse();
+  const weeks = n => member({ routineReviews: {}, workouts: Array.from({ length: n * 3 }, (_, i) => strength(addDays(TODAY, -(n * 7) + Math.floor(i * 7 / 3)))) });
+  const fresh = signalsFor({ S: weeks(5), u: roster(), today: TODAY }).find(s => s.source === 'review');
+  assert.ok(fresh && fresh.severity === 'review', JSON.stringify(fresh));
+  const late = signalsFor({ S: weeks(8), u: roster(), today: TODAY }).find(s => s.id === 'review_overdue');
+  assert.ok(late && late.severity === 'priority' && late.evidence.daysOver >= T.REVIEW_OVERDUE_PRIORITY, JSON.stringify(late));
+  const closed = signalsFor({ S: { ...weeks(8), routineReviews: { r1: { reviewedAt: addDays(TODAY, -2), by: 'tr' } } }, u: roster(), today: TODAY });
+  assert.equal(closed.some(s => s.source === 'review'), false);
+  assert.ok(flat(3).length === 3);
+});
+
+test('multi-signal members rank above single-signal ones; a flagged member is always listed; clearing the mark drops the signal', () => {
+  const a = overviewRow({ S: member({ workouts: history(5).filter(w => w.d <= addDays(TODAY, -16)) }), u: roster({ id: 'a' }), today: TODAY });
+  const b = overviewRow({ S: member(), u: roster({ id: 'b', followUp: { template: 'basic', cadence: 'monthly', days: 30, startedAt: TODAY, reviews: [], flag: { at: 'x', by: 'tr' } } }), today: TODAY });
+  const c = overviewRow({ S: member(), u: roster({ id: 'c' }), today: TODAY });
+  const buckets = bucketRows([a, b, c]);
+  assert.deepEqual(buckets.attention.map(r => r.id).sort(), ['a', 'b']);
+  assert.equal(b.flagged, true); assert.equal(b.signals[0].id, 'flagged'); assert.equal(c.level, 'normal');
+  assert.equal(overviewRow({ S: member(), u: roster({ followUp: { template: 'basic', cadence: 'monthly', days: 30, startedAt: TODAY, reviews: [] } }), today: TODAY }).level, 'normal');
+});
