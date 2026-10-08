@@ -161,7 +161,7 @@
       {
         "method": "POST",
         "expectUnauthenticated": true,
-        "status": 401,
+        "status": 403,
         "path": "/api/push/subscribe"
       }
     ]

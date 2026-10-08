@@ -9,6 +9,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const template = fs.readFileSync(path.join(here, 'templates', 'release-runner.ps1.in'), 'utf8')
 const base = JSON.parse(fs.readFileSync(path.join(here, '../releases/831f691.json'), 'utf8'))
 const restAlert = JSON.parse(fs.readFileSync(path.join(here, '../releases/android-rest-alert.json'), 'utf8'))
+const trainingQuality = JSON.parse(fs.readFileSync(path.join(here, '../releases/training-quality-review.json'), 'utf8'))
 
 test('derives short SHAs and emits full SHA values independently', () => {
   const rendered = renderTemplate(template, base)
@@ -50,6 +51,21 @@ test('all no-credential PIN probes require the exact contract status 403', () =>
   const rendered = renderTemplate(template, base)
   assert.ok(rendered.includes("wait_status 403 'https://app.2jfitnesscenter.com/api/shared-device/pin'"))
   assert.ok(rendered.includes("wait_status 403 'https://app.2jfitnesscenter.com/api/shared-staff/pin'"))
+})
+
+test('no-Origin Web Push subscribe probe requires exact 403 and rejects every other status', () => {
+  const subscribe = trainingQuality.probes.unauthenticatedRoutes.find(r => r.method === 'POST' && r.path === '/api/push/subscribe')
+  assert.deepEqual(subscribe, { method: 'POST', expectUnauthenticated: true, status: 403, path: '/api/push/subscribe' })
+  const rendered = renderTemplate(template, trainingQuality)
+  assert.match(rendered, /wait_status 403 'https:\/\/app\.2jfitnesscenter\.com\/api\/push\/subscribe'/)
+
+  for (const status of [200, 401, 500, 503]) {
+    const probes = trainingQuality.probes.unauthenticatedRoutes.map(r => r.path === '/api/push/subscribe' ? { ...r, status } : r)
+    assert.throws(
+      () => validateConfig({ ...trainingQuality, probes: { ...trainingQuality.probes, unauthenticatedRoutes: probes } }),
+      /NO_ORIGIN_PUSH_PROBE_MUST_MATCH_CONTRACT_403/,
+    )
+  }
 })
 
 test('rejects contradictory exact statuses across unauthenticated PIN boundaries', () => {

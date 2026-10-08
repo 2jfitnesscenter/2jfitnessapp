@@ -12,6 +12,11 @@ const NO_CREDENTIAL_PIN_PROBES = [
   { method: 'POST', path: '/api/shared-device/pin', status: 403 },
   { method: 'POST', path: '/api/shared-staff/pin', status: 403 },
 ]
+// The deploy smoke intentionally sends no Origin header. pushSession rejects that
+// request at the origin guard before its unauthenticated-session check.
+const NO_ORIGIN_PUSH_PROBES = [
+  { method: 'POST', path: '/api/push/subscribe', status: 403 },
+]
 const WEB_PUSH_SUBSCRIPTION_MARKERS = [
   { file: 'api/server.js', marker: "'GET /api/push/public-key'" },
   { file: 'api/server.js', marker: "'POST /api/push/subscribe'" },
@@ -57,15 +62,22 @@ export function validateConfig(c) {
   for (const f of c.probes.sourceFiles) if (!SAFE_PATH.test(f)) fail(`INVALID_PROBE_PATH:${f}`)
   for (const m of c.probes.sourceMarkers) if (!SAFE_PATH.test(m.file) || typeof m.marker !== 'string' || !m.marker || /[\r\n]/.test(m.marker)) fail('INVALID_SOURCE_MARKER')
   const pinProbeStatuses = []
+  const noOriginPushProbeStatuses = []
   for (const r of c.probes.unauthenticatedRoutes) {
     if (!['GET', 'POST'].includes(r.method) || !/^\/api\/[A-Za-z0-9/_-]+$/.test(r.path) || !Number.isInteger(r.status) || r.status < 200 || r.status > 599) fail('INVALID_UNAUTHENTICATED_ROUTE')
     if (NO_CREDENTIAL_PIN_PROBES.some(p => p.method === r.method && p.path === r.path)) pinProbeStatuses.push({ route: r, status: r.status })
+    if (NO_ORIGIN_PUSH_PROBES.some(p => p.method === r.method && p.path === r.path)) noOriginPushProbeStatuses.push({ route: r, status: r.status })
   }
   for (const expected of NO_CREDENTIAL_PIN_PROBES) {
     const matches = c.probes.unauthenticatedRoutes.filter(r => r.method === expected.method && r.path === expected.path)
     if (matches.length !== 1 || matches[0].status !== expected.status) fail(`SHARED_PIN_PROBE_MUST_MATCH_CONTRACT_403:${expected.path}`)
   }
   if (new Set(pinProbeStatuses.map(p => p.status)).size !== 1 || pinProbeStatuses.length !== NO_CREDENTIAL_PIN_PROBES.length) fail('CONTRADICTORY_NO_CREDENTIAL_PIN_EXPECTATIONS')
+  for (const expected of NO_ORIGIN_PUSH_PROBES) {
+    const matches = c.probes.unauthenticatedRoutes.filter(r => r.method === expected.method && r.path === expected.path)
+    if (matches.length > 1 || (matches.length === 1 && matches[0].status !== expected.status)) fail(`NO_ORIGIN_PUSH_PROBE_MUST_MATCH_CONTRACT_403:${expected.path}`)
+  }
+  if (new Set(noOriginPushProbeStatuses.map(p => p.status)).size > 1) fail('CONTRADICTORY_NO_ORIGIN_PUSH_EXPECTATIONS')
   return { targetShort: c.targetCommit.slice(0, 7), expectedShort: c.expectedCurrentCommit.slice(0, 7) }
 }
 
