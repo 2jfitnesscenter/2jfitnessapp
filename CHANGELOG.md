@@ -1,5 +1,13 @@
 # Changelog
 
+### Training Quality V1 + Routine Review por programa — candidato, NO desplegado
+
+- Revisión del programa activo agrupada en una sola tarjeta/ciclo; los días incluidos ya no generan tarjetas individuales. Las rutinas independientes mantienen su ciclo anterior.
+- Registro aditivo `S.programReviews`: marca de última revisión y próxima fecha a 28 días; cierre elimina el aviso hasta la fecha nueva. Se conservan rutinas, historial, metadata existente y Sync V2.
+- El resumen de revisión incorpora adherencia de las semanas transcurridas, tendencia de progresión, señales de plateau/omisiones y el análisis estructural existente. La IA profesional recibe facts acotados y solo genera un borrador para revisión del entrenador.
+- Validado automáticamente: frontend 1465/1465; API 454/454 sin skips en Linux; build web; español completo; deploy-kit Linux 48/48; diff-check.
+- Sin despliegue. QA visual manual en pantalla autenticada (1440/768/390, claro/oscuro) y PrepareOnly siguen pendientes porque el panel local no tiene backend de QA (HTTP 502). No usar producción como sustituto.
+
 ### Web Push diagnóstico para alertas de descanso PWA (2026-10-07) — NO DESPLEGADO
 
 - Se añade alta explícita de suscripciones por cuenta/dispositivo y una cola persistente `db.restAlerts` con recuperación tras reinicio, cancelación, idempotencia, expiración y reintentos acotados. Reutiliza VAPID, `db.subs` y el service worker actual.
