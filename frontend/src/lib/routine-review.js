@@ -47,6 +47,20 @@ const mean = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null)
 
 const isDate = x => ISO.test(x || '') && new Date(day(x)).toISOString().slice(0, 10) === x && x >= '2000-01-01' && x <= '2100-12-31'
 
+// Older saved programs may keep their routine membership only in the pinned snapshots.
+// Resolve those IDs as part of the active program so legacy routines are not reviewed twice.
+function getProgramRoutineIds(program) {
+  if (!program) return []
+  const ids = [
+    ...(Array.isArray(program.routineIds) ? program.routineIds : []),
+    ...(Array.isArray(program.weeks) ? program.weeks.flatMap(w => (Array.isArray(w?.sessions) ? w.sessions.map(s => s?.routineId) : [])) : []),
+    ...(program.routineSnapshots && typeof program.routineSnapshots === 'object' ? Object.keys(program.routineSnapshots) : []),
+    ...(program.routines && !Array.isArray(program.routines) && typeof program.routines === 'object' ? Object.keys(program.routines) : []),
+    ...(Array.isArray(program.routines) ? program.routines.map(r => r?.routineId || r?.id) : []),
+  ]
+  return [...new Set(ids.filter(id => typeof id === 'string' && id))]
+}
+
 /** Start of the current cycle of routine `r`, or null when it has not started. { start, source: 'manual'|'reviewed'|'version'|'first', exclusive } */
 export function cycleStart(S, r) {
   const id = r?.id
@@ -158,10 +172,7 @@ function progressionSummary(sessions) {
 export function routineReviews(S, today) {
   const out = []
   const activeProgram = (S?.programs || []).find(p => p?.id === S?.activeProgramId && !['paused', 'abandoned', 'completed'].includes(p?.status))
-  const programRoutineIds = new Set(activeProgram ? [
-    ...(Array.isArray(activeProgram.routineIds) ? activeProgram.routineIds : []),
-    ...(activeProgram.weeks || []).flatMap(w => (w.sessions || []).map(s => s?.routineId).filter(Boolean)),
-  ] : [])
+  const programRoutineIds = new Set(getProgramRoutineIds(activeProgram))
   if (activeProgram) {
     const saved = S?.programReviews?.[activeProgram.id] || {}
     const started = num(activeProgram.startedAt)
@@ -208,7 +219,8 @@ export function routineReviews(S, today) {
     const manualDue = S?.routineReviews?.[r.id]?.dueOverride
     const dueManual = isDate(manualDue) && manualDue >= cycle.start ? manualDue : null
     const dueDate = dueManual || addDays(cycle.start, (REVIEW_WEEK - 1) * 7)
-    const base = { routineId: r.id, name: r.name || '', start: cycle.start, source: cycle.source, startManual: cycle.source === 'manual', dueDate, nextReviewAt: dueDate, dueManual: !!dueManual, week, days, sessions: sessions.length }
+    const reviewedInCurrentCycle = isDate(S?.routineReviews?.[r.id]?.reviewedAt) && today < dueDate
+    const base = { routineId: r.id, name: r.name || '', start: cycle.start, source: cycle.source, startManual: cycle.source === 'manual', dueDate, nextReviewAt: dueDate, dueManual: !!dueManual, reviewed: reviewedInCurrentCycle, lastReviewAt: S?.routineReviews?.[r.id]?.reviewedAt || null, week, days, sessions: sessions.length }
     if (dueManual) {      // the staff date decides, whatever the session count or plateau
       const p0 = plateau(sessions)
       const left = daysBetween(today, dueManual)
@@ -221,7 +233,6 @@ export function routineReviews(S, today) {
     // A completed review closes this cycle until its scheduled date, even if
     // the same plateau evidence remains in the history. The due date itself
     // is inclusive, so the review can return on that day.
-    const reviewedInCurrentCycle = isDate(S?.routineReviews?.[r.id]?.reviewedAt) && today < dueDate
     if (week >= REVIEW_WEEK) out.push({ ...base, status: 'due', early: false, late: daysBetween(dueDate, today) >= LATE_DAYS, reasons: [{ code: 'week', week }, ...p.reasons] })
     else if (!reviewedInCurrentCycle && week >= EARLY_WEEK && p.clear) out.push({ ...base, status: 'early', early: true, late: false, reasons: p.reasons })
     else if (week >= EARLY_WEEK) out.push({ ...base, status: 'soon', early: false, late: false, reasons: p.reasons })

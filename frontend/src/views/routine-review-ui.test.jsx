@@ -88,6 +88,29 @@ describe('member', () => {
     expect(due).toContain('Strength block')
     expect(due.match(/class="v2-surface v3-rr"/g)).toHaveLength(1)
   })
+  it('legacy program memberships render as one review in Home and Seguimiento, then close until nextReviewAt', async () => {
+    const ids = ['shoulder-push', 'lower', 'shoulder-pull']
+    const start = '2026-09-01'
+    const program = { id: 'legacy-shoulder-program', status: 'active', source: 'guided-v2', name: 'Shoulder care · Block 1',
+      startedAt: Date.parse(start + 'T12:00:00Z'), routineSnapshots: Object.fromEntries(ids.map(id => [id, { id }])) }
+    const legacy = { routines: ids.map((id, i) => ({ id, name: `Legacy day ${i + 1}`, ex: [] })), programs: [program], activeProgramId: program.id,
+      workouts: ids.map((routineId, i) => ({ id: `old-${i}`, routineId, d: addDays(start, i + 1), entries: [] })),
+      routineReviews: Object.fromEntries(ids.map(id => [id, { startOverride: start, dueOverride: '2026-09-29', manualBy: 'staff' }])) }
+
+    for (const surface of ['Home', 'Seguimiento']) {
+      const before = await renderView(surface, legacy)
+      expect(before).toContain('Program review')
+      expect(before).toContain('Shoulder care · Block 1')
+      expect(before).not.toContain('Routine review')
+
+      const closed = { ...legacy, programReviews: { [program.id]: { lastReviewAt: '2026-10-06', nextReviewAt: '2026-11-03', by: 'trainer1', n: 1 } } }
+      expect(await renderView(surface, closed)).not.toContain('Program review')
+    }
+    vi.setSystemTime(new Date('2026-11-03T12:00:00'))
+    const due = await renderView('Seguimiento', { ...legacy, programReviews: { [program.id]: { lastReviewAt: '2026-10-06', nextReviewAt: '2026-11-03', by: 'trainer1', n: 1 } } })
+    expect(due).toContain('Program review')
+    expect(due.match(/class="v2-surface v3-rr/g)).toHaveLength(1)
+  })
   it('a persisted independent routine is absent during its plateau-protected interval and visible at nextReviewAt', async () => {
     const reviewedAt = '2026-09-15'
     const reviewed = { routines, workouts: flat('2026-09-16'), routineReviews: { r1: { reviewedAt, by: 'trainer1', n: 1 } } }
@@ -98,6 +121,24 @@ describe('member', () => {
     const due = await renderView('Seguimiento', reviewed)
     expect(due).toContain('Routine review')
     expect(due).toContain('Push day')
+  })
+  it('staff cycle cards hide a reviewed cycle until its next review date', () => {
+    const fu = readFileSync(new URL('./AdminFollowUp.jsx', import.meta.url), 'utf8')
+    expect(fu).toContain('const visibleCycles = cycles.filter(c => !c.reviewed)')
+    expect(fu).toContain('{visibleCycles.map(c =>')
+  })
+  it('staff Follow-up renders no closed legacy routine cards and shows the program again when due', async () => {
+    memory = new Map(); await boot()
+    const { RoutineCycles } = await import('./AdminFollowUp.jsx')
+    const cycles = [
+      { kind: 'program', programId: 'legacy-p', routineIds: ['r1', 'r2', 'r3'], name: 'Shoulder care', reviewed: true, nextReviewAt: '2026-11-03' },
+      { kind: 'routine', routineId: 'r1', name: 'Old duplicate', reviewed: true, nextReviewAt: '2026-11-03' },
+    ]
+    const html = renderToStaticMarkup(<MemoryRouter><RoutineCycles id="member" cycles={cycles} setData={() => {}} /></MemoryRouter>)
+    expect(html).toBe('')
+    const due = renderToStaticMarkup(<MemoryRouter><RoutineCycles id="member" cycles={[{ ...cycles[0], reviewed: false, status: 'due' }]} setData={() => {}} /></MemoryRouter>)
+    expect(due).toContain('Shoulder care')
+    expect(due).toContain('Program reviewed')
   })
   it('the member cannot close or edit anything from the notice: no markReviewed / setCycleDates anywhere in the member screens', () => {
     const card = readFileSync(new URL('../components/RoutineReviewCard.jsx', import.meta.url), 'utf8')

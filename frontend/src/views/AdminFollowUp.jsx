@@ -65,9 +65,11 @@ export function RoutineCycles({ id, cycles, sync, setData, reload, plan = null }
       .catch(e => toast(e.message || t('That date is not valid')))
       .finally(() => setBusy(false))
   }
+  const visibleCycles = cycles.filter(c => !c.reviewed)
+  if (!visibleCycles.length) return null
   return <Surface className="v3-cy">
     <div className="v2-eyebrow"><Icon name="clipboard" /> {t('Routine review cycle')}</div>
-    {cycles.map(c => c.kind === 'program' ? (() => {
+    {visibleCycles.map(c => c.kind === 'program' ? (() => {
       const program = (plan?.programs || []).find(p => p.id === c.programId)
       const routineMap = new Map((plan?.routines || []).map(r => [r.id, r]))
       for (const [routineId, snapshot] of Object.entries(program?.routineSnapshots || {})) if (!routineMap.has(routineId) && snapshot) routineMap.set(routineId, { ...snapshot, id: routineId })

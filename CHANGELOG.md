@@ -7,6 +7,8 @@
 - El resumen de revisión incorpora adherencia de las semanas transcurridas, tendencia de progresión, señales de plateau/omisiones y el análisis estructural existente. La IA profesional recibe facts acotados y solo genera un borrador para revisión del entrenador.
 - QA local sintética cubre estado persistido tras recarga en Home/Seguimiento, desaparición completa, igualdad con `nextReviewAt`, plateau y rutina independiente. La política de pendientes es la única fuente de tarjetas de socio.
 - QA visual sintética de Home y Seguimiento en 390/768/1440, claro/oscuro: tarjeta visible antes de revisión, eliminada después, sin overflow horizontal ni errores; estado recargado también cubierto por tests.
+- Hotfix de compatibilidad legacy: la pertenencia al programa activo también se deriva de las claves de `routineSnapshots`/`routines`, aunque las rutinas no tengan `programId`; al cerrar una revisión, las tarjetas de ciclo de staff también se ocultan hasta la fecha inclusiva de retorno. Los registros `routineReviews` antiguos se conservan.
+- Validación del hotfix: frontend 1474/1474 secuencial; API completa 452 pass y 5 skips operativos, pruebas de Routine Review 10/10; build y diff-check OK. Sin deploy.
 - Validación final: frontend 1469/1469, API 456/456 sin skips, build y español 4577/4577 OK. Producción previamente confirmada en `8458b54f51cd074c63c0623c9192f63f5f6f6f2a`. PrepareOnly del nuevo target y simulaciones pendientes; sin deploy.
 
 ### Web Push diagnóstico para alertas de descanso PWA (2026-10-07) — NO DESPLEGADO

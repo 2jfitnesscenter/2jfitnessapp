@@ -151,6 +151,35 @@ test('program review is one trainer-only cycle, closes into the next interval, a
   assert.equal((await req('POST', '/api/admin/user/routine-reviewed', { uid: 'member2', body: { id: 'member1', programId: 'active-p1' } })).status, 403);
 });
 
+test('legacy three-routine program uses program review without direct routine programIds', async () => {
+  const ids = ['legacy-push', 'legacy-lower', 'legacy-pull'];
+  const start = addDays(todayIso(), -40);
+  const routines = ids.map((id, i) => ({ id, name: `Legacy day ${i + 1}`, ex: [] }));
+  const program = { id: 'legacy-p', status: 'active', name: 'Shoulder care · Block 1', startedAt: Date.parse(start + 'T12:00:00Z'),
+    routineSnapshots: Object.fromEntries(ids.map((id, i) => [id, { id, name: `Legacy day ${i + 1}` }])) };
+  const routineReviews = Object.fromEntries(ids.map(id => [id, { startOverride: start, dueOverride: addDays(start, 28), manualBy: 'staff' }]));
+  fs.writeFileSync(path.join(dir, 'state-member1.json'), JSON.stringify({ routines, programs: [program], activeProgramId: program.id,
+    workouts: ids.map((routineId, i) => ({ id: `legacy-workout-${i}`, routineId, d: addDays(start, i + 1), entries: [] })), routineReviews }));
+  const before = await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'trainer1' });
+  assert.equal(before.status, 200);
+  assert.equal(before.body.routineCycles.length, 1);
+  assert.equal(before.body.routineCycles[0].kind, 'program');
+  assert.deepEqual(before.body.routineCycles[0].routineIds, ids);
+  assert.equal(before.body.routineCycles[0].reviewed, false);
+  const done = await req('POST', '/api/admin/user/routine-reviewed', { uid: 'trainer1', body: { id: 'member1', programId: program.id,
+    ...(before.body.sync ? { sync: before.body.sync, operationId: crypto.randomUUID() } : {}) } });
+  assert.equal(done.status, 200);
+  const saved = (await req('GET', '/api/data', { uid: 'member1' })).body.state;
+  assert.equal(saved.programReviews[program.id].nextReviewAt, addDays(todayIso(), 28));
+  assert.deepEqual(saved.routineReviews, routineReviews, 'legacy per-routine history is retained unchanged');
+  const after = await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'trainer1' });
+  assert.equal(after.body.routineCycles.length, 1);
+  assert.equal(after.body.routineCycles[0].kind, 'program');
+  assert.equal(after.body.routineCycles[0].reviewed, true);
+  assert.equal(after.body.routineCycles[0].nextReviewAt, addDays(todayIso(), 28));
+  assert.equal((await req('GET', '/api/admin/user/followup?id=member1')).body.alerts.some(a => a.code === 'routine_review'), false);
+});
+
 test('reviewed program does not immediately reappear from the same plateau before nextReviewAt', async () => {
   seedProgram();
   const seeded = JSON.parse(fs.readFileSync(path.join(dir, 'state-member1.json'), 'utf8'));
