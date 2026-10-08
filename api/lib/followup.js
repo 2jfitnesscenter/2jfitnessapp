@@ -54,6 +54,9 @@ export function sanitizeFollowUp(body, prev, today) {
   // The encrypted private staff note is intentionally opaque to this config sanitizer. A
   // template/cadence edit must preserve it without ever copying plaintext into the roster.
   if (typeof prev?.privateNotesEncrypted === 'string') out.privateNotesEncrypted = prev.privateNotesEncrypted;
+  // Seguimiento V3 staff annotations (goal reading, follow-up mark) are additive and survive a template/cadence edit.
+  if (prev?.goalPlan) out.goalPlan = prev.goalPlan;
+  if (prev?.flag) out.flag = prev.flag;
   if (keys) out.keys = keys;
   return { value: out };
 }
