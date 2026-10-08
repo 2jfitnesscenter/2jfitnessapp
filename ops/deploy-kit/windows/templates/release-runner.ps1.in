@@ -288,7 +288,7 @@ try {
   & docker rm --force $ImageSmokeName | Out-Null
 }
 Write-Host 'Validacion local (tests, build, locales, generadores)...'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs' @('tests 22', 'pass 22', 'fail 0', 'skipped 0')
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs' @('tests 23', 'pass 23', 'fail 0', 'skipped 0')
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend 'npx vitest run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx' @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
@@ -1271,7 +1271,8 @@ grep -Fq 'export const EARLY_WEEK = 4' "$RELEASE_CHECK_DIR/api/lib/routine-revie
 grep -Fq 'export const MIN_SESSIONS = 3' "$RELEASE_CHECK_DIR/api/lib/routine-review.js"
 grep -Fq "import { pendingReviews } from './routine-review.js';" "$RELEASE_CHECK_DIR/api/lib/followup.js"
 grep -Fq "code: 'routine_review'" "$RELEASE_CHECK_DIR/api/lib/followup.js"
-grep -Fq "import { markReviewed, setCycleDates, routineReviews } from './lib/routine-review.js';" "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq 'markProgramReviewed' "$RELEASE_CHECK_DIR/api/server.js"
+grep -Fq 'setProgramCycleDates' "$RELEASE_CHECK_DIR/api/server.js"
 grep -Fq "'POST /api/admin/user/routine-reviewed': async (req, res) => {" "$RELEASE_CHECK_DIR/api/server.js"
 grep -Fq "directReceipt(S, body, 'admin-routine-reviewed')" "$RELEASE_CHECK_DIR/api/server.js"
 grep -Fq "if (!requireAdmin(req, res)) return;" "$RELEASE_CHECK_DIR/api/server.js"

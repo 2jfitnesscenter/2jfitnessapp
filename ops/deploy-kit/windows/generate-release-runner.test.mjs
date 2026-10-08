@@ -139,3 +139,9 @@ test('release protocol probe follows the guarded Notification API adapter', () =
   assert.ok(template.includes("grep -Fq 'pushSupported'"))
   assert.ok(!template.includes('Notification.permission'))
 })
+
+test('release protocol probes the program-level review routes without pinning an obsolete import list', () => {
+  assert.ok(template.includes("grep -Fq 'markProgramReviewed' \"$RELEASE_CHECK_DIR/api/server.js\""))
+  assert.ok(template.includes("grep -Fq 'setProgramCycleDates' \"$RELEASE_CHECK_DIR/api/server.js\""))
+  assert.ok(!template.includes("import { markReviewed, setCycleDates, routineReviews }"))
+})
