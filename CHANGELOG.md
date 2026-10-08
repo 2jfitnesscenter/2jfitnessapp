@@ -3,11 +3,11 @@
 ### Training Quality V1 + Routine Review por programa — candidato, NO desplegado
 
 - Revisión del programa activo agrupada en una sola tarjeta/ciclo; los días incluidos ya no generan tarjetas individuales. Las rutinas independientes mantienen su ciclo anterior.
-- Registro aditivo `S.programReviews`: marca de última revisión y próxima fecha a 28 días; cierre elimina el aviso hasta la fecha nueva. Se conservan rutinas, historial, metadata existente y Sync V2.
+- Registro aditivo `S.programReviews`: marca de última revisión y próxima fecha a 28 días; al cerrar desaparece por completo la tarjeta del miembro hasta `nextReviewAt` (inclusive), sin tarjeta upcoming ni copy de “revisado”. Las rutinas independientes siguen la misma ventana; señales de plateau no reabren el ciclo antes de la fecha.
 - El resumen de revisión incorpora adherencia de las semanas transcurridas, tendencia de progresión, señales de plateau/omisiones y el análisis estructural existente. La IA profesional recibe facts acotados y solo genera un borrador para revisión del entrenador.
-- QA local sintética encontró y corrigió dos defectos: el panel Training Quality carecía de estilos para patrones/hallazgos/días y una revisión marcada podía volver de inmediato a pendientes por la misma señal de plateau. La revisión no reabre antes de `nextReviewAt` (+28 días); el test comprueba también que vuelve a ser elegible al llegar esa fecha.
-- QA visual manual autenticada en claro/oscuro a 1280×720: panel de análisis, Admin Follow Up y Trainer Client Plan; ciclo de programa compacto y separado de la rutina independiente. 1440/768/390 y caso equilibrado/sin hallazgos aún no certificados por limitación de viewport/fixtures.
-- Validación final: frontend 1466/1466 secuencial (la paralela inicial tuvo 16 timeouts y un `localStorage is not defined` posterior al timeout); API 455/455 sin skips con Git Bash/OpenSSL; build, español 4577/4577 y diff-check OK. La base remota sigue sin confirmarse: handoff señala 8458b54 y HYDRA local b4e7baa; leer marker/runtime antes de crear runner. PrepareOnly/simulaciones pendientes. Sin deploy.
+- QA local sintética cubre estado persistido tras recarga en Home/Seguimiento, desaparición completa, igualdad con `nextReviewAt`, plateau y rutina independiente. La política de pendientes es la única fuente de tarjetas de socio.
+- QA visual sintética de Home y Seguimiento en 390/768/1440, claro/oscuro: tarjeta visible antes de revisión, eliminada después, sin overflow horizontal ni errores; estado recargado también cubierto por tests.
+- Validación final: frontend 1469/1469, API 456/456 sin skips, build y español 4577/4577 OK. Producción previamente confirmada en `8458b54f51cd074c63c0623c9192f63f5f6f6f2a`. PrepareOnly del nuevo target y simulaciones pendientes; sin deploy.
 
 ### Web Push diagnóstico para alertas de descanso PWA (2026-10-07) — NO DESPLEGADO
 
