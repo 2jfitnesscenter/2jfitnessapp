@@ -45,7 +45,7 @@ function GoalSheet({ id, goal, onSaved, close }) {
       .catch(e => toast(e.message)).finally(() => setBusy(false))
   }
   return <>
-    <h3>{t('Goal')}</h3>
+    <h3>{t('Goal and priority')}</h3>
     <div className="dim small" style={{ marginBottom: 8 }}>{goal.source === 'member' ? t('Now reading the goal the member chose. Setting one here is your own reading; the member’s stays untouched.') : t('Your own reading of this member’s goal. The member’s stays untouched.')}</div>
     <div className="cf-goals" role="group" aria-label={t('Goal')}>
       {cf.GOALS.map(([k, name]) => <button key={k} type="button" className={'chip' + (primary === k ? ' on' : '')} aria-pressed={primary === k} onClick={() => setPrimary(primary === k ? '' : k)}>{t(name)}</button>)}
@@ -94,6 +94,7 @@ function Summary({ d, id, nav, reload, admin }) {
       : <p className="cf-why calm">{t('No signals to review right now.')}</p>}
     <div className="cf-acts wrap">
       <Button size="sm" variant="primary" icon="clipboard" onClick={() => nav('/trainer/' + id)}>{t('Open plan')}</Button>
+      {d.ai.available && <Button size="sm" variant="tinted" icon="sparkles" onClick={() => nav('/trainer/' + id + '/ai')}>{t('Create proposal')}</Button>}
       {followUp ? <>
         <Button size="sm" variant="tinted" icon="target" onClick={() => openSheet(close => <GoalSheet id={id} goal={goal} onSaved={reload} close={close} />)}>{t('Edit goal')}</Button>
         <Button size="sm" variant="tinted" icon="flag" onClick={() => run(cf.setFlag(id, !followUp.flag), followUp.flag ? t('Mark cleared') : t('Marked for follow-up'))}>{t(followUp.flag ? 'Clear mark' : 'Mark for follow-up')}</Button>
@@ -220,13 +221,13 @@ function Analysis({ d, plan, id, nav, notesRef, setDraft, reload }) {
     } catch (e) { toast(e.message); setState('failed') }
   }
   const act = a => a.action === 'open_program' ? nav('/trainer/' + id) : a.action === 'create_proposal' ? nav('/trainer/' + id + '/ai')
-    : a.action === 'add_note' ? (setDraft(a.text), notesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })) : document.getElementById('cf-review')?.scrollIntoView({ behavior: 'smooth' })
+    : a.action === 'add_note' ? (setDraft(a.text), notesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })) : (() => { const el = document.getElementById('cf-review'); if (el) { el.open = true; el.scrollIntoView({ behavior: 'smooth' }) } })()
   const ACT_LABEL = { open_program: 'Open program', create_proposal: 'Create proposal', add_note: 'Add note', review_date: 'Review date' }
   const kinds = [['fact', base.facts], ['inference', base.inference], ['suggestion', base.suggestion]]
   return <div className="cf-an">
     <div className="cf-3">
       {kinds.map(([k, list]) => list.length > 0 && <div key={k} className={'cf-col ' + k}><h4>{t(cf.TAG[k])}</h4>
-        <ul>{list.map(x => <li key={x.id}>{t(x.text, ...x.args)}{k === 'suggestion' && <Decision id={id} text={t(x.text)} />}</li>)}</ul></div>)}
+        <ul>{list.map(x => <li key={x.id}>{t(x.text, ...cf.analysisArgs(x))}{k === 'suggestion' && <Decision id={id} text={t(x.text)} />}</li>)}</ul></div>)}
     </div>
     <div className="cf-ai">
       {d.ai.available ? <Button size="sm" variant="tinted" icon="sparkles" disabled={state === 'running'} onClick={run}>{t(state === 'done' ? 'Analyze again' : 'Analyze follow-up')}</Button>
@@ -315,9 +316,10 @@ export function MemberView({ d, plan = null, id, back, reload = () => {}, setDat
     <Acc title={t('Now')} icon="bolt" open><Now view={view} /></Acc>
     <Acc title={t('Progress')} icon="chartLine" hint={t(cf.PROGRESSION_TEXT[p.progression.status])}><Progress view={view} /></Acc>
     <Acc title={t('Adherence')} icon="calendar" hint={a.d28.pct != null ? a.d28.pct + '%' : a.d28.full + a.d28.partial ? t('{0} sessions', a.d28.full + a.d28.partial) : null}><Adherence view={view} /></Acc>
-    <Acc id="cf-review" title={t('Review')} icon="clipboard" open={pendingReview} hint={view.review.next ? fmtDate(view.review.next) : null}>
+    <Acc id="cf-review" title={t('Review cycle')} icon="clipboard" open={pendingReview} hint={view.review.next ? fmtDate(view.review.next) : null}>
       <ReviewBrief d={d} plan={plan} id={id} nav={nav} />
       {(d.routineCycles || []).length > 0 ? <RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync} setData={setData} reload={reload} plan={plan} /> : <p className="small dim">{t('No routine or program cycle to review yet.')}</p>}
+      {(d.routineCycles || []).some(c => c.reviewed) && <ul className="cf-list">{d.routineCycles.filter(c => c.reviewed).map(c => <li key={(c.programId || c.routineId) + 'q'}><span>{c.name} · {t('Reviewed')}</span><b>{t('Next review')}: {fmtDate(c.nextReviewAt || c.dueDate)}</b></li>)}</ul>}
       {view.review.measurement?.next && <p className="small dim">{t('Next measurement review')}: {fmtDate(view.review.measurement.next)}</p>}
     </Acc>
     <Acc title={t('2J analysis')} icon="sparkles" open><Analysis d={d} plan={plan} id={id} nav={nav} notesRef={notesRef} setDraft={setDraft} reload={reload} /></Acc>

@@ -104,7 +104,7 @@ describe('member sheet', () => {
     await boot()
     const { MemberView } = await import('../components/coach/CoachMember.jsx')
     const h = await html(<MemberView d={sheet()} id="u1" back="/admin/attention" />)
-    const order = ['Summary', 'Now', 'Progress', 'Adherence', 'Review', '2J analysis', 'Check-in', 'Professional history', 'Notes'].map(k => h.indexOf(k === 'Summary' ? 'aria-label="Summary"' : '<span class="tt">' + k))
+    const order = ['Summary', 'Now', 'Progress', 'Adherence', 'Review cycle', '2J analysis', 'Check-in', 'Professional history', 'Notes'].map(k => h.indexOf(k === 'Summary' ? 'aria-label="Summary"' : '<span class="tt">' + k))
     expect(order.every(i => i >= 0)).toBe(true); expect([...order].sort((a, b) => a - b)).toEqual(order)
     const open = [...h.matchAll(/<details class="cf-acc"( id="[^"]*")? open=""/g)].length
     expect(open).toBe(3)                                                         // Now, Review (a review is overdue) and the analysis; the rest stays collapsed
@@ -164,7 +164,7 @@ describe('member sheet', () => {
     await boot('es')
     const { MemberView } = await import('../components/coach/CoachMember.jsx')
     const h = await html(<MemberView d={sheet({ ai: { available: true } })} id="u1" back="/x" />)
-    for (const k of ['Resumen', 'Ahora', 'Progreso', 'Adherencia', 'Revisión', 'Análisis 2J', 'Historial profesional', 'Notas', 'Hecho', 'Inferencia', 'Sugerencia', 'Analizar seguimiento',
+    for (const k of ['Resumen', 'Ahora', 'Evolución', 'Adherencia', 'Ciclo de revisión', 'Análisis 2J', 'Historial profesional', 'Notas', 'Hecho', 'Inferencia', 'Sugerencia', 'Analizar seguimiento',
       'Sin entrenamientos en los últimos 18 días.', 'Ha indicado molestias en rodilla 3 veces en los últimos 14 días.', 'Abrir plan', 'Editar objetivo', 'Peso corporal', 'no mide el rendimiento',
       'Solo el personal con acceso ve estas notas']) expect(h.toLowerCase()).toContain(k.toLowerCase())
     expect(h).not.toContain('No workouts in the last')
@@ -175,8 +175,10 @@ describe('rules the screens keep', () => {
   const read = f => readFileSync(new URL(f, import.meta.url), 'utf8')
   it('every sentence the server can produce is in the Spanish catalogue', async () => {
     const es = (await import('../locales/es.js')).default
-    const { SIGNAL_TEXT } = await import('../../../api/lib/coach-followup.js')
+    const { SIGNAL_TEXT, INFERENCE_TEXT, ANALYSIS_TEXT } = await import('../../../api/lib/coach-followup.js')
     for (const [id, pair] of Object.entries(SIGNAL_TEXT)) for (const s of pair) expect(es[s], id + ': ' + s).toBeTruthy()
+    for (const [id, s] of [...Object.entries(INFERENCE_TEXT), ...Object.entries(ANALYSIS_TEXT)]) expect(es[s], id + ': ' + s).toBeTruthy()
+    expect(Object.keys(INFERENCE_TEXT).sort()).toEqual(Object.keys(SIGNAL_TEXT).sort())      // every signal has its hedged reading
     const { EVENT_TEXT, TREND_TEXT, PROGRESSION_TEXT, LEVEL, TAG } = await import('../lib/coach-followup.js')
     for (const s of [...Object.values(EVENT_TEXT), ...Object.values(TREND_TEXT), ...Object.values(PROGRESSION_TEXT), ...Object.values(TAG), ...Object.values(LEVEL).map(l => l.word)]) expect(es[s], s).toBeTruthy()
   })

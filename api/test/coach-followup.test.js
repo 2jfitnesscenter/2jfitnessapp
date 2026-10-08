@@ -294,3 +294,23 @@ test('multi-signal members rank above single-signal ones; a flagged member is al
   assert.equal(b.flagged, true); assert.equal(b.signals[0].id, 'flagged'); assert.equal(c.level, 'normal');
   assert.equal(overviewRow({ S: member(), u: roster({ followUp: { template: 'basic', cadence: 'monthly', days: 30, startedAt: TODAY, reviews: [] } }), today: TODAY }).level, 'normal');
 });
+
+/* ---------------------------------------------------------------- isolation: the staff trail has no way into the member-side systems */
+import fs from 'node:fs';
+import path from 'node:path';
+test('no member-side system (personal AI, Sync, Social, chat, Bunker, notifications, friends, exports) can read the staff trail', () => {
+  const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+  const MARKERS = /privateNotesEncrypted|assignedTrainers|goalPlan|coach-followup|FOLLOWUP_PRIVATE/;
+  const files = [];
+  const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) { if (e.name !== 'node_modules' && e.name !== 'test') walk(p); } else if (/\.(js|mjs)$/.test(e.name)) files.push(p); } };
+  for (const dir of ['coach', 'social', 'friends', 'chat', 'bunker', 'notifications', 'strava', 'whoop']) walk(path.join(root, dir));
+  for (const f of ['lib/sync.js', 'lib/state-store.js', 'lib/account-erasure.js', 'lib/guided-routes.js', 'lib/features-routes.js', 'lib/shared-staff-routes.js']) files.push(path.join(root, f));
+  const allowed = new Set(['coach/followup-ai.js']);            // the professional AI is the one consumer, and only through aiFacts()
+  const offenders = files.filter(f => MARKERS.test(fs.readFileSync(f, 'utf8'))).map(f => path.relative(root, f).split(path.sep).join("/")).filter(f => !allowed.has(f));
+  assert.deepEqual(offenders, [], 'staff-trail markers outside the staff modules: ' + offenders.join(', '));
+  // the one AI consumer never builds its input from anything but aiFacts()
+  const ai = fs.readFileSync(path.join(root, 'coach/followup-ai.js'), 'utf8');
+  assert.ok(!/privateNotesEncrypted|readState|decryptAtRest|\.notes\b/.test(ai.replace(/\/\*[\s\S]*?\*\//g, '')), 'followup-ai receives facts, never state or notes');
+  // member-facing AI payload builders do not know the staff modules at all
+  assert.ok(!/coach-followup|followUp|assigned/.test(fs.readFileSync(path.join(root, 'coach/payload.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')), 'member payload has no follow-up notion');
+});

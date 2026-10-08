@@ -192,6 +192,21 @@ test('removing the trainer role drops their assignments', async () => {
   assert.equal((await get('/api/trainer/followup/overview', 'tr2')).status, 403, 'tr2 is a plain member now');
 });
 
+test('a member whose saved state cannot be read is listed for review, never as fine, and nothing is written', async () => {
+  const file = path.join(dir, 'state-u2.json');
+  const good = fs.readFileSync(file, 'utf8');
+  try {
+    fs.writeFileSync(file, 'not-a-state');
+    const o = (await get('/api/trainer/followup/overview', 'ad')).body;
+    const row = [...o.attention, ...o.upcoming, ...o.stable].find(r => r.id === 'u2');
+    assert.equal(row.level, 'review'); assert.equal(row.unreadable, true); assert.equal(row.signals[0].id, 'unreadable');
+    assert.ok(o.attention.some(r => r.id === 'u2'), 'it is in the attention bucket');
+    assert.equal((await get('/api/trainer/followup/member?id=u2', 'ad')).status, 503);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'not-a-state', 'the file is not touched');
+  } finally { fs.writeFileSync(file, good); }
+  assert.equal([...(await get('/api/trainer/followup/overview', 'ad')).body.stable].some(r => r.id === 'u2'), true, 'back to normal once readable');
+});
+
 test('the list of 100 synthetic members answers in one request, fast', async () => {
   for (let i = 0; i < 100; i++) {
     const id = 'bulk' + i;

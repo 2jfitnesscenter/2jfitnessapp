@@ -39,6 +39,8 @@ export function signalText(s) {
   return t(s.explanation, ...args)
 }
 export const actionText = s => t(s.suggestedAction)
+/** Arguments of an analysis sentence ({ id, text, args }); a discomfort zone code becomes its label. */
+export const analysisArgs = x => (/checkin_discomfort$/.test(x.id) ? [t(PAIN_ZONE[x.args?.[0]]?.label || x.args?.[0] || '').toLowerCase(), x.args?.[1]] : x.args || [])
 
 // Certainty tags: never mix the three in one sentence.
 export const TAG = { fact: 'Fact', inference: 'Inference', suggestion: 'Suggestion' }

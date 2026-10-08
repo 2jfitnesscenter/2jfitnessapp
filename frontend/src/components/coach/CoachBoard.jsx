@@ -6,7 +6,7 @@ import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
 import { fmtDate } from '../../lib/format.js'
 import { mediaUrl } from '../../lib/media.js'
-import { fetchBoard, goalName, signalText, agoText, LEVEL } from '../../lib/coach-followup.js'
+import { fetchBoard, goalName, signalText, agoText, inText, LEVEL } from '../../lib/coach-followup.js'
 import Icon from '../Icon.jsx'
 import { Surface, Pill, ListSkeleton, EmptyState } from '../v2.jsx'
 import { Button, Avatar } from '../ui.jsx'
@@ -39,7 +39,7 @@ export function MemberCard({ r, open }) {
     <div className="cf-metrics">
       <Metric label={t('Adherence')} value={a.pct28 != null ? a.pct28 + '%' : '—'} sub={a.planned28 ? t('{0} of {1} sessions', a.done28, a.planned28) : a.done28 ? t('{0} sessions', a.done28) : null} />
       <Metric label={t('Last session')} value={r.daysSince != null ? agoText(r.daysSince) : '—'} />
-      <Metric label={t('Next review')} value={r.nextReview ? fmtDate(r.nextReview) : '—'} />
+      <Metric label={t('Next review')} value={r.nextReview ? fmtDate(r.nextReview) : '—'} sub={r.reviewIn == null ? null : r.reviewIn < 0 ? t('Overdue') : r.reviewIn <= 7 ? inText(r.reviewIn) : null} />
     </div>
     <div className="cf-acts">
       {r.flagged && <Pill icon="flag" className="nocap">{t('Marked')}</Pill>}

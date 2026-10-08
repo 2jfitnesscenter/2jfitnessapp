@@ -10,7 +10,7 @@
 import crypto from 'node:crypto';
 import { sanitizeFollowUp, templateKeys } from './followup.js';
 import { routineReviews } from './routine-review.js';
-import { memberView, overviewRow, bucketRows, sanitizeGoal, aiFacts, cleanStructure } from './coach-followup.js';
+import { memberView, overviewRow, unreadableRow, bucketRows, sanitizeGoal, aiFacts, cleanStructure } from './coach-followup.js';
 import { emptyPrivate, normalizePrivate, pushEvent, addNote, deleteNote, timeline, DECISION_KINDS } from './coach-followup-private.js';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -64,7 +64,7 @@ export function coachFollowUpRoutes(d) {
       for (const u of db.users) {
         if (!isMember(u) || !canAccessMember(staff, u, isAdmin)) continue;
         let S = null;
-        try { S = readState(u.id); } catch { /* an unreadable state never hides the other members */ }
+        try { S = readState(u.id); } catch { rows.push(unreadableRow(u)); continue; }     // never hides the others, never shown as "fine"
         rows.push(overviewRow({ S: S || {}, u, today }));
       }
       const b = bucketRows(rows);

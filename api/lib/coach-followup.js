@@ -58,6 +58,7 @@ export const SIGNAL_TEXT = Object.freeze({
   goal_date: ['The target date is in {0} days.', 'Check where the member stands against the goal.'],
   no_program: ['No routine or program is assigned.', 'Open the plan and assign or build a program.'],
   flagged: ['Marked for follow-up by staff.', 'Review the member and clear the mark when done.'],
+  unreadable: ['This member’s data cannot be read right now.', 'Ask an administrator to check the member’s saved data; nothing was changed.'],
   structure: ['{0} points in the plan structure to review.', 'Open the program and review the flagged structure.'],
 });
 
@@ -334,6 +335,17 @@ export function overviewRow({ S, u, today }) {
   };
 }
 
+/** A member whose saved state cannot be read is never shown as "fine": it is listed for review with the reason, and nothing is computed or written. */
+export function unreadableRow(u) {
+  const s = signal('unreadable', 'review', 'state', {});
+  return {
+    id: u.id, name: u.name, avatar: u.avatar || null, level: 'review', goal: { key: null, label: null, priority: 'normal', source: null },
+    signals: [{ id: s.id, severity: s.severity, explanation: s.explanation, args: s.args }], signalCount: 1,
+    adherence: { pct28: null, done28: 0, planned28: null, pct7: null, done7: 0, planned7: null, trend: null },
+    lastWorkout: null, daysSince: null, nextReview: null, reviewIn: null, flagged: !!u?.followUp?.flag, followUpActive: !!u?.followUp, unreadable: true,
+  };
+}
+
 /** attention = priority/review level · upcoming = normal but a review within 7 days · stable = everything else. Order inside each bucket is by importance, then date, then name. */
 export function bucketRows(rows) {
   const out = { attention: [], upcoming: [], stable: [] };
@@ -373,15 +385,49 @@ export function memberView({ S, u, today, structure = null }) {
 }
 
 /* ---------------------------------------------------------------- HECHO / INFERENCIA / SUGERENCIA (deterministic, always available; the AI only rewrites it) */
+// FACT = a number the data states. INFERENCE = what those numbers may mean, hedged, never a cause. SUGGESTION = something the trainer could check or do.
+export const INFERENCE_TEXT = Object.freeze({
+  absence: 'Training seems to have been interrupted.',
+  no_workouts_yet: 'The member may not have started yet.',
+  adherence_low: 'Adherence is below what the plan expects.',
+  adherence_drop: 'Adherence has dropped compared with the previous weeks.',
+  missed_week: 'This week may not have gone as planned.',
+  plateau: 'Progress may have stalled in the current cycle.',
+  review_due: 'The plan is due for a check against the results.',
+  review_overdue: 'The plan is overdue for a check against the results.',
+  measurement_review: 'The follow-up measurements are out of date.',
+  checkin_fatigue: 'Fatigue may be building up.',
+  checkin_discomfort: 'The same discomfort keeps coming back.',
+  fatigue_trend: 'Effort has been rising over several sessions.',
+  performance_drop: 'Performance may have levelled off.',
+  goal_body: 'Body weight is not moving as the goal expects.',
+  goal_performance: 'Progress towards the goal looks slow.',
+  goal_date: 'The target date is close.',
+  no_program: 'There is no plan to follow yet.',
+  flagged: 'Staff asked to keep an eye on this member.',
+  unreadable: 'The member’s data may need recovery.',
+  structure: 'Parts of the plan structure may need adjusting.',
+});
+export const ANALYSIS_TEXT = Object.freeze({
+  adherence: 'Completed {0} of {1} planned sessions in the last 28 days.',
+  sessions: 'Logged {0} sessions in the last 28 days.',
+  last: 'Last workout was {0} days ago.',
+  prs: '{0} new records in the last 28 days.',
+});
 export function analysisFrom({ signals, adh, prog, goal }) {
   const facts = [];
-  if (adh.d28.planned != null) facts.push({ id: 'f_adherence', text: 'Completed {0} of {1} planned sessions in the last 28 days.', args: [adh.d28.full + adh.d28.partial, adh.d28.planned] });
-  else if (adh.d28.full + adh.d28.partial) facts.push({ id: 'f_sessions', text: 'Logged {0} sessions in the last 28 days.', args: [adh.d28.full + adh.d28.partial] });
-  if (adh.lastWorkout) facts.push({ id: 'f_last', text: 'Last workout was {0} days ago.', args: [adh.daysSince] });
-  facts.push({ id: 'f_prs', text: '{0} new records in the last 28 days.', args: [prog.prs28] });
-  const inference = signals.filter(s => s.severity !== 'info').map(s => ({ id: 'i_' + s.id, text: s.explanation, args: s.args }));
-  const suggestion = [...new Map(signals.filter(s => s.severity !== 'info').map(s => [s.suggestedAction, { id: 's_' + s.id, text: s.suggestedAction, args: [] }])).values()].slice(0, 3);
-  return { facts: facts.slice(0, 4), inference: inference.slice(0, 4), suggestion, goal: goal.key || null };
+  const done28 = adh.d28.full + adh.d28.partial;
+  if (adh.d28.planned != null) facts.push({ id: 'f_adherence', text: ANALYSIS_TEXT.adherence, args: [done28, adh.d28.planned] });
+  else if (done28) facts.push({ id: 'f_sessions', text: ANALYSIS_TEXT.sessions, args: [done28] });
+  if (adh.lastWorkout) facts.push({ id: 'f_last', text: ANALYSIS_TEXT.last, args: [adh.daysSince] });
+  facts.push({ id: 'f_prs', text: ANALYSIS_TEXT.prs, args: [prog.prs28] });
+  const live = signals.filter(s => s.severity !== 'info');
+  // the numbers behind each signal are facts too, unless they repeat one already listed
+  const seen = new Set(facts.map(f => f.text));
+  for (const s of live) if (!seen.has(s.explanation) && !(s.id === 'absence' && adh.lastWorkout)) { seen.add(s.explanation); facts.push({ id: 'f_' + s.id, text: s.explanation, args: s.args }); }
+  const inference = [...new Map(live.map(s => [INFERENCE_TEXT[s.id], { id: 'i_' + s.id, text: INFERENCE_TEXT[s.id], args: [] }])).values()];
+  const suggestion = [...new Map(live.map(s => [s.suggestedAction, { id: 's_' + s.id, text: s.suggestedAction, args: [] }])).values()];
+  return { facts: facts.slice(0, 5), inference: inference.slice(0, 3), suggestion: suggestion.slice(0, 3), goal: goal.key || null };
 }
 
 /* ---------------------------------------------------------------- the professional AI: compact facts, hard size limit */
