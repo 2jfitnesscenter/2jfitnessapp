@@ -50,7 +50,7 @@ import { newsRoutes } from './lib/news-routes.js';
 import { featuresRoutes } from './lib/features-routes.js';
 import * as libraryAdmin from './lib/library-admin.js';
 import * as gymProfileConfig from './lib/gym-profile-config.js';
-import { cleanEquipment, setOfficialGymEquipment } from './lib/gym-profiles.js';
+import { cleanEquipment, setOfficialGymEquipment, gymEquipmentContext } from './lib/gym-profiles.js';
 import { EQUIPMENT } from './lib/protocol/movements.js';
 import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesOf } from './lib/plan-meta.js';
 import { expectedOrigins } from './lib/webauthn-origins.js';
@@ -2802,7 +2802,9 @@ const routes = {
     const member = db.users.find(x => x.id === memberId);
     if (!member) return json(res, 404, { error: 'ese miembro no existe' });
     const S = readState(member.id);
-    json(res, 200, { routines: S?.routines || [], programs: S?.programs || [], sync: S ? { revision: S._sync.revision, generation: S._sync.generation } : null });
+    json(res, 200, { routines: S?.routines || [], programs: S?.programs || [],
+      gym: S ? { availableEquipment: gymEquipmentContext(S).availableEquipment } : null,
+      sync: S ? { revision: S._sync.revision, generation: S._sync.generation } : null });
   },
 
   // body: { memberId, routineId?, name, emoji, ex, customExDefs?, prog? } — same validation as

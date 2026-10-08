@@ -46,6 +46,24 @@ export const CONTRACT = 1;
 export const MAX_WEEKS = 12;
 export const MAX_SESSIONS = 60;
 
+const STRUCTURE_KEYS = ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'knee_dominant', 'hip_dominant', 'core', 'conditioning', 'power', 'carry'];
+const STRUCTURE_CATEGORIES = new Set(['balance', 'distribution', 'redundancy', 'equipment', 'library', 'history']);
+const STRUCTURE_SEVERITIES = new Set(['info', 'revisar', 'importante']);
+function cleanStructuralAnalysis(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 7).filter(x => x && typeof x === 'object').map(x => {
+    const movementSummary = {};
+    for (const key of STRUCTURE_KEYS) {
+      const n = Number(x.movementSummary?.[key]);
+      if (Number.isFinite(n)) movementSummary[key] = Math.max(0, Math.min(50, Math.floor(n)));
+    }
+    const sets = Number(x.programmedResistanceSets);
+    const findings = (Array.isArray(x.findings) ? x.findings : []).slice(0, 12).filter(f => STRUCTURE_CATEGORIES.has(f?.category) && STRUCTURE_SEVERITIES.has(f?.severity))
+      .map(f => ({ category: f.category, severity: f.severity }));
+    return { version: 1, movementSummary, programmedResistanceSets: Number.isFinite(sets) ? Math.max(0, Math.min(500, Math.floor(sets))) : 0, findings };
+  });
+}
+
 /* ---------- the data categories the consent screen names (FR-09/10) ----------
    Kept here, next to the code that acts on it, and rendered by the consent UI from the same
    list — a screen that drifts from the payload is worse than no screen. */
@@ -297,6 +315,7 @@ function cleanWorkout(w) {
 export function build(S, uid, opts = {}) {
   const coach = S.coach || {};
   const profile = opts.intake || coach.profile || null;
+  const structuralAnalysis = cleanStructuralAnalysis(opts.structuralAnalysis);
   const p = {
     coach_contract: CONTRACT,
     gymProfile: gymEquipmentContext(S),
@@ -332,6 +351,7 @@ export function build(S, uid, opts = {}) {
     } : null,
     plan: cleanPlan(S)
   };
+  if (structuralAnalysis.length) p.coachProfile.structuralAnalysis = structuralAnalysis;
 
   // 2J Training Protocol: only the rules relevant to this goal/level (never the docs), the
   // explicit restrictions, and official blocks to reuse before inventing (protocol-gate.js).
@@ -402,7 +422,7 @@ export function buildTrainer(S, uid, brief = {}) {
     lang: 'en',
     unit: 'kg'
   }
-  const payload = build(scoped, uid, { kind: 'create', intake: brief })
+  const payload = build(scoped, uid, { kind: 'create', intake: brief, structuralAnalysis: brief?.structuralAnalysis })
   delete payload.meta.profile
   return payload
 }
