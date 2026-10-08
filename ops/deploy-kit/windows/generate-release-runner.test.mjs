@@ -133,3 +133,9 @@ test('Web Push subscription persistence checks the current route, upsert wiring 
   const stale = template.replace('@@WEB_PUSH_SUBSCRIPTION_PROBE@@', 'grep -Fq "db.subs.push" "$RELEASE_CHECK_DIR/api/server.js"')
   assert.throws(() => renderTemplate(stale, base), /STALE_WEB_PUSH_SUBSCRIPTION_PROBE/)
 })
+
+test('release protocol probe follows the guarded Notification API adapter', () => {
+  assert.ok(template.includes('const notificationApi = () => globalThis.Notification || globalThis.window?.Notification'))
+  assert.ok(template.includes("grep -Fq 'pushSupported'"))
+  assert.ok(!template.includes('Notification.permission'))
+})
