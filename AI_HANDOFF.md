@@ -11,9 +11,8 @@ Este bloque es la referencia vigente para el trabajo posterior a producción 423
 
 ### Producción y release
 
-- Producción confirmada al inicio: `4230b17f3b4f9703f4706df9df65f36315e21eff`.
-- Último commit funcional: `7f9a89e4d0815af34113442d21a9dd03c3931139`. La punta candidata `8458b54` integra además el remoto documental/legal 2J sin cambiar producto. **NOT DEPLOYED**.
-- No se ha conectado a producción, creado backup predeploy ni ejecutado un deploy en este trabajo.
+- Producción confirmada por el operador el 2026-10-08: `8458b54f51cd074c63c0623c9192f63f5f6f6f2a` (marker, contenedores activos y health interno/externo 200).
+- No se ha realizado ningún deploy durante Training Quality V1.
 - Web Push diagnóstico sigue sin prueba física confirmada y el temporizador real no usa esa cola. Android Rest Alert física y PWA no deben declararse validadas por los tests locales.
 
 ### Implementado en el megasprint
@@ -52,6 +51,15 @@ Este bloque es la referencia vigente para el trabajo posterior a producción 423
 2. Completar QA física pendiente de Web Push/PWA de descanso, sin conectar el temporizador real hasta que la prueba independiente pase con PWA minimizada y pantalla apagada.
 3. Revisar el deploy-kit antes de activar su instalación en servidor; mantener el deploy manual existente y no usarlo sin aprobación del operador.
 4. Después, agrupar incidencias de uso normal. Roadmap no comprometido: Bunker evolución, entrenamiento temporizado, UI/UX, Health/progreso visual, Library/análisis, seguridad/passkeys, Sync V3, Social, catálogo y reservas.
+
+## Training Quality + Structural Analysis V1 — candidato local, NO desplegado (2026-10-08)
+
+- Base de trabajo: `origin/main` / `f6d79fdd5442480da161edee3643aac2f6693e2e`; producción confirmada: `8458b54f51cd074c63c0623c9192f63f5f6f6f2a`. Trabajo aislado en `codex/training-quality-v1`.
+- Motor determinista de solo lectura: `frontend/src/lib/routine-structure.js`. Reutiliza catálogo/Library, taxonomy Protocol, relación de similitud, músculos, restricciones y `countsForProgression`; resume movimientos, exposición muscular aproximada, series de resistencia, distribución programada, redundancias, material incompatible, variantes preferidas y omisiones del historial elegible. Ejercicios no clasificados se excluyen sin inferencia. No produce una puntuación ni una prescripción.
+- Panel compacto “Análisis 2J” en Constructor/constructor de rutinas del entrenador, con indicadores de patrones, días, exposición y hallazgos/alternativas. Solo informa; no bloquea guardado ni modifica rutina. Las sugerencias reutilizan Library/Protocol/Gym Profile y no se insertan automáticamente.
+- La IA profesional recibe como contexto opcional una allowlist compacta (recuentos acotados y categoría/severidad); no recibe texto de hallazgos, IDs, workout history ni Health. El prompt la subordina a restricciones, seguridad, protocolo y criterio del entrenador; la propuesta continúa por el validador existente.
+- Límites pendientes: no se ha conectado el análisis a IA personal del socio ni a avisos de Routine Review. Se mantienen separados para evitar crear una segunda integración o enviar contexto sin confirmar el consentimiento/contrato mínimo. El análisis de historial es local y solo usa sesiones elegibles (`excludeFromProgression` se respeta). QA visual manual no completada; el control de navegador detuvo la sesión por no poder verificar la URL local.
+- Validación local: frontend `1458/1458` (repetido en un worker tras fallos iniciales exclusivamente de timeout), API `452/452` sin skips (incluidos tests Bash/OpenSSL), build web OK, español `4560/4560`, análisis focalizado `13/13`, tests Node del generador deploy-kit `18/18` y `git diff --check` OK. Los tests shell del deploy-kit no pasaron en este checkout: Git Bash carece de `flock`; el contenedor Ubuntu también recibió CRLF en scripts sin extensión y falló al interpretar `set -o pipefail`. No se modificó tooling ajeno al sprint. Medición local orientativa: 100 análisis de una rutina de 24 ejercicios, con alternativas de material, promediaron 9,68 ms por análisis en Vite SSR; no se recorre toda la Library al renderizar salvo la búsqueda de variantes para hallazgos de incompatibilidad.
 
 ---
 ## Estado actual — producción y alerta Android de descanso (2026-10-07)

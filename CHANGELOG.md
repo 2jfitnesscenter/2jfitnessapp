@@ -1,5 +1,11 @@
 # Changelog
 
+### Training Quality + Structural Analysis V1 (2026-10-08) — candidato local, NO desplegado
+
+- El Constructor y el editor de rutinas del entrenador muestran un análisis estructural determinista de patrones, exposición muscular aproximada, distribución, redundancia, material y alternativas disponibles. Reutiliza Library, taxonomy/Protocol, restricciones, Gym Profile e historial elegible; no genera puntuaciones, diagnósticos ni cambios automáticos.
+- La IA profesional puede recibir recuentos/categorías compactos saneados como contexto. Su salida sigue siendo una propuesta del entrenador y pasa por el validador 2J existente. La IA personal del socio y Routine Review permanecen sin integrar hasta definir un contrato compartido/consentido.
+- Pruebas locales: análisis focalizado 13/13, frontend 1458/1458, API 452/452 sin skips, español 4560/4560 y build web OK. La QA visual manual y PrepareOnly release-specific siguen pendientes; producción no se modificó.
+
 
 ### Megasprint — separación IA, progresión/histórico y Seguimiento (2026-10-07) — NOT DEPLOYED
 
