@@ -34,6 +34,20 @@ test('the model receives the relevant protocol slice and official blocks — not
   assert.equal(gate.protocolContext({}, { goal: 'fatloss' }).goal, 'general', 'fat loss is not a circuit mandate');
 });
 
+test('trainer AI receives bounded structural facts without history, identity or client text', () => {
+  const p = payloadLib.buildTrainer(sampleState({ workouts: [{ privateNote: 'do not send' }], health: { private: true } }), 'member-1', {
+    goal: 'general', structuralAnalysis: [{ movementSummary: { horizontal_push: 900, knee_dominant: 2, unknown: 99 },
+      programmedResistanceSets: 900, findings: [{ category: 'balance', severity: 'importante', message: 'untrusted', evidence: { exerciseIds: ['private'] } },
+        { category: 'made-up', severity: 'info' }] }],
+  });
+  assert.deepEqual(p.coachProfile.structuralAnalysis, [{ version: 1,
+    movementSummary: { horizontal_push: 50, knee_dominant: 2 }, programmedResistanceSets: 500,
+    findings: [{ category: 'balance', severity: 'importante' }] }]);
+  assert.equal('window' in p, false);
+  assert.equal('health' in p, false);
+  assert.equal(JSON.stringify(p.coachProfile.structuralAnalysis).includes('private'), false);
+});
+
 test('the model receives compact official guided programs and only summary progress for an active one', () => {
   const S = sampleState({ activeProgramId: 'gp-1', programs: [{ id: 'gp-1', source: 'guided-v2', status: 'active', name: 'Mobility', meta: { goal: 'general' }, weeks: [{ sessions: [{ day: 1, routineId: 'r2j-mobility-fullbody' }] }] }],
     workouts: [{ src2j: { program: { programId: 'gp-1', sessionId: '1:1:0' } } }] });
