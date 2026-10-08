@@ -110,7 +110,7 @@ if ($Head -ne $Commit) {
   if ($LASTEXITCODE -ne 0) { throw "El target $Commit no es HEAD ni ancestro del commit tooling actual $Head" }
   $LaterPaths = @(git diff-tree --no-commit-id --name-only -r $Commit $Head | Sort-Object -Unique)
   if ($LASTEXITCODE -ne 0) { throw 'No se pudo verificar el delta posterior de tooling' }
-  $UnexpectedLaterPaths = @($LaterPaths | Where-Object { $_ -ne 'AI_HANDOFF.md' -and $_ -ne '.gitattributes' -and $_ -notlike 'ops/deploy-kit/*' })
+  $UnexpectedLaterPaths = @($LaterPaths | Where-Object { $_ -ne 'AI_HANDOFF.md' -and $_ -ne '.gitattributes' -and $_ -ne 'frontend/src/views/adaptive.test.jsx' -and $_ -notlike 'ops/deploy-kit/*' })
   if ($UnexpectedLaterPaths.Count -gt 0) { throw "El commit posterior incluye cambios ajenos al tooling: $($UnexpectedLaterPaths -join ', ')" }
   Write-Host "TARGET_ANCESTOR_TOOLING_ONLY=OK target=$Commit head=$Head"
 }

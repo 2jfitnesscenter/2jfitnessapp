@@ -107,6 +107,7 @@ test('post-target commits allow deploy tooling, handoff, line-ending metadata, a
   assert.equal(isAllowedPostTargetPath('frontend/src/views/adaptive.test.jsx'), true)
   assert.equal(isAllowedPostTargetPath('frontend/src/views/Home.jsx'), false)
   assert.equal(isAllowedPostTargetPath('frontend/src/store/useUI.js'), false)
+  assert.ok(template.includes("$_ -ne 'frontend/src/views/adaptive.test.jsx'"), 'PrepareOnly must allow only this post-target test-only file')
   assert.ok(template.includes("$_ -ne '.gitattributes'"), 'PrepareOnly must apply the same narrow allowlist')
 })
 
