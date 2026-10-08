@@ -1278,7 +1278,11 @@ grep -Fq "directReceipt(S, body, 'admin-routine-reviewed')" "$RELEASE_CHECK_DIR/
 grep -Fq "if (!requireAdmin(req, res)) return;" "$RELEASE_CHECK_DIR/api/server.js"
 grep -Fq "'GET /api/admin/user/followup': async (req, res) => {" "$RELEASE_CHECK_DIR/api/server.js"
 grep -Fq "if (!user?.admin) return null" "$RELEASE_CHECK_DIR/frontend/src/views/AdminAttention.jsx"
-grep -Fq "stateAction('/api/admin/user/routine-reviewed'" "$RELEASE_CHECK_DIR/frontend/src/views/AdminAttention.jsx"
+# Coach & Seguimiento PRO V3 moved the staff "Routine reviewed" button from the old attention list into the member sheet, which mounts the same editor: the invariant is
+# unchanged (staff-only button, posts to the admin endpoint with the member's sync), only its location is.
+grep -Fq "path: 'routine-reviewed'" "$RELEASE_CHECK_DIR/frontend/src/views/AdminFollowUp.jsx"
+grep -Fq "stateAction('/api/admin/user/' + done.path" "$RELEASE_CHECK_DIR/frontend/src/views/AdminFollowUp.jsx"
+grep -Fq '<RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync}' "$RELEASE_CHECK_DIR/frontend/src/components/coach/CoachMember.jsx"
 cmp -s "$RELEASE_CHECK_DIR/api/lib/sync.js" "$BASELINE_CHECK_DIR/api/lib/sync.js" || { printf 'SYNC_JS_CHANGED\n'; false; }
 cmp -s "$RELEASE_CHECK_DIR/frontend/src/lib/sync-client.js" "$BASELINE_CHECK_DIR/frontend/src/lib/sync-client.js" || { printf 'SYNC_CLIENT_CHANGED\n'; false; }
 cmp -s "$RELEASE_CHECK_DIR/api/lib/webauthn-origins.js" "$BASELINE_CHECK_DIR/api/lib/webauthn-origins.js" || { printf 'WEBAUTHN_ORIGINS_CHANGED\n'; false; }
