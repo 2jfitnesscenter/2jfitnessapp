@@ -187,7 +187,10 @@ export function routineReviews(S, today) {
       const total = scheduled.length
       const completed = total ? scheduled.filter(id => done.has(id)).length : null
       const left = daysBetween(today, dueDate)
-      const status = left <= 0 ? (left <= -LATE_DAYS ? 'overdue' : 'due') : days >= (EARLY_WEEK - 1) * 7 && p.clear && workouts.length >= MIN_SESSIONS ? 'early' : left <= 7 ? 'soon' : 'upcoming'
+      // A completed review starts a new cycle. Do not immediately re-open it
+      // from the same plateau evidence before its next scheduled review date.
+      const reviewedInCurrentCycle = isDate(saved.lastReviewAt) && today < dueDate
+      const status = left <= 0 ? (left <= -LATE_DAYS ? 'overdue' : 'due') : !reviewedInCurrentCycle && days >= (EARLY_WEEK - 1) * 7 && p.clear && workouts.length >= MIN_SESSIONS ? 'early' : left <= 7 ? 'soon' : 'upcoming'
       out.push({ kind: 'program', programId: activeProgram.id, routineIds: [...programRoutineIds], name: activeProgram.name || 'Program', start,
         startManual: isDate(saved.startOverride), dueDate, nextReviewAt: dueDate, dueManual: !!manualDue, lastReviewAt: saved.lastReviewAt || null,
         reviewed: !!saved.lastReviewAt && today < dueDate, status, week, days, sessions: workouts.length, early: status === 'early', late: status === 'overdue',

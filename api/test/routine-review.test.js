@@ -141,6 +141,24 @@ test('program review is one trainer-only cycle, closes into the next interval, a
   assert.equal((await req('POST', '/api/admin/user/routine-reviewed', { uid: 'member2', body: { id: 'member1', programId: 'active-p1' } })).status, 403);
 });
 
+test('reviewed program does not immediately reappear from the same plateau before nextReviewAt', async () => {
+  seedProgram();
+  const seeded = JSON.parse(fs.readFileSync(path.join(dir, 'state-member1.json'), 'utf8'));
+  const start = addDays(todayIso(), -40);
+  seeded.programs[0].startedAt = Date.parse(start + 'T12:00:00Z');
+  seeded.workouts = flat.map((w, i) => ({ ...w, id: `plateau-${i}`, d: addDays(start, i * 3), routineId: 'pr0', src2j: { program: { programId: 'active-p1', sessionId: `1:${i}:0` } } }));
+  fs.writeFileSync(path.join(dir, 'state-member1.json'), JSON.stringify(seeded));
+  const before = await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'trainer1' });
+  assert.equal(before.body.routineCycles[0].plateau.clear, true);
+  const done = await req('POST', '/api/admin/user/routine-reviewed', { uid: 'trainer1', body: { id: 'member1', programId: 'active-p1', ...(before.body.sync ? { sync: before.body.sync, operationId: crypto.randomUUID() } : {}) } });
+  assert.equal(done.status, 200);
+  const after = await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'trainer1' });
+  assert.equal(after.body.routineCycles[0].plateau.clear, true);
+  assert.equal(after.body.routineCycles[0].status, 'upcoming');
+  assert.equal(after.body.routineCycles[0].nextReviewAt, addDays(todayIso(), 28));
+  assert.equal((await req('GET', '/api/admin/user/followup?id=member1')).body.alerts.some(x => x.code === 'routine_review'), false);
+});
+
 test('manual cycle dates: staff-only, saved additively, they prevail, resetting goes back to automatic, "reviewed" clears them', async () => {
   seed();
   const post = (uid, payload) => req('POST', '/api/admin/user/routine-cycle', { uid, body: { id: 'member1', routineId: 'r1', ...payload } });

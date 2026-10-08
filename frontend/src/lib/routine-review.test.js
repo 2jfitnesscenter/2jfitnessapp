@@ -73,6 +73,16 @@ describe('program-level review', () => {
     expect(JSON.stringify(S.routines)).toBe(before)
     expect(routineReviews(S, today)[0].dueManual).toBe(false)
   })
+  it('does not reopen a reviewed program early from the same plateau before nextReviewAt', () => {
+    const S = programState(), today = addDays(FIRST, 28)
+    S.workouts = sessions(FIRST, FLAT).map((w, i) => ({ ...w, src2j: { program: { programId: 'p1', sessionId: `1:${i}:0` } } }))
+    expect(routineReviews(S, today)[0].plateau.clear).toBe(true)
+    expect(pendingReviews(S, today)).toHaveLength(1)
+    expect(markProgramReviewed(S, 'p1', today, 'trainer1')).toBe(true)
+    expect(pendingReviews(S, addDays(today, 1))).toEqual([])
+    expect(routineReviews(S, addDays(today, 1))[0]).toMatchObject({ status: 'upcoming', nextReviewAt: addDays(today, 28) })
+    expect(pendingReviews(S, addDays(today, 28))).toHaveLength(1)
+  })
   it('a staff date override is explicit and is cleared when that program review is completed', () => {
     const S = programState()
     const due = addDays(FIRST, 45)
