@@ -288,7 +288,7 @@ try {
   & docker rm --force $ImageSmokeName | Out-Null
 }
 Write-Host 'Validacion local (tests, build, locales, generadores)...'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs' @('tests 25', 'pass 25', 'fail 0', 'skipped 0')
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs' @('tests 26', 'pass 26', 'fail 0', 'skipped 0')
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend 'npx vitest run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx' @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
@@ -2222,9 +2222,7 @@ $currentProductionBlock = $currentProductionBlock -replace '^STEP=verify-current
 if (-not $SimulationScript.Contains('__VERIFY_CURRENT_PRODUCTION__')) { throw 'Simulation precheck placeholder missing' }
 $SimulationScript = $SimulationScript.Replace('__VERIFY_CURRENT_PRODUCTION__', $currentProductionBlock)
 [System.IO.File]::WriteAllText($SimulationRunner, ($SimulationScript -replace "`r`n", "`n"), $Utf8NoBom)
-$GitExe = (Get-Command git.exe -ErrorAction Stop).Source
-$GitRoot = Split-Path (Split-Path $GitExe -Parent) -Parent
-$Bash = Join-Path $GitRoot 'bin\bash.exe'
+$Bash = Join-Path $GitForTests 'bin\bash.exe'
 if (-not (Test-Path -LiteralPath $Bash)) { throw "Git Bash no encontrado junto a Git: $Bash" }
 function ConvertTo-GitBashPath([string]$Path) {
   $full = [System.IO.Path]::GetFullPath($Path)

@@ -138,6 +138,11 @@ test('timeout retry uses the supported single-worker Vitest option', () => {
   assert.ok(!template.includes('--minWorkers='))
 })
 
+test('PrepareOnly resolves Git Bash from the Git root captured before PATH changes', () => {
+  assert.ok(template.includes("$Bash = Join-Path $GitForTests 'bin\\bash.exe'"))
+  assert.ok(!template.includes('$GitExe = (Get-Command git.exe -ErrorAction Stop).Source'))
+})
+
 test('Web Push subscription persistence checks the current route, upsert wiring and integration contract', () => {
   const files = ['api/server.js', 'api/lib/rest-alerts.js', 'api/test/rest-alert-routes.test.js']
   const sources = Object.fromEntries(files.map(file => [file, fs.readFileSync(path.resolve(here, '../../../', file), 'utf8')]))
