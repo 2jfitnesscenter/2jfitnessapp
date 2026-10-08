@@ -5,8 +5,9 @@
 - Revisión del programa activo agrupada en una sola tarjeta/ciclo; los días incluidos ya no generan tarjetas individuales. Las rutinas independientes mantienen su ciclo anterior.
 - Registro aditivo `S.programReviews`: marca de última revisión y próxima fecha a 28 días; cierre elimina el aviso hasta la fecha nueva. Se conservan rutinas, historial, metadata existente y Sync V2.
 - El resumen de revisión incorpora adherencia de las semanas transcurridas, tendencia de progresión, señales de plateau/omisiones y el análisis estructural existente. La IA profesional recibe facts acotados y solo genera un borrador para revisión del entrenador.
-- Validado automáticamente: frontend 1465/1465; API 454/454 sin skips en Linux; build web; español completo; deploy-kit Linux 48/48; diff-check.
-- Sin despliegue. QA visual manual en pantalla autenticada (1440/768/390, claro/oscuro) y PrepareOnly siguen pendientes porque el panel local no tiene backend de QA (HTTP 502). No usar producción como sustituto.
+- QA local sintética encontró y corrigió dos defectos: el panel Training Quality carecía de estilos para patrones/hallazgos/días y una revisión marcada podía volver de inmediato a pendientes por la misma señal de plateau. La revisión no reabre antes de `nextReviewAt` (+28 días); el test comprueba también que vuelve a ser elegible al llegar esa fecha.
+- QA visual manual autenticada en claro/oscuro a 1280×720: panel de análisis, Admin Follow Up y Trainer Client Plan; ciclo de programa compacto y separado de la rutina independiente. 1440/768/390 y caso equilibrado/sin hallazgos aún no certificados por limitación de viewport/fixtures.
+- Validación final Windows: frontend 1466/1466 secuencial (la ejecución paralela bajo carga tuvo timeouts); API 450 pass / 5 skips operativos Bash/OpenSSL de 455; build, español 4577/4577 y diff-check OK. PrepareOnly/simulaciones y verificación del marker/runtime remoto pendientes. Sin deploy.
 
 ### Web Push diagnóstico para alertas de descanso PWA (2026-10-07) — NO DESPLEGADO
 
