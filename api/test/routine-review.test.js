@@ -57,6 +57,12 @@ const old = () => addDays(todayIso(), -40);
 const seed = () => fs.writeFileSync(path.join(dir, 'state-member1.json'), JSON.stringify(member({
   workouts: [0, 1, 2, 3].map(i => ({ id: 'w' + i, d: addDays(old(), i * 3), routineId: 'r1', entries: [{ id: 'A', target: { sets: 1, reps: 8 }, sets: [set(60 + i * 5, 8)] }] })),
 })));
+const seedProgram = () => {
+  const routines = [0, 1, 2, 3].map(i => ({ id: 'pr' + i, name: 'Program day ' + (i + 1), ex: [] }));
+  const program = { id: 'active-p1', source: 'guided-v2', status: 'active', name: 'Four day strength', startedAt: Date.parse(addDays(todayIso(), -40) + 'T12:00:00Z'), weeks: [{ sessions: routines.map((r, i) => ({ day: i, routineId: r.id })) }] };
+  const workouts = routines.map((r, i) => ({ id: 'pw' + i, d: addDays(todayIso(), -36 + i), routineId: r.id, src2j: { program: { programId: program.id, sessionId: `1:${i}:${i}` } }, entries: [] }));
+  fs.writeFileSync(path.join(dir, 'state-member1.json'), JSON.stringify({ routines, programs: [program], activeProgramId: program.id, workouts, routineReviews: Object.fromEntries(routines.map(r => [r.id, { reviewedAt: addDays(todayIso(), -38) }])) }));
+};
 
 test('GET followup (admin) carries the alert and the sync revision the staff write must present', async () => {
   seed();
@@ -102,6 +108,37 @@ test('a trainer can read the cycles, edit them and mark the routine reviewed (ex
   assert.equal(S.routineReviews.r1.by, 'trainer1');
   // the follow-up summary itself (health, check-ins) stays admin-only
   assert.equal((await req('GET', '/api/admin/user/followup?id=member1', { uid: 'trainer1' })).status, 403);
+});
+
+test('program review is one trainer-only cycle, closes into the next interval, and leaves its four routines unchanged', async () => {
+  seedProgram();
+  const seeded = JSON.parse(fs.readFileSync(path.join(dir, 'state-member1.json'), 'utf8'));
+  const start = addDays(todayIso(), -28);
+  seeded.programs[0].startedAt = Date.parse(start + 'T12:00:00Z');
+  const sessionsPerWeek = [0, 1, 2, 3].map(i => ({ day: i, routineId: `pr${i}` }));
+  seeded.programs[0].weeks = Array.from({ length: 8 }, () => ({ sessions: sessionsPerWeek }));
+  seeded.workouts = Array.from({ length: 8 }, (_, i) => {
+    const week = Math.floor(i / 2), day = i % 2;
+    return { id: `elapsed-${i}`, d: addDays(start, week * 7 + day * 3), routineId: `pr${day}`, src2j: { program: { programId: 'active-p1', sessionId: `${week + 1}:${day}:${day}` } }, entries: [] };
+  });
+  fs.writeFileSync(path.join(dir, 'state-member1.json'), JSON.stringify(seeded));
+  const before = JSON.parse(fs.readFileSync(path.join(dir, 'state-member1.json'), 'utf8')).routines;
+  const read = await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'trainer1' });
+  assert.equal(read.status, 200);
+  assert.equal(read.body.routineCycles.length, 1);
+  assert.equal(read.body.routineCycles[0].kind, 'program');
+  assert.equal(read.body.routineCycles[0].routineIds.length, 4);
+  assert.deepEqual(read.body.routineCycles[0].adherence, { completed: 8, total: 16, percent: 50 });
+  assert.ok(read.body.routineCycles[0].status === 'due' || read.body.routineCycles[0].status === 'overdue');
+  const sync = read.body.sync;
+  const done = await req('POST', '/api/admin/user/routine-reviewed', { uid: 'trainer1', body: { id: 'member1', programId: 'active-p1', ...(sync ? { sync, operationId: crypto.randomUUID() } : {}) } });
+  assert.equal(done.status, 200);
+  const state = (await req('GET', '/api/data', { uid: 'member1' })).body.state;
+  assert.equal(state.programReviews['active-p1'].by, 'trainer1');
+  assert.equal(state.programReviews['active-p1'].nextReviewAt, addDays(todayIso(), 28));
+  assert.deepEqual(state.routines, before);
+  assert.equal((await req('GET', '/api/trainer/routine-cycles?id=member1', { uid: 'trainer1' })).body.routineCycles[0].status, 'upcoming');
+  assert.equal((await req('POST', '/api/admin/user/routine-reviewed', { uid: 'member2', body: { id: 'member1', programId: 'active-p1' } })).status, 403);
 });
 
 test('manual cycle dates: staff-only, saved additively, they prevail, resetting goes back to automatic, "reviewed" clears them', async () => {

@@ -46,7 +46,7 @@ export default function TrainerClientPlan() {
       <a className="trainer-back" href="#/trainer"><Icon name="chevronLeft" />{t('All members')}</a>
     </div>
 
-    {cy?.routineCycles?.length > 0 && <RoutineCycles id={memberId} cycles={cy.routineCycles} sync={cy.sync} setData={setCy} reload={loadCycles} />}
+    {cy?.routineCycles?.length > 0 && <RoutineCycles id={memberId} cycles={cy.routineCycles} sync={cy.sync} setData={setCy} reload={loadCycles} plan={plan} />}
 
     <div className="row" style={{ gap: 8, marginBottom: 20 }}>
       <Button icon="plus" onClick={() => nav('/trainer/' + memberId + '/build/r/new')}>{t('New routine')}</Button>

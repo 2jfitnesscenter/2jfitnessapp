@@ -37,7 +37,7 @@ export default function Seguimiento() {
 
     <ReadinessSection />
 
-    {d.reviews.map(rv => <RoutineReviewCard key={rv.routineId} review={rv} onView={() => nav('/plan/r/' + rv.routineId)} />)}
+    {d.reviews.map(rv => <RoutineReviewCard key={rv.kind === 'program' ? rv.programId : rv.routineId} review={rv} onView={() => nav(rv.kind === 'program' ? '/train2j/program/' + (S.programs || []).find(p => p.id === rv.programId)?.catalogId : '/plan/r/' + rv.routineId)} />)}
 
     {(d.goal || ev) && <Surface raised className="v3-fu-hero">
       {d.goal && <div className="v3-fu-goal"><span className="v2-eyebrow">{t('Current goal')}</span><b>{t(d.goal)}</b></div>}

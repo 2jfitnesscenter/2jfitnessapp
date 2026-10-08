@@ -56,7 +56,7 @@ import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesO
 import { expectedOrigins } from './lib/webauthn-origins.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
 import { encrypt as encryptAtRest, decrypt as decryptAtRest } from './lib/crypto.js';
-import { markReviewed, setCycleDates, routineReviews } from './lib/routine-review.js';
+import { markReviewed, setCycleDates, markProgramReviewed, setProgramCycleDates, routineReviews } from './lib/routine-review.js';
 import { appendSharedAudit, createPinLimiter, hashStaffPin, publicStaffUsers, validateStaffPin, verifyStaffPin } from './lib/shared-staff.js';
 import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 
@@ -142,8 +142,8 @@ function revokeSharedStaffSessions(userId, actorId, reason) {
   if (revoked) appendSharedAudit(db, { event: 'staff_sessions_revoked', userId, actorId, reason });
 }
 // What the staff Seguimiento shows of one routine-review cycle.
-const cycleView = r => ({ routineId: r.routineId, name: r.name, start: r.start, startManual: !!r.startManual, dueDate: r.dueDate, dueManual: !!r.dueManual,
-  status: r.status, week: r.week, sessions: r.sessions, early: !!r.early, late: !!r.late });
+const cycleView = r => ({ kind: r.kind || 'routine', routineId: r.routineId || null, programId: r.programId || null, routineIds: r.routineIds || [], name: r.name, start: r.start, startManual: !!r.startManual, dueDate: r.dueDate, nextReviewAt: r.nextReviewAt || r.dueDate, dueManual: !!r.dueManual,
+  lastReviewAt: r.lastReviewAt || null, reviewed: !!r.reviewed, adherence: r.adherence || null, progression: r.progression || null, plateau: r.plateau || null, reasons: r.reasons || [], status: r.status, week: r.week, sessions: r.sessions, early: !!r.early, late: !!r.late });
 function atomicWrite(file, content) {
   const tmp = file + '.tmp';
   fs.writeFileSync(tmp, content);
@@ -1619,9 +1619,11 @@ const routes = {
     const patch = {};
     for (const k of ['start', 'due']) if (Object.prototype.hasOwnProperty.call(body, k)) patch[k] = body[k];
     if (!Object.keys(patch).length) return json(res, 400, { error: 'nada que cambiar' });
-    if (!setCycleDates(S, String(body.routineId || ''), patch, staff.id)) return json(res, 400, { error: 'fechas o rutina no válidas' });
+    const isProgram = typeof body.programId === 'string' && !!body.programId;
+    const saved = isProgram ? setProgramCycleDates(S, body.programId, patch, staff.id) : setCycleDates(S, String(body.routineId || ''), patch, staff.id);
+    if (!saved) return json(res, 400, { error: 'fechas o rutina no válidas' });
     S._ts = Date.now();
-    const cycle = routineReviews(S, new Date().toISOString().slice(0, 10)).map(cycleView).find(c => c.routineId === body.routineId) || null;
+    const cycle = routineReviews(S, new Date().toISOString().slice(0, 10)).map(cycleView).find(c => isProgram ? c.programId === body.programId : c.routineId === body.routineId) || null;
     saveDirect(u.id, S, body, 'admin-routine-cycle', { ok: true, cycle });
     json(res, 200, { ok: true, cycle, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
@@ -1637,7 +1639,10 @@ const routes = {
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado' });
     const replay = directReceipt(S, body, 'admin-routine-reviewed');
     if (replay) return json(res, 200, replay);
-    if (!markReviewed(S, String(body.routineId || ''), new Date().toISOString().slice(0, 10), staff.id)) return json(res, 400, { error: 'esa rutina no existe en este miembro' });
+    const isProgram = typeof body.programId === 'string' && !!body.programId;
+    const marked = isProgram ? markProgramReviewed(S, body.programId, new Date().toISOString().slice(0, 10), staff.id)
+      : markReviewed(S, String(body.routineId || ''), new Date().toISOString().slice(0, 10), staff.id);
+    if (!marked) return json(res, 400, { error: isProgram ? 'ese programa no está activo en este miembro' : 'esa rutina no existe en este miembro' });
     S._ts = Date.now();
     saveDirect(u.id, S, body, 'admin-routine-reviewed', { ok: true });
     json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation } });

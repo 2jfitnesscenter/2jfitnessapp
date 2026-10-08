@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
@@ -13,6 +14,8 @@ import { Button, Row, SelectRow, TextArea } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
 import { Surface, Pill, Stat } from '../components/v2.jsx'
 import { stateAction } from '../lib/state-action.js'
+import { fetchMemberPlan } from '../lib/trainer-api.js'
+import { analyzeRoutineStructure } from '../lib/routine-structure.js'
 
 // Seguimiento V2 — staff follow-up card inside the admin member detail. Server:
 // api/lib/followup.js (admin-only; check-ins only when the member shared them). Everything
@@ -50,20 +53,42 @@ function CycleDate({ label, value, manual, onSet, onAuto }) {
   </label>
 }
 // `reload` re-reads the parent's data after "Routine reviewed" (the admin Seguimiento and the trainer panel read it from different endpoints).
-export function RoutineCycles({ id, cycles, sync, setData, reload }) {
+export function RoutineCycles({ id, cycles, sync, setData, reload, plan = null }) {
+  const nav = useNavigate()
   const toast = useUI(s => s.toast)
   const [busy, setBusy] = useState(false)
   const write = (c, payload, done) => {
     if (busy) return
     setBusy(true)
-    stateAction('/api/admin/user/' + done.path, { id, routineId: c.routineId, ...payload }, sync)
-      .then(r => { setData(d => ({ ...d, sync: r.sync || d.sync, routineCycles: done.reviewed ? d.routineCycles : d.routineCycles.map(x => (x.routineId === c.routineId && r.cycle ? r.cycle : x)) })); toast(done.msg); if (done.reviewed) done.reload?.() })
+    stateAction('/api/admin/user/' + done.path, { id, ...(c.kind === 'program' ? { programId: c.programId } : { routineId: c.routineId }), ...payload }, sync)
+      .then(r => { setData(d => ({ ...d, sync: r.sync || d.sync, routineCycles: done.reviewed ? d.routineCycles : d.routineCycles.map(x => ((c.kind === 'program' ? x.programId === c.programId : x.routineId === c.routineId) && r.cycle ? r.cycle : x)) })); toast(done.msg); if (done.reviewed) done.reload?.() })
       .catch(e => toast(e.message || t('That date is not valid')))
       .finally(() => setBusy(false))
   }
   return <Surface className="v3-cy">
     <div className="v2-eyebrow"><Icon name="clipboard" /> {t('Routine review cycle')}</div>
-    {cycles.map(c => <div key={c.routineId} className="v3-cy-row">
+    {cycles.map(c => c.kind === 'program' ? (() => {
+      const program = (plan?.programs || []).find(p => p.id === c.programId)
+      const routineMap = new Map((plan?.routines || []).map(r => [r.id, r]))
+      for (const [routineId, snapshot] of Object.entries(program?.routineSnapshots || {})) if (!routineMap.has(routineId) && snapshot) routineMap.set(routineId, { ...snapshot, id: routineId })
+      const routines = (c.routineIds || []).map(routineId => routineMap.get(routineId)).filter(Boolean)
+      const analysis = routines.length ? analyzeRoutineStructure({ days: routines.map(r => ({ ...r, key: r.id })) }, { availableEquipment: plan?.gym?.availableEquipment }) : null
+      const findings = analysis?.findings?.filter(f => f.severity !== 'info').slice(0, 2) || []
+      return <div key={'program:' + c.programId} className="v3-cy-row v3-cy-program">
+        <div className="row between" style={{ gap: 8 }}><b className="v3-cy-n">{c.name}</b><Pill tone={c.status === 'due' || c.status === 'overdue' || c.status === 'early' ? 'gold' : 'acc'}>{t(c.status === 'overdue' ? 'Overdue' : c.status === 'early' ? 'Review due' : c.status === 'due' ? 'Review due' : 'Upcoming review')}</Pill></div>
+        <div className="v3-cy-program-facts"><span><small>{t('Program start')}</small><b>{fmtDate(c.start)}</b></span><span><small>{t('Next review')}</small><b>{fmtDate(c.nextReviewAt || c.dueDate)}</b></span>
+          {c.adherence && <span><small>{t('Program adherence')}</small><b>{c.adherence.percent}% · {c.adherence.completed}/{c.adherence.total}</b></span>}
+          {c.progression?.status !== 'insufficient' && <span><small>{t('Progression')}</small><b>{t(c.progression?.status === 'improving' ? 'Progression trend improving' : 'Progression trend stable')}</b></span>}
+          {c.plateau?.clear && <span><small>{t('Review signals')}</small><b>{t('Plateau signals to review')}</b></span>}
+        </div>
+        {findings.length > 0 ? <ul className="v3-cy-findings">{findings.map(f => <li key={f.id}>{f.message}</li>)}</ul> : <div className="small dim">{t(routines.length ? 'No priority structure flags.' : 'Structural analysis unavailable for this program.')}</div>}
+        <CycleDate label={t('Program start')} value={c.start} manual={c.startManual}
+          onSet={v => write(c, { start: v }, { path: 'routine-cycle', msg: t('Cycle updated') })} onAuto={() => write(c, { start: null }, { path: 'routine-cycle', msg: t('Cycle updated') })} />
+        <CycleDate label={t('Next review')} value={c.nextReviewAt || c.dueDate} manual={c.dueManual}
+          onSet={v => write(c, { due: v }, { path: 'routine-cycle', msg: t('Cycle updated') })} onAuto={() => write(c, { due: null }, { path: 'routine-cycle', msg: t('Cycle updated') })} />
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}><Button size="sm" variant="tinted" icon="check" onClick={() => write(c, {}, { path: 'routine-reviewed', msg: t('Review closed'), reviewed: true, reload })}>{t('Program reviewed')}</Button><Button size="sm" variant="plain" icon="sparkles" onClick={() => nav('/trainer/' + id + '/ai', { state: { routineReview: { programId: c.programId, routineIds: c.routineIds, name: c.name, adherence: c.adherence, progression: c.progression, plateau: c.plateau, findings } } })}>{t('Draft with trainer AI')}</Button></div>
+      </div>
+    })() : <div key={c.routineId} className="v3-cy-row">
       <div className="row between" style={{ gap: 8 }}><b className="v3-cy-n">{c.name}</b>
         {(c.status === 'due' || c.status === 'early') && <Pill tone="gold">{t('Review due')}</Pill>}</div>
       <CycleDate label={t('Routine start')} value={c.start} manual={c.startManual}
@@ -114,9 +139,10 @@ export default function AdminFollowUp({ id }) {
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
   const [d, setD] = useState(null)
+  const [plan, setPlan] = useState(null)
   const [privateNotes, setPrivateNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
-  const load = () => { setD(null); setPrivateNotes(''); return api('/api/admin/user/followup?id=' + encodeURIComponent(id)).then(data => { setD(data); setPrivateNotes(data.privateNotes || '') }).catch(e => toast(e.message)) }
+  const load = () => { setD(null); setPrivateNotes(''); fetchMemberPlan(id).then(setPlan).catch(() => setPlan(null)); return api('/api/admin/user/followup?id=' + encodeURIComponent(id)).then(data => { setD(data); setPrivateNotes(data.privateNotes || '') }).catch(e => toast(e.message)) }
   useEffect(() => { load() }, [id])
   if (!d) return null
   const f = d.followUp, s = d.summary
@@ -138,7 +164,7 @@ export default function AdminFollowUp({ id }) {
   const status = !f ? '' : overdue ? 'overdue' : s.nextReview && s.nextReview <= today ? 'due' : ''
   return <section className="fu">
     <h4 className="sec">{t('Follow-up')}</h4>
-    {(d.routineCycles || []).length > 0 && <RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync} setData={setD} reload={load} />}
+    {(d.routineCycles || []).length > 0 && <RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync} setData={setD} reload={load} plan={plan} />}
     {!f ? <div className="card fu-empty">
       <div className="muted small">{t('No follow-up yet. Choose an assessment template and how often to review.')}</div>
       <Button icon="plus" onClick={setup}>{t('Start follow-up')}</Button>

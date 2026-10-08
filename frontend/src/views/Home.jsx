@@ -116,7 +116,7 @@ export default function Home() {
 
     <ReadinessSection compact />
 
-    {reviewNow && <RoutineReviewCard compact review={reviewNow} onView={() => nav('/plan/r/' + reviewNow.routineId)} />}
+    {reviewNow && <RoutineReviewCard compact review={reviewNow} onView={() => nav(reviewNow.kind === 'program' ? '/train2j/program/' + (S.programs || []).find(p => p.id === reviewNow.programId)?.catalogId : '/plan/r/' + reviewNow.routineId)} />}
 
     <FollowUpCard fu={followUp} S={S} nav={nav} compact />
 

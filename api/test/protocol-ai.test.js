@@ -48,6 +48,18 @@ test('trainer AI receives bounded structural facts without history, identity or 
   assert.equal(JSON.stringify(p.coachProfile.structuralAnalysis).includes('private'), false);
 });
 
+test('program-review AI context is bounded to deterministic facts and cannot carry private/free-text data', () => {
+  const p = payloadLib.buildTrainer(sampleState(), 'member-1', { structuralAnalysis: [{ kind: 'program-review', adherence: { completed: 900, total: 5, percent: 180 },
+    progression: { status: 'improving', improved: 2, evaluated: 3, private: 'x' }, plateau: { clear: true, reasons: [{ code: 'stalled', n: 2, note: 'private' }, { code: 'made-up', n: 90 }] },
+    movementSummary: { horizontal_pull: 3 }, findings: [{ category: 'balance', severity: 'revisar', message: 'private' }] }] });
+  assert.deepEqual(p.coachProfile.structuralAnalysis[0].review, {
+    adherence: { percent: 100, completed: 500, total: 5 },
+    progression: { status: 'improving', improved: 2, evaluated: 3 },
+    plateau: { clear: true, reasons: [{ code: 'stalled', n: 2 }] },
+  });
+  assert.equal(JSON.stringify(p.coachProfile.structuralAnalysis).includes('private'), false);
+});
+
 test('the model receives compact official guided programs and only summary progress for an active one', () => {
   const S = sampleState({ activeProgramId: 'gp-1', programs: [{ id: 'gp-1', source: 'guided-v2', status: 'active', name: 'Mobility', meta: { goal: 'general' }, weeks: [{ sessions: [{ day: 1, routineId: 'r2j-mobility-fullbody' }] }] }],
     workouts: [{ src2j: { program: { programId: 'gp-1', sessionId: '1:1:0' } } }] });

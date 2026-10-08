@@ -57,6 +57,16 @@ describe('member', () => {
     expect(due).toContain('Routine review'); expect(due).toContain('View routine'); expect(due).not.toContain('Routine reviewed')
     expect(await renderView('Home', { routines, workouts: [] })).not.toContain('Routine review')
   })
+  it('an active multi-day program gives the member one program notice, not a card per routine', async () => {
+    const routines = [0, 1, 2, 3].map(i => ({ id: 'day' + i, name: 'Program day ' + i, ex: [] }))
+    const program = { id: 'member-program', catalogId: 'g2j-strength', source: 'guided-v2', status: 'active', name: 'Strength block', startedAt: Date.parse('2026-09-08T12:00:00Z'), weeks: [{ sessions: routines.map((r, i) => ({ day: i, routineId: r.id })) }] }
+    const workouts = routines.map((r, i) => ({ id: 'pw' + i, d: addDays('2026-09-08', i + 1), routineId: r.id, src2j: { program: { programId: program.id, sessionId: `1:${i}:${i}` } }, entries: [] }))
+    const h = await renderView('Home', { routines, programs: [program], activeProgramId: program.id, workouts,
+      routineReviews: Object.fromEntries(routines.map(r => [r.id, { reviewedAt: '2026-09-08' }])) })
+    expect(h).toContain('Program review'); expect(h).toContain('Strength block')
+    expect(h.match(/Routine review/g)).toBeNull()
+    expect(h).not.toContain('Program day')
+  })
   it('the member cannot close or edit anything from the notice: no markReviewed / setCycleDates anywhere in the member screens', () => {
     const card = readFileSync(new URL('../components/RoutineReviewCard.jsx', import.meta.url), 'utf8')
     expect(card).not.toMatch(/update\(|routines|onDone|Routine reviewed/)
@@ -67,8 +77,8 @@ describe('member', () => {
 describe('staff ("Needs attention", admin only)', () => {
   const src = readFileSync(new URL('./AdminAttention.jsx', import.meta.url), 'utf8')
   it('shows the routine, week and reason, with a "Routine reviewed" button that posts to the admin-only endpoint with the member sync', () => {
-    expect(src).toContain("a.code === 'routine_review'"); expect(src).toContain("t('Routine reviewed')")
-    expect(src).toContain("stateAction('/api/admin/user/routine-reviewed', { id: r.user.id, routineId: a.routineId }, r.sync)")
+    expect(src).toContain("a.code === 'routine_review'"); expect(src).toContain("t(a.kind === 'program' ? 'Program reviewed' : 'Routine reviewed')")
+    expect(src).toContain("...(a.kind === 'program' ? { programId: a.programId } : { routineId: a.routineId })")
     expect(src).toContain("if (!user?.admin) return null")
   })
   it('the staff Seguimiento (AdminFollowUp) edits start and review date in place and can close the review', () => {

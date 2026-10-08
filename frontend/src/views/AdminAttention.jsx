@@ -46,7 +46,7 @@ function Row({ r, openUser, nav, onReviewed }) {
     {shown.length > 0 && <ul className="v3-att-alerts">{shown.map((a, i) => a.code === 'routine_review'
       ? <li key={i} className="v3-att-rr"><b>{alertText(a)}</b>
           {reviewReasons(a, 2).map((w, j) => <small key={j}>{w}</small>)}
-          <Button size="sm" variant="tinted" icon="check" onClick={() => onReviewed(r, a)}>{t('Routine reviewed')}</Button></li>
+          <Button size="sm" variant="tinted" icon="check" onClick={() => onReviewed(r, a)}>{t(a.kind === 'program' ? 'Program reviewed' : 'Routine reviewed')}</Button></li>
       : <li key={i}>{alertText(a)}</li>)}</ul>}
     <div className="v3-att-acts">
       <Button size="sm" variant="tinted" icon="clipboard" onClick={() => nav('/trainer/' + r.user.id)}>{t('Plan')}</Button>
@@ -69,7 +69,7 @@ export default function AdminAttention() {
   if (!user?.admin) return null
   const openUser = id => openSheet(close => <UserDetail id={id} onChanged={load} close={close} />)
   // "Rutina revisada": closes that routine's review notice and restarts its cycle (the routine itself is never touched)
-  const reviewed = (r, a) => stateAction('/api/admin/user/routine-reviewed', { id: r.user.id, routineId: a.routineId }, r.sync)
+  const reviewed = (r, a) => stateAction('/api/admin/user/routine-reviewed', { id: r.user.id, ...(a.kind === 'program' ? { programId: a.programId } : { routineId: a.routineId }) }, r.sync)
     .then(() => { toast(t('Review closed')); load() }).catch(e => toast(e.message))
   const none = rank && !rank.urgent.length && !rank.soon.length
   return <div className="narrow v3-att">

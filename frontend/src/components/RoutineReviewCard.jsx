@@ -8,9 +8,10 @@ import { Button } from './ui.jsx'
    (from the staff Seguimiento / Needs attention), so the member cannot dismiss it. Nothing here changes the routine. */
 export default function RoutineReviewCard({ review, onView, compact = false }) {
   const why = reviewReasons(review, compact ? 1 : 3)
-  return <Surface className="v3-rr" role="status" aria-label={t('Routine review')}>
-    <div className="v2-eyebrow"><Icon name="clipboard" /> {t('Routine review')}</div>
-    <div className="v3-rr-t"><b>{review.name}</b><small>{t('Week {0} with this routine', review.week)}</small></div>
+  const label = t(review.kind === 'program' ? 'Program review' : 'Routine review')
+  return <Surface className="v3-rr" role="status" aria-label={label}>
+    <div className="v2-eyebrow"><Icon name="clipboard" /> {label}</div>
+    <div className="v3-rr-t"><b>{review.name}</b><small>{review.kind === 'program' ? t('Week {0} with this program', review.week) : t('Week {0} with this routine', review.week)}</small></div>
     {why.length > 0 && <ul className="v3-rr-why">{why.map((w, i) => <li key={i}>{w}</li>)}</ul>}
     <div className="v3-rr-acts">
       <Button size="sm" variant="tinted" icon="clipboard" onClick={onView}>{t('View routine')}</Button>
