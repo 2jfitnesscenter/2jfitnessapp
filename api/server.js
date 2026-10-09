@@ -59,6 +59,7 @@ import { coachFollowUpRoutes, recordPrivateEvent, canAccessMember } from './lib/
 import * as followUpAI from './coach/followup-ai.js';
 import { encrypt as encryptAtRest, decrypt as decryptAtRest } from './lib/crypto.js';
 import { markReviewed, setCycleDates, markProgramReviewed, setProgramCycleDates, routineReviews } from './lib/routine-review.js';
+import { appendSecurityEvent, eventsFor, eventsForAdmin } from './lib/security-audit.js';
 import { appendSharedAudit, createPinLimiter, hashStaffPin, publicStaffUsers, validateStaffPin, verifyStaffPin } from './lib/shared-staff.js';
 import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 
@@ -116,6 +117,8 @@ db.sharedDevices = Array.isArray(db.sharedDevices) ? db.sharedDevices : [];
 db.staffPins = Array.isArray(db.staffPins) ? db.staffPins : [];
 db.sharedStaffSessions = Array.isArray(db.sharedStaffSessions) ? db.sharedStaffSessions : [];
 db.sharedStaffAudit = Array.isArray(db.sharedStaffAudit) ? db.sharedStaffAudit : [];
+// Account-security events (sign-ins, recovery, passkeys, roles, sessions): lib/security-audit.js. Never holds a secret, an IP or a user-agent.
+db.securityEvents = Array.isArray(db.securityEvents) ? db.securityEvents : [];
 // Scanned-machine → library-exercise links (frontend/src/lib/machine-scan.js) — gym-wide, not
 // per-member: it's the same physical machine for every socio who scans it, so one member's
 // pick benefits everyone's next scan. Keyed by a normalised form of the AI's own recognised
@@ -144,6 +147,13 @@ function revokeSharedStaffSessions(userId, actorId, reason) {
     if (device?.activeSessionId === s.id) device.activeSessionId = null;
   });
   if (revoked) appendSharedAudit(db, { event: 'staff_sessions_revoked', userId, actorId, reason });
+}
+const secEvent = (event, { userId = null, actorId = null, meta = null } = {}) => appendSecurityEvent(db, { event, userId, actorId, meta });
+// Ends every session of one person at once: the version in every cookie they were ever given stops matching, and any shared-computer
+// session they hold is closed. Passkeys are untouched; signing in again works immediately.
+function endAllSessions(user, actorId, reason) {
+  user.sv = (user.sv || 0) + 1;
+  revokeSharedStaffSessions(user.id, actorId, reason);
 }
 // What the staff Seguimiento shows of one routine-review cycle.
 const cycleView = r => ({ kind: r.kind || 'routine', routineId: r.routineId || null, programId: r.programId || null, routineIds: r.routineIds || [], name: r.name, start: r.start, startManual: !!r.startManual, dueDate: r.dueDate, nextReviewAt: r.nextReviewAt || r.dueDate, dueManual: !!r.dueManual,
@@ -931,6 +941,7 @@ const routes = {
       counter: credential.counter || 0,
       transports: body.credential?.response?.transports || []
     });
+    secEvent('account_created', { userId: user.id });
     saveDb();
     json(res, 200, { user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
@@ -970,13 +981,15 @@ const routes = {
           transports: cred.transports
         }
       });
-    } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
-    if (!verification.verified) return json(res, 400, { error: 'no verificado' });
+    } catch (e) { secEvent('login_failed', { userId: cred.userId, meta: { reason: 'verification' } }); saveDb(); return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
+    if (!verification.verified) { secEvent('login_failed', { userId: cred.userId, meta: { reason: 'not_verified' } }); saveDb(); return json(res, 400, { error: 'no verificado' }); }
     cred.counter = verification.authenticationInfo.newCounter;
-    saveDb();
     const user = db.users.find(u => u.id === cred.userId);
-    if (!user) return json(res, 500, { error: 'falta el usuario' });
-    if (user.disabled) return json(res, 403, { error: 'esta cuenta ha sido desactivada' });
+    if (!user) { saveDb(); return json(res, 500, { error: 'falta el usuario' }); }
+    if (user.disabled) { saveDb(); return json(res, 403, { error: 'esta cuenta ha sido desactivada' }); }
+    // Whether the authenticator verified the person (PIN, biometrics) is recorded, not enforced: it is the data the decision on requireUserVerification needs.
+    secEvent('login_ok', { userId: user.id, meta: { uv: !!verification.authenticationInfo.userVerified } });
+    saveDb();
     json(res, 200, { user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
       avatar: user.avatar || null,
@@ -1011,6 +1024,7 @@ const routes = {
       at: new Date().toISOString(), resolved: false
     };
     db.recoveryRequests.push(reqRecord);
+    secEvent('recovery_requested', { userId: reqRecord.matchedUserId });
     saveDb();
     db.users.filter(isAdmin).forEach(a => sendPush(a.id, {
       title: 'Solicitud de recuperación', body: `${name} ha perdido su passkey`,
@@ -1071,9 +1085,16 @@ const routes = {
       counter: credential.counter || 0,
       transports: body.credential?.response?.transports || []
     });
+    // A recovery exists because a device or a passkey is lost, so nothing it could still sign in with may stay valid: every earlier session ends
+    // (the session version moves on) and, unless the admin who made the link said the old passkeys are still fine (keepExisting), every earlier
+    // passkey of this account is removed. The new passkey is added first and never removed, so the account is never left without a way in.
+    const previous = db.creds.filter(c => c.userId === user.id && c.id !== credential.id).length;
+    if (rec.revokeOld !== false) db.creds = db.creds.filter(c => c.userId !== user.id || c.id === credential.id);
+    endAllSessions(user, rec.createdBy, 'account_recovered');
     rec.usedAt = new Date().toISOString();
+    secEvent('recovery_completed', { userId: user.id, actorId: rec.createdBy, meta: { revokedPasskeys: rec.revokeOld !== false ? previous : 0, kept: rec.revokeOld === false, sessionsEnded: true } });
     saveDb();
-    json(res, 200, { user: {
+    json(res, 200, { recovery: { revokedPasskeys: rec.revokeOld !== false ? previous : 0 }, user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
@@ -1081,6 +1102,12 @@ const routes = {
     } }, { 'Set-Cookie': sessionCookie(user) });
   }),
 
+  // The member's own security activity (newest first). Somebody else having done it is shown; who is not.
+  'GET /api/me/security-events': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    json(res, 200, { events: eventsFor(db, user.id, 40) });
+  },
   'POST /api/logout': async (req, res) => {
     const user = readSession(req);
     if (user?.authLevel === 'pin') {
@@ -1103,6 +1130,7 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     user.sv = sessionVersion(user) + 1;
     db.sharedStaffSessions.filter(s => s.userId === user.id && s.active).forEach(s => { s.active = false; s.revokedAt = new Date().toISOString(); });
+    secEvent('logout_all', { userId: user.id });
     saveDb();
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
   },
@@ -1678,7 +1706,7 @@ const routes = {
     if (role === 'admin') { u.admin = true; delete u.trainer; }
     else { delete u.admin; if (role === 'trainer') u.trainer = true; else delete u.trainer; }
     const newRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
-    if (oldRole !== newRole) revokeSharedStaffSessions(u.id, admin.id, 'role_changed');
+    if (oldRole !== newRole) { revokeSharedStaffSessions(u.id, admin.id, 'role_changed'); secEvent('role_changed', { userId: u.id, actorId: admin.id, meta: { from: oldRole, to: newRole } }); }
     if (newRole === 'member') dropTrainerAssignments(u.id);
     saveDb();
     json(res, 200, { ok: true, id: u.id, role: isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member', admin: isAdmin(u), trainer: isTrainer(u) });
@@ -1879,6 +1907,7 @@ const routes = {
     u.disabled = !!body.disabled;
     if (u.disabled) revokeSharedStaffSessions(u.id, admin.id, 'account_disabled');
     if (u.disabled) presence.delete(u.id);   // drop them off "training now" at once
+    secEvent(u.disabled ? 'account_disabled' : 'account_enabled', { userId: u.id, actorId: admin.id });
     saveDb();
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
   },
@@ -1891,8 +1920,11 @@ const routes = {
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const trainerBefore = isTrainer(u) ? (isAdmin(u) ? 'admin' : 'trainer') : 'member';
     u.trainer = !!body.trainer;
     if (!isTrainer(u)) { revokeSharedStaffSessions(u.id, admin.id, 'trainer_role_removed'); dropTrainerAssignments(u.id); }
+    const trainerAfter = isTrainer(u) ? (isAdmin(u) ? 'admin' : 'trainer') : 'member';
+    if (trainerBefore !== trainerAfter) secEvent('role_changed', { userId: u.id, actorId: admin.id, meta: { from: trainerBefore, to: trainerAfter } });
     saveDb();
     json(res, 200, { ok: true, id: u.id, trainer: u.trainer });
   },
@@ -1913,14 +1945,26 @@ const routes = {
     let token;
     do { token = crypto.randomBytes(8).toString('hex').toUpperCase(); } while (db.recoveries.some(r => r.token === token));
     const expiresAt = Date.now() + 15 * 60000;
-    db.recoveries.push({ token, userId: u.id, createdBy: admin.id, created: new Date().toISOString(), expiresAt });
+    // By default the link retires every passkey the account had (the lost-device case); keepExisting: true is for a member who only needs one more.
+    const revokeOld = body.keepExisting !== true;
+    db.recoveries.push({ token, userId: u.id, createdBy: admin.id, created: new Date().toISOString(), expiresAt, revokeOld });
+    secEvent('recovery_link_created', { userId: u.id, actorId: admin.id, meta: { kept: !revokeOld } });
     saveDb();
-    json(res, 200, { token, expiresAt });
+    json(res, 200, { token, expiresAt, revokesOldPasskeys: revokeOld });
   },
 
   // Pending "I lost my passkey" requests raised from the login screen — see POST
   // /api/recover/request above. Newest first; resolved ones drop off after being marked so this
   // never grows without bound.
+  // Admin view of the security log: optionally one person, with names resolved here (the log itself holds ids only).
+  'GET /api/admin/security-events': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const q = new URL(req.url, 'http://x').searchParams;
+    const name = id => (id ? (db.users.find(u => u.id === id) || {}).name || null : null);
+    const events = eventsForAdmin(db, { userId: q.get('userId') || null, limit: Number(q.get('limit')) || 100 })
+      .map(e => ({ ...e, userName: name(e.userId), actorName: name(e.actorId) }));
+    json(res, 200, { events });
+  },
   'GET /api/admin/recovery-requests': async (req, res) => {
     if (!requireAdmin(req, res)) return;
     const open = db.recoveryRequests.filter(r => !r.resolved).map(r => ({
