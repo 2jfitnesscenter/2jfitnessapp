@@ -690,11 +690,11 @@ if (g.ok !== false || !g.errors.join(' ').includes('restriction_unverified')) fa
 const G = await import(B + 'lib/guided-store.js');
 const gseed = JSON.parse(fs.readFileSync(new URL(B + 'lib/guided-official.json'), 'utf8'));
 const gi = G.seedInfo();
-if (gi.protocolVersion !== '1.0' || gi.seedVersion !== 1 || gi.count !== 155 || gi.collections !== 15) fail('guided_seed_info');
-if (gseed.routines.length !== 155 || gseed.collections.length !== 15) fail('guided_seed_count');
+if (gi.protocolVersion !== '1.0' || gi.seedVersion !== 1 || gi.count !== 155 || gi.collections !== 17) fail('guided_seed_info');
+if (gseed.routines.length !== 155 || gseed.collections.length !== 17) fail('guided_seed_count');
 const rids = new Set(gseed.routines.map(r => r.id));
 const cids = new Set(gseed.collections.map(c => c.id));
-if (rids.size !== 155 || cids.size !== 15 || ![...rids].every(id => id.startsWith('r2j-')) || ![...cids].every(id => id.startsWith('c2j-'))) fail('guided_ids');
+if (rids.size !== 155 || cids.size !== 17 || ![...rids].every(id => id.startsWith('r2j-')) || ![...cids].every(id => id.startsWith('c2j-'))) fail('guided_ids');
 const iids = gseed.routines.flatMap(r => r.blocks.map(b => b.iid));
 if (new Set(iids).size !== iids.length) fail('guided_copy_ids');
 const allIds = [...ids, ...rids, ...cids, ...iids];
