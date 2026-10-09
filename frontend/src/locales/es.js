@@ -5024,4 +5024,13 @@ export default {
   'message': 'mensaje',
   'challenge': 'desafío',
   'content': 'contenido',
+  '{0} {1} lifted': '{0} {1} levantados',
+  '1 record': '1 récord',
+  '{0} records': '{0} récords',
+  '{0} min cardio': '{0} min de cardio',
+  'A program': 'Un programa',
+  'Card': 'Tarjeta',
+  'Add details (optional)': 'Añadir detalles (opcional)',
+  'Body weight, health and notes are never included.': 'El peso corporal, la salud y las notas nunca se incluyen.',
+  'Records': 'Récords',
 }

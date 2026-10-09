@@ -13,11 +13,14 @@ export default function InternalShareActions({ target }) {
   const toast = useUI(s => s.toast)
   const [friends, setFriends] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [include, setInclude] = useState([])   // optional numbers of a shared workout; nothing is added unless ticked
+  const toggle = key => setInclude(list => (list.includes(key) ? list.filter(k => k !== key) : [...list, key]))
+  const extra = target?.kind === 'workout' && include.length ? { include } : {}
   useEffect(() => { fetchFriends().then(x => setFriends(x.friends || [])).catch(() => setFriends([])) }, [])
   const community = async () => {
     if (busy) return
     setBusy(true)
-    try { await createSocialShare({ ...target, idempotencyKey: requestKey() }); toast(t('Shared with the Community')) }
+    try { await createSocialShare({ ...target, ...extra, idempotencyKey: requestKey() }); toast(t('Shared with the Community')) }
     catch (e) { toast(e.message || t('This content is private in your settings')) }
     finally { setBusy(false) }
   }
@@ -26,7 +29,7 @@ export default function InternalShareActions({ target }) {
     setBusy(true)
     try {
       const thread = await startDirectThread(friend.id)
-      await sendShare({ ...target, recipientId: friend.id, threadId: thread.id, idempotencyKey: requestKey() })
+      await sendShare({ ...target, ...extra, recipientId: friend.id, threadId: thread.id, idempotencyKey: requestKey() })
       toast(t('Shared in chat with {0}', friend.name))
     } catch (e) { toast(e.message || t('Could not share this content')) }
     finally { setBusy(false) }
@@ -34,6 +37,11 @@ export default function InternalShareActions({ target }) {
   if (!target?.kind || !target?.targetId) return null
   return <section className="internal-share-actions" aria-label={t('Share inside 2J')}>
     <div className="internal-share-heading"><span><Icon name="users" /></span><div><strong>{t('Share inside 2J')}</strong><small>{t('You choose where this moment goes.')}</small></div></div>
+    {target.kind === 'workout' && <fieldset className="internal-share-include">
+      <legend>{t('Add details (optional)')}</legend>
+      <div>{[['duration', 'Duration'], ['volume', 'Volume'], ['prs', 'Records'], ['cardio', 'Cardio']].map(([key, label]) => <label key={key}><input type="checkbox" checked={include.includes(key)} onChange={() => toggle(key)} />{t(label)}</label>)}</div>
+      <small>{t('Body weight, health and notes are never included.')}</small>
+    </fieldset>}
     <Button variant="tinted" disabled={busy} icon="users" onClick={community}>{t('Community')}</Button>
     <div className="internal-share-friends-label">{t('Send to a friend')}</div>
     {friends === null ? <div className="muted small">{t('Loading…')}</div> : friends.length

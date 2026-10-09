@@ -3653,3 +3653,24 @@ body:has(.sync-pill) #app{padding-top:8px}
 .chat-meta{display:flex;align-items:center;justify-content:flex-end;gap:6px}.chat-meta time{margin-top:3px}
 .chat-msg.removed{font-style:italic;opacity:.65}
 .report-sheet h3{margin:0 0 4px}.report-sheet>p{margin:0 0 10px}.report-sheet .btn{width:100%;margin-top:12px}
+/* Share cards v2: aspects, program card, optional workout numbers */
+.community-sharecard[data-aspect="story"]{width:270px;min-height:480px;padding:22px 20px 18px}
+.community-sharecard[data-aspect="story"] .csc-art{height:170px}
+.community-sharecard[data-aspect="square"]{width:270px;min-height:270px;padding:18px 18px 14px}
+.community-sharecard[data-aspect="square"] .csc-art{display:none}
+.community-sharecard[data-aspect="square"] h2{font-size:22px}.community-sharecard[data-aspect="square"] .csc-kicker{margin-top:14px}
+.social-share-sheet .community-sharecard[data-aspect="story"],.social-share-sheet .community-sharecard[data-aspect="square"]{width:min(270px,100%)}
+.csc-extras{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
+.csc-extras li{padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);font-size:11px;font-weight:700;color:#e6eedf}
+.program-sharecard{gap:0}.program-sharecard h2{margin-top:2px}
+.program-sharecard[data-aspect="square"] .psc-days{display:none}
+.psc-facts{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0;padding:0;list-style:none}
+.psc-facts li{padding:5px 9px;border-radius:999px;background:rgba(190,255,54,.1);border:1px solid rgba(190,255,54,.28);font-size:11px;font-weight:750;color:#d9ff8a}
+.psc-days{display:grid;gap:7px;margin:16px 0 0;padding:0;list-style:none}
+.psc-days li{display:flex;align-items:center;gap:9px;min-width:0;font-size:13px;font-weight:650;color:#e6eedf;overflow-wrap:anywhere}
+.psc-dot{flex:none;width:7px;height:7px;border-radius:50%;background:#bfff45;box-shadow:0 0 10px rgba(191,255,69,.6)}
+.psc-days .psc-more{color:#84907d;font-size:11px}.psc-days .psc-more::before{content:none}
+.share-aspect{display:flex;justify-content:center;margin:0 0 10px}
+.internal-share-include{margin:0 0 10px;padding:0;border:0;min-width:0}.internal-share-include legend{padding:0;margin:0 0 6px;font-size:12px;font-weight:700;color:var(--label-2)}
+.internal-share-include>div{display:flex;flex-wrap:wrap;gap:8px 14px}.internal-share-include label{display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.internal-share-include small{display:block;margin-top:6px;color:var(--label-3);font-size:11px}

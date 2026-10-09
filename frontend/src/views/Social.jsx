@@ -398,7 +398,7 @@ function ProgramDetailSheet({ post: initial, onChanged, close }) {
 
   return <>
     <DetailHeader post={post} isProgram={true} isOwn={isOwn} onRate={rate} />
-    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('program', { title: post.name, subtitle: post.description || t('A program shared with the 2J community'), metric: t('{0} routines', post.routines.length), date: fmtDate(post.createdAt, true) })} shareTarget={isOwn ? { kind: 'program', targetId: post.id } : null} close={close2} />, { kind: 'center' })}>{t('Share')}</Button>
+    <Button icon="upload" style={{ width: '100%', margin: '0 0 10px' }} onClick={() => openSheet(close2 => <SocialShareSheet data={socialCardPayload('program', { title: post.name, subtitle: post.description || t('A program shared with the 2J community'), metric: t('{0} routines', post.routines.length), date: fmtDate(post.createdAt, true), items: post.routines.map(r => r.name), facts: [post.daysPerWeek ? t('{0} days a week', post.daysPerWeek) : '', post.level ? t(LEVEL_LABEL[post.level]) : '', post.goal ? t(GOAL_LABEL[post.goal]) : ''].filter(Boolean) })} shareTarget={isOwn ? { kind: 'program', targetId: post.id } : null} close={close2} />, { kind: 'center' })}>{t('Share')}</Button>
     <h4 className="sec">{t('Workouts in this program')}</h4>
     <div className="list" style={{ marginBottom: 12 }}>
       {post.routines.map((r, i) => <div key={i} className="item"

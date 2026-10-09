@@ -7,6 +7,8 @@ import { LIMITS } from '../lib/social-limits.js';
 
 const KINDS = new Set(['workout', 'record', 'achievement', 'streak', 'routine', 'program', 'challenge']);
 const REASONS = new Set(['spam', 'inappropriate', 'privacy', 'other']);
+const INCLUDE = ['duration', 'volume', 'prs', 'cardio'];   // the optional numbers of a shared workout; nothing else can be added
+const cleanInclude = (kind, v) => (kind === 'workout' && Array.isArray(v) ? [...new Set(v.filter(x => INCLUDE.includes(x)))] : []);
 export function sharingRoutes({ json, readBody, readSession, users, isAdmin, resolveTarget, canShareWith = () => false, featureOn = () => true, postSnapshot = () => null, moderated = () => {}, limit = () => ({ ok: true }), resolveReported, removeReported, notify = () => {}, sendPush = () => {} }) {
   const throttle = (res, user, [bucket, max, windowMs]) => {
     const r = limit(user.id, bucket, max, windowMs);
@@ -29,7 +31,7 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
   };
   const snapshot = (share, viewer) => {
     if (!visible(share, viewer)) return null;
-    const current = share.snapshot ? snapshotCard(share) : resolveTarget(share.authorId, share.kind, share.targetId);
+    const current = share.snapshot ? snapshotCard(share) : resolveTarget(share.authorId, share.kind, share.targetId, share.include);
     if (!current) return null;
     return { id: share.id, kind: share.kind, authorId: share.authorId, authorName: share.authorName, targetId: share.targetId, audience: share.audience, createdAt: share.createdAt, card: current,
       ...(share.snapshot ? { private: true, discarded: share.recipientId === viewer.id && !!share.discardedAt } : {}) };
@@ -71,7 +73,8 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
       }
       const kind = String(b.kind || ''), targetId = String(b.targetId || '');
       if (!KINDS.has(kind) || !targetId || targetId.length > 100) return json(res, 400, { error: 'contenido no válido' });
-      const card = resolveTarget(user.id, kind, targetId);
+      const include = cleanInclude(kind, b.include);
+      const card = resolveTarget(user.id, kind, targetId, include);
       if (!card) return json(res, 404, { error: 'ese contenido ya no está disponible' });
       const idempotencyKey = /^[A-Za-z0-9_-]{12,80}$/.test(String(b.idempotencyKey || '')) ? String(b.idempotencyKey) : null;
       if (b.audience === 'chat') {
@@ -82,7 +85,7 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
         const recipient = users().find(x => x.id === recipientId);
         const previous = idempotencyKey ? store.listShares().find(x => x.authorId === user.id && x.idempotencyKey === idempotencyKey && !x.deletedAt) : null;
         if (previous && (previous.recipientId !== recipientId || previous.kind !== kind || previous.targetId !== targetId)) return json(res, 409, { error: 'idempotency key already used' });
-        const share = previous || store.createShare({ authorId: user.id, authorName: user.name, kind, targetId, audience: 'direct', recipientId, idempotencyKey });
+        const share = previous || store.createShare({ authorId: user.id, authorName: user.name, kind, targetId, audience: 'direct', recipientId, idempotencyKey, ...(include.length ? { include } : {}) });
         const message = previous ? chat.findShareMessage(share.id) : chat.addShareMessage(threadId, user.id, 'member', share.id);
         if (!message) return json(res, 409, { error: 'share state incomplete' });
         if (previous) return json(res, 200, { ok: true, message: { ...message, share: snapshot(share, user) }, recipient: users().find(x => x.id === recipientId)?.name || null });
@@ -97,7 +100,7 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
       if (privacy[category] !== true || privacy.activity === 'nobody' || privacy.profile === 'private') return json(res, 403, { error: 'revisa tus preferencias de privacidad antes de compartir' });
       const previous = idempotencyKey ? store.listShares().find(x => x.authorId === user.id && x.idempotencyKey === idempotencyKey && !x.deletedAt) : null;
       if (previous && (previous.audience !== 'community' || previous.kind !== kind || previous.targetId !== targetId)) return json(res, 409, { error: 'idempotency key already used' });
-      const share = previous || store.createShare({ authorId: user.id, authorName: user.name, kind, targetId, audience: 'community', idempotencyKey });
+      const share = previous || store.createShare({ authorId: user.id, authorName: user.name, kind, targetId, audience: 'community', idempotencyKey, ...(include.length ? { include } : {}) });
       json(res, 200, { ok: true, share: snapshot(share, user) });
     },
     'GET /api/social/shares': async (req, res) => {

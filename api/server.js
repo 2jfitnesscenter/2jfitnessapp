@@ -795,7 +795,22 @@ function canViewSocialShare(user, authorId, kind) {
   if (user.id !== authorId && blockedBetween(user.id, authorId)) return false;
   return canViewSharedContent({ authorId, viewerId: user.id, kind, privacy: notificationStore.privacyFor(authorId), isFriend: socialFriends });
 }
-function resolveShareTarget(ownerId, kind, targetId) {
+// The optional numbers a member may add to a shared workout. Only what they ticked, only numbers computed here from the workout itself:
+// body weight, measurements, health, notes and check-ins have no path into this object.
+function workoutExtras(w, S, include) {
+  const want = new Set(Array.isArray(include) ? include : []);
+  const out = {};
+  const sets = (w.entries || []).flatMap(e => e.sets || []).filter(x => x && x.done && x.type !== 'warmup');
+  if (want.has('duration')) { const m = Math.round((Number(w.end) - Number(w.start)) / 60000); if (m > 0 && m < 1440) out.duration = m; }
+  if (want.has('volume')) {
+    const v = Number.isFinite(Number(w.vol)) && Number(w.vol) > 0 ? Number(w.vol) : sets.reduce((n, x) => n + (Number(x.w) > 0 && Number(x.r) > 0 ? Number(x.w) * Number(x.r) : 0), 0);
+    if (v > 0) { out.volume = Math.round(v); out.unit = S?.unit === 'lb' ? 'lb' : 'kg'; }
+  }
+  if (want.has('prs')) { const n = Array.isArray(w.prs) ? w.prs.length : 0; if (n) out.prs = n; }
+  if (want.has('cardio')) { const m = sets.reduce((n, x) => n + (Number(x.min) > 0 && x.speed != null ? Number(x.min) : 0), 0); if (m > 0) out.cardio = Math.round(m); }
+  return Object.keys(out).length ? out : null;
+}
+function resolveShareTarget(ownerId, kind, targetId, include) {
   const u = db.users.find(x => x.id === ownerId);
   if (!u) return null;
   const clean = value => String(value || '').replace(/[\u0000-\u001f]/g, '').slice(0, 90);
@@ -803,7 +818,8 @@ function resolveShareTarget(ownerId, kind, targetId) {
     const w = readState(ownerId)?.workouts?.find(x => x.id === targetId);
     if (!w) return null;
     const sets = (w.entries || []).flatMap(e => e.sets || []).filter(s => s.done).length;
-    return { title: clean(w.name) || 'Workout completed', metric: `${sets} sets · ${(w.entries || []).length} exercises`, date: clean(w.d) };
+    const extras = workoutExtras(w, readState(ownerId), include);
+    return { title: clean(w.name) || 'Workout completed', metric: `${sets} sets · ${(w.entries || []).length} exercises`, date: clean(w.d), ...(extras ? { extras } : {}) };
   }
   if (kind === 'achievement') {
     const badge = readState(ownerId)?.badges?.[targetId];
@@ -880,7 +896,7 @@ function resolveReportedContent(viewer, type, id) {
     if (s?.snapshot) return (isAdmin(viewer) || canOpenPrivateShare(s, viewer)) && s.authorId !== viewer.id ? { id: s.id, authorId: s.authorId, authorName: s.authorName, title: snapshotCard(s).title, kind: s.kind } : null;
     const accessKind = s?.kind === 'record' ? 'pr' : ['routine', 'program'].includes(s?.kind) ? 'routine' : ['achievement', 'streak'].includes(s?.kind) ? 'achievement' : s?.kind;
     if (s && !isAdmin(viewer) && !canViewSocialShare(viewer, s.authorId, accessKind)) return null;
-    const card = s && resolveShareTarget(s.authorId, s.kind, s.targetId);
+    const card = s && resolveShareTarget(s.authorId, s.kind, s.targetId, s.include);
     return s && card ? { id: s.id, authorId: s.authorId, authorName: s.authorName, title: card.title, kind: s.kind } : null;
   }
   const list = ({ wall: social.wall, routine: social.routines, program: social.programs, challenge: social.challenges, topic: social.topics })[type] || [];
@@ -3391,7 +3407,7 @@ const routes = {
     const pref = notificationStore.privacyFor(share.authorId);
     const kind = share.kind === 'record' ? 'pr' : ['routine', 'program'].includes(share.kind) ? 'routine' : ['achievement', 'streak'].includes(share.kind) ? 'achievement' : share.kind;
     if (!canViewSocialShare(viewer, share.authorId, kind)) return null;
-    const card = resolveShareTarget(share.authorId, share.kind, share.targetId);
+    const card = resolveShareTarget(share.authorId, share.kind, share.targetId, share.include);
     return card ? { id: share.id, kind: share.kind, authorName: share.authorName, card } : null;
   }, isFriend: (a, b) => {
     // Friend graph is the existing authoritative relationship model.
