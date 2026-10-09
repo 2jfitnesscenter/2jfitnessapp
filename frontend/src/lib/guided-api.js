@@ -10,7 +10,6 @@
 // folded in once by migrateLegacyFavorites().
 import { create } from 'zustand'
 import { api } from './api.js'
-import { useStore } from '../store/useStore.js'
 import { migrateLegacyFavorites } from './routine-favorites.js'
 
 const CACHE = uid => 'g2j_catalog:' + (uid || 'anon')
@@ -53,9 +52,10 @@ export const useGuided = create((set, get) => ({
     st.load(st.uid, true)
   },
   /** Folds the old per-device favourites into the synced state (idempotent; see routine-favorites.js). */
-  migrateFavorites() {
-    const st = useStore.getState()
-    return migrateLegacyFavorites({ uid: get().uid, getState: () => useStore.getState(), update: st.update })
+  async migrateFavorites() {
+    // The store is loaded on demand: it touches the document when it loads, and this module is also used by screens that never need it.
+    const { useStore } = await import('../store/useStore.js')
+    return migrateLegacyFavorites({ uid: get().uid, getState: () => useStore.getState(), update: useStore.getState().update })
   },
   async save(routine) { const r = await post('/api/guided/save', { routine }); await get().load(get().uid, true); return r },
   async duplicate(id) { const r = await post('/api/guided/duplicate', { id }); await get().load(get().uid, true); return r.routine },
@@ -70,6 +70,9 @@ export const useGuided = create((set, get) => ({
   async remove(id) { await post('/api/guided/delete', { id }); await get().load(get().uid, true) },
   async curate(id, patch) { await post('/api/guided/curate', { id, ...patch }); await get().load(get().uid, true) },
   async curateProgram(id, patch) { await post('/api/guided/program/curate', { id, ...patch }); await get().load(get().uid, true) },
+  /** Admin: the kept versions of one official item, and putting one back (the server validates it like any save). */
+  async history(id) { const r = await api('/api/guided/history?id=' + encodeURIComponent(id)); return r.versions || [] },
+  async restore(id, at) { const r = await post('/api/guided/restore', { id, at }); await get().load(get().uid, true); return r },
   async saveCollection(collection) { await post('/api/guided/collection', { collection }); await get().load(get().uid, true) },
 }))
 

@@ -10,6 +10,7 @@ import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
 import { useGuided } from '../../lib/guided-api.js'
+import { HistoryButton } from './studio/History.jsx'
 import { validate } from '../../lib/blocks-api.js'
 import { GOALS, LEVELS, GOAL_LABEL, LEVEL_LABEL, CATEGORY_LABEL, ROUTINE_CATEGORIES, instantiateBlock, blockTypesOf, routineFacts } from '../../lib/protocol/index.js'
 import { confirmSheet, exercisePicker } from '../../sheets.jsx'
@@ -228,6 +229,7 @@ export function GuidedEditor() {
               <label className="cx-field"><span>{t('Cover')}</span><select className="input" value={r.cover || ''} onChange={e => set({ cover: e.target.value || null })}>
                 <option value="">{t('Automatic')}</option>{ROUTINE_CATEGORIES.map(c => <option key={c} value={c}>{t(CATEGORY_LABEL[c])}</option>)}</select></label>
             </div>
+            {g.canEdit && r.official && id !== 'new' && <HistoryButton id={r.id} />}
             <label className="cx-field"><span>{t('Internal notes (admins only)')}</span><textarea className="input" rows={2} maxLength={300} value={r.notes || ''} onChange={e => set({ notes: e.target.value })} /></label>
           </>}
           {!r.official && <p className="dim small">{t('Your guided routines are private: only you see them, and you can assign them like any other.')}</p>}

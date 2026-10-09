@@ -4953,4 +4953,11 @@ export default {
   'This session was started before devices were listed, so it cannot be ended on its own. Signing out everywhere ends it too.': 'Esta sesión se inició antes de que se listaran los dispositivos, así que no se puede cerrar por separado. Cerrar sesión en todas partes también la termina.',
   'Each browser or app you are signed in on. Only a coarse platform is kept — never an address or a location.': 'Cada navegador o app en el que tienes la sesión iniciada. Solo se guarda una plataforma aproximada: nunca una dirección ni una ubicación.',
   'No other sessions to show.': 'No hay otras sesiones que mostrar.',
+  'Restore this version?': '¿Restaurar esta versión?',
+  'The current content is kept as a version too, so you can come back to it.': 'El contenido actual también se guarda como versión, así podrás volver a él.',
+  'Restore': 'Restaurar',
+  'Version restored': 'Versión restaurada',
+  'Could not restore this version': 'No se pudo restaurar esta versión',
+  'The last ten versions this item had before an edit. Featuring, order and badges are not versions.': 'Las últimas diez versiones que tuvo este elemento antes de una edición. Destacar, ordenar y las insignias no cuentan como versiones.',
+  'No earlier versions yet — a version is kept the first time this item is edited.': 'Aún no hay versiones anteriores: se guarda una la primera vez que se edita este elemento.',
 }
