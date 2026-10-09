@@ -3612,3 +3612,10 @@ body:has(.sync-pill) #app{padding-top:8px}
 .t2-preview{display:flex;gap:10px;align-items:center;margin:0 0 12px;padding:10px 14px;border-radius:12px;font-size:13.5px;font-weight:600;color:#B7791F;background:color-mix(in srgb,#D69E2E 15%,transparent)}
 .cx-vis{display:inline-flex;align-items:center;margin-inline-end:6px}
 .cx-visfilter{display:flex;gap:6px;margin:0 0 10px}
+
+.sec-pk .lrow-m{min-width:0}
+.sec-pk .lrow-s{white-space:normal}
+.sec-pk .input{min-width:0;flex:1}
+.sec-acts{display:flex;gap:4px;flex:none}
+.sec-acts .iconbtn:disabled{opacity:.35}
+.set-pill{margin-left:8px;font-style:normal;font-size:10px;padding:1px 7px;border-radius:99px;background:color-mix(in srgb,var(--label) 10%,transparent);color:var(--label-2)}

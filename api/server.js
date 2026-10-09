@@ -60,6 +60,7 @@ import * as followUpAI from './coach/followup-ai.js';
 import { encrypt as encryptAtRest, decrypt as decryptAtRest } from './lib/crypto.js';
 import { markReviewed, setCycleDates, markProgramReviewed, setProgramCycleDates, routineReviews } from './lib/routine-review.js';
 import { appendSecurityEvent, eventsFor, eventsForAdmin } from './lib/security-audit.js';
+import { deviceLabel, cleanName } from './lib/device-labels.js';
 import { appendSharedAudit, createPinLimiter, hashStaffPin, publicStaffUsers, validateStaffPin, verifyStaffPin } from './lib/shared-staff.js';
 import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 
@@ -605,6 +606,38 @@ function challengeGate(req, res) {
   if (challenges.size >= MAX_OPEN_CHALLENGES) { json(res, 503, { error: 'servicio ocupado; inténtalo en un momento' }, { 'Retry-After': '30' }); return false; }
   return true;
 }
+/* ---------- passkey management: ownership, step-up ---------- */
+// A fresh passkey assertion (user verification required) proves a person is still there. The token it earns is signed, bound to the person and
+// to one purpose, and lives five minutes: it gates the actions that would let a stolen session dig in (adding or removing a passkey).
+const STEP_UP_MS = 5 * 60_000;
+const STEP_UP_PURPOSES = ['passkeys', 'device-link'];
+function stepUpToken(user, purpose) {
+  const expiresAt = Date.now() + STEP_UP_MS;
+  return { token: sign(`stepup.${user.id}:${expiresAt}:${purpose}`), expiresAt };
+}
+function stepUpValid(req, user, purpose) {
+  const tok = String(req.headers['x-step-up'] || '');
+  const payload = tok && verifySig(tok);
+  if (!payload) return false;
+  const [who, exp, p] = payload.split(':');
+  return who === `stepup.${user.id}` && Number(exp) > Date.now() && p === purpose;
+}
+function requireStepUp(req, res, user, purpose) {
+  if (stepUpValid(req, user, purpose)) return true;
+  json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
+  return false;
+}
+// Passkeys and devices are managed from a passkey session only: a shared-computer PIN session never edits the keys it was granted by.
+function requirePasskeySession(req, res) {
+  const user = readSession(req);
+  if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
+  if (user.authLevel !== 'passkey') { json(res, 403, { error: 'esta acción requiere iniciar sesión con passkey', code: 'passkey_required' }); return null; }
+  return user;
+}
+const credHandle = id => crypto.createHash('sha256').update(String(id)).digest('base64url').slice(0, 16);
+const passkeyView = c => ({ id: credHandle(c.id), name: c.name || null, createdAt: c.createdAt || null, lastUsedAt: c.lastUsedAt || null, transports: c.transports || [], legacy: !c.createdAt });
+const MAX_PASSKEYS = 10;
+
 // Verify routes count only failed attempts (any 4xx/5xx the handler answers with).
 const verifyGate = handler => async (req, res) => {
   const ip = authGate(req, res, authLimits.verify);
@@ -939,7 +972,8 @@ const routes = {
       id: credential.id, userId: user.id,
       publicKey: Buffer.from(credential.publicKey).toString('base64url'),
       counter: credential.counter || 0,
-      transports: body.credential?.response?.transports || []
+      transports: body.credential?.response?.transports || [],
+      name: deviceLabel(req.headers['user-agent']), createdAt: new Date().toISOString()
     });
     secEvent('account_created', { userId: user.id });
     saveDb();
@@ -984,6 +1018,7 @@ const routes = {
     } catch (e) { secEvent('login_failed', { userId: cred.userId, meta: { reason: 'verification' } }); saveDb(); return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
     if (!verification.verified) { secEvent('login_failed', { userId: cred.userId, meta: { reason: 'not_verified' } }); saveDb(); return json(res, 400, { error: 'no verificado' }); }
     cred.counter = verification.authenticationInfo.newCounter;
+    cred.lastUsedAt = new Date().toISOString();
     const user = db.users.find(u => u.id === cred.userId);
     if (!user) { saveDb(); return json(res, 500, { error: 'falta el usuario' }); }
     if (user.disabled) { saveDb(); return json(res, 403, { error: 'esta cuenta ha sido desactivada' }); }
@@ -1083,7 +1118,8 @@ const routes = {
       id: credential.id, userId: user.id,
       publicKey: Buffer.from(credential.publicKey).toString('base64url'),
       counter: credential.counter || 0,
-      transports: body.credential?.response?.transports || []
+      transports: body.credential?.response?.transports || [],
+      name: deviceLabel(req.headers['user-agent']), createdAt: new Date().toISOString()
     });
     // A recovery exists because a device or a passkey is lost, so nothing it could still sign in with may stay valid: every earlier session ends
     // (the session version moves on) and, unless the admin who made the link said the old passkeys are still fine (keepExisting), every earlier
@@ -1102,6 +1138,96 @@ const routes = {
     } }, { 'Set-Cookie': sessionCookie(user) });
   }),
 
+  /* ---------- the member's own passkeys ---------- */
+  'GET /api/me/passkeys': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const mine = db.creds.filter(c => c.userId === user.id).map(passkeyView)
+      .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+    json(res, 200, { passkeys: mine, max: MAX_PASSKEYS });
+  },
+  'POST /api/me/step-up/options': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    await staffPasskeyOptions(req, res, { user, purpose: 'step-up' });
+  },
+  'POST /api/me/step-up': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const body = await readBody(req);
+    const purpose = STEP_UP_PURPOSES.includes(body.purpose) ? body.purpose : 'passkeys';
+    const verified = await verifyStaffPasskey(req, res, body, { purpose: 'step-up' });
+    if (!verified) return;
+    secEvent('step_up', { userId: user.id, meta: { purpose } });
+    saveDb();
+    json(res, 200, stepUpToken(user, purpose));
+  },
+  // Add another passkey to this very account, from a signed-in session (no admin, no recovery link). Needs a fresh step-up.
+  'POST /api/me/passkeys/options': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    if (!requireStepUp(req, res, user, 'passkeys')) return;
+    if (!challengeGate(req, res)) return;
+    const existing = db.creds.filter(c => c.userId === user.id);
+    if (existing.length >= MAX_PASSKEYS) return json(res, 409, { error: 'has alcanzado el máximo de passkeys; elimina alguna primero', code: 'passkey_limit' });
+    const options = await generateRegistrationOptions({
+      rpName: RP_NAME, rpID: RP_ID,
+      userID: Buffer.from(user.id), userName: user.name, userDisplayName: user.name,
+      attestationType: 'none',
+      authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' },
+      excludeCredentials: existing.map(c => ({ id: c.id, transports: c.transports || [] }))
+    });
+    const cid = putChallenge({ challenge: options.challenge, uid: user.id, purpose: 'add-passkey' });
+    json(res, 200, { cid, options });
+  },
+  'POST /api/me/passkeys/verify': verifyGate(async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    if (!requireStepUp(req, res, user, 'passkeys')) return;
+    const body = await readBody(req);
+    const c = takeChallenge(body.cid);
+    if (!c || c.uid !== user.id || c.purpose !== 'add-passkey') return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
+    let verification;
+    try {
+      verification = await verifyRegistrationResponse({ response: body.credential, expectedChallenge: c.challenge, expectedOrigin: WEBAUTHN_ORIGINS, expectedRPID: RP_ID, requireUserVerification: false });
+    } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
+    if (!verification.verified) return json(res, 400, { error: 'no verificado' });
+    const { credential } = verification.registrationInfo;
+    if (db.creds.find(x => x.id === credential.id)) return json(res, 409, { error: 'esta credencial ya está registrada' });
+    if (db.creds.filter(x => x.userId === user.id).length >= MAX_PASSKEYS) return json(res, 409, { error: 'has alcanzado el máximo de passkeys', code: 'passkey_limit' });
+    const record = {
+      id: credential.id, userId: user.id,
+      publicKey: Buffer.from(credential.publicKey).toString('base64url'),
+      counter: credential.counter || 0,
+      transports: body.credential?.response?.transports || [],
+      name: cleanName(body.name) || deviceLabel(req.headers['user-agent']), createdAt: new Date().toISOString()
+    };
+    db.creds.push(record);
+    secEvent('passkey_added', { userId: user.id, meta: { handle: credHandle(record.id), platform: deviceLabel(req.headers['user-agent']) } });
+    saveDb();
+    json(res, 200, { passkey: passkeyView(record) });
+  }),
+  'POST /api/me/passkeys/rename': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const body = await readBody(req);
+    const cred = db.creds.find(c => c.userId === user.id && credHandle(c.id) === String(body.id || ''));
+    if (!cred) return json(res, 404, { error: 'esa passkey no existe' });
+    const name = cleanName(body.name);
+    if (!name) return json(res, 400, { error: 'escribe un nombre' });
+    cred.name = name;
+    secEvent('passkey_renamed', { userId: user.id, meta: { handle: credHandle(cred.id) } });
+    saveDb();
+    json(res, 200, { passkey: passkeyView(cred) });
+  },
+  // Removing a passkey needs a fresh step-up, and the last one can never be removed: the account must always keep a way in.
+  'POST /api/me/passkeys/revoke': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    if (!requireStepUp(req, res, user, 'passkeys')) return;
+    const body = await readBody(req);
+    const mine = db.creds.filter(c => c.userId === user.id);
+    const target = mine.find(c => credHandle(c.id) === String(body.id || ''));
+    if (!target) return json(res, 404, { error: 'esa passkey no existe' });
+    if (mine.length <= 1) return json(res, 409, { error: 'es tu única passkey: añade otra antes de eliminarla', code: 'last_passkey' });
+    db.creds = db.creds.filter(c => c !== target);
+    secEvent('passkey_revoked', { userId: user.id, meta: { handle: credHandle(target.id) } });
+    saveDb();
+    json(res, 200, { ok: true, passkeys: db.creds.filter(c => c.userId === user.id).map(passkeyView) });
+  },
   // The member's own security activity (newest first). Somebody else having done it is shown; who is not.
   'GET /api/me/security-events': async (req, res) => {
     const user = readSession(req);

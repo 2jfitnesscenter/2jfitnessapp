@@ -32,18 +32,18 @@ export async function api(path, opts = {}, strongRetried = false) {
 const bufToB64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const b64uToBuf = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)).buffer
 
-function toCreationOptions(o) {
+export function toCreationOptions(o) {
   o.challenge = b64uToBuf(o.challenge)
   o.user.id = b64uToBuf(o.user.id)
   ;(o.excludeCredentials || []).forEach(c => { c.id = b64uToBuf(c.id) })
   return o
 }
-function toRequestOptions(o) {
+export function toRequestOptions(o) {
   o.challenge = b64uToBuf(o.challenge)
   ;(o.allowCredentials || []).forEach(c => { c.id = b64uToBuf(c.id) })
   return o
 }
-function credToJSON(cred) {
+export function credToJSON(cred) {
   const r = cred.response
   const out = {
     id: cred.id, rawId: bufToB64u(cred.rawId), type: cred.type,

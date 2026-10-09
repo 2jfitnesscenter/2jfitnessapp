@@ -310,6 +310,7 @@ export default function Settings() {
     {signedIn && <>
     <h3 className="set-grp">{t('Security')}<span>{t('Your sessions and your sign-in')}</span></h3>
     <Section footer={t('Your passkeys keep working — sign in with them again anytime.')}>
+      <Row icon="key" iconTint="var(--acc)" title={t('Your passkeys and activity')} subtitle={t('Add, rename or remove passkeys; see what happened to your account.')} accessory="chevron" onClick={() => nav('/settings/security')} />
       <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
     </Section>
     </>}

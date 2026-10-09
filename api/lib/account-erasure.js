@@ -30,7 +30,7 @@ export function exportMember(d, uid) {
     account: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null, hasAvatar: !!user.avatar,
       invitedBy: user.invitedBy || null, integrations: { strava: !!user.stravaAuth, whoop: !!user.whoopAuth },
-      passkeys: d.db.creds.filter(c => c.userId === uid).map(c => ({ id: c.id, created: c.created || null, transports: c.transports || null })),
+      passkeys: d.db.creds.filter(c => c.userId === uid).map(c => ({ id: c.id, name: c.name || null, created: c.createdAt || c.created || null, lastUsed: c.lastUsedAt || null, transports: c.transports || null })),
       pushSubscriptions: d.db.subs.filter(x => x.userId === uid).length,
     },
     state: state || null,
