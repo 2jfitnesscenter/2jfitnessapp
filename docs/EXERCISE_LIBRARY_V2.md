@@ -31,7 +31,7 @@ member's custom exercises.
 (squat + leg press), `hinge`, `hip_thrust`, `horizontal_push`, `horizontal_pull`, `vertical_pull`,
 `elbow_flexion`, `wrist`, `core_lateral`, `conditioning`, `cardio`, `mobility`. A movement comes from
 the curated pattern (catalog.js) or from classify.js's name rules; it is never guessed by a model.
-71 exercises (5 %) stay without one and live only in the master library.
+14 exercises (about 1 %) stay without one on purpose (ambiguous; listed in "Current numbers") and live only in the master library.
 
 Stretches are `mobility` (never direct volume); cardio records without a cardio machine (burpees,
 jumping jacks) are `conditioning`; wrist curls are `wrist`, not biceps curls.

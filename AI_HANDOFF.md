@@ -1,5 +1,11 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Training Quality V2 + datos de Library + IA compacta (candidato; NO desplegado; producción `44fcecc`)
+
+- Rama `codex/training-quality-v2`. `lib/routine-structure.js` cuenta **ejercicios, series y días** por patrón y por músculo; los avisos de balance usan series. Cada hallazgo es `{ id, code, params, evidence, evidenceType: fact|heuristic|inference }` **sin prosa**; los textos están en `lib/routine-structure-text.js` (ES completo en `locales/es.js`). El rango de referencia reutiliza `WEEKLY_SETS` del protocolo y solo aparece con objetivo hipertrofia + nivel conocido + semana de 2+ rutinas; una especialización/foco declarado silencia los avisos suaves. Panel: `TrainingQualityPanel` (series · días, músculos, rango, hallazgos con etiqueta «regla orientativa»).
+- IA: `api/coach/library-slice.js` envía una tabla compacta `library: { columns, rows, of }` (cobertura por movimiento, equipo y grupo muscular, restricciones, gym profile) en vez del catálogo completo; `validate.js` sigue validando contra la librería completa. Cifras de tokens = estimación (sin tokenizer).
+- Library: 5 muscle-ups → `vertical_pull`; 11 patadas de tríceps → `elbow_extension` (estaban como hip_extension); 14 sin movimiento quedan ambiguos a propósito; aliases de máquinas (pec deck, contractora, lat pulldown…); equipo sin cambios; belt squat/pendulum squat **no** añadidos (sin media curada). `alternatives.js` compara equipo canónico. Licencia del dataset de media: **pendiente de confirmar** (el repo solo dice «CC»). Detalle en `docs/EXERCISE_LIBRARY_V2.md`.
+
 ## Mis métricas V1 (candidato; NO desplegado; producción `33dbad7`)
 
 - Rama `codex/my-metrics-v1`. **Reutiliza `S.ux`** (sin sistema paralelo): `S.ux.progress = { order?: string[], hidden?: string[] }`, opcional; ausente = comportamiento anterior. Catálogo y lectura en `lib/progress-cards.js` (`visibleProgressCards`, `progressOrder`, `recommendedFor`); `Stats.jsx` dibuja los bloques por catálogo conservando las puertas de cada uno; configurador en `ExperienceSetup.jsx` (sección "Página de Progreso" + "Restaurar configuración recomendada"). El objetivo (`S.coach.profile.goal`) solo se consulta al aplicar preset/restaurar; nunca al leer.
