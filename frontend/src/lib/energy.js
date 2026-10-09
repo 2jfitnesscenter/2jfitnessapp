@@ -17,6 +17,7 @@
 // magnitude) so its limits are visible: it needs a body weight and a duration, and says nothing
 // when either is missing.
 import { fitnessSources } from './fitness.js'
+import { latestBodyWeight } from './bodyweight.js'
 import { ageFrom } from './format.js'
 
 export const ENERGY_KIND = { measured: 'measured', aggregate: 'aggregate', estimated: 'estimated' }
@@ -55,8 +56,7 @@ function meanRpe(sets) {
 }
 
 const weightKg = S => {
-  const last = (S?.bodyweight || []).slice(-1)[0]
-  const w = Number(last?.w)
+  const w = Number(latestBodyWeight(S)?.w)
   if (!(w > 0)) return null
   return S?.unit === 'lb' ? w * 0.45359237 : w
 }

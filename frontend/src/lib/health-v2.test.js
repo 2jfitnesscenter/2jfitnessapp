@@ -72,7 +72,7 @@ describe('energy: one number, by source priority, never summed, always labelled'
     expect(estimateWorkoutEnergy(workout({ end: H(10) }), S())).toBeNull()
     expect(estimateWorkoutEnergy(workout({ entries: [] }), S())).toBeNull()
     expect(workoutEnergy(workout({ entries: [] }), S({ bodyweight: [] }))).toBeNull()
-    expect(estimateWorkoutEnergy(workout(), S({ unit: 'lb', bodyweight: [{ d: 'x', w: 176 }] })).kcal).toBeCloseTo(estimateWorkoutEnergy(workout(), S()).kcal, -1)   // lb is converted
+    expect(estimateWorkoutEnergy(workout(), S({ unit: 'lb', bodyweight: [{ d: '2026-01-01', w: 176 }] })).kcal).toBeCloseTo(estimateWorkoutEnergy(workout(), S()).kcal, -1)   // lb is converted
   })
   it('it is ACTIVE energy: nothing here reads or adds a daily total', () => {
     expect(workoutEnergy(workout(), S()).scope).toBe('active')

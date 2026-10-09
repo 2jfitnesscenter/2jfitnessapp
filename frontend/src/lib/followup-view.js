@@ -3,6 +3,7 @@
 // Seguimiento V2 (member side) — presentation of the follow-up the gym already runs. Data: GET /api/followup (the schedule only:
 // template, cadence days, last and next review) plus the member's own weigh-ins. Dates and differences only: no score, no verdict.
 import { useEffect, useState } from 'react'
+import { orderedBodyWeightSeries } from './bodyweight.js'
 import { api } from './api.js'
 import { todayISO } from './format.js'
 import { lastBW } from './history.js'
@@ -33,7 +34,7 @@ export function followUpView(fu, S, today = todayISO()) {
   const daysLeft = next ? dayDiff(today, next) : null
   const state = daysLeft == null ? 'ok' : daysLeft < 0 ? 'overdue' : daysLeft <= 7 ? 'due' : 'ok'
   let weight = null
-  const bw = (S?.bodyweight || []).slice().sort((a, b) => a.d < b.d ? -1 : 1)
+  const bw = orderedBodyWeightSeries(S || {})
   const now = lastBW(S || {})
   if (last && now) {
     const base = [...bw].reverse().find(b => b.d <= last)

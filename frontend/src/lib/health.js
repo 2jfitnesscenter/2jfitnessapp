@@ -6,6 +6,7 @@
 // interpreted medically: it filters, compares and summarises what was measured, declared or
 // imported, and says where each value came from when the entry knows.
 import { MEASUREMENTS, MEASUREMENT } from './measurements.js'
+import { orderedBodyWeightSeries, latestBodyWeight } from './bodyweight.js'
 import { weekKey, todayISO } from './format.js'
 import { fitnessOf } from './fitness.js'
 
@@ -27,7 +28,7 @@ const isoMinusDays = (iso, days) => { const d = new Date(iso + 'T12:00:00'); d.s
 export const WEIGHT = { key: 'weight', label: 'Weight', unit: 'kg', group: 'composition', icon: 'scale', iconTint: 'var(--teal)' }
 export const metricDef = key => key === 'weight' ? WEIGHT : MEASUREMENT[key]
 export function seriesOf(S, key) {
-  if (key === 'weight') return (S.bodyweight || []).map(b => ({ d: b.d, v: b.w, t: b.t, src: b.src }))
+  if (key === 'weight') return orderedBodyWeightSeries(S).map(b => ({ d: b.d, v: b.w, t: b.t, src: b.src }))
   return (S.measurements?.[key] || []).map(x => ({ d: x.d, v: x.v, t: x.t, src: x.src }))
 }
 
@@ -111,7 +112,7 @@ export const hasSegments = S => SEGMENTS.some(seg => seriesOf(S, seg.fat).length
 
 // BMI: calculated, secondary, never the headline. Needs a height and a weight.
 export function bmiOf(S) {
-  const w = (S.bodyweight || [])[S.bodyweight?.length - 1]?.w
+  const w = latestBodyWeight(S)?.w
   const h = S.height
   if (!(w > 0) || !(h > 0)) return null
   return round(w / ((h / 100) ** 2))

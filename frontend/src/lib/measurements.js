@@ -1,4 +1,5 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
+import { orderedBodyWeightSeries } from './bodyweight.js'
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Body measurements & composition — a generalised version of the bodyweight time series
 // (S.bodyweight) that already existed: S.measurements[key] is the same {d, v, t} shape, just
@@ -130,7 +131,7 @@ export const lastMeasurement = (S, key) => {
  * this rather than always reaching for lastBW.
  */
 export function bodyweightNear(S, iso) {
-  const list = S.bodyweight || []
+  const list = orderedBodyWeightSeries(S)
   if (!list.length) return null
   let best = null
   for (const b of list) {

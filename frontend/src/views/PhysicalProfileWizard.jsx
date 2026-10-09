@@ -1,5 +1,6 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { latestBodyWeight } from '../lib/bodyweight.js'
 import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
@@ -33,7 +34,7 @@ export default function PhysicalProfileWizard() {
     birthDate: S.birthDate || '',
     height: S.height || 170,
     unit: S.unit === 'lb' ? 'lb' : 'kg',
-    weight: S.bodyweight.length ? S.bodyweight[S.bodyweight.length - 1].w : (S.unit === 'lb' ? 154 : 70),
+    weight: latestBodyWeight(S)?.w ?? (S.unit === 'lb' ? 154 : 70),
     primary: S.priorityMuscles || [],
     secondary: S.secondaryMuscles || []
   }))
