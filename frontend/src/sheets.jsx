@@ -39,7 +39,7 @@ import { api } from './lib/api.js'
 import { parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP, oneRMTests, bestTestedOneRM } from './lib/onerm.js'
 import { ZONES, suggestedWeightForZone } from './lib/training-zones.js'
-import { getReplacementGroups, QUICK_FILTERS } from './lib/alternatives.js'
+import { getReplacementGroups, QUICK_FILTERS, matchesQuickFilter } from './lib/alternatives.js'
 import { gymExerciseList } from './lib/gym-profiles.js'
 import GymProfile, { GymCompatibility } from './components/GymProfile.jsx'
 import { EX_DRAG_TYPE } from './components/constructor/drag.js'
@@ -1049,8 +1049,7 @@ function AlternativesPicker({ current, onPick, close, room = false, context }) {
   const alts = groups[scope]
   const activeFilter = QUICK_FILTERS.find(f => f.key === filter)
   const byEquipment = !activeFilter ? alts
-    : filter === 'same' ? alts.filter(a => a.ex.eq === current.eq)
-      : alts.filter(a => activeFilter.eq.includes(a.ex.eq))
+    : alts.filter(a => matchesQuickFilter(filter, a.ex, current))
   // Exercise Library V2 search (name, alias, movement, muscle, equipment — Spanish or English).
   const byId = new Map(byEquipment.map(a => [a.ex.id, a]))
   const filtered = q.trim() ? searchExercises(byEquipment.map(a => a.ex), q).map(ex => byId.get(ex.id)) : byEquipment
