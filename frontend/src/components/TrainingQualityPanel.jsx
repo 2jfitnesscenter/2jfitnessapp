@@ -45,7 +45,7 @@ export default function TrainingQualityPanel({ routine, days, goal, level, focus
 
     {muscles.length > 0 && <div className="training-quality-muscles">
       <h4>{t('Muscle exposure')}</h4>
-      <div>{muscles.map(([id, item]) => <span key={id}><b>{t(MUSCLE_LABEL[id] || id)}</b><small>{t('{0} direct · {1} secondary · {2} d', item.direct, item.secondarySets, item.days)}</small></span>)}</div>
+      <div>{muscles.map(([id, item]) => <span key={id}><b>{t(MUSCLE_LABEL[id] || id)}</b><small>{t('{0} direct · {1} secondary · {2}\u00A0d', item.direct, item.secondarySets, item.days)}</small></span>)}</div>
     </div>}
 
     {ref.applicable && <div className="training-quality-reference">

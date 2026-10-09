@@ -4874,7 +4874,7 @@ export default {
   'Set the level to compare with a reference range.': 'Indica el nivel para comparar con un rango de referencia.',
   '{0} sets · {1} d': '{0} series · {1} d',
   '{0} ex. · {1} d': '{0} ej. · {1} d',
-  '{0} direct · {1} secondary · {2} d': '{0} directas · {1} secundarias · {2} d',
+  '{0} direct · {1} secondary · {2}\u00A0d': '{0} directas · {1} secundarias · {2}\u00A0d',
   'Weekly direct sets': 'Series directas semanales',
   'Reference {0}–{1} (rule of thumb, {2})': 'Referencia {0}–{1} (regla orientativa, {2})',
   'Counts are planned sets. Thresholds and reference ranges are rules of thumb, not a scientific score. Trainer judgment remains decisive.': 'Los recuentos son series planificadas. Los umbrales y rangos de referencia son reglas orientativas, no una puntuación científica. El criterio del entrenador sigue siendo decisivo.',

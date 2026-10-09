@@ -39,7 +39,7 @@ describe('TrainingQualityPanel', () => {
   it('shows the frequency of a pattern as days', () => {
     const h = render({ days: week([e('0861', 3)], [e('0861', 3)], [e('0043', 3)]) })
     expect(h).toContain('6 sets · 2 d')
-    expect(h).toMatch(/\d+ direct · \d+ secondary · \d+ d/)
+    expect(h).toMatch(/\d+ direct · \d+ secondary · \d+\s+d/)
   })
 
   it('shows the reference range only for a hypertrophy week with a known level, labelled as a rule of thumb', () => {

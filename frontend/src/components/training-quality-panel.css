@@ -60,7 +60,7 @@
 }
 .training-quality-bar-row {
   display: grid;
-  grid-template-columns: minmax(112px, 1.1fr) minmax(48px, 1fr) 22px;
+  grid-template-columns: minmax(112px, 1.1fr) minmax(40px, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -90,6 +90,7 @@
   color: var(--label);
   font-size: 12px;
   text-align: right;
+  white-space: nowrap;
 }
 .training-quality-muscles,
 .training-quality-days,
@@ -208,13 +209,13 @@
   .training-quality-head .grow { flex: 1 1 calc(100% - 48px); }
   .training-quality-sets { margin-left: 46px; }
   .training-quality-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .training-quality-bar-row { grid-template-columns: minmax(112px, 1.1fr) minmax(44px, 1fr) 20px; gap: 7px; }
+  .training-quality-bar-row { grid-template-columns: minmax(112px, 1.1fr) minmax(40px, 1fr) auto; gap: 7px; }
   .training-quality-muscles > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .training-quality-days { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 390px) {
   .training-quality { padding: 11px; border-radius: 15px; }
-  .training-quality-bar-row { grid-template-columns: minmax(98px, 1fr) minmax(36px, .8fr) 18px; gap: 6px; font-size: 11px; }
+  .training-quality-bar-row { grid-template-columns: minmax(92px, 1fr) minmax(30px, .7fr) auto; gap: 6px; font-size: 11px; }
   .training-quality-muscles > div { gap: 6px; }
   .training-quality-muscles > div > span,
   .training-quality-day { padding: 8px; }
@@ -230,3 +231,5 @@
 .tq-ref i { font-style: normal; color: var(--label-2); }
 .training-quality-refnote { color: var(--label-2); font-size: 11px; }
 .tq-tag { margin-right: 6px; padding: 1px 6px; border-radius: 999px; font-size: 9.5px; font-style: normal; font-weight: 600; background: color-mix(in srgb, var(--label) 8%, transparent); color: var(--label-2); }
+.training-quality-finding b::first-letter { text-transform: uppercase; }
+@media (max-width: 900px) { .training-quality-grid { grid-template-columns: minmax(0, 1fr); } }
