@@ -192,4 +192,17 @@ export function routineSnapshot(r, t = s => s) {
     meta: { goal: r.goal, level: r.level, restrictions: [], v: r.protocolVersion || '1.0' },
   }
 }
+/**
+ * Saves an official routine into the member's own routines: an independent copy (the same snapshot a session starts from or a trainer
+ * assigns), with a small `from2j` note of where and when it came from. Nothing links back to the master, so a later edit of the
+ * official routine never changes it. The same official routine is never saved twice (the existing copy is returned).
+ */
+export function saveOfficialRoutine(S, r, { t = x => x, makeId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`, now = Date.now(), rev = null } = {}) {
+  if (!r || !Array.isArray(r.ex) || !r.ex.length) return { ok: false, reason: 'invalid-routine' }
+  const existing = (S.routines || []).find(x => x.from2j?.id === r.id)
+  if (existing) return { ok: false, reason: 'already-saved', routine: existing }
+  const routine = { ...routineSnapshot(r, t), id: makeId(), from2j: { id: r.id, v: r.seedVersion || null, ...(rev != null ? { rev: String(rev) } : {}), at: now } }
+  S.routines = [...(S.routines || []), routine]
+  return { ok: true, routine }
+}
 export const CATEGORY_GLYPH = { tabata: 'bolt', hiit: 'flame', circuit: 'intervals', interval: 'bike', mobility: 'stretch', core: 'abs', mixed: 'dumbbell' }

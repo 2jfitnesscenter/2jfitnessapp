@@ -118,6 +118,8 @@ export const DEF = {
   excludedEx: [],
   // Exercise Library V2: the member's favourite exercises (ids), saved exactly like excludedEx.
   favEx: [],
+  // Favourite official 2J routines (ids) — synced state, saved like favEx; migrated once from the old per-device list (lib/routine-favorites.js).
+  favRoutines: [],
   // Gym Profiles V1: small preference, persisted by update()/the existing Sync V2 path.
   gymProfiles: null,
   // Standalone tests logged outside a workout (Actions → "Start a test session"): 1RM attempts,

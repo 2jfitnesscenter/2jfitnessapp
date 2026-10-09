@@ -10,6 +10,7 @@ import { gymRoutineCompatibility } from '../../lib/gym-profiles.js'
 import { t, nameFor } from '../../lib/i18n.js'
 import { EXIDX } from '../../lib/exercises.js'
 import { useGuided } from '../../lib/guided-api.js'
+import { toggleRoutineFav } from '../../lib/routine-favorites.js'
 import { gearKinds, GEAR_LABEL, partName, routineSnapshot, restrictionIssues, memberContext, DURATIONS } from '../../lib/train2j.js'
 import { timingLine } from '../../lib/guided.js'
 import { CATEGORY_LABEL, LEVEL_LABEL, TAG_LABEL, ROUTINE_CATEGORIES, LEVELS } from '../../lib/protocol/index.js'
@@ -35,8 +36,9 @@ export function cardBadges(r, { isNewRoutine } = {}) {
 }
 
 export function Heart({ id, className = '' }) {
-  const on = useGuided(s => s.favorites.includes(id))
-  const toggle = useGuided(s => s.toggleFavorite)
+  const on = useStore(s => (s.S.favRoutines || []).includes(id))
+  const update = useStore(s => s.update)
+  const toggle = routineId => update(s => { toggleRoutineFav(s, routineId) })
   const [pop, setPop] = useState(false)
   return <button className={'t2-heart' + (on ? ' on' : '') + (pop ? ' pop' : '') + ' ' + className} aria-pressed={on}
     aria-label={on ? t('Remove from favorites') : t('Add to favorites')}

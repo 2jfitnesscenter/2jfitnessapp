@@ -4882,4 +4882,12 @@ export default {
   'Staff gave you this link because your old device is gone. Confirming below adds a brand-new passkey to your existing profile — your plan, history and body weight all stay exactly as they were. Any other session of this profile is signed out, and the old passkeys are removed unless staff kept them.': 'El personal te dio este enlace porque tu dispositivo anterior ya no está. Al confirmar se añade una passkey nueva a tu perfil existente: tu plan, historial y peso corporal se quedan exactamente como estaban. Cualquier otra sesión de este perfil se cierra y las passkeys antiguas se eliminan, salvo que el personal las haya mantenido.',
   'Keep their current passkeys (they only need one more). By default the old passkeys are removed — use that when a device is lost or stolen.': 'Mantener sus passkeys actuales (solo necesitan una más). Por defecto se eliminan las antiguas: úsalo cuando se haya perdido o robado un dispositivo.',
   'Hand this to them in person — it lets them add a new passkey to this exact account, nothing is lost. Works once, expires in 15 minutes. Completing it also signs them out of every other session.': 'Entrégaselo en persona: les permite añadir una passkey nueva a esta misma cuenta, sin perder nada. Funciona una vez y caduca en 15 minutos. Al completarlo también se cierran todas sus demás sesiones.',
+  'Saved to your routines': 'Guardada en tus rutinas',
+  'Already in your routines': 'Ya está en tus rutinas',
+  'Could not save this routine': 'No se pudo guardar esta rutina',
+  'Save to my routines': 'Guardar en mis rutinas',
+  'Saved to your plan — start it whenever you like.': 'Guardado en tu plan: empiézalo cuando quieras.',
+  'Already in your plan': 'Ya está en tu plan',
+  'Could not save this program.': 'No se pudo guardar este programa.',
+  'Save for later': 'Guardar para después',
 }

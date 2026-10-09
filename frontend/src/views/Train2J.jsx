@@ -9,10 +9,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t, nameFor } from '../lib/i18n.js'
-import { fmtDate } from '../lib/format.js'
+import { fmtDate, uid } from '../lib/format.js'
 import { EXIDX, isEquipmentUnavailable } from '../lib/exercises.js'
-import { useGuided, favSet } from '../lib/guided-api.js'
-import { filterRoutines, historyStats, recentRoutines, forYou, isNew, memberContext, restrictionIssues, gearKinds, GEAR_LABEL } from '../lib/train2j.js'
+import { useGuided } from '../lib/guided-api.js'
+import { favRoutinesOf } from '../lib/routine-favorites.js'
+import { filterRoutines, historyStats, recentRoutines, forYou, isNew, memberContext, restrictionIssues, gearKinds, GEAR_LABEL, saveOfficialRoutine } from '../lib/train2j.js'
 import { CATEGORY_LABEL, LEVEL_LABEL, GOAL_LABEL, TAG_LABEL, RESTRICTION_LABEL } from '../lib/protocol/index.js'
 import { startOfficialRoutine } from '../sheets.jsx'
 import { programProgress } from '../lib/guided-programs.js'
@@ -45,6 +46,9 @@ function useCatalog() {
   const user = useStore(s => s.user)
   const g = useGuided()
   useEffect(() => { g.load(user?.id) }, [user?.id])
+  // The old per-device favourites are folded into the synced state once the catalogue is here (and again when the sync is confirmed).
+  const syncStatus = useStore(s => s.syncStatus)
+  useEffect(() => { if (g.status === 'ready') g.migrateFavorites() }, [g.status, syncStatus, user?.id])
   return g
 }
 const daysAgo = d => Math.max(0, Math.round((Date.now() - new Date(d + 'T12:00:00').getTime()) / 86400e3))
@@ -60,13 +64,13 @@ export default function Train2J() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const openSheet = useUI(s => s.openSheet)
-  const { status, error, offline, routines, collections, favorites } = useCatalog()
+  const { status, error, offline, routines, collections } = useCatalog()
   const programs = useGuided(s => s.programs)
   const [f, setF] = useState(EMPTY)
   const [hero, setHero] = useState(0)
   const byId = useMemo(() => Object.fromEntries(routines.map(r => [r.id, r])), [routines])
   const stats = useMemo(() => historyStats(S.workouts), [S.workouts])
-  const favs = useMemo(() => favSet(favorites), [favorites])
+  const favs = useMemo(() => favRoutinesOf(S), [S.favRoutines])
   const ordered = useMemo(() => [...routines].sort((a, b) => (a.order ?? 999) - (b.order ?? 999)), [routines])
   const featured = useMemo(() => routines.filter(r => r.featured).sort((a, b) => a.featured - b.featured), [routines])
   const results = useMemo(() => active(f) ? filterRoutines(ordered, f, { t, lookup }) : null, [ordered, f])
@@ -211,7 +215,8 @@ export function Train2JDetail() {
   const S = useStore(s => s.S)
   const openSheet = useUI(s => s.openSheet)
   const toast = useUI(s => s.toast)
-  const { status, error, offline, routines, mine, canAssign, canEdit, duplicate } = useCatalog()
+  const { status, error, offline, routines, mine, canAssign, canEdit, duplicate, rev } = useCatalog()
+  const update = useStore(s => s.update)
   const r = routines.find(x => x.id === id) || mine.find(x => x.id === id)
   const ctx = useMemo(() => memberContext(S), [S.routines, S.programs, S.coach])
   const clash = useMemo(() => r ? restrictionIssues(r, ctx.restrictions, lookup) : [], [r, ctx])
@@ -223,6 +228,12 @@ export function Train2JDetail() {
   const fit = gymRoutineCompatibility(S, r)
   const unavailable = [...new Set((r.ex || []).map(e => EXIDX[e.id]?.eq).filter(q => q && isEquipmentUnavailable(q)))]
   const blocked = clash.length > 0
+  const saved = (S.routines || []).find(x => x.from2j?.id === r.id)
+  const save = () => {
+    let result
+    update(s => { result = saveOfficialRoutine(s, r, { t, makeId: uid, rev }) })
+    toast(result?.ok ? t('Saved to your routines') : result?.reason === 'already-saved' ? t('Already in your routines') : t('Could not save this routine'))
+  }
   const dup = async () => { try { const c = await duplicate(r.id); toast(t('Copied to your routines')); nav('/trainer/guided/edit/' + c.id) } catch (e) { toast(e.message) } }
 
   return <div className="t2 t2-page t2-detail">
@@ -287,6 +298,7 @@ export function Train2JDetail() {
     </div>
     <div className="t2-cta">
       <Heart id={r.id} className="big" />
+      <button className={'btn t2-save' + (saved ? ' on' : '')} disabled={!!saved} aria-label={saved ? t('Already in your routines') : t('Save to my routines')} onClick={save}><Icon name={saved ? 'checkCircle' : 'plus'} />{saved ? t('Saved') : t('Save')}</button>
       <button className="btn primary t2-start" disabled={blocked} onClick={() => startOfficialRoutine(r)}><Icon name="play" />{t('Start')} · ~{r.estimatedMinutes} min</button>
     </div>
   </div>
