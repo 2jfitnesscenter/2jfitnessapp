@@ -3648,3 +3648,8 @@ body:has(.sync-pill) #app{padding-top:8px}
 .rcv-origin{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:12px;color:var(--label-2)}
 .private-share h3{margin:0 0 4px}.private-share>p{margin:0 0 12px}
 @media (max-width:380px){.rcv-cta{flex-wrap:wrap}.rcv-cta .rcv-start{flex-basis:100%}}
+.report-icon{display:inline-grid;place-items:center;width:22px;height:22px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--label-3);opacity:.7;cursor:pointer}
+.report-icon svg{width:14px;height:14px}.report-icon:hover,.report-icon:focus-visible{opacity:1;color:var(--label)}
+.chat-meta{display:flex;align-items:center;justify-content:flex-end;gap:6px}.chat-meta time{margin-top:3px}
+.chat-msg.removed{font-style:italic;opacity:.65}
+.report-sheet h3{margin:0 0 4px}.report-sheet>p{margin:0 0 10px}.report-sheet .btn{width:100%;margin-top:12px}

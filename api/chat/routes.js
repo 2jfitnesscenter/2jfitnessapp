@@ -8,6 +8,11 @@ import { LIMITS } from '../lib/social-limits.js';
 
 const MAX_TEXT = 2000;
 
+/** The one rule for who may read a thread: a direct chat needs both people and a live, unblocked friendship; support is the member, an admin or the assigned trainer. */
+export const makeCanRead = ({ isTrainer, canReachMember, isFriend }) => (thread, user) => thread.kind === 'direct'
+  ? ((thread.memberId === user.id || thread.recipientId === user.id) && isFriend(thread.memberId, thread.recipientId))
+  : (thread.memberId === user.id || (isTrainer(user) && canReachMember(user, thread.memberId)));
+
 export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, canReachMember = () => false, limit = () => ({ ok: true }), users, isFriend = () => false, notify = () => {}, markThreadNotificationsRead = () => {}, resolveShare = () => null }) {
   const guard = (req, res) => {
     const user = readSession(req);
@@ -21,9 +26,7 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, c
     return true;
   };
   const memberName = id => (users().find(u => u.id === id) || {}).name || null;
-  const canRead = (thread, user) => thread.kind === 'direct'
-    ? ((thread.memberId === user.id || thread.recipientId === user.id) && isFriend(thread.memberId, thread.recipientId))
-    : (thread.memberId === user.id || (isTrainer(user) && canReachMember(user, thread.memberId)));   // support: the member, an admin, or a trainer assigned to that member
+  const canRead = makeCanRead({ isTrainer, canReachMember, isFriend });
   // `unread` is per-viewer: a thread is unread for you when the last message wasn't written
   // by you and arrived after the last time you (specifically) opened it — tracked per user id
   // in thread.readBy so every trainer has their own read state on a thread they all share.
@@ -33,7 +36,7 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, c
     return {
       id: thread.id, memberId: thread.memberId, status: thread.status,
       createdAt: thread.createdAt, updatedAt: thread.updatedAt,
-      lastMessage: last ? { type: last.type || 'text', text: last.type === 'share' ? 'Shared content' : last.text, authorRole: last.authorRole, createdAt: last.createdAt } : null,
+      lastMessage: last ? { type: last.type || 'text', text: last.type === 'share' ? 'Shared content' : last.type === 'removed' ? '' : last.text, authorRole: last.authorRole, createdAt: last.createdAt } : null,
       unread: !!last && last.authorId !== viewerId && last.createdAt > readAt
     };
   };

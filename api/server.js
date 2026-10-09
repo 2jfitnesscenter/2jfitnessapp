@@ -51,6 +51,7 @@ import { featuresRoutes } from './lib/features-routes.js';
 import * as featuresStore from './lib/features-store.js';
 import { snapshotCard } from './lib/share-snapshot.js';
 import { createLimiter, LIMITS } from './lib/social-limits.js';
+import { makeCanRead } from './chat/routes.js';
 import * as libraryAdmin from './lib/library-admin.js';
 import * as gymProfileConfig from './lib/gym-profile-config.js';
 import { cleanEquipment, setOfficialGymEquipment, gymEquipmentContext } from './lib/gym-profiles.js';
@@ -839,7 +840,41 @@ function resolveShareTarget(ownerId, kind, targetId) {
 }
 // A private snapshot is open to its sender and to the one friend it was sent to (while they are still friends and nobody blocked anybody).
 const canOpenPrivateShare = (share, viewer) => !!share.snapshot && (share.authorId === viewer.id || (share.recipientId === viewer.id && socialFriends(share.authorId, viewer.id)));
+// Staff removing somebody else's content: one audit event (who it happened to, who did it, what kind, which id, a general reason; never the words) and one notice
+// to the author ("removed", with a general reason). Removing your own content is not moderation and leaves nothing here.
+function moderationRemoved(actor, authorId, targetType, targetId, reason = 'rules') {
+  if (!authorId || authorId === actor.id || !db.users.some(u => u.id === authorId)) return;
+  appendSecurityEvent(db, { event: 'content_removed', userId: authorId, actorId: actor.id, meta: { kind: targetType, target: targetId, reason } });
+  saveDb();
+  notificationStore.create(authorId, { type: 'moderation', target: { kind: 'removed', id: targetType }, deepLink: '/notifications', meta: { reason } });
+}
+const chatCanRead = makeCanRead({ isTrainer, isFriend: socialFriends, canReachMember: (staff, memberId) => { const m = db.users.find(u => u.id === memberId); return !!m && canAccessMember(staff, m, isAdmin); } });
+const COMMENT_HOLDERS = { wall: () => social.wall, topic: () => social.topics, board: () => social.board };
+function findComment(id) {
+  const [kind, postId, commentId] = String(id).split(':');
+  const post = COMMENT_HOLDERS[kind]?.().find(x => x.id === postId);
+  const comment = post?.comments?.find(c => c.id === commentId);
+  return comment ? { kind, post, comment } : null;
+}
+const snippet = s => String(s || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 80);
 function resolveReportedContent(viewer, type, id) {
+  if (type === 'message') {
+    const [threadId, messageId] = String(id).split(':');
+    const thread = chatStore.findThread(threadId), m = chatStore.findMessage(threadId, messageId);
+    if (!thread || !m || m.type === 'removed' || m.authorId === viewer.id) return null;
+    if (!isAdmin(viewer) && !chatCanRead(thread, viewer)) return null;
+    return { id, authorId: m.authorId, authorName: db.users.find(u => u.id === m.authorId)?.name || null, title: m.type === 'share' ? 'Shared content' : snippet(m.text), kind: 'message' };
+  }
+  if (type === 'comment') {
+    const found = findComment(id);
+    if (!found || found.comment.authorId === viewer.id) return null;
+    const { kind, post, comment } = found;
+    if (!isAdmin(viewer)) {
+      if (hiddenByBlock(viewer, comment.authorId) || hiddenByBlock(viewer, post.authorId)) return null;
+      if (kind === 'wall' && post.authorId !== viewer.id && (!post.public || !canViewSocialShare(viewer, post.authorId, 'pr'))) return null;
+    }
+    return { id, authorId: comment.authorId, authorName: comment.authorName, title: snippet(comment.text), kind: 'comment' };
+  }
   if (type === 'share') {
     const s = sharingStore.findShare(id);
     if (s?.snapshot) return (isAdmin(viewer) || canOpenPrivateShare(s, viewer)) && s.authorId !== viewer.id ? { id: s.id, authorId: s.authorId, authorName: s.authorName, title: snapshotCard(s).title, kind: s.kind } : null;
@@ -855,14 +890,36 @@ function resolveReportedContent(viewer, type, id) {
   if (!isAdmin(viewer) && !canViewSocialShare(viewer, post.authorId, category)) return null;
   return { id: post.id, authorId: post.authorId, authorName: post.authorName, title: String(post.name || post.exName || post.title || 'Community post').slice(0, 90), kind: type };
 }
-function removeReportedContent(type, id, actor) {
-  if (type === 'share') return sharingStore.deleteShare(id, actor.id, true);
+function removeReportedContent(type, id, actor, reason) {
+  if (type === 'share') {
+    const s = sharingStore.findShare(id);
+    const ok = sharingStore.deleteShare(id, actor.id, true);
+    if (ok && s) moderationRemoved(actor, s.authorId, 'share', id, reason);
+    return ok;
+  }
+  if (type === 'message') {
+    const [threadId, messageId] = String(id).split(':');
+    const removed = chatStore.removeMessage(threadId, messageId);
+    if (!removed) return false;
+    moderationRemoved(actor, removed.authorId, 'message', id, reason);
+    return true;
+  }
+  if (type === 'comment') {
+    const found = findComment(id);
+    if (!found) return false;
+    found.post.comments = found.post.comments.filter(c => c.id !== found.comment.id);
+    saveSocial();
+    moderationRemoved(actor, found.comment.authorId, 'comment', id, reason);
+    return true;
+  }
   const key = ({ wall: 'wall', routine: 'routines', program: 'programs', challenge: 'challenges', topic: 'topics' })[type];
   if (!key) return false;
-  const list = social[key], before = list.length;
+  const list = social[key], before = list.length, gone = list.find(x => x.id === id);
   social[key] = list.filter(x => x.id !== id);
   if (social[key].length === before) return false;
-  saveSocial(); return true;
+  saveSocial();
+  if (gone) moderationRemoved(actor, gone.authorId, type, id, reason);
+  return true;
 }
 function readBody(req, maxBytes = MAX_BODY) {
   return new Promise((resolve, reject) => {
@@ -2365,6 +2422,7 @@ const routes = {
     const post = social.routines.find(r => r.id === body.id);
     if (!post) return json(res, 404, { error: 'esa rutina no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (post.authorId !== user.id) moderationRemoved(user, post.authorId, 'routine', post.id);
     deleteUploadedImage(post.image);
     social.routines = social.routines.filter(r => r.id !== body.id);
     saveSocial();
@@ -2624,6 +2682,7 @@ const routes = {
     const post = social.programs.find(p => p.id === body.id);
     if (!post) return json(res, 404, { error: 'ese programa no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (post.authorId !== user.id) moderationRemoved(user, post.authorId, 'program', post.id);
     deleteUploadedImage(post.image);
     social.programs = social.programs.filter(p => p.id !== body.id);
     saveSocial();
@@ -2721,6 +2780,7 @@ const routes = {
     const comment = (post.comments || []).find(c => c.id === body.commentId);
     if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
     if (comment.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (comment.authorId !== user.id) moderationRemoved(user, comment.authorId, 'comment', 'wall:' + post.id + ':' + comment.id);
     post.comments = post.comments.filter(c => c.id !== body.commentId);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2733,6 +2793,7 @@ const routes = {
     const post = social.wall.find(w => w.id === body.id);
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (post.authorId !== user.id) moderationRemoved(user, post.authorId, 'wall', post.id);
     social.wall = social.wall.filter(w => w.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2792,6 +2853,7 @@ const routes = {
     const comment = (topic.comments || []).find(c => c.id === body.commentId);
     if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
     if (comment.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    if (comment.authorId !== user.id) moderationRemoved(user, comment.authorId, 'comment', 'topic:' + topic.id + ':' + comment.id);
     topic.comments = topic.comments.filter(c => c.id !== body.commentId);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2804,6 +2866,7 @@ const routes = {
     const topic = social.topics.find(t => t.id === body.id);
     if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
     if (topic.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    if (topic.authorId !== user.id) moderationRemoved(user, topic.authorId, 'topic', topic.id);
     social.topics = social.topics.filter(t => t.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2875,6 +2938,7 @@ const routes = {
     const comment = (post.comments || []).find(c => c.id === body.commentId);
     if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
     if (comment.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    if (comment.authorId !== user.id) moderationRemoved(user, comment.authorId, 'comment', 'board:' + post.id + ':' + comment.id);
     post.comments = post.comments.filter(c => c.id !== body.commentId);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2887,6 +2951,7 @@ const routes = {
     const post = social.board.find(b => b.id === body.id);
     if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (post.authorId !== user.id) moderationRemoved(user, post.authorId, 'board', post.id);
     social.board = social.board.filter(b => b.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
@@ -3005,6 +3070,7 @@ const routes = {
     const c = social.challenges.find(x => x.id === body.id);
     if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
     if (c.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (c.authorId !== user.id) moderationRemoved(user, c.authorId, 'challenge', c.id);
     social.challenges = social.challenges.filter(x => x.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
@@ -3331,7 +3397,7 @@ const routes = {
     // Friend graph is the existing authoritative relationship model.
     return friendsStore.friendIdsOf(a).includes(b) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
   } }),
-  ...sharingRoutes({ json, readBody, readSession, limit: socialLimit, featureOn: key => featuresStore.isOn(key), postSnapshot: (ownerId, kind, targetId) => {
+  ...sharingRoutes({ json, readBody, readSession, limit: socialLimit, moderated: (actor, authorId, type, id) => moderationRemoved(actor, authorId, type, id), featureOn: key => featuresStore.isOn(key), postSnapshot: (ownerId, kind, targetId) => {
     const p = (kind === 'routine' ? social.routines : social.programs).find(x => x.id === targetId && x.authorId === ownerId);
     if (!p) return null;
     const meta = { level: p.level, goal: p.goal, duration: p.duration, origin: 'community' };

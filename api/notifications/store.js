@@ -33,7 +33,8 @@ export function setPrivacy(uid, value) {
   state.privacy[uid] = clean; save(); return clean;
 }
 export function preferencesFor(uid) { return { ...DEFAULT_PREFERENCES, ...(state.preferences[uid] || {}) }; }
-export function allows(uid, type) { const p = preferencesFor(uid); return p[categoryFor(type)] !== false; }
+// A notice that content was removed is never switched off: it is the one message a member must receive about their own content.
+export function allows(uid, type) { if (type === 'moderation') return true; const p = preferencesFor(uid); return p[categoryFor(type)] !== false; }
 export function setPreferences(uid, value) {
   const clean = preferencesFor(uid);
   for (const key of Object.keys(DEFAULT_PREFERENCES)) if (key in value) clean[key] = value[key] === true;
@@ -41,7 +42,7 @@ export function setPreferences(uid, value) {
 }
 const categoryFor = type => ({ friend_request: 'friendRequests', friend_accepted: 'friendRequests', message: 'messages', share: 'shares', challenge: 'challenges', achievement: 'achievements' })[type] || 'shares';
 export function create(uid, input) {
-  if (!uid || !input || !['friend_request', 'friend_accepted', 'message', 'share', 'challenge', 'achievement'].includes(input.type)) return null;
+  if (!uid || !input || !['friend_request', 'friend_accepted', 'message', 'share', 'challenge', 'achievement', 'moderation'].includes(input.type)) return null;
   if (!allows(uid, input.type)) return null;
   if (input.dedupeKey && state.items.some(x => x.userId === uid && x.dedupeKey === String(input.dedupeKey).slice(0, 140))) return null;
   const item = {
@@ -49,6 +50,7 @@ export function create(uid, input) {
     actor: input.actor ? { id: String(input.actor.id || '').slice(0, 80), name: String(input.actor.name || '').slice(0, 80) } : null,
     target: input.target ? { kind: String(input.target.kind || '').slice(0, 32), id: String(input.target.id || '').slice(0, 100) } : null,
     deepLink: /^\/(?:friends(?:\?[^#]*)?|chat(?:\/[A-Za-z0-9_-]+)?|social(?:\/(?:share|profile)\/[A-Za-z0-9_-]+)?(?:\?[^#]*)?|notifications|admin\/social-reports)$/.test(input.deepLink || '') ? input.deepLink : '/notifications',
+    ...(input.type === 'moderation' ? { meta: { reason: ['spam', 'inappropriate', 'privacy', 'other', 'rules'].includes(input.meta?.reason) ? input.meta.reason : 'rules' } } : {}),
     ...(input.dedupeKey ? { dedupeKey: String(input.dedupeKey).slice(0, 140) } : {}),
     createdAt: Date.now(), readAt: null
   };

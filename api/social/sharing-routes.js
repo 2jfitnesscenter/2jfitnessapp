@@ -7,7 +7,7 @@ import { LIMITS } from '../lib/social-limits.js';
 
 const KINDS = new Set(['workout', 'record', 'achievement', 'streak', 'routine', 'program', 'challenge']);
 const REASONS = new Set(['spam', 'inappropriate', 'privacy', 'other']);
-export function sharingRoutes({ json, readBody, readSession, users, isAdmin, resolveTarget, canShareWith = () => false, featureOn = () => true, postSnapshot = () => null, limit = () => ({ ok: true }), resolveReported, removeReported, notify = () => {}, sendPush = () => {} }) {
+export function sharingRoutes({ json, readBody, readSession, users, isAdmin, resolveTarget, canShareWith = () => false, featureOn = () => true, postSnapshot = () => null, moderated = () => {}, limit = () => ({ ok: true }), resolveReported, removeReported, notify = () => {}, sendPush = () => {} }) {
   const throttle = (res, user, [bucket, max, windowMs]) => {
     const r = limit(user.id, bucket, max, windowMs);
     if (r.ok) return false;
@@ -125,14 +125,16 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
     'POST /api/social/shares/delete': async (req, res) => {
       const user = guard(req, res); if (!user) return;
       const b = await readBody(req);
+      const before = store.findShare(String(b.id || ''));
       if (!store.deleteShare(String(b.id || ''), user.id, isAdmin(user))) return json(res, 404, { error: 'publicación no disponible' });
+      if (before && before.authorId !== user.id) moderated(user, before.authorId, 'share', before.id);
       json(res, 200, { ok: true });
     },
     'POST /api/social/reports': async (req, res) => {
       const user = guard(req, res); if (!user) return;
       if (throttle(res, user, LIMITS.report)) return;
       const b = await readBody(req), targetType = String(b.targetType || ''), targetId = String(b.targetId || ''), reason = String(b.reason || '');
-      if (!['share', 'wall', 'routine', 'program', 'challenge', 'topic'].includes(targetType) || !targetId || !REASONS.has(reason)) return json(res, 400, { error: 'informe no válido' });
+      if (!['share', 'wall', 'routine', 'program', 'challenge', 'topic', 'message', 'comment'].includes(targetType) || !targetId || !REASONS.has(reason)) return json(res, 400, { error: 'informe no válido' });
       const target = resolveReported(user, targetType, targetId);
       if (!target || target.authorId === user.id) return json(res, 404, { error: 'contenido no disponible' });
       const report = store.report({ reporterId: user.id, targetType, targetId, reason });
@@ -152,7 +154,7 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
       if (!status) return json(res, 400, { error: 'acción no válida' });
       const report = store.pendingReports().find(x => x.id === b.id);
       if (!report) return json(res, 404, { error: 'informe no disponible' });
-      if (status === 'removed' && !removeReported(report.targetType, report.targetId, user)) return json(res, 409, { error: 'no se pudo retirar el contenido' });
+      if (status === 'removed' && !removeReported(report.targetType, report.targetId, user, report.reason)) return json(res, 409, { error: 'no se pudo retirar el contenido' });
       store.resolveReport(report.id, user.id, status);
       json(res, 200, { ok: true, status });
     }

@@ -82,7 +82,8 @@ export default function ChatThread() {
           {m.share ? <><div className="chat-share-caption">{m.share.private ? (m.share.kind === 'program' ? (mine ? t('You sent a program') : t('{0} sent you a program', thread.memberName)) : (mine ? t('You sent a routine') : t('{0} sent you a routine', thread.memberName))) : mine ? t('You shared a training moment') : t('{0} shared a training moment', thread.memberName)}</div><button className="chat-share-open" onClick={() => nav('/social/share/' + m.share.id)}><CommunityShareCard data={{ kind: m.share.kind, ...m.share.card }} /></button><div className="chat-share-foot"><ReportContentButton targetType="share" targetId={m.share.id} /></div></>
             : <div className="chat-share-unavailable"><Icon name="lock" /><span>{t('This shared moment is no longer available')}</span></div>}
         </article></Fragment>
-        return <Fragment key={m.id}>{sep}<div className={'chat-msg ' + (mine ? 'mine' : 'theirs')}>{m.text}{m.createdAt && <time className="chat-time" dateTime={new Date(m.createdAt).toISOString()}>{new Date(m.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</time>}</div></Fragment>
+        if (m.type === 'removed') return <Fragment key={m.id}>{sep}<div className={'chat-msg removed ' + (mine ? 'mine' : 'theirs')}>{t('This message was removed')}</div></Fragment>
+        return <Fragment key={m.id}>{sep}<div className={'chat-msg ' + (mine ? 'mine' : 'theirs')}>{m.text}<div className="chat-meta">{!mine && <ReportContentButton icon targetType="message" targetId={id + ':' + m.id} />}{m.createdAt && <time className="chat-time" dateTime={new Date(m.createdAt).toISOString()}>{new Date(m.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</time>}</div></div></Fragment>
       })}
       <div ref={bottomRef} />
     </div>

@@ -31,6 +31,7 @@ import { fetchFriends } from '../lib/friends-api.js'
 import { fetchThreads } from '../lib/chat-api.js'
 import { fetchNotifications } from '../lib/notifications-api.js'
 import SocialShareSheet from '../components/SocialShareSheet.jsx'
+import ReportContentButton from '../components/ReportContentButton.jsx'
 import SocialMoments from './SocialMoments.jsx'
 import { socialCardPayload } from '../lib/social-share.js'
 import { communityIntroSeen, markCommunityIntroSeen } from '../lib/community-onboarding.js'
@@ -489,8 +490,11 @@ function WallDetailSheet({ post: initial, onChanged, close }) {
           <div className="small capitalize row" style={{ gap: 4, fontWeight: 600 }}>{c.authorName}{c.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
           <div className="small">{c.text}</div>
         </div>
-        {(c.authorId === user?.id || user?.admin) &&
-          <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
+        <div className="row" style={{ gap: 2 }}>
+          {c.authorId !== user?.id && <ReportContentButton icon targetType="comment" targetId={'wall:' + post.id + ':' + c.id} />}
+          {(c.authorId === user?.id || user?.admin) &&
+            <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
+        </div>
       </div>)}
       {!(post.comments || []).length && <div className="muted small" style={{ padding: '6px 2px' }}>{t('No comments yet.')}</div>}
     </div>
@@ -570,8 +574,11 @@ function TopicDetailSheet({ topic: initial, onChanged, close }) {
           <div className="small capitalize row" style={{ gap: 4, fontWeight: 600 }}>{c.authorName}{c.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
           <div className="small">{c.text}</div>
         </div>
-        {(c.authorId === user?.id || canModerate(user)) &&
-          <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
+        <div className="row" style={{ gap: 2 }}>
+          {c.authorId !== user?.id && <ReportContentButton icon targetType="comment" targetId={'topic:' + topic.id + ':' + c.id} />}
+          {(c.authorId === user?.id || canModerate(user)) &&
+            <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
+        </div>
       </div>)}
       {!(topic.comments || []).length && <div className="muted small" style={{ padding: '6px 2px' }}>{t('No comments yet.')}</div>}
     </div>
@@ -663,8 +670,11 @@ function BoardDetailSheet({ post: initial, onChanged, close }) {
             <div className="small capitalize row" style={{ gap: 4, fontWeight: 600 }}>{c.authorName}{c.authorKind === 'trainer' && <StaffBadge size={11} />}</div>
             <div className="small">{c.text}</div>
           </div>
-          {(c.authorId === user?.id || canModerate(user)) &&
-            <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
+          <div className="row" style={{ gap: 2 }}>
+            {c.authorId !== user?.id && <ReportContentButton icon targetType="comment" targetId={'board:' + post.id + ':' + c.id} />}
+            {(c.authorId === user?.id || canModerate(user)) &&
+              <button className="iconbtn" onClick={() => removeComment(c)} aria-label={t('Delete')}><Icon name="trash" /></button>}
+          </div>
         </div>)}
         {!(post.comments || []).length && <div className="muted small" style={{ padding: '6px 2px' }}>{t('No comments yet.')}</div>}
       </div>
