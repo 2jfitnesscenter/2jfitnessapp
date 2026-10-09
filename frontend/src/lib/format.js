@@ -53,11 +53,12 @@ export function fmtDur(ms) {
 export const durPart = ms => (ms >= 60000 ? [fmtDur(ms)] : [])
 // Numbers follow the UI language, like the dates above — a hardcoded locale put Swiss
 // apostrophes ("7'535 kg") in front of every user, in every language.
-export const fmtNum = n => (Math.round(n * 10) / 10).toLocaleString(dateLocale())
+// A number that is not a finite number (missing or corrupt data) is never printed as "NaN": it reads as "—". Nothing is invented (no 0).
+export const fmtNum = n => (Number.isFinite(Number(n)) ? (Math.round(n * 10) / 10).toLocaleString(dateLocale()) : '—')
 // Volume stays in the profile's unit throughout: the old shorthand turned anything over
 // 10 000 into "t", which is wrong for a pound profile and made one list mix "18.8t" with
 // "7'535 kg" — two numbers you can't compare at a glance.
-export const fmtVol = (v, unit) => fmtNum(v) + ' ' + unit
+export const fmtVol = (v, unit) => (Number.isFinite(v) ? fmtNum(v) + ' ' + unit : '—')
 // Plural forms are not automatic when the English string is the key.
 export const exCount = n => t(n === 1 ? '{0} exercise' : '{0} exercises', n)
 export const routineCount = n => t(n === 1 ? '{0} routine' : '{0} routines', n)
