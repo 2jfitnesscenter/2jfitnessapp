@@ -32,6 +32,13 @@ export function deleteShare(shareId, actorId, admin = false) {
   if (!s || (s.authorId !== actorId && !admin)) return false;
   s.deletedAt = Date.now(); save(); return true;
 }
+/** The recipient set a private share aside. Nothing is deleted: the chat message stays and the snapshot can still be opened. */
+export function markDiscarded(shareId, recipientId) {
+  const s = findShare(shareId);
+  if (!s || s.audience !== 'direct' || s.recipientId !== recipientId) return false;
+  if (!s.discardedAt) { s.discardedAt = Date.now(); save(); }
+  return true;
+}
 export function report(value) {
   const duplicate = state.reports.find(r => r.reporterId === value.reporterId && r.targetType === value.targetType && r.targetId === value.targetId && r.status === 'pending');
   if (duplicate) return null;
@@ -49,7 +56,8 @@ export function resolveReport(reportId, adminId, status) {
 export function removeUser(uid) {
   const mine = new Set(state.shares.filter(x => x.authorId === uid).map(x => x.id));
   const n = state.shares.length + state.reports.length;
-  state.shares = state.shares.filter(x => x.authorId !== uid);
+  // a private snapshot someone sent TO this person goes with them: it only ever lived in their conversation
+  state.shares = state.shares.filter(x => x.authorId !== uid && x.recipientId !== uid);
   state.reports = state.reports.filter(r => r.reporterId !== uid && !(r.targetType === 'share' && mine.has(r.targetId)));
   const left = state.shares.length + state.reports.length;
   if (left !== n) save();

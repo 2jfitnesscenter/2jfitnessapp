@@ -49,6 +49,7 @@ import { libraryAdminRoutes } from './lib/library-admin-routes.js';
 import { newsRoutes } from './lib/news-routes.js';
 import { featuresRoutes } from './lib/features-routes.js';
 import * as featuresStore from './lib/features-store.js';
+import { snapshotCard } from './lib/share-snapshot.js';
 import * as libraryAdmin from './lib/library-admin.js';
 import * as gymProfileConfig from './lib/gym-profile-config.js';
 import { cleanEquipment, setOfficialGymEquipment, gymEquipmentContext } from './lib/gym-profiles.js';
@@ -825,9 +826,12 @@ function resolveShareTarget(ownerId, kind, targetId) {
   }
   return null;
 }
+// A private snapshot is open to its sender and to the one friend it was sent to (while they are still friends and nobody blocked anybody).
+const canOpenPrivateShare = (share, viewer) => !!share.snapshot && (share.authorId === viewer.id || (share.recipientId === viewer.id && socialFriends(share.authorId, viewer.id)));
 function resolveReportedContent(viewer, type, id) {
   if (type === 'share') {
     const s = sharingStore.findShare(id);
+    if (s?.snapshot) return (isAdmin(viewer) || canOpenPrivateShare(s, viewer)) && s.authorId !== viewer.id ? { id: s.id, authorId: s.authorId, authorName: s.authorName, title: snapshotCard(s).title, kind: s.kind } : null;
     const accessKind = s?.kind === 'record' ? 'pr' : ['routine', 'program'].includes(s?.kind) ? 'routine' : ['achievement', 'streak'].includes(s?.kind) ? 'achievement' : s?.kind;
     if (s && !isAdmin(viewer) && !canViewSocialShare(viewer, s.authorId, accessKind)) return null;
     const card = s && resolveShareTarget(s.authorId, s.kind, s.targetId);
@@ -3302,6 +3306,7 @@ const routes = {
   ...friendsRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'friend_request'), users: () => db.users, notify: notificationStore.create }),
   ...chatRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'message'), isTrainer, canReachMember: (staff, memberId) => { const m = db.users.find(u => u.id === memberId); return !!m && canAccessMember(staff, m, isAdmin); }, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), resolveShare: (id, viewer) => {
     const share = sharingStore.findShare(id); if (!share) return null;
+    if (share.snapshot) return canOpenPrivateShare(share, viewer) ? { id: share.id, kind: share.kind, authorName: share.authorName, card: snapshotCard(share), private: true } : null;
     const pref = notificationStore.privacyFor(share.authorId);
     const kind = share.kind === 'record' ? 'pr' : ['routine', 'program'].includes(share.kind) ? 'routine' : ['achievement', 'streak'].includes(share.kind) ? 'achievement' : share.kind;
     if (!canViewSocialShare(viewer, share.authorId, kind)) return null;

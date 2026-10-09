@@ -2,6 +2,7 @@ import * as store from './sharing-store.js';
 import * as chat from '../chat/store.js';
 import * as friends from '../friends/store.js';
 import * as notifications from '../notifications/store.js';
+import { cleanSnapshot, snapshotCard } from '../lib/share-snapshot.js';
 
 const KINDS = new Set(['workout', 'record', 'achievement', 'streak', 'routine', 'program', 'challenge']);
 const REASONS = new Set(['spam', 'inappropriate', 'privacy', 'other']);
@@ -10,7 +11,8 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
   const directAllowed = (a, b) => a !== b && friends.friendIdsOf(a).includes(b) && friends.friendIdsOf(b).includes(a) && !friends.isBlocked(a, b) && !friends.isBlocked(b, a);
   const visible = (share, viewer) => {
     if (!share || share.authorId === viewer.id) return !!share;
-    if (share.audience === 'direct') return share.recipientId === viewer.id && directAllowed(share.authorId, viewer.id) && canShareWith(share.authorId, viewer.id, share.kind);
+    // A private snapshot is the sender's explicit act towards one friend; the profile/category toggles govern what is visible WITHOUT such an act.
+    if (share.audience === 'direct') return share.recipientId === viewer.id && directAllowed(share.authorId, viewer.id) && (!!share.snapshot || canShareWith(share.authorId, viewer.id, share.kind));
     if (share.audience !== 'community') return false;
     const p = notifications.privacyFor(share.authorId);
     const pref = share.kind === 'record' ? p.prs : ['workout'].includes(share.kind) ? p.workouts : ['achievement', 'streak'].includes(share.kind) ? p.achievements : ['routine', 'program'].includes(share.kind) ? p.routines : p.challenges;
@@ -20,14 +22,40 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
   };
   const snapshot = (share, viewer) => {
     if (!visible(share, viewer)) return null;
-    const current = resolveTarget(share.authorId, share.kind, share.targetId);
+    const current = share.snapshot ? snapshotCard(share) : resolveTarget(share.authorId, share.kind, share.targetId);
     if (!current) return null;
-    return { id: share.id, kind: share.kind, authorId: share.authorId, authorName: share.authorName, targetId: share.targetId, audience: share.audience, createdAt: share.createdAt, card: current };
+    return { id: share.id, kind: share.kind, authorId: share.authorId, authorName: share.authorName, targetId: share.targetId, audience: share.audience, createdAt: share.createdAt, card: current,
+      ...(share.snapshot ? { private: true, discarded: share.recipientId === viewer.id && !!share.discardedAt } : {}) };
+  };
+  // A routine or program sent privately to ONE friend: a cleaned snapshot of the plan content, stored with the share. It does not depend on the sender's
+  // routine afterwards (delete it, rename it: the receiver keeps what was sent) and nothing is published to the community.
+  const sendSnapshot = (user, b, res) => {
+    const kind = String(b.kind || '');
+    if (b.audience !== 'chat') return json(res, 400, { error: 'un envío privado va a un amigo' });
+    if (!featureOn('chat') || !featureOn('friends')) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
+    const clean = cleanSnapshot(kind, b.snapshot, b.meta && typeof b.meta === 'object' ? b.meta : {});
+    if (clean.error) return json(res, 400, { error: clean.error });
+    const idempotencyKey = /^[A-Za-z0-9_-]{12,80}$/.test(String(b.idempotencyKey || '')) ? String(b.idempotencyKey) : null;
+    const recipientId = String(b.recipientId || ''), threadId = String(b.threadId || '');
+    const thread = chat.findThread(threadId);
+    if (!directAllowed(user.id, recipientId) || !thread || thread.kind !== 'direct' || !((thread.memberId === user.id && thread.recipientId === recipientId) || (thread.memberId === recipientId && thread.recipientId === user.id))) return json(res, 403, { error: 'conversación no disponible' });
+    const previous = idempotencyKey ? store.listShares().find(x => x.authorId === user.id && x.idempotencyKey === idempotencyKey && !x.deletedAt) : null;
+    if (previous && (previous.recipientId !== recipientId || previous.kind !== kind || previous.targetId !== clean.targetId)) return json(res, 409, { error: 'idempotency key already used' });
+    const share = previous || store.createShare({ authorId: user.id, authorName: user.name, kind, targetId: clean.targetId, audience: 'direct', recipientId, idempotencyKey, snapshot: clean.snapshot, meta: { ...clean.meta, senderLabel: user.name } });
+    const message = previous ? chat.findShareMessage(share.id) : chat.addShareMessage(threadId, user.id, 'member', share.id);
+    if (!message) return json(res, 409, { error: 'share state incomplete' });
+    if (!previous) {
+      const n = notify(recipientId, { type: 'share', actor: { id: user.id, name: user.name }, target: { kind: 'share', id: share.id }, deepLink: '/chat/' + threadId, dedupeKey: 'share-message:' + message.id });
+      if (n) sendPush(recipientId, { title: 'Contenido compartido', body: `${user.name} te ha enviado ${kind === 'program' ? 'un programa' : 'una rutina'}`, tag: 'share-' + message.id, url: '#/chat/' + threadId }, 'share');
+    }
+    json(res, 200, { ok: true, message: { ...message, share: snapshot(share, user) }, recipient: users().find(x => x.id === recipientId)?.name || null });
   };
   return {
     'POST /api/social/shares': async (req, res) => {
       const user = guard(req, res); if (!user) return;
-      const b = await readBody(req); const kind = String(b.kind || ''), targetId = String(b.targetId || '');
+      const b = await readBody(req);
+      if (b.snapshot !== undefined) return sendSnapshot(user, b, res);
+      const kind = String(b.kind || ''), targetId = String(b.targetId || '');
       if (!KINDS.has(kind) || !targetId || targetId.length > 100) return json(res, 400, { error: 'contenido no válido' });
       const card = resolveTarget(user.id, kind, targetId);
       if (!card) return json(res, 404, { error: 'ese contenido ya no está disponible' });
@@ -66,9 +94,19 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
     'GET /api/social/shares/item': async (req, res) => {
       const user = guard(req, res); if (!user) return;
       const id = new URL(req.url, 'http://x').searchParams.get('id') || '';
-      const item = snapshot(store.findShare(id), user);
+      const share = store.findShare(id);
+      const item = snapshot(share, user);
       if (!item) return json(res, 404, { error: 'contenido retirado o privado' });
+      if (share.snapshot) item.content = { snapshot: share.snapshot, meta: share.meta };
       json(res, 200, { share: item });
+    },
+    // The receiver sets a private share aside. The conversation keeps its message and the sender is not told.
+    'POST /api/social/shares/discard': async (req, res) => {
+      const user = guard(req, res); if (!user) return;
+      const b = await readBody(req);
+      const share = store.findShare(String(b.id || ''));
+      if (!share || !visible(share, user) || !store.markDiscarded(share.id, user.id)) return json(res, 404, { error: 'contenido no disponible' });
+      json(res, 200, { ok: true });
     },
     'POST /api/social/shares/delete': async (req, res) => {
       const user = guard(req, res); if (!user) return;
