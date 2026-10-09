@@ -6,6 +6,7 @@
 // only the goal/level/restrictions a trainer declared on the member's plan (or the member told the
 // Coach), the member's own workouts and favourites. Health readings, weight, body fat, pain and
 // check-ins are never used here.
+import { gymRoutineCompatibility, activeGymProfile } from './gym-profiles.js'
 import { validateAgainst2JProtocol, blockTypesOf, CATEGORY_LABEL, TAG_LABEL, TYPE_LABEL, FOCUS_LABEL, LEVEL_LABEL, GOAL_LABEL, LEVELS } from './protocol/index.js'
 
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -45,6 +46,7 @@ export function filterRoutines(list, f = {}, { t = s => s, lookup = () => null }
     if (f.level && r.level !== f.level) return false
     if (f.duration) { const [lo, hi] = DURATIONS[f.duration] || [0, 999]; if (r.estimatedMinutes < lo || r.estimatedMinutes > hi) return false }
     if (f.gear && !gearKinds(r, lookup).includes(f.gear)) return false
+    if (f.goal && r.goal !== f.goal) return false
     if (f.onlyFavorites && !(f.favorites && f.favorites.has(r.id))) return false
     if (words.length) {
       const hay = norm([t(r.name), t(r.subtitle || ''), t(r.description || ''), t(CATEGORY_LABEL[r.category] || ''), r.category,
@@ -139,10 +141,16 @@ function lowerDayRecently(workouts, lookup, now) {
 export function forYou(routines, S, { lookup = () => null, now = Date.now(), max = 6 } = {}) {
   const ctx = memberContext(S)
   const hist = historyStats(S.workouts || [])
-  if (!ctx.level && !ctx.goal && !ctx.restrictions.length && !Object.keys(hist).length) return []
+  // Two more signals, both from the member's own state: the favourites they chose, and the gym they train at (a routine that needs
+  // equipment the active place does not have is not offered; a home or hotel profile says so on the ones that fit it).
+  const favIds = new Set(Array.isArray(S.favRoutines) ? S.favRoutines : [])
+  const gym = activeGymProfile(S)
+  const customGym = gym && gym.type !== 'official'
+  const favCategories = new Set(routines.filter(r => favIds.has(r.id)).map(r => r.category))
+  if (!ctx.level && !ctx.goal && !ctx.restrictions.length && !Object.keys(hist).length && !favIds.size && !customGym) return []
   const skipLower = lowerDayRecently(S.workouts || [], lookup, now)
   const recent = new Set(Object.entries(hist).filter(([, h]) => h.last && (now - new Date(h.last + 'T12:00:00').getTime()) < 3 * 86400e3).map(([id]) => id))
-  const fit = GOAL_FIT[ctx.goal] || null
+  const goalFit = GOAL_FIT[ctx.goal] || null
   const scored = []
   for (const r of routines) {
     if (r.active === false) continue
@@ -150,11 +158,18 @@ export function forYou(routines, S, { lookup = () => null, now = Date.now(), max
     if (restrictionIssues(r, ctx.restrictions, lookup).length) continue
     if (skipLower && r.focus === 'lower' && ['tabata', 'hiit', 'circuit'].includes(r.category)) continue
     if (recent.has(r.id)) continue
+    const fit = gymRoutineCompatibility(S, r)
+    if (fit.level === 'requires') continue
     const reasons = []
+    const own = []                       // why from the member's own choices; listed after the level and the goal
     let score = 0
+    if (customGym && fit.compatible) { score += 1; own.push(['Works at {0}', gym.name]) }
+    if (favIds.has(r.id)) { score += 1.5; own.push(['In your favorites']) }
+    else if (favCategories.has(r.category)) { score += 1; own.push(['Like your favorites']) }
     if (ctx.level && r.level === ctx.level) { score += 2; reasons.push(['For your {0} level', LEVEL_LABEL[ctx.level]]) }
-    if (fit && fit.includes(r.category)) { score += 2 + (fit.length - fit.indexOf(r.category)) / 10; reasons.push(['Fits your goal']) }
+    if (goalFit && goalFit.includes(r.category)) { score += 2 + (goalFit.length - goalFit.indexOf(r.category)) / 10; reasons.push(['Fits your goal']) }
     if (ctx.restrictions.includes('no-jumps') && (r.tags || []).includes('no-jumps')) reasons.push(['No jumps'])
+    reasons.push(...own)
     if (!reasons.length) continue
     reasons.push(['{0} min', r.estimatedMinutes])
     scored.push({ routine: r, reasons, score })

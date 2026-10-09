@@ -4935,4 +4935,11 @@ export default {
   'Identity confirmed with a passkey': 'Identidad confirmada con una passkey',
   'Your passkeys and activity': 'Tus passkeys y actividad',
   'Add, rename or remove passkeys; see what happened to your account.': 'Añade, renombra o elimina passkeys; consulta lo que ha pasado en tu cuenta.',
+  'Fat loss': 'Pérdida de grasa',
+  'Demanding conditioning sessions to go with your strength work. Results also depend on your food and your recovery.': 'Sesiones de acondicionamiento exigentes para acompañar tu trabajo de fuerza. Los resultados también dependen de tu alimentación y tu recuperación.',
+  'Health and movement': 'Salud y movimiento',
+  'Gentle, low-impact sessions to move well every day. Not a treatment: stop if something hurts.': 'Sesiones suaves y de bajo impacto para moverte bien cada día. No es un tratamiento: para si algo duele.',
+  'Works at {0}': 'Encaja en {0}',
+  'In your favorites': 'En tus favoritos',
+  'Like your favorites': 'Parecida a tus favoritos',
 }

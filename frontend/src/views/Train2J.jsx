@@ -38,7 +38,7 @@ const QUICK = [
   { key: 'strength', label: 'Strength', f: { category: 'strength' } },
   { key: 'beginner', label: 'Novice', f: { level: 'beginner' } },
 ]
-const EMPTY = { q: '', category: '', duration: '', level: '', gear: '' }
+const EMPTY = { q: '', category: '', duration: '', level: '', gear: '', goal: '' }
 const active = f => Object.entries(f).some(([k, v]) => v && k !== 'q') || !!f.q?.trim()
 const sameQuick = (f, q) => q.f ? Object.entries(q.f).every(([k, v]) => f[k] === v) && Object.entries(f).filter(([k, v]) => v && k !== 'q').length === Object.keys(q.f).length : !active(f)
 

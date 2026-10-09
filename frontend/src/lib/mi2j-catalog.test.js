@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { saveOfficialRoutine } from './train2j.js'
+import { saveOfficialRoutine, filterRoutines, forYou } from './train2j.js'
+import { EXIDX } from './exercises.js'
+import { gymRoutineCompatibility } from './gym-profiles.js'
 import { saveGuidedProgram, startGuidedProgram, setGuidedProgramStatus, flattenProgramSessions } from './guided-programs.js'
 import { favRoutinesOf, toggleRoutineFav, mergeFavorites, migrateLegacyFavorites } from './routine-favorites.js'
 
@@ -137,5 +139,65 @@ describe('the one-time move of the old per-device favourites', () => {
     expect(run('u3')).toBe('none')
     memory.set('g2j_favs:u4', '{not json')
     expect(run('u4')).toBe('none')
+  })
+})
+
+describe('goal filter and goal collections', () => {
+  const lookup = id => EXIDX[id] || null
+  it('filters by the goal every routine already carries, and combines with the other filters', () => {
+    const all = filterRoutines(ROUTINES, {}, { lookup })
+    expect(all).toHaveLength(155)
+    const muscle = filterRoutines(ROUTINES, { goal: 'hypertrophy' }, { lookup })
+    expect(muscle.length).toBe(ROUTINES.filter(r => r.goal === 'hypertrophy').length)
+    expect(muscle.length).toBeGreaterThan(20); expect(muscle.every(r => r.goal === 'hypertrophy')).toBe(true)
+    expect(filterRoutines(ROUTINES, { goal: 'endurance', category: 'interval' }, { lookup }).every(r => r.goal === 'endurance' && r.category === 'interval')).toBe(true)
+    expect(filterRoutines(ROUTINES, { goal: 'no-such-goal' }, { lookup })).toEqual([])
+    expect(filterRoutines(ROUTINES, { goal: '' }, { lookup })).toHaveLength(155)       // an empty filter is no filter
+  })
+  it('fat loss and health are collections of sessions that really exist; there is no OCR collection because there is no OCR content', () => {
+    const seed = json('guided-official.json')
+    const byId = Object.fromEntries(seed.collections.map(c => [c.id, c]))
+    const rt = Object.fromEntries(ROUTINES.map(r => [r.id, r]))
+    const fat = byId['c2j-fatloss'], health = byId['c2j-health']
+    expect(fat.routineIds.length).toBeGreaterThan(20)
+    expect(fat.routineIds.every(id => ['tabata', 'hiit', 'circuit', 'interval'].includes(rt[id].category) && rt[id].estimatedMinutes >= 15 && rt[id].estimatedMinutes <= 30)).toBe(true)
+    expect(health.routineIds.length).toBeGreaterThan(20)
+    expect(health.routineIds.every(id => rt[id].tags.includes('low-impact') && rt[id].level === 'beginner')).toBe(true)
+    expect(seed.collections.some(c => /ocr|obstacle/i.test(c.id + c.name))).toBe(false)
+    expect(seed.collections.slice(0, 2).map(c => c.id)).toEqual(['c2j-fatloss', 'c2j-health'])
+    for (const c of [fat, health]) expect(JSON.stringify(c)).not.toMatch(/guarante|garant|cure|cura|lose \d|perder \d/i)
+  })
+})
+
+describe('"For you" with the gym and the favourites', () => {
+  const lookup = id => EXIDX[id] || null
+  const ids = out => out.map(x => x.routine.id)
+  const base = () => ({ workouts: [], routines: [], programs: [], coach: { profile: { goal: 'fatloss', experience: 'new' } } })
+  it('without context, favourites or a custom gym, it is still empty — nothing is invented', () => {
+    expect(forYou(ROUTINES, { workouts: [], routines: [], programs: [] }, { lookup })).toEqual([])
+  })
+  it('a favourite is offered back with the reason, and similar sessions say why', () => {
+    const hiit = ROUTINES.find(r => r.category === 'hiit' && r.level === 'beginner')
+    const S = { ...base(), favRoutines: [hiit.id] }
+    const out = forYou(ROUTINES, S, { lookup, max: 12 })
+    const mine = out.find(x => x.routine.id === hiit.id)
+    expect(mine?.reasons.map(r => r[0])).toContain('In your favorites')
+    const similar = out.filter(x => x.routine.id !== hiit.id && x.routine.category === 'hiit')
+    for (const x of similar) expect(x.reasons.map(r => r[0])).toContain('Like your favorites')
+    // favourites alone are a signal: no level, no goal, no history, and still a row
+    expect(forYou(ROUTINES, { workouts: [], routines: [], programs: [], favRoutines: [hiit.id] }, { lookup }).length).toBeGreaterThan(0)
+  })
+  it('the active place decides what fits: a routine that needs other equipment is never offered, and the place is named', () => {
+    const S = { ...base(), gymProfiles: { activeId: 'home' } }
+    const out = forYou(ROUTINES, S, { lookup, max: 12 })
+    expect(out.length).toBeGreaterThan(0)
+    for (const x of out) {
+      expect(gymRoutineCompatibility(S, x.routine).level).not.toBe('requires')
+      if (gymRoutineCompatibility(S, x.routine).compatible) expect(x.reasons.some(r => r[0] === 'Works at {0}')).toBe(true)
+    }
+    const official = forYou(ROUTINES, base(), { lookup, max: 12 })
+    expect(official.every(x => !x.reasons.some(r => r[0] === 'Works at {0}'))).toBe(true)       // the official gym fits everything: nothing to say
+    // the explicit signals are deterministic
+    expect(ids(forYou(ROUTINES, S, { lookup, max: 12 }))).toEqual(ids(out))
   })
 })
