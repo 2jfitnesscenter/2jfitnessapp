@@ -341,7 +341,7 @@ Invoke-Checked 'WORKOUT_ACTIVITY_MODEL' $Root 'node scripts/sync-workout-activit
 Invoke-Checked 'STARTING_LOAD_TESTS' $Frontend 'npm test -- --run src/lib/starting-load.test.js src/lib/workout-activity.test.js' @('26 passed')
 Invoke-Checked 'BUNKER_TESTS' $Frontend 'npm test -- --run src/lib/bunker-workout.test.js src/lib/bunker-persistence.test.js src/lib/bunker-credentials.test.js' @('24 passed')
 Invoke-Checked 'OFFICIAL_BLOCKS' $Root 'node scripts/build-official-blocks.mjs --check' @('in sync: 198 blocks')
-Invoke-Checked 'OFFICIAL_ROUTINES' $Root 'node scripts/build-official-routines.mjs --check' @('in sync: 155 routines, 15 collections')
+Invoke-Checked 'OFFICIAL_ROUTINES' $Root 'node scripts/build-official-routines.mjs --check' @('in sync: 155 routines, 17 collections')
 Invoke-Checked 'COACH_LIBRARY' $Root 'node scripts/build-coach-library.mjs --check' @('in sync \(1324 exercises\)')
 # Exercise Library V2: integrity (ids, taxonomy, deprecations, aliases, Recommended 2J) and the
 # reproducible audit, with the exact metrics of this HEAD.
