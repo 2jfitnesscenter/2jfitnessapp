@@ -54,6 +54,8 @@ function payload() {
   try { return JSON.parse(m[1]); } catch { return {}; }
 }
 const P = payload();
+// The payload's library is a compact table ({ columns, rows }); the fixture reads ids and names from its rows.
+const LIB = Array.isArray(P.library) ? P.library : (P.library?.rows || []).map(([id, n, mv, eq, muscleGroup]) => ({ id, n, mv, eq, muscleGroup }));
 const kind = P.task || (/change-set/i.test(prompt) ? 'review' : 'create');
 
 if (MODE === 'nochange' || (kind === 'review' && !(P.window?.workouts || []).length)) {
@@ -64,9 +66,9 @@ if (MODE === 'nochange' || (kind === 'review' && !(P.window?.workouts || []).len
 // and is repaired, one that reuses an official block, and a review that would break it.
 const protocolFail = MODE === 'protocol-fail' || (MODE === 'protocol-fail-then-valid' && !isRepair);
 if (kind === 'create' && protocolFail) {
-  const id = (P.library || [])[0]?.id || '0294';
+  const id = LIB[0]?.id || '0294';
   out({ coach_contract: 1, '2jfitness_plan': 1, name: 'All out', summary: 'Everything to failure.', basedOn: 'n/a', week: { 1: 'r1' },
-    routines: [{ id: 'r1', name: 'Max', emoji: '💥', ex: [{ id, sets: 3, reps: 10, mode: 'reps', rpe: [10, 10, 10] }, { id: (P.library || [])[1]?.id || '0201', sets: 3, reps: 12, mode: 'reps', rpe: [10, 10, 10] }] }], customEx: [] });
+    routines: [{ id: 'r1', name: 'Max', emoji: '💥', ex: [{ id, sets: 3, reps: 10, mode: 'reps', rpe: [10, 10, 10] }, { id: LIB[1]?.id || '0201', sets: 3, reps: 12, mode: 'reps', rpe: [10, 10, 10] }] }], customEx: [] });
 }
 if (kind === 'create' && MODE === 'use-blocks') {
   const block = (P.protocol?.officialBlocks || [])[0];
@@ -80,7 +82,7 @@ if (kind === 'review' && MODE === 'review-protocol-fail') {
 }
 
 if (kind === 'create') {
-  const lib = (P.library || []).slice(0, 6);
+  const lib = LIB.slice(0, 6);
   const ex = (i) => lib[i % Math.max(1, lib.length)] || { id: 'unknown' };
   out({
     coach_contract: 1,

@@ -45,7 +45,8 @@ test('review payload carries the plan, the window, effort and aggregates', () =>
   assert.equal(p.userNote, 'shoulder pinches');
   assert.equal(p.meta.effortScale, 'rpe');
   assert.ok(p.aggregates.adherence.plannedPerWeek === 3);
-  assert.ok(Array.isArray(p.library) && p.library.length > 0);
+  assert.deepEqual(p.library.columns, ['id', 'name', 'movement', 'equipment', 'muscleGroup', 'flags']);
+  assert.ok(Array.isArray(p.library.rows) && p.library.rows.length > 0);
 });
 
 test('excluded workouts count for attendance but never enter Coach performance evidence', () => {
