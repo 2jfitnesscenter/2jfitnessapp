@@ -1,5 +1,11 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Mis métricas V1 (candidato; NO desplegado; producción `33dbad7`)
+
+- Rama `codex/my-metrics-v1`. **Reutiliza `S.ux`** (sin sistema paralelo): `S.ux.progress = { order?: string[], hidden?: string[] }`, opcional; ausente = comportamiento anterior. Catálogo y lectura en `lib/progress-cards.js` (`visibleProgressCards`, `progressOrder`, `recommendedFor`); `Stats.jsx` dibuja los bloques por catálogo conservando las puertas de cada uno; configurador en `ExperienceSetup.jsx` (sección "Página de Progreso" + "Restaurar configuración recomendada"). El objetivo (`S.coach.profile.goal`) solo se consulta al aplicar preset/restaurar; nunca al leer.
+- Peso: `lib/bodyweight.js` es el único lector (`lastBW` ahora lo envuelve). Integraciones: `/health/integrations` canónica; `ConnectedApps.jsx` solo redirige. Tests: `bodyweight.test.js`, `progress-cards.test.js`, `my-metrics.test.jsx`.
+- Salud: el gráfico de peso ya no se repite (resumen + enlace) y la nota "estimaciones del aparato" sale una vez. No se tocó Inicio.
+
 ## Hotfix iOS barra inferior (candidato; NO desplegado; producción `75abb50`)
 
 - Causa por descarte (medida en Chromium; WebKit no disponible): scroller = window, la barra ya era `fixed` y hermana de `#app`, sin transform/filter/contain/will-change en ancestros; lo único sospechoso era `overflow-x:clip` en `html` Y `body` (se propaga al viewport). Fix: sin overflow en raíz, clip en `#root`, `100dvh`, capa propia de la barra. Prueba estructural `ios-tabbar.test.jsx`; checklist de dispositivo real en `docs/IOS_TABBAR_QA.md`. Si en iPhone sigue moviéndose, el siguiente paso sería un app-shell con scroll interno.

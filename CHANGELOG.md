@@ -1,5 +1,12 @@
 # Changelog
 
+### Mis métricas V1 — candidato, NO desplegado
+
+- La página de Progreso es un catálogo cerrado de 11 bloques (destacados, último entreno y recuperación, composición, peso, mapa de actividad, músculos y volumen, línea de tiempo, tests de cardio, esfuerzo y zonas, progreso por ejercicio, salud y WHOOP). El socio los muestra/oculta y los sube/baja desde Ajustes → Personalizar mi experiencia. Se guarda en `S.ux.progress` (campos opcionales, aditivo): sin `S.ux` o sin el campo, la página es exactamente la de siempre. Cabecera, portada del periodo, seguimiento y entrenos recientes son estructurales.
+- "Restaurar configuración recomendada" y los presets aplican, solo en esa acción, el orden y las funciones según el objetivo conocido (hipertrofia, pérdida de grasa, fuerza, salud); después mandan las preferencias del socio y el objetivo no vuelve a mover nada.
+- Peso: un único lector (`lib/bodyweight.js`: serie ordenada por fecha, último, anterior, ignora valores inválidos) usado por Progreso, Salud, Perfil, energía, medidas y seguimiento; `S.bodyweight` sigue siendo la única fuente. Progreso tiene el gráfico principal; Salud muestra un resumen que enlaza a él (o a Medidas si el bloque está oculto). Se elimina `BodyWeightCard` (sin consumidores).
+- Integraciones: Salud → Integraciones es la única pantalla (WHOOP, Strava, reloj, sensor); "Apps conectadas" se retira de Ajustes y `/connected-apps` solo reenvía el retorno de WHOOP/Strava. Nombre real de la fuente de salud (Apple Health / Health Connect) y sin importación de Apple en Android. Copys corregidos (recordatorio de bioimpedancia, "registrar peso").
+
 ### Hotfix iOS: barra inferior fija — candidato, NO desplegado
 
 - La barra de navegación inferior seguía moviéndose con el contenido en iPhone. Sin `overflow` en `html`/`body` (se propagaba al viewport y en iOS deja que lo fijo se desplace); el recorte horizontal pasa a `#root`. `min-height:100dvh` con fallback, capa propia para la barra y safe-area sin duplicar. Escritorio (píldora centrada) y Android sin cambios. Verificado en Chromium; la comprobación en iPhone real queda en `docs/IOS_TABBAR_QA.md`.

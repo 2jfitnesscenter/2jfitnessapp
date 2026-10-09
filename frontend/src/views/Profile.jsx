@@ -23,6 +23,7 @@ import { uxOn } from '../lib/features.js'
 import StaffBadge from '../components/StaffBadge.jsx'
 import { bunkerPinSheet } from '../sheets.jsx'
 import { fetchBunkerLaunchLink } from '../lib/bunker-api.js'
+import { getBridge, platformLabel } from '../lib/health-bridge.js'
 
 // A quiet "more" group: the secondary parts of the profile stay one tap away instead of making a long form.
 function Disclosure({ icon, title, sub, children }) {
@@ -142,7 +143,7 @@ export default function Profile() {
     {(uxOn(S, 'bioimpedance') || uxOn(S, 'health')) && <Disclosure icon="heart" title={t('Body & health')} sub={t('Measurements and daily activity')}>
       <Section>
       {uxOn(S, 'bioimpedance') && <Row icon="figureStrength" iconTint="var(--acc)" title={t('Measurements')} subtitle={t('Body composition & tape measurements over time')} accessory="chevron" onClick={() => nav('/measurements')} />}
-      {uxOn(S, 'health') && <Row icon="heart" iconTint="var(--red)" title={t('Health')} subtitle={t('Steps, sleep and heart rate from Apple Health')} accessory="chevron" onClick={() => nav('/health')} />}
+      {uxOn(S, 'health') && <Row icon="heart" iconTint="var(--red)" title={t('Health')} subtitle={t('Steps, sleep and heart rate from {0}', t(platformLabel(getBridge())))} accessory="chevron" onClick={() => nav('/health')} />}
       </Section>
     </Disclosure>}
 

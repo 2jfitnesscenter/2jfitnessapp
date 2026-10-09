@@ -16,6 +16,7 @@ import { rankSnapshot, nextRankOf, rankProgress } from '../lib/mi2j.js'
 import Icon from '../components/Icon.jsx'
 import BodyMap from '../components/BodyMap.jsx'
 import { Button } from '../components/ui.jsx'
+import { bwSheet } from '../sheets.jsx'
 
 function RankBadge({ rank, small }) {
   if (!rank) return <span className="dim small">{t('No data yet')}</span>
@@ -103,7 +104,7 @@ export default function Rank() {
       <div className="m2-empty-ic"><Icon name="shield" /></div>
       <div className="tt">{t('Log your bodyweight to see your strength rank')}</div>
       <div className="muted small">{t('Ranks compare your best sets with your bodyweight, lift by lift. Your normal working sets are enough.')}</div>
-      <Button onClick={() => nav('/home')}>{t('Log bodyweight on Home')}</Button>
+      <Button icon="scale" onClick={() => bwSheet()}>{t('Log my weight')}</Button>
     </div>
   </div>
 

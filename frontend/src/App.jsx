@@ -305,7 +305,7 @@ function Shell() {
               <Route path="/measurements/folds" element={<Feat k="bioimpedance"><SkinfoldsScreen /></Feat>} />
               <Route path="/measurements/body" element={<Feat k="bioimpedance"><BodyMeasurementsScreen /></Feat>} />
               <Route path="/health" element={<Feat k="health"><Health /></Feat>} />
-              <Route path="/health/integrations" element={<Feat k="health"><HealthIntegrations /></Feat>} />
+              <Route path="/health/integrations" element={<HealthIntegrations />} />
               <Route path="/recovery" element={<Feat k="recovery"><Recovery /></Feat>} />
               <Route path="/rank" element={<Rank />} />
               <Route path="/badges" element={<Badges />} />
