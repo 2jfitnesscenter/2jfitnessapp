@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
-import { PRESETS, configurable, currentUses, makeUx } from '../lib/features.js'
+import { PRESETS, configurable, currentUses, makeUx, allowedByAdmin } from '../lib/features.js'
+import { PROGRESS_CARDS, normalizeProgress, progressOrder, progressChoice, recommendedFor } from '../lib/progress-cards.js'
+import { orderedBodyWeightSeries } from '../lib/bodyweight.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Switch } from '../components/ui.jsx'
 import './experience.css'
@@ -66,6 +68,33 @@ function Presets({ onPick, active }) {
 }
 
 // Which preset the current choices equal (for the highlight), looking only at what is configurable.
+// A Progress block is offered when the feature behind it is on (the member's own switch above AND the gym's), so there is never a row that does nothing.
+const cardOffered = (card, uses) => !card.feature || (uses[card.feature] !== false && allowedByAdmin(card.feature))
+
+function ProgressLayout({ layout, setLayout, uses }) {
+  const listed = layout.order.filter(id => cardOffered(PROGRESS_CARDS.find(c => c.id === id), uses))
+  const move = (id, dir) => setLayout(l => {
+    const L = l.order.filter(i => cardOffered(PROGRESS_CARDS.find(c => c.id === i), uses))
+    const a = L.indexOf(id), b = a + dir
+    if (a < 0 || b < 0 || b >= L.length) return l
+    const order = [...l.order]; const pa = order.indexOf(L[a]), pb = order.indexOf(L[b]); [order[pa], order[pb]] = [order[pb], order[pa]]
+    return { ...l, order }
+  })
+  const toggle = (id, on) => setLayout(l => ({ ...l, hidden: on ? l.hidden.filter(h => h !== id) : [...l.hidden, id] }))
+  return <div className="ux-pc">
+    {listed.map((id, i) => {
+      const c = PROGRESS_CARDS.find(x => x.id === id), on = !layout.hidden.includes(id)
+      return <div key={id} className={'ux-pc-row' + (on ? '' : ' off')}>
+        <span className="ux-ico"><Icon name={c.icon} /></span>
+        <span className="ux-pc-t">{t(c.label)}</span>
+        <button type="button" className="iconbtn ux-pc-mv" disabled={i === 0} onClick={() => move(id, -1)} aria-label={t('Move up: {0}', t(c.label))}><Icon name="arrowUp" /></button>
+        <button type="button" className="iconbtn ux-pc-mv" disabled={i === listed.length - 1} onClick={() => move(id, 1)} aria-label={t('Move down: {0}', t(c.label))}><Icon name="arrowDown" /></button>
+        <Switch checked={on} onChange={v => toggle(id, v)} />
+      </div>
+    })}
+  </div>
+}
+
 const presetOf = (uses, keys) => PRESET_CARDS.find(p => keys.every(k => (PRESETS[p.id][k] !== false) === (uses[k] !== false)))?.id || null
 
 export default function ExperienceSetup({ mode = 'settings' }) {
@@ -78,11 +107,19 @@ export default function ExperienceSetup({ mode = 'settings' }) {
   const keys = groups.flatMap(g => g.items.map(i => i.key))
   const [uses, setUses] = useState(() => onboarding ? { ...currentUses(S), ...PRESETS.balanced } : currentUses(S))
   const [step, setStep] = useState(0)          // onboarding: 0 = presets, 1..n = groups
+  // The Progress-page layout being edited: the saved one, or the default when never touched (S.ux.progress absent).
+  const [layout, setLayout] = useState(() => ({ order: progressOrder(S), hidden: normalizeProgress(S.ux?.progress).hidden }))
   const set = (k, v) => setUses(u => ({ ...u, [k]: v }))
-  const pick = id => setUses(u => ({ ...u, ...PRESETS[id] }))
+  // Applying a preset (or restoring the recommended settings) is the ONLY moment the member's goal shapes the layout; afterwards their choices rule.
+  const recommend = id => {
+    const r = recommendedFor(S, PRESETS[id], { minimal: id === 'simple', logged: { bodyweight: orderedBodyWeightSeries(S).length > 0 } })
+    setUses(u => ({ ...u, ...r.uses }))
+    setLayout({ order: progressOrder({ ux: { progress: r.progress } }), hidden: [] })
+  }
+  const pick = recommend
 
   const save = () => {
-    update(s => { s.ux = makeUx(uses); s.uxSetup = false; s.uxInviteDismissed = true })
+    update(s => { s.ux = makeUx(uses, Date.now(), { progress: progressChoice(layout.order, layout.hidden) }); s.uxSetup = false; s.uxInviteDismissed = true })
     if (!onboarding) nav('/settings')
   }
   const skip = () => update(s => { s.uxSetup = false })   // keeps everything on (S.ux stays null)
@@ -97,8 +134,12 @@ export default function ExperienceSetup({ mode = 'settings' }) {
     : <>
       <h4 className="sec">{t('Start from')}</h4>
       <Presets onPick={pick} active={presetOf(uses, keys)} />
+      <Button size="sm" variant="plain" icon="reset" onClick={() => recommend(presetOf(uses, keys) || 'balanced')}>{t('Restore recommended settings')}</Button>
       {groups.map(g => <div key={g.id}><h4 className="sec">{t(g.title)}</h4>
         <div className="ux-list">{g.items.map(i => <PrefCard key={i.key} item={i} on={uses[i.key] !== false} onChange={v => set(i.key, v)} />)}</div></div>)}
+      <h4 className="sec">{t('Progress page')}</h4>
+      <p className="ux-lead" style={{ margin: '0 0 8px' }}>{t('Show or hide each block and put them in the order you like.')}</p>
+      <ProgressLayout layout={layout} setLayout={setLayout} uses={uses} />
       <p className="ux-foot">{t('Nothing is deleted: turning something off only hides it, and your data stays. Your gym may also switch some features off for everyone.')}</p>
     </>
 
