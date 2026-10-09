@@ -119,6 +119,18 @@ export function DevicesSection() {
   </Section>
 }
 
+export function LinkDeviceSection() {
+  const nav = useNavigate()
+  const [id, setId] = useState('')
+  return <Section title={t('Link another device')} footer={t('On the device you want to sign in, choose “Sign in with a QR code”, then scan it with this phone. If scanning is not possible, type the link code shown there.')}>
+    <div style={{ padding: '10px 14px', display: 'grid', gap: 8 }}>
+      <label className="muted small" htmlFor="link-id">{t('Link code')}</label>
+      <input className="input" id="link-id" autoCapitalize="characters" autoComplete="off" maxLength={10} value={id} onChange={e => setId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} placeholder="ABCDE23456" />
+      <Button icon="key" disabled={id.length !== 10} onClick={() => nav('/link/' + id)}>{t('Continue')}</Button>
+    </div>
+  </Section>
+}
+
 export function ActivitySection() {
   const [events, setEvents] = useState(null)
   useEffect(() => { fetchSecurityEvents().then(setEvents).catch(() => setEvents([])) }, [])
@@ -138,6 +150,7 @@ export default function SecuritySettings() {
     <div className="hdr"><button className="back" onClick={() => nav('/settings')} aria-label={t('Back')}><Icon name="chevronLeft" /></button><h1>{t('Security')}</h1></div>
     <PasskeysSection />
     <DevicesSection />
+    <LinkDeviceSection />
     <ActivitySection />
   </div>
 }

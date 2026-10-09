@@ -36,6 +36,7 @@ import History from './views/History.jsx'
 import Settings from './views/Settings.jsx'
 import SharedStaffSettings from './views/SharedStaffSettings.jsx'
 import SecuritySettings from './views/SecuritySettings.jsx'
+import LinkApprove from './views/LinkApprove.jsx'
 import TrainingSettings from './views/TrainingSettings.jsx'
 import StatsSettings from './views/StatsSettings.jsx'
 import RpVolumeCalibration from './views/RpVolumeCalibration.jsx'
@@ -292,6 +293,7 @@ function Shell() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/shared-staff" element={<SharedStaffSettings />} />
               <Route path="/settings/security" element={<SecuritySettings />} />
+              <Route path="/link/:id" element={<LinkApprove />} />
               <Route path="/settings/training" element={<TrainingSettings />} />
               <Route path="/settings/stats" element={<StatsSettings />} />
               <Route path="/settings/experience" element={<ExperienceSetup />} />

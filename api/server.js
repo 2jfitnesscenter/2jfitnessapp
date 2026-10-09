@@ -61,6 +61,7 @@ import { encrypt as encryptAtRest, decrypt as decryptAtRest } from './lib/crypto
 import { markReviewed, setCycleDates, markProgramReviewed, setProgramCycleDates, routineReviews } from './lib/routine-review.js';
 import { appendSecurityEvent, eventsFor, eventsForAdmin } from './lib/security-audit.js';
 import { deviceLabel, cleanName } from './lib/device-labels.js';
+import { createLinkStore } from './lib/device-link.js';
 import { appendSharedAudit, createPinLimiter, hashStaffPin, publicStaffUsers, validateStaffPin, verifyStaffPin } from './lib/shared-staff.js';
 import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 
@@ -681,6 +682,10 @@ const credHandle = id => crypto.createHash('sha256').update(String(id)).digest('
 const passkeyView = c => ({ id: credHandle(c.id), name: c.name || null, createdAt: c.createdAt || null, lastUsedAt: c.lastUsedAt || null, transports: c.transports || [], legacy: !c.createdAt });
 const MAX_PASSKEYS = 10;
 
+// Device linking by QR (lib/device-link.js): pending links live in memory only, three minutes, approved once, claimed once.
+const deviceLinks = createLinkStore();
+setInterval(() => deviceLinks.sweep(), 60000).unref();
+
 // Verify routes count only failed attempts (any 4xx/5xx the handler answers with).
 const verifyGate = handler => async (req, res) => {
   const ip = authGate(req, res, authLimits.verify);
@@ -1273,6 +1278,47 @@ const routes = {
     saveDb();
     json(res, 200, { ok: true, endedSessions, passkeys: db.creds.filter(c => c.userId === user.id).map(passkeyView) });
   },
+  /* ---------- link a device with a QR code ---------- */
+  // Device A, signed out: asks for a link and gets a public id (for the QR), a four-digit code to show, and a secret only it keeps.
+  'POST /api/link/start': async (req, res) => {
+    if (!challengeGate(req, res)) return;
+    const link = deviceLinks.start({ platform: deviceLabel(req.headers['user-agent']) });
+    if (!link) return json(res, 503, { error: 'servicio ocupado; inténtalo en un momento' }, { 'Retry-After': '30' });
+    json(res, 200, link);
+  },
+  // Device B, signed in with a passkey: what it is being asked to approve (the platform of A and how long is left) — never the code or the secret.
+  'GET /api/link/info': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const ip = authGate(req, res, authLimits.verify); if (!ip) return;
+    const info = deviceLinks.info(new URL(req.url, 'http://x').searchParams.get('id') || '');
+    if (!info) { authLimits.verify.fail(ip); return json(res, 404, { error: 'este enlace no existe o ha caducado' }); }
+    json(res, 200, info);
+  },
+  // B approves: a fresh passkey step-up for the purpose, plus the code shown on A. Three wrong codes end the link.
+  'POST /api/link/approve': verifyGate(async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    if (!stepUpValid(req, user, 'device-link')) return json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
+    const body = await readBody(req);
+    const r = deviceLinks.approve(String(body.id || ''), user.id, body.code);
+    if (r.error) return json(res, r.status, { error: r.error === 'wrong_code' ? 'el código no coincide' : r.error === 'denied' ? 'demasiados intentos; empieza de nuevo en el otro dispositivo' : r.error === 'taken' ? 'este enlace ya se aprobó' : 'este enlace no existe o ha caducado', code: r.error, ...(r.triesLeft != null ? { triesLeft: r.triesLeft } : {}) });
+    json(res, 200, { ok: true });
+  }),
+  // Device A polls with its secret. Pending → 202; approved → a normal session of the approver's account, handed out once.
+  'POST /api/link/claim': verifyGate(async (req, res) => {
+    const body = await readBody(req);
+    const r = deviceLinks.claim(String(body.id || ''), body.secret);
+    if (r.error) return json(res, r.status, { error: 'este enlace no es válido', code: r.error });
+    if (r.status === 'pending') return json(res, 202, { status: 'pending' });
+    const user = db.users.find(u => u.id === r.userId);
+    if (!user || user.disabled) return json(res, 403, { error: 'esta cuenta no está disponible' });
+    secEvent('device_linked', { userId: user.id, meta: { platform: r.platform, kind: 'qr' } });
+    const cookie = newSession(req, user, { via: 'qr' });
+    json(res, 200, { user: {
+      id: user.id, name: user.name, username: user.username || null, created: user.created || null, avatar: user.avatar || null,
+      admin: isAdmin(user), trainer: isTrainer(user), strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
+    } }, { 'Set-Cookie': cookie });
+  }),
+
   /* ---------- the member's own sessions / devices ---------- */
   'GET /api/me/sessions': async (req, res) => {
     const user = requirePasskeySession(req, res); if (!user) return;

@@ -40,3 +40,35 @@ export const EVENT_LABEL = {
   passkey_renamed: 'Passkey renamed', passkey_revoked: 'Passkey removed', role_changed: 'Role changed', account_disabled: 'Account disabled',
   account_enabled: 'Account enabled', logout_all: 'Signed out everywhere', session_revoked: 'Session ended', device_linked: 'Device linked', step_up: 'Identity confirmed with a passkey',
 }
+
+/* ---------- link a device with a QR code ---------- */
+// Device A (signed out) starts a link, shows the QR and waits; device B (signed in) approves it. See api/lib/device-link.js.
+export const linkStart = () => post('/api/link/start')
+export const linkClaim = (id, secret) => post('/api/link/claim', { id, secret })
+export const linkInfo = id => api('/api/link/info?id=' + encodeURIComponent(id))
+export const linkUrl = id => `${location.origin}/#/link/${id}`
+/** Device B: confirms with a passkey (step-up for this purpose) and sends the code shown on A. */
+export async function approveLink(id, code) {
+  const { token } = await stepUp('device-link')
+  return post('/api/link/approve', { id, code }, { 'X-Step-Up': token })
+}
+
+/**
+ * Waits for device B to approve. Resolves { user } once approved, or { ended: 'expired' | 'denied' | 'cancelled' } when the link can no longer work.
+ * `claim` answers { status: 'pending' } while waiting (HTTP 202) and { user } when approved; a refused claim throws with the server's code.
+ */
+export async function waitForLink({ id, secret, expiresAt, claim = linkClaim, sleep = ms => new Promise(r => setTimeout(r, ms)), now = Date.now, every = 2000, cancelled = () => false, onTick }) {
+  while (!cancelled()) {
+    if (now() > expiresAt) return { ended: 'expired' }
+    try {
+      const r = await claim(id, secret)
+      if (r?.user) return { user: r.user }
+    } catch (e) {
+      const code = e?.data?.code
+      return { ended: code === 'denied' ? 'denied' : 'expired' }
+    }
+    onTick?.(Math.max(0, Math.ceil((expiresAt - now()) / 1000)))
+    await sleep(every)
+  }
+  return { ended: 'cancelled' }
+}

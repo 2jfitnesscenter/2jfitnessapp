@@ -130,3 +130,34 @@ describe('your devices', () => {
     expect(calls).toEqual([{ path: '/api/me/sessions/revoke', method: 'POST', headers: null, body: { id: 's2' } }])
   })
 })
+
+describe('QR linking on the client', () => {
+  const link = { id: 'ABCDE23456', secret: 's', code: '1234', expiresAt: 100_000 }
+  const run = (claim, extra = {}) => sec.waitForLink({ ...link, claim, sleep: async () => {}, every: 1, now: () => 1000, ...extra })
+  it('keeps asking while it is pending, then returns the signed-in person once, with a tick each time', async () => {
+    const ticks = []
+    let n = 0
+    const out = await run(async () => (++n < 4 ? { status: 'pending' } : { user: { id: 'u1', name: 'Ana' } }), { onTick: s => ticks.push(s) })
+    expect(out).toEqual({ user: { id: 'u1', name: 'Ana' } })
+    expect(n).toBe(4); expect(ticks).toHaveLength(3)
+  })
+  it('stops for good when the link is refused, denied or out of time, and when the person cancels', async () => {
+    expect(await run(async () => { const e = new Error('x'); e.data = { code: 'denied' }; throw e })).toEqual({ ended: 'denied' })
+    expect(await run(async () => { const e = new Error('x'); e.data = { code: 'used' }; throw e })).toEqual({ ended: 'expired' })
+    expect(await run(async () => ({ status: 'pending' }), { now: () => 200_000 })).toEqual({ ended: 'expired' })
+    let calls = 0
+    expect(await run(async () => { calls++; return { status: 'pending' } }, { cancelled: () => calls >= 2 })).toEqual({ ended: 'cancelled' })
+  })
+  it('approving confirms with a passkey for this purpose first, then sends the code with the step-up header', async () => {
+    await sec.approveLink('ABCDE23456', '1234')
+    expect(calls.map(c => c.path)).toEqual(['/api/me/step-up/options', '/api/me/step-up', '/api/link/approve'])
+    expect(calls[1].body.purpose).toBe('device-link')
+    expect(calls[2].headers['X-Step-Up']).toBe('tok-1'); expect(calls[2].body).toEqual({ id: 'ABCDE23456', code: '1234' })
+  })
+  it('every string of the linking screens exists in Spanish', () => {
+    const es = readFileSync(new URL('../locales/es.js', import.meta.url), 'utf8')
+    const keys = ['../components/LinkDevice.jsx', './LinkApprove.jsx', './SecuritySettings.jsx', './Login.jsx'].flatMap(f => [...readFileSync(new URL(f, import.meta.url), 'utf8').matchAll(/\bt\(\s*'((?:[^'\\]|\\.)*)'/g)].map(m => m[1].replace(/\\'/g, "'")))
+    expect(keys.length).toBeGreaterThan(40)
+    expect([...new Set(keys)].filter(k => !es.includes("'" + k.replace(/'/g, "\\'") + "':"))).toEqual([])
+  })
+})
