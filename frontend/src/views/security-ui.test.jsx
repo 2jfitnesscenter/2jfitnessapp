@@ -109,3 +109,24 @@ describe('the screen', () => {
     expect(h).toContain('Your passkeys'); expect(h).toContain('Recent security activity')
   })
 })
+
+describe('your devices', () => {
+  const here = { id: 's1', platform: 'Android · Chrome', via: 'passkey', createdAt: '2026-10-01T08:00:00.000Z', lastUsedAt: '2026-10-09T09:00:00.000Z', current: true }
+  const other = { ...here, id: 's2', platform: 'Windows · Edge', via: 'qr', current: false }
+  it('shows platform, when it was created and last used, marks this device, and offers to end only the others', async () => {
+    await i18n.setLang('en')
+    const a = render(<mod.SessionRow s={here} onEnd={() => {}} />)
+    expect(a).toContain('Android · Chrome'); expect(a).toContain('This device'); expect(a).toContain('Last used'); expect(a).not.toContain('Sign out</button>')
+    const b = render(<mod.SessionRow s={other} onEnd={() => {}} />)
+    expect(b).toContain('Windows · Edge'); expect(b).toContain('Linked with a QR code'); expect(b).toContain('Sign out</button>'); expect(b).not.toContain('This device')
+    expect(b).not.toMatch(/NaN|undefined|Invalid Date/)
+  })
+  it('speaks Spanish', async () => {
+    await i18n.setLang('es')
+    expect(render(<mod.SessionRow s={other} onEnd={() => {}} />)).toContain('Vinculado con un código QR')
+  })
+  it('ending one device is a single call with its id and nothing else', async () => {
+    await sec.revokeSession('s2')
+    expect(calls).toEqual([{ path: '/api/me/sessions/revoke', method: 'POST', headers: null, body: { id: 's2' } }])
+  })
+})

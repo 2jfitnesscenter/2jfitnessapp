@@ -11,7 +11,7 @@ import { useUI } from '../store/useUI.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { confirmSheet } from '../sheets.jsx'
 import { webauthnOK } from '../lib/api.js'
-import { listPasskeys, addPasskey, renamePasskey, revokePasskey, fetchSecurityEvents, EVENT_LABEL } from '../lib/security-api.js'
+import { listPasskeys, addPasskey, renamePasskey, revokePasskey, listSessions, revokeSession, fetchSecurityEvents, EVENT_LABEL } from '../lib/security-api.js'
 
 export const when = iso => {
   const d = iso ? new Date(iso) : null
@@ -80,6 +80,45 @@ export function PasskeysSection() {
   </Section>
 }
 
+const VIA_LABEL = { qr: 'Linked with a QR code', recovery: 'Started by a recovery' }
+
+export function SessionRow({ s, onEnd }) {
+  const subtitle = [t('Signed in {0}', when(s.createdAt)), t('Last used {0}', when(s.lastUsedAt)), s.via && VIA_LABEL[s.via] ? t(VIA_LABEL[s.via]) : null].filter(Boolean).join(' · ')
+  return <div className="lrow sec-pk" data-session={s.id}>
+    <span className="lrow-i" style={{ '--tint': 'var(--blue)' }}><Icon name="globe" /></span>
+    <span className="lrow-m">
+      <span className="lrow-t">{s.platform}{s.current && <i className="set-pill">{t('This device')}</i>}</span>
+      <span className="lrow-s">{subtitle}</span>
+    </span>
+    {!s.current && <span className="sec-acts"><button className="btn plain" onClick={() => onEnd(s)}>{t('Sign out')}</button></span>}
+  </div>
+}
+
+export function DevicesSection() {
+  const toast = useUI(s => s.toast)
+  const signOutAll = useStore(s => s.signOutAll)
+  const nav = useNavigate()
+  const [data, setData] = useState(null)
+  const load = async () => { try { setData(await listSessions()) } catch { setData({ sessions: [], thisSessionListed: true }) } }
+  useEffect(() => { load() }, [])
+  const end = s => confirmSheet({
+    title: t('Sign out this device?'), message: t('{0} will be signed out. Your passkeys keep working — it can sign in again with one.', s.platform),
+    confirmText: t('Sign out'), danger: true,
+    onConfirm: async () => { try { await revokeSession(s.id); toast(t('Device signed out')); await load() } catch (e) { toast(e.message || t('Could not sign out this device')) } },
+  })
+  const everywhere = () => confirmSheet({
+    title: t('Sign out everywhere?'), message: t('Signs this profile out on every device, including this one. Your passkeys keep working — sign in with them again anytime.'),
+    confirmText: t('Sign out everywhere'), danger: true,
+    onConfirm: async () => { try { await signOutAll(); nav('/home'); toast(t('Signed out on all devices')) } catch { toast(t('Could not sign out everywhere — you are still signed in.')) } },
+  })
+  return <Section title={t('Your devices')} footer={data && !data.thisSessionListed ? t('This session was started before devices were listed, so it cannot be ended on its own. Signing out everywhere ends it too.') : t('Each browser or app you are signed in on. Only a coarse platform is kept — never an address or a location.')}>
+    {data === null && <div className="card muted small">{t('Loading…')}</div>}
+    {data && !data.sessions.length && <div className="card muted small">{t('No other sessions to show.')}</div>}
+    {data && data.sessions.map(s => <SessionRow key={s.id} s={s} onEnd={end} />)}
+    {data && <Row icon="signOut" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={everywhere} />}
+  </Section>
+}
+
 export function ActivitySection() {
   const [events, setEvents] = useState(null)
   useEffect(() => { fetchSecurityEvents().then(setEvents).catch(() => setEvents([])) }, [])
@@ -98,6 +137,7 @@ export default function SecuritySettings() {
   return <div className="narrow">
     <div className="hdr"><button className="back" onClick={() => nav('/settings')} aria-label={t('Back')}><Icon name="chevronLeft" /></button><h1>{t('Security')}</h1></div>
     <PasskeysSection />
+    <DevicesSection />
     <ActivitySection />
   </div>
 }

@@ -8,6 +8,8 @@ const post = (path, body = {}, headers) => api(path, { method: 'POST', body: JSO
 
 export const listPasskeys = () => api('/api/me/passkeys')
 export const fetchSecurityEvents = () => api('/api/me/security-events').then(r => r.events || [])
+export const listSessions = () => api('/api/me/sessions')
+export const revokeSession = id => post('/api/me/sessions/revoke', { id })
 export const renamePasskey = (id, name) => post('/api/me/passkeys/rename', { id, name })
 
 /** One fresh passkey assertion (user verification required) -> a five-minute token for one purpose. */

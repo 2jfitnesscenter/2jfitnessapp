@@ -120,6 +120,9 @@ db.sharedStaffSessions = Array.isArray(db.sharedStaffSessions) ? db.sharedStaffS
 db.sharedStaffAudit = Array.isArray(db.sharedStaffAudit) ? db.sharedStaffAudit : [];
 // Account-security events (sign-ins, recovery, passkeys, roles, sessions): lib/security-audit.js. Never holds a secret, an IP or a user-agent.
 db.securityEvents = Array.isArray(db.securityEvents) ? db.securityEvents : [];
+// One record per signed-in browser or app (lib/device-labels.js labels it): the minimum that lets a person see and end a single session.
+// No IP, no raw user-agent. Cookies made before this existed carry no session id and keep working until they expire or "sign out everywhere".
+db.deviceSessions = Array.isArray(db.deviceSessions) ? db.deviceSessions : [];
 // Scanned-machine → library-exercise links (frontend/src/lib/machine-scan.js) — gym-wide, not
 // per-member: it's the same physical machine for every socio who scans it, so one member's
 // pick benefits everyone's next scan. Keyed by a normalised form of the AI's own recognised
@@ -155,6 +158,7 @@ const secEvent = (event, { userId = null, actorId = null, meta = null } = {}) =>
 function endAllSessions(user, actorId, reason) {
   user.sv = (user.sv || 0) + 1;
   revokeSharedStaffSessions(user.id, actorId, reason);
+  revokeDeviceSessions(user.id);
 }
 // What the staff Seguimiento shows of one routine-review cycle.
 const cycleView = r => ({ kind: r.kind || 'routine', routineId: r.routineId || null, programId: r.programId || null, routineIds: r.routineIds || [], name: r.name, start: r.start, startManual: !!r.startManual, dueDate: r.dueDate, nextReviewAt: r.nextReviewAt || r.dueDate, dueManual: !!r.dueManual,
@@ -478,12 +482,14 @@ function verifySig(token) {
 // signing out the whole instance. Cookies minted before `sv` existed have no third field and are
 // read as version 0, matching a user who has never bumped — they stay valid until they expire.
 const sessionVersion = user => user.sv || 0;
+const SESSION_TOUCH_MS = 10 * 60_000;     // last use is written at most this often
+const SESSIONS_PER_PERSON = 25;
 function makeSession(user, claims = {}) {
   const issuedAt = claims.issuedAt || Date.now();
   const exp = claims.exp || Date.now() + SESSION_DAYS * 86400000;
   const parts = [user.id, exp, sessionVersion(user), claims.authLevel || 'passkey'];
   if (claims.authLevel === 'pin') parts.push(claims.sharedDeviceId, claims.sessionId, claims.role, issuedAt);
-  else parts.push(issuedAt);
+  else { parts.push(issuedAt); if (claims.sid) parts.push(claims.sid); }
   return sign(parts.join(':'));
 }
 function requestCookies(req) {
@@ -518,6 +524,13 @@ function readSession(req) {
   if (authLevelRaw === 'pin' && payload.split(':').length !== 8) return null;
   if (authLevelRaw === 'passkey' && field5 !== undefined && (!Number.isSafeInteger(Number(field5)) || Number(field5) <= 0)) return null;
   let claims = { authLevel, issuedAt: authLevelRaw ? Number(field5) || 0 : 0 };
+  if (authLevelRaw === 'passkey' && field6 !== undefined) {
+    // A session with its own record: it dies the moment the record is revoked, whatever the cookie says.
+    const record = db.deviceSessions.find(x => x.id === field6);
+    if (!record || record.userId !== uid || record.revokedAt) return null;
+    claims.sid = record.id;
+    if (Date.now() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_MS) { record.lastUsedAt = new Date().toISOString(); saveDb(); }
+  }
   if (authLevel === 'pin') {
     const sharedDeviceId = field5, sessionId = field6, role = field7, issuedAt = Number(field8) || 0;
     const device = db.sharedDevices.find(d => d.id === sharedDeviceId && d.active && !d.revokedAt);
@@ -572,6 +585,36 @@ function sessionCookie(user, claims = {}) {
   return `gymsid=${makeSession(user, claims)}; Path=/; Max-Age=${maxAge}; HttpOnly;${SECURE} SameSite=Lax`;
 }
 const clearCookie = `gymsid=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
+// A passkey sign-in (or recovery, or an approved QR link) gets a session record and a cookie that names it.
+function newSession(req, user, { via = 'passkey', credId = null } = {}) {
+  const now = Date.now();
+  const record = {
+    id: crypto.randomBytes(9).toString('base64url'), userId: user.id, platform: deviceLabel(req.headers['user-agent']), via,
+    createdAt: new Date(now).toISOString(), lastUsedAt: new Date(now).toISOString(), expiresAt: now + SESSION_DAYS * 86400000,
+    ...(credId ? { credHandle: credHandle(credId) } : {}),
+  };
+  db.deviceSessions.push(record);
+  pruneSessions(user.id);
+  saveDb();   // the record must be on disk before the cookie that names it leaves, or a restart would sign everyone out
+  return sessionCookie(user, { authLevel: 'passkey', exp: record.expiresAt, issuedAt: now, sid: record.id });
+}
+// Expired records go, long-revoked ones go, and one person never keeps more than SESSIONS_PER_PERSON (the oldest-used are dropped first).
+function pruneSessions(userId) {
+  const now = Date.now();
+  db.deviceSessions = db.deviceSessions.filter(x => x.expiresAt > now - 7 * 86400000 && !(x.revokedAt && now - Date.parse(x.revokedAt) > 30 * 86400000));
+  const mine = db.deviceSessions.filter(x => x.userId === userId && !x.revokedAt).sort((a, b) => Date.parse(a.lastUsedAt) - Date.parse(b.lastUsedAt));
+  for (const old of mine.slice(0, Math.max(0, mine.length - SESSIONS_PER_PERSON))) old.revokedAt = new Date().toISOString();
+}
+const sessionIsLive = x => !x.revokedAt && x.expiresAt > Date.now();
+function revokeDeviceSessions(userId, { exceptId = null, credHandleOf = null } = {}) {
+  const at = new Date().toISOString(); let n = 0;
+  for (const x of db.deviceSessions) {
+    if (x.userId !== userId || x.revokedAt || x.id === exceptId) continue;
+    if (credHandleOf && x.credHandle !== credHandleOf) continue;
+    x.revokedAt = at; n++;
+  }
+  return n;
+}
 const sharedDeviceCookie = token => `j2shared=${token}; Path=/; Max-Age=${365 * 86400}; HttpOnly;${SECURE} SameSite=Strict`;
 const clearSharedDeviceCookie = `j2shared=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Strict`;
 
@@ -982,7 +1025,7 @@ const routes = {
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
-    } }, { 'Set-Cookie': sessionCookie(user) });
+    } }, { 'Set-Cookie': newSession(req, user, { credId: body.credential?.id }) });
   }),
 
   'POST /api/login/options': async (req, res) => {
@@ -1030,7 +1073,7 @@ const routes = {
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
-    } }, { 'Set-Cookie': sessionCookie(user) });
+    } }, { 'Set-Cookie': newSession(req, user, { credId: body.credential?.id }) });
   }),
 
   // ---------- admin-assisted account recovery ----------
@@ -1135,7 +1178,7 @@ const routes = {
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
-    } }, { 'Set-Cookie': sessionCookie(user) });
+    } }, { 'Set-Cookie': newSession(req, user, { via: 'recovery', credId: body.credential?.id }) });
   }),
 
   /* ---------- the member's own passkeys ---------- */
@@ -1224,9 +1267,30 @@ const routes = {
     if (!target) return json(res, 404, { error: 'esa passkey no existe' });
     if (mine.length <= 1) return json(res, 409, { error: 'es tu única passkey: añade otra antes de eliminarla', code: 'last_passkey' });
     db.creds = db.creds.filter(c => c !== target);
-    secEvent('passkey_revoked', { userId: user.id, meta: { handle: credHandle(target.id) } });
+    // Whoever signed in with it is signed out too: a removed passkey must not leave its sessions behind.
+    const endedSessions = revokeDeviceSessions(user.id, { credHandleOf: credHandle(target.id) });
+    secEvent('passkey_revoked', { userId: user.id, meta: { handle: credHandle(target.id), count: endedSessions } });
     saveDb();
-    json(res, 200, { ok: true, passkeys: db.creds.filter(c => c.userId === user.id).map(passkeyView) });
+    json(res, 200, { ok: true, endedSessions, passkeys: db.creds.filter(c => c.userId === user.id).map(passkeyView) });
+  },
+  /* ---------- the member's own sessions / devices ---------- */
+  'GET /api/me/sessions': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const live = db.deviceSessions.filter(x => x.userId === user.id && sessionIsLive(x))
+      .sort((a, b) => Date.parse(b.lastUsedAt) - Date.parse(a.lastUsedAt))
+      .map(x => ({ id: x.id, platform: x.platform, via: x.via, createdAt: x.createdAt, lastUsedAt: x.lastUsedAt, current: x.id === user.sid }));
+    // A cookie made before sessions had records is valid but cannot be listed or ended one by one.
+    json(res, 200, { sessions: live, thisSessionListed: !!user.sid });
+  },
+  'POST /api/me/sessions/revoke': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const body = await readBody(req);
+    const rec = db.deviceSessions.find(x => x.id === String(body.id || '') && x.userId === user.id && sessionIsLive(x));
+    if (!rec) return json(res, 404, { error: 'esa sesión no existe o ya terminó' });
+    rec.revokedAt = new Date().toISOString();
+    secEvent('session_revoked', { userId: user.id, meta: { platform: rec.platform } });
+    saveDb();
+    json(res, 200, { ok: true, current: rec.id === user.sid }, rec.id === user.sid ? { 'Set-Cookie': clearCookie } : undefined);
   },
   // The member's own security activity (newest first). Somebody else having done it is shown; who is not.
   'GET /api/me/security-events': async (req, res) => {
@@ -1244,6 +1308,7 @@ const routes = {
       appendSharedAudit(db, { event: 'staff_locked', deviceId: user.sharedDeviceId, userId: user.id });
       saveDb();
     }
+    if (user?.sid) { const rec = db.deviceSessions.find(x => x.id === user.sid); if (rec && !rec.revokedAt) { rec.revokedAt = new Date().toISOString(); saveDb(); } }
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
   },
 
@@ -1256,6 +1321,7 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     user.sv = sessionVersion(user) + 1;
     db.sharedStaffSessions.filter(s => s.userId === user.id && s.active).forEach(s => { s.active = false; s.revokedAt = new Date().toISOString(); });
+    revokeDeviceSessions(user.id);
     secEvent('logout_all', { userId: user.id });
     saveDb();
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
