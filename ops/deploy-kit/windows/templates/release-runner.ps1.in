@@ -345,7 +345,7 @@ Invoke-Checked 'OFFICIAL_ROUTINES' $Root 'node scripts/build-official-routines.m
 Invoke-Checked 'COACH_LIBRARY' $Root 'node scripts/build-coach-library.mjs --check' @('in sync \(1324 exercises\)')
 # Exercise Library V2: integrity (ids, taxonomy, deprecations, aliases, Recommended 2J) and the
 # reproducible audit, with the exact metrics of this HEAD.
-Invoke-Checked 'CHECK_EXERCISE_LIBRARY' $Root 'node scripts/check-exercise-library.mjs' @('Exercise library OK: 1324 exercises, 210 recommended, 26 deprecated, 1305 with a canonical movement\.')
+Invoke-Checked 'CHECK_EXERCISE_LIBRARY' $Root 'node scripts/check-exercise-library.mjs' @('Exercise library OK: 1324 exercises, 210 recommended, 26 deprecated, 1310 with a canonical movement\.')
 Invoke-Checked 'AUDIT_EXERCISE_LIBRARY' $Root 'node scripts/audit-exercise-library.mjs --check' @('in sync \(1324 exercises, 0 possible-duplicate groups\)')
 git diff --check
 if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed' }
@@ -757,7 +757,7 @@ if (LIB.length !== 1324 || libById.size !== 1324) fail('lib_ids');
 const recN = LIB.filter(e => e.rec).length, mvN = LIB.filter(e => e.mv).length, depL = LIB.filter(e => e.pref);
 const overlayRev0 = (await import(B + 'lib/library-admin.js')).overlay().rev;
 // The code library is exactly these numbers; once an admin has edited the overlay it may legitimately differ.
-if (overlayRev0 === 0 && (recN !== 210 || mvN !== 1305 || depL.length !== 26)) fail(`lib_counts:${recN}/${mvN}/${depL.length}`);
+if (overlayRev0 === 0 && (recN !== 210 || mvN !== 1310 || depL.length !== 26)) fail(`lib_counts:${recN}/${mvN}/${depL.length}`);
 if (P.MOVEMENTS.length !== 35 || P.EQUIPMENT.length !== 28 || P.EQUIPMENT_KINDS.length !== 6) fail('taxonomy_counts');
 const mvIds = new Set(P.MOVEMENTS.map(m => m.id));
 if (!LIB.every(e => !e.mv || mvIds.has(e.mv))) fail('lib_movement_invalid');
@@ -2182,7 +2182,7 @@ GYM_PROFILE_AFTER=present-unchanged
 BACKUP=/simulation/predeploy.tar.gz
 PROBE_OUT='INACTIVITY_MODEL_PROBE=OK deadline=60min passive_no_reset duration_excludes_idle
 PROBE_OK
-PROBE_DATA exlib=1324 recommended=210 with_movement=1305 deprecated=26 movements=35 equipment=28 kinds=6 ai_rec_first=210 hidden_ex=0 gym_profiles=ok gym_config_source=persisted gym_ai_context=hotel gym_compatible_first=bodyweight protocol=1.0 masters=198 pass=198 pass_with_reason=0 fail=0 unverified=0 api_blocks=198 guided_masters=86 routines=155 programs=22 collections=15 featured=3 masters_used=145 copies=363 member_writes=refused ai_deprecated=0 overlay_rev=0 guided_rev=1.2.0'
+PROBE_DATA exlib=1324 recommended=210 with_movement=1310 deprecated=26 movements=35 equipment=28 kinds=6 ai_rec_first=210 hidden_ex=0 gym_profiles=ok gym_config_source=persisted gym_ai_context=hotel gym_compatible_first=bodyweight protocol=1.0 masters=198 pass=198 pass_with_reason=0 fail=0 unverified=0 api_blocks=198 guided_masters=86 routines=155 programs=22 collections=15 featured=3 masters_used=145 copies=363 member_writes=refused ai_deprecated=0 overlay_rev=0 guided_rev=1.2.0'
 GUIDED_GET_STATUS=401
 STUDIO_POST_STATUSES='status=401 reorder=401 program/save=401 program/curate=401 program/duplicate=401 program/delete=401 collection/delete=401'
 LIBADMIN_GET_STATUS=401
