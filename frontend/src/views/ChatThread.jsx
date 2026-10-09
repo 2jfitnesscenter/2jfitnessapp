@@ -31,8 +31,16 @@ export default function ChatThread() {
   const [online, setOnline] = useState(navigator.onLine)
   const bottomRef = useRef(null)
 
-  const load = () => fetchMessages(id).then(d => { setThread(d.thread); setMessages(d.messages) }).catch(e => { if (navigator.onLine) toast(e.message) })
+  const held = useRef({ list: [], rev: 0 })   // what the screen holds, for the polling cursor
+  const load = () => fetchMessages(id, { after: held.current.list.at(-1)?.id || '', rev: held.current.rev }).then(d => {
+    setThread(d.thread)
+    const have = new Set(held.current.list.map(m => m.id))
+    const list = d.full ? d.messages : [...held.current.list, ...d.messages.filter(m => !have.has(m.id))]
+    held.current = { list, rev: d.rev || 0 }
+    if (d.full || d.messages.length) setMessages(list)
+  }).catch(e => { if (navigator.onLine) toast(e.message) })
   useEffect(() => {
+    held.current = { list: [], rev: 0 }
     load()
     const iv = setInterval(load, POLL_MS)
     return () => clearInterval(iv)

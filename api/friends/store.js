@@ -61,6 +61,10 @@ export function activeStatusBetween(aId, bId) {
     ((r.fromId === aId && r.toId === bId) || (r.fromId === bId && r.toId === aId))
   ) || null;
 }
+// When somebody last said no to this sender (a withdrawn request is "cancelled", not a refusal).
+export function lastDeclineBetween(fromId, toId) {
+  return store.requests.filter(r => r.status === 'declined' && r.fromId === fromId && r.toId === toId).reduce((m, r) => Math.max(m, r.respondedAt || 0), 0);
+}
 export function friendIdsOf(userId) {
   return store.requests
     .filter(r => r.status === 'accepted' && (r.fromId === userId || r.toId === userId))

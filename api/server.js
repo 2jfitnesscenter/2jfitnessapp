@@ -50,6 +50,7 @@ import { newsRoutes } from './lib/news-routes.js';
 import { featuresRoutes } from './lib/features-routes.js';
 import * as featuresStore from './lib/features-store.js';
 import { snapshotCard } from './lib/share-snapshot.js';
+import { createLimiter, LIMITS } from './lib/social-limits.js';
 import * as libraryAdmin from './lib/library-admin.js';
 import * as gymProfileConfig from './lib/gym-profile-config.js';
 import { cleanEquipment, setOfficialGymEquipment, gymEquipmentContext } from './lib/gym-profiles.js';
@@ -765,6 +766,16 @@ function json(res, code, obj, extraHeaders) {
 }
 function socialFriends(a, b) {
   return friendsStore.friendIdsOf(b).includes(a) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
+}
+const socialLimiter = createLimiter();
+const socialLimit = (uid, bucket, max, windowMs) => socialLimiter.hit(uid + ':' + bucket, max, windowMs);
+// Answers 429 and returns true when this person is going too fast on that bucket(s).
+function throttled(res, user, ...buckets) {
+  for (const [bucket, max, windowMs] of buckets) {
+    const r = socialLimit(user.id, bucket, max, windowMs);
+    if (!r.ok) { json(res, 429, { error: 'vas demasiado rápido; espera un momento', code: 'rate_limited' }, { 'Retry-After': String(r.retryAfter) }); return true; }
+  }
+  return false;
 }
 // A block cuts every social surface in both directions. Admins keep seeing everything (they moderate); nobody else sees or touches content from
 // somebody they blocked or who blocked them.
@@ -2693,6 +2704,7 @@ const routes = {
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     if (post.authorId !== user.id && (!post.public || !canViewSocialShare(user, post.authorId, 'pr'))) return json(res, 404, { error: 'esa publicación no existe' });
     if (hiddenByBlock(user, post.authorId)) return json(res, 404, { error: 'esa publicación no existe' });
+    if (throttled(res, user, LIMITS.commentBurst, LIMITS.commentHour)) return;
     post.comments = post.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     post.comments.push(comment);
@@ -2744,6 +2756,7 @@ const routes = {
     const title = String(body.title || '').trim().slice(0, 80);
     const text = String(body.text || '').trim().slice(0, 1000);
     if (!title || !text) return json(res, 400, { error: 'el tema necesita un título y un mensaje' });
+    if (throttled(res, user, LIMITS.topic)) return;
     const topic = {
       id: crypto.randomBytes(9).toString('base64url'),
       authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
@@ -2762,6 +2775,7 @@ const routes = {
     if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
     const topic = social.topics.find(t => t.id === body.id);
     if (!topic || hiddenByBlock(user, topic.authorId)) return json(res, 404, { error: 'ese tema ya no existe' });
+    if (throttled(res, user, LIMITS.commentBurst, LIMITS.commentHour)) return;
     topic.comments = topic.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     topic.comments.push(comment);
@@ -2844,6 +2858,7 @@ const routes = {
     if (!post.commentsEnabled) return json(res, 403, { error: 'los comentarios están desactivados en este aviso' });
     const text = String(body.text || '').trim().slice(0, 300);
     if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
+    if (throttled(res, user, LIMITS.commentBurst, LIMITS.commentHour)) return;
     post.comments = post.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     post.comments.push(comment);
@@ -3303,8 +3318,8 @@ const routes = {
   // Same factory shape as coachRoutes — their own data/friends.json and data/chat.json, no
   // per-member/per-trainer assignment concept to hook into (trainer status is global, see
   // isTrainer above), so chat is one shared inbox every trainer/admin can see and reply to.
-  ...friendsRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'friend_request'), users: () => db.users, notify: notificationStore.create }),
-  ...chatRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'message'), isTrainer, canReachMember: (staff, memberId) => { const m = db.users.find(u => u.id === memberId); return !!m && canAccessMember(staff, m, isAdmin); }, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), resolveShare: (id, viewer) => {
+  ...friendsRoutes({ json, readBody, readSession, limit: socialLimit, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'friend_request'), users: () => db.users, notify: notificationStore.create }),
+  ...chatRoutes({ json, readBody, readSession, limit: socialLimit, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'message'), isTrainer, canReachMember: (staff, memberId) => { const m = db.users.find(u => u.id === memberId); return !!m && canAccessMember(staff, m, isAdmin); }, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), resolveShare: (id, viewer) => {
     const share = sharingStore.findShare(id); if (!share) return null;
     if (share.snapshot) return canOpenPrivateShare(share, viewer) ? { id: share.id, kind: share.kind, authorName: share.authorName, card: snapshotCard(share), private: true } : null;
     const pref = notificationStore.privacyFor(share.authorId);
@@ -3316,7 +3331,7 @@ const routes = {
     // Friend graph is the existing authoritative relationship model.
     return friendsStore.friendIdsOf(a).includes(b) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
   } }),
-  ...sharingRoutes({ json, readBody, readSession, featureOn: key => featuresStore.isOn(key), postSnapshot: (ownerId, kind, targetId) => {
+  ...sharingRoutes({ json, readBody, readSession, limit: socialLimit, featureOn: key => featuresStore.isOn(key), postSnapshot: (ownerId, kind, targetId) => {
     const p = (kind === 'routine' ? social.routines : social.programs).find(x => x.id === targetId && x.authorId === ownerId);
     if (!p) return null;
     const meta = { level: p.level, goal: p.goal, duration: p.duration, origin: 'community' };

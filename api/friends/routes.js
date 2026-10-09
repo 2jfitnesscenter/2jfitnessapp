@@ -7,12 +7,19 @@
 import * as store from './store.js';
 import * as notifications from '../notifications/store.js';
 import { canViewProfile } from '../notifications/privacy.js';
+import { LIMITS, REQUEST_COOLDOWN_MS } from '../lib/social-limits.js';
 
-export function friendsRoutes({ json, readBody, readSession, sendPush, users, notify = () => {} }) {
+export function friendsRoutes({ json, readBody, readSession, sendPush, users, notify = () => {}, limit = () => ({ ok: true }), now = Date.now }) {
   const guard = (req, res) => {
     const user = readSession(req);
     if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
     return user;
+  };
+  const throttle = (res, user, [bucket, max, windowMs]) => {
+    const r = limit(user.id, bucket, max, windowMs);
+    if (r.ok) return false;
+    json(res, 429, { error: 'demasiadas solicitudes; espera un poco', code: 'rate_limited' }, { 'Retry-After': String(r.retryAfter) });
+    return true;
   };
   const publicOf = u => (u ? { id: u.id, name: u.name } : null);
   const findById = id => users().find(u => u.id === id);
@@ -41,6 +48,7 @@ export function friendsRoutes({ json, readBody, readSession, sendPush, users, no
     'POST /api/friends/lookup': async (req, res) => {
       const me = guard(req, res); if (!me) return;
       const body = await readBody(req);
+      if (throttle(res, me, LIMITS.lookup)) return;
       const username = String(body.username || '').trim().toLowerCase();
       if (!username) return json(res, 400, { error: 'se requiere un nombre de usuario' });
       const u = findByUsername(username);
@@ -54,6 +62,7 @@ export function friendsRoutes({ json, readBody, readSession, sendPush, users, no
     'POST /api/friends/request': async (req, res) => {
       const me = guard(req, res); if (!me) return;
       const body = await readBody(req);
+      if (throttle(res, me, LIMITS.friendRequest)) return;
       let target = null;
       if (body.code) target = findById(store.userIdForCode(String(body.code)));
       else if (body.username) target = findByUsername(String(body.username).trim().toLowerCase());
@@ -63,6 +72,11 @@ export function friendsRoutes({ json, readBody, readSession, sendPush, users, no
       const existing = store.activeStatusBetween(me.id, target.id);
       if (existing?.status === 'accepted') return json(res, 400, { error: 'ya sois amigos' });
       if (existing?.status === 'pending') return json(res, 400, { error: 'ya hay una solicitud pendiente' });
+      const declinedAt = store.lastDeclineBetween(me.id, target.id);
+      if (declinedAt && now() - declinedAt < REQUEST_COOLDOWN_MS) {
+        const wait = Math.ceil((declinedAt + REQUEST_COOLDOWN_MS - now()) / 1000);
+        return json(res, 429, { error: 'no puedes enviar otra solicitud a esta persona todavía', code: 'cooldown' }, { 'Retry-After': String(wait) });
+      }
       const request = store.createRequest(me.id, target.id);
       notify(target.id, { type: 'friend_request', actor: { id: me.id, name: me.name }, target: { kind: 'friend-request', id: request.id }, deepLink: '/friends' });
       sendPush(target.id, { title: 'Nueva solicitud de amistad', body: `${me.name} quiere añadirte como amigo`, tag: 'friend-request', url: '#/friends' });
@@ -95,7 +109,7 @@ export function friendsRoutes({ json, readBody, readSession, sendPush, users, no
       const body = await readBody(req);
       const request = store.findRequest(body.requestId);
       if (!request || request.fromId !== me.id || request.status !== 'pending') return json(res, 404, { error: 'esa solicitud ya no existe' });
-      store.respond(request.id, 'declined');
+      store.respond(request.id, 'cancelled');
       json(res, 200, { ok: true });
     },
 
