@@ -1,5 +1,9 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Hotfix iOS barra inferior (candidato; NO desplegado; producción `75abb50`)
+
+- Causa por descarte (medida en Chromium; WebKit no disponible): scroller = window, la barra ya era `fixed` y hermana de `#app`, sin transform/filter/contain/will-change en ancestros; lo único sospechoso era `overflow-x:clip` en `html` Y `body` (se propaga al viewport). Fix: sin overflow en raíz, clip en `#root`, `100dvh`, capa propia de la barra. Prueba estructural `ios-tabbar.test.jsx`; checklist de dispositivo real en `docs/IOS_TABBAR_QA.md`. Si en iPhone sigue moviéndose, el siguiente paso sería un app-shell con scroll interno.
+
 ## Coach & Seguimiento PRO V3 (candidato de release; NO desplegado)
 
 - Producción de partida confirmada por el propietario: `bd48dc12c23bc99234defa34fd9481c13a6398e1`. Rama `codex/coach-followup-v3` (worktree `C:\Users\juanj\Dev\2J\worktrees\codex\2jfitnessapp\coach-followup-v3`). Solo cambios aditivos; Sync V2, auth, WebAuthn, Bunker, Health, Constructor y Guided no se tocan.

@@ -135,15 +135,17 @@
 
 /* ---------------------------------------------------------------- reset -- */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* No overflow on the ROOT elements: html/body overflow is propagated to the viewport, and on iOS Safari a clipped/hidden viewport is what lets position:fixed
+   chrome (the tab bar) drift with the scrolling document. Horizontal overflow is clipped one level down, on #root (see below), which is not the viewport. */
 html{
-  font-size:calc(16px * var(--text-scale,1));background:var(--bg);overscroll-behavior:none;overflow-x:clip;
+  font-size:calc(16px * var(--text-scale,1));background:var(--bg);overscroll-behavior:none;
   -webkit-text-size-adjust:100%;
 }
 body{
   background:var(--bg);color:var(--label);
   font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Segoe UI',Roboto,system-ui,sans-serif;
   font-size:calc(17px * var(--text-scale,1));line-height:1.29;letter-spacing:-.01em;
-  min-height:100vh;overscroll-behavior-y:none;overflow-x:clip;
+  min-height:100vh;overscroll-behavior-y:none;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
   touch-action:manipulation;
   font-variant-numeric:tabular-nums;
@@ -187,6 +189,11 @@ button,.chip,.tile,.item,.wday,.cal-d,.swatch,.hm-c,.lrow,.seg button,.stp butto
    Title Case. The compound selectors are needed: .tag/.chip come later in this file
    and would otherwise win on source order. */
 .nocap,.tag.nocap,.chip.nocap{text-transform:none}
+
+/* dynamic viewport where supported (iOS Safari's collapsing toolbar makes 100vh taller than what is visible) */
+@supports (min-height:100dvh){body{min-height:100dvh}}
+/* the one place horizontal overflow is clipped: a plain block, not the viewport and not an ancestor that could contain #tabbar's fixed box */
+#root{overflow-x:clip}
 
 /* ---------------------------------------------------------------- layout -- */
 #app{
@@ -382,6 +389,8 @@ h4.sec{
 /* ----------------------------------------------------------- tab bar ----- */
 #tabbar{
   position:fixed;left:0;right:0;bottom:0;z-index:50;
+  /* its own compositing layer: a fixed bar with backdrop-filter is otherwise repainted late while iOS scrolls and looks like it rides the content (desktop re-sets transform below) */
+  -webkit-transform:translateZ(0);transform:translateZ(0);
   display:flex;justify-content:space-around;align-items:flex-end;
   padding:7px 6px calc(6px + var(--sab));
   background:var(--bg-el);

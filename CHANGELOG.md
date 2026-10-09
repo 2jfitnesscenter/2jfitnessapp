@@ -1,5 +1,9 @@
 # Changelog
 
+### Hotfix iOS: barra inferior fija — candidato, NO desplegado
+
+- La barra de navegación inferior seguía moviéndose con el contenido en iPhone. Sin `overflow` en `html`/`body` (se propagaba al viewport y en iOS deja que lo fijo se desplace); el recorte horizontal pasa a `#root`. `min-height:100dvh` con fallback, capa propia para la barra y safe-area sin duplicar. Escritorio (píldora centrada) y Android sin cambios. Verificado en Chromium; la comprobación en iPhone real queda en `docs/IOS_TABBAR_QA.md`.
+
 ### Coach & Seguimiento PRO V3 — candidato, NO desplegado
 
 - Seguimiento del personal reconstruido sobre datos que ya existen (revisión de programa/rutina, fatiga, check-ins compartidos, historial, objetivos): un tablero (necesitan atención · revisiones próximas · seguimiento estable) en una sola petición y una ficha por socio con resumen, ahora, progreso, adherencia, revisión, análisis 2J, check-in, historial profesional y notas. Sustituye la lista antigua de "Requiere atención" (una petición por socio).
