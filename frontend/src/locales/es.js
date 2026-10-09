@@ -4986,4 +4986,5 @@ export default {
   'On the device you want to sign in, choose “Sign in with a QR code”, then scan it with this phone. If scanning is not possible, type the link code shown there.': 'En el dispositivo donde quieres iniciar sesión, elige «Iniciar sesión con un código QR» y escanéalo con este móvil. Si no puedes escanear, escribe el código de enlace que se muestra allí.',
   'Link code': 'Código de enlace',
   'Sign in with a QR code from another device': 'Iniciar sesión con un código QR desde otro dispositivo',
+  'From your level, goal, restrictions, favorites and gym — nothing else.': 'Según tu nivel, objetivo, restricciones, favoritos y gimnasio; nada más.',
 }

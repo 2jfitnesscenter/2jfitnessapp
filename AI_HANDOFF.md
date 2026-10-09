@@ -1,5 +1,10 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Mi 2J V2 — catálogo + cuenta/dispositivos/acceso (candidato; NO desplegado; producción `ca1b1cb`)
+
+- Rama `codex/mi-2j-v2`; detalle y decisiones en `docs/MI_2J_V2.md`. **Catálogo**: guardar rutina/programa oficial como copia desacoplada (`from2j`; programa con estado `assigned`), favoritos de rutinas en `S.favRoutines` (Sync V2, migración única desde localStorage), filtro por objetivo, colecciones «Pérdida de grasa» y «Salud y movimiento» (sin OCR: no hay contenido), «Para ti» con favoritos y Gym Profile, historial de contenido oficial (10 versiones, restaurar por el guardado validado, `lib/guided-history.js`), hero de Train2J tras búsqueda y «Para ti» en móvil.
+- **Seguridad**: recuperación termina todas las sesiones y retira las passkeys antiguas (salvo `keepExisting`); log de eventos `db.securityEvents` (`lib/security-audit.js`, sin secretos/IP/UA); passkeys con nombre/fecha/último uso, añadir/renombrar/revocar con step-up (token firmado 5 min por propósito); sesiones con registro (`db.deviceSessions`, cookie con `sid`), revocar una sesión; vincular dispositivo por QR (`lib/device-link.js`, en memoria, 3 min, un uso, código + passkey). `requireUserVerification` en login NO se endurece: se registra `uv` en cada login para decidir con datos. Shared Staff intacto. Pantalla: Ajustes → Seguridad (`/settings/security`), `/link/:id`.
+
 ## Training Quality V2 + datos de Library + IA compacta (candidato; NO desplegado; producción `44fcecc`)
 
 - Rama `codex/training-quality-v2`. `lib/routine-structure.js` cuenta **ejercicios, series y días** por patrón y por músculo; los avisos de balance usan series. Cada hallazgo es `{ id, code, params, evidence, evidenceType: fact|heuristic|inference }` **sin prosa**; los textos están en `lib/routine-structure-text.js` (ES completo en `locales/es.js`). El rango de referencia reutiliza `WEEKLY_SETS` del protocolo y solo aparece con objetivo hipertrofia + nivel conocido + semana de 2+ rutinas; una especialización/foco declarado silencia los avisos suaves. Panel: `TrainingQualityPanel` (series · días, músculos, rango, hallazgos con etiqueta «regla orientativa»).

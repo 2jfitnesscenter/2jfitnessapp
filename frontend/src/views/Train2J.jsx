@@ -51,6 +51,21 @@ function useCatalog() {
   useEffect(() => { if (g.status === 'ready') g.migrateFavorites() }, [g.status, syncStatus, user?.id])
   return g
 }
+// On a phone the first screen belongs to what a person does next: search, filters and "For you". The featured workout (the hero) follows them
+// there instead of leading the page; wider screens keep it on top.
+export function useNarrow(query = '(max-width: 699px)') {
+  const get = () => (typeof window !== 'undefined' && window.matchMedia ? !!window.matchMedia(query).matches : false)
+  const [narrow, setNarrow] = useState(get)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined
+    const mq = window.matchMedia(query)
+    const on = () => setNarrow(!!mq.matches)
+    on()
+    mq.addEventListener?.('change', on)
+    return () => mq.removeEventListener?.('change', on)
+  }, [query])
+  return narrow
+}
 const daysAgo = d => Math.max(0, Math.round((Date.now() - new Date(d + 'T12:00:00').getTime()) / 86400e3))
 
 function Loading({ status, error, offline }) {
@@ -68,6 +83,7 @@ export default function Train2J() {
   const programs = useGuided(s => s.programs)
   const [f, setF] = useState(EMPTY)
   const [hero, setHero] = useState(0)
+  const narrow = useNarrow()
   const byId = useMemo(() => Object.fromEntries(routines.map(r => [r.id, r])), [routines])
   const stats = useMemo(() => historyStats(S.workouts), [S.workouts])
   const favs = useMemo(() => favRoutinesOf(S), [S.favRoutines])
@@ -84,11 +100,12 @@ export default function Train2J() {
   const running = S.active?.src2j ? byId[S.active.src2j.id] : null
   const noGear = ordered.filter(r => (r.tags || []).includes('no-equipment'))
   const favList = ordered.filter(r => favs.has(r.id))
+  const heroNode = h && <Hero r={h} featured={featured} index={hero} onIndex={setHero} />
 
   return <div className="t2 t2-page">
     <GymProfile />
     <Header offline={offline} />
-    {h && <Hero r={h} featured={featured} index={hero} onIndex={setHero} />}
+    {!narrow && heroNode}
 
     <div className="t2-tools">
       <label className="t2-search"><Icon name="magnifier" />
@@ -118,9 +135,10 @@ export default function Train2J() {
         <p>{t('Week {0} of {1}', activeProgramState.next ? activeProgramState.next.weekIndex + 1 : activeProgram.weeksCount, activeProgram.weeksCount)} · {t('{0} of {1} sessions', activeProgramState.completed, activeProgramState.total)}</p></div>
         {activeProgramState.next && <button className="btn primary" onClick={() => { const session = activeProgramState.next; const routine = activeProgram.routineSnapshots?.[session.routineId]; if (routine) startOfficialRoutine(routine, { programId: activeProgram.id, sessionId: session.sessionId, week: session.weekIndex + 1, day: session.day, routineId: session.routineId }) }}><Icon name="play" />{t('Continue')}</button>}
       </section>}
-      <Rail id="t2-foryou" title={t('For you')} sub={t('From your level, goal and restrictions — nothing else.')} items={mine}>
+      <Rail id="t2-foryou" title={t('For you')} sub={t('From your level, goal, restrictions, favorites and gym — nothing else.')} items={mine}>
         {mine.map(x => card(x.routine, { reasons: x.reasons }))}
       </Rail>
+      {narrow && heroNode}
       {programs.length > 0 && <section className="gp-home"><header><div><span className="t2-eyebrow">{t('A PLAN FOR THE NEXT WEEKS')}</span><h2>{t('Guided programs')}</h2></div><button className="t2-more" onClick={() => nav('/train2j/programs')}>{t('See all')}<Icon name="chevronRight" /></button></header>
         <div className="gp-home-cards">{programs.filter(p => p.featured).slice(0, 3).map(p => <button key={p.id} className="gp-home-card" onClick={() => nav('/train2j/program/' + p.id)}><WorkoutCover r={{ id: p.id, category: p.cover || 'circuit' }} shape="wide" /><b>{t(p.name)}</b><small>{t(p.durationLabel)} · {t('{0} sessions/week', p.sessionsPerWeek)}</small></button>)}</div>
       </section>}
