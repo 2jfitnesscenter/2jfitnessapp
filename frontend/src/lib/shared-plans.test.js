@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { routineShare, programShare, saveSharedRoutine, saveSharedProgram, savedShare, estimateMinutes, sharedFit } from './shared-plans.js'
+import { routineShare, programShare, saveSharedRoutine, saveSharedProgram, savedShare, resolveStart, estimateMinutes, sharedFit } from './shared-plans.js'
 import { EXIDX } from './exercises.js'
 
 const ids = (() => {
@@ -76,5 +76,28 @@ describe('the numbers it shows', () => {
     expect(fit.level).not.toBe('compatible'); expect(fit.missingIds).toEqual([ids.barbell]); expect(fit.equipment.length).toBeGreaterThan(0)
     expect(sharedFit(home, [{ ex: [{ id: 'c9' }] }]).level).toBe('compatible')
     expect(sharedFit(home, [{ ex: [{ id: ids.bw }] }]).level).toBe('compatible')
+  })
+})
+
+describe('start', () => {
+  it('starts from the receiver\'s own copy: saves one first when there is none, reuses it when there is', () => {
+    const r = { routines: [], programs: [], customEx: [] }
+    const share = item('routine', routineShare(S(), S().routines[0]).snapshot)
+    const first = resolveStart(r, share, { makeId: () => 'mine1' })
+    expect(first).toEqual({ ok: true, id: 'mine1', kind: 'routine', created: true })
+    expect(r.routines[0].fromShare.shareId).toBe('sh1')
+    const again = resolveStart(r, share, { makeId: () => 'mine2' })
+    expect(again).toEqual({ ok: true, id: 'mine1', kind: 'routine', created: false }); expect(r.routines).toHaveLength(1)
+    // what the sender does afterwards cannot reach it: the copy is a separate object
+    share.content.snapshot.ex[0].sets = 99
+    expect(r.routines[0].ex[0].sets).toBe(3)
+  })
+  it('a program opens the saved program; an unusable share starts nothing', () => {
+    const r = { routines: [], programs: [], customEx: [] }
+    let n = 0
+    const share = item('program', programShare(S(), S().programs[0]).snapshot)
+    expect(resolveStart(r, share, { makeId: () => 'id' + ++n })).toMatchObject({ ok: true, kind: 'program', created: true })
+    expect(resolveStart(r, share).created).toBe(false)
+    expect(resolveStart({ routines: [] }, item('routine', { name: 'x', ex: [] })).ok).toBe(false)
   })
 })

@@ -63,6 +63,22 @@ export function saveSharedProgram(S, item, { makeId = defaultId } = {}) {
   return { ok: true, program }
 }
 
+/**
+ * "Start" on a received share: use the copy the person already saved, or save one first, and say what to start. Starting always runs from the receiver's own
+ * copy (so the session and its history are an ordinary one), never from anything the sender can still change. Mutates S like the save functions.
+ * Returns { ok, id, kind, created } — id is the routine to start, or the program to open.
+ */
+export function resolveStart(S, item, opts) {
+  const program = item?.kind === 'program'
+  let copy = savedShare(S, item), created = false
+  if (!copy) {
+    const r = program ? saveSharedProgram(S, item, opts) : saveSharedRoutine(S, item, opts)
+    if (!r.ok) return { ok: false, reason: r.reason }
+    copy = program ? r.program : r.routine; created = true
+  }
+  return { ok: true, id: copy.id, kind: program ? 'program' : 'routine', created }
+}
+
 /** A rough duration for a routine that carries none: working time plus a fixed rest between sets. It says "about", never more. */
 export function estimateMinutes(routine, restSec = 75) {
   const seconds = (routine?.ex || []).reduce((n, e) => {

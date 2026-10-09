@@ -1,5 +1,12 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Social & Compartir V2 (candidato; NO desplegado; producción `a0f3a94`)
+
+- Rama `codex/social-v2`; detalle en `docs/SOCIAL_V2.md`. **ACL**: el bloqueo corta todo el social en ambos sentidos (valorar, comentarios, temas, tablón, retos, metas, marcas); valorar exige poder ver el post; las metas de peso corporal solo llegan a amigos aceptados; los hilos de soporte solo los ve el miembro, el admin y el entrenador asignado (`assignedTrainers`); los interruptores de admin social/chat/friends/challenges se aplican en el API (403 `feature_off`).
+- **Compartir privado**: «Enviar a un amigo» desde la rutina/programa envía un *snapshot* limpio (`api/lib/share-snapshot.js`, guardado con el share en `social-sharing.json`), sin publicar; no depende del original. Pantalla única de recepción `/social/share/:id` (preview, compatibilidad con el Gym Profile, Guardar copia con `fromShare`, Empezar, Ahora no). Notifica con el tipo `share` existente.
+- **Chat**: el estado de lectura solo se escribe si cambia y el polling usa cursor (`?after=&rev=`); medido 6 898 B → 297 B por poll en reposo, 0 escrituras. **Límites** por persona (`lib/social-limits.js`): solicitudes, mensajes, comentarios, shares, reportes; enfriamiento de 24 h tras un rechazo.
+- **Moderación**: retirar contenido ajeno deja evento `content_removed` (sin texto) y aviso al autor (tipo `moderation`, no desactivable); se pueden reportar mensajes de chat y comentarios. **Tarjetas**: programa propia, comunidad 9:16 y 1:1, números opcionales del entreno (duración, volumen, récords, cardio) solo si se marcan. Tests: `social-acl`, `private-shares`, `chat-efficiency`, `social-limits`, `moderation`, `share-privacy`, `social-notifications` (API) y `shared-plans`, `received-plan`, `share-cards-v2`, `moderation-ui` (frontend).
+
 ## Mi 2J V2 — catálogo + cuenta/dispositivos/acceso (candidato; NO desplegado; producción `ca1b1cb`)
 
 - Rama `codex/mi-2j-v2`; detalle y decisiones en `docs/MI_2J_V2.md`. **Catálogo**: guardar rutina/programa oficial como copia desacoplada (`from2j`; programa con estado `assigned`), favoritos de rutinas en `S.favRoutines` (Sync V2, migración única desde localStorage), filtro por objetivo, colecciones «Pérdida de grasa» y «Salud y movimiento» (sin OCR: no hay contenido), «Para ti» con favoritos y Gym Profile, historial de contenido oficial (10 versiones, restaurar por el guardado validado, `lib/guided-history.js`), hero de Train2J tras búsqueda y «Para ti» en móvil.

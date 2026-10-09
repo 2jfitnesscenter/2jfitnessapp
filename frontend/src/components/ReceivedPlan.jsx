@@ -7,7 +7,7 @@ import { uid, fmtDate, exCount, routineCount } from '../lib/format.js'
 import { exLine } from '../lib/history.js'
 import { exOr } from '../lib/exercises.js'
 import { GOAL_LABEL } from '../lib/plan-cards.js'
-import { saveSharedRoutine, saveSharedProgram, savedShare, estimateMinutes, sharedFit } from '../lib/shared-plans.js'
+import { saveSharedRoutine, saveSharedProgram, savedShare, resolveStart, estimateMinutes, sharedFit } from '../lib/shared-plans.js'
 import { discardSocialShare } from '../lib/social-api.js'
 import { startFlow } from '../sheets.jsx'
 import { Thumb } from './Media.jsx'
@@ -45,7 +45,7 @@ export default function ReceivedPlan({ item, onChanged }) {
   const saved = savedShare(S, item)
   const fit = sharedFit(S, routines)
   const minutes = routines.map(r => estimateMinutes(r))
-  const total = minutes.reduce((a, b) => a + b, 0)
+  const perWorkout = Math.round(minutes.reduce((a, b) => a + b, 0) / minutes.length)   // a program's length is what one workout takes, not the sum of all
   const sender = meta.senderLabel || item.authorName
 
   const save = () => {
@@ -57,11 +57,12 @@ export default function ReceivedPlan({ item, onChanged }) {
     return result
   }
   const start = () => {
-    let copy = saved
-    if (!copy) { const r = save(); copy = r?.ok ? (program ? r.program : r.routine) : r?.program || r?.routine }
-    if (!copy) return
-    if (program) nav('/plan/p/' + copy.id)
-    else startFlow(copy.id)
+    let go
+    update(s => { go = resolveStart(s, item, { makeId: uid }) })
+    if (!go?.ok) { toast(t('Could not save this')); return }
+    if (go.created) toast(program ? t('Saved to your programs') : t('Saved to your routines'))
+    if (program) nav('/plan/p/' + go.id)
+    else startFlow(go.id)
   }
   const discard = async () => {
     setBusy(true)
@@ -74,7 +75,7 @@ export default function ReceivedPlan({ item, onChanged }) {
     <p className="rcv-from"><Icon name="person" /><span><b className="capitalize">{sender}</b> {t(program ? 'sent you a program' : 'sent you a routine')} · {fmtDate(new Date(item.createdAt).toISOString().slice(0, 10))}</span></p>
     <h2 className="rcv-title">{snapshot.name}</h2>
     <dl className="rcv-facts">
-      <div><dt>{t('Duration')}</dt><dd className="num">{meta.duration || `~${total} min`}</dd></div>
+      <div><dt>{program ? t('Per workout') : t('Duration')}</dt><dd className="num">{meta.duration || `~${perWorkout} min`}</dd></div>
       {meta.level && <div><dt>{t('Level')}</dt><dd>{t(LEVEL_LABEL[meta.level])}</dd></div>}
       {meta.goal && <div><dt>{t('Training goal')}</dt><dd>{t(GOAL_LABEL[meta.goal])}</dd></div>}
       <div><dt>{program ? t('Routines') : t('Exercises')}</dt><dd className="num">{program ? routines.length : routines[0].ex.length}</dd></div>

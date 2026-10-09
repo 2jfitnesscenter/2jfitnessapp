@@ -5033,4 +5033,5 @@ export default {
   'Add details (optional)': 'Añadir detalles (opcional)',
   'Body weight, health and notes are never included.': 'El peso corporal, la salud y las notas nunca se incluyen.',
   'Records': 'Récords',
+  'Per workout': 'Por entreno',
 }
