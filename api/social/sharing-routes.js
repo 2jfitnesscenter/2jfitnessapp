@@ -6,7 +6,7 @@ import { cleanSnapshot, snapshotCard } from '../lib/share-snapshot.js';
 
 const KINDS = new Set(['workout', 'record', 'achievement', 'streak', 'routine', 'program', 'challenge']);
 const REASONS = new Set(['spam', 'inappropriate', 'privacy', 'other']);
-export function sharingRoutes({ json, readBody, readSession, users, isAdmin, resolveTarget, canShareWith = () => false, featureOn = () => true, resolveReported, removeReported, notify = () => {}, sendPush = () => {} }) {
+export function sharingRoutes({ json, readBody, readSession, users, isAdmin, resolveTarget, canShareWith = () => false, featureOn = () => true, postSnapshot = () => null, resolveReported, removeReported, notify = () => {}, sendPush = () => {} }) {
   const guard = (req, res) => { const u = readSession(req); if (!u) { json(res, 401, { error: 'no has iniciado sesión' }); return null; } return u; };
   const directAllowed = (a, b) => a !== b && friends.friendIdsOf(a).includes(b) && friends.friendIdsOf(b).includes(a) && !friends.isBlocked(a, b) && !friends.isBlocked(b, a);
   const visible = (share, viewer) => {
@@ -55,6 +55,12 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
       const user = guard(req, res); if (!user) return;
       const b = await readBody(req);
       if (b.snapshot !== undefined) return sendSnapshot(user, b, res);
+      // A routine or program the sender already published goes to a friend the same way: as a snapshot of that post, so the receiver can open and save it.
+      if (b.audience === 'chat' && ['routine', 'program'].includes(b.kind)) {
+        const post = postSnapshot(user.id, b.kind, String(b.targetId || ''));
+        if (!post) return json(res, 404, { error: 'ese contenido ya no está disponible' });
+        return sendSnapshot(user, { ...b, snapshot: post.snapshot, meta: { ...post.meta, ...(b.meta || {}) } }, res);
+      }
       const kind = String(b.kind || ''), targetId = String(b.targetId || '');
       if (!KINDS.has(kind) || !targetId || targetId.length > 100) return json(res, 400, { error: 'contenido no válido' });
       const card = resolveTarget(user.id, kind, targetId);

@@ -3316,7 +3316,13 @@ const routes = {
     // Friend graph is the existing authoritative relationship model.
     return friendsStore.friendIdsOf(a).includes(b) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
   } }),
-  ...sharingRoutes({ json, readBody, readSession, featureOn: key => featuresStore.isOn(key), users: () => db.users, isAdmin, resolveTarget: resolveShareTarget, canShareWith: (ownerId, viewerId, kind) => canViewSocialShare({ id: viewerId }, ownerId, kind === 'record' ? 'pr' : ['routine', 'program'].includes(kind) ? 'routine' : ['achievement', 'streak'].includes(kind) ? 'achievement' : kind), resolveReported: resolveReportedContent, removeReported: removeReportedContent, notify: notificationStore.create, sendPush: (uid, payload, type) => sendSocialPush(uid, payload, type) }),
+  ...sharingRoutes({ json, readBody, readSession, featureOn: key => featuresStore.isOn(key), postSnapshot: (ownerId, kind, targetId) => {
+    const p = (kind === 'routine' ? social.routines : social.programs).find(x => x.id === targetId && x.authorId === ownerId);
+    if (!p) return null;
+    const meta = { level: p.level, goal: p.goal, duration: p.duration, origin: 'community' };
+    return kind === 'routine' ? { snapshot: { name: p.name, emoji: p.emoji, prog: p.prog, ex: p.ex, customExDefs: p.customExDefs }, meta }
+      : { snapshot: { name: p.name, emoji: p.emoji, routines: p.routines, daysPerWeek: p.daysPerWeek }, meta };
+  }, users: () => db.users, isAdmin, resolveTarget: resolveShareTarget, canShareWith: (ownerId, viewerId, kind) => canViewSocialShare({ id: viewerId }, ownerId, kind === 'record' ? 'pr' : ['routine', 'program'].includes(kind) ? 'routine' : ['achievement', 'streak'].includes(kind) ? 'achievement' : kind), resolveReported: resolveReportedContent, removeReported: removeReportedContent, notify: notificationStore.create, sendPush: (uid, payload, type) => sendSocialPush(uid, payload, type) }),
   ...notificationRoutes({ json, readBody, readSession }),
 
   /* ---------- Bunker (gym-floor kiosk) ---------- */

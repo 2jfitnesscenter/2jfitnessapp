@@ -113,3 +113,14 @@ test('notification preferences are respected, and a private share can be reporte
   assert.equal(rows.find(r => r.id === report.data.id).content.title, 'Push day');
   assert.equal((await call('b', 'POST', '/api/social/reports', { targetType: 'share', targetId: sent.data.message.shareId, reason: 'spam' })).status, 404, 'not for someone it was not sent to');
 });
+
+test('a routine already published reaches a friend the same way, as a snapshot of that post', async () => {
+  const post = await call('a', 'POST', '/api/social/routines', { ...S.ROUTINE, level: 'beginner', goal: 'toning', duration: '30 min' });
+  const sent = await call('a', 'POST', '/api/social/shares', { kind: 'routine', targetId: post.data.id, audience: 'chat', recipientId: 'b', threadId: threadAB, idempotencyKey: 'published-share-001' });
+  assert.equal(sent.status, 200);
+  await call('a', 'POST', '/api/social/routines/delete', { id: post.data.id });
+  const item = (await call('b', 'GET', '/api/social/shares/item?id=' + sent.data.message.shareId)).data.share;
+  assert.equal(item.content.snapshot.name, 'Push day');
+  assert.deepEqual({ level: item.content.meta.level, goal: item.content.meta.goal, origin: item.content.meta.origin }, { level: 'beginner', goal: 'toning', origin: 'community' });
+  assert.equal((await call('a', 'POST', '/api/social/shares', { kind: 'routine', targetId: 'nope', audience: 'chat', recipientId: 'b', threadId: threadAB })).status, 404);
+});
