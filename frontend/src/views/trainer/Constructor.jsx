@@ -306,7 +306,7 @@ export default function Constructor() {
       <span className="cx-restr-hint">{t('Only what was declared. 2J never infers or diagnoses.')}</span>
     </div>
 
-    <TrainingQualityPanel routine={p.routineOnly ? day : null} days={p.routineOnly ? null : p.days} goal={ctx.goal} restrictions={restrictions}
+    <TrainingQualityPanel routine={p.routineOnly ? day : null} days={p.routineOnly ? null : p.days} goal={ctx.goal} level={ctx.level} focus={p.meta?.focus} specialization={p.meta?.specialization} restrictions={restrictions}
       availableEquipment={memberEquipment} scheduledDays={p.routineOnly ? null : scheduledDays} />
 
     {showReport && <div className="cx-reportwrap"><ProtocolReport v={progV || dayV} /></div>}

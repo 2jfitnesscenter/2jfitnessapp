@@ -137,7 +137,7 @@ export default function TrainerRoutineBuilder() {
 
     <div className="builder-layout">
     <div className="builder-main">
-    <TrainingQualityPanel routine={r} goal={r.meta?.goal || 'hypertrophy'} restrictions={r.meta?.restrictions || []} availableEquipment={memberEquipment} />
+    <TrainingQualityPanel routine={r} goal={r.meta?.goal || 'hypertrophy'} level={r.meta?.level} focus={r.meta?.focus} specialization={r.meta?.specialization} restrictions={r.meta?.restrictions || []} availableEquipment={memberEquipment} />
     <div className="sect-b" style={{ marginBottom: 16 }}>
       <SelectRow icon="chartLine" title={t('Progression')} sheetTitle={t('Progression')}
         value={r.prog || 'linear'} onChange={v => setR(cur => ({ ...cur, prog: v }))}

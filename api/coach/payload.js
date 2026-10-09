@@ -49,6 +49,7 @@ export const MAX_SESSIONS = 60;
 const STRUCTURE_KEYS = ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'knee_dominant', 'hip_dominant', 'core', 'conditioning', 'power', 'carry'];
 const STRUCTURE_CATEGORIES = new Set(['balance', 'distribution', 'redundancy', 'equipment', 'library', 'history']);
 const STRUCTURE_SEVERITIES = new Set(['info', 'revisar', 'importante']);
+const STRUCTURE_EVIDENCE = new Set(['fact', 'heuristic', 'inference']);
 function cleanStructuralAnalysis(value) {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 7).filter(x => x && typeof x === 'object').map(x => {
@@ -57,15 +58,21 @@ function cleanStructuralAnalysis(value) {
       const n = Number(x.movementSummary?.[key]);
       if (Number.isFinite(n)) movementSummary[key] = Math.max(0, Math.min(50, Math.floor(n)));
     }
+    // Planned working sets per pattern (Training Quality V2): same keys as movementSummary, only when the client sent any.
+    const movementSets = {};
+    for (const key of STRUCTURE_KEYS) {
+      const n = Number(x.movementSets?.[key]);
+      if (Number.isFinite(n) && n > 0) movementSets[key] = Math.min(500, Math.floor(n));
+    }
     const sets = Number(x.programmedResistanceSets);
     const findings = (Array.isArray(x.findings) ? x.findings : []).slice(0, 12).filter(f => STRUCTURE_CATEGORIES.has(f?.category) && STRUCTURE_SEVERITIES.has(f?.severity))
-      .map(f => ({ category: f.category, severity: f.severity }));
+      .map(f => ({ category: f.category, severity: f.severity, ...(STRUCTURE_EVIDENCE.has(f.evidenceType) ? { evidenceType: f.evidenceType } : {}) }));
     const review = x.kind === 'program-review' ? {
       adherence: x.adherence && Number.isFinite(Number(x.adherence.percent)) ? { percent: Math.max(0, Math.min(100, Math.floor(Number(x.adherence.percent)))), completed: Math.max(0, Math.min(500, Math.floor(Number(x.adherence.completed) || 0))), total: Math.max(0, Math.min(500, Math.floor(Number(x.adherence.total) || 0))) } : null,
       progression: ['improving', 'stable', 'insufficient'].includes(x.progression?.status) ? { status: x.progression.status, improved: Math.max(0, Math.min(50, Math.floor(Number(x.progression.improved) || 0))), evaluated: Math.max(0, Math.min(50, Math.floor(Number(x.progression.evaluated) || 0))) } : null,
       plateau: x.plateau && typeof x.plateau.clear === 'boolean' ? { clear: x.plateau.clear, reasons: (Array.isArray(x.plateau.reasons) ? x.plateau.reasons : []).slice(0, 6).filter(r => ['stalled', 'misses', 'effort_up', 'hard', 'incomplete'].includes(r?.code)).map(r => ({ code: r.code, n: Number.isFinite(Number(r.n)) ? Math.max(0, Math.min(50, Math.floor(Number(r.n)))) : null })) } : null,
     } : null;
-    return { version: 1, movementSummary, programmedResistanceSets: Number.isFinite(sets) ? Math.max(0, Math.min(500, Math.floor(sets))) : 0, findings, ...(review ? { kind: 'program-review', review } : {}) };
+    return { version: 1, movementSummary, ...(Object.keys(movementSets).length ? { movementSets } : {}), programmedResistanceSets: Number.isFinite(sets) ? Math.max(0, Math.min(500, Math.floor(sets))) : 0, findings, ...(review ? { kind: 'program-review', review } : {}) };
   });
 }
 

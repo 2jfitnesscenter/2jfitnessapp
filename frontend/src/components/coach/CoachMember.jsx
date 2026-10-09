@@ -10,6 +10,7 @@ import { mediaUrl } from '../../lib/media.js'
 import { PAIN_ZONE } from '../../lib/checkin.js'
 import { fetchMemberPlan } from '../../lib/trainer-api.js'
 import { analyzeRoutineStructure, structuralFactsForAI } from '../../lib/routine-structure.js'
+import { findingLine } from '../../lib/routine-structure-text.js'
 import { reviewReasons } from '../../lib/routine-review-text.js'
 import * as cf from '../../lib/coach-followup.js'
 import { RoutineCycles } from '../../views/AdminFollowUp.jsx'
@@ -179,7 +180,7 @@ function ReviewBrief({ d, plan, id, nav }) {
       {view.checkin.shared && <li><span>{t('Check-ins')}</span><b>{view.checkin.count ? t('{0} in 14 days · {1} with high fatigue', view.checkin.count, view.checkin.highFatigue14) : t('None in 14 days')}</b></li>}
       <li><span>{last ? t('Since the last review ({0})', fmtDate(last)) : t('Since the start')}</span><b>{changed ? t(changed === 1 ? '{0} plan change' : '{0} plan changes', changed) : t('No plan changes')}</b></li>
     </ul>
-    {findings.length > 0 && <ul className="v3-cy-findings">{findings.map(f => <li key={f.id}>{f.message}</li>)}</ul>}
+    {findings.length > 0 && <ul className="v3-cy-findings">{findings.map(f => <li key={f.id}>{findingLine(f)}</li>)}</ul>}
     {points.length > 0 && <div className="cf-todo"><b>{t('What to look at')}</b><ul>{points.map(s => <li key={s.id + (s.evidence?.zone || '')}>{cf.actionText(s)}</li>)}</ul></div>}
     <Button size="sm" variant="tinted" icon="clipboard" onClick={() => nav(c.kind === 'program' ? `/trainer/${id}/p/${c.programId}` : `/trainer/${id}/r/${c.routineId}`)}>{t(c.kind === 'program' ? 'Open program' : 'Open routine')}</Button>
   </div>

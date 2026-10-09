@@ -16,6 +16,7 @@ import { Surface, Pill, Stat } from '../components/v2.jsx'
 import { stateAction } from '../lib/state-action.js'
 import { fetchMemberPlan } from '../lib/trainer-api.js'
 import { analyzeRoutineStructure } from '../lib/routine-structure.js'
+import { findingLine } from '../lib/routine-structure-text.js'
 
 // Seguimiento V2 — staff follow-up card inside the admin member detail. Server:
 // api/lib/followup.js (admin-only; check-ins only when the member shared them). Everything
@@ -83,7 +84,7 @@ export function RoutineCycles({ id, cycles, sync, setData, reload, plan = null }
           {c.progression?.status !== 'insufficient' && <span><small>{t('Progression')}</small><b>{t(c.progression?.status === 'improving' ? 'Progression trend improving' : 'Progression trend stable')}</b></span>}
           {c.plateau?.clear && <span><small>{t('Review signals')}</small><b>{t('Plateau signals to review')}</b></span>}
         </div>
-        {findings.length > 0 ? <ul className="v3-cy-findings">{findings.map(f => <li key={f.id}>{f.message}</li>)}</ul> : <div className="small dim">{t(routines.length ? 'No priority structure flags.' : 'Structural analysis unavailable for this program.')}</div>}
+        {findings.length > 0 ? <ul className="v3-cy-findings">{findings.map(f => <li key={f.id}>{findingLine(f)}</li>)}</ul> : <div className="small dim">{t(routines.length ? 'No priority structure flags.' : 'Structural analysis unavailable for this program.')}</div>}
         <CycleDate label={t('Program start')} value={c.start} manual={c.startManual}
           onSet={v => write(c, { start: v }, { path: 'routine-cycle', msg: t('Cycle updated') })} onAuto={() => write(c, { start: null }, { path: 'routine-cycle', msg: t('Cycle updated') })} />
         <CycleDate label={t('Next review')} value={c.nextReviewAt || c.dueDate} manual={c.dueManual}
