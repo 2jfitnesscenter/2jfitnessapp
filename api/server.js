@@ -48,6 +48,7 @@ import * as guidedStore from './lib/guided-store.js';
 import { libraryAdminRoutes } from './lib/library-admin-routes.js';
 import { newsRoutes } from './lib/news-routes.js';
 import { featuresRoutes } from './lib/features-routes.js';
+import * as featuresStore from './lib/features-store.js';
 import * as libraryAdmin from './lib/library-admin.js';
 import * as gymProfileConfig from './lib/gym-profile-config.js';
 import { cleanEquipment, setOfficialGymEquipment, gymEquipmentContext } from './lib/gym-profiles.js';
@@ -764,7 +765,21 @@ function json(res, code, obj, extraHeaders) {
 function socialFriends(a, b) {
   return friendsStore.friendIdsOf(b).includes(a) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
 }
+// A block cuts every social surface in both directions. Admins keep seeing everything (they moderate); nobody else sees or touches content from
+// somebody they blocked or who blocked them.
+const blockedBetween = (a, b) => !!a && !!b && a !== b && (friendsStore.isBlocked(a, b) || friendsStore.isBlocked(b, a));
+const hiddenByBlock = (viewer, otherId) => !isAdmin(viewer) && blockedBetween(viewer.id, otherId);
+// The admin's switches ("Funciones de la app") are enforced here, not only in the UI. Privacy preferences stay reachable whatever is switched off.
+function featureOfRoute(p) {
+  if (p.startsWith('/api/chat/')) return 'chat';
+  if (p === '/api/friends' || p.startsWith('/api/friends/') || p === '/api/social/profile') return 'friends';
+  if (p.startsWith('/api/social/challenges') || p.startsWith('/api/social/goals')) return 'challenges';
+  if (p === '/api/social/preferences') return null;
+  if (p.startsWith('/api/social/')) return 'social';
+  return null;
+}
 function canViewSocialShare(user, authorId, kind) {
+  if (user.id !== authorId && blockedBetween(user.id, authorId)) return false;
   return canViewSharedContent({ authorId, viewerId: user.id, kind, privacy: notificationStore.privacyFor(authorId), isFriend: socialFriends });
 }
 function resolveShareTarget(ownerId, kind, targetId) {
@@ -2318,7 +2333,7 @@ const routes = {
     const stars = Math.round(Number(body.stars));
     if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'las estrellas deben ser de 1 a 5' });
     const post = social.routines.find(r => r.id === body.id);
-    if (!post) return json(res, 404, { error: 'esa rutina no existe' });
+    if (!post || (post.authorId !== user.id && !canViewSocialShare(user, post.authorId, 'routine'))) return json(res, 404, { error: 'esa rutina no existe' });
     post.ratings = post.ratings || [];
     const existing = post.ratings.find(x => x.uid === user.id);
     if (existing) { existing.stars = stars; existing.at = Date.now(); }
@@ -2577,7 +2592,7 @@ const routes = {
     const stars = Math.round(Number(body.stars));
     if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'las estrellas deben ser de 1 a 5' });
     const post = social.programs.find(p => p.id === body.id);
-    if (!post) return json(res, 404, { error: 'ese programa no existe' });
+    if (!post || (post.authorId !== user.id && !canViewSocialShare(user, post.authorId, 'program'))) return json(res, 404, { error: 'ese programa no existe' });
     post.ratings = post.ratings || [];
     const existing = post.ratings.find(x => x.uid === user.id);
     if (existing) { existing.stars = stars; existing.at = Date.now(); }
@@ -2607,7 +2622,7 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const visible = social.wall.filter(w => w.authorId === user.id || (w.public && canViewSocialShare(user, w.authorId, 'pr')));
-    json(res, 200, { wall: [...visible].sort((a, b) => b.createdAt - a.createdAt) });
+    json(res, 200, { wall: [...visible].sort((a, b) => b.createdAt - a.createdAt).map(w => ({ ...w, comments: (w.comments || []).filter(c => !hiddenByBlock(user, c.authorId)) })) });
   },
 
   // body: { exId, exName, mode, value, sourceDate, note?, public? } — re-checked against the
@@ -2673,6 +2688,7 @@ const routes = {
     const post = social.wall.find(w => w.id === body.id);
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     if (post.authorId !== user.id && (!post.public || !canViewSocialShare(user, post.authorId, 'pr'))) return json(res, 404, { error: 'esa publicación no existe' });
+    if (hiddenByBlock(user, post.authorId)) return json(res, 404, { error: 'esa publicación no existe' });
     post.comments = post.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     post.comments.push(comment);
@@ -2713,7 +2729,8 @@ const routes = {
   'GET /api/social/topics': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    json(res, 200, { topics: [...social.topics].sort((a, b) => b.createdAt - a.createdAt) });
+    const topics = social.topics.filter(tp => !hiddenByBlock(user, tp.authorId)).map(tp => ({ ...tp, comments: (tp.comments || []).filter(c => !hiddenByBlock(user, c.authorId)) }));
+    json(res, 200, { topics: topics.sort((a, b) => b.createdAt - a.createdAt) });
   },
 
   'POST /api/social/topics': async (req, res) => {
@@ -2740,7 +2757,7 @@ const routes = {
     const text = String(body.text || '').trim().slice(0, 300);
     if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
     const topic = social.topics.find(t => t.id === body.id);
-    if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
+    if (!topic || hiddenByBlock(user, topic.authorId)) return json(res, 404, { error: 'ese tema ya no existe' });
     topic.comments = topic.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     topic.comments.push(comment);
@@ -2782,7 +2799,8 @@ const routes = {
   'GET /api/social/board': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    json(res, 200, { board: [...social.board].sort((a, b) => b.createdAt - a.createdAt) });
+    const board = social.board.filter(b => !hiddenByBlock(user, b.authorId)).map(b => ({ ...b, comments: (b.comments || []).filter(c => !hiddenByBlock(user, c.authorId)) }));
+    json(res, 200, { board: board.sort((a, b) => b.createdAt - a.createdAt) });
   },
 
   'POST /api/social/board': async (req, res) => {
@@ -2818,7 +2836,7 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const post = social.board.find(b => b.id === body.id);
-    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    if (!post || hiddenByBlock(user, post.authorId)) return json(res, 404, { error: 'ese aviso ya no existe' });
     if (!post.commentsEnabled) return json(res, 403, { error: 'los comentarios están desactivados en este aviso' });
     const text = String(body.text || '').trim().slice(0, 300);
     if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
@@ -2867,7 +2885,7 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const today = new Date().toISOString().slice(0, 10);
-    const list = social.challenges.map(c => ({
+    const list = social.challenges.filter(c => !hiddenByBlock(user, c.authorId)).map(c => ({
       id: c.id, name: c.name, description: c.description, type: c.type,
       targetWorkouts: c.targetWorkouts || null, exId: c.exId || null, exName: c.exName || null,
       metric: c.metric || null, targetValue: c.targetValue || null,
@@ -2885,9 +2903,9 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const id = new URL(req.url, 'http://x').searchParams.get('id') || '';
     const c = social.challenges.find(x => x.id === id);
-    if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
+    if (!c || hiddenByBlock(user, c.authorId)) return json(res, 404, { error: 'ese desafío ya no existe' });
     const leaderboardVisible = c.participants.includes(user.id) || user.id === c.authorId || isTrainer(user);
-    const leaderboard = (leaderboardVisible ? c.participants : []).filter(uid => canViewSocialShare(user, uid, 'challenge')).map(uid => {
+    const leaderboard = (leaderboardVisible ? c.participants : []).filter(uid => !hiddenByBlock(user, uid) && canViewSocialShare(user, uid, 'challenge')).map(uid => {
       const u = db.users.find(x => x.id === uid);
       return { userId: uid, userName: u ? u.name : 'Socio', value: challengeProgress(c, readState(uid)) };
     }).sort((a, b) => b.value - a.value);
@@ -2938,7 +2956,7 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const c = social.challenges.find(x => x.id === body.id);
-    if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
+    if (!c || hiddenByBlock(user, c.authorId)) return json(res, 404, { error: 'ese desafío ya no existe' });
     if (!c.participants.includes(user.id)) {
       c.participants.push(user.id);
       if (c.authorId !== user.id) {
@@ -2979,7 +2997,15 @@ const routes = {
   'GET /api/social/goals': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const list = social.goals.map(g => {
+    // A goal is somebody's own number: the author sees theirs; an exercise goal follows the "records" privacy like a mark; body weight is health data and
+    // only ever reaches accepted friends who may see the profile. Blocks cut both.
+    const goalVisible = g => {
+      if (g.userId === user.id) return true;
+      if (hiddenByBlock(user, g.userId)) return false;
+      if (g.kind === 'bodyweight') { const p = notificationStore.privacyFor(g.userId); return p.profile !== 'private' && p.activity !== 'nobody' && socialFriends(g.userId, user.id); }
+      return canViewSocialShare(user, g.userId, 'pr');
+    };
+    const list = social.goals.filter(goalVisible).map(g => {
       const S = readState(g.userId);
       const current = !S ? 0 : g.kind === 'bodyweight'
         ? ((S.bodyweight || []).length ? S.bodyweight[S.bodyweight.length - 1].w : 0)
@@ -3274,7 +3300,7 @@ const routes = {
   // per-member/per-trainer assignment concept to hook into (trainer status is global, see
   // isTrainer above), so chat is one shared inbox every trainer/admin can see and reply to.
   ...friendsRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'friend_request'), users: () => db.users, notify: notificationStore.create }),
-  ...chatRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'message'), isTrainer, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), resolveShare: (id, viewer) => {
+  ...chatRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'message'), isTrainer, canReachMember: (staff, memberId) => { const m = db.users.find(u => u.id === memberId); return !!m && canAccessMember(staff, m, isAdmin); }, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), resolveShare: (id, viewer) => {
     const share = sharingStore.findShare(id); if (!share) return null;
     const pref = notificationStore.privacyFor(share.authorId);
     const kind = share.kind === 'record' ? 'pr' : ['routine', 'program'].includes(share.kind) ? 'routine' : ['achievement', 'streak'].includes(share.kind) ? 'achievement' : share.kind;
@@ -3285,7 +3311,7 @@ const routes = {
     // Friend graph is the existing authoritative relationship model.
     return friendsStore.friendIdsOf(a).includes(b) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
   } }),
-  ...sharingRoutes({ json, readBody, readSession, users: () => db.users, isAdmin, resolveTarget: resolveShareTarget, canShareWith: (ownerId, viewerId, kind) => canViewSocialShare({ id: viewerId }, ownerId, kind === 'record' ? 'pr' : ['routine', 'program'].includes(kind) ? 'routine' : ['achievement', 'streak'].includes(kind) ? 'achievement' : kind), resolveReported: resolveReportedContent, removeReported: removeReportedContent, notify: notificationStore.create, sendPush: (uid, payload, type) => sendSocialPush(uid, payload, type) }),
+  ...sharingRoutes({ json, readBody, readSession, featureOn: key => featuresStore.isOn(key), users: () => db.users, isAdmin, resolveTarget: resolveShareTarget, canShareWith: (ownerId, viewerId, kind) => canViewSocialShare({ id: viewerId }, ownerId, kind === 'record' ? 'pr' : ['routine', 'program'].includes(kind) ? 'routine' : ['achievement', 'streak'].includes(kind) ? 'achievement' : kind), resolveReported: resolveReportedContent, removeReported: removeReportedContent, notify: notificationStore.create, sendPush: (uid, payload, type) => sendSocialPush(uid, payload, type) }),
   ...notificationRoutes({ json, readBody, readSession }),
 
   /* ---------- Bunker (gym-floor kiosk) ---------- */
@@ -3339,6 +3365,8 @@ http.createServer(async (req, res) => {
   const key = req.method + ' ' + url.pathname;
   const handler = routes[key];
   if (!handler) return json(res, 404, { error: 'no encontrado' });
+  const gate = featureOfRoute(url.pathname);
+  if (gate && !featuresStore.isOn(gate)) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
   if (requiresStrongAuth(key) && !requireStrongAuth(req, res)) return;
   try { await handler(req, res); }
   catch (e) {

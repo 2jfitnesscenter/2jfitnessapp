@@ -7,7 +7,7 @@ import * as store from './store.js';
 
 const MAX_TEXT = 2000;
 
-export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, users, isFriend = () => false, notify = () => {}, markThreadNotificationsRead = () => {}, resolveShare = () => null }) {
+export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, canReachMember = () => false, users, isFriend = () => false, notify = () => {}, markThreadNotificationsRead = () => {}, resolveShare = () => null }) {
   const guard = (req, res) => {
     const user = readSession(req);
     if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
@@ -16,7 +16,7 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
   const memberName = id => (users().find(u => u.id === id) || {}).name || null;
   const canRead = (thread, user) => thread.kind === 'direct'
     ? ((thread.memberId === user.id || thread.recipientId === user.id) && isFriend(thread.memberId, thread.recipientId))
-    : (thread.memberId === user.id || isTrainer(user));
+    : (thread.memberId === user.id || (isTrainer(user) && canReachMember(user, thread.memberId)));   // support: the member, an admin, or a trainer assigned to that member
   // `unread` is per-viewer: a thread is unread for you when the last message wasn't written
   // by you and arrived after the last time you (specifically) opened it — tracked per user id
   // in thread.readBy so every trainer has their own read state on a thread they all share.
@@ -30,8 +30,9 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       unread: !!last && last.authorId !== viewerId && last.createdAt > readAt
     };
   };
+  const memberIdOf = threadId => store.findThread(threadId)?.memberId;
   const notifyTrainers = (fromId, fromName, text, threadId) => {
-    users().filter(u => isTrainer(u) && u.id !== fromId).forEach(t => {
+    users().filter(u => isTrainer(u) && u.id !== fromId && canReachMember(u, memberIdOf(threadId))).forEach(t => {
       notify(t.id, { type: 'message', actor: { id: fromId, name: fromName }, target: { kind: 'chat', id: threadId }, deepLink: '/chat/' + threadId });
       sendPush(t.id, {
       title: 'Nuevo mensaje', body: `${fromName}: ${text.slice(0, 80)}`, tag: 'chat-' + threadId, url: '#/chat/' + threadId
@@ -42,7 +43,7 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
   return {
     'GET /api/chat/threads': async (req, res) => {
       const user = guard(req, res); if (!user) return;
-      if (isTrainer(user)) return json(res, 200, { threads: store.allThreads().filter(t => t.kind !== 'direct' || canRead(t, user)).map(t => ({ ...preview(t, user.id), kind: t.kind || 'trainer', memberName: memberName(t.kind === 'direct' && t.memberId === user.id ? t.recipientId : t.memberId) })) });
+      if (isTrainer(user)) return json(res, 200, { threads: store.allThreads().filter(t => canRead(t, user)).map(t => ({ ...preview(t, user.id), kind: t.kind || 'trainer', memberName: memberName(t.kind === 'direct' && t.memberId === user.id ? t.recipientId : t.memberId) })) });
       json(res, 200, { threads: store.threadsOf(user.id).filter(t => canRead(t, user)).map(t => ({ ...preview(t, user.id), kind: t.kind || 'trainer', memberName: t.kind === 'direct' ? memberName(t.memberId === user.id ? t.recipientId : t.memberId) : undefined })) });
     },
 
@@ -108,7 +109,7 @@ export function chatRoutes({ json, readBody, readSession, sendPush, isTrainer, u
       if (!isTrainer(user)) return json(res, 403, { error: 'prohibido' });
       const body = await readBody(req);
       const existing = store.findThread(body.threadId);
-      if (existing?.kind === 'direct') return json(res, 404, { error: 'esa conversación no existe' });
+      if (existing?.kind === 'direct' || (existing && !canRead(existing, user))) return json(res, 404, { error: 'esa conversación no existe' });
       const status = body.status === 'closed' ? 'closed' : 'open';
       const thread = store.setStatus(body.threadId, status);
       if (!thread) return json(res, 404, { error: 'esa conversación no existe' });

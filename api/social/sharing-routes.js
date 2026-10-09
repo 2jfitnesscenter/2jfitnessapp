@@ -5,7 +5,7 @@ import * as notifications from '../notifications/store.js';
 
 const KINDS = new Set(['workout', 'record', 'achievement', 'streak', 'routine', 'program', 'challenge']);
 const REASONS = new Set(['spam', 'inappropriate', 'privacy', 'other']);
-export function sharingRoutes({ json, readBody, readSession, users, isAdmin, resolveTarget, canShareWith = () => false, resolveReported, removeReported, notify = () => {}, sendPush = () => {} }) {
+export function sharingRoutes({ json, readBody, readSession, users, isAdmin, resolveTarget, canShareWith = () => false, featureOn = () => true, resolveReported, removeReported, notify = () => {}, sendPush = () => {} }) {
   const guard = (req, res) => { const u = readSession(req); if (!u) { json(res, 401, { error: 'no has iniciado sesión' }); return null; } return u; };
   const directAllowed = (a, b) => a !== b && friends.friendIdsOf(a).includes(b) && friends.friendIdsOf(b).includes(a) && !friends.isBlocked(a, b) && !friends.isBlocked(b, a);
   const visible = (share, viewer) => {
@@ -33,6 +33,7 @@ export function sharingRoutes({ json, readBody, readSession, users, isAdmin, res
       if (!card) return json(res, 404, { error: 'ese contenido ya no está disponible' });
       const idempotencyKey = /^[A-Za-z0-9_-]{12,80}$/.test(String(b.idempotencyKey || '')) ? String(b.idempotencyKey) : null;
       if (b.audience === 'chat') {
+        if (!featureOn('chat') || !featureOn('friends')) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
         const recipientId = String(b.recipientId || ''), threadId = String(b.threadId || '');
         const thread = chat.findThread(threadId);
         if (!directAllowed(user.id, recipientId) || !canShareWith(user.id, recipientId, kind) || !thread || thread.kind !== 'direct' || !((thread.memberId === user.id && thread.recipientId === recipientId) || (thread.memberId === recipientId && thread.recipientId === user.id))) return json(res, 403, { error: 'conversación no disponible' });
