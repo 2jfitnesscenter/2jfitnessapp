@@ -5,7 +5,7 @@
 **Branch:** `agent/codex/2J-078F-A-proof-receipt-reconciliation`.
 **Worktree:** `C:\Users\juanj\Dev\2J\worktrees\codex\2jfitnessapp\2J-078F-A`.
 **PR:** https://github.com/2jfitnesscenter/2jfitnessapp/pull/16 (draft; do not merge).
-**Implementation validation SHA:** `c22eadfbdaffa8bfe5cc91794005f6a6ce7aaace`; a documentation-only update records the initial remote CI result, and GitHub reruns all checks for the resulting final head.
+**Implementation validation SHA:** `c22eadfbdaffa8bfe5cc91794005f6a6ce7aaace`; later commits only update this handoff metadata. Check the live PR #16 rollup for the final head before any review/merge decision.
 
 ## Implementation summary
 
@@ -37,4 +37,4 @@ The store's synchronous read/check/write serializes only within one API process.
 - Dependency audit is not clean on the unchanged baseline: API **3 advisories** (1 moderate, 1 high, 1 critical); frontend **21** (1 low, 6 moderate, 10 high, 4 critical). No package manifest or lockfile changed; remediation is outside this bounded task.
 - No local `gitleaks`, `trufflehog` or `detect-secrets` executable is installed. No production key or credential was added.
 
-For implementation SHA `c22eadf`, GitHub `test`, `api` and `api-image` all passed. The final metadata-only head is being checked by the same three jobs; verify its exact SHA and checks before independent review. Independent security and QA review is required; do not merge.
+For implementation SHA `c22eadf`, GitHub `test`, `api` and `api-image` all passed. These three checks must remain green on the live PR head. Independent security and QA review is required; do not merge.
