@@ -1,0 +1,49 @@
+{
+  "taskId": "2J-078D",
+  "title": "Training verified account proof service / shadow mode",
+  "status": "implementation_complete_local_validation_complete_remote_ci_pending",
+  "repository": "2jfitnesscenter/2jfitnessapp",
+  "baseSha": "374e62c3b316b3642a7ddb623c98319264f9b8dd",
+  "branch": "agent/codex/2J-078D-training-proof-shadow",
+  "worktree": "C:\\Users\\juanj\\Dev\\2J\\worktrees\\codex\\2jfitnessapp\\2J-078D",
+  "pullRequest": null,
+  "headSha": null,
+  "implementation": {
+    "issuanceRoute": "POST /api/platform/v1/link-proofs",
+    "exchangeRoute": "POST /api/platform/v1/link-proofs/exchange",
+    "featureFlags": {
+      "PLATFORM_PROOF_ISSUANCE_ENABLED": false,
+      "PLATFORM_PROOF_EXCHANGE_ENABLED": false
+    },
+    "proofTtlMsMaximum": 120000,
+    "persistence": "Existing encrypted JSON data file under DATA_DIR; SHA-256 proof hash only",
+    "serviceAuth": "Exact 2J-SERVICE-AUTH-V1; base64url HMAC-SHA256; 60-second freshness; two-minute durable request replay window",
+    "singleProcessOnly": true,
+    "canonicalLinkCreated": false,
+    "liveEnabled": false
+  },
+  "goldenVector": {
+    "keyId": "platform-fixture-a",
+    "keyBytes": "32 bytes of 0x42; test-only",
+    "timestamp": "2026-10-10T12:00:00.000Z",
+    "requestId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "method": "POST",
+    "path": "/api/platform/v1/link-proofs/exchange",
+    "bodyDigest": "8473ddd28ddf57f9964b66dabac8ff0d4bda6a491e112be5f59633df088ca52a",
+    "signature": "F6GYp70w6TrZtTCWb4Jcmv3T92UxMyxGpUl2A6oK9oY"
+  },
+  "validation": {
+    "protocolTests": "9 passed, 0 failed, 0 skipped",
+    "apiFullSuite": "454 passed, 0 failed, 5 unrelated backup tests skipped because bash/openssl are unavailable on Windows",
+    "frontendSuite": "1445 passed, 0 failed, 0 skipped with two workers",
+    "frontendBuild": "passed",
+    "localeCoverageScript": "passed; existing translation coverage remains partial",
+    "apiImage": "passed locally",
+    "coachLibraryCheck": "passed",
+    "audit": "baseline not clean: API 3 (1 moderate, 1 high, 1 critical), frontend 21 (1 low, 6 moderate, 10 high, 4 critical); no dependency changes",
+    "secretScan": "gitleaks is unavailable locally; no production secret added; remote checks pending",
+    "gitDiffCheck": "passed",
+    "ci": "pending"
+  },
+  "reviewRequired": "Independent security review; do not merge or enable flags"
+}

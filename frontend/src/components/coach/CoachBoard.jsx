@@ -10,6 +10,7 @@ import { fetchBoard, goalName, signalText, agoText, inText, LEVEL } from '../../
 import Icon from '../Icon.jsx'
 import { Surface, Pill, ListSkeleton, EmptyState } from '../v2.jsx'
 import { Button, Avatar } from '../ui.jsx'
+import { runLabel } from '../../lib/premium-text.js'
 import './coach-followup.css'
 
 /* Seguimiento (staff): who needs attention, why, and what changed — in one request. The list is computed on the server (api/lib/coach-followup.js) for the members
@@ -31,6 +32,7 @@ export function MemberCard({ r, open }) {
       <div className="cf-who">
         <div className="tt capitalize">{r.name}</div>
         <div className="small dim">{goal || t('No goal set')}{r.goal.priority === 'high' && ' · ' + t('High priority')}</div>
+        {r.premium && <div className="small dim cf-premium-line"><Icon name="trophy" /> {runLabel(r.premium)}{r.premium.status === 'paused' ? ' · ' + t('Paused') : ''}</div>}
       </div>
       <Pill tone={lv.tone === 'acc' ? 'acc' : undefined} className={'cf-lv ' + r.level}><i className="dot" aria-hidden="true" />{t(lv.word)}</Pill>
     </div>

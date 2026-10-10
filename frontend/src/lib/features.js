@@ -13,7 +13,7 @@
 // Keep in sync with api/lib/features-store.js (a test compares the two lists).
 export const FEATURE_KEYS = [
   'coach', 'suggestions', 'effort', 'volume', 'train2j', 'health', 'bioimpedance', 'recovery',
-  'bodyweight', 'social', 'chat', 'friends', 'challenges', 'activity', 'timeline',
+  'bodyweight', 'social', 'chat', 'friends', 'challenges', 'activity', 'timeline', 'premium',
 ]
 
 // Admin screen: grouped, plain-language. `icon` is an existing Icon name.
@@ -23,6 +23,7 @@ export const FEATURE_GROUPS = [
     { key: 'volume', icon: 'chart', label: 'Volume analysis', sub: 'Weekly volume zones and training-zone breakdowns' },
     { key: 'suggestions', icon: 'sparkles', label: 'Suggestions & progression', sub: 'Contextual tips and next-load recommendations' },
     { key: 'train2j', icon: 'dumbbell', label: 'Train with 2J', sub: 'Official ready-to-start routines, programs and collections' },
+    { key: 'premium', icon: 'trophy', label: 'Premium training programs', sub: 'Structured methods with cycles and a Training Max (new activations; a running program is never switched off)' },
   ] },
   { title: 'Health', keys: [
     { key: 'bodyweight', icon: 'scale', label: 'Body weight', sub: 'Weight log and evolution' },
@@ -78,7 +79,8 @@ export const PRESETS = {
 
 /** What to store in S.ux. `uses` only keeps the preferences the member can actually set. */
 // `extra.progress` (optional) is the Progress-page layout (lib/progress-cards.js): stored only when it differs from the default, so an untouched profile stays untouched.
-export const makeUx = (uses, now = Date.now(), extra = {}) => ({ v: 1, at: now, uses: Object.fromEntries(USER_PREFS.map(k => [k, uses?.[k] !== false])), ...(extra?.progress ? { progress: extra.progress } : {}) })
+// `extra.home` (optional) is the Home layout (lib/home-blocks.js), stored under the same rule.
+export const makeUx = (uses, now = Date.now(), extra = {}) => ({ v: 1, at: now, uses: Object.fromEntries(USER_PREFS.map(k => [k, uses?.[k] !== false])), ...(extra?.progress ? { progress: extra.progress } : {}), ...(extra?.home ? { home: extra.home } : {}) })
 
 /** Current choices for the configurator: S.ux when it exists, otherwise "everything on" (today's behaviour). */
 export const currentUses = S => Object.fromEntries(USER_PREFS.map(k => [k, chosenByMember(S, k)]))

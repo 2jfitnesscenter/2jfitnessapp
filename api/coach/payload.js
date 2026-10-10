@@ -19,6 +19,7 @@ import { rpVolumeSnapshot, groupOfTarget } from './rp-volume.js';
 import { ZONES as TRAINING_ZONES } from './training-zones.js';
 import { protocolContext, protocolPayload, readUnavailableEq } from './protocol-gate.js';
 import { activeProgramContext } from '../lib/guided-store.js';
+import { premiumOf, premiumFacts } from '../lib/premium-context.js';
 import { gymEquipmentContext } from '../lib/gym-profiles.js';
 import { countsForProgression } from '../lib/workout-policy.js';
 import { equipmentIdOf } from '../lib/protocol/movements.js';
@@ -385,6 +386,10 @@ export function build(S, uid, opts = {}) {
   // explicit restrictions, and official blocks to reuse before inventing (protocol-gate.js).
   p.protocol = protocolPayload(protocolCtx,
     Array.isArray(S.priorityMuscles) ? S.priorityMuscles : [], activeProgramContext(S), gymEquipmentContext(S).availableEquipment);
+
+  // The Premium method the member is following (name, version, phase, cycle, week, Training Max, adherence): context so advice stays coherent with it.
+  const premium = premiumOf(S);
+  if (premium) p.premiumProgram = premiumFacts(premium);
 
   // Weekly Volume Zones (MV/MEV/MAV/MRV per muscle group) — only when the member has this on;
   // the Coach should reason about landmarks a person doesn't have switched on exactly as little

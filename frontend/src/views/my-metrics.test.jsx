@@ -90,7 +90,7 @@ describe('the configurator (the existing screen) carries the layout', () => {
     const h = await render(views.Setup)
     for (const k of ['Progress page', 'Restore recommended settings', 'Highlights', 'Body weight', 'Activity map', 'Exercise progress', 'Move down: Highlights']) expect(h).toContain(k)
     expect(h).toMatch(/<button[^>]*ux-pc-mv[^>]*disabled=""[^>]*aria-label="Move up: Highlights"/)      // the first row cannot go up
-    expect((h.match(/ux-pc-row/g) || []).length).toBe(P.PROGRESS_IDS.length)
+    expect((h.match(/ux-pc-row/g) || []).length).toBe(P.PROGRESS_IDS.length + (await import('../lib/home-blocks.js')).HOME_IDS.length)   // the Progress blocks + the Home blocks
   })
   it('hidden blocks show as off; a block whose feature is off is not offered', async () => {
     await seed({ ux: F.makeUx({ ...F.currentUses({ ux: null }), bioimpedance: false }, 1, { progress: { order: P.PROGRESS_IDS, hidden: ['cardio'] } }) })

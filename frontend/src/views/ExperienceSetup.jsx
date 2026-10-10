@@ -6,6 +6,7 @@ import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { PRESETS, configurable, currentUses, makeUx, allowedByAdmin } from '../lib/features.js'
 import { PROGRESS_CARDS, normalizeProgress, progressOrder, progressChoice, recommendedFor } from '../lib/progress-cards.js'
+import { HOME_BLOCKS, normalizeHome, homeOrder, homeChoice, defaultHomeLayout } from '../lib/home-blocks.js'
 import { orderedBodyWeightSeries } from '../lib/bodyweight.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Switch } from '../components/ui.jsx'
@@ -71,10 +72,11 @@ function Presets({ onPick, active }) {
 // A Progress block is offered when the feature behind it is on (the member's own switch above AND the gym's), so there is never a row that does nothing.
 const cardOffered = (card, uses) => !card.feature || (uses[card.feature] !== false && allowedByAdmin(card.feature))
 
-function ProgressLayout({ layout, setLayout, uses }) {
-  const listed = layout.order.filter(id => cardOffered(PROGRESS_CARDS.find(c => c.id === id), uses))
+// One editor for both layouts (Progress page and Home): `cards` is the closed catalogue, a card with `optional: false` can be moved but not hidden.
+function ProgressLayout({ layout, setLayout, uses, cards = PROGRESS_CARDS }) {
+  const listed = layout.order.filter(id => cardOffered(cards.find(c => c.id === id), uses))
   const move = (id, dir) => setLayout(l => {
-    const L = l.order.filter(i => cardOffered(PROGRESS_CARDS.find(c => c.id === i), uses))
+    const L = l.order.filter(i => cardOffered(cards.find(c => c.id === i), uses))
     const a = L.indexOf(id), b = a + dir
     if (a < 0 || b < 0 || b >= L.length) return l
     const order = [...l.order]; const pa = order.indexOf(L[a]), pb = order.indexOf(L[b]); [order[pa], order[pb]] = [order[pb], order[pa]]
@@ -83,13 +85,13 @@ function ProgressLayout({ layout, setLayout, uses }) {
   const toggle = (id, on) => setLayout(l => ({ ...l, hidden: on ? l.hidden.filter(h => h !== id) : [...l.hidden, id] }))
   return <div className="ux-pc">
     {listed.map((id, i) => {
-      const c = PROGRESS_CARDS.find(x => x.id === id), on = !layout.hidden.includes(id)
+      const c = cards.find(x => x.id === id), on = !layout.hidden.includes(id), fixed = cards === HOME_BLOCKS && !c.optional
       return <div key={id} className={'ux-pc-row' + (on ? '' : ' off')}>
         <span className="ux-ico"><Icon name={c.icon} /></span>
         <span className="ux-pc-t">{t(c.label)}</span>
         <button type="button" className="iconbtn ux-pc-mv" disabled={i === 0} onClick={() => move(id, -1)} aria-label={t('Move up: {0}', t(c.label))}><Icon name="arrowUp" /></button>
         <button type="button" className="iconbtn ux-pc-mv" disabled={i === listed.length - 1} onClick={() => move(id, 1)} aria-label={t('Move down: {0}', t(c.label))}><Icon name="arrowDown" /></button>
-        <Switch checked={on} onChange={v => toggle(id, v)} />
+        {fixed ? <span className="ux-pc-fixed muted small">{t('Always shown')}</span> : <Switch checked={on} onChange={v => toggle(id, v)} />}
       </div>
     })}
   </div>
@@ -109,6 +111,8 @@ export default function ExperienceSetup({ mode = 'settings' }) {
   const [step, setStep] = useState(0)          // onboarding: 0 = presets, 1..n = groups
   // The Progress-page layout being edited: the saved one, or the default when never touched (S.ux.progress absent).
   const [layout, setLayout] = useState(() => ({ order: progressOrder(S), hidden: normalizeProgress(S.ux?.progress).hidden }))
+  // The Home layout being edited: the saved one, or the default when never touched (S.ux.home absent).
+  const [home, setHome] = useState(() => ({ order: homeOrder(S), hidden: normalizeHome(S.ux?.home).hidden }))
   const set = (k, v) => setUses(u => ({ ...u, [k]: v }))
   // Applying a preset (or restoring the recommended settings) is the ONLY moment the member's goal shapes the layout; afterwards their choices rule.
   const recommend = id => {
@@ -119,7 +123,7 @@ export default function ExperienceSetup({ mode = 'settings' }) {
   const pick = recommend
 
   const save = () => {
-    update(s => { s.ux = makeUx(uses, Date.now(), { progress: progressChoice(layout.order, layout.hidden) }); s.uxSetup = false; s.uxInviteDismissed = true })
+    update(s => { s.ux = makeUx(uses, Date.now(), { progress: progressChoice(layout.order, layout.hidden), home: homeChoice(home.order, home.hidden) }); s.uxSetup = false; s.uxInviteDismissed = true })
     if (!onboarding) nav('/settings')
   }
   const skip = () => update(s => { s.uxSetup = false })   // keeps everything on (S.ux stays null)
@@ -137,6 +141,10 @@ export default function ExperienceSetup({ mode = 'settings' }) {
       <Button size="sm" variant="plain" icon="reset" onClick={() => recommend(presetOf(uses, keys) || 'balanced')}>{t('Restore recommended settings')}</Button>
       {groups.map(g => <div key={g.id}><h4 className="sec">{t(g.title)}</h4>
         <div className="ux-list">{g.items.map(i => <PrefCard key={i.key} item={i} on={uses[i.key] !== false} onChange={v => set(i.key, v)} />)}</div></div>)}
+      <h4 className="sec">{t('Home')}</h4>
+      <p className="ux-lead" style={{ margin: '0 0 8px' }}>{t('Choose which blocks Home shows and in which order.')}</p>
+      <ProgressLayout layout={home} setLayout={setHome} uses={uses} cards={HOME_BLOCKS} />
+      <Button size="sm" variant="plain" icon="reset" onClick={() => setHome(defaultHomeLayout())}>{t('Restore default Home layout')}</Button>
       <h4 className="sec">{t('Progress page')}</h4>
       <p className="ux-lead" style={{ margin: '0 0 8px' }}>{t('Show or hide each block and put them in the order you like.')}</p>
       <ProgressLayout layout={layout} setLayout={setLayout} uses={uses} />

@@ -1,5 +1,12 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Home + Salud V2 + Entrenamientos Premium V1 (candidato; NO desplegado; base `172a89c` = origin/main tras el PR #17)
+
+- Rama `codex/premium-programs-v1`. Detalle en `docs/PREMIUM_PROGRAMS_V1.md` y `docs/HEALTH_COMPOSITION_V2.md`. **Premium** = catálogo de métodos estructurados (no paywall): motor genérico dirigido por datos (`lib/premium-model.js`, copia sincronizada en `api/lib`), 12 programas semilla versionados (`scripts/premium/official-programs.mjs` → `api/lib/premium-official.json`, CI `--check`), store con overlay `DATA/premium.json`, rutas `/api/premium/*`, flag `premium` (OFF = sin activaciones nuevas, los programas en marcha siguen). 5/3/1 es un programa del motor (Training Max, S1–S4, AMRAP, propuesta de ciclo que confirma el socio).
+- Estado del socio `S.premium = { active, history }` con la definición fijada (snapshot): ocultar/archivar un programa o apagar el flag no lo afecta; cambiar conserva el historial. Coach/seguimiento y las dos IAs reciben el mismo resumen (`api/lib/premium-context.js`). ACL: entrenador solo programas propios y no publica; admin publica/oculta/destaca/archiva/ordena y promueve.
+- Portadas por programa (Wikimedia Commons, solo PD/CC0/CC BY, servidas desde `frontend/public/premium/covers`, metadatos en `scripts/premium/covers.json`); editor de portada en el gestor. **Home personalizable** (`lib/home-blocks.js`, `S.ux.home`, editor en «Personalizar mi experiencia», restaurar por defecto) con tarjeta Premium. **Salud V2**: objetivos de peso/grasa/músculo con rangos solo documentados (OMS IMC, ACE grasa; músculo sin rango), privados.
+- Pendiente de decisión del propietario: revisión legal/licencia de los nombres de los métodos tipo A (5/3/1, Texas Method, PHUL, PHAT, GZCL; «Juggernaut Method» ya renombrado a «ONDAS 10/8/5/3») y sustitución de portadas por fotos propias.
+
 ## Gestión del centro V1 (candidato; NO desplegado; producción `8239e350`)
 
 - Detalle en `docs/CENTER_MANAGEMENT_V1.md`. Consola `/center` (Hoy · Miembros · Entrenadores), accesible a admin y trainer desde la tarjeta de Admin y la barra del panel de entrenador. Solo lectura sobre datos existentes: `assignedTrainers`/`canAccessMember`, resumen derivado (`lastWorkoutAt` = actividad de entrenamiento; `lastSync` nunca se llama activo), motor de seguimiento del Coach (`overviewRow`/`bucketRows`, mismos buckets que el tablero) y presencia. Endpoints `GET /api/center/today|members|trainers` (`lib/center-routes.js`). El trainer solo conoce sus miembros asignados (`canAccessMember`): ni lista ni agregados de los demás. Sin stores, roles ni notificaciones nuevos; reservas/clases intactas.
@@ -66,6 +73,55 @@
 > Bunker, Health, Constructor, etc.) está en el historial de este archivo:
 > `git show 75317b0:AI_HANDOFF.md` y en `CHANGELOG.md`.
 
+## Megasprint 2J — checkpoint autoritativo (2026-10-07)
+
+Este bloque es la referencia vigente para el trabajo posterior a producción 4230b17. Los estados fechados más abajo son historial, no sustituyen este checkpoint.
+
+### Producción y release
+
+- Producción confirmada al inicio: `4230b17f3b4f9703f4706df9df65f36315e21eff`.
+- Último commit funcional: `7f9a89e4d0815af34113442d21a9dd03c3931139`. La punta candidata `8458b54` integra además el remoto documental/legal 2J sin cambiar producto. **NOT DEPLOYED**.
+- No se ha conectado a producción, creado backup predeploy ni ejecutado un deploy en este trabajo.
+- Web Push diagnóstico sigue sin prueba física confirmada y el temporizador real no usa esa cola. Android Rest Alert física y PWA no deben declararse validadas por los tests locales.
+
+### Implementado en el megasprint
+
+- **IA profesional vs personal:** la generación profesional usa su propia ruta y un payload allowlist del plan y briefing del entrenador; no requiere consentimiento de IA personal del socio. El payload profesional excluye identidad, historial, Health, medidas, notas privadas y datos sociales. Las rutas conservan los guards de rol existentes. Limitación real: el modelo actual autoriza por rol y no implementa una relación trainer↔socio; no afirmar aislamiento por asignación individual.
+- **Progresión e historial:** campo aditivo `excludeFromProgression` y política común para no usar sesiones excluidas en cargas, tendencias, PR/e1RM, fatiga, cobertura ni evidencia de Coach/IA. Siguen contando como asistencia/duración. Edición de entrenamiento finalizado valida los campos permitidos, conserva el registro existente y no cambia la rutina base. Legacy sin el campo sigue incluido.
+- **Seguimiento:** amplía la superficie existente con objetivo actual y nota privada administrativa cifrada en reposo, con historial acotado y guardado explícito. Solo admin puede leer/escribir esa nota; no entra en estado del socio/Sync, proveedor IA o Community. La plantilla/cadencia existente preserva el blob cifrado. No hay scope trainer↔socio; acceso de entrenador a notas queda pendiente de una ACL explícita.
+- **Repositorio/tooling:** política Git EOL acotada (fuentes y generados LF, PowerShell CRLF, binarios no normalizados) sin renormalización masiva; `docs/GENERATED_FILES.md` documenta fuentes y checks reproducibles. El deploy-kit está versionado como tooling propuesto, pero no instalado ni verificado en VPS; los scripts que cambian claves, usuarios, sudoers o SSH no se ejecutaron.
+
+### Evidencia local
+
+- Frontend: **1445/1445**, corrido secuencialmente para evitar timeouts ambientales; hubo un primer intento paralelo con fallos solo de timeout.
+- API: **450/450**, sin skips al incluir Git Bash/OpenSSL para los tests operativos de backup.
+- Web build: OK; español completo en check de locales (4540/4540; otros idiomas conservan la cobertura parcial conocida).
+- Generated checks: Coach Library 1324 ejercicios; 198 bloques; 155 rutinas / 15 colecciones; Sync Gym Profiles, Guided Program model, Library overlay, Protocol (9 copias) y Workout Activity coinciden con generadores.
+- Deploy-kit: Node 18/18; Docker Ubuntu 24.04 48/48; PowerShell/Bash syntax y diff-check OK. `PrepareOnly` final para `8458b54` pasó: exact delta, API image/imports/health, release protocol, install y rollback simulado, preservación de fixtures de datos y rechazo de artefacto manipulado. No prueba una instalación en VPS.
+- Falsos negativos del runner corregidos sin tocar producto: el smoke Community verifica la inicialización real `db.subs = db.subs || []`; Push verifica el acceso protegido `notificationApi().permission`; la simulación Windows convierte las rutas de probes Node con `cygpath -m` y proporciona una clave pública sintética a `/api/push/public-key`. PrepareOnly confirmó `PREPARE_ONLY_OK` y `DEPLOY_SCRIPT_OK` para el target exacto. Tooling-only commits: `9c48b50`, `bdc4bb9`, `2238428`, `eb52fd3`.
+
+### Commits de código
+
+- `937741e` — separación IA entrenador/socio.
+- `26529e9` — exclusión de progresión y edición segura del histórico.
+- `7f9a89e` — Seguimiento con contexto y notas privadas admin.
+- `8458b54` — merge de los cambios legales/documentales presentes en el remoto 2J, sin cambios funcionales upstream.
+
+### Decisiones y límites
+
+- No se cambió Sync V2, autenticación, Bunker, Health, roles, planificador, formato histórico base ni los motores de entrenamiento existentes.
+- Las acciones del usuario/entrenador siguen siendo explícitas. Health y datos sociales no se envían a IA.
+- Backups off-site de producción: pendientes de destino/passphrase del operador y ensayo real; los tests usan fixtures temporales.
+- No reabrir bloques ya cerrados ni implementar roadmap como parte de este checkpoint.
+
+### Próximos pasos
+
+1. Resolver explícitamente el alcance trainer↔socio antes de exponer seguimientos/notas privadas a trainers; por ahora las notas son admin-only.
+2. Completar QA física pendiente de Web Push/PWA de descanso, sin conectar el temporizador real hasta que la prueba independiente pase con PWA minimizada y pantalla apagada.
+3. Revisar el deploy-kit antes de activar su instalación en servidor; mantener el deploy manual existente y no usarlo sin aprobación del operador.
+4. Después, agrupar incidencias de uso normal. Roadmap no comprometido: Bunker evolución, entrenamiento temporizado, UI/UX, Health/progreso visual, Library/análisis, seguridad/passkeys, Sync V3, Social, catálogo y reservas.
+
+---
 ## Estado actual — producción y alerta Android de descanso (2026-10-07)
 
 - **Producción actual reportada por el propietario:** `cca6dc4137afb28e4df823f229e939933efeae78` (release Android Rest Alert). Shared Staff Device permanece desplegado y validado; no reabrirlo.
@@ -132,6 +188,8 @@
 - **Cierre Sprint 3 (decisiones aprobadas):** (1) **Chat cifrado** `chat.json` AES-GCM: lectura dual, migración atómica verificada al arrancar, modo solo-lectura si la clave falla (nunca pisa el fichero), rollback `api/scripts/decrypt-chat.mjs`. (2) **Clave separable:** `SECRET_FILE` (`lib/secret.js`, único lector), copia no destructiva desde `data/secret`, `scripts/separate-secret.sh`/`secret-export.sh`, mount `./secrets`; `docs/KEY_SEPARATION.md`. **Activación = paso de ops tras el deploy** (aún no activada). (3) **Trainer AI exige el consentimiento IA del socio** (`S.coach.consent`; 403 `consent`, no se envía nada). (4) **Exportar / borrar cuenta:** `GET /api/me/export`, `POST /api/me/delete(/options)` con passkey fresca + usuario escrito, solo socios (staff debe perder el rol), borrado en todos los almacenes, test que escanea todo `./data`; `docs/ACCOUNT_ERASURE.md`. (5) WebAuthn `preferred` y PIN Bunker 4 dígitos se mantienen (riesgo distribuido documentado en `docs/DATA_MAP.md`). (6) Backups externos: mecanismo listo, **esperando destino + passphrase** (nunca en git). (7) Android: keystore pendiente del propietario; checklist S25 en `docs/ANDROID_RELEASE.md`. (8) Smoke tests CSP: `docs/SMOKE_TESTS.md`. iOS sigue `READY_FOR_DEVICE_VALIDATION`.
 - **Backups (revisión 2026-10-06):** scripts existentes; sin destino off-site ni passphrase aportados/configurados, no hay copia externa de producción confirmada ni cron verificado. La suite aislada `api/test/backup-offsite.test.js` pasó 4/4 con fixtures sintéticos: cifrado, checksum, restore a destino temporal, rechazo de passphrase incorrecta/corrupción y precondiciones. No se accedió ni modificó `data/` live. Falta ensayo de restore de una copia real y validación de JSON recuperado; la prueba actual usa un estado sintético opaco y `restore-backup.sh` solo valida checksum (si existe), gzip y presencia de `data/`.
 - **Security/Ops V1 (sin cambios visibles):** `backup-offsite.sh` escribe `data/ops/backup-status.json` (ok/fallo + motivo + etapa), logs con hora, errores de configuración claros (exit 2) y retención remota también en rclone; `restore-rehearsal.sh [--boot]` restaura a un directorio desechable, valida db/secreto/cada state con el lector de la app y arranca una API aislada (estado en `restore-status.json`, sin tocar producción); `GET /api/admin/ops` (solo admin: backup, ensayo, marca de deploy, disco, últimos 5xx, alertas), `scripts/mark-deploy.sh`, `scripts/ops-check.sh` para cron. `main` sigue SIN protección en GitHub (instrucciones exactas y la trampa de los `paths:` del CI en `docs/SECURITY_OPS_V1.md`). Sigue pendiente: destino off-site + passphrase del propietario y un ensayo con una copia real.
+- **Security/Ops V1 — cierre operativo (2026-10-10):** off-site real validado por el propietario (rclone `2jbackup` Google Drive, passphrase `/root/.2j-backup-pass`, checksum remoto OK, rehearsal real 28 users/28 states, producción intacta). **`main` protegida en GitHub** (aplicado vía API): PR obligatorio con 0 aprobaciones, checks obligatorios `test`,`api`,`api-image` (rama al día), sin force push, sin borrado, admins NO forzados (bypass de emergencia). El CI en `pull_request` tenía filtro `paths`, que dejaría sin checks a los PR de docs/scripts: el arreglo está en la rama local `codex/ci-tests-always` (commit sobre `origin/main`), **sin push**: pendiente que el propietario la suba y abra el PR. `origin/main` y la línea de release (77 commits) están divergidas. Pendiente humano: destino real de alertas (`/etc/2j-alert.conf`), cron definitivo tras el deploy (`/etc/2j-ops.env`) y ejecutar el deploy.
+- **Búnker V2 (delta pequeño, 2026-10-10):** el kiosco ya mostraba toda la rutina, alternaba superseries, ofrecía entrenamiento libre / rutina del perfil sin rutina asignada y tenía un panel aislado por miembro; se añadió lo que faltaba: botones anterior/siguiente con «Siguiente: X» y marca de siguiente en la tira, chips A/B para cambiar de compañero de superserie, marcador limpio si falta la imagen o falla (`BunkerExerciseMedia`), y las piezas de rutina extraídas a `views/BunkerRoutine.jsx` + `lib/bunker-nav.js` para poder probarlas. Navegar solo mueve `cur` (mismas `entries`); sin cambios en formato de sesión, sync, finish, handoff ni timeout. QA en navegador real (1/2/3 paneles, 1920×1080 y 1366×768, sin overflow ni solape con la barra) detectó y corrigió un fallo propio: el CSS ocultaba «Siguiente: X» dentro de la rejilla. Tests: `api/test/bunker-v2.test.js`, `lib/bunker-nav.test.js`, `views/bunker-v2.test.jsx`.
 - **BASELINE DE PRODUCCIÓN — INCONSISTENCIA ABIERTA (no resuelta aquí):** esta documentación dice producción = `ffbfc09`; el último deploy confirmado externamente es `d39ba0319387cc7c98722a4d9c24d26585f2bdf0`. Antes de cualquier deploy el runner debe leer PREDEPLOY_PRODUCTION del servidor y usarlo como única fuente de verdad (no los documentos).
 - **Android release:** firma por `frontend/android/keystore.properties` (git-ignored) o `2J_KEYSTORE_*`; sin keystore compila sin firmar (`assembleRelease` + tests JVM OK). `allowBackup=false`. `scripts/android-release-hashes.mjs <SHA256> --apply` añade la huella a `assetlinks.json` y el hash a `webauthn-origins.js`. Guía exacta: `docs/ANDROID_RELEASE.md`. **BLOQUEADO por el propietario:** crear el keystore (comandos en la guía); validar login/Health en el APK release (10 min).
 - **iOS/HealthKit:** `READY_FOR_DEVICE_VALIDATION` (`docs/IOS_HEALTHKIT.md`): el commit `1b29741` aplica limpio sobre HEAD (solo 8 ficheros nativos; JS ya idéntico), faltan Mac/Xcode/iPhone, Associated Domains + AASA para passkeys y revisión del pbxproj. No integrado.

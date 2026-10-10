@@ -1,0 +1,134 @@
+{
+ "531": {
+  "coverImage": "/premium/covers/531.jpg",
+  "coverImageAlt": "Close-up of two hands gripping a knurled barbell before a heavy lift",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 55
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Deadlift_grip.JPG",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "U.S. Air Force photo by Senior Airman Clayton Lenhardt (Public domain), via Wikimedia Commons"
+ },
+ "texas-method": {
+  "coverImage": "/premium/covers/texas-method.jpg",
+  "coverImageAlt": "A powerlifter under the bar in the bottom of a competition squat",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 45
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:A_U.S._Marine_with_the_Camp_Pendleton_Varsity_Powerlifting_Team_performs_a_squat_during_the_Military_Powerlifting_Nationals_in_Costa_Mesa,_Calif.,_July_1,_2011_110701-M-GN937-167.jpg",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "Cpl. Kenneth Jasik (Public domain), via Wikimedia Commons"
+ },
+ "juggernaut-method": {
+  "coverImage": "/premium/covers/juggernaut-method.jpg",
+  "coverImageAlt": "A strong athlete about to finish a loaded barbell deadlift",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 40
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Seaman_performs_a_deadlift_during_a_power_lifting_competition._(29740966872).jpg",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "Official U.S. Navy Page from United States of America MC2 Nathan R. McDonald/U.S. Navy (Public domain), via Wikimedia Commons"
+ },
+ "gzcl": {
+  "coverImage": "/premium/covers/gzcl.jpg",
+  "coverImageAlt": "An athlete squatting with a barbell on her back in a rack",
+  "coverFocalPoint": {
+   "x": 55,
+   "y": 45
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Woman_doing_squat_workout_in_gym_with_barbell.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Nenad Stojkovic, CC BY 2.0, via Wikimedia Commons"
+ },
+ "phul": {
+  "coverImage": "/premium/covers/phul.jpg",
+  "coverImageAlt": "An athletic woman pressing two dumbbells overhead in a gym",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 40
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Strong_woman_performs_shoulder_press_exercise_in_fitness_gym_during_afternoon_workout_session.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Shixart1985, CC BY 2.0, via Wikimedia Commons"
+ },
+ "phat": {
+  "coverImage": "/premium/covers/phat.jpg",
+  "coverImageAlt": "Dumbbell curl in front of a full rack of dumbbells",
+  "coverFocalPoint": {
+   "x": 45,
+   "y": 50
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Woman_standing_in_front_of_a_dumbbell_rack_doing_bicep_curls.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Shixart1985, CC BY 2.0, via Wikimedia Commons"
+ },
+ "dup": {
+  "coverImage": "/premium/covers/dup.jpg",
+  "coverImageAlt": "Bench press seen from above, bar locked out over the chest",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 55
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:USMC-110816-F-2786W-005.jpg",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "Cpl. Courtney C. White (Public domain), via Wikimedia Commons"
+ },
+ "upper-lower-powerbuilding": {
+  "coverImage": "/premium/covers/upper-lower-powerbuilding.jpg",
+  "coverImageAlt": "An athlete pressing a loaded barbell overhead",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 30
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Attractive_sporty_woman_doing_overhead_press_in_gym_with_barbell.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Nenad Stojkovic, CC BY 2.0, via Wikimedia Commons"
+ },
+ "full-body-hypertrophy": {
+  "coverImage": "/premium/covers/full-body-hypertrophy.jpg",
+  "coverImageAlt": "A focused lifter doing dumbbell curls in a bright gym",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 40
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Woman_in_a_gym_sitting_on_the_floor_and_doing_dumbbell_curls.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Shixart1985, CC BY 2.0, via Wikimedia Commons"
+ },
+ "2j-recomposition": {
+  "coverImage": "/premium/covers/2j-recomposition.jpg",
+  "coverImageAlt": "A lifter pulling a rope on a cable machine",
+  "coverFocalPoint": {
+   "x": 55,
+   "y": 55
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Strong_woman_using_cable_machine_for_upper_body_workout_in_gym.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Shixart1985, CC BY 2.0, via Wikimedia Commons"
+ },
+ "concurrent-strength-cardio": {
+  "coverImage": "/premium/covers/concurrent-strength-cardio.jpg",
+  "coverImageAlt": "An athlete on a treadmill in a gym, with strength equipment around",
+  "coverFocalPoint": {
+   "x": 45,
+   "y": 40
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Young_blonde_woman_running_on_a_treadmill_in_the_gym_closeup.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Shixart1985, CC BY 2.0, via Wikimedia Commons"
+ },
+ "full-body-conditioning": {
+  "coverImage": "/premium/covers/full-body-conditioning.jpg",
+  "coverImageAlt": "An athlete swinging battle ropes in a dark training space",
+  "coverFocalPoint": {
+   "x": 30,
+   "y": 50
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Scott_Webb_2015-06-17_(Unsplash).jpg",
+  "coverImageLicense": "CC0",
+  "coverImageAttribution": "Scott Webb scottwebb (CC0), via Wikimedia Commons"
+ }
+}
