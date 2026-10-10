@@ -46,12 +46,9 @@ button.cm-person { cursor: pointer; }
 @media (min-width: 900px) { .cm-members { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .cm-member { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px; background: var(--surface); border: 1px solid var(--sep-op); border-radius: 16px; }
 .cm-member.off { opacity: .6; }
-.cm-member.other { background: transparent; border-style: dashed; }
 .cm-acts { display: flex; flex-direction: column; gap: 6px; flex: none; }
 .cm-acts .btn { width: auto; white-space: nowrap; }
 @media (max-width: 440px) { .cm-member { flex-wrap: wrap; } .cm-acts { flex-direction: row; width: 100%; } .cm-acts .btn { flex: 1; } }
-.cm-lock { display: inline-flex; align-items: center; gap: 5px; flex: none; font-size: 12px; color: var(--label-3); }
-.cm-lock svg { width: 13px; height: 13px; }
 
 /* ---- Entrenadores ---- */
 .cm-trainers { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }

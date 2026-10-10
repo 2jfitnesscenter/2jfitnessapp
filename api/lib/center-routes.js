@@ -5,8 +5,7 @@
  *  - training activity: the derived summary (lib/user-summary.js) — `lastWorkoutAt`, never `lastSync`, is "trained";
  *  - who needs attention and which reviews are near: the Coach follow-up engine itself (overviewRow / bucketRows), not a second set of rules;
  *  - who is training right now: the in-memory presence.
- * Admin sees everybody. A trainer reads the full row of the members assigned to them; with scope=all the rest of the roster appears as a minimal row
- * (name, avatar, who looks after them) with nothing about their training, and no way in.
+ * Admin sees everybody. A trainer only ever knows the members assigned to them (`canAccessMember`): the others are not listed, counted or aggregated, not even minimally.
  */
 import { overviewRow, unreadableRow, bucketRows } from './coach-followup.js';
 import { canAccessMember } from './coach-followup-routes.js';
@@ -26,7 +25,6 @@ export function centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, rea
   const nameOf = id => db.users.find(x => x.id === id)?.name || null;
   const trainersOf = u => (Array.isArray(u.assignedTrainers) ? u.assignedTrainers : []).map(id => ({ id, name: nameOf(id) })).filter(t => t.name);
   const roleOf = u => (isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member');
-  const minimal = u => ({ id: u.id, name: u.name, avatar: u.avatar || null, assigned: false, assignedTrainers: trainersOf(u) });
 
   // The members a staff member may read in depth, as Coach rows (one decrypt each, once per request).
   const coachRows = (staff, today) => {
@@ -43,17 +41,16 @@ export function centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, rea
     'GET /api/center/members': async (req, res) => {
       const staff = requireTrainer(req, res); if (!staff) return;
       const admin = isAdmin(staff);
-      const asked = new URL(req.url, 'http://x').searchParams.get('scope');
-      const scope = admin ? 'all' : asked === 'all' ? 'all' : 'assigned';
+      const scope = admin ? 'all' : 'assigned';
       userSummaries.prune(db.users.map(u => u.id));
       const users = [];
       for (const u of db.users) {
         if (!admin && isTrainer(u)) continue;                                  // a trainer's roster is members only
         const mine = canAccessMember(staff, u, isAdmin);
-        if (!mine) { if (scope === 'all' && !u.disabled) users.push(minimal(u)); continue; }
+        if (!mine) continue;
         const sum = summaryOf(u), live = livePresence(u.id);
         users.push({
-          id: u.id, name: u.name, avatar: u.avatar || null, assigned: true, role: roleOf(u), disabled: !!u.disabled, created: u.created || null,
+          id: u.id, name: u.name, avatar: u.avatar || null, role: roleOf(u), disabled: !!u.disabled, created: u.created || null,
           assignedTrainers: trainersOf(u), workoutCount: sum.workoutCount, lastWorkoutAt: sum.lastWorkoutAt,
           activeNow: !!live, live: live ? { name: live.name || null } : null,
           ...(sum.unreadable ? { stateUnreadable: true } : {}),

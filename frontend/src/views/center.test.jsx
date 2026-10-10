@@ -51,8 +51,8 @@ describe('Hoy', () => {
 const member = (id, name, extra = {}) => ({ id, name, avatar: null, assigned: true, role: 'member', disabled: false, created: '2025-01-01', assignedTrainers: [], workoutCount: 4, lastWorkoutAt: '2026-10-09', activeNow: false, live: null, ...extra })
 const roster = { scope: 'all', admin: true, today: '2026-10-10', trainers: [{ id: 't1', name: 'Coach Uno' }], users: [
   member('a', 'Ana', { assignedTrainers: [{ id: 't1', name: 'Coach Uno' }], lastSync: 1 }), member('b', 'Beto', { lastWorkoutAt: '2026-09-20' }), member('c', 'Cris', { activeNow: true, live: { name: 'Push day' } }),
-  member('f', 'Fran', { disabled: true }), member('t', 'Tina', { role: 'trainer' }), { id: 'g', name: 'Gus', avatar: null, assigned: false, assignedTrainers: [{ id: 't2', name: 'Coach Dos' }] }] }
-const filters = (over = {}) => ({ q: '', status: 'all', trainer: '', role: '', scope: 'assigned', ...over })
+  member('f', 'Fran', { disabled: true }), member('t', 'Tina', { role: 'trainer' })] }
+const filters = (over = {}) => ({ q: '', status: 'all', trainer: '', role: '', ...over })
 
 describe('Miembros', () => {
   it('one list: role, status, trainer, last real activity, and a way in to the follow-up and (admin) the profile', async () => {
@@ -63,18 +63,12 @@ describe('Miembros', () => {
     expect(h).toContain('Any trainer'); expect(h).toContain('Any role'); expect(h).not.toContain('Which members')
     expect(h).not.toMatch(/NaN|undefined|Invalid Date/)
   })
-  it('a row the viewer may not open has no actions and no training data, only who looks after them', async () => {
+    it('a trainer gets the same list without any "which members" control: only their own are ever sent, so there is nothing to switch', async () => {
     await boot({ id: 'coach', name: 'Coach', trainer: true })
-    const h = render(<mod.MembersView data={{ ...roster, admin: false, trainers: [] }} today={roster.today} admin={false} filters={filters({ scope: 'all' })} setFilters={() => {}} onFollow={() => {}} onProfile={() => {}} />)
-    const gus = h.slice(h.indexOf('Gus') - 200, h.indexOf('Gus') + 400)
-    expect(gus).toContain('Not assigned to you'); expect(gus).toContain('Trainer: Coach Dos')
-    expect(gus).not.toContain('Follow-up of Gus'); expect(gus).not.toMatch(/Last workout|No workouts/)
-  })
-  it('a trainer gets the "Assigned to me / Everybody" list and no admin-only controls or profile buttons', async () => {
-    await boot({ id: 'coach', name: 'Coach', trainer: true })
-    const h = render(<mod.MembersView data={{ ...roster, admin: false, trainers: [] }} today={roster.today} admin={false} filters={filters({ scope: 'assigned' })} setFilters={() => {}} onFollow={() => {}} onProfile={() => {}} />)
-    expect(h).toContain('Which members'); expect(h).toContain('Assigned to me'); expect(h).toContain('Everybody')
-    expect(h).not.toContain('Any trainer'); expect(h).not.toContain('Any role'); expect(h).not.toContain('Profile of')
+    const mine = { ...roster, admin: false, trainers: [], users: roster.users.filter(u => u.id !== 't') }
+    const h = render(<mod.MembersView data={mine} today={roster.today} admin={false} filters={filters()} setFilters={() => {}} onFollow={() => {}} onProfile={() => {}} />)
+    expect(h).not.toMatch(/Which members|Assigned to me|Everybody|<select|Not assigned to you/)
+    expect(h).not.toContain('Any trainer'); expect(h).not.toContain('Any role'); expect(h).not.toContain('Profile of'); expect(h).toContain('Follow-up of Ana')
   })
   it('filters apply: a status chip, a trainer, and a search with no match', async () => {
     await boot()

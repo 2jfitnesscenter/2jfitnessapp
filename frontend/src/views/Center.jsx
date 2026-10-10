@@ -68,7 +68,6 @@ export function TodayView({ d, days, onDays, openMember, goMembers }) {
 const STATUS_LABEL = { all: 'All', training: 'Training now', idle: 'Not training', new: 'Joined recently', disabled: 'Disabled' }
 
 function lastText(u, today) {
-  if (u.assigned === false) return null
   if (u.activeNow) return u.live?.name ? t('Training now · {0}', u.live.name) : t('Training now')
   if (!u.lastWorkoutAt) return t('No workouts yet')
   const days = daysBetween(u.lastWorkoutAt, today)
@@ -79,7 +78,7 @@ export function MemberRow({ u, today, admin, onFollow, onProfile }) {
   const status = memberStatus(u, today)
   const trainers = (u.assignedTrainers || []).map(x => x.name).join(', ')
   const line = lastText(u, today)
-  return <article className={'cm-member' + (status === 'disabled' ? ' off' : '') + (u.assigned === false ? ' other' : '')}>
+  return <article className={'cm-member' + (status === 'disabled' ? ' off' : '')}>
     <Avatar name={u.name} size={42} image={u.avatar ? mediaUrl(u.avatar) : null} />
     <div className="cm-who">
       <b className="capitalize">{u.name}
@@ -91,25 +90,22 @@ export function MemberRow({ u, today, admin, onFollow, onProfile }) {
       {line && <small className={status === 'idle' || status === 'never' ? 'warn' : ''}>{line}</small>}
       <small>{trainers ? t('Trainer: {0}', trainers) : t('No trainer assigned')}</small>
     </div>
-    {u.assigned === false ? <span className="cm-lock"><Icon name="lock" />{t('Not assigned to you')}</span>
-      : <div className="cm-acts">
-        <Button size="sm" variant="primary" icon="chartLine" onClick={() => onFollow(u.id)} aria-label={t('Follow-up of {0}', u.name)}>{t('Follow-up')}</Button>
-        {admin && <Button size="sm" icon="person" onClick={() => onProfile(u.id)} aria-label={t('Profile of {0}', u.name)}>{t('Profile')}</Button>}
-      </div>}
+    <div className="cm-acts">
+      <Button size="sm" variant="primary" icon="chartLine" onClick={() => onFollow(u.id)} aria-label={t('Follow-up of {0}', u.name)}>{t('Follow-up')}</Button>
+      {admin && <Button size="sm" icon="person" onClick={() => onProfile(u.id)} aria-label={t('Profile of {0}', u.name)}>{t('Profile')}</Button>}
+    </div>
   </article>
 }
 
 export function MembersView({ data, today, admin, filters, setFilters, onFollow, onProfile }) {
-  const { q, status, trainer, role, scope } = filters
+  const { q, status, trainer, role } = filters
   const list = data.users
-  const counts = useMemo(() => statusCounts(list.filter(u => u.assigned !== false), today), [list, today])
+  const counts = useMemo(() => statusCounts(list, today), [list, today])
   const shown = useMemo(() => filterMembers(list, { q, status, trainer, role, today }), [list, q, status, trainer, role, today])
   return <>
     <div className="cm-tools">
       <label className="search"><Icon name="search" /><input className="input" type="search" value={q} onChange={e => setFilters({ q: e.target.value })} aria-label={t('Search a member…')} placeholder={t('Search a member or a trainer…')} /></label>
       <div className="cm-selects">
-        {!admin && <select className="input" aria-label={t('Which members')} value={scope} onChange={e => setFilters({ scope: e.target.value })}>
-          <option value="assigned">{t('Assigned to me')}</option><option value="all">{t('Everybody')}</option></select>}
         {admin && <>
           <select className="input" aria-label={t('Trainer')} value={trainer} onChange={e => setFilters({ trainer: e.target.value })}>
             <option value="">{t('Any trainer')}</option><option value="none">{t('No trainer')}</option>{data.trainers.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
@@ -123,8 +119,8 @@ export function MembersView({ data, today, admin, filters, setFilters, onFollow,
         {t(STATUS_LABEL[k])}<em>{counts[k]}</em></button>)}
     </div>
     {shown.length ? <div className="cm-members">{shown.map(u => <MemberRow key={u.id} u={u} today={today} admin={admin} onFollow={onFollow} onProfile={onProfile} />)}</div>
-      : <EmptyState icon="users" title={t(list.length ? 'No members match' : scope === 'assigned' && !admin ? 'No members assigned yet' : 'No members yet')}>
-        {!admin && !list.length && scope === 'assigned' && <div className="muted small">{t('An administrator can assign members to you from their profile.')}</div>}</EmptyState>}
+      : <EmptyState icon="users" title={t(list.length ? 'No members match' : !admin ? 'No members assigned yet' : 'No members yet')}>
+        {!admin && !list.length && <div className="muted small">{t('An administrator can assign members to you from their profile.')}</div>}</EmptyState>}
   </>
 }
 
@@ -161,10 +157,8 @@ export default function Center() {
   const [today, setToday] = useState(null)
   const [members, setMembers] = useState(null)
   const [trainers, setTrainers] = useState(null)
-  const [scope, setScope] = useState('assigned')
-  const filters = { q: params.get('q') || '', status: params.get('status') || 'all', trainer: params.get('trainer') || '', role: params.get('role') || '', scope }
+  const filters = { q: params.get('q') || '', status: params.get('status') || 'all', trainer: params.get('trainer') || '', role: params.get('role') || '' }
   const setFilters = patch => {
-    if ('scope' in patch) { setScope(patch.scope); return }
     const next = new URLSearchParams(params); for (const [k, v] of Object.entries(patch)) { if (v && v !== 'all') next.set(k, v); else next.delete(k) }
     setParams(next, { replace: true })
   }
@@ -175,14 +169,14 @@ export default function Center() {
   useEffect(() => { if (allowed && tab === 'today') fetchCenterToday(days).then(setToday).catch(fail) }, [allowed, tab, days])
   useEffect(() => {
     if (!allowed || tab !== 'members') return undefined
-    const load = () => fetchCenterMembers(admin ? undefined : scope).then(setMembers).catch(fail)
+    const load = () => fetchCenterMembers().then(setMembers).catch(fail)
     load(); const iv = setInterval(load, 30000); return () => clearInterval(iv)
-  }, [allowed, tab, scope, admin])
+  }, [allowed, tab])
   useEffect(() => { if (allowed && tab === 'trainers') fetchCenterTrainers().then(setTrainers).catch(fail) }, [allowed, tab])
   if (!allowed) return null
 
   const openFollow = id => nav('/center/member/' + id)
-  const reloadMembers = () => fetchCenterMembers(admin ? undefined : scope).then(setMembers).catch(() => {})
+  const reloadMembers = () => fetchCenterMembers().then(setMembers).catch(() => {})
   const openProfile = id => openSheet(close => <UserDetail id={id} onChanged={reloadMembers} close={close} />)
 
   return <div className="cmx">

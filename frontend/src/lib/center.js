@@ -6,7 +6,7 @@
 import { api } from './api.js'
 
 export const fetchCenterToday = (days = 7) => api('/api/center/today?days=' + encodeURIComponent(days))
-export const fetchCenterMembers = scope => api('/api/center/members' + (scope ? '?scope=' + encodeURIComponent(scope) : ''))
+export const fetchCenterMembers = () => api('/api/center/members')
 export const fetchCenterTrainers = () => api('/api/center/trainers')
 
 export const TABS = ['today', 'members', 'trainers']
@@ -17,10 +17,9 @@ export const NEW_DAYS = 14
 
 /**
  * What to say about a member at a glance: disabled · training (right now) · new (joined recently, nothing logged yet) · never (old enough, nothing logged) ·
- * idle (no workout for `idleDays` or more) · ok. A row the viewer may not open (assigned: false) has no status: nothing about their training is shared.
+ * idle (no workout for `idleDays` or more) · ok.
  */
 export function memberStatus(u, today, idleDays = 7) {
-  if (u.assigned === false) return 'other'
   if (u.disabled) return 'disabled'
   if (u.activeNow) return 'training'
   if (!u.lastWorkoutAt) return u.created && daysBetween(u.created, today) < NEW_DAYS ? 'new' : 'never'

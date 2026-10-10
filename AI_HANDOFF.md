@@ -2,7 +2,7 @@
 
 ## Gestión del centro V1 (candidato; NO desplegado; producción `8239e350`)
 
-- Detalle en `docs/CENTER_MANAGEMENT_V1.md`. Consola `/center` (Hoy · Miembros · Entrenadores), accesible a admin y trainer desde la tarjeta de Admin y la barra del panel de entrenador. Solo lectura sobre datos existentes: `assignedTrainers`/`canAccessMember`, resumen derivado (`lastWorkoutAt` = actividad de entrenamiento; `lastSync` nunca se llama activo), motor de seguimiento del Coach (`overviewRow`/`bucketRows`, mismos buckets que el tablero) y presencia. Endpoints `GET /api/center/today|members|trainers` (`lib/center-routes.js`). El trainer ve «Asignados a mí» o «Todos» (los no asignados, filas mínimas sin datos de entreno ni acceso). Sin stores, roles ni notificaciones nuevos; reservas/clases intactas.
+- Detalle en `docs/CENTER_MANAGEMENT_V1.md`. Consola `/center` (Hoy · Miembros · Entrenadores), accesible a admin y trainer desde la tarjeta de Admin y la barra del panel de entrenador. Solo lectura sobre datos existentes: `assignedTrainers`/`canAccessMember`, resumen derivado (`lastWorkoutAt` = actividad de entrenamiento; `lastSync` nunca se llama activo), motor de seguimiento del Coach (`overviewRow`/`bucketRows`, mismos buckets que el tablero) y presencia. Endpoints `GET /api/center/today|members|trainers` (`lib/center-routes.js`). El trainer solo conoce sus miembros asignados (`canAccessMember`): ni lista ni agregados de los demás. Sin stores, roles ni notificaciones nuevos; reservas/clases intactas.
 
 ## Center Management Foundation V1 (candidato; NO desplegado; producción `30007337`)
 

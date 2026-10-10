@@ -48,22 +48,24 @@ test('Miembros: the admin sees everybody with role, state, assigned trainers, re
   assert.equal(SENSITIVE.some(s => JSON.stringify(r).includes(s)), false);
 });
 
-test('Miembros: a trainer reads their assigned members in full; "all" adds the rest of the roster as minimal rows with no way in', async () => {
+test('Miembros: a trainer knows only the members assigned to them: nobody else is listed, not even minimally, whatever they ask for', async () => {
   const mine = (await get('coach-a', '/api/center/members')).data;
   assert.equal(mine.scope, 'assigned');
   assert.deepEqual(mine.users.map(u => u.id).sort(), ['m1', 'm2', 'm5'], 'assigned only (a disabled one stays visible to their trainer), no staff');
-  assert.equal(mine.users.every(u => u.assigned), true);
   assert.equal(mine.users.some(u => 'lastSync' in u), false, 'sync time is an admin diagnostic');
-  const all = (await get('coach-a', '/api/center/members?scope=all')).data;
-  assert.equal(all.scope, 'all');
-  assert.deepEqual(all.users.map(u => u.id).sort(), ['m1', 'm2', 'm3', 'm4', 'm5'], 'no staff, no disabled strangers');
-  const stranger = all.users.find(u => u.id === 'm3');
-  assert.deepEqual(Object.keys(stranger).sort(), ['assigned', 'assignedTrainers', 'avatar', 'id', 'name']);
-  assert.equal(stranger.assigned, false); assert.deepEqual(stranger.assignedTrainers.map(t => t.name), ['Coach X']);
-  const dump = JSON.stringify(all.users.filter(u => !u.assigned));
-  for (const leak of ['lastWorkoutAt', 'workoutCount', 'disabled', 'created', 'live', ...SENSITIVE]) assert.equal(dump.includes(leak), false, leak);
-  assert.equal((await get('coach-a', '/api/center/members?scope=bogus')).data.scope, 'assigned');
-  assert.equal(JSON.stringify((await get('coach-x', '/api/center/members')).data).includes('Mario'), false, 'another trainer never sees them without asking for the roster');
+  assert.deepEqual(mine.users.find(u => u.id === 'm2').assignedTrainers.map(t => t.name).sort(), ['Coach A', 'Coach X'], 'a member shared with another trainer is still theirs');
+  for (const ask of ['?scope=all', '?scope=everybody', '?all=1', '?scope=assigned']) {
+    const r = (await get('coach-a', '/api/center/members' + ask)).data;
+    assert.deepEqual(r.users.map(u => u.id).sort(), ['m1', 'm2', 'm5'], ask);
+    for (const stranger of ['m3', 'm4', 'Marcos', 'Maria']) assert.equal(JSON.stringify(r.users).includes(stranger), false, ask + ' leaks ' + stranger);
+    assert.equal(r.scope, 'assigned');
+  }
+  const other = (await get('coach-x', '/api/center/members?scope=all')).data;
+  assert.deepEqual(other.users.map(u => u.id).sort(), ['m2', 'm3']);
+  assert.equal(JSON.stringify(other).includes('Mario'), false);
+  assert.equal(SENSITIVE.some(s => JSON.stringify(mine).includes(s)), false);
+  // the admin still sees everybody
+  assert.equal((await get('admin', '/api/center/members?scope=assigned')).data.users.length, 8);
 });
 
 test('Hoy: activity counts use workouts, not sync; the idle list follows the number of days chosen', async () => {
@@ -94,6 +96,7 @@ test('Hoy: attention and upcoming reviews are the Coach engine\'s own buckets, w
 test('Hoy: a trainer sees only their own members', async () => {
   const t = (await get('coach-a', '/api/center/today')).data;
   assert.equal(t.scope, 'assigned'); assert.equal(t.members, 2);
+  assert.deepEqual(t.activity, { activeNow: 0, trainedToday: 0, trained7d: 1, trained30d: 1, newMembers: 0, neverTrained: 0 }, 'only Mario and Marta are counted');
   const everyone = JSON.stringify(t);
   for (const other of ['Marcos', 'Maria']) assert.equal(everyone.includes(other), false, other);
   assert.deepEqual(t.idle.list.map(x => x.id), ['m2']);
