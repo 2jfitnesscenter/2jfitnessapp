@@ -597,6 +597,9 @@ export default function Admin() {
       </div>)}
     </div>}
 
+    <AdminNavCard icon="grid" tint="var(--green)" title={t('Center management')}
+      sub={t('Today, members and trainers in one place')} onClick={() => nav('/center')} />
+
     <AdminNavCard icon="dumbbell" tint="var(--indigo)" title={t('Trainer panel')} tag={t('Desktop')}
       sub={t('Build and assign routines for your members — best used on a computer.')} onClick={() => nav('/trainer')} />
 

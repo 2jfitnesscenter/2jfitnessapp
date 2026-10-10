@@ -86,6 +86,8 @@ import CoachIntake from './views/CoachIntake.jsx'
 import CoachProposal from './views/CoachProposal.jsx'
 import TrainerClients from './views/trainer/TrainerClients.jsx'
 import { TrainerFollowBoard, TrainerFollowMember } from './views/trainer/TrainerFollowUp.jsx'
+import Center from './views/Center.jsx'
+import CoachMember from './components/coach/CoachMember.jsx'
 import TrainerClientPlan from './views/trainer/TrainerClientPlan.jsx'
 import TrainerRoutineBuilder from './views/trainer/TrainerRoutineBuilder.jsx'
 import TrainerProgramBuilder from './views/trainer/TrainerProgramBuilder.jsx'
@@ -322,6 +324,8 @@ function Shell() {
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/intake" element={<CoachIntake />} />
               <Route path="/coach/proposal" element={<CoachProposal />} />
+              <Route path="/center" element={user?.admin || user?.trainer ? <Center /> : <Navigate to="/home" replace />} />
+              <Route path="/center/member/:id" element={user?.admin || user?.trainer ? <CoachMember back="/center?tab=members" /> : <Navigate to="/home" replace />} />
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to={user?.trainer ? '/trainer' : '/home'} replace />} />
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
               <Route path="/admin/attention" element={user?.admin ? <AdminAttention /> : <Navigate to="/home" replace />} />
