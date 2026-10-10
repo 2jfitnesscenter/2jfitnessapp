@@ -36,6 +36,7 @@ import * as bunkerStore from './bunker/store.js';
 import { exportMember, eraseMember, ErasureError } from './lib/account-erasure.js';
 import { stateFile, stateFingerprint } from './lib/state-store.js';
 import * as userSummaries from './lib/user-summary.js';
+import { centerRoutes } from './lib/center-routes.js';
 import { AUDITED as ADMIN_AUDIT, describeAction } from './lib/admin-audit.js';
 import { bunkerRoutes } from './bunker/routes.js';
 import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
@@ -995,6 +996,7 @@ function memberFor(res, staff, memberId, notFound) {
 // Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, explicit trainer assignment, roster-side private data.
 const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
 const routes = {
+  ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
   ...coachFollowUpRoutes(coachDeps),
   ...sharedStaffRoutes({
     db, json, readBody, readSession, requireAdmin, requireSharedDevice, isAdmin, isTrainer,
