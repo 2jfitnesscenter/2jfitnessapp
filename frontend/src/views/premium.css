@@ -202,3 +202,5 @@ textarea.pm-input{padding:10px 12px}
 .pm-head .btn{margin-left:auto}
 .pm-page .pm-note .btn{margin-left:auto}
 .pm-cover-edit .pm-cover{max-width:560px}
+.pm-rail{scroll-padding-inline:16px}
+@media(min-width:640px){.pm-rail{scroll-padding-inline:24px}}

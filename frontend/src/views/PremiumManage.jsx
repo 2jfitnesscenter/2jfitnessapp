@@ -95,7 +95,7 @@ export function PremiumManage() {
 }
 
 const BLANK = () => ({
-  name: '', slug: '', shortDescription: '', longDescription: '', goalTags: ['hypertrophy'], level: 'beginner', daysPerWeek: 3, durationDescription: '',
+  name: '', slug: '', shortDescription: '', longDescription: '', goalTags: ['hypertrophy'], level: 'beginner', daysPerWeek: 1, durationDescription: '',
   methodType: 'full-body', sourceType: 'own', evidenceSummary: '', equipmentRequirements: [], progressionModel: 'double-progression',
   author: { name: '' }, legal: { status: 'none', note: '' }, copy: { howItWorks: [], forWhom: [], notIdealIf: [], tracking: [] },
   programDefinition: { schema: 1, cycleWeeks: 1, weeks: [{ sessions: [{ key: 'day-a', title: 'Day A', blocks: [{ role: 'main', exercise: '0043', scheme: { sets: 3, repsMin: 8, repsMax: 12 } }] }] }] },

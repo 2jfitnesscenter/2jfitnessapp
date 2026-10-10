@@ -41,5 +41,5 @@ export const GOAL_LABEL = { hypertrophy: 'Hypertrophy', strength: 'Strength', 's
 export const kickerOf = p => `${GOAL_LABEL[p?.goalTags?.[0]] || ''}|${LEVEL_KEY[p?.level] || ''}`
 
 /** "5/3/1 · Cycle 3 · Week 2/4" for staff screens (the API sends the numbers, the wording is the app's own). */
-export const runLabel = p => `${p.name} · ${tt('Cycle {0}', p.cycle)} · ${tt('Week {0}/{1}', p.week, p.weeks)}`
+export const runLabel = p => (p.cycle == null ? String(p.label || p.name || '') : `${p.name} · ${tt('Cycle {0}', p.cycle)} · ${tt('Week {0}/{1}', p.week, p.weeks)}`)
 export const INCIDENT_LABEL = { paused: 'Paused', skipped: 'Sessions skipped', 'cycle-complete': 'Cycle complete: waiting for the member to confirm the next one', 'missing-training-max': 'A Training Max is missing' }
