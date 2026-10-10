@@ -4,6 +4,7 @@
 // publishes anything: Health stays private to the member. Every function returns null / [] when there is nothing real to
 // show, so the screens can drop the block instead of inventing a number.
 import { weekKey, todayISO } from './format.js'
+import { orderedBodyWeightSeries } from './bodyweight.js'
 import { fitnessOf, ORIGIN_APP, SOURCE_NAME } from './fitness.js'
 import { workoutEnergy, ENERGY_KIND } from './energy.js'
 import { dailyActivity, bridgeState, getBridge, platformLabel } from './health-bridge.js'
@@ -186,7 +187,7 @@ export function muscleDetail(S, slug, iso = todayISO()) {
  */
 export function healthMoments(S, { max = 6 } = {}) {
   const out = []
-  const bw = (S.bodyweight || []).slice().sort((a, b) => a.d < b.d ? -1 : 1)
+  const bw = orderedBodyWeightSeries(S)
   for (let i = bw.length - 1; i > 0 && out.length < max; i--) {
     const cur = bw[i], prev = bw[i - 1]
     const days = (new Date(cur.d) - new Date(prev.d)) / dayMs

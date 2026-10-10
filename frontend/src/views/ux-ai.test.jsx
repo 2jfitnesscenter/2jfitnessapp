@@ -47,7 +47,11 @@ const render = async View => { await boot(); return renderToStaticMarkup(<Memory
 const ADMIN = { id: 'ad', name: 'Admin', admin: true, created: '2026-01-10T00:00:00Z' }
 
 beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-09T12:00:00')) })
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.useRealTimers(); vi.unstubAllGlobals()
+  // The store may still have a sync write in flight when the stubs go (slow machine): it must find a storage, not a ReferenceError that fails the whole run.
+  vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} })
+})
 
 describe('Training priorities leave the main Profile', () => {
   it('Profile shows one compact row with the current choice, not the two unfolded pickers', async () => {

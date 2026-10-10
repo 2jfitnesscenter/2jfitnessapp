@@ -19,6 +19,8 @@ import ProgressTimeline from '../components/ProgressTimeline.jsx'
 import { RANGES, availableMetrics, metricSummary, compareMeasurements, scanDates, hasSegments, bmiOf, weekActivity, SOURCE_LABEL } from '../lib/health.js'
 import { PAIN_ZONE, checkinOn } from '../lib/checkin.js'
 import { api } from '../lib/api.js'
+import { getBridge, platformLabel } from '../lib/health-bridge.js'
+import { visibleProgressCards } from '../lib/progress-cards.js'
 
 // Health V2 — "your physical evolution". Everything here is derived from what the profile
 // already holds (lib/health.js): measured body readings with their source when known, the
@@ -44,7 +46,7 @@ function weeklySleep(series) {
   return [...byWeek.entries()].sort().map(([d, { sum, n }]) => ({ d, y: Math.round(sum / n / 6) / 10, t: new Date(d).getTime() }))
 }
 
-function MetricCard({ sum, S }) {
+function MetricCard({ sum, S, note = true }) {
   const { def, current, start, end, delta, pct, points } = sum
   const unit = unitOf(def, S)
   return <div className="card hv-metric">
@@ -60,8 +62,22 @@ function MetricCard({ sum, S }) {
     {points.length > 1
       ? <div className="chart"><LineChart points={points.map(p => ({ t: new Date(p.d + 'T12:00:00').getTime(), y: p.v, d: p.d }))} h={120} unit={unit} /></div>
       : <div className="dim small">{points.length ? t('One reading in this period — the chart needs two.') : t('No readings in this period.')}</div>}
-    {end && start && def.group === 'composition' && def.key !== 'weight' && <div className="dim small hv-note">{t('Body-composition changes between scans are estimates of the device, not exact measurements.')}</div>}
+    {note && end && start && def.group === 'composition' && def.key !== 'weight' && <div className="dim small hv-note">{t('Body-composition changes between scans are estimates of the device, not exact measurements.')}</div>}
   </div>
+}
+
+// Weight: the evolution chart lives in Progress (one main chart); here it is a contextual summary that leads there — or to Measurements when the member hid that block.
+function WeightLink({ sum, S, nav }) {
+  const { current, delta } = sum
+  const inProgress = visibleProgressCards(S).includes('weight')
+  return <button type="button" className="card hv-metric tappable" style={{ textAlign: 'left', width: '100%' }} onClick={() => nav(inProgress ? '/stats' : '/measurements')}>
+    <div className="hv-mh"><span className="hv-mt">{t('Weight')}</span><Icon name="chevronRight" className="chev" /></div>
+    <div className="hv-mrow">
+      <div><div className="hv-v">{fmtNum(current.v)} <small>{S.unit}</small></div><div className="hv-d">{fmtDate(current.d)}</div></div>
+      {delta != null && <div className="hv-delta"><div className="hv-k">{t('Difference')}</div><b>{signed(delta, S.unit)}</b></div>}
+    </div>
+    <div className="dim small">{t(inProgress ? 'The weight chart is in Progress.' : 'Log and review your weight in Measurements.')}</div>
+  </button>
 }
 
 function CompareCard({ S }) {
@@ -104,6 +120,7 @@ export default function Health() {
   const sums = useMemo(() => metrics.map(k => metricSummary(S, k, range)).filter(Boolean), [metrics, range, S.bodyweight, S.measurements])
   const headline = sums.filter(s => HEADLINE.includes(s.key))
   const others = sums.filter(s => !HEADLINE.includes(s.key))
+  const noteKey = headline.find(s => s.def.group === 'composition' && s.key !== 'weight' && s.start && s.end)?.key
   const bmi = bmiOf(S)
   const week = weekActivity(S)
   const today = checkinOn(S)
@@ -128,7 +145,7 @@ export default function Health() {
     {nothing && <div className="card m2-empty">
       <div className="m2-empty-ic"><Icon name="heart" /></div>
       <div className="tt">{t('Your evolution will appear here')}</div>
-      <div className="muted small">{t('Log your weight, scan a bioimpedance report or bring in Apple Health data to start.')}</div>
+      <div className="muted small">{t('Log your weight, scan a bioimpedance report or bring in your health data to start.')}</div>
       <Button variant="primary" icon="scale" onClick={() => nav('/measurements')}>{t('Add a measurement')}</Button>
     </div>}
 
@@ -147,10 +164,11 @@ export default function Health() {
         <h4 className="sec" style={{ margin: 0 }}>{t('Evolution')}</h4>
         <Segmented className="seg-inline hv-range" value={range} onChange={setRange} options={RANGES.map(r => ({ value: r.key, label: t(RANGE_LABEL[r.key]) }))} />
       </div>
-      {headline.map(s => <MetricCard key={s.key} sum={s} S={S} />)}
+      {/* the "estimates, not exact measures" note is the same for every scan reading: said once, on the first card that has a comparison */}
+      {headline.map(s => s.key === 'weight' && uxOn(S, 'bodyweight') ? <WeightLink key={s.key} sum={s} S={S} nav={nav} /> : <MetricCard key={s.key} sum={s} S={S} note={s.key === noteKey} />)}
       {others.length > 0 && <details className="hv-more">
         <summary>{t('More measurements ({0})', others.length)}</summary>
-        {others.map(s => <MetricCard key={s.key} sum={s} S={S} />)}
+        {others.map(s => <MetricCard key={s.key} sum={s} S={S} note={false} />)}
       </details>}
     </>}
 
@@ -203,7 +221,7 @@ export default function Health() {
     <div className="list">
       <div className="item" onClick={() => nav('/health/integrations')}>
         <span className="lrow-i" style={{ '--tint': 'var(--red)' }}><Icon name="heart" /></span>
-        <div className="grow"><div className="tt">{t('Fitness integrations')}</div><div className="ss">{t('Watch, heart-rate sensor, WHOOP, Apple Health')}</div></div>
+        <div className="grow"><div className="tt">{t('Fitness integrations')}</div><div className="ss">{t('Watch, heart-rate sensor, WHOOP, {0}', t(platformLabel(getBridge())))}</div></div>
         <Icon name="chevronRight" className="chev" />
       </div>
       <div className="item" onClick={() => nav('/measurements')}>

@@ -1,5 +1,36 @@
 # Changelog
 
+### Mis métricas V1 — candidato, NO desplegado
+
+- La página de Progreso es un catálogo cerrado de 11 bloques (destacados, último entreno y recuperación, composición, peso, mapa de actividad, músculos y volumen, línea de tiempo, tests de cardio, esfuerzo y zonas, progreso por ejercicio, salud y WHOOP). El socio los muestra/oculta y los sube/baja desde Ajustes → Personalizar mi experiencia. Se guarda en `S.ux.progress` (campos opcionales, aditivo): sin `S.ux` o sin el campo, la página es exactamente la de siempre. Cabecera, portada del periodo, seguimiento y entrenos recientes son estructurales.
+- "Restaurar configuración recomendada" y los presets aplican, solo en esa acción, el orden y las funciones según el objetivo conocido (hipertrofia, pérdida de grasa, fuerza, salud); después mandan las preferencias del socio y el objetivo no vuelve a mover nada.
+- Peso: un único lector (`lib/bodyweight.js`: serie ordenada por fecha, último, anterior, ignora valores inválidos) usado por Progreso, Salud, Perfil, energía, medidas y seguimiento; `S.bodyweight` sigue siendo la única fuente. Progreso tiene el gráfico principal; Salud muestra un resumen que enlaza a él (o a Medidas si el bloque está oculto). Se elimina `BodyWeightCard` (sin consumidores).
+- Integraciones: Salud → Integraciones es la única pantalla (WHOOP, Strava, reloj, sensor); "Apps conectadas" se retira de Ajustes y `/connected-apps` solo reenvía el retorno de WHOOP/Strava. Nombre real de la fuente de salud (Apple Health / Health Connect) y sin importación de Apple en Android. Copys corregidos (recordatorio de bioimpedancia, "registrar peso").
+
+### Hotfix iOS: barra inferior fija — candidato, NO desplegado
+
+- La barra de navegación inferior seguía moviéndose con el contenido en iPhone. Sin `overflow` en `html`/`body` (se propagaba al viewport y en iOS deja que lo fijo se desplace); el recorte horizontal pasa a `#root`. `min-height:100dvh` con fallback, capa propia para la barra y safe-area sin duplicar. Escritorio (píldora centrada) y Android sin cambios. Verificado en Chromium; la comprobación en iPhone real queda en `docs/IOS_TABBAR_QA.md`.
+
+### Coach & Seguimiento PRO V3 — candidato, NO desplegado
+
+- Seguimiento del personal reconstruido sobre datos que ya existen (revisión de programa/rutina, fatiga, check-ins compartidos, historial, objetivos): un tablero (necesitan atención · revisiones próximas · seguimiento estable) en una sola petición y una ficha por socio con resumen, ahora, progreso, adherencia, revisión, análisis 2J, check-in, historial profesional y notas. Sustituye la lista antigua de "Requiere atención" (una petición por socio).
+- Triage determinista y explicado (Normal · Revisar · Prioritario): cada señal lleva fuente, evidencia, explicación y acción sugerida. Adherencia = sesiones de fuerza previstas vs hechas, con parciales, cardio (aparte), movidas y excluidas por separado; sin porcentaje sin plan, sin ≥3 sesiones previstas o con menos de 7 días de historial.
+- Permisos: el administrador ve a todos; el entrenador solo a los socios que un administrador le asigna (`assignedTrainers`); el socio, nada. Quitar el rol borra sus asignaciones. El mismo ACL cubre también las rutas antiguas del panel de entrenador que apuntan a un socio (plan, rutinas, programas, ciclos de revisión, versiones, IA y selector de socios).
+- Notas privadas con fecha, historial de decisiones y objetivo/prioridad del personal, en el mismo bloque cifrado de la ficha de seguimiento (aditivo, versión 1). Nunca llegan al socio, a la IA, a Social, a Sync ni a las exportaciones.
+- "Analizar seguimiento": la IA profesional recibe solo hechos calculados (máx. 6000 caracteres, sin nombre ni notas), responde en formato etiquetado hecho/inferencia/sugerencia y no puede proponer nada aplicable; el entrenador abre el programa, crea una propuesta o añade una nota y su decisión queda registrada.
+- Política de evidencia y mapa de datos en `docs/COACH_FOLLOWUP_EVIDENCE.md` y `docs/COACH_FOLLOWUP_V3.md`. Sin cambios en Sync V2, auth, WebAuthn, Bunker ni Health.
+
+### Training Quality V1 + Routine Review por programa — candidato, NO desplegado
+
+- Revisión del programa activo agrupada en una sola tarjeta/ciclo; los días incluidos ya no generan tarjetas individuales. Las rutinas independientes mantienen su ciclo anterior.
+- Registro aditivo `S.programReviews`: marca de última revisión y próxima fecha a 28 días; al cerrar desaparece por completo la tarjeta del miembro hasta `nextReviewAt` (inclusive), sin tarjeta upcoming ni copy de “revisado”. Las rutinas independientes siguen la misma ventana; señales de plateau no reabren el ciclo antes de la fecha.
+- El resumen de revisión incorpora adherencia de las semanas transcurridas, tendencia de progresión, señales de plateau/omisiones y el análisis estructural existente. La IA profesional recibe facts acotados y solo genera un borrador para revisión del entrenador.
+- QA local sintética cubre estado persistido tras recarga en Home/Seguimiento, desaparición completa, igualdad con `nextReviewAt`, plateau y rutina independiente. La política de pendientes es la única fuente de tarjetas de socio.
+- QA visual sintética de Home y Seguimiento en 390/768/1440, claro/oscuro: tarjeta visible antes de revisión, eliminada después, sin overflow horizontal ni errores; estado recargado también cubierto por tests.
+- Hotfix de compatibilidad legacy: la pertenencia al programa activo también se deriva de las claves de `routineSnapshots`/`routines`, aunque las rutinas no tengan `programId`; al cerrar una revisión, las tarjetas de ciclo de staff también se ocultan hasta la fecha inclusiva de retorno. Los registros `routineReviews` antiguos se conservan.
+- Validación del hotfix: frontend 1474/1474 secuencial; API completa 452 pass y 5 skips operativos, pruebas de Routine Review 10/10; build y diff-check OK. Sin deploy.
+- Validación final: frontend 1469/1469, API 456/456 sin skips, build y español 4577/4577 OK. Producción previamente confirmada en `8458b54f51cd074c63c0623c9192f63f5f6f6f2a`. PrepareOnly del nuevo target y simulaciones pendientes; sin deploy.
+
 
 ### Megasprint — separación IA, progresión/histórico y Seguimiento (2026-10-07) — NOT DEPLOYED
 

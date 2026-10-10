@@ -31,8 +31,16 @@ export default function ChatThread() {
   const [online, setOnline] = useState(navigator.onLine)
   const bottomRef = useRef(null)
 
-  const load = () => fetchMessages(id).then(d => { setThread(d.thread); setMessages(d.messages) }).catch(e => { if (navigator.onLine) toast(e.message) })
+  const held = useRef({ list: [], rev: 0 })   // what the screen holds, for the polling cursor
+  const load = () => fetchMessages(id, { after: held.current.list.at(-1)?.id || '', rev: held.current.rev }).then(d => {
+    setThread(d.thread)
+    const have = new Set(held.current.list.map(m => m.id))
+    const list = d.full ? d.messages : [...held.current.list, ...d.messages.filter(m => !have.has(m.id))]
+    held.current = { list, rev: d.rev || 0 }
+    if (d.full || d.messages.length) setMessages(list)
+  }).catch(e => { if (navigator.onLine) toast(e.message) })
   useEffect(() => {
+    held.current = { list: [], rev: 0 }
     load()
     const iv = setInterval(load, POLL_MS)
     return () => clearInterval(iv)
@@ -71,10 +79,11 @@ export default function ChatThread() {
         const sep = day && (i === 0 || new Date(messages[i - 1].createdAt).toDateString() !== day)
           ? <div key={'d' + m.id} className="chat-day">{new Date(m.createdAt).toLocaleDateString(dateLocale(), { weekday: 'short', day: 'numeric', month: 'short' })}</div> : null
         if (m.type === 'share') return <Fragment key={m.id}>{sep}<article className={'chat-share-bubble' + (mine ? ' mine' : '')}>
-          {m.share ? <><div className="chat-share-caption">{mine ? t('You shared a training moment') : t('{0} shared a training moment', thread.memberName)}</div><button className="chat-share-open" onClick={() => nav('/social/share/' + m.share.id)}><CommunityShareCard data={{ kind: m.share.kind, ...m.share.card }} /></button><div className="chat-share-foot"><ReportContentButton targetType="share" targetId={m.share.id} /></div></>
+          {m.share ? <><div className="chat-share-caption">{m.share.private ? (m.share.kind === 'program' ? (mine ? t('You sent a program') : t('{0} sent you a program', thread.memberName)) : (mine ? t('You sent a routine') : t('{0} sent you a routine', thread.memberName))) : mine ? t('You shared a training moment') : t('{0} shared a training moment', thread.memberName)}</div><button className="chat-share-open" onClick={() => nav('/social/share/' + m.share.id)}><CommunityShareCard data={{ kind: m.share.kind, ...m.share.card }} /></button><div className="chat-share-foot"><ReportContentButton targetType="share" targetId={m.share.id} /></div></>
             : <div className="chat-share-unavailable"><Icon name="lock" /><span>{t('This shared moment is no longer available')}</span></div>}
         </article></Fragment>
-        return <Fragment key={m.id}>{sep}<div className={'chat-msg ' + (mine ? 'mine' : 'theirs')}>{m.text}{m.createdAt && <time className="chat-time" dateTime={new Date(m.createdAt).toISOString()}>{new Date(m.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</time>}</div></Fragment>
+        if (m.type === 'removed') return <Fragment key={m.id}>{sep}<div className={'chat-msg removed ' + (mine ? 'mine' : 'theirs')}>{t('This message was removed')}</div></Fragment>
+        return <Fragment key={m.id}>{sep}<div className={'chat-msg ' + (mine ? 'mine' : 'theirs')}>{m.text}<div className="chat-meta">{!mine && <ReportContentButton icon targetType="message" targetId={id + ':' + m.id} />}{m.createdAt && <time className="chat-time" dateTime={new Date(m.createdAt).toISOString()}>{new Date(m.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</time>}</div></div></Fragment>
       })}
       <div ref={bottomRef} />
     </div>

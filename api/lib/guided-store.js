@@ -33,6 +33,7 @@ import { sanitizeRoutineBlocks } from './plan-meta.js';
 import { equipmentIdOf } from './protocol/movements.js';
 import { validateGuidedProgram, flattenProgramSessions } from './guided-program-model.js';
 import * as libraryAdmin from './library-admin.js';
+import * as history from './guided-history.js';
 
 const require_ = createRequire(import.meta.url);
 const SEED = require_('./guided-official.json');
@@ -62,7 +63,7 @@ function load() {
   const arr = v => Array.isArray(v) ? v : [];
   cache = { v: 1, rev: Number.isInteger(s.rev) ? s.rev : 0, overrides: obj(s.overrides), officialCustom: arr(s.officialCustom),
     personal: arr(s.personal), collections: { overrides: obj(s.collections?.overrides), custom: arr(s.collections?.custom) },
-    programOverrides: obj(s.programOverrides), programsCustom: arr(s.programsCustom) };
+    programOverrides: obj(s.programOverrides), programsCustom: arr(s.programsCustom), history: obj(s.history) };
   return cache;
 }
 function save() {
@@ -72,6 +73,8 @@ function save() {
   fs.renameSync(tmp, f);
 }
 export function resetCache() { cache = null; }
+// Official content keeps a short history (lib/guided-history.js): the version an admin is about to replace is remembered.
+const remember = (kind, id, before, after, user) => history.record(load().history, { kind, id, before, after, by: user?.id, at: now() });
 
 /** Changes whenever anything the catalogue shows changes: clients compare it to refresh their offline copy. */
 export const contentRev = () => `${SEED.seedVersion}.${PROGRAMS.version || 1}.${load().rev}`;
@@ -260,6 +263,8 @@ export function upsert(user, admin, input, opts = {}) {
   };
   if (!routine.customExDefs.length) delete routine.customExDefs;
   if (opts.dryRun) return { dryRun: true, routine: { ...routine, status: statusOf(routine) }, validation: v, issues: checks };
+  // An unchanged re-save is not a new version: compare against the old routine as the save path would have written it.
+  if (official && existing && history.contentOf('routine', { ...existing, ...sanitize(existing, existing.customExDefs) }) !== history.contentOf('routine', routine)) remember('routine', existing.id, existing, routine, user);
   if (official && seedById.has(routine.id)) {
     s.overrides[routine.id] = { ...(s.overrides[routine.id] || {}), routine, ...(status ? { active, draft } : {}), seedVersion: seedById.get(routine.id).seedVersion, by: user.id, at: now() };
   } else if (official) {
@@ -316,6 +321,7 @@ export function setStatus(user, admin, id, status) {
       if (problems.errors.length) return { error: problems.errors[0].message, status: 400, issues: problems };
     }
     const patch = { active: status === 'active', draft: status === 'draft' };
+    remember('routine', id, r, { ...r, ...patch }, user);
     if (seedById.has(id)) s.overrides[id] = { ...(s.overrides[id] || {}), ...patch, by: user.id, at: now() };
     else Object.assign(s.officialCustom.find(x => x.id === id), patch, { updatedAt: now() });
   } else {
@@ -337,6 +343,7 @@ export function remove(user, admin, id) {
     const inProgram = programList().find(p => flattenProgramSessions(p).some(x => x.routineId === id));
     if (inProgram) return { error: `la usa el programa «${inProgram.name}»; quítala de él primero`, status: 400 };
     s.officialCustom = s.officialCustom.filter(x => x.id !== id);
+    history.drop(s.history, id);
     for (const c of s.collections.custom) c.routineIds = (c.routineIds || []).filter(x => x !== id);
     for (const o of Object.values(s.collections.overrides)) if (o.routineIds) o.routineIds = o.routineIds.filter(x => x !== id);
   } else {
@@ -470,6 +477,7 @@ export function saveProgram(user, input = {}, opts = {}) {
   if (problems.length) return { error: problems[0], status: 400, problems };
   const program = { ...p, id: existing?.id || hexId('g2jc-'), active: status === 'active', draft: status === 'draft' };
   if (opts.dryRun) return { dryRun: true, program: { ...program, status, custom: !existing || !seedProgById.has(existing.id) }, problems: [] };
+  if (existing) remember('program', existing.id, existing, program, user);
   if (existing && seedProgById.has(existing.id)) {
     const prev = s.programOverrides[existing.id] || {};
     const { name: _n, description: _d, ...rest } = prev;       // the full edit wins over earlier name/description curation
@@ -505,6 +513,7 @@ export function removeProgram(user, id) {
   if (!p) return { error: 'ese programa no existe', status: 404 };
   if (seedProgById.has(id)) return { error: 'los programas oficiales de la biblioteca base se ocultan, no se borran', status: 400 };
   s.programsCustom = s.programsCustom.filter(x => x.id !== id);
+  history.drop(s.history, id);
   for (const c of s.collections.custom) c.programIds = (c.programIds || []).filter(x => x !== id);
   for (const o of Object.values(s.collections.overrides)) if (o.programIds) o.programIds = o.programIds.filter(x => x !== id);
   save();
@@ -516,6 +525,7 @@ export function curateProgram(user, id, patch = {}) {
   const seed = seedProgById.get(id);
   const current = programList().find(p => p.id === id);
   if (!current) return { error: 'ese programa oficial no existe', status: 404 };
+  const before = JSON.parse(JSON.stringify(current));
   if (!seed) {
     const p = load().programsCustom.find(x => x.id === id);
     if ('name' in patch) { const name = str(patch.name, 70); if (!name) return { error: 'ponle un nombre al programa', status: 400 }; p.name = name; }
@@ -530,6 +540,7 @@ export function curateProgram(user, id, patch = {}) {
       p.active = patch.active !== false; p.draft = false;
     }
     p.updatedAt = now();
+    remember('program', id, before, p, user);
     save();
     return { program: programList().find(x => x.id === id) };
   }
@@ -539,6 +550,7 @@ export function curateProgram(user, id, patch = {}) {
   if ('name' in patch) { const name = str(patch.name, 70); if (!name) return { error: 'ponle un nombre al programa', status: 400 }; o.name = name; }
   if ('description' in patch) { const description = str(patch.description, 400); if (!description) return { error: 'ponle una descripción al programa', status: 400 }; o.description = description; }
   load().programOverrides[id] = { ...o, by: user.id, at: now() };
+  remember('program', id, before, programList().find(p => p.id === id), user);
   save();
   return { program: programList().find(p => p.id === id) };
 }
@@ -561,6 +573,7 @@ export function saveCollection(user, input = {}) {
     programIds: [...new Set((Array.isArray(input.programIds) ? input.programIds : []).filter(id => knownPrograms.has(id)))].slice(0, 30),
   };
   if (!c.name) return { error: 'ponle un nombre a la colección', status: 400 };
+  if (input.id) { const prev = collectionList().find(x => x.id === input.id); if (prev) remember('collection', input.id, prev, c, user); }
   if (!input.id && s.collections.custom.length >= MAX_CUSTOM_COLLECTIONS) return { error: 'has llegado al máximo de colecciones propias', status: 400 };
   if (input.id && seedCollById.has(input.id)) s.collections.overrides[input.id] = { ...(s.collections.overrides[input.id] || {}), ...c, by: user.id, at: now() };
   else if (input.id) {
@@ -578,8 +591,29 @@ export function removeCollection(user, id) {
   if (seedCollById.has(id)) return { error: 'las colecciones de la biblioteca base se desactivan, no se borran', status: 400 };
   if (!s.collections.custom.some(x => x.id === id)) return { error: 'esa colección no existe', status: 404 };
   s.collections.custom = s.collections.custom.filter(x => x.id !== id);
+  history.drop(s.history, id);
   save();
   return { collections: collectionList() };
+}
+
+/* ---------------------------------- history ---------------------------------- */
+
+/** The kept versions of one official item (newest first, no bodies). */
+export const historyOf = id => history.list(load().history, String(id || ''));
+
+/**
+ * Admin: put a kept version back. It goes through the normal save path (the 2J protocol, reference checks), so a version that no longer holds —
+ * an exercise since hidden, a routine since removed — is refused with the usual reason, and the version being replaced is itself kept.
+ */
+export function restoreVersion(user, id, at, opts = {}) {
+  const entry = history.find(load().history, String(id || ''), String(at || ''));
+  if (!entry) return { error: 'esa versión ya no está guardada', status: 404 };
+  const snap = JSON.parse(JSON.stringify(entry.snapshot));
+  const status = snap.draft ? 'draft' : snap.active === false ? 'hidden' : 'active';
+  if (entry.kind === 'routine') return upsert(user, true, { ...snap, id, scope: 'official', status }, opts);
+  if (entry.kind === 'program') return saveProgram(user, { ...snap, id, status });
+  if (entry.kind === 'collection') return saveCollection(user, { ...snap, id });
+  return { error: 'versión no válida', status: 400 };
 }
 
 /* ---------------------------------- the Coach ---------------------------------- */

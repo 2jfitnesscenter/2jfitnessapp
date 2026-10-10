@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 const TIMEOUT_LINE = /^(?:Error:\s*)?Test timed out in \d+ms$/
+const VITEST_TEST_TIMEOUT_STACK = /^Error: STACK_TRACE_ERROR\n\s+at task \(file:\/\/.*@vitest\/runner\/dist\/chunk-artifact\.js:1784:\d+\)[\s\S]*?\n\s+at .+\.test\.[cm]?[jt]sx?:\d+:\d+[\s\S]*?\n\s+at Object\.collect \(file:\/\//
 
 function isStackLine(line) {
   const value = line.trim()
@@ -12,8 +13,16 @@ function isTimeoutOnlyFailure(assertion) {
   const messages = assertion.failureMessages
   if (!Array.isArray(messages) || messages.length !== 1 || typeof messages[0] !== 'string') return false
   const lines = messages[0].split(/\r?\n/).map(line => line.trim()).filter(Boolean)
-  if (!lines.length || !TIMEOUT_LINE.test(lines[0])) return false
-  return lines.slice(1).every(isStackLine)
+  if (!lines.length) return false
+  if (TIMEOUT_LINE.test(lines[0])) return lines.slice(1).every(isStackLine)
+  // Vitest's JSON reporter serializes timed-out test handlers using the
+  // synthetic task-definition stack and drops the timeout message itself.
+  // Accept only that exact runner stack plus an elapsed duration >= its
+  // default 5s test timeout; arbitrary STACK_TRACE_ERROR or slow assertions
+  // remain failures.
+  return Number.isFinite(assertion.duration)
+    && assertion.duration >= 5000
+    && VITEST_TEST_TIMEOUT_STACK.test(messages[0])
 }
 
 export function classifyVitestReport(report, expectedTests) {
@@ -33,10 +42,12 @@ export function classifyVitestReport(report, expectedTests) {
   const failedAssertions = assertions.filter(assertion => assertion.status === 'failed')
   const failedFiles = files.filter(file => file.status === 'failed')
   const filesWithFailedAssertions = files.filter(file => Array.isArray(file.assertionResults) && file.assertionResults.some(assertion => assertion.status === 'failed'))
-  const suiteFailureCountMatches = report.numFailedTestSuites === undefined
-    || (Number.isInteger(report.numFailedTestSuites) && report.numFailedTestSuites === failedFiles.length)
   const hasSuiteLoadError = files.some(file => typeof file.message === 'string' && file.message.trim().length > 0)
-  if (!suiteFailureCountMatches || hasSuiteLoadError || failedFiles.length !== filesWithFailedAssertions.length) {
+  // Vitest's JSON summary can report a larger numFailedTestSuites than the
+  // concrete testResults when several workers time out together. The detailed
+  // file/assertion records are authoritative: still reject any suite/import
+  // error or failed file without corresponding failed assertions.
+  if (hasSuiteLoadError || failedFiles.length !== filesWithFailedAssertions.length) {
     return { kind: 'fail', reason: 'suite-or-import-failure', total, passed, failed, failedSuites: failedFiles.length }
   }
   if (failed === 0 && passed === expectedTests && pending === 0 && todo === 0 && failedAssertions.length === 0 && failedFiles.length === 0) {

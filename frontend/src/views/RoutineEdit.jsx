@@ -6,13 +6,15 @@ import { useStore } from '../store/useStore.js'
 import { dayPlanRoutineId, parseMovedDay } from '../lib/day-plan.js'
 import { useUI } from '../store/useUI.js'
 import { exOr, isUnavailable } from '../lib/exercises.js'
-import { uid } from '../lib/format.js'
+import { uid, fmtDate } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { supersetUnits, cleanupSg, exLine } from '../lib/history.js'
 import { supersetGroupInfo, supersetLabel } from '../lib/superset-colors.js'
 import { Thumb } from '../components/Media.jsx'
 import { glyphPicker, exercisePicker, alternativesSheet, exConfigSheet, confirmSheet, exerciseMenuSheet, exerciseNotesSheet, supersetPickerSheet, celebrateBadges } from '../sheets.jsx'
 import { printRoutine } from '../lib/plan-share.js'
+import { routineShare } from '../lib/shared-plans.js'
+import { openPrivatePlanShare } from '../lib/open-private-share.jsx'
 import { evaluateBadgesIn } from '../lib/badges.js'
 import Icon from '../components/Icon.jsx'
 import { glyphOf } from '../lib/glyphs.js'
@@ -100,6 +102,8 @@ export default function RoutineEdit() {
           { image: r.image, onImage: imgId => update(s => { s.routines.find(x => x.id === id).image = imgId }) })}>
         {r.image ? <img src={mediaUrl(r.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Icon name={glyphOf(r.emoji)} />}
       </button>
+      <button className="iconbtn" aria-label={t('Send to a friend')} title={t('Send to a friend')} disabled={!r.ex.length}
+        onClick={() => openPrivatePlanShare(routineShare(S, r), r.name)}><Icon name="send" /></button>
       <button className="iconbtn" aria-label={t('Print routine')} title={t('Print routine')} disabled={!r.ex.length}
         onClick={() => {
           printRoutine(r, user?.name || '', S.unit)
@@ -107,6 +111,7 @@ export default function RoutineEdit() {
         }}><Icon name="download" /></button>
     </div>
 
+    {r.fromShare && <p className="rcv-origin"><Icon name="users" />{t('Sent by {0}', r.fromShare.senderLabel)} · {fmtDate(new Date(r.fromShare.createdAt).toISOString().slice(0, 10))}</p>}
     <RoutineHero r={r} S={S} onCover={() => coverSheet({ image: r.image, name: r.name, onChange: imgId => update(s => { const x = s.routines.find(y => y.id === id); if (imgId) x.image = imgId; else delete x.image }) })} />
 
     {r.ex.length > 0 && (() => {

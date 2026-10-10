@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { getExerciseAlternatives, getReplacementGroups, QUICK_FILTERS } from './alternatives.js'
-import { setHiddenExercises, setUnavailableEquipment } from './exercises.js'
+import { getExerciseAlternatives, getReplacementGroups, QUICK_FILTERS, sameEquipment, matchesQuickFilter } from './alternatives.js'
+import { setHiddenExercises, setUnavailableEquipment, EXIDX } from './exercises.js'
+import { compatibleWithGym } from './gym-profiles.js'
 
 const BENCH = '0025'          // barbell bench press — tg: pectorals, eq: barbell
 const DECLINE_BENCH = '0033'   // barbell decline bench press — tg: pectorals, eq: barbell (exact match)
@@ -116,5 +117,53 @@ describe('getReplacementGroups', () => {
     const unrelated = groups.all.find(a => !groups.relatedIds.has(a.ex.id))
     expect(unrelated).toBeTruthy()
     expect(unrelated.matchKey).toBe('unrelated')
+  })
+})
+
+describe('equipment is compared by the Library\'s canonical id, not the raw dataset string', () => {
+  const ex = id => EXIDX[id]
+  it('"band" and "resistance band" are the same equipment; so are "barbell" and "olympic barbell"', () => {
+    expect(ex('3124').eq).toBe('resistance band'); expect(ex('0989').eq).toBe('band')
+    expect(sameEquipment(ex('3124'), ex('0989'))).toBe(true)
+    expect(sameEquipment(ex('0636'), ex(BENCH))).toBe(true)          // olympic barbell vs barbell
+    expect(sameEquipment(ex(BENCH), ex(CABLE_BENCH))).toBe(false)
+  })
+
+  it('a record without a canonical equipment (custom, legacy) still compares by the raw string', () => {
+    expect(sameEquipment({ id: 'c1', eq: 'sandbag' }, { id: 'c2', eq: 'sandbag' })).toBe(true)
+    expect(sameEquipment({ id: 'c1', eq: 'sandbag' }, { id: 'c2', eq: 'kettlebell' })).toBe(false)
+    expect(sameEquipment({ id: 'c1', eq: 'custom' }, ex(BENCH))).toBe(false)
+    expect(sameEquipment(null, ex(BENCH))).toBe(false)
+  })
+
+  it('swap results mark sameEquipment from the canonical id, in both the alternatives and the variants', () => {
+    const groups = getReplacementGroups(baseS(), '3124')
+    const band = groups.all.find(a => a.ex.id === '0989')
+    expect(groups.recommended.concat(groups.related).filter(a => a.ex.eq === 'band').every(a => a.sameEquipment)).toBe(true)
+    expect(band).toBeTruthy()
+    expect(getExerciseAlternatives(baseS(), BENCH).find(a => a.ex.id === DECLINE_BENCH)).toMatchObject({ matchKey: 'exact', sameEquipment: true })
+  })
+
+  it('the quick filters use canonical groups and keep selecting what the raw strings used to', () => {
+    expect(QUICK_FILTERS.map(f => f.key)).toEqual(['same', 'dumbbell', 'cable', 'machine'])
+    const pass = (key, id, ref = ex(BENCH)) => matchesQuickFilter(key, ex(id), ref)
+    expect(pass('dumbbell', DUMBBELL_PUSHUP)).toBe(true); expect(pass('dumbbell', CABLE_BENCH)).toBe(false)
+    expect(pass('cable', CABLE_BENCH)).toBe(true)
+    for (const id of ['1299', '0577', '0576', '0766']) expect(pass('machine', id), id).toBe(true)   // machine, weight stack, plate-loaded, Smith
+    expect(pass('machine', '0739')).toBe(false)                       // a sled was never part of "machines" here
+    expect(pass('same', DECLINE_BENCH)).toBe(true); expect(pass('same', CABLE_BENCH)).toBe(false)
+    expect(matchesQuickFilter('nope', ex(BENCH), ex(BENCH))).toBe(true)
+    // legacy raw record
+    expect(matchesQuickFilter('machine', { id: 'x', eq: 'leverage machine' }, ex(BENCH))).toBe(true)
+    expect(matchesQuickFilter('cable', { id: 'x', eq: 'sandbag' }, ex(BENCH))).toBe(false)
+  })
+
+  it('exercises the active gym profile can host come first', () => {
+    const home = { gymProfiles: { activeId: 'home' } }
+    const groups = getReplacementGroups(baseS(home), BENCH)
+    const firstIncompatible = groups.related.findIndex(a => !compatibleWithGym(baseS(home), a.ex))
+    const lastCompatible = groups.related.map(a => compatibleWithGym(baseS(home), a.ex)).lastIndexOf(true)
+    expect(groups.related.some(a => compatibleWithGym(baseS(home), a.ex))).toBe(true)
+    expect(lastCompatible).toBeLessThan(firstIncompatible)
   })
 })

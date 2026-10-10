@@ -50,7 +50,7 @@ async function seed(over = {}, admin = null) {
   if (admin) memory.set('gym_features_v1', JSON.stringify(admin))
   await boot()
 }
-const render = async View => { await boot(); return renderToStaticMarkup(<MemoryRouter><View /></MemoryRouter>) }
+const render = async View => renderToStaticMarkup(<MemoryRouter><View /></MemoryRouter>)
 const ux = uses => F.makeUx(uses)
 const COMPOSITION = { bodyFat: [{ d: '2026-09-05', v: 18.4, t: 1 }], muscleMass: [{ d: '2026-09-05', v: 37.2, t: 1 }] }
 

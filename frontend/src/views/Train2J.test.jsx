@@ -115,7 +115,7 @@ describe('starting an official routine', () => {
 })
 
 describe('offline catalogue and favourites', () => {
-  it('without a connection, the last catalogue this account received is shown; favourites stay on the device', async () => {
+  it('without a connection, the last catalogue this account received is shown; favourites are part of the synced state', async () => {
     await seed()
     memory.set('g2j_catalog:u1', JSON.stringify({ routines: SEED.routines, programs: PROGRAM_SEED.programs, collections: SEED.collections }))
     const g = guidedApi.useGuided
@@ -124,9 +124,14 @@ describe('offline catalogue and favourites', () => {
     expect(g.getState().routines).toHaveLength(155)
     expect(g.getState().programs).toHaveLength(22)
     expect(Object.keys(g.getState().programs[0].routines)).toContain(PROGRAM_SEED.programs[0].weeks[0].sessions[0].routineId)
-    expect(g.getState().toggleFavorite(TABATA.id)).toBe(true)
-    expect(JSON.parse(memory.get('g2j_favs:u1'))).toEqual([TABATA.id])
-    expect(g.getState().toggleFavorite(TABATA.id)).toBe(false)
+    const { toggleRoutineFav } = await import('../lib/routine-favorites.js')
+    let on
+    store.getState().update(s => { on = toggleRoutineFav(s, TABATA.id) })
+    expect(on).toBe(true)
+    expect(S().favRoutines).toEqual([TABATA.id])
+    expect(memory.get('g2j_favs:u1')).toBeUndefined()           // nothing is written to the old per-device list any more
+    store.getState().update(s => { on = toggleRoutineFav(s, TABATA.id) })
+    expect(on).toBe(false)
     // another account on the same device has nothing cached: an error, not someone else's data
     await g.getState().load('u2', true)
     expect(g.getState().status).toBe('error')

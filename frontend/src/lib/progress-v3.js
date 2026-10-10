@@ -3,6 +3,7 @@
 // Progress V3 — the story of the last week / month, computed ONLY from the member's own log. Every comparison needs a real previous
 // period with data; every figure is a count, a sum or a difference. No scores, no "improving / worsening" verdicts.
 import { isoOf } from './format.js'
+import { orderedBodyWeightSeries } from './bodyweight.js'
 import { setsDone, streakWeeks } from './history.js'
 import { loadOfWorkouts, muscleOptsOf, rankOf, MUSCLE_NAME } from './muscles.js'
 import { postWorkoutEvents } from './mi2j.js'
@@ -57,7 +58,7 @@ export function periodSummary(S, period, now = new Date()) {
     const best = evs.filter(e => e.type !== 'streak').sort((a, b) => a.priority - b.priority)[0]
     if (best && (!advance || best.priority < advance.priority || (best.priority === advance.priority && w.d > advance.d))) advance = { ...best, d: w.d }
   })
-  const bw = (S.bodyweight || []).filter(b => b.d >= r.from && b.d <= r.to).sort((a, b) => a.d < b.d ? -1 : 1)
+  const bw = orderedBodyWeightSeries(S).filter(b => b.d >= r.from && b.d <= r.to)
   const weight = bw.length >= 2 ? { delta: Math.round((bw[bw.length - 1].w - bw[0].w) * 10) / 10, from: bw[0].d } : null
   const weeksElapsed = r.elapsed / 7
   return {

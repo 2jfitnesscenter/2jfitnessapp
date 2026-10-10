@@ -18,6 +18,7 @@ import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
 import { Button, SelectRow } from '../../components/ui.jsx'
 import { POLICIES_FOR, POLICY_NAME, POLICY_DESC } from '../../lib/progression.js'
 import { fetchMemberPlan, saveMemberRoutine } from '../../lib/trainer-api.js'
+import TrainingQualityPanel from '../../components/TrainingQualityPanel.jsx'
 
 const emptyRoutine = () => ({ id: null, name: t('New routine'), emoji: DEFAULT_GLYPH, ex: [] })
 
@@ -38,11 +39,13 @@ export default function TrainerRoutineBuilder() {
   const [r, setR] = useState(null)
   const [busy, setBusy] = useState(false)
   const [sync, setSync] = useState(null)
+  const [memberEquipment, setMemberEquipment] = useState(null)
 
   useEffect(() => {
 
     fetchMemberPlan(memberId).then(plan => {
       setSync(plan.sync)
+      setMemberEquipment(plan.gym?.availableEquipment || null)
       if (routineId === 'new') { setR(emptyRoutine()); return }
       const found = (plan.routines || []).find(x => x.id === routineId)
       if (!found) { toast(t('That routine no longer exists.')); nav('/trainer/' + memberId); return }
@@ -134,6 +137,7 @@ export default function TrainerRoutineBuilder() {
 
     <div className="builder-layout">
     <div className="builder-main">
+    <TrainingQualityPanel routine={r} goal={r.meta?.goal || 'hypertrophy'} level={r.meta?.level} focus={r.meta?.focus} specialization={r.meta?.specialization} restrictions={r.meta?.restrictions || []} availableEquipment={memberEquipment} />
     <div className="sect-b" style={{ marginBottom: 16 }}>
       <SelectRow icon="chartLine" title={t('Progression')} sheetTitle={t('Progression')}
         value={r.prog || 'linear'} onChange={v => setR(cur => ({ ...cur, prog: v }))}

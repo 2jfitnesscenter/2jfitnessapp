@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { EXIDX } from '../lib/exercises.js'
+import { orderedBodyWeightSeries } from '../lib/bodyweight.js'
+import { visibleProgressCards } from '../lib/progress-cards.js'
 import { lastBW, streakWeeks, setLabel, modeOf, effortOf } from '../lib/history.js'
 import { fmtNum, fmtDate, fmtVol, todayISO, weekKey } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
@@ -269,9 +271,10 @@ export default function Stats() {
     if (deepLinkId) exProgressRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
 
-  const bwPts = S.bodyweight.filter(b => range === 0 || (b.t || new Date(b.d).getTime()) > now - range * 86400000)
+  const bwSeries = orderedBodyWeightSeries(S)            // the one reader of body weight (lib/bodyweight.js)
+  const bwPts = bwSeries.filter(b => range === 0 || (b.t || new Date(b.d).getTime()) > now - range * 86400000)
     .map(b => ({ t: b.t || new Date(b.d).getTime(), y: b.w, d: b.d }))
-  const bw30 = S.bodyweight.filter(b => (b.t || new Date(b.d).getTime()) > now - 30 * 86400000)
+  const bw30 = bwSeries.filter(b => (b.t || new Date(b.d).getTime()) > now - 30 * 86400000)
   const bwDelta30 = bw30.length > 1 ? bw30[bw30.length - 1].w - bw30[0].w : null
   const monthW = S.workouts.filter(w => w.d.slice(0, 7) === todayISO().slice(0, 7)).length
 
@@ -326,25 +329,19 @@ export default function Stats() {
   if (showE1) exOpts.push({ value: 'e1rm', label: t('Est. 1RM') })
   if (showEff) exOpts.push({ value: 'effort', label: t('Effort') })
 
-  return <>
-    <div className="hdr"><div><h1>{t('Stats')}</h1><div className="sub">{t('Progress & history')}</div></div>
-      <button className="iconbtn" onClick={() => nav('/history')} aria-label={t('History')}><Icon name="history" /></button></div>
-
-    <ProgressCover S={S} onStory={openStory} />
-
-    <FollowUpCard fu={followUp} S={S} nav={nav} />
-    <ProgressInsights S={S} nav={nav} />
-
-    {S.workouts.length > 0 && <div className="home-grid2">
+  // The blocks of this page are a closed catalogue (lib/progress-cards.js): the member can hide and re-order them from Settings → Personalise my experience.
+  // Each block keeps its own data/feature gates; the header, the period cover, the follow-up card and the recent-workouts list are structural and always shown.
+  const blocks = {
+    insights: <ProgressInsights S={S} nav={nav} />,
+    last: S.workouts.length > 0 && <div className="home-grid2">
       <LastWorkoutCard S={S} />
       {uxOn(S, 'recovery') && <RecoveryCard nav={nav} S={S} compact />}
-    </div>}
-
-    {uxOn(S, 'bioimpedance') && <>
+    </div>,
+    composition: uxOn(S, 'bioimpedance') && <>
       <BioimpedanceReminderCard S={S} nav={nav} />
       <BodyCompositionCard S={S} nav={nav} />
-    </>}
-
+    </>,
+    weight: <>
     {uxOn(S, 'bodyweight') && !S.bodyweight.length && <div className="card"><div className="row between"><div><h2 style={{ margin: 0 }}>{t('Body weight')}</h2><div className="small dim">{t('Log your weight to see how it evolves.')}</div></div><Button size="sm" icon="plus" onClick={() => bwSheet()}>{t('Log')}</Button></div></div>}
     {uxOn(S, 'bodyweight') && S.bodyweight.length > 0 && <div className="card">
       <div className="row between" style={{ marginBottom: 8 }}>
@@ -358,24 +355,25 @@ export default function Stats() {
         options={[{ value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
       <div className="chart"><LineChart points={bwPts} h={160} unit={S.unit} goal={S.targetW} /></div>
     </div>}
-
-    <div className="card">
+    </>,
+    activity: <div className="card">
       <h2>{t('Activity — last 12 months')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('by time trained')}</span></h2>
       <Heatmap S={S} onDay={iso => { const ws = S.workouts.filter(w => w.d === iso); if (ws.length === 1) workoutDetailSheet(ws[0]); else if (ws.length) calendarSheet(iso) }} />
-    </div>
-
+    </div>,
+    muscles: <>
     {S.workouts.length > 0 && <MuscleBalance S={S} />}
     {S.enableRpVolumeZones && uxOn(S, 'volume') && <RpVolumeCard S={S} nav={nav} />}
-    <ProgressTimeline S={S} />
-    <CardioTestsProgress tests={S.tests} onStart={() => nav('/tests')} />
+    </>,
+    timeline: <ProgressTimeline S={S} />,
+    cardio: <CardioTestsProgress tests={S.tests} onStart={() => nav('/tests')} />,
+    effort: <>
     {anyEffort && uxOn(S, 'effort') && <EffortCard S={S} />}
     {!anyEffort && uxOn(S, 'effort') && effortOf(S) === 'none' && S.workouts.length > 0 && <button className="card tappable" style={{ textAlign: 'left', width: '100%' }} onClick={() => nav('/settings/training')}>
       <div className="row between"><div><h2 style={{ margin: 0 }}>{t('Effort')}</h2><div className="small dim">{t('Rate how hard your sets feel to see effort trends here.')}</div></div><Icon name="chevronRight" className="chev" /></div>
     </button>}
     {S.enableTrainingZones !== false && uxOn(S, 'volume') && <ZoneDistributionCard S={S} />}
-
-    <div className="cols">
-      <div className="card" ref={exProgressRef}>
+    </>,
+    exercise: <div className="card" ref={exProgressRef}>
         <h2>{t('Exercise progress')}</h2>
         {exHist.length ? <>
           <div className="sect-b" style={{ marginBottom: 10 }}>
@@ -404,11 +402,27 @@ export default function Stats() {
           </>}
         </> : <div className="muted small">{t('Finish your first workout to see progress curves here.')}</div>}
       </div>
+,
+    health: uxOn(S, 'health') && (S.steps.length || S.sleep.length || S.restingHR.length) > 0 && <HealthCard S={S} />,
+    whoop: uxOn(S, 'health') && <WhoopCard nav={nav} connected={!!user?.whoop} />,
+  }
+  const shown = visibleProgressCards(S)
+  const nodes = []
+  shown.forEach((id, i) => {
+    if (id === 'exercise' && shown[i + 1] === 'health') { nodes.push(<div key="cols" className="cols">{blocks.exercise}{blocks.health}</div>, <Fragment key="whoop">{blocks.whoop}</Fragment>); return }
+    if (id === 'health' && shown[i - 1] === 'exercise') return          // rendered next to the exercise card above
+    if (id === 'health') { nodes.push(<Fragment key="health">{blocks.health}{blocks.whoop}</Fragment>); return }
+    nodes.push(<Fragment key={id}>{blocks[id]}</Fragment>)
+  })
 
-      {uxOn(S, 'health') && (S.steps.length || S.sleep.length || S.restingHR.length) > 0 && <HealthCard S={S} />}
-    </div>
+  return <>
+    <div className="hdr"><div><h1>{t('Stats')}</h1><div className="sub">{t('Progress & history')}</div></div>
+      <button className="iconbtn" onClick={() => nav('/history')} aria-label={t('History')}><Icon name="history" /></button></div>
 
-    {uxOn(S, 'health') && <WhoopCard nav={nav} connected={!!user?.whoop} />}
+    <ProgressCover S={S} onStory={openStory} />
+
+    <FollowUpCard fu={followUp} S={S} nav={nav} />
+    {nodes}
 
     {S.workouts.length > 0 && <>
       <div className="row between" style={{ marginBottom: 10 }}>

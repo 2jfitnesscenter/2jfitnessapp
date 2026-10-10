@@ -23,6 +23,7 @@ import { gymEquipmentContext } from '../lib/gym-profiles.js';
 import { countsForProgression } from '../lib/workout-policy.js';
 import { equipmentIdOf } from '../lib/protocol/movements.js';
 import * as libraryAdmin from '../lib/library-admin.js';
+import { compactLibrary } from './library-slice.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const require_ = createRequire(import.meta.url);
@@ -45,6 +46,36 @@ export const CONTRACT = 1;
 // makes the payload bigger and the reading vaguer, not better.
 export const MAX_WEEKS = 12;
 export const MAX_SESSIONS = 60;
+
+const STRUCTURE_KEYS = ['horizontal_push', 'vertical_push', 'horizontal_pull', 'vertical_pull', 'knee_dominant', 'hip_dominant', 'core', 'conditioning', 'power', 'carry'];
+const STRUCTURE_CATEGORIES = new Set(['balance', 'distribution', 'redundancy', 'equipment', 'library', 'history']);
+const STRUCTURE_SEVERITIES = new Set(['info', 'revisar', 'importante']);
+const STRUCTURE_EVIDENCE = new Set(['fact', 'heuristic', 'inference']);
+function cleanStructuralAnalysis(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 7).filter(x => x && typeof x === 'object').map(x => {
+    const movementSummary = {};
+    for (const key of STRUCTURE_KEYS) {
+      const n = Number(x.movementSummary?.[key]);
+      if (Number.isFinite(n)) movementSummary[key] = Math.max(0, Math.min(50, Math.floor(n)));
+    }
+    // Planned working sets per pattern (Training Quality V2): same keys as movementSummary, only when the client sent any.
+    const movementSets = {};
+    for (const key of STRUCTURE_KEYS) {
+      const n = Number(x.movementSets?.[key]);
+      if (Number.isFinite(n) && n > 0) movementSets[key] = Math.min(500, Math.floor(n));
+    }
+    const sets = Number(x.programmedResistanceSets);
+    const findings = (Array.isArray(x.findings) ? x.findings : []).slice(0, 12).filter(f => STRUCTURE_CATEGORIES.has(f?.category) && STRUCTURE_SEVERITIES.has(f?.severity))
+      .map(f => ({ category: f.category, severity: f.severity, ...(STRUCTURE_EVIDENCE.has(f.evidenceType) ? { evidenceType: f.evidenceType } : {}) }));
+    const review = x.kind === 'program-review' ? {
+      adherence: x.adherence && Number.isFinite(Number(x.adherence.percent)) ? { percent: Math.max(0, Math.min(100, Math.floor(Number(x.adherence.percent)))), completed: Math.max(0, Math.min(500, Math.floor(Number(x.adherence.completed) || 0))), total: Math.max(0, Math.min(500, Math.floor(Number(x.adherence.total) || 0))) } : null,
+      progression: ['improving', 'stable', 'insufficient'].includes(x.progression?.status) ? { status: x.progression.status, improved: Math.max(0, Math.min(50, Math.floor(Number(x.progression.improved) || 0))), evaluated: Math.max(0, Math.min(50, Math.floor(Number(x.progression.evaluated) || 0))) } : null,
+      plateau: x.plateau && typeof x.plateau.clear === 'boolean' ? { clear: x.plateau.clear, reasons: (Array.isArray(x.plateau.reasons) ? x.plateau.reasons : []).slice(0, 6).filter(r => ['stalled', 'misses', 'effort_up', 'hard', 'incomplete'].includes(r?.code)).map(r => ({ code: r.code, n: Number.isFinite(Number(r.n)) ? Math.max(0, Math.min(50, Math.floor(Number(r.n)))) : null })) } : null,
+    } : null;
+    return { version: 1, movementSummary, ...(Object.keys(movementSets).length ? { movementSets } : {}), programmedResistanceSets: Number.isFinite(sets) ? Math.max(0, Math.min(500, Math.floor(sets))) : 0, findings, ...(review ? { kind: 'program-review', review } : {}) };
+  });
+}
 
 /* ---------- the data categories the consent screen names (FR-09/10) ----------
    Kept here, next to the code that acts on it, and rendered by the consent UI from the same
@@ -175,6 +206,15 @@ export function librarySlice(S, equipment) {
     .sort((a, b) => S.gymProfiles ? Number(gym.availableEquipment.includes(equipmentIdOf(b))) - Number(gym.availableEquipment.includes(equipmentIdOf(a))) : 0);
   return [...customs, ...ranked].map(withGroup);
 }
+// What the model actually receives: a compact, deterministic candidate list (see library-slice.js), not the whole
+// catalogue. Rows are [id, name, movement, equipment, muscleGroup, flags]; the full library still validates every id.
+const PRIORITY_GROUP = { quads: 'quadriceps', glutes: 'gluteal', hamstrings: 'hamstring', calves: 'calves', chest: 'chest', back: 'back', shoulders: 'deltoids', biceps: 'biceps', triceps: 'triceps', abs: 'abs' };
+export function libraryForAI(S, equipment, ctx = {}) {
+  const pool = librarySlice(S, equipment);
+  const gym = S.gymProfiles ? gymEquipmentContext(S).availableEquipment : null;
+  const priorityGroups = (Array.isArray(S.priorityMuscles) ? S.priorityMuscles : []).map(m => PRIORITY_GROUP[m]).filter(Boolean);
+  return compactLibrary(pool, { ...ctx, gym, priorityGroups, equipmentOf: e => equipmentIdOf(e) });
+}
 export const libraryHas = id => LIB_BY_ID.has(id);
 export const libraryName = id => LIB_BY_ID.get(id)?.n || null;
 export { LIBRARY };
@@ -297,6 +337,7 @@ function cleanWorkout(w) {
 export function build(S, uid, opts = {}) {
   const coach = S.coach || {};
   const profile = opts.intake || coach.profile || null;
+  const structuralAnalysis = cleanStructuralAnalysis(opts.structuralAnalysis);
   const p = {
     coach_contract: CONTRACT,
     gymProfile: gymEquipmentContext(S),
@@ -332,10 +373,17 @@ export function build(S, uid, opts = {}) {
     } : null,
     plan: cleanPlan(S)
   };
+  if (structuralAnalysis.length) p.coachProfile.structuralAnalysis = structuralAnalysis;
+  const protocolCtx = protocolContext(S, profile, readUnavailableEq());
+  const libraryFor = plan => {
+    const lib = libraryForAI(S, profile?.equipment, { goal: protocolCtx.goal, daysPerWeek: Number(profile?.daysPerWeek) || null, restrictions: protocolCtx.restrictions,
+      planIds: (plan?.routines || []).flatMap(r => (r.ex || []).map(e => e.id)) });
+    return { columns: lib.columns, rows: lib.rows, of: lib.meta.eligible };
+  };
 
   // 2J Training Protocol: only the rules relevant to this goal/level (never the docs), the
   // explicit restrictions, and official blocks to reuse before inventing (protocol-gate.js).
-  p.protocol = protocolPayload(protocolContext(S, profile, readUnavailableEq()),
+  p.protocol = protocolPayload(protocolCtx,
     Array.isArray(S.priorityMuscles) ? S.priorityMuscles : [], activeProgramContext(S), gymEquipmentContext(S).availableEquipment);
 
   // Weekly Volume Zones (MV/MEV/MAV/MRV per muscle group) — only when the member has this on;
@@ -367,9 +415,9 @@ export function build(S, uid, opts = {}) {
       series: (S.bodyweight || []).filter(b => !p.window.from || b.d >= p.window.from).map(b => ({ d: b.d, w: b.w }))
     };
     if (opts.note) p.userNote = String(opts.note).slice(0, 1000);
-    p.library = librarySlice(S, profile?.equipment);
+    p.library = libraryFor(p.plan);
   } else {
-    p.library = librarySlice(S, profile?.equipment);
+    p.library = libraryFor(p.plan);
     // Creation for a returning user: what they have actually handled, so proposed baselines
     // start from evidence rather than optimism (B2/FR-20).
     const best = {};
@@ -402,7 +450,7 @@ export function buildTrainer(S, uid, brief = {}) {
     lang: 'en',
     unit: 'kg'
   }
-  const payload = build(scoped, uid, { kind: 'create', intake: brief })
+  const payload = build(scoped, uid, { kind: 'create', intake: brief, structuralAnalysis: brief?.structuralAnalysis })
   delete payload.meta.profile
   return payload
 }

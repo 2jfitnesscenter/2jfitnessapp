@@ -26,7 +26,7 @@ import './experience.css'
 import Icon from '../components/Icon.jsx'
 import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button, Avatar } from '../components/ui.jsx'
 import PrivacySummary from '../components/PrivacySummary.jsx'
-import { bridgeState } from '../lib/health-bridge.js'
+import { bridgeState, getBridge, platformLabel } from '../lib/health-bridge.js'
 import { openAccent } from '../components/AccentSheet.jsx'
 
 // One-screen design trial (see the owner's ask for a less "colorful template" look): every row
@@ -264,15 +264,15 @@ export default function Settings() {
     {(healthOn || connectedApps || bioOn) && <>
     <h3 className="set-grp">{t('Health & activity')}<span>{t('Your watch, your steps, your body')}</span></h3>
     <Section>
-      {healthOn && <Row icon="heart" iconTint="var(--red)" title={t('Health & activity')} subtitle={t('Steps, sleep, heart rate and your connected watch')}
-        value={bridge?.enabled ? t('Connected') : t('Not connected')} accessory="chevron" onClick={() => nav('/health')} />}
-      {connectedApps && (
-        <Row icon="link" iconTint="var(--indigo)" title={t('Connected apps')}
-          subtitle={t('Strava, Whoop')} accessory="chevron" onClick={() => nav('/connected-apps')} />
-      )}
+      {healthOn && <Row icon="heart" iconTint="var(--red)" title={t('Health & activity')} subtitle={t('Steps, sleep, heart rate and your body')}
+        accessory="chevron" onClick={() => nav('/health')} />}
+      {/* one place for every connection: Health → Fitness integrations */}
+      {(healthOn || connectedApps) && <Row icon="link" iconTint="var(--indigo)" title={t('Integrations')}
+        subtitle={[healthOn ? t(platformLabel(getBridge())) : null, connectedApps ? 'WHOOP, Strava' : null].filter(Boolean).join(', ')}
+        value={bridge?.enabled ? t('Connected') : undefined} accessory="chevron" onClick={() => nav('/health/integrations')} />}
       {bioOn && <>
       <Row icon="calendar" iconTint="var(--orange)" title={t('Bioimpedance reminder')}
-        subtitle={t('A nudge on Home when it’s been a while since your last body-composition scan')}>
+        subtitle={t('A reminder in Progress when it’s been a while since your last body-composition scan')}>
         <Switch checked={S.enableBioimpedanceReminder !== false} onChange={v => {
           update(s => { s.enableBioimpedanceReminder = v })
           if (MOBILE) syncBioimpedanceReminder({ ...S, enableBioimpedanceReminder: v }, daysSinceBioimpedance(S), true)
@@ -310,6 +310,7 @@ export default function Settings() {
     {signedIn && <>
     <h3 className="set-grp">{t('Security')}<span>{t('Your sessions and your sign-in')}</span></h3>
     <Section footer={t('Your passkeys keep working — sign in with them again anytime.')}>
+      <Row icon="key" iconTint="var(--acc)" title={t('Your passkeys and activity')} subtitle={t('Add, rename or remove passkeys; see what happened to your account.')} accessory="chevron" onClick={() => nav('/settings/security')} />
       <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
     </Section>
     </>}

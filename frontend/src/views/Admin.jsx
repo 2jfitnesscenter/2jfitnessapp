@@ -125,10 +125,11 @@ function RecoveryLinkSheet({ u, close }) {
   const [link, setLink] = useState(null)
   const [qr, setQr] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [keep, setKeep] = useState(false)
   const gen = () => {
     setBusy(true)
     setQr(null)
-    api('/api/admin/user/recovery-link', { method: 'POST', body: JSON.stringify({ id: u.id }) })
+    api('/api/admin/user/recovery-link', { method: 'POST', body: JSON.stringify({ id: u.id, keepExisting: keep }) })
       .then(async ({ token }) => {
         const url = `${location.origin}/#/recover?token=${token}`
         setLink(url)
@@ -147,8 +148,12 @@ function RecoveryLinkSheet({ u, close }) {
   return <>
     <h3>{t('Recovery link for {0}', u.name)}</h3>
     <div className="muted small" style={{ marginBottom: 14, lineHeight: 1.5 }}>
-      {t('Hand this to them in person — it lets them add a new passkey to this exact account, nothing is lost. Works once, expires in 15 minutes.')}
+      {t('Hand this to them in person — it lets them add a new passkey to this exact account, nothing is lost. Works once, expires in 15 minutes. Completing it also signs them out of every other session.')}
     </div>
+    <label className="row" style={{ gap: 8, alignItems: 'flex-start', marginBottom: 14, fontSize: '.88rem', lineHeight: 1.4 }}>
+      <input type="checkbox" id="recovery-keep" checked={keep} onChange={e => setKeep(e.target.checked)} style={{ marginTop: 3 }} />
+      <span>{t('Keep their current passkeys (they only need one more). By default the old passkeys are removed — use that when a device is lost or stolen.')}</span>
+    </label>
     {qr && <div style={{ textAlign: 'center', marginBottom: 14 }}>
       <img src={qr} alt={t('QR code for the recovery link')} width={200} height={200} style={{ borderRadius: 10, background: '#fff', padding: 8 }} />
       <div className="dim small" style={{ marginTop: 6 }}>{t('Let them scan it with their own phone')}</div>
@@ -592,11 +597,14 @@ export default function Admin() {
       </div>)}
     </div>}
 
+    <AdminNavCard icon="grid" tint="var(--green)" title={t('Center management')}
+      sub={t('Today, members and trainers in one place')} onClick={() => nav('/center')} />
+
     <AdminNavCard icon="dumbbell" tint="var(--indigo)" title={t('Trainer panel')} tag={t('Desktop')}
       sub={t('Build and assign routines for your members — best used on a computer.')} onClick={() => nav('/trainer')} />
 
-    <AdminNavCard icon="bell" tint="var(--red)" title={t('Needs attention')}
-      sub={t('Alerts, upcoming reviews and who has gone quiet')} onClick={() => nav('/admin/attention')} />
+    <AdminNavCard icon="chartLine" tint="var(--orange)" title={t('Follow-up')}
+      sub={t('Who needs attention, upcoming reviews and who is on track')} onClick={() => nav('/admin/attention')} />
 
     <AdminNavCard icon="users" tint="var(--blue)" title={t('Members')}
       sub={users ? t('{0} users · {1} active this week', users.length, activeCount) : t('Loading…')} onClick={() => nav('/admin/members')} />

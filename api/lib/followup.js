@@ -54,6 +54,9 @@ export function sanitizeFollowUp(body, prev, today) {
   // The encrypted private staff note is intentionally opaque to this config sanitizer. A
   // template/cadence edit must preserve it without ever copying plaintext into the roster.
   if (typeof prev?.privateNotesEncrypted === 'string') out.privateNotesEncrypted = prev.privateNotesEncrypted;
+  // Seguimiento V3 staff annotations (goal reading, follow-up mark) are additive and survive a template/cadence edit.
+  if (prev?.goalPlan) out.goalPlan = prev.goalPlan;
+  if (prev?.flag) out.flag = prev.flag;
   if (keys) out.keys = keys;
   return { value: out };
 }
@@ -134,7 +137,7 @@ export function followUpSummary(S, f, today) {
     // Routine review loop (lib/routine-review.js): routines whose review is due, or advanced by a clear plateau. Derived from the member's own workouts.
     // Accumulated fatigue from the member's own logged effort (lib/fatigue.js): a trend over several sessions, never one bad day. Only the level and the numbers.
     fatigue: fatigueSummary(S, today),
-    routineReviews: pendingReviews(S, today).slice(0, 3).map(r => ({ routineId: r.routineId, name: r.name, week: r.week, days: r.days, early: r.early, late: r.late, reasons: r.reasons })),
+    routineReviews: pendingReviews(S, today).slice(0, 3).map(r => ({ kind: r.kind || 'routine', routineId: r.routineId || null, programId: r.programId || null, name: r.name, week: r.week, days: r.days, early: r.early, late: r.late, reasons: r.reasons, adherence: r.adherence || null, plateau: r.plateau || null })),
   };
   return { summary, alerts: followUpAlerts(summary, f) };
 }
@@ -154,7 +157,7 @@ export function followUpAlerts(s, f) {
   if (!s.lastWorkout) out.push({ code: 'no_workouts_yet' });
   else if (daysBetween(s.lastWorkout, s.today) >= 14) out.push({ code: 'no_recent_workouts', days: daysBetween(s.lastWorkout, s.today) });
   if (s.fatigue?.level === 'high' && !s.fatigue.deloadActive) out.push({ code: 'fatigue_high', points: s.fatigue.points, signals: s.fatigue.signals, proposed: s.fatigue.proposed });
-  for (const r of s.routineReviews || []) out.push({ code: 'routine_review', routineId: r.routineId, name: r.name, week: r.week, early: r.early, late: r.late, reasons: r.reasons });
+  for (const r of s.routineReviews || []) out.push({ code: 'routine_review', kind: r.kind || 'routine', routineId: r.routineId || null, programId: r.programId || null, name: r.name, week: r.week, early: r.early, late: r.late, reasons: r.reasons, adherence: r.adherence || null, plateau: r.plateau || null });
   if (s.checkins) {
     if (s.checkins.highFatigue14 >= 3) out.push({ code: 'high_fatigue', n: s.checkins.highFatigue14 });
     for (const p of s.checkins.pain14) if (p.n >= 3) out.push({ code: 'repeated_discomfort', zone: p.zone, n: p.n });

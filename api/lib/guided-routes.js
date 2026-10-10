@@ -61,6 +61,18 @@ export function guidedRoutes({ json, readBody, readSession, requireTrainer, requ
       const body = await readBody(req);
       reply(res, store.curate(user, String(body.id || ''), body));
     },
+    // The kept versions of one official item (admin). Newest first; no bodies.
+    'GET /api/guided/history': async (req, res) => {
+      const user = requireAdmin(req, res); if (!user) return;
+      const id = new URL(req.url, 'http://x').searchParams.get('id') || '';
+      json(res, 200, { versions: store.historyOf(id) });
+    },
+    // body: { id, at } — puts a kept version back through the normal (validated) save path.
+    'POST /api/guided/restore': async (req, res) => {
+      const user = requireAdmin(req, res); if (!user) return;
+      const body = await readBody(req);
+      reply(res, store.restoreVersion(user, String(body.id || ''), String(body.at || ''), officialOpts()));
+    },
     // body: { kind: 'routines' | 'programs' | 'collections', ids: [...] } — the order, as the position
     'POST /api/guided/reorder': async (req, res) => {
       const user = requireAdmin(req, res); if (!user) return;

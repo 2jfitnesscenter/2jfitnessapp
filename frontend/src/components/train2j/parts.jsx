@@ -10,9 +10,10 @@ import { gymRoutineCompatibility } from '../../lib/gym-profiles.js'
 import { t, nameFor } from '../../lib/i18n.js'
 import { EXIDX } from '../../lib/exercises.js'
 import { useGuided } from '../../lib/guided-api.js'
+import { toggleRoutineFav } from '../../lib/routine-favorites.js'
 import { gearKinds, GEAR_LABEL, partName, routineSnapshot, restrictionIssues, memberContext, DURATIONS } from '../../lib/train2j.js'
 import { timingLine } from '../../lib/guided.js'
-import { CATEGORY_LABEL, LEVEL_LABEL, TAG_LABEL, ROUTINE_CATEGORIES, LEVELS } from '../../lib/protocol/index.js'
+import { CATEGORY_LABEL, LEVEL_LABEL, GOAL_LABEL, TAG_LABEL, ROUTINE_CATEGORIES, LEVELS } from '../../lib/protocol/index.js'
 import { fetchTrainerMembers, fetchMemberPlan, saveMemberRoutine } from '../../lib/trainer-api.js'
 import { Prescription } from '../constructor/parts.jsx'
 import { Thumb } from '../Media.jsx'
@@ -35,8 +36,9 @@ export function cardBadges(r, { isNewRoutine } = {}) {
 }
 
 export function Heart({ id, className = '' }) {
-  const on = useGuided(s => s.favorites.includes(id))
-  const toggle = useGuided(s => s.toggleFavorite)
+  const on = useStore(s => (s.S.favRoutines || []).includes(id))
+  const update = useStore(s => s.update)
+  const toggle = routineId => update(s => { toggleRoutineFav(s, routineId) })
   const [pop, setPop] = useState(false)
   return <button className={'t2-heart' + (on ? ' on' : '') + (pop ? ' pop' : '') + ' ' + className} aria-pressed={on}
     aria-label={on ? t('Remove from favorites') : t('Add to favorites')}
@@ -66,7 +68,7 @@ export function RoutineCard({ r, stats, isNewRoutine, reasons, onOpen, wide }) {
         <div className="t2-card-m">{t(LEVEL_LABEL[r.level])} · {gearText(r)}</div>
         <div className={'small t2-fit ' + gymMatch.level}>{t(FIT_LABEL[gymMatch.level])}</div>
         {(badges.length > 0 || stats?.count > 0 || reasons) && <div className="t2-card-f">
-          {reasons ? reasons.slice(0, 2).map(([k, ...p], i) => <span key={i} className="t2-why">{t(k, ...p.map(v => typeof v === 'string' ? t(v).toLowerCase() : v))}</span>)
+          {reasons ? reasons.slice(0, 3).map(([k, ...p], i) => <span key={i} className="t2-why">{t(k, ...p.map(v => typeof v === 'string' ? t(v).toLowerCase() : v))}</span>)
             : badges.map(b => <span key={b.key} className={'t2-badge' + (b.strong ? ' strong' : '')}>{t(b.label)}</span>)}
           {stats?.count > 0 && <span className="t2-done"><Icon name="check" />{stats.count === 1 ? t('Completed') : t('{0} times', stats.count)}</span>}
         </div>}
@@ -133,6 +135,8 @@ export function PartsTimeline({ r }) {
 
 const CHIP_DUR = [['lt15', 'Under 15 min'], ['15-30', '15–30 min'], ['gt30', 'Over 30 min']]
 /** Secondary filters, in a sheet — the quick chips cover the common cases. */
+// The goals the catalogue really has sessions for (each routine carries one; "beginner" is a level, not a goal).
+const GOAL_FILTERS = ['hypertrophy', 'strength', 'endurance', 'general']
 export function FiltersSheet({ value, onApply, close }) {
   const [f, setF] = useState(value)
   const chip = (k, v, label) => <button key={String(v)} className={'chip' + (f[k] === v ? ' on' : '')} aria-pressed={f[k] === v}
@@ -143,6 +147,8 @@ export function FiltersSheet({ value, onApply, close }) {
     <div className="cx-chips">{ROUTINE_CATEGORIES.map(c => chip('category', c, t(CATEGORY_LABEL[c])))}</div>
     <div className="t2-fl">{t('Duration')}</div>
     <div className="cx-chips">{CHIP_DUR.map(([v, l]) => chip('duration', v, t(l)))}</div>
+    <div className="t2-fl">{t('Goal')}</div>
+    <div className="cx-chips">{GOAL_FILTERS.map(g => chip('goal', g, t(GOAL_LABEL[g])))}</div>
     <div className="t2-fl">{t('Level')}</div>
     <div className="cx-chips">{LEVELS.map(l => chip('level', l, t(LEVEL_LABEL[l])))}</div>
     <div className="t2-fl">{t('Gear')}</div>

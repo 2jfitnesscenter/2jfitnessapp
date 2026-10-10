@@ -124,7 +124,7 @@ describe('recommended vs master, deprecated vs preferred', () => {
     }
     for (const [id, movement] of Object.entries({ '1408': 'hip_thrust', '0325': 'vertical_push', '0128': 'conditioning', '1362': 'mobility', '0500': 'core_rotation', '0628': 'hip_abduction' }))
       expect(facetsOf(X[id]).movement, id).toBe(movement)
-    expect(EXDB.filter(e => !facetsOf(e).movement)).toHaveLength(19)
+    expect(EXDB.filter(e => !facetsOf(e).movement)).toHaveLength(14)   // 19 before the Training Quality V2 data pass (below)
     expect(RECOMMENDED.has('0128') && RECOMMENDED.has('0500') && RECOMMENDED.has('1362')).toBe(true)
   })
   it('Entrena con 2J Admin quality pass: every one of the 18 possible-duplicate groups has a decision', () => {
@@ -142,10 +142,10 @@ describe('recommended vs master, deprecated vs preferred', () => {
       expect(REVIEWED_VARIANTS.some(p => p.includes(a) && p.includes(b)), a + b).toBe(true)
       expect(isDeprecated(a) || isDeprecated(b)).toBe(false)
     }
-    // Movements assigned only where the steps agree; the skills stay unclassified on purpose
+    // Movements assigned only where the steps agree; the skills (levers, skin the cat) and the balance board stay unclassified on purpose
     for (const [id, m] of Object.entries({ '0376': 'lateral_raise', '0415': 'lateral_raise', '3546': 'vertical_push', '0720': 'vertical_pull', '1689': 'horizontal_push', '1338': 'mobility', '1355': 'mobility', '1312': 'conditioning', '0548': 'olympic' }))
       expect(facetsOf(X[id]).movement, id).toBe(m)
-    for (const id of ['0631', '0558', '3297', '3295', '3304', '0020']) expect(facetsOf(X[id]).movement, id).toBeNull()
+    for (const id of ['3297', '3295', '3304', '0020']) expect(facetsOf(X[id]).movement, id).toBeNull()
   })
   it('English display names: the dataset typos are corrected and the model label is gone where unique', () => {
     expect(X['1512'].n).toBe('all fours quad stretch')
@@ -299,5 +299,48 @@ describe('search, families, scopes (app layer, Spanish)', () => {
     lib.toggleFav(s, '0025'); expect(s.favEx).toEqual([])
     const S = { workouts: [{ end: 1, entries: [{ id: '0043' }] }, { end: 2, entries: [{ id: '0025' }, { id: '0043' }] }] }
     expect(lib.recentIdsOf(S)).toEqual(['0025', '0043'])
+  })
+})
+
+describe('Training Quality V2 data pass', () => {
+  it('the five muscle-ups are a vertical pull (target lats, every set of steps pulls chest to bar); nothing else moved', () => {
+    for (const id of ['0558', '0631', '1401', '3286', '3312']) {
+      expect(X[id].tg, id).toBe('lats')
+      expect(X[id].st.join(' ').toLowerCase(), id).toMatch(/pull|chest/)
+      expect(facetsOf(X[id]).movement, id).toBe('vertical_pull')
+    }
+  })
+
+  it('the 14 exercises left without a movement are exactly the ambiguous ones, and stay that way', () => {
+    const left = EXDB.filter(e => !facetsOf(e).movement).map(e => e.id).sort()
+    expect(left).toEqual(['0016', '0020', '0100', '0316', '0543', '0609', '0984', '0996', '1332', '2143', '3292', '3295', '3297', '3304'])
+  })
+
+  it('triceps kickbacks are elbow extension, not hip extension (the name rule matched "kickback" first)', () => {
+    const kick = EXDB.filter(e => /kickback/i.test(e.n) && e.tg === 'triceps')
+    expect(kick.map(e => e.id).sort()).toEqual(['0333', '0354', '0394', '0398', '0420', '0860', '1728', '1730', '1734', '1739', '1742'])
+    for (const e of kick) expect(facetsOf(e).movement, e.id).toBe('elbow_extension')
+    expect(EXDB.filter(e => facetsOf(e).movement === 'hip_extension' && e.tg === 'triceps')).toEqual([])
+  })
+
+  it('gym names find the dataset\'s own machines, each alias pointing at exactly the right exercise', () => {
+    const idx = aliasIndexOf()
+    const want = { 'pec deck': '0596', 'peck deck': '0596', 'contractora': '0596', 'pec deck inverso': '0602', 'reverse pec deck': '0602', 'pajaros': '0383',
+      'lat pulldown': '0198', 'prensa inclinada': '0739', 'maquina de gluteo': '2286' }
+    for (const [alias, id] of Object.entries(want)) expect(idx.get(norm(alias)), alias).toBe(id)
+    expect(X['0596'].n).toBe('lever seated fly'); expect(X['0602'].n).toBe('lever seated reverse fly'); expect(X['0383'].n).toBe('dumbbell reverse fly')
+    expect(X['0198'].n).toBe('cable pulldown'); expect(X['2286'].n).toMatch(/^lever hip extension/)
+    for (const id of Object.keys(want).map(a => want[a])) expect(isDeprecated(id), id).toBe(false)
+  })
+
+  it('equipment is untouched: no evidence for any other reclassification, ids and record count unchanged', () => {
+    expect(EXDB).toHaveLength(1324)
+    expect(facetsOf(X['0577']).equipment).toBe('selectorized'); expect(facetsOf(X['0576']).equipment).toBe('plate_loaded')
+    expect(EXDB.filter(e => facetsOf(e).equipment === 'selectorized' || facetsOf(e).equipment === 'plate_loaded').map(e => e.id).sort()).toEqual(['0576', '0577'])
+    expect(EXDB.filter(e => e.eq === 'leverage machine' && facetsOf(e).equipment === 'machine').length).toBe(76)
+  })
+
+  it('no machine is invented: belt squat and pendulum squat are not in the dataset and are left out on purpose', () => {
+    expect(EXDB.some(e => /belt squat|pendulum/i.test(e.n))).toBe(false)
   })
 })

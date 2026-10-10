@@ -12,11 +12,37 @@ const NO_CREDENTIAL_PIN_PROBES = [
   { method: 'POST', path: '/api/shared-device/pin', status: 403 },
   { method: 'POST', path: '/api/shared-staff/pin', status: 403 },
 ]
-export const isAllowedPostTargetPath = p => ['AI_HANDOFF.md', 'CHANGELOG.md', '.gitattributes', 'docs/GENERATED_FILES.md'].includes(p) || p.startsWith('ops/deploy-kit/')
+// The deploy smoke intentionally sends no Origin header. pushSession rejects that
+// request at the origin guard before its unauthenticated-session check.
+const NO_ORIGIN_PUSH_PROBES = [
+  { method: 'POST', path: '/api/push/subscribe', status: 403 },
+]
+const WEB_PUSH_SUBSCRIPTION_MARKERS = [
+  { file: 'api/server.js', marker: "'GET /api/push/public-key'" },
+  { file: 'api/server.js', marker: "'POST /api/push/subscribe'" },
+  { file: 'api/server.js', marker: 'upsertPushSubscription(db, sub)' },
+  { file: 'api/lib/rest-alerts.js', marker: 'export function upsertPushSubscription' },
+  { file: 'api/test/rest-alert-routes.test.js', marker: "call('POST', '/api/push/subscribe'" },
+  { file: 'api/test/rest-alert-routes.test.js', marker: 'assert.equal(db.subs.length, 1)' },
+]
+export const isAllowedPostTargetPath = p => p === 'AI_HANDOFF.md' || p === 'CHANGELOG.md' || p === '.gitattributes' || p === 'docs/GENERATED_FILES.md' || p === 'frontend/src/views/adaptive.test.jsx' || p.startsWith('ops/deploy-kit/')
 
 function fail(message) { throw new Error(message) }
 function psQuote(value) { return `'${String(value).replaceAll("'", "''")}'` }
 function shQuote(value) { return `'${String(value).replaceAll("'", "'\\''")}'` }
+
+export function validateWebPushSubscriptionWiring(sourceByPath) {
+  const missing = WEB_PUSH_SUBSCRIPTION_MARKERS.filter(({ file, marker }) => !String(sourceByPath?.[file] || '').includes(marker))
+  return { ok: missing.length === 0, missing }
+}
+
+function renderWebPushSubscriptionProbe() {
+  return WEB_PUSH_SUBSCRIPTION_MARKERS.map(({ file, marker }) => `grep -Fq ${shQuote(marker)} "$RELEASE_CHECK_DIR/${file}"`).join('\n')
+}
+
+function rejectLegacyWebPushProbe(template) {
+  if (/grep\s+-Fq\s+["']db\.subs\.push["']/.test(template)) fail('STALE_WEB_PUSH_SUBSCRIPTION_PROBE')
+}
 
 export function validateConfig(c) {
   if (!c || typeof c !== 'object') fail('CONFIG_OBJECT_REQUIRED')
@@ -36,15 +62,23 @@ export function validateConfig(c) {
   for (const f of c.probes.sourceFiles) if (!SAFE_PATH.test(f)) fail(`INVALID_PROBE_PATH:${f}`)
   for (const m of c.probes.sourceMarkers) if (!SAFE_PATH.test(m.file) || typeof m.marker !== 'string' || !m.marker || /[\r\n]/.test(m.marker)) fail('INVALID_SOURCE_MARKER')
   const pinProbeStatuses = []
+  const noOriginPushProbeStatuses = []
   for (const r of c.probes.unauthenticatedRoutes) {
+    if (r.featureGate !== undefined && (r.featureGate !== true || r.status !== 401 || r.expectUnauthenticated !== true)) fail('INVALID_FEATURE_GATE_ROUTE')
     if (!['GET', 'POST'].includes(r.method) || !/^\/api\/[A-Za-z0-9/_-]+$/.test(r.path) || !Number.isInteger(r.status) || r.status < 200 || r.status > 599) fail('INVALID_UNAUTHENTICATED_ROUTE')
     if (NO_CREDENTIAL_PIN_PROBES.some(p => p.method === r.method && p.path === r.path)) pinProbeStatuses.push({ route: r, status: r.status })
+    if (NO_ORIGIN_PUSH_PROBES.some(p => p.method === r.method && p.path === r.path)) noOriginPushProbeStatuses.push({ route: r, status: r.status })
   }
   for (const expected of NO_CREDENTIAL_PIN_PROBES) {
     const matches = c.probes.unauthenticatedRoutes.filter(r => r.method === expected.method && r.path === expected.path)
     if (matches.length !== 1 || matches[0].status !== expected.status) fail(`SHARED_PIN_PROBE_MUST_MATCH_CONTRACT_403:${expected.path}`)
   }
   if (new Set(pinProbeStatuses.map(p => p.status)).size !== 1 || pinProbeStatuses.length !== NO_CREDENTIAL_PIN_PROBES.length) fail('CONTRADICTORY_NO_CREDENTIAL_PIN_EXPECTATIONS')
+  for (const expected of NO_ORIGIN_PUSH_PROBES) {
+    const matches = c.probes.unauthenticatedRoutes.filter(r => r.method === expected.method && r.path === expected.path)
+    if (matches.length > 1 || (matches.length === 1 && matches[0].status !== expected.status)) fail(`NO_ORIGIN_PUSH_PROBE_MUST_MATCH_CONTRACT_403:${expected.path}`)
+  }
+  if (new Set(noOriginPushProbeStatuses.map(p => p.status)).size > 1) fail('CONTRADICTORY_NO_ORIGIN_PUSH_EXPECTATIONS')
   return { targetShort: c.targetCommit.slice(0, 7), expectedShort: c.expectedCurrentCommit.slice(0, 7) }
 }
 
@@ -63,7 +97,7 @@ function renderPostStartProbes(c) {
     const headers = `/tmp/2j-release-probe-${i + 1}-headers`
     const url = `https://app.2jfitnesscenter.com${route.path}`
     if (route.path.startsWith('/api/shared-') || route.path.startsWith('/api/admin/shared-')) lines.push(`printf 'SHARED_STAFF_PROBE route=${route.path} method=${route.method} expected=${route.status}\\n'`)
-    lines.push(`${key}_STATUS=$(wait_status ${route.status} ${shQuote(url)} ${body} ${headers} 45${route.method === 'POST' ? ` '' POST '{}'` : ''})`)
+    lines.push(`${key}_STATUS=$(wait_status ${route.status} ${shQuote(url)} ${body} ${headers} 45${route.method === 'POST' ? ` '' POST '{}'` : route.featureGate ? ` '' GET ''` : ''}${route.featureGate ? ' feature_off' : ''})`)
     if (route.expectUnauthenticated === true) lines.push(`if grep -Eqi '"(user|staff|session|deviceToken|pinHash)"[[:space:]]*:' ${body}; then printf 'SHARED_ROUTE_DATA_LEAK=${route.path}\\n'; false; fi`)
     if (route.requiredBodyMarker) lines.push(`grep -Fq ${shQuote(route.requiredBodyMarker)} ${body}`)
   }
@@ -96,7 +130,9 @@ export function renderTemplate(template, c) {
     SYNC_JS_SHA256_CRLF: c.sync.syncJsSha256CrLf,
     SOURCE_PROBES: renderSourceProbes(c),
     POSTSTART_PROBES: renderPostStartProbes(c),
+    WEB_PUSH_SUBSCRIPTION_PROBE: renderWebPushSubscriptionProbe(),
   }
+  rejectLegacyWebPushProbe(template)
   let out = template
   for (const [key, value] of Object.entries(values)) {
     const token = `@@${key}@@`

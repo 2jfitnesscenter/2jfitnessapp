@@ -1,5 +1,6 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
+import LinkLoginSheet from '../components/LinkDevice.jsx'
 import { webauthnOK, passkeyLogin, passkeyRegister, passkeyRecover, api, BIO, sharedDeviceStatus, sharedStaffLogin } from '../lib/api.js'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
@@ -19,10 +20,11 @@ function RecoverCard({ token }) {
   const go = async () => {
     setBusy(true)
     try {
-      const u = await passkeyRecover(token)
+      const { recovery, ...u } = await passkeyRecover(token)
       setUser(u)
       await pullState()
-      useUI.getState().toast(t('Welcome back, {0}', u.name))
+      const removed = recovery?.revokedPasskeys || 0
+      useUI.getState().toast(removed ? t('Welcome back, {0}. Your new passkey is active; {1} earlier passkey(s) were removed and your other sessions were signed out.', u.name, removed) : t('Welcome back, {0}', u.name))
     } catch (e) {
       if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') { setFailed(true); useUI.getState().toast(e.message || t('Could not recover this account')) }
       setBusy(false)
@@ -31,7 +33,7 @@ function RecoverCard({ token }) {
   return <>
     <div className="muted" style={{ marginBottom: 10 }}>{t('Recover your account')}</div>
     <div className="card small muted" style={{ textAlign: 'left', marginBottom: 20, lineHeight: 1.5 }}>
-      {t('Staff gave you this link because your old device is gone. Confirming below adds a brand-new passkey to your existing profile — your plan, history and body weight all stay exactly as they were.')}
+      {t('Staff gave you this link because your old device is gone. Confirming below adds a brand-new passkey to your existing profile — your plan, history and body weight all stay exactly as they were. Any other session of this profile is signed out, and the old passkeys are removed unless staff kept them.')}
     </div>
     <Button variant="primary" icon="sparkles" disabled={busy} onClick={go}>{t('Create new passkey')}</Button>
     {failed && <div className="dim small" style={{ marginTop: 16 }}>{t('This link may have expired — ask staff to generate a new one.')}</div>}
@@ -182,6 +184,9 @@ export default function Login() {
         <div style={{ height: 10 }} />
         <button className="dim small" style={{ border: 'none', background: 'none', textDecoration: 'underline', cursor: 'pointer' }}
           onClick={() => useUI.getState().openSheet(close => <LostPasskeySheet close={close} />)}>{t('I lost my passkey')}</button>
+        <div style={{ height: 6 }} />
+        <button className="dim small" style={{ border: 'none', background: 'none', textDecoration: 'underline', cursor: 'pointer' }}
+          onClick={() => useUI.getState().openSheet(close => <LinkLoginSheet close={close} />)}>{t('Sign in with a QR code from another device')}</button>
       </> : <div className="card small muted" style={{ textAlign: 'left' }}>{t("This browser doesn't support passkeys — try a different browser to create a profile.")}</div>}
       <div className="dim small" style={{ marginTop: 26, lineHeight: 1.5 }}>{t('Passkeys use {0} — no passwords.', t(BIO))}<br />{t('Each profile keeps its own plan, workouts & body weight.')}</div>
       {sharedDevice?.authorized && <div className="shared-login">

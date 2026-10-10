@@ -35,6 +35,8 @@ import Stats from './views/Stats.jsx'
 import History from './views/History.jsx'
 import Settings from './views/Settings.jsx'
 import SharedStaffSettings from './views/SharedStaffSettings.jsx'
+import SecuritySettings from './views/SecuritySettings.jsx'
+import LinkApprove from './views/LinkApprove.jsx'
 import TrainingSettings from './views/TrainingSettings.jsx'
 import StatsSettings from './views/StatsSettings.jsx'
 import RpVolumeCalibration from './views/RpVolumeCalibration.jsx'
@@ -45,7 +47,7 @@ import BunkerAdminPage from './views/BunkerAdminPage.jsx'
 import Badges from './views/Badges.jsx'
 import Mi2J from './views/Mi2J.jsx'
 import Seguimiento from './views/Seguimiento.jsx'
-import AdminAttention from './views/AdminAttention.jsx'
+import AdminAttention, { AdminAttentionMember } from './views/AdminAttention.jsx'
 import HealthIntegrations from './views/HealthIntegrations.jsx'
 import Records from './views/Records.jsx'
 import { showPendingCelebration, autoFinishInactiveWorkout } from './sheets.jsx'
@@ -83,6 +85,9 @@ import Coach from './views/Coach.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachProposal from './views/CoachProposal.jsx'
 import TrainerClients from './views/trainer/TrainerClients.jsx'
+import { TrainerFollowBoard, TrainerFollowMember } from './views/trainer/TrainerFollowUp.jsx'
+import Center from './views/Center.jsx'
+import CoachMember from './components/coach/CoachMember.jsx'
 import TrainerClientPlan from './views/trainer/TrainerClientPlan.jsx'
 import TrainerRoutineBuilder from './views/trainer/TrainerRoutineBuilder.jsx'
 import TrainerProgramBuilder from './views/trainer/TrainerProgramBuilder.jsx'
@@ -213,6 +218,8 @@ function Shell() {
             {!authed ? <Login /> : !user?.trainer ? <Navigate to="/home" replace /> : (
               <Suspense fallback={<div className="narrow" role="status" style={{ paddingTop: 24 }}>{t('Loading…')}</div>}><Routes>
                 <Route path="/trainer" element={<TrainerClients />} />
+                <Route path="/trainer/seguimiento" element={<TrainerFollowBoard />} />
+                <Route path="/trainer/seguimiento/:id" element={<TrainerFollowMember />} />
                 <Route path="/trainer/blocks" element={<BlockLibrary />} />
                 <Route path="/trainer/blocks/edit/:blockId" element={<BlockEditor />} />
                 <Route path="/trainer/guided" element={<GuidedAdmin />} />
@@ -287,6 +294,8 @@ function Shell() {
               <Route path="/social/share/:id" element={<Feat k="social"><SocialShareDetail /></Feat>} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/shared-staff" element={<SharedStaffSettings />} />
+              <Route path="/settings/security" element={<SecuritySettings />} />
+              <Route path="/link/:id" element={<LinkApprove />} />
               <Route path="/settings/training" element={<TrainingSettings />} />
               <Route path="/settings/stats" element={<StatsSettings />} />
               <Route path="/settings/experience" element={<ExperienceSetup />} />
@@ -302,7 +311,7 @@ function Shell() {
               <Route path="/measurements/folds" element={<Feat k="bioimpedance"><SkinfoldsScreen /></Feat>} />
               <Route path="/measurements/body" element={<Feat k="bioimpedance"><BodyMeasurementsScreen /></Feat>} />
               <Route path="/health" element={<Feat k="health"><Health /></Feat>} />
-              <Route path="/health/integrations" element={<Feat k="health"><HealthIntegrations /></Feat>} />
+              <Route path="/health/integrations" element={<HealthIntegrations />} />
               <Route path="/recovery" element={<Feat k="recovery"><Recovery /></Feat>} />
               <Route path="/rank" element={<Rank />} />
               <Route path="/badges" element={<Badges />} />
@@ -315,9 +324,12 @@ function Shell() {
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/intake" element={<CoachIntake />} />
               <Route path="/coach/proposal" element={<CoachProposal />} />
+              <Route path="/center" element={user?.admin || user?.trainer ? <Center /> : <Navigate to="/home" replace />} />
+              <Route path="/center/member/:id" element={user?.admin || user?.trainer ? <CoachMember back="/center?tab=members" /> : <Navigate to="/home" replace />} />
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to={user?.trainer ? '/trainer' : '/home'} replace />} />
               <Route path="/admin/members" element={user?.admin ? <AdminMembers /> : <Navigate to="/home" replace />} />
               <Route path="/admin/attention" element={user?.admin ? <AdminAttention /> : <Navigate to="/home" replace />} />
+              <Route path="/admin/attention/:id" element={user?.admin ? <AdminAttentionMember /> : <Navigate to="/home" replace />} />
               <Route path="/admin/ai" element={user?.admin ? <AdminAI /> : <Navigate to="/home" replace />} />
               <Route path="/admin/features" element={user?.admin ? <AdminFeatures /> : <Navigate to="/home" replace />} />
               <Route path="/admin/news" element={user?.admin ? <AdminNews /> : <Navigate to="/home" replace />} />

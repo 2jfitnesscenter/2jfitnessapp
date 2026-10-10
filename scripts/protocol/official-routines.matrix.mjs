@@ -454,6 +454,12 @@ export const ROUTINES = [
 // Collections organise the catalogue (they are not multi-week programs). `auto` resolves at build
 // time into a fixed, reviewable list (admins can still edit membership afterwards).
 export const COLLECTIONS = [
+  // Goal collections, built only from sessions that already exist (never a promise about results). There is no obstacle-course (OCR) content in the
+  // catalogue yet — carries, crawls and grip work — so there is no OCR collection either.
+  { id: 'c2j-fatloss', name: 'Fat loss', description: 'Demanding conditioning sessions to go with your strength work. Results also depend on your food and your recovery.', style: 'hiit',
+    auto: { category: ['tabata', 'hiit', 'circuit', 'interval'], minMinutes: 15, maxMinutes: 30 } },
+  { id: 'c2j-health', name: 'Health and movement', description: 'Gentle, low-impact sessions to move well every day. Not a treatment: stop if something hurts.', style: 'mobility',
+    auto: { tag: ['low-impact'], level: ['beginner'] } },
   { id: 'c2j-start', name: 'Start here', description: 'Short, clear sessions to get to know guided training.', style: 'start',
     routineIds: ['r2j-tabata-start', 'r2j-hiit-lowimpact', 'r2j-circuit-machines-start', 'r2j-circuit-bodyweight', 'r2j-intervals-bike-start', 'r2j-core-start', 'r2j-mobility-fullbody'] },
   { id: 'c2j-tabata', name: '2J Tabata', description: 'The 20/10 format, from first steps to advanced.', style: 'tabata', auto: { category: 'tabata' } },

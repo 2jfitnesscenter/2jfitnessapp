@@ -1,12 +1,14 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { fmtDate } from '../lib/format.js'
 import { connectWhoop, disconnectWhoop, fetchWhoopWorkouts } from '../lib/whoop-api.js'
+import { connectStrava, disconnectStrava } from '../lib/strava-api.js'
+import { uxOn } from '../lib/features.js'
 import { mapWhoopWorkout, matchAll, attachFitness, fitnessSources } from '../lib/fitness.js'
 import { bleSupported } from '../lib/ble-hr.js'
 import { getBridge, bridgeState, connectBridge, readBridge, applyMatches, disconnectBridge, platformLabel, shouldShowManualHealthConnectHelp,
@@ -56,6 +58,18 @@ export default function HealthIntegrations() {
   const toast = useUI(s => s.toast)
   const fileRef = useRef(null)
   const [busy, setBusy] = useState(false)
+  // THE place for every connection (watch, Health, WHOOP, Strava, sensor). WHOOP/Strava come back here from their sign-in page (the server still redirects to /connected-apps,
+  // which forwards the query string to this screen).
+  const [params, setParams] = useSearchParams()
+  const healthOn = uxOn(S, 'health')
+  useEffect(() => {
+    const strava = params.get('strava'), whoop = params.get('whoop')
+    if (strava === 'connected') toast(t('Strava connected')); else if (strava === 'error') toast(t('Could not connect Strava'))
+    if (whoop === 'connected') toast(t('Whoop connected')); else if (whoop === 'error') toast(t('Could not connect Whoop'))
+    if (strava || whoop) setParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const disconnectApp = (fn, label) => confirmSheet({ title: t('Disconnect {0}?', label), confirmText: t('Disconnect'), danger: true, onConfirm: () => fn().then(() => window.location.reload()).catch(e => toast(e.message)) })
   const [whoopNeedsReconnect, setWhoopNeedsReconnect] = useState(false)
   const [showManualHealthConnectHelp, setShowManualHealthConnectHelp] = useState(false)
 
@@ -141,7 +155,7 @@ export default function HealthIntegrations() {
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Fitness integrations')}</h1><div className="sub">{t('Calories and heart rate from your watch, linked to your 2J workouts')}</div></div>
     </div>
 
-    {bridge && user?.id && <Section title={t(platformLabel(bridge)) + ' · ' + t('automatic')} footer={t('Read-only and off until you turn it on. 2J reads only each workout’s duration, calories and heart-rate average and maximum — never the raw heart-rate stream — and keeps it with your workouts, private to you.')}>
+    {healthOn && bridge && user?.id && <Section title={t(platformLabel(bridge)) + ' · ' + t('automatic')} footer={t('Read-only and off until you turn it on. 2J reads only each workout’s duration, calories and heart-rate average and maximum — never the raw heart-rate stream — and keeps it with your workouts, private to you.')}>
       {bstate.enabled ? <>
         <Row icon="download" iconTint="var(--red)" title={busy ? t('Importing…') : t('Sync workouts (30 days)')}
           subtitle={bstate.lastSync ? t('Last sync {0}', new Date(bstate.lastSync).toLocaleString()) : t('Not synced yet')} accessory="chevron" onClick={busy ? undefined : syncNative} />
@@ -158,10 +172,10 @@ export default function HealthIntegrations() {
       </div>}
     </Section>}
 
-    <Section title={t('Apple Health (iPhone, Apple Watch)')} footer={t('Export from the Health app (profile → Export All Health Data) and import the file here. Workouts recorded by Apple Watch — or by apps that write to Health, like Zepp — bring their calories and heart rate; they are linked to a 2J workout only when the times clearly match. The file comes from an iPhone; you can upload it from any device, but this is a manual file import, not an Android integration.')}>
+    {healthOn && bridge?.platform !== 'android' && <Section title={t('Apple Health (iPhone, Apple Watch)')} footer={t('Export from the Health app (profile → Export All Health Data) and import the file here. Workouts recorded by Apple Watch — or by apps that write to Health, like Zepp — bring their calories and heart rate; they are linked to a 2J workout only when the times clearly match. The file comes from an iPhone; you can upload it from any device, but this is a manual file import, not an Android integration.')}>
       <Row icon="upload" iconTint="var(--red)" title={t('Import Apple Health export')}
         subtitle={t('{0} workouts with Apple Health data', countBy(S, 'apple'))} accessory="chevron" onClick={() => fileRef.current?.click()} />
-    </Section>
+    </Section>}
     <input ref={fileRef} type="file" accept=".xml,text/xml" style={{ display: 'none' }}
       onChange={ev => { const f = ev.target.files[0]; if (f) importFromApp(f); ev.target.value = '' }} />
 
@@ -177,25 +191,26 @@ export default function HealthIntegrations() {
       </> : <Row icon="heart" iconTint="var(--purple)" title={t('Connect WHOOP')} subtitle={t('Recovery, sleep and workout calories, heart rate and zones')} accessory="chevron" onClick={connectWhoop} />}
     </Section>}
 
-    <Section title={t('Bluetooth heart-rate sensor')} footer={bleSupported()
+    {healthOn && <Section title={t('Bluetooth heart-rate sensor')} footer={bleSupported()
       ? t('Experimental. Connect a chest strap or armband from the workout screen; 2J shows your live heart rate and saves the session average, maximum and zones — never the raw stream or the device.')
       : t('Not available in this browser. Web Bluetooth works in Chrome on Android and computers; iPhone and iPad do not support it.')}>
       <Row icon="heart" iconTint="var(--red)" title={t('Heart-rate sensor')}
         value={bleSupported() ? t('Compatible') : t('Not compatible')} />
-    </Section>
-
-    {config?.strava && <Section title={t('Strava (optional)')} footer={t('2J sends each finished workout to Strava. It does not read activities from Strava, so it is never needed for calories or heart rate.')}>
-      <Row icon="upload" iconTint="var(--orange)" title="Strava" value={user?.strava ? t('Connected') : t('Not connected')} accessory="chevron" onClick={() => nav('/connected-apps')} />
     </Section>}
 
-    <Section title={t('How your watch reaches 2J')}>
+    {config?.strava && <Section title={t('Strava (optional)')} footer={t('2J sends each finished workout to Strava. It does not read activities from Strava, so it is never needed for calories or heart rate.')}>
+      <Row icon="upload" iconTint="var(--orange)" title="Strava" value={user?.strava ? t('Connected') : t('Not connected')} accessory="chevron"
+        onClick={user?.strava ? () => disconnectApp(disconnectStrava, 'Strava') : connectStrava} />
+    </Section>}
+
+    {healthOn && <Section title={t('How your watch reaches 2J')}>
       <div className="hi-how">
         <p><b>Apple Watch</b> → {t('Apple Health')} → {t('export file today; automatic with the future 2J iPhone app')}.</p>
         <p><b>Zepp / Amazfit</b> → {t('on iPhone: Apple Health (enable it in Zepp); on Android: Health Connect, which a web app cannot read — it needs the future 2J Android app')}.</p>
         <p><b>Samsung, Fitbit, Garmin…</b> → Health Connect ({t('Android, future 2J app')}) {t('or Apple Health on iPhone')}.</p>
         <p><b>WHOOP</b> → {t('connected directly, works today')}.</p>
       </div>
-    </Section>
+    </Section>}
     <div style={{ height: 20 }} />
   </div>
 }

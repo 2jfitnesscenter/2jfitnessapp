@@ -32,6 +32,24 @@ test('B: a nonzero run with only Vitest timeouts is eligible for one sequential 
   assert.deepEqual(decideFrontendRetry(1, initial, EXPECTED), { kind: 'timeout-only', total: EXPECTED, passed: 1407, failed: 4 })
 })
 
+test('concurrent timeout report uses concrete per-test records when Vitest suite summary is inconsistent', () => {
+  const initial = report({ passed: EXPECTED - 7, failures: Array(7).fill(timeout) })
+  initial.numFailedTestSuites = 14 // observed Vitest summary; seven detailed files each contain only a timeout
+  assert.deepEqual(decideFrontendRetry(1, initial, EXPECTED), { kind: 'timeout-only', total: EXPECTED, passed: EXPECTED - 7, failed: 7 })
+})
+
+test('Vitest JSON synthetic task stack is timeout-only only at or beyond the 5s test timeout', () => {
+  const synthetic = 'Error: STACK_TRACE_ERROR\n    at task (file:///repo/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///repo/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///repo/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///repo/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /repo/frontend/src/example.test.jsx:18:3\n    at Object.collect (file:///repo/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:1889:10)'
+  const initial = report({ passed: EXPECTED - 1, failures: [synthetic] })
+  initial.testResults[0].assertionResults[0].duration = 5025
+  assert.equal(decideFrontendRetry(1, initial, EXPECTED).kind, 'timeout-only')
+  initial.testResults[0].assertionResults[0].duration = 4999
+  assert.equal(decideFrontendRetry(1, initial, EXPECTED).kind, 'fail')
+  initial.testResults[0].assertionResults[0].duration = 6000
+  initial.testResults[0].assertionResults[0].failureMessages[0] = 'AssertionError: expected a true result\n    at task (file:///repo/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)'
+  assert.equal(decideFrontendRetry(1, initial, EXPECTED).kind, 'fail')
+})
+
 test('C: a full sequential retry passes only at 1411/1411', () => {
   assert.equal(decideSequentialRetry(0, report(), EXPECTED).kind, 'pass')
 })

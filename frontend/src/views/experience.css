@@ -37,3 +37,11 @@
 .ai-block .btn{width:auto;justify-self:start}
 .ai-panel{margin:4px -6px 0;padding-top:10px;border-top:1px solid var(--sep)}
 .ai-panel>.card{margin-bottom:0;box-shadow:none;border:0;background:none;padding:0}
+
+/* Progress page layout (ExperienceSetup): one quiet row per block — name, up/down, switch. Targets stay ≥ 40px; nothing technical is shown. */
+.ux-pc { display: flex; flex-direction: column; gap: 8px; }
+.ux-pc-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px 8px 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--sep-op); }
+.ux-pc-row.off .ux-pc-t, .ux-pc-row.off .ux-ico { opacity: .45; }
+.ux-pc-t { flex: 1; min-width: 0; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; line-height: 1.25; }
+.ux-pc-mv { width: 40px; height: 40px; flex: none; }
+.ux-pc-mv:disabled { opacity: .25; }

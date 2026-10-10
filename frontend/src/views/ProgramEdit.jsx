@@ -5,7 +5,7 @@ import { coverSheet } from '../components/CoverSheet.jsx'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useStore } from '../store/useStore.js'
-import { uid, exCount, routineCount, DAYN } from '../lib/format.js'
+import { uid, exCount, routineCount, DAYN, fmtDate } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
 import { glyphPicker, confirmSheet, routinePickerSheet, dayAssignSheet, dayMenuSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -13,6 +13,8 @@ import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
 import { Button, Switch } from '../components/ui.jsx'
 import { mediaUrl } from '../lib/media.js'
 import { printProgram } from '../lib/plan-share.js'
+import { programShare } from '../lib/shared-plans.js'
+import { openPrivatePlanShare } from '../lib/open-private-share.jsx'
 import { exOr } from '../lib/exercises.js'
 
 // A program is a named folder of routine ids — see useStore.js's DEF.programs comment. This
@@ -66,10 +68,13 @@ export default function ProgramEdit() {
     <div className="hdr">
       <button className="iconbtn" onClick={() => nav('/plan')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 8 }}><h1 className="capitalize">{p.name}</h1><div className="sub">{routineCount(routines.length)}</div></div>
+      <button className="iconbtn" aria-label={t('Send to a friend')} title={t('Send to a friend')} disabled={!routines.some(r => r.ex && r.ex.length)}
+        onClick={() => openPrivatePlanShare(programShare(S, p), p.name)}><Icon name="send" /></button>
       <button className="iconbtn" aria-label={t('Print program')} title={t('Print program')} disabled={!routines.some(r => r.ex && r.ex.length)}
         onClick={() => printProgram(p, routines, user?.name || '', S.unit)}><Icon name="download" /></button>
     </div>
 
+    {p.fromShare && <p className="rcv-origin"><Icon name="users" />{t('Sent by {0}', p.fromShare.senderLabel)} · {fmtDate(new Date(p.fromShare.createdAt).toISOString().slice(0, 10))}</p>}
     <ProgramHero p={p} S={S} onCover={() => coverSheet({ image: p.image, name: p.name, onChange: imgId => patch(pr => { if (imgId) pr.image = imgId; else delete pr.image }) })} />
 
     <div className="row" style={{ gap: 10, marginBottom: 16 }}>

@@ -23,6 +23,7 @@ export const REVIEW_WEEK = 5
 export const EARLY_WEEK = 4
 export const MIN_SESSIONS = 3
 export const LATE_DAYS = 14
+export const PROGRAM_REVIEW_DAYS = 28
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
 const DAY = 86400000
@@ -45,6 +46,20 @@ const entriesOf = w => (Array.isArray(w?.entries) ? w.entries : []).filter(e => 
 const mean = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null)
 
 const isDate = x => ISO.test(x || '') && new Date(day(x)).toISOString().slice(0, 10) === x && x >= '2000-01-01' && x <= '2100-12-31'
+
+// Older saved programs may keep their routine membership only in the pinned snapshots.
+// Resolve those IDs as part of the active program so legacy routines are not reviewed twice.
+function getProgramRoutineIds(program) {
+  if (!program) return []
+  const ids = [
+    ...(Array.isArray(program.routineIds) ? program.routineIds : []),
+    ...(Array.isArray(program.weeks) ? program.weeks.flatMap(w => (Array.isArray(w?.sessions) ? w.sessions.map(s => s?.routineId) : [])) : []),
+    ...(program.routineSnapshots && typeof program.routineSnapshots === 'object' ? Object.keys(program.routineSnapshots) : []),
+    ...(program.routines && !Array.isArray(program.routines) && typeof program.routines === 'object' ? Object.keys(program.routines) : []),
+    ...(Array.isArray(program.routines) ? program.routines.map(r => r?.routineId || r?.id) : []),
+  ]
+  return [...new Set(ids.filter(id => typeof id === 'string' && id))]
+}
 
 /** Start of the current cycle of routine `r`, or null when it has not started. { start, source: 'manual'|'reviewed'|'version'|'first', exclusive } */
 export function cycleStart(S, r) {
@@ -135,13 +150,67 @@ export function plateau(sessions) {
   return { clear, evaluable, stalled, reasons }
 }
 
+function progressionSummary(sessions) {
+  const by = exposures(sessions)
+  let evaluable = 0, improved = 0
+  for (const list of by.values()) {
+    if (list.length < 3) continue
+    const value = exposure => Math.max(0, ...exposure.sets.map(score).filter(x => x != null))
+    const early = Math.max(...list.slice(0, Math.max(1, Math.floor(list.length / 2))).map(value))
+    const recent = Math.max(...list.slice(-2).map(value))
+    if (!early || !recent) continue
+    evaluable++
+    if (recent >= early * 1.02) improved++
+  }
+  return { status: evaluable < 2 ? 'insufficient' : improved ? 'improving' : 'stable', improved, evaluated: evaluable }
+}
+
 /**
  * Review state of every routine the member has started. status: 'idle' (too few sessions) · 'ok' · 'soon' (week 4, no plateau) · 'early' (week 4, clear plateau)
  * · 'due' (week 5+). `reasons` start with { code: 'week' , week } for a normal review and carry the plateau numbers. `late` = due for ≥ LATE_DAYS days.
  */
 export function routineReviews(S, today) {
   const out = []
+  const activeProgram = (S?.programs || []).find(p => p?.id === S?.activeProgramId && !['paused', 'abandoned', 'completed'].includes(p?.status))
+  const programRoutineIds = new Set(getProgramRoutineIds(activeProgram))
+  if (activeProgram) {
+    const saved = S?.programReviews?.[activeProgram.id] || {}
+    const started = num(activeProgram.startedAt)
+    const programWorkouts = S?.workouts || []
+    const firstProgramWorkout = programWorkouts.filter(w => countsForProgression(w) && ISO.test(w?.d || '') && w.d <= today && (w?.src2j?.program?.programId === activeProgram.id || (!w?.src2j?.program?.programId && programRoutineIds.has(w?.routineId))))
+      .reduce((first, w) => !first || w.d < first ? w.d : first, null)
+    const start = isDate(saved.startOverride) ? saved.startOverride : started ? isoOfMs(started) : firstProgramWorkout
+    if (start) {
+      const manualDue = isDate(saved.nextReviewOverride) && saved.nextReviewOverride >= start ? saved.nextReviewOverride : null
+      const dueDate = manualDue || (isDate(saved.nextReviewAt) && saved.nextReviewAt >= start ? saved.nextReviewAt : addDays(start, PROGRAM_REVIEW_DAYS))
+      const workouts = (S?.workouts || []).filter(w => countsForProgression(w) && ISO.test(w?.d || '') && w.d >= start && w.d <= today
+        && (w?.src2j?.program?.programId === activeProgram.id || (!w?.src2j?.program?.programId && programRoutineIds.has(w?.routineId)))
+        && !(Array.isArray(w.entries) && w.entries.some(e => e?.target?.deload)))
+        .sort((a, b) => a.d.localeCompare(b.d) || (a.start || 0) - (b.start || 0))
+      const p = plateau(workouts)
+      const days = Math.max(0, daysBetween(start, today))
+      const week = Math.floor(days / 7) + 1
+      const weeks = activeProgram.weeks || []
+      const elapsedWeeks = Math.min(weeks.length, Math.floor(days / 7))
+      const scheduled = weeks.slice(0, elapsedWeeks).flatMap((w, wi) => (w.sessions || []).map((s, si) => `${wi + 1}:${s.day}:${si}`))
+      const done = new Set((S?.workouts || []).filter(w => ISO.test(w?.d || '') && w.d <= today && w?.src2j?.program?.programId === activeProgram.id)
+        .map(w => w.src2j.program.sessionId).filter(Boolean))
+      const total = scheduled.length
+      const completed = total ? scheduled.filter(id => done.has(id)).length : null
+      const left = daysBetween(today, dueDate)
+      // A completed review starts a new cycle. Do not immediately re-open it
+      // from the same plateau evidence before its next scheduled review date.
+      const reviewedInCurrentCycle = isDate(saved.lastReviewAt) && today < dueDate
+      const status = left <= 0 ? (left <= -LATE_DAYS ? 'overdue' : 'due') : !reviewedInCurrentCycle && days >= (EARLY_WEEK - 1) * 7 && p.clear && workouts.length >= MIN_SESSIONS ? 'early' : left <= 7 ? 'soon' : 'upcoming'
+      out.push({ kind: 'program', programId: activeProgram.id, routineIds: [...programRoutineIds], name: activeProgram.name || 'Program', start,
+        startManual: isDate(saved.startOverride), dueDate, nextReviewAt: dueDate, dueManual: !!manualDue, lastReviewAt: saved.lastReviewAt || null,
+        reviewed: !!saved.lastReviewAt && today < dueDate, status, week, days, sessions: workouts.length, early: status === 'early', late: status === 'overdue',
+        reasons: [...(status === 'early' ? [{ code: 'plateau' }] : []), ...(status === 'due' || status === 'overdue' ? [{ code: 'week', week }] : []), ...p.reasons], plateau: p, progression: progressionSummary(workouts),
+        adherence: total ? { completed, total, percent: Math.round(completed * 100 / total) } : null })
+    }
+  }
   for (const r of S?.routines || []) {
+    if (programRoutineIds.has(r?.id)) continue
     const cycle = cycleStart(S, r)
     if (!cycle) continue
     const sessions = cycleSessions(S, r, cycle, today)
@@ -150,7 +219,8 @@ export function routineReviews(S, today) {
     const manualDue = S?.routineReviews?.[r.id]?.dueOverride
     const dueManual = isDate(manualDue) && manualDue >= cycle.start ? manualDue : null
     const dueDate = dueManual || addDays(cycle.start, (REVIEW_WEEK - 1) * 7)
-    const base = { routineId: r.id, name: r.name || '', start: cycle.start, source: cycle.source, startManual: cycle.source === 'manual', dueDate, dueManual: !!dueManual, week, days, sessions: sessions.length }
+    const reviewedInCurrentCycle = isDate(S?.routineReviews?.[r.id]?.reviewedAt) && today < dueDate
+    const base = { routineId: r.id, name: r.name || '', start: cycle.start, source: cycle.source, startManual: cycle.source === 'manual', dueDate, nextReviewAt: dueDate, dueManual: !!dueManual, reviewed: reviewedInCurrentCycle, lastReviewAt: S?.routineReviews?.[r.id]?.reviewedAt || null, week, days, sessions: sessions.length }
     if (dueManual) {      // the staff date decides, whatever the session count or plateau
       const p0 = plateau(sessions)
       const left = daysBetween(today, dueManual)
@@ -160,8 +230,11 @@ export function routineReviews(S, today) {
     }
     if (sessions.length < MIN_SESSIONS) { out.push({ ...base, status: 'idle', reasons: [] }); continue }
     const p = plateau(sessions)
+    // A completed review closes this cycle until its scheduled date, even if
+    // the same plateau evidence remains in the history. The due date itself
+    // is inclusive, so the review can return on that day.
     if (week >= REVIEW_WEEK) out.push({ ...base, status: 'due', early: false, late: daysBetween(dueDate, today) >= LATE_DAYS, reasons: [{ code: 'week', week }, ...p.reasons] })
-    else if (week >= EARLY_WEEK && p.clear) out.push({ ...base, status: 'early', early: true, late: false, reasons: p.reasons })
+    else if (!reviewedInCurrentCycle && week >= EARLY_WEEK && p.clear) out.push({ ...base, status: 'early', early: true, late: false, reasons: p.reasons })
     else if (week >= EARLY_WEEK) out.push({ ...base, status: 'soon', early: false, late: false, reasons: p.reasons })
     else out.push({ ...base, status: 'ok', reasons: p.reasons })
   }
@@ -170,7 +243,39 @@ export function routineReviews(S, today) {
 
 /** Reviews that need a notice now (due, or advanced by a clear plateau), most overdue first. */
 export const pendingReviews = (S, today) =>
-  routineReviews(S, today).filter(r => r.status === 'due' || r.status === 'early').sort((a, b) => b.days - a.days)
+  routineReviews(S, today).filter(r => r.status === 'due' || r.status === 'overdue' || r.status === 'early').sort((a, b) => b.days - a.days)
+
+/** Close the active program review without rewriting any routine or workout. */
+export function markProgramReviewed(S, programId, today, by) {
+  const program = (S?.programs || []).find(p => p?.id === programId && p.id === S?.activeProgramId && !['paused', 'abandoned', 'completed'].includes(p?.status))
+  if (!program || !isDate(today)) return false
+  S.programReviews = S.programReviews || {}
+  const prev = S.programReviews[programId] || {}
+  const next = { ...prev, lastReviewAt: today, nextReviewAt: addDays(today, PROGRAM_REVIEW_DAYS), by: by || 'staff', n: (prev.n || 0) + 1 }
+  delete next.nextReviewOverride
+  S.programReviews[programId] = next
+  return true
+}
+
+export function setProgramCycleDates(S, programId, patch, by) {
+  const program = (S?.programs || []).find(p => p?.id === programId && p.id === S?.activeProgramId && !['paused', 'abandoned', 'completed'].includes(p?.status))
+  if (!program || !patch || typeof patch !== 'object') return false
+  const current = { ...(S.programReviews?.[programId] || {}) }
+  for (const [key, field] of [['start', 'startOverride'], ['due', 'nextReviewOverride']]) {
+    if (!Object.prototype.hasOwnProperty.call(patch, key)) continue
+    const value = patch[key]
+    if (value === null || value === '') delete current[field]
+    else if (isDate(value)) current[field] = value
+    else return false
+  }
+  const start = current.startOverride || (num(program.startedAt) ? isoOfMs(program.startedAt) : null)
+  if (current.nextReviewOverride && start && current.nextReviewOverride < start) return false
+  if (current.startOverride || current.nextReviewOverride) current.manualBy = by || 'staff'; else delete current.manualBy
+  S.programReviews = S.programReviews || {}
+  if (Object.keys(current).length) S.programReviews[programId] = current
+  else { delete S.programReviews[programId]; if (!Object.keys(S.programReviews).length) delete S.programReviews }
+  return true
+}
 
 /** "Rutina revisada" (staff): closes the notice and restarts the cycle from today; the manual dates of the closed cycle are cleared. Writes only S.routineReviews. */
 export function markReviewed(S, routineId, today, by) {

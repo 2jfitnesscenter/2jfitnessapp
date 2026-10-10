@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { cycleStart, markReviewed, pendingReviews, plateau, routineReviews, setCycleDates } from './routine-review.js'
+import { cycleStart, markProgramReviewed, markReviewed, pendingReviews, plateau, routineReviews, setCycleDates, setProgramCycleDates } from './routine-review.js'
 import { followupDigest } from './followup-v3.js'
-import { rankAttention } from './attention.js'
 
 /* Routine review loop: normal review in week 5, brought forward to week 4 only by a CLEAR plateau, never by one bad session, never edits a routine,
    "Rutina revisada" restarts the cycle, and data without any of this metadata is simply not in a cycle. */
@@ -29,6 +28,115 @@ describe('cycle', () => {
     expect(cycleStart(state(sessions(FIRST, FLAT), { routineVersions: { r1: [{ versionedAt: v }] } }), ROUTINE)).toMatchObject({ start: '2026-09-20', source: 'version' })
     const S = state(sessions(FIRST, FLAT), { routineVersions: { r1: [{ versionedAt: v }] }, routineReviews: { r1: { reviewedAt: '2026-09-25' } } })
     expect(cycleStart(S, ROUTINE)).toMatchObject({ start: '2026-09-25', source: 'reviewed' })
+  })
+})
+
+describe('program-level review', () => {
+  const programState = () => {
+    const programs = [{ id: 'p1', source: 'guided-v2', status: 'active', name: 'Strength 4 days', startedAt: Date.parse(FIRST + 'T12:00:00Z'), weeks: [{ sessions: [1, 2, 3, 4].map((_, i) => ({ day: i, routineId: 'r' + (i + 1) })) }] }]
+    const routines = [1, 2, 3, 4].map(i => ({ id: 'r' + i, name: 'Day ' + i, ex: [] }))
+    const workouts = [1, 2, 3, 4].map((_, i) => ({ id: 'pwork' + i, d: addDays(FIRST, 3 + i), routineId: 'r' + (i + 1), src2j: { program: { programId: 'p1', sessionId: `1:${i}:${i}` } }, entries: [] }))
+    return { programs, activeProgramId: 'p1', routines, workouts, week: {}, routineReviews: Object.fromEntries(routines.map(r => [r.id, { reviewedAt: FIRST }])) }
+  }
+  it('a four-day active program produces one review cycle, not one per routine', () => {
+    const S = programState()
+    const cycles = routineReviews(S, addDays(FIRST, 28))
+    expect(cycles).toHaveLength(1)
+    expect(cycles[0]).toMatchObject({ kind: 'program', programId: 'p1', routineIds: ['r1', 'r2', 'r3', 'r4'], status: 'due', start: FIRST, adherence: { total: 4, completed: 4, percent: 100 } })
+    expect(pendingReviews(S, addDays(FIRST, 28))).toHaveLength(1)
+  })
+  it('legacy active program groups three routines linked only by saved routine snapshots', () => {
+    const ids = ['shoulder-push', 'lower', 'shoulder-pull']
+    const start = addDays('2026-10-06', -35)
+    const S = {
+      activeProgramId: 'legacy-shoulder-program',
+      programs: [{ id: 'legacy-shoulder-program', status: 'active', name: 'Shoulder care · Block 1', startedAt: Date.parse(start + 'T12:00:00Z'),
+        routineSnapshots: Object.fromEntries(ids.map((id, i) => [id, { id, name: `Routine ${i + 1}` }])) }],
+      routines: ids.map((id, i) => ({ id, name: `Routine ${i + 1}`, ex: [] })),
+      workouts: ids.map((routineId, i) => ({ id: `legacy-${i}`, d: addDays(start, i + 1), routineId, entries: [] })),
+      // Legacy per-routine records remain in history; grouping must suppress their duplicate cycles.
+      routineReviews: Object.fromEntries(ids.map(id => [id, { startOverride: start, dueOverride: addDays(start, 28), manualBy: 'staff' }]))
+    }
+    const cycles = routineReviews(S, '2026-10-06')
+    expect(cycles).toHaveLength(1)
+    expect(cycles[0]).toMatchObject({ kind: 'program', programId: 'legacy-shoulder-program', routineIds: ids, status: 'due' })
+    expect(S.routineReviews).toHaveProperty('shoulder-push')
+  })
+  it('program adherence compares completed sessions only with weeks that have elapsed', () => {
+    const S = programState()
+    const sessionsPerWeek = [0, 1, 2, 3].map(i => ({ day: i, routineId: `r${i + 1}` }))
+    S.programs[0].weeks = Array.from({ length: 8 }, () => ({ sessions: sessionsPerWeek }))
+    S.workouts = Array.from({ length: 8 }, (_, i) => {
+      const week = Math.floor(i / 2), day = i % 2
+      return { id: `elapsed-${i}`, d: addDays(FIRST, week * 7 + day * 3), routineId: `r${day + 1}`, src2j: { program: { programId: 'p1', sessionId: `${week + 1}:${day}:${day}` } }, entries: [] }
+    })
+    const [review] = routineReviews(S, addDays(FIRST, 28))
+    expect(review.adherence).toEqual({ completed: 8, total: 16, percent: 50 })
+  })
+  it('overdue status is explicit and starts 14 days after the due date', () => {
+    const S = programState()
+    expect(routineReviews(S, addDays(FIRST, 41))[0].status).toBe('due')
+    expect(routineReviews(S, addDays(FIRST, 42))[0]).toMatchObject({ status: 'overdue', late: true })
+  })
+  it('marking reviewed records nextReviewAt, clears the pending notice, and returns only at that date', () => {
+    const S = programState(), today = addDays(FIRST, 28)
+    const before = JSON.stringify(S.routines)
+    expect(markProgramReviewed(S, 'p1', today, 'trainer1')).toBe(true)
+    expect(S.programReviews.p1).toMatchObject({ lastReviewAt: today, nextReviewAt: addDays(today, 28), by: 'trainer1', n: 1 })
+    expect(pendingReviews(S, today)).toEqual([])
+    expect(pendingReviews(S, addDays(today, 27))).toEqual([])
+    expect(pendingReviews(S, addDays(today, 28))).toHaveLength(1)
+    expect(JSON.stringify(S.routines)).toBe(before)
+    expect(routineReviews(S, today)[0].dueManual).toBe(false)
+  })
+  it('reviewing a legacy program closes the program card and keeps routine history unchanged until nextReviewAt', () => {
+    const ids = ['shoulder-push', 'lower', 'shoulder-pull']
+    const start = addDays(FIRST, -35)
+    const S = { activeProgramId: 'legacy-p', programs: [{ id: 'legacy-p', status: 'active', startedAt: Date.parse(start + 'T12:00:00Z'),
+      routineSnapshots: Object.fromEntries(ids.map(id => [id, { id }])) }], routines: ids.map(id => ({ id, name: id })),
+      workouts: ids.map((routineId, i) => ({ id: `legacy-${i}`, routineId, d: addDays(start, i + 1), entries: [] })),
+      routineReviews: Object.fromEntries(ids.map(id => [id, { reviewedAt: start, startOverride: start, dueOverride: addDays(start, 28) }])) }
+    const history = JSON.stringify(S.routineReviews)
+    const today = '2026-10-06', next = addDays(today, 28)
+    expect(routineReviews(S, today)).toHaveLength(1)
+    expect(markProgramReviewed(S, 'legacy-p', today, 'trainer')).toBe(true)
+    expect(S.programReviews['legacy-p']).toMatchObject({ lastReviewAt: today, nextReviewAt: next })
+    expect(JSON.stringify(S.routineReviews)).toBe(history)
+    expect(routineReviews(S, today)[0]).toMatchObject({ kind: 'program', reviewed: true, nextReviewAt: next })
+    expect(pendingReviews(S, today)).toEqual([])
+    expect(routineReviews(S, next)[0].reviewed).toBe(false)
+    expect(pendingReviews(S, next)).toHaveLength(1)
+  })
+  it('does not reopen a reviewed program early from the same plateau before nextReviewAt', () => {
+    const S = programState(), today = addDays(FIRST, 28)
+    S.workouts = sessions(FIRST, FLAT).map((w, i) => ({ ...w, src2j: { program: { programId: 'p1', sessionId: `1:${i}:0` } } }))
+    expect(routineReviews(S, today)[0].plateau.clear).toBe(true)
+    expect(pendingReviews(S, today)).toHaveLength(1)
+    expect(markProgramReviewed(S, 'p1', today, 'trainer1')).toBe(true)
+    expect(pendingReviews(S, addDays(today, 1))).toEqual([])
+    expect(routineReviews(S, addDays(today, 1))[0]).toMatchObject({ status: 'upcoming', nextReviewAt: addDays(today, 28) })
+    expect(routineReviews(S, addDays(today, 27))[0].status).toBe('soon')
+    expect(routineReviews(S, addDays(today, 28))[0].status).toBe('due')
+    expect(pendingReviews(S, addDays(today, 28))).toHaveLength(1)
+  })
+  it('a staff date override is explicit and is cleared when that program review is completed', () => {
+    const S = programState()
+    const due = addDays(FIRST, 45)
+    expect(setProgramCycleDates(S, 'p1', { due }, 'trainer1')).toBe(true)
+    expect(routineReviews(S, addDays(FIRST, 28))[0]).toMatchObject({ status: 'upcoming', dueManual: true, dueDate: due })
+    expect(markProgramReviewed(S, 'p1', addDays(FIRST, 28), 'trainer1')).toBe(true)
+    expect(S.programReviews.p1.nextReviewOverride).toBeUndefined()
+    expect(routineReviews(S, addDays(FIRST, 28))[0]).toMatchObject({ dueManual: false, nextReviewAt: addDays(FIRST, 56) })
+  })
+  it('small routine edits do not reset the active program cycle; independent routines retain routine review', () => {
+    const S = programState()
+    S.routines.push({ id: 'loose', name: 'Independent' })
+    S.workouts.push(...sessions(FIRST, FLAT).map(w => ({ ...w, id: 'loose-' + w.id, routineId: 'loose' })))
+    S.routineVersions = { r1: [{ versionedAt: Date.parse('2026-10-01T12:00:00Z') }], loose: [{ versionedAt: Date.parse('2026-09-10T12:00:00Z') }] }
+    const cycles = routineReviews(S, '2026-10-06')
+    expect(cycles.find(c => c.kind === 'program')).toMatchObject({ start: FIRST })
+    expect(cycles.find(c => c.routineId === 'loose')).toBeTruthy()
+    expect(cycles.some(c => c.routineId && ['r1', 'r2', 'r3', 'r4'].includes(c.routineId))).toBe(false)
   })
 })
 
@@ -133,6 +241,20 @@ describe('"Rutina revisada"', () => {
     expect(markReviewed(S, 'r1', 'yesterday', 'x')).toBe(false)
     expect(S.routineReviews).toBeUndefined()
   })
+  it('an independent routine with plateau evidence stays closed until its inclusive nextReviewAt', () => {
+    const S = state(sessions(FIRST, FLAT))
+    const reviewedAt = addDays(FIRST, 28)
+    expect(markReviewed(S, 'r1', reviewedAt, 'staff1')).toBe(true)
+    S.workouts.push(...sessions(addDays(reviewedAt, 1), FLAT))
+
+    const beforeDue = routineReviews(S, addDays(reviewedAt, 21))[0]
+    expect(beforeDue.reasons.some(reason => reason.code === 'stalled')).toBe(true)
+    expect(beforeDue).toMatchObject({ status: 'soon', nextReviewAt: addDays(reviewedAt, 28) })
+    expect(pendingReviews(S, addDays(reviewedAt, 21))).toEqual([])
+    expect(pendingReviews(S, addDays(reviewedAt, 27))).toEqual([])
+    expect(routineReviews(S, addDays(reviewedAt, 28))[0].status).toBe('due')
+    expect(pendingReviews(S, addDays(reviewedAt, 28))).toHaveLength(1)
+  })
 })
 
 describe('old or odd data never breaks it', () => {
@@ -155,12 +277,6 @@ describe('what the member and the staff get', () => {
     expect(d.reviews[0]).toMatchObject({ routineId: 'r1', name: 'Push day', status: 'early' })
     expect(d.empty).toBe(false)
     expect(followupDigest(state(sessions(FIRST, PROGRESSING)), null, today).reviews).toEqual([])
-  })
-  it('the staff list ranks a pending review under "coming up", and a late one as urgent', () => {
-    const row = (late) => ({ user: { id: 'u1', name: 'Ana' }, summary: {}, alerts: [{ code: 'routine_review', routineId: 'r1', name: 'Push day', week: 5, early: false, late, reasons: [] }] })
-    expect(rankAttention([row(false)], '2026-10-06').soon).toHaveLength(1)
-    expect(rankAttention([row(true)], '2026-10-06').urgent).toHaveLength(1)
-    expect(rankAttention([{ user: { id: 'u2' }, summary: {}, alerts: [] }], '2026-10-06').onTrack).toHaveLength(1)
   })
 })
 

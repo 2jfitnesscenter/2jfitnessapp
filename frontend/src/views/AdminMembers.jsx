@@ -58,7 +58,7 @@ export default function AdminMembers() {
     <div className="list">
       {shown.map(u => <div key={u.id} className="item" onClick={() => openUser(u.id)} style={u.disabled ? { opacity: .55 } : null}>
         <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{u.name} {u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>{t('admin')}</span>}{u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>{t('off')}</span>}</div>
-          <div className="ss">{u.live ? t('training now · {0}', u.live.name) : t('{0} workouts', u.workouts) + (u.lastWorkout ? ' · ' + t('last {0}', fmtDate(u.lastWorkout)) : '') + ' · ' + t('synced {0}', rel(u.lastSync))}</div></div>
+          <div className="ss">{u.live ? t('training now · {0}', u.live.name) : t('{0} workouts', u.workoutCount) + (u.lastWorkoutAt ? ' · ' + t('last {0}', fmtDate(u.lastWorkoutAt)) : '') + ' · ' + t('synced {0}', rel(u.lastSync))}</div></div>
         {u.hasPush && <Icon name="bell" title={t('push enabled')} style={{ fontSize: 15, color: 'var(--label-3)' }} />}<Icon name="chevronRight" className="chev" />
       </div>)}
       {users && !users.length && <div className="empty">{t('No users yet.')}</div>}

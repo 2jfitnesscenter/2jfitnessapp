@@ -75,9 +75,12 @@ function loadFromDisk() {
   }
 }
 loadFromDisk();
+let writes = 0;
+export const saveCount = () => writes;   // how many times chat.json was rewritten since boot (a read must not add to it)
 function save() {
   if (locked) { console.error('chat: write skipped, chat.json is locked (unreadable)'); return; }
   atomicWrite(FILE, serialize());
+  writes++;
 }
 
 export function threadsOf(memberId) {
@@ -131,13 +134,34 @@ export function addShareMessage(threadId, authorId, authorRole, shareId) {
   if (thread) thread.updatedAt = now;
   save(); return message;
 }
+/* Read state is "read up to the newest message". It is written only when that moves, so polling an open thread does not rewrite
+   (and re-encrypt) the whole store every few seconds. Returns true when something was persisted. */
 export function markRead(threadId, userId) {
   const thread = store.threads.find(t => t.id === threadId);
-  if (!thread) return;
+  if (!thread) return false;
+  const last = lastMessageOf(threadId);
+  if (!last) return false;
   if (!thread.readBy) thread.readBy = {};
-  thread.readBy[userId] = Date.now();
+  if ((thread.readBy[userId] || 0) >= last.createdAt) return false;
+  thread.readBy[userId] = last.createdAt;
   save();
+  return true;
 }
+/** A thread's revision moves when an old message changes (a moderation removal), so a client holding a cursor knows to reload it. */
+export const revOf = threadId => store.threads.find(t => t.id === threadId)?.rev || 0;
+/** Replaces a message by an empty "removed" one. The message id and place stay, the words go. */
+export function removeMessage(threadId, messageId) {
+  const thread = store.threads.find(t => t.id === threadId);
+  const m = store.messages.find(x => x.id === messageId && x.threadId === threadId);
+  if (!thread || !m || m.removedAt) return null;
+  const { authorId } = m;
+  for (const k of Object.keys(m)) if (!['id', 'threadId', 'authorId', 'authorRole', 'createdAt'].includes(k)) delete m[k];
+  m.removedAt = Date.now(); m.type = 'removed';
+  thread.rev = (thread.rev || 0) + 1;
+  save();
+  return { authorId };
+}
+export const findMessage = (threadId, messageId) => store.messages.find(m => m.id === messageId && m.threadId === threadId) || null;
 export function setStatus(threadId, status) {
   const thread = store.threads.find(t => t.id === threadId);
   if (!thread) return null;

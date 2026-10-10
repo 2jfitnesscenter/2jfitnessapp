@@ -16,8 +16,14 @@
 // break score ties and label the match.
 import { EXIDX, allExercises } from './exercises.js'
 import { musclesOf, muscleOptsOf } from './muscles.js'
-import { variantsFor, isDeprecated } from './library/index.js'
+import { variantsFor, isDeprecated, facets } from './library/index.js'
 import { compatibleWithGym, unavailableAtGym } from './gym-profiles.js'
+
+// "Same equipment" is the Library's canonical equipment (band = resistance band, barbell = olympic barbell), not the
+// dataset's raw `eq` string. A record the Library cannot classify (no canonical id) falls back to comparing the raw strings,
+// so legacy and custom exercises behave as they always did.
+const equipmentOfEx = ex => { const id = ex ? facets(ex)?.equipment : null; return id && id !== 'custom' ? id : null }
+export const sameEquipment = (a, b) => { const x = equipmentOfEx(a), y = equipmentOfEx(b); return x && y ? x === y : !!a && !!b && a.eq === b.eq }
 
 // 'variant' — Exercise Library V2: same canonical movement (lib/library/core.js similarVariants),
 //             shown first with the reasons that matched ("Same movement · Same equipment")
@@ -44,14 +50,14 @@ export function getExerciseAlternatives(S, exerciseId) {
   allExercises(S).forEach(e => {
     if (e.id === exerciseId || unavailableAtGym(S, e)) return
     const sameTarget = !!ref.tg && e.tg === ref.tg
-    const sameEquipment = e.eq === ref.eq
+    const sameEquip = sameEquipment(e, ref)
     let overlap = 0
     const m = musclesOf(e, muscleOpts)
     for (const slug in refMuscles) if (m[slug]) overlap += Math.min(refMuscles[slug], m[slug])
     if (!sameTarget && overlap <= 0) return   // not a real alternative for this exercise
-    const score = (sameTarget ? 100 : 0) + overlap * 20 + (sameEquipment ? 5 : 0)
-    const matchKey = sameTarget ? (sameEquipment ? 'exact' : 'sameMuscle') : 'related'
-    results.push({ ex: e, matchKey, sameEquipment, score })
+    const score = (sameTarget ? 100 : 0) + overlap * 20 + (sameEquip ? 5 : 0)
+    const matchKey = sameTarget ? (sameEquip ? 'exact' : 'sameMuscle') : 'related'
+    results.push({ ex: e, matchKey, sameEquipment: sameEquip, score })
   })
   results.sort((a, b) => b.score - a.score)
   return results.map(({ ex, matchKey, sameEquipment }) => ({ ex, matchKey, sameEquipment }))
@@ -65,7 +71,7 @@ export function getReplacementGroups(S, exerciseId) {
   const alternatives = getExerciseAlternatives(S, exerciseId).filter(a => !isDeprecated(a.ex.id))
   const ref = EXIDX[exerciseId]
   const pool = allExercises(S).filter(ex => ex.id !== exerciseId && !isDeprecated(ex.id))
-  const variants = ref ? variantsFor(ref, pool, pool.length, ex => unavailableAtGym(S, ex)).map(v => ({ ex: v.ex, matchKey: 'variant', reasons: v.reasonLabels, sameEquipment: v.ex.eq === ref.eq })) : []
+  const variants = ref ? variantsFor(ref, pool, pool.length, ex => unavailableAtGym(S, ex)).map(v => ({ ex: v.ex, matchKey: 'variant', reasons: v.reasonLabels, sameEquipment: sameEquipment(v.ex, ref) })) : []
   const variantIds = new Set(variants.map(v => v.ex.id))
   const relatedById = new Map([...alternatives, ...variants].map(a => [a.ex.id, a]))
   const relatedIds = new Set(relatedById.keys())
@@ -82,14 +88,22 @@ export function getReplacementGroups(S, exerciseId) {
   }
 }
 
-// The four quick filter pills the brief asks for. 'same' is resolved against the reference
-// exercise's own `eq` at call time (see sheets.jsx); the other three are fixed equipment
-// buckets — 'machine' covers both a leverage machine and a Smith machine, the two the catalogue
-// actually uses for a machine-based strength alternative (cardio-only machines never turn up
-// here since they share no muscle overlap with a strength exercise to begin with).
+// The four quick filter pills the brief asks for. 'same' is resolved against the reference exercise at call time
+// (matchesQuickFilter); the other three are fixed buckets of the Library's canonical equipment — 'machine' covers a machine
+// of any kind (plain, weight-stack, plate-loaded) and a Smith machine, the same exercises the raw "leverage machine" and
+// "smith machine" strings used to select. `raw` is only the fallback for a record without a canonical equipment.
 export const QUICK_FILTERS = [
   { key: 'same', label: 'Same equipment' },
-  { key: 'dumbbell', label: 'Dumbbells', eq: ['dumbbell'] },
-  { key: 'cable', label: 'Cables', eq: ['cable'] },
-  { key: 'machine', label: 'Machines', eq: ['leverage machine', 'smith machine'] },
+  { key: 'dumbbell', label: 'Dumbbells', eq: ['dumbbell'], raw: ['dumbbell'] },
+  { key: 'cable', label: 'Cables', eq: ['cable'], raw: ['cable'] },
+  { key: 'machine', label: 'Machines', eq: ['machine', 'selectorized', 'plate_loaded', 'smith'], raw: ['leverage machine', 'smith machine'] },
 ]
+
+/** Does `ex` pass the quick filter `key`? `ref` is the exercise being replaced (only 'same' needs it); an unknown key lets everything through. */
+export function matchesQuickFilter(key, ex, ref) {
+  if (key === 'same') return sameEquipment(ex, ref)
+  const f = QUICK_FILTERS.find(x => x.key === key)
+  if (!f?.eq) return true
+  const id = equipmentOfEx(ex)
+  return id ? f.eq.includes(id) : f.raw.includes(ex?.eq)
+}

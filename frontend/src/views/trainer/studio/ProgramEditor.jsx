@@ -15,6 +15,7 @@ import { confirmSheet } from '../../../sheets.jsx'
 import WorkoutCover from '../../../components/WorkoutCover.jsx'
 import Icon from '../../../components/Icon.jsx'
 import { RoutinePicker, StatusPill } from './parts.jsx'
+import { HistoryButton } from './History.jsx'
 
 export default function ProgramEditor() {
   const nav = useNavigate()
@@ -132,6 +133,7 @@ export default function ProgramEditor() {
           {problems.length > 0 ? <ul>{problems.slice(0, 6).map((x, k) => <li key={k}>{x}</li>)}</ul>
             : <p>{t('All routines exist, are active and each week passes the 2J protocol.')}</p>}
         </div>
+        {p.id && <HistoryButton id={p.id} />}
         {isCustom && <button className="btn plain danger" onClick={() => confirmSheet({ title: t('Delete this program?'), message: t('People who already started it keep their own copy.'), confirmText: t('Delete'), danger: true,
           onConfirm: async () => { try { await g.removeProgram(p.id); toast(t('Deleted')); nav('/trainer/guided') } catch (e) { toast(e.message) } } })}><Icon name="trash" />{t('Delete program')}</button>}
       </aside>

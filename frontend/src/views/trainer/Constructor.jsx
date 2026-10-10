@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../../store/useStore.js'
 import GymProfile from '../../components/GymProfile.jsx'
+import TrainingQualityPanel from '../../components/TrainingQualityPanel.jsx'
 import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
 import { DAYN } from '../../lib/format.js'
@@ -136,6 +137,7 @@ export default function Constructor() {
   const libBlocks = useBlocks(s => s.blocks)
   const [member, setMember] = useState(null)
   const [plan, setPlan] = useState(null)             // { sync, routines, programs }
+  const [memberEquipment, setMemberEquipment] = useState(null)
   const [p, setP] = useState(null)                   // { id, name, emoji, meta, days, week: {weekday: key} }
   const [active, setActive] = useState(0)
   const [libOpen, setLibOpen] = useState(false)      // block library drawer (narrow screens)
@@ -149,6 +151,7 @@ export default function Constructor() {
     fetchTrainerMembers().then(l => setMember(l.find(m => m.id === memberId) || null)).catch(() => {})
     fetchMemberPlan(memberId).then(pl => {
       setPlan(pl)
+      setMemberEquipment(pl.gym?.availableEquipment || null)
       const clone = r => newDay(r.name, { id: r.id, emoji: r.emoji || DEFAULT_GLYPH, ex: JSON.parse(JSON.stringify(r.ex || [])), blocks: r.blocks || [], prog: r.prog, dirty: false })
       if (kind === 'r') {
         const r = id !== 'new' ? (pl.routines || []).find(x => x.id === id) : null
@@ -183,6 +186,10 @@ export default function Constructor() {
 
   // Blocks already copied into this plan are not suggested again.
   const inPlan = useMemo(() => new Set((p?.days || []).flatMap(d => (d.blocks || []).map(b => b.src)).filter(Boolean)), [p])
+  const scheduledDays = useMemo(() => WEEK_ORDER.flatMap((weekday, index) => {
+    const key = p?.week?.[weekday]
+    return key ? [{ day: index, routineKey: key }] : []
+  }), [p?.week])
 
   if (!p) return <div id="trainer-app" />
 
@@ -298,6 +305,9 @@ export default function Constructor() {
         onClick={() => setMeta({ restrictions: restrictions.includes(r) ? restrictions.filter(x => x !== r) : [...restrictions, r] })}>{t(RESTRICTION_LABEL[r])}</button>)}
       <span className="cx-restr-hint">{t('Only what was declared. 2J never infers or diagnoses.')}</span>
     </div>
+
+    <TrainingQualityPanel routine={p.routineOnly ? day : null} days={p.routineOnly ? null : p.days} goal={ctx.goal} level={ctx.level} focus={p.meta?.focus} specialization={p.meta?.specialization} restrictions={restrictions}
+      availableEquipment={memberEquipment} scheduledDays={p.routineOnly ? null : scheduledDays} />
 
     {showReport && <div className="cx-reportwrap"><ProtocolReport v={progV || dayV} /></div>}
 

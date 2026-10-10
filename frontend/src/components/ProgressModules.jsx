@@ -55,7 +55,7 @@ export function LastWorkoutCard({ S }) {
       <div className="home-half-ttl">{t('Last workout')}</div>
       <Icon name="chevronRight" className="chev" style={{ fontSize: 15 }} />
     </div>
-    <div className="home-half-sub">{t('{0} sets · {1}', setsDone(w), fmtVol(w.vol, S.unit))}</div>
+    <div className="home-half-sub">{Number.isFinite(w.vol) ? t('{0} sets · {1}', setsDone(w), fmtVol(w.vol, S.unit)) : t('{0} sets', setsDone(w))}</div>
     <div className="home-bodymap-sm tappable" style={{ cursor: 'pointer' }} onClick={openMap}>
       <BodyMap load={loadOfWorkouts([w], null, muscleOptsOf(S))} body={S.body} />
     </div>

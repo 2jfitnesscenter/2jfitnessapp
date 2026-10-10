@@ -7,7 +7,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { useGuided } from '../lib/guided-api.js'
-import { flattenProgramSessions, programProgress, setGuidedProgramStatus, startGuidedProgram } from '../lib/guided-programs.js'
+import { flattenProgramSessions, programProgress, saveGuidedProgram, setGuidedProgramStatus, startGuidedProgram } from '../lib/guided-programs.js'
 import { gymRoutineCompatibility } from '../lib/gym-profiles.js'
 import { uid } from '../lib/format.js'
 import { fetchTrainerMembers, fetchMemberPlan, saveMemberProgram } from '../lib/trainer-api.js'
@@ -116,7 +116,7 @@ export function GuidedProgramDetail() {
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
-  const { status, programs, canAssign, load, offline, error } = useGuided()
+  const { status, programs, canAssign, load, offline, error, rev } = useGuided()
   useEffect(() => { load(user?.id) }, [load, user?.id])
   const catalog = programs.find(p => p.id === id)
   const memberPrograms = S.programs || []
@@ -134,6 +134,11 @@ export function GuidedProgramDetail() {
     if (!result?.ok) { toast(t(result?.reason === 'workout-in-progress' ? 'Finish your current workout before starting a program.' : 'Could not start this program.')); return }
     const next = progressFor({ ...S, programs: [...(S.programs || []), result.program] }, result.program).next
     if (next) startNext({ ...S, programs: [...(S.programs || []), result.program] }, result.program, next)
+  }
+  const save = () => {
+    let result
+    update(s => { result = saveGuidedProgram(s, catalog, { id: user?.id, makeId: uid, rev }) })
+    toast(result?.ok ? t('Saved to your plan — start it whenever you like.') : result?.reason === 'already-saved' ? t('Already in your plan') : t('Could not save this program.'))
   }
   const begin = () => {
     if (S.active) { toast(t('Finish your current workout before starting a program.')); return }
@@ -169,6 +174,7 @@ export function GuidedProgramDetail() {
       {['paused', 'assigned'].includes(memberProgram?.status) && <button className="btn tinted" onClick={resume}>{t(memberProgram.status === 'assigned' ? 'Start program' : 'Resume')}</button>}
       {memberProgram && !['completed', 'abandoned'].includes(memberProgram.status) && <button className="btn plain danger" onClick={abandon}>{t('End')}</button>}
       {memberProgram?.status === 'active' && progress.next && <button className="btn primary" onClick={() => startNext(S, memberProgram, progress.next)}><Icon name="play" />{t('Continue program')}</button>}
+      {!memberProgram && <button className="btn plain" onClick={save}><Icon name="plus" />{t('Save for later')}</button>}
       {canStart && <button className="btn primary" onClick={begin}><Icon name="play" />{t('Start program')}</button>}
       {memberProgram?.status === 'completed' && <span className="gp-complete"><Icon name="checkCircle" />{t('Program completed')}</span>}
       {canAssign && <button className="btn plain" onClick={() => openSheet(close => <AssignProgramSheet program={catalog} close={close} />)}><Icon name="users" />{t('Assign')}</button>}

@@ -88,7 +88,7 @@ export const MOVEMENT_OVERRIDE = {
   '1297': 'chest_fly', '0555': 'core_flexion', '0730': 'lunge', '3433': 'core_anti_extension',
   '1302': 'horizontal_push', '1303': 'horizontal_push', '1304': 'horizontal_push', '1305': 'horizontal_push',
   // Quality pass: exercises that had no canonical movement, assigned only where the dataset's own
-  // steps (and the Spanish name) agree on the job. Muscle-ups, levers and skin-the-cat (skills),
+  // steps (and the Spanish name) agree on the job. Levers and skin-the-cat (skills),
   // the two band hip rotations (steps contradict the name), balance board, "around the world",
   // "elevator", "London bridge", "pirate", "breeding", the exercise-ball arm lift and the assisted
   // prone hamstring (steps describe a curl, the name a stretch) stay unclassified on purpose.
@@ -101,6 +101,13 @@ export const MOVEMENT_OVERRIDE = {
   '1355': 'mobility',        // one-arm lat stretch against a wall; Spanish name says stretch
   '1312': 'conditioning',    // medicine-ball push, release, then run to catch it
   '0548': 'olympic',         // explosive hip drive and high pull (a weightlifting pull)
+  // Training Quality V2 data pass. The five muscle-ups: target lats, and every set of steps pulls the chest to the bar from a
+  // dead hang (the dip-like transition on top is the second phase), so they count as a vertical pull. A hybrid skill, filed by its primary job.
+  '0558': 'vertical_pull', '0631': 'vertical_pull', '1401': 'vertical_pull', '3286': 'vertical_pull', '3312': 'vertical_pull',
+  // Triceps kickbacks were filed as hip extension (the name rule matched "kickback" first). Target muscle, Spanish name
+  // ("patada de tríceps") and steps ("extend your arms straight back, squeezing your triceps") all say elbow extension.
+  '0860': 'elbow_extension', '0333': 'elbow_extension', '0354': 'elbow_extension', '0394': 'elbow_extension', '0398': 'elbow_extension',
+  '0420': 'elbow_extension', '1728': 'elbow_extension', '1730': 'elbow_extension', '1734': 'elbow_extension', '1739': 'elbow_extension', '1742': 'elbow_extension',
 }
 
 /**
@@ -118,7 +125,12 @@ export const ALIASES = {
   '0042': ['sentadilla frontal'],
   '1760': ['sentadilla goblet', 'goblet'],
   '0743': ['sentadilla hack', 'hack squat', 'hack'],
-  '0739': ['prensa', 'prensa de piernas', 'prensa 45', 'sled 45в° leg press'],
+  // Gym names for the dataset's own "lever …" machines (checked against each exercise's name and steps)
+  '0596': ['pec deck', 'peck deck', 'contractora', 'maquina mariposa'],      // lever seated fly
+  '0602': ['pec deck inverso', 'reverse pec deck', 'contractora inversa'],    // lever seated reverse fly
+  '2286': ['maquina de gluteo', 'glute machine'],                           // lever hip extension: seated machine, glutes and hamstrings push the footplate back
+  '0383': ['pajaros'],                                                        // dumbbell reverse fly
+  '0739': ['prensa', 'prensa de piernas', 'prensa 45', 'prensa inclinada', 'sled 45в° leg press'],
   '0738': ['sled 45в° calf press'],
   '0740': ['sled 45в° leg wide press'],
   '0032': ['peso muerto'],
@@ -128,7 +140,7 @@ export const ALIASES = {
   '1409': ['puente de gluteos', 'puente de gluteo con barra'],
   '0652': ['dominadas', 'dominada prona'],
   '1326': ['dominadas supinas', 'chin up'],
-  '0198': ['jalon', 'jalon al pecho', 'jalon polea'],
+  '0198': ['jalon', 'jalon al pecho', 'jalon polea', 'lat pulldown'],
   '0027': ['remo con barra'],
   '0292': ['remo con mancuerna', 'remo a una mano'],
   '0861': ['remo en polea', 'remo gironda', 'remo sentado en polea'],

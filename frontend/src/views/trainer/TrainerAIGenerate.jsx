@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
 import { DAYN } from '../../lib/format.js'
@@ -10,6 +10,8 @@ import { requestMemberPlan, discardMemberPlan, useTrainerAIStatus, TRAINER_AI_ER
 import { Button, TextArea, Segmented } from '../../components/ui.jsx'
 import PlanReviewCard from './PlanReviewCard.jsx'
 import Topbar from './Topbar.jsx'
+import { fetchMemberPlan } from '../../lib/trainer-api.js'
+import { analyzeRoutineStructure, structuralFactsForAI } from '../../lib/routine-structure.js'
 
 // Same 6 goals as CoachIntake.jsx / api/coach/prompts/create.md's goal table — kept in sync by
 // hand since the two runtimes share no build step (same trade-off payload.js documents for its
@@ -34,17 +36,40 @@ const emptyBrief = () => ({
 
 export default function TrainerAIGenerate() {
   const nav = useNavigate()
+  const location = useLocation()
   const { memberId } = useParams()
+  const reviewContext = location.state?.routineReview || null
   const toast = useUI(s => s.toast)
   const { job, pending, errorClass, refresh } = useTrainerAIStatus(memberId)
   const [brief, setBrief] = useState(emptyBrief)
   const [busy, setBusy] = useState(false)
+  const [structuralAnalysis, setStructuralAnalysis] = useState([])
   const set = patch => setBrief(v => ({ ...v, ...patch }))
+
+  useEffect(() => {
+    let alive = true
+    fetchMemberPlan(memberId).then(plan => {
+      if (!alive) return
+      const summaries = (plan.routines || []).slice(0, reviewContext ? 6 : 7).map(r => {
+        const analysis = analyzeRoutineStructure(r, { goal: r.meta?.goal || 'general' })
+        return structuralFactsForAI(analysis)
+      })
+      if (reviewContext) {
+        const routines = (plan.routines || []).filter(r => reviewContext.routineIds?.includes(r.id))
+        const analysis = routines.length ? analyzeRoutineStructure({ days: routines.map(r => ({ ...r, key: r.id })) }, { availableEquipment: plan.gym?.availableEquipment }) : null
+        summaries.push({ kind: 'program-review', ...(analysis ? structuralFactsForAI(analysis) : {}), adherence: reviewContext.adherence || null,
+          progression: reviewContext.progression || null,
+          plateau: reviewContext.plateau ? { clear: !!reviewContext.plateau.clear, reasons: (reviewContext.plateau.reasons || []).slice(0, 6).map(x => ({ code: x.code, n: x.n || null })) } : null })
+      }
+      setStructuralAnalysis(summaries)
+    }).catch(() => { if (alive) setStructuralAnalysis([]) })
+    return () => { alive = false }
+  }, [memberId])
 
   const generate = async () => {
     setBusy(true)
     try {
-      await requestMemberPlan(memberId, brief)
+      await requestMemberPlan(memberId, { ...brief, structuralAnalysis })
       toast(t('Generating…'))
       await refresh()
     } catch (e) { toast(e.message || t('Could not start')) }
@@ -73,6 +98,9 @@ export default function TrainerAIGenerate() {
     </div>}
 
     <div className="card">
+      {structuralAnalysis.length > 0 && <div className="small muted" role="note" style={{ marginBottom: 14 }}>
+        {t('The trainer AI can use a compact structural review of the member’s existing routines as context. Its draft remains a proposal and is checked against 2J rules.')}
+      </div>}
       <h4 className="sec" style={{ marginTop: 0 }}>{t('Goal')}</h4>
       <div className="row" style={{ flexWrap: 'wrap', gap: 7, marginBottom: 14 }}>
         {GOALS.map(([v, label]) => <button key={v} className={'chip' + (brief.goal === v ? ' on' : '')} onClick={() => set({ goal: v })}>{t(label)}</button>)}

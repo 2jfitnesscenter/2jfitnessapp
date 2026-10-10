@@ -13,10 +13,10 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blocks-'));
 const SECRET = 'f'.repeat(64);
 fs.writeFileSync(path.join(dir, 'secret'), SECRET, { mode: 0o600 });
 fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({
-  users: [{ id: 'm1', name: 'Member' }, { id: 't1', name: 'Trainer', trainer: true }, { id: 't2', name: 'Trainer 2', trainer: true }, { id: 'ad', name: 'Admin', admin: true }],
+  users: [{ id: 'm1', name: 'Member', assignedTrainers: ['t1'] }, { id: 't1', name: 'Trainer', trainer: true }, { id: 't2', name: 'Trainer 2', trainer: true }, { id: 'ad', name: 'Admin', admin: true }],
   creds: [], subs: [], invites: [], recoveries: [],
 }, null, 2));
-fs.writeFileSync(path.join(dir, 'state-m1.json'), JSON.stringify({ unit: 'kg', routines: [], programs: [], workouts: [], week: {} }));
+fs.writeFileSync(path.join(dir, 'state-m1.json'), JSON.stringify({ unit: 'kg', routines: [], programs: [], workouts: [], week: {}, gymProfiles: { activeId: 'home', overrides: { home: ['bodyweight', 'dumbbell'] } }, health: { private: true } }));
 const PORT = 34583, base = `http://localhost:${PORT}`;
 const child = spawn(process.execPath, ['server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base }, stdio: ['ignore', 'ignore', 'ignore'] });
 for (let i = 0; i < 50; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* booting */ } await new Promise(r => setTimeout(r, 100)); }
@@ -37,6 +37,16 @@ test('only trainers read the library; members and anonymous do not', async () =>
   assert.ok(r.body.blocks.length >= 100, 'official seed served');
   assert.ok(r.body.blocks.every(b => b.official && b.active !== false));
   assert.equal(r.body.canEditOfficial, false);
+});
+
+test('trainer member-plan exposes only sanitized active equipment context for structural review', async () => {
+  const r = await req('GET', '/api/trainer/member-plan?id=m1', 't1');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.gym, { availableEquipment: ['bodyweight', 'dumbbell'] });
+  assert.equal('workouts' in r.body, false);
+  assert.equal('health' in r.body, false);
+  assert.equal('gymProfiles' in r.body, false);
+  assert.equal((await req('GET', '/api/trainer/member-plan?id=m1', 'm1')).status, 403);
 });
 
 test('personal blocks: validated, owned, never another trainer\'s (no IDOR)', async () => {

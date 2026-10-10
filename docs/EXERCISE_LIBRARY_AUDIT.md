@@ -14,10 +14,10 @@ It reports; it never fixes. See `docs/EXERCISE_LIBRARY_V2.md` for the model and 
 | Image / GIF / instructions | 1324 / 1324 / 1324 |
 | Curated (protocol catalogue) | 189 |
 | Recommended 2J | 210 |
-| With a canonical movement | 1305 (98.6 %) |
+| With a canonical movement | 1310 (98.9 %) |
 | With a canonical equipment | 1324 (100 %) |
 | Deprecated duplicates (kept, preferred id set) | 26 |
-| Search/import aliases | 102 on 57 exercises |
+| Search/import aliases | 114 on 61 exercises |
 
 ## Dataset fields
 
@@ -65,7 +65,7 @@ Target (`tg`): abs 169 · pectorals 158 · biceps 151 · glutes 144 · delts 143
 | lunge | 25 | 8 |
 | hinge | 40 | 10 |
 | hip_thrust | 11 | 4 |
-| hip_extension | 19 | 3 |
+| hip_extension | 8 | 3 |
 | hip_abduction | 5 | 2 |
 | hip_adduction | 3 | 2 |
 | knee_extension | 4 | 1 |
@@ -77,9 +77,9 @@ Target (`tg`): abs 169 · pectorals 158 · biceps 151 · glutes 144 · delts 143
 | vertical_push | 51 | 5 |
 | lateral_raise | 24 | 4 |
 | front_raise | 15 | 2 |
-| elbow_extension | 68 | 6 |
+| elbow_extension | 79 | 6 |
 | horizontal_pull | 97 | 10 |
-| vertical_pull | 57 | 9 |
+| vertical_pull | 62 | 9 |
 | pullover | 17 | 2 |
 | rear_delt | 17 | 4 |
 | shrug | 12 | 2 |
@@ -96,7 +96,7 @@ Target (`tg`): abs 169 · pectorals 158 · biceps 151 · glutes 144 · delts 143
 | conditioning | 29 | 16 |
 | cardio | 9 | 8 |
 | mobility | 78 | 41 |
-| *(none — master only)* | 19 | 0 |
+| *(none — master only)* | 14 | 0 |
 
 ## Canonical equipment
 
@@ -104,7 +104,7 @@ bodyweight 324 · dumbbell 294 · cable 157 · barbell 156 · machine 76 · band
 
 Evidence-based overrides (the dataset `eq` is left as it is): `2331` cycle cross trainer → elliptical; `0576` lever chest press (plate-loaded) → plate_loaded; `0577` lever chest press (weight stack) → selectorized; `0798` stationary bike walk → bike.
 
-Movement overrides: `1017` band y-raise → rear_delt; `1297` isometric chest squeeze → chest_fly; `1302` medicine ball chest pass → horizontal_push; `1303` medicine ball chest push from 3 point stance → horizontal_push; `1304` medicine ball chest push multiple response → horizontal_push; `1305` medicine ball chest push single response → horizontal_push; `1312` medicine ball chest push with run release → conditioning; `1338` exercise ball hug → mobility; `1354` medicine ball overhead slam → conditioning; `1355` one arm against wall → mobility; `1362` sphinx → mobility; `1364` standing pelvic tilt → mobility; `1366` upward facing dog → mobility; `1408` band hip lift → hip_thrust; `1416` exercise ball one leg prone lower body rotation → core_rotation; `1418` hug knees to chest → mobility; `1582` reclining big toe pose with rope → mobility; `1587` seated wide angle pose sequence → mobility; `1689` push and pull bodyweight → horizontal_push; `2139` hands bike → cardio; `2142` ski ergometer → cardio; `2203` roller seated shoulder flexor depresor retractor → mobility; `2209` roller seated single leg shoulder flexor depresor retractor → mobility; `2271` left hook. boxing → conditioning; `2459` tire flip → conditioning; `3433` swimmer kicks v. 2 → core_anti_extension; `3541` dumbbell incline y-raise → rear_delt; `3542` dumbbell incline t-raise → rear_delt; `3546` dumbbell seated alternate shoulder → vertical_push; `3552` quick feet v. 2 → conditioning; `3669` standing archer → core_rotation; `0128` battling ropes → conditioning; `0191` cable one arm lateral bent-over → rear_delt; `0341` dumbbell lying one arm deltoid rear → rear_delt; `0050` barbell incline shoulder raise → front_raise; `0759` smith incline shoulder raises → front_raise; `0325` dumbbell incline raise → vertical_push; `0328` dumbbell incline shoulder raise → vertical_push; `0332` dumbbell iron cross → lateral_raise; `0408` dumbbell side lying one hand raise → lateral_raise; `0844` weighted round arm → lateral_raise; `0863` dumbbell lying external shoulder rotation → shoulder_rotation; `0339` dumbbell lying femoral → knee_flexion; `0628` monster walk → hip_abduction; `0624` march sit (wall) → squat; `0466` gironda sternum chin → vertical_pull; `0680` rope climb → vertical_pull; `0500` isometric wipers → core_rotation; `0555` kick out sit → core_flexion; `0730` single leg platform slide → lunge; `0376` dumbbell raise → lateral_raise; `0415` dumbbell standing alternate raise → lateral_raise; `0720` side-to-side chin → vertical_pull; `0548` kettlebell sumo high pull → olympic.
+Movement overrides: `1017` band y-raise → rear_delt; `1297` isometric chest squeeze → chest_fly; `1302` medicine ball chest pass → horizontal_push; `1303` medicine ball chest push from 3 point stance → horizontal_push; `1304` medicine ball chest push multiple response → horizontal_push; `1305` medicine ball chest push single response → horizontal_push; `1312` medicine ball chest push with run release → conditioning; `1338` exercise ball hug → mobility; `1354` medicine ball overhead slam → conditioning; `1355` one arm against wall → mobility; `1362` sphinx → mobility; `1364` standing pelvic tilt → mobility; `1366` upward facing dog → mobility; `1401` muscle-up (on vertical bar) → vertical_pull; `1408` band hip lift → hip_thrust; `1416` exercise ball one leg prone lower body rotation → core_rotation; `1418` hug knees to chest → mobility; `1582` reclining big toe pose with rope → mobility; `1587` seated wide angle pose sequence → mobility; `1689` push and pull bodyweight → horizontal_push; `1728` cable two arm tricep kickback → elbow_extension; `1730` dumbbell seated bent over alternate kickback → elbow_extension; `1734` dumbbell kickbacks on exercise ball → elbow_extension; `1739` dumbbell standing alternating tricep kickback → elbow_extension; `1742` dumbbell tricep kickback with stork stance → elbow_extension; `2139` hands bike → cardio; `2142` ski ergometer → cardio; `2203` roller seated shoulder flexor depresor retractor → mobility; `2209` roller seated single leg shoulder flexor depresor retractor → mobility; `2271` left hook. boxing → conditioning; `2459` tire flip → conditioning; `3286` weighted muscle up → vertical_pull; `3312` weighted muscle up (on bar) → vertical_pull; `3433` swimmer kicks v. 2 → core_anti_extension; `3541` dumbbell incline y-raise → rear_delt; `3542` dumbbell incline t-raise → rear_delt; `3546` dumbbell seated alternate shoulder → vertical_push; `3552` quick feet v. 2 → conditioning; `3669` standing archer → core_rotation; `0128` battling ropes → conditioning; `0191` cable one arm lateral bent-over → rear_delt; `0341` dumbbell lying one arm deltoid rear → rear_delt; `0050` barbell incline shoulder raise → front_raise; `0759` smith incline shoulder raises → front_raise; `0325` dumbbell incline raise → vertical_push; `0328` dumbbell incline shoulder raise → vertical_push; `0332` dumbbell iron cross → lateral_raise; `0408` dumbbell side lying one hand raise → lateral_raise; `0844` weighted round arm → lateral_raise; `0863` dumbbell lying external shoulder rotation → shoulder_rotation; `0339` dumbbell lying femoral → knee_flexion; `0628` monster walk → hip_abduction; `0624` march sit (wall) → squat; `0466` gironda sternum chin → vertical_pull; `0680` rope climb → vertical_pull; `0500` isometric wipers → core_rotation; `0555` kick out sit → core_flexion; `0730` single leg platform slide → lunge; `0376` dumbbell raise → lateral_raise; `0415` dumbbell standing alternate raise → lateral_raise; `0720` side-to-side chin → vertical_pull; `0548` kettlebell sumo high pull → olympic; `0558` kipping muscle up → vertical_pull; `0631` muscle up → vertical_pull; `0860` cable kickback → elbow_extension; `0333` dumbbell kickback → elbow_extension; `0354` dumbbell one arm kickback → elbow_extension; `0394` dumbbell seated kickback → elbow_extension; `0398` dumbbell seated one arm kickback → elbow_extension; `0420` dumbbell standing kickback → elbow_extension.
 
 ## Duplicates
 
@@ -187,9 +187,9 @@ Kept as they are: without a visual comparison they are not deprecated. Candidate
 
 ## Imports
 
-- Alias entries: 102; each resolves to exactly one live exercise (the check fails otherwise).
+- Alias entries: 114; each resolves to exactly one live exercise (the check fails otherwise).
 - Import order: curated English alias → 2J alias → exact translated name → exact dataset name → word bag (only when exactly one candidate). A deprecated result is filed under its preferred id; ties are returned as candidates for the member to choose.
 
-## Without a canonical movement (19, master library only)
+## Without a canonical movement (14, master library only)
 
-`0016` assisted prone hamstring · `3297` back lever · `0020` balance board · `0984` band lying hip internal rotation · `0996` band seated hip internal rotation · `0100` barbell skier · `0316` dumbbell incline breeding · `2143` dumbbell standing around world · `3292` elevator · `1332` exercise ball alternating arm ups · `3295` front lever reps · `0543` kettlebell pirate supper legs · `0558` kipping muscle up · `0609` london bridge · `0631` muscle up · `1401` muscle-up (on vertical bar) · `3304` skin the cat · `3286` weighted muscle up · `3312` weighted muscle up (on bar)
+`0016` assisted prone hamstring · `3297` back lever · `0020` balance board · `0984` band lying hip internal rotation · `0996` band seated hip internal rotation · `0100` barbell skier · `0316` dumbbell incline breeding · `2143` dumbbell standing around world · `3292` elevator · `1332` exercise ball alternating arm ups · `3295` front lever reps · `0543` kettlebell pirate supper legs · `0609` london bridge · `3304` skin the cat

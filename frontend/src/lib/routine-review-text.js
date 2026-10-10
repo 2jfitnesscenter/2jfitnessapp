@@ -20,10 +20,12 @@ export function reasonText(r) {
 
 /** Why this routine is up for review: the numbers, then a note when it was brought forward. At most `max` sentences. */
 export function reviewReasons(review, max = 3) {
-  const list = (review.reasons || []).map(reasonText).filter(Boolean)
+  const list = (review.reasons || []).map(r => r.code === 'week' && review.kind === 'program' ? t('Week {0} with this program — time to review it.', r.week) : reasonText(r)).filter(Boolean)
   if (review.early) list.unshift(t('Brought forward: the data shows a plateau.'))
   return list.slice(0, max)
 }
 
 /** The single line a staff list shows for the alert. */
-export const reviewAlertText = a => t('Routine review: {0} (week {1})', a.name || '—', a.week)
+export const reviewAlertText = a => a.kind === 'program'
+  ? t('Program review: {0} (week {1})', a.name || '—', a.week)
+  : t('Routine review: {0} (week {1})', a.name || '—', a.week)

@@ -19,11 +19,11 @@ const get = id => R.find(r => r.id === id)
 const GYM_EQ = new Set(['barbell', 'dumbbell', 'cable', 'leverage machine', 'smith machine', 'ez barbell', 'body weight', 'sled machine', 'trap bar', 'weighted', 'assisted', 'stationary bike', 'elliptical machine', 'stepmill machine', 'treadmill', 'skierg machine'])
 
 describe('the official catalogue', () => {
-  it('155 routines across 8 formats, 15 collections, 3 featured — every one validated and honest', () => {
+  it('155 routines across 8 formats, 17 collections, 3 featured — every one validated and honest', () => {
     expect(SEED.count).toBe(155)
     expect(new Set(R.map(r => r.id)).size).toBe(155)
     expect(new Set(R.map(r => r.category))).toEqual(new Set(ROUTINE_CATEGORIES))
-    expect(SEED.collections).toHaveLength(15)
+    expect(SEED.collections).toHaveLength(17)
     expect(R.filter(r => r.featured).sort((a, b) => a.featured - b.featured).map(r => r.id)).toEqual(['r2j-tabata-fullbody', 'r2j-mobility-hips', 'r2j-hiit-lowimpact'])
     for (const r of R) {
       const v = validateAgainst2JProtocol({ kind: 'routine', goal: r.goal, level: r.level, entries: r.ex, blockTypes: blockTypesOf(r.blocks) }, { lookup, official: true })

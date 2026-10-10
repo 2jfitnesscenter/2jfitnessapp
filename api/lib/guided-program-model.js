@@ -38,28 +38,52 @@ export function programProgress(program, workouts = []) {
   return { total: sessions.length, completed, percent: sessions.length ? Math.round(completed * 100 / sessions.length) : 0, next, done }
 }
 
-export function startGuidedProgram(S, catalog, { id, makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`, now = Date.now(), replaceActive = false } = {}) {
+const defaultMakeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+
+// The member's own copy of an official program: its weeks and a pinned snapshot of every routine, so a later catalogue edit cannot
+// silently alter a plan already in progress — or one only saved for later. Starting and saving build it the same way; only the status differs.
+function memberProgramFrom(catalog, { id, makeId, now, status, rev = null }) {
+  const userKey = String(id || 'local').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'local'
+  const routineIds = [...new Set(flattenProgramSessions(catalog).map(s => s.routineId))]
+  const program = {
+    id: `g2jp-${userKey}-${makeId()}`,
+    source: 'guided-v2', schemaVersion: 1, catalogId: catalog.id,
+    name: catalog.name, emoji: 'sparkles', status,
+    ...(status === 'active' ? { startedAt: now } : { savedAt: now }),
+    ...(rev != null ? { catalogRev: String(rev) } : {}),
+    meta: { goal: catalog.goal, level: catalog.level, restrictions: [] },
+    weeks: copy(catalog.weeks),
+    routineSnapshots: Object.fromEntries(routineIds.map(rid => [rid, copy(catalog.routines?.[rid])]).filter(([, routine]) => routine)),
+  }
+  if (Object.keys(program.routineSnapshots).length !== routineIds.length) return null
+  return program
+}
+
+export function startGuidedProgram(S, catalog, { id, makeId = defaultMakeId, now = Date.now(), replaceActive = false, rev = null } = {}) {
   if (S.active) return { ok: false, reason: 'workout-in-progress' }
   const current = (S.programs || []).find(p => p.id === S.activeProgramId && !['paused', 'abandoned', 'completed'].includes(p.status))
   if (current && !replaceActive) return { ok: false, reason: current.source === 'guided-v2' && current.catalogId === catalog?.id ? 'already-active' : 'active-program-conflict' }
   if (!catalog || !flattenProgramSessions(catalog).length) return { ok: false, reason: 'invalid-program' }
-  const userKey = String(id || 'local').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'local'
-  const program = {
-    id: `g2jp-${userKey}-${makeId()}`,
-    source: 'guided-v2', schemaVersion: 1, catalogId: catalog.id,
-    name: catalog.name, emoji: 'sparkles', status: 'active', startedAt: now,
-    meta: { goal: catalog.goal, level: catalog.level, restrictions: [] },
-    weeks: copy(catalog.weeks),
-    // Pin each official routine version to the member's existing program snapshot so a later
-    // catalogue edit cannot silently alter a plan already in progress.
-    routineSnapshots: Object.fromEntries([...new Set(flattenProgramSessions(catalog).map(s => s.routineId))]
-      .map(rid => [rid, copy(catalog.routines?.[rid])]).filter(([, routine]) => routine)),
-  }
-  if (Object.keys(program.routineSnapshots).length !== new Set(flattenProgramSessions(catalog).map(s => s.routineId)).size)
-    return { ok: false, reason: 'routine-snapshot-missing' }
+  const program = memberProgramFrom(catalog, { id, makeId, now, status: 'active', rev })
+  if (!program) return { ok: false, reason: 'routine-snapshot-missing' }
   if (current && current.source === 'guided-v2') current.status = 'paused'
   S.programs = [...(S.programs || []), program]
   S.activeProgramId = program.id
+  return { ok: true, program }
+}
+
+/**
+ * Saves an official program into the member's plan WITHOUT starting it: the same pinned copy, status 'assigned' (what a trainer's
+ * assignment already uses — the program screen offers "Start program" for it), nothing else touched, no workout needed.
+ * A program of the same catalogue entry that is still alive (active, paused or waiting) is never saved twice.
+ */
+export function saveGuidedProgram(S, catalog, { id, makeId = defaultMakeId, now = Date.now(), rev = null } = {}) {
+  if (!catalog || !flattenProgramSessions(catalog).length) return { ok: false, reason: 'invalid-program' }
+  const existing = (S.programs || []).find(p => p.source === 'guided-v2' && p.catalogId === catalog.id && ['active', 'paused', 'assigned'].includes(p.status))
+  if (existing) return { ok: false, reason: 'already-saved', program: existing }
+  const program = memberProgramFrom(catalog, { id, makeId, now, status: 'assigned', rev })
+  if (!program) return { ok: false, reason: 'routine-snapshot-missing' }
+  S.programs = [...(S.programs || []), program]
   return { ok: true, program }
 }
 

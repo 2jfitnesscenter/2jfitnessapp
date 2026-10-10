@@ -77,7 +77,8 @@ export const PRESETS = {
 }
 
 /** What to store in S.ux. `uses` only keeps the preferences the member can actually set. */
-export const makeUx = (uses, now = Date.now()) => ({ v: 1, at: now, uses: Object.fromEntries(USER_PREFS.map(k => [k, uses?.[k] !== false])) })
+// `extra.progress` (optional) is the Progress-page layout (lib/progress-cards.js): stored only when it differs from the default, so an untouched profile stays untouched.
+export const makeUx = (uses, now = Date.now(), extra = {}) => ({ v: 1, at: now, uses: Object.fromEntries(USER_PREFS.map(k => [k, uses?.[k] !== false])), ...(extra?.progress ? { progress: extra.progress } : {}) })
 
 /** Current choices for the configurator: S.ux when it exists, otherwise "everything on" (today's behaviour). */
 export const currentUses = S => Object.fromEntries(USER_PREFS.map(k => [k, chosenByMember(S, k)]))

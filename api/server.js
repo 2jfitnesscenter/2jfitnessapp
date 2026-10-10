@@ -34,7 +34,11 @@ import * as sharingStore from './social/sharing-store.js';
 import * as chatStore from './chat/store.js';
 import * as bunkerStore from './bunker/store.js';
 import { exportMember, eraseMember, ErasureError } from './lib/account-erasure.js';
-import { stateFile } from './lib/state-store.js';
+import { stateFile, stateFingerprint } from './lib/state-store.js';
+import * as userSummaries from './lib/user-summary.js';
+import { centerRoutes } from './lib/center-routes.js';
+import { AUDITED as ADMIN_AUDIT, describeAction } from './lib/admin-audit.js';
+import { opsStatus, createErrorRing } from './lib/ops-status.js';
 import { bunkerRoutes } from './bunker/routes.js';
 import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
@@ -48,15 +52,24 @@ import * as guidedStore from './lib/guided-store.js';
 import { libraryAdminRoutes } from './lib/library-admin-routes.js';
 import { newsRoutes } from './lib/news-routes.js';
 import { featuresRoutes } from './lib/features-routes.js';
+import * as featuresStore from './lib/features-store.js';
+import { snapshotCard } from './lib/share-snapshot.js';
+import { createLimiter, LIMITS } from './lib/social-limits.js';
+import { makeCanRead } from './chat/routes.js';
 import * as libraryAdmin from './lib/library-admin.js';
 import * as gymProfileConfig from './lib/gym-profile-config.js';
-import { cleanEquipment, setOfficialGymEquipment } from './lib/gym-profiles.js';
+import { cleanEquipment, setOfficialGymEquipment, gymEquipmentContext } from './lib/gym-profiles.js';
 import { EQUIPMENT } from './lib/protocol/movements.js';
 import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesOf } from './lib/plan-meta.js';
 import { expectedOrigins } from './lib/webauthn-origins.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
+import { coachFollowUpRoutes, recordPrivateEvent, canAccessMember } from './lib/coach-followup-routes.js';
+import * as followUpAI from './coach/followup-ai.js';
 import { encrypt as encryptAtRest, decrypt as decryptAtRest } from './lib/crypto.js';
-import { markReviewed, setCycleDates, routineReviews } from './lib/routine-review.js';
+import { markReviewed, setCycleDates, markProgramReviewed, setProgramCycleDates, routineReviews } from './lib/routine-review.js';
+import { appendSecurityEvent, eventsFor, eventsForAdmin } from './lib/security-audit.js';
+import { deviceLabel, cleanName } from './lib/device-labels.js';
+import { createLinkStore } from './lib/device-link.js';
 import { appendSharedAudit, createPinLimiter, hashStaffPin, publicStaffUsers, validateStaffPin, verifyStaffPin } from './lib/shared-staff.js';
 import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 import { createPlatformProofStore } from './platform-proof/store.js';
@@ -65,6 +78,8 @@ import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
+const STARTED_AT = Date.now();
+const opsErrors = createErrorRing();   // last server-side failures (route + status + time only), shown in GET /api/admin/ops
 const RP_ID = process.env.RP_ID || 'localhost';
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
 const WEBAUTHN_ORIGINS = expectedOrigins(ORIGIN);   // web origin + the approved Android shell origin(s)
@@ -93,6 +108,8 @@ const MAX_SCAN_BYTES = 8 * 1024 * 1024;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 const FOLLOWUP_PRIVATE_CRYPTO_INFO = '2j-followup-private-v1';
+// Seguimiento V3: a trainer who loses the role (or is demoted) must not keep the members an admin had assigned to them.
+function dropTrainerAssignments(trainerId) { for (const m of db.users) if (Array.isArray(m.assignedTrainers) && m.assignedTrainers.includes(trainerId)) { m.assignedTrainers = m.assignedTrainers.filter(id => id !== trainerId); if (!m.assignedTrainers.length) delete m.assignedTrainers; } }
 
 fs.mkdirSync(DATA, { recursive: true });
 // 0700 is what stops the unprivileged user that Coach jobs run as from reading any of this —
@@ -122,6 +139,11 @@ db.sharedDevices = Array.isArray(db.sharedDevices) ? db.sharedDevices : [];
 db.staffPins = Array.isArray(db.staffPins) ? db.staffPins : [];
 db.sharedStaffSessions = Array.isArray(db.sharedStaffSessions) ? db.sharedStaffSessions : [];
 db.sharedStaffAudit = Array.isArray(db.sharedStaffAudit) ? db.sharedStaffAudit : [];
+// Account-security events (sign-ins, recovery, passkeys, roles, sessions): lib/security-audit.js. Never holds a secret, an IP or a user-agent.
+db.securityEvents = Array.isArray(db.securityEvents) ? db.securityEvents : [];
+// One record per signed-in browser or app (lib/device-labels.js labels it): the minimum that lets a person see and end a single session.
+// No IP, no raw user-agent. Cookies made before this existed carry no session id and keep working until they expire or "sign out everywhere".
+db.deviceSessions = Array.isArray(db.deviceSessions) ? db.deviceSessions : [];
 // Scanned-machine → library-exercise links (frontend/src/lib/machine-scan.js) — gym-wide, not
 // per-member: it's the same physical machine for every socio who scans it, so one member's
 // pick benefits everyone's next scan. Keyed by a normalised form of the AI's own recognised
@@ -151,9 +173,17 @@ function revokeSharedStaffSessions(userId, actorId, reason) {
   });
   if (revoked) appendSharedAudit(db, { event: 'staff_sessions_revoked', userId, actorId, reason });
 }
+const secEvent = (event, { userId = null, actorId = null, meta = null } = {}) => appendSecurityEvent(db, { event, userId, actorId, meta });
+// Ends every session of one person at once: the version in every cookie they were ever given stops matching, and any shared-computer
+// session they hold is closed. Passkeys are untouched; signing in again works immediately.
+function endAllSessions(user, actorId, reason) {
+  user.sv = (user.sv || 0) + 1;
+  revokeSharedStaffSessions(user.id, actorId, reason);
+  revokeDeviceSessions(user.id);
+}
 // What the staff Seguimiento shows of one routine-review cycle.
-const cycleView = r => ({ routineId: r.routineId, name: r.name, start: r.start, startManual: !!r.startManual, dueDate: r.dueDate, dueManual: !!r.dueManual,
-  status: r.status, week: r.week, sessions: r.sessions, early: !!r.early, late: !!r.late });
+const cycleView = r => ({ kind: r.kind || 'routine', routineId: r.routineId || null, programId: r.programId || null, routineIds: r.routineIds || [], name: r.name, start: r.start, startManual: !!r.startManual, dueDate: r.dueDate, nextReviewAt: r.nextReviewAt || r.dueDate, dueManual: !!r.dueManual,
+  lastReviewAt: r.lastReviewAt || null, reviewed: !!r.reviewed, adherence: r.adherence || null, progression: r.progression || null, plateau: r.plateau || null, reasons: r.reasons || [], status: r.status, week: r.week, sessions: r.sessions, early: !!r.early, late: !!r.late });
 function atomicWrite(file, content) {
   const tmp = file + '.tmp';
   fs.writeFileSync(tmp, content);
@@ -356,7 +386,7 @@ const erasureDeps = () => ({
   db, social, saveDb, saveSocial, readState, stateFile, uploadsDir, deleteUploadedImage,
   chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore,
   isStaff: isTrainer, clearCoach: coachJobs.clearUser,
-  forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); },
+  forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); userSummaries.forget(uid); },
 });
 
 // "Workout planned today" reminder — one per user per day, at their chosen time.
@@ -473,12 +503,14 @@ function verifySig(token) {
 // signing out the whole instance. Cookies minted before `sv` existed have no third field and are
 // read as version 0, matching a user who has never bumped — they stay valid until they expire.
 const sessionVersion = user => user.sv || 0;
+const SESSION_TOUCH_MS = 10 * 60_000;     // last use is written at most this often
+const SESSIONS_PER_PERSON = 25;
 function makeSession(user, claims = {}) {
   const issuedAt = claims.issuedAt || Date.now();
   const exp = claims.exp || Date.now() + SESSION_DAYS * 86400000;
   const parts = [user.id, exp, sessionVersion(user), claims.authLevel || 'passkey'];
   if (claims.authLevel === 'pin') parts.push(claims.sharedDeviceId, claims.sessionId, claims.role, issuedAt);
-  else parts.push(issuedAt);
+  else { parts.push(issuedAt); if (claims.sid) parts.push(claims.sid); }
   return sign(parts.join(':'));
 }
 function requestCookies(req) {
@@ -513,6 +545,13 @@ function readSession(req) {
   if (authLevelRaw === 'pin' && payload.split(':').length !== 8) return null;
   if (authLevelRaw === 'passkey' && field5 !== undefined && (!Number.isSafeInteger(Number(field5)) || Number(field5) <= 0)) return null;
   let claims = { authLevel, issuedAt: authLevelRaw ? Number(field5) || 0 : 0 };
+  if (authLevelRaw === 'passkey' && field6 !== undefined) {
+    // A session with its own record: it dies the moment the record is revoked, whatever the cookie says.
+    const record = db.deviceSessions.find(x => x.id === field6);
+    if (!record || record.userId !== uid || record.revokedAt) return null;
+    claims.sid = record.id;
+    if (Date.now() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_MS) { record.lastUsedAt = new Date().toISOString(); saveDb(); }
+  }
   if (authLevel === 'pin') {
     const sharedDeviceId = field5, sessionId = field6, role = field7, issuedAt = Number(field8) || 0;
     const device = db.sharedDevices.find(d => d.id === sharedDeviceId && d.active && !d.revokedAt);
@@ -567,6 +606,36 @@ function sessionCookie(user, claims = {}) {
   return `gymsid=${makeSession(user, claims)}; Path=/; Max-Age=${maxAge}; HttpOnly;${SECURE} SameSite=Lax`;
 }
 const clearCookie = `gymsid=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
+// A passkey sign-in (or recovery, or an approved QR link) gets a session record and a cookie that names it.
+function newSession(req, user, { via = 'passkey', credId = null } = {}) {
+  const now = Date.now();
+  const record = {
+    id: crypto.randomBytes(9).toString('base64url'), userId: user.id, platform: deviceLabel(req.headers['user-agent']), via,
+    createdAt: new Date(now).toISOString(), lastUsedAt: new Date(now).toISOString(), expiresAt: now + SESSION_DAYS * 86400000,
+    ...(credId ? { credHandle: credHandle(credId) } : {}),
+  };
+  db.deviceSessions.push(record);
+  pruneSessions(user.id);
+  saveDb();   // the record must be on disk before the cookie that names it leaves, or a restart would sign everyone out
+  return sessionCookie(user, { authLevel: 'passkey', exp: record.expiresAt, issuedAt: now, sid: record.id });
+}
+// Expired records go, long-revoked ones go, and one person never keeps more than SESSIONS_PER_PERSON (the oldest-used are dropped first).
+function pruneSessions(userId) {
+  const now = Date.now();
+  db.deviceSessions = db.deviceSessions.filter(x => x.expiresAt > now - 7 * 86400000 && !(x.revokedAt && now - Date.parse(x.revokedAt) > 30 * 86400000));
+  const mine = db.deviceSessions.filter(x => x.userId === userId && !x.revokedAt).sort((a, b) => Date.parse(a.lastUsedAt) - Date.parse(b.lastUsedAt));
+  for (const old of mine.slice(0, Math.max(0, mine.length - SESSIONS_PER_PERSON))) old.revokedAt = new Date().toISOString();
+}
+const sessionIsLive = x => !x.revokedAt && x.expiresAt > Date.now();
+function revokeDeviceSessions(userId, { exceptId = null, credHandleOf = null } = {}) {
+  const at = new Date().toISOString(); let n = 0;
+  for (const x of db.deviceSessions) {
+    if (x.userId !== userId || x.revokedAt || x.id === exceptId) continue;
+    if (credHandleOf && x.credHandle !== credHandleOf) continue;
+    x.revokedAt = at; n++;
+  }
+  return n;
+}
 const sharedDeviceCookie = token => `j2shared=${token}; Path=/; Max-Age=${365 * 86400}; HttpOnly;${SECURE} SameSite=Strict`;
 const clearSharedDeviceCookie = `j2shared=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Strict`;
 
@@ -601,6 +670,42 @@ function challengeGate(req, res) {
   if (challenges.size >= MAX_OPEN_CHALLENGES) { json(res, 503, { error: 'servicio ocupado; inténtalo en un momento' }, { 'Retry-After': '30' }); return false; }
   return true;
 }
+/* ---------- passkey management: ownership, step-up ---------- */
+// A fresh passkey assertion (user verification required) proves a person is still there. The token it earns is signed, bound to the person and
+// to one purpose, and lives five minutes: it gates the actions that would let a stolen session dig in (adding or removing a passkey).
+const STEP_UP_MS = 5 * 60_000;
+const STEP_UP_PURPOSES = ['passkeys', 'device-link'];
+function stepUpToken(user, purpose) {
+  const expiresAt = Date.now() + STEP_UP_MS;
+  return { token: sign(`stepup.${user.id}:${expiresAt}:${purpose}`), expiresAt };
+}
+function stepUpValid(req, user, purpose) {
+  const tok = String(req.headers['x-step-up'] || '');
+  const payload = tok && verifySig(tok);
+  if (!payload) return false;
+  const [who, exp, p] = payload.split(':');
+  return who === `stepup.${user.id}` && Number(exp) > Date.now() && p === purpose;
+}
+function requireStepUp(req, res, user, purpose) {
+  if (stepUpValid(req, user, purpose)) return true;
+  json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
+  return false;
+}
+// Passkeys and devices are managed from a passkey session only: a shared-computer PIN session never edits the keys it was granted by.
+function requirePasskeySession(req, res) {
+  const user = readSession(req);
+  if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
+  if (user.authLevel !== 'passkey') { json(res, 403, { error: 'esta acción requiere iniciar sesión con passkey', code: 'passkey_required' }); return null; }
+  return user;
+}
+const credHandle = id => crypto.createHash('sha256').update(String(id)).digest('base64url').slice(0, 16);
+const passkeyView = c => ({ id: credHandle(c.id), name: c.name || null, createdAt: c.createdAt || null, lastUsedAt: c.lastUsedAt || null, transports: c.transports || [], legacy: !c.createdAt });
+const MAX_PASSKEYS = 10;
+
+// Device linking by QR (lib/device-link.js): pending links live in memory only, three minutes, approved once, claimed once.
+const deviceLinks = createLinkStore();
+setInterval(() => deviceLinks.sweep(), 60000).unref();
+
 // Verify routes count only failed attempts (any 4xx/5xx the handler answers with).
 const verifyGate = handler => async (req, res) => {
   const ip = authGate(req, res, authLimits.verify);
@@ -679,10 +784,49 @@ function json(res, code, obj, extraHeaders) {
 function socialFriends(a, b) {
   return friendsStore.friendIdsOf(b).includes(a) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
 }
+const socialLimiter = createLimiter();
+const socialLimit = (uid, bucket, max, windowMs) => socialLimiter.hit(uid + ':' + bucket, max, windowMs);
+// Answers 429 and returns true when this person is going too fast on that bucket(s).
+function throttled(res, user, ...buckets) {
+  for (const [bucket, max, windowMs] of buckets) {
+    const r = socialLimit(user.id, bucket, max, windowMs);
+    if (!r.ok) { json(res, 429, { error: 'vas demasiado rápido; espera un momento', code: 'rate_limited' }, { 'Retry-After': String(r.retryAfter) }); return true; }
+  }
+  return false;
+}
+// A block cuts every social surface in both directions. Admins keep seeing everything (they moderate); nobody else sees or touches content from
+// somebody they blocked or who blocked them.
+const blockedBetween = (a, b) => !!a && !!b && a !== b && (friendsStore.isBlocked(a, b) || friendsStore.isBlocked(b, a));
+const hiddenByBlock = (viewer, otherId) => !isAdmin(viewer) && blockedBetween(viewer.id, otherId);
+// The admin's switches ("Funciones de la app") are enforced here, not only in the UI. Privacy preferences stay reachable whatever is switched off.
+function featureOfRoute(p) {
+  if (p.startsWith('/api/chat/')) return 'chat';
+  if (p === '/api/friends' || p.startsWith('/api/friends/') || p === '/api/social/profile') return 'friends';
+  if (p.startsWith('/api/social/challenges') || p.startsWith('/api/social/goals')) return 'challenges';
+  if (p === '/api/social/preferences') return null;
+  if (p.startsWith('/api/social/')) return 'social';
+  return null;
+}
 function canViewSocialShare(user, authorId, kind) {
+  if (user.id !== authorId && blockedBetween(user.id, authorId)) return false;
   return canViewSharedContent({ authorId, viewerId: user.id, kind, privacy: notificationStore.privacyFor(authorId), isFriend: socialFriends });
 }
-function resolveShareTarget(ownerId, kind, targetId) {
+// The optional numbers a member may add to a shared workout. Only what they ticked, only numbers computed here from the workout itself:
+// body weight, measurements, health, notes and check-ins have no path into this object.
+function workoutExtras(w, S, include) {
+  const want = new Set(Array.isArray(include) ? include : []);
+  const out = {};
+  const sets = (w.entries || []).flatMap(e => e.sets || []).filter(x => x && x.done && x.type !== 'warmup');
+  if (want.has('duration')) { const m = Math.round((Number(w.end) - Number(w.start)) / 60000); if (m > 0 && m < 1440) out.duration = m; }
+  if (want.has('volume')) {
+    const v = Number.isFinite(Number(w.vol)) && Number(w.vol) > 0 ? Number(w.vol) : sets.reduce((n, x) => n + (Number(x.w) > 0 && Number(x.r) > 0 ? Number(x.w) * Number(x.r) : 0), 0);
+    if (v > 0) { out.volume = Math.round(v); out.unit = S?.unit === 'lb' ? 'lb' : 'kg'; }
+  }
+  if (want.has('prs')) { const n = Array.isArray(w.prs) ? w.prs.length : 0; if (n) out.prs = n; }
+  if (want.has('cardio')) { const m = sets.reduce((n, x) => n + (Number(x.min) > 0 && x.speed != null ? Number(x.min) : 0), 0); if (m > 0) out.cardio = Math.round(m); }
+  return Object.keys(out).length ? out : null;
+}
+function resolveShareTarget(ownerId, kind, targetId, include) {
   const u = db.users.find(x => x.id === ownerId);
   if (!u) return null;
   const clean = value => String(value || '').replace(/[\u0000-\u001f]/g, '').slice(0, 90);
@@ -690,7 +834,8 @@ function resolveShareTarget(ownerId, kind, targetId) {
     const w = readState(ownerId)?.workouts?.find(x => x.id === targetId);
     if (!w) return null;
     const sets = (w.entries || []).flatMap(e => e.sets || []).filter(s => s.done).length;
-    return { title: clean(w.name) || 'Workout completed', metric: `${sets} sets · ${(w.entries || []).length} exercises`, date: clean(w.d) };
+    const extras = workoutExtras(w, readState(ownerId), include);
+    return { title: clean(w.name) || 'Workout completed', metric: `${sets} sets · ${(w.entries || []).length} exercises`, date: clean(w.d), ...(extras ? { extras } : {}) };
   }
   if (kind === 'achievement') {
     const badge = readState(ownerId)?.badges?.[targetId];
@@ -725,12 +870,63 @@ function resolveShareTarget(ownerId, kind, targetId) {
   }
   return null;
 }
+// A private snapshot is open to its sender and to the one friend it was sent to (while they are still friends and nobody blocked anybody).
+const canOpenPrivateShare = (share, viewer) => !!share.snapshot && (share.authorId === viewer.id || (share.recipientId === viewer.id && socialFriends(share.authorId, viewer.id)));
+// Staff removing somebody else's content: one audit event (who it happened to, who did it, what kind, which id, a general reason; never the words) and one notice
+// to the author ("removed", with a general reason). Removing your own content is not moderation and leaves nothing here.
+function moderationRemoved(actor, authorId, targetType, targetId, reason = 'rules') {
+  if (!authorId || authorId === actor.id || !db.users.some(u => u.id === authorId)) return;
+  appendSecurityEvent(db, { event: 'content_removed', userId: authorId, actorId: actor.id, meta: { kind: targetType, target: targetId, reason } });
+  saveDb();
+  notificationStore.create(authorId, { type: 'moderation', target: { kind: 'removed', id: targetType }, deepLink: '/notifications', meta: { reason } });
+}
+const chatCanRead = makeCanRead({ isTrainer, isFriend: socialFriends, canReachMember: (staff, memberId) => { const m = db.users.find(u => u.id === memberId); return !!m && canAccessMember(staff, m, isAdmin); } });
+const COMMENT_HOLDERS = { wall: () => social.wall, topic: () => social.topics, board: () => social.board };
+function findComment(id) {
+  const [kind, postId, commentId] = String(id).split(':');
+  const post = COMMENT_HOLDERS[kind]?.().find(x => x.id === postId);
+  const comment = post?.comments?.find(c => c.id === commentId);
+  return comment ? { kind, post, comment } : null;
+}
+const snippet = s => String(s || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 80);
+// The one place a role changes (members, trainers, admins): the protections for ADMIN_UIDS and the last admin, the revocations, the dropped assignments and the audit event.
+function changeRole(admin, u, role) {
+  if (!['member', 'trainer', 'admin'].includes(role)) return { status: 400, body: { error: 'rol no válido' } };
+  const oldRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
+  if (role !== 'admin' && ADMIN_UIDS.includes(u.id)) return { status: 409, body: { error: 'este administrador viene de la configuración del servidor (ADMIN_UIDS)', code: 'admin_by_config' } };
+  if (role !== 'admin' && isAdmin(u) && !db.users.some(x => x.id !== u.id && !x.disabled && isAdmin(x))) return { status: 409, body: { error: 'no puede quedar el sistema sin administradores', code: 'last_admin' } };
+  if (role === 'admin') { u.admin = true; delete u.trainer; }
+  else { delete u.admin; if (role === 'trainer') u.trainer = true; else delete u.trainer; }
+  const newRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
+  if (oldRole !== newRole) { revokeSharedStaffSessions(u.id, admin.id, 'role_changed'); secEvent('role_changed', { userId: u.id, actorId: admin.id, meta: { from: oldRole, to: newRole } }); }
+  if (newRole === 'member') dropTrainerAssignments(u.id);
+  saveDb();
+  return { status: 200, body: { ok: true, id: u.id, role: newRole, admin: isAdmin(u), trainer: isTrainer(u) } };
+}
 function resolveReportedContent(viewer, type, id) {
+  if (type === 'message') {
+    const [threadId, messageId] = String(id).split(':');
+    const thread = chatStore.findThread(threadId), m = chatStore.findMessage(threadId, messageId);
+    if (!thread || !m || m.type === 'removed' || m.authorId === viewer.id) return null;
+    if (!isAdmin(viewer) && !chatCanRead(thread, viewer)) return null;
+    return { id, authorId: m.authorId, authorName: db.users.find(u => u.id === m.authorId)?.name || null, title: m.type === 'share' ? 'Shared content' : snippet(m.text), kind: 'message' };
+  }
+  if (type === 'comment') {
+    const found = findComment(id);
+    if (!found || found.comment.authorId === viewer.id) return null;
+    const { kind, post, comment } = found;
+    if (!isAdmin(viewer)) {
+      if (hiddenByBlock(viewer, comment.authorId) || hiddenByBlock(viewer, post.authorId)) return null;
+      if (kind === 'wall' && post.authorId !== viewer.id && (!post.public || !canViewSocialShare(viewer, post.authorId, 'pr'))) return null;
+    }
+    return { id, authorId: comment.authorId, authorName: comment.authorName, title: snippet(comment.text), kind: 'comment' };
+  }
   if (type === 'share') {
     const s = sharingStore.findShare(id);
+    if (s?.snapshot) return (isAdmin(viewer) || canOpenPrivateShare(s, viewer)) && s.authorId !== viewer.id ? { id: s.id, authorId: s.authorId, authorName: s.authorName, title: snapshotCard(s).title, kind: s.kind } : null;
     const accessKind = s?.kind === 'record' ? 'pr' : ['routine', 'program'].includes(s?.kind) ? 'routine' : ['achievement', 'streak'].includes(s?.kind) ? 'achievement' : s?.kind;
     if (s && !isAdmin(viewer) && !canViewSocialShare(viewer, s.authorId, accessKind)) return null;
-    const card = s && resolveShareTarget(s.authorId, s.kind, s.targetId);
+    const card = s && resolveShareTarget(s.authorId, s.kind, s.targetId, s.include);
     return s && card ? { id: s.id, authorId: s.authorId, authorName: s.authorName, title: card.title, kind: s.kind } : null;
   }
   const list = ({ wall: social.wall, routine: social.routines, program: social.programs, challenge: social.challenges, topic: social.topics })[type] || [];
@@ -740,14 +936,36 @@ function resolveReportedContent(viewer, type, id) {
   if (!isAdmin(viewer) && !canViewSocialShare(viewer, post.authorId, category)) return null;
   return { id: post.id, authorId: post.authorId, authorName: post.authorName, title: String(post.name || post.exName || post.title || 'Community post').slice(0, 90), kind: type };
 }
-function removeReportedContent(type, id, actor) {
-  if (type === 'share') return sharingStore.deleteShare(id, actor.id, true);
+function removeReportedContent(type, id, actor, reason) {
+  if (type === 'share') {
+    const s = sharingStore.findShare(id);
+    const ok = sharingStore.deleteShare(id, actor.id, true);
+    if (ok && s) moderationRemoved(actor, s.authorId, 'share', id, reason);
+    return ok;
+  }
+  if (type === 'message') {
+    const [threadId, messageId] = String(id).split(':');
+    const removed = chatStore.removeMessage(threadId, messageId);
+    if (!removed) return false;
+    moderationRemoved(actor, removed.authorId, 'message', id, reason);
+    return true;
+  }
+  if (type === 'comment') {
+    const found = findComment(id);
+    if (!found) return false;
+    found.post.comments = found.post.comments.filter(c => c.id !== found.comment.id);
+    saveSocial();
+    moderationRemoved(actor, found.comment.authorId, 'comment', id, reason);
+    return true;
+  }
   const key = ({ wall: 'wall', routine: 'routines', program: 'programs', challenge: 'challenges', topic: 'topics' })[type];
   if (!key) return false;
-  const list = social[key], before = list.length;
+  const list = social[key], before = list.length, gone = list.find(x => x.id === id);
   social[key] = list.filter(x => x.id !== id);
   if (social[key].length === before) return false;
-  saveSocial(); return true;
+  saveSocial();
+  if (gone) moderationRemoved(actor, gone.authorId, type, id, reason);
+  return true;
 }
 function readBody(req, maxBytes = MAX_BODY) {
   return new Promise((resolve, reject) => {
@@ -758,7 +976,7 @@ function readBody(req, maxBytes = MAX_BODY) {
       chunks.push(d);
     });
     req.on('end', () => {
-      try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
+      try { const parsed = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}; req._body = parsed; resolve(parsed); }
       catch { reject(new Error('bad json')); }
     });
     req.on('error', reject);
@@ -780,7 +998,19 @@ function livePresence(uid) {
 setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt > PRESENCE_TTL) presence.delete(k); }, 30000).unref();
 
 /* ---------- routes ---------- */
+// The ONE rule for every staff route that targets a member: admin → any user; trainer → only members an admin assigned (user.assignedTrainers). Anything else — unknown id,
+// unassigned member, staff account — answers the same 403 to a trainer, so ids cannot be probed; an admin gets a 404 for an id that does not exist.
+function memberFor(res, staff, memberId, notFound) {
+  const m = db.users.find(x => x.id === String(memberId || ''));
+  if (!m && isAdmin(staff)) { json(res, 404, { error: notFound }); return null; }
+  if (!m || !canAccessMember(staff, m, isAdmin)) { json(res, 403, { error: 'prohibido' }); return null; }
+  return m;
+}
+// Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, explicit trainer assignment, roster-side private data.
+const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
 const routes = {
+  ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
+  ...coachFollowUpRoutes(coachDeps),
   ...sharedStaffRoutes({
     db, json, readBody, readSession, requireAdmin, requireSharedDevice, isAdmin, isTrainer,
     deviceForRequest, deviceTokenHash: sharedDeviceTokenHash, sessionCookie, clearCookie,
@@ -797,6 +1027,8 @@ const routes = {
     serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
   }),
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
+  // Operations view for the administrator (docs/SECURITY_OPS_V1.md): backup / restore-rehearsal / deploy marker / disk / recent 5xx. Read-only, no secrets.
+  'GET /api/admin/ops': async (req, res) => { if (!requireAdmin(req, res)) return; json(res, 200, opsStatus({ dataDir: DATA, startedAt: STARTED_AT, users: db.users.length, errors: opsErrors.snapshot() })); },
 
   // Public config the login screen needs before anyone is signed in. `coach` is absent unless
   // the instance has both switched the Coach on and successfully connected a provider — the
@@ -931,15 +1163,17 @@ const routes = {
       id: credential.id, userId: user.id,
       publicKey: Buffer.from(credential.publicKey).toString('base64url'),
       counter: credential.counter || 0,
-      transports: body.credential?.response?.transports || []
+      transports: body.credential?.response?.transports || [],
+      name: deviceLabel(req.headers['user-agent']), createdAt: new Date().toISOString()
     });
+    secEvent('account_created', { userId: user.id });
     saveDb();
     json(res, 200, { user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
-    } }, { 'Set-Cookie': sessionCookie(user) });
+    } }, { 'Set-Cookie': newSession(req, user, { credId: body.credential?.id }) });
   }),
 
   'POST /api/login/options': async (req, res) => {
@@ -972,19 +1206,22 @@ const routes = {
           transports: cred.transports
         }
       });
-    } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
-    if (!verification.verified) return json(res, 400, { error: 'no verificado' });
+    } catch (e) { secEvent('login_failed', { userId: cred.userId, meta: { reason: 'verification' } }); saveDb(); return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
+    if (!verification.verified) { secEvent('login_failed', { userId: cred.userId, meta: { reason: 'not_verified' } }); saveDb(); return json(res, 400, { error: 'no verificado' }); }
     cred.counter = verification.authenticationInfo.newCounter;
-    saveDb();
+    cred.lastUsedAt = new Date().toISOString();
     const user = db.users.find(u => u.id === cred.userId);
-    if (!user) return json(res, 500, { error: 'falta el usuario' });
-    if (user.disabled) return json(res, 403, { error: 'esta cuenta ha sido desactivada' });
+    if (!user) { saveDb(); return json(res, 500, { error: 'falta el usuario' }); }
+    if (user.disabled) { saveDb(); return json(res, 403, { error: 'esta cuenta ha sido desactivada' }); }
+    // Whether the authenticator verified the person (PIN, biometrics) is recorded, not enforced: it is the data the decision on requireUserVerification needs.
+    secEvent('login_ok', { userId: user.id, meta: { uv: !!verification.authenticationInfo.userVerified } });
+    saveDb();
     json(res, 200, { user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
-    } }, { 'Set-Cookie': sessionCookie(user) });
+    } }, { 'Set-Cookie': newSession(req, user, { credId: body.credential?.id }) });
   }),
 
   // ---------- admin-assisted account recovery ----------
@@ -1013,6 +1250,7 @@ const routes = {
       at: new Date().toISOString(), resolved: false
     };
     db.recoveryRequests.push(reqRecord);
+    secEvent('recovery_requested', { userId: reqRecord.matchedUserId });
     saveDb();
     db.users.filter(isAdmin).forEach(a => sendPush(a.id, {
       title: 'Solicitud de recuperación', body: `${name} ha perdido su passkey`,
@@ -1071,18 +1309,184 @@ const routes = {
       id: credential.id, userId: user.id,
       publicKey: Buffer.from(credential.publicKey).toString('base64url'),
       counter: credential.counter || 0,
-      transports: body.credential?.response?.transports || []
+      transports: body.credential?.response?.transports || [],
+      name: deviceLabel(req.headers['user-agent']), createdAt: new Date().toISOString()
     });
+    // A recovery exists because a device or a passkey is lost, so nothing it could still sign in with may stay valid: every earlier session ends
+    // (the session version moves on) and, unless the admin who made the link said the old passkeys are still fine (keepExisting), every earlier
+    // passkey of this account is removed. The new passkey is added first and never removed, so the account is never left without a way in.
+    const previous = db.creds.filter(c => c.userId === user.id && c.id !== credential.id).length;
+    if (rec.revokeOld !== false) db.creds = db.creds.filter(c => c.userId !== user.id || c.id === credential.id);
+    endAllSessions(user, rec.createdBy, 'account_recovered');
     rec.usedAt = new Date().toISOString();
+    secEvent('recovery_completed', { userId: user.id, actorId: rec.createdBy, meta: { revokedPasskeys: rec.revokeOld !== false ? previous : 0, kept: rec.revokeOld === false, sessionsEnded: true } });
     saveDb();
-    json(res, 200, { user: {
+    json(res, 200, { recovery: { revokedPasskeys: rec.revokeOld !== false ? previous : 0 }, user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
       avatar: user.avatar || null,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
-    } }, { 'Set-Cookie': sessionCookie(user) });
+    } }, { 'Set-Cookie': newSession(req, user, { via: 'recovery', credId: body.credential?.id }) });
   }),
 
+  /* ---------- the member's own passkeys ---------- */
+  'GET /api/me/passkeys': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const mine = db.creds.filter(c => c.userId === user.id).map(passkeyView)
+      .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+    json(res, 200, { passkeys: mine, max: MAX_PASSKEYS });
+  },
+  'POST /api/me/step-up/options': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    await staffPasskeyOptions(req, res, { user, purpose: 'step-up' });
+  },
+  'POST /api/me/step-up': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const body = await readBody(req);
+    const purpose = STEP_UP_PURPOSES.includes(body.purpose) ? body.purpose : 'passkeys';
+    const verified = await verifyStaffPasskey(req, res, body, { purpose: 'step-up' });
+    if (!verified) return;
+    secEvent('step_up', { userId: user.id, meta: { purpose } });
+    saveDb();
+    json(res, 200, stepUpToken(user, purpose));
+  },
+  // Add another passkey to this very account, from a signed-in session (no admin, no recovery link). Needs a fresh step-up.
+  'POST /api/me/passkeys/options': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    if (!requireStepUp(req, res, user, 'passkeys')) return;
+    if (!challengeGate(req, res)) return;
+    const existing = db.creds.filter(c => c.userId === user.id);
+    if (existing.length >= MAX_PASSKEYS) return json(res, 409, { error: 'has alcanzado el máximo de passkeys; elimina alguna primero', code: 'passkey_limit' });
+    const options = await generateRegistrationOptions({
+      rpName: RP_NAME, rpID: RP_ID,
+      userID: Buffer.from(user.id), userName: user.name, userDisplayName: user.name,
+      attestationType: 'none',
+      authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' },
+      excludeCredentials: existing.map(c => ({ id: c.id, transports: c.transports || [] }))
+    });
+    const cid = putChallenge({ challenge: options.challenge, uid: user.id, purpose: 'add-passkey' });
+    json(res, 200, { cid, options });
+  },
+  'POST /api/me/passkeys/verify': verifyGate(async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    if (!requireStepUp(req, res, user, 'passkeys')) return;
+    const body = await readBody(req);
+    const c = takeChallenge(body.cid);
+    if (!c || c.uid !== user.id || c.purpose !== 'add-passkey') return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
+    let verification;
+    try {
+      verification = await verifyRegistrationResponse({ response: body.credential, expectedChallenge: c.challenge, expectedOrigin: WEBAUTHN_ORIGINS, expectedRPID: RP_ID, requireUserVerification: false });
+    } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
+    if (!verification.verified) return json(res, 400, { error: 'no verificado' });
+    const { credential } = verification.registrationInfo;
+    if (db.creds.find(x => x.id === credential.id)) return json(res, 409, { error: 'esta credencial ya está registrada' });
+    if (db.creds.filter(x => x.userId === user.id).length >= MAX_PASSKEYS) return json(res, 409, { error: 'has alcanzado el máximo de passkeys', code: 'passkey_limit' });
+    const record = {
+      id: credential.id, userId: user.id,
+      publicKey: Buffer.from(credential.publicKey).toString('base64url'),
+      counter: credential.counter || 0,
+      transports: body.credential?.response?.transports || [],
+      name: cleanName(body.name) || deviceLabel(req.headers['user-agent']), createdAt: new Date().toISOString()
+    };
+    db.creds.push(record);
+    secEvent('passkey_added', { userId: user.id, meta: { handle: credHandle(record.id), platform: deviceLabel(req.headers['user-agent']) } });
+    saveDb();
+    json(res, 200, { passkey: passkeyView(record) });
+  }),
+  'POST /api/me/passkeys/rename': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const body = await readBody(req);
+    const cred = db.creds.find(c => c.userId === user.id && credHandle(c.id) === String(body.id || ''));
+    if (!cred) return json(res, 404, { error: 'esa passkey no existe' });
+    const name = cleanName(body.name);
+    if (!name) return json(res, 400, { error: 'escribe un nombre' });
+    cred.name = name;
+    secEvent('passkey_renamed', { userId: user.id, meta: { handle: credHandle(cred.id) } });
+    saveDb();
+    json(res, 200, { passkey: passkeyView(cred) });
+  },
+  // Removing a passkey needs a fresh step-up, and the last one can never be removed: the account must always keep a way in.
+  'POST /api/me/passkeys/revoke': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    if (!requireStepUp(req, res, user, 'passkeys')) return;
+    const body = await readBody(req);
+    const mine = db.creds.filter(c => c.userId === user.id);
+    const target = mine.find(c => credHandle(c.id) === String(body.id || ''));
+    if (!target) return json(res, 404, { error: 'esa passkey no existe' });
+    if (mine.length <= 1) return json(res, 409, { error: 'es tu única passkey: añade otra antes de eliminarla', code: 'last_passkey' });
+    db.creds = db.creds.filter(c => c !== target);
+    // Whoever signed in with it is signed out too: a removed passkey must not leave its sessions behind.
+    const endedSessions = revokeDeviceSessions(user.id, { credHandleOf: credHandle(target.id) });
+    secEvent('passkey_revoked', { userId: user.id, meta: { handle: credHandle(target.id), count: endedSessions } });
+    saveDb();
+    json(res, 200, { ok: true, endedSessions, passkeys: db.creds.filter(c => c.userId === user.id).map(passkeyView) });
+  },
+  /* ---------- link a device with a QR code ---------- */
+  // Device A, signed out: asks for a link and gets a public id (for the QR), a four-digit code to show, and a secret only it keeps.
+  'POST /api/link/start': async (req, res) => {
+    if (!challengeGate(req, res)) return;
+    const link = deviceLinks.start({ platform: deviceLabel(req.headers['user-agent']) });
+    if (!link) return json(res, 503, { error: 'servicio ocupado; inténtalo en un momento' }, { 'Retry-After': '30' });
+    json(res, 200, link);
+  },
+  // Device B, signed in with a passkey: what it is being asked to approve (the platform of A and how long is left) — never the code or the secret.
+  'GET /api/link/info': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const ip = authGate(req, res, authLimits.verify); if (!ip) return;
+    const info = deviceLinks.info(new URL(req.url, 'http://x').searchParams.get('id') || '');
+    if (!info) { authLimits.verify.fail(ip); return json(res, 404, { error: 'este enlace no existe o ha caducado' }); }
+    json(res, 200, info);
+  },
+  // B approves: a fresh passkey step-up for the purpose, plus the code shown on A. Three wrong codes end the link.
+  'POST /api/link/approve': verifyGate(async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    if (!stepUpValid(req, user, 'device-link')) return json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
+    const body = await readBody(req);
+    const r = deviceLinks.approve(String(body.id || ''), user.id, body.code);
+    if (r.error) return json(res, r.status, { error: r.error === 'wrong_code' ? 'el código no coincide' : r.error === 'denied' ? 'demasiados intentos; empieza de nuevo en el otro dispositivo' : r.error === 'taken' ? 'este enlace ya se aprobó' : 'este enlace no existe o ha caducado', code: r.error, ...(r.triesLeft != null ? { triesLeft: r.triesLeft } : {}) });
+    json(res, 200, { ok: true });
+  }),
+  // Device A polls with its secret. Pending → 202; approved → a normal session of the approver's account, handed out once.
+  'POST /api/link/claim': verifyGate(async (req, res) => {
+    const body = await readBody(req);
+    const r = deviceLinks.claim(String(body.id || ''), body.secret);
+    if (r.error) return json(res, r.status, { error: 'este enlace no es válido', code: r.error });
+    if (r.status === 'pending') return json(res, 202, { status: 'pending' });
+    const user = db.users.find(u => u.id === r.userId);
+    if (!user || user.disabled) return json(res, 403, { error: 'esta cuenta no está disponible' });
+    secEvent('device_linked', { userId: user.id, meta: { platform: r.platform, kind: 'qr' } });
+    const cookie = newSession(req, user, { via: 'qr' });
+    json(res, 200, { user: {
+      id: user.id, name: user.name, username: user.username || null, created: user.created || null, avatar: user.avatar || null,
+      admin: isAdmin(user), trainer: isTrainer(user), strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: 'passkey'
+    } }, { 'Set-Cookie': cookie });
+  }),
+
+  /* ---------- the member's own sessions / devices ---------- */
+  'GET /api/me/sessions': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const live = db.deviceSessions.filter(x => x.userId === user.id && sessionIsLive(x))
+      .sort((a, b) => Date.parse(b.lastUsedAt) - Date.parse(a.lastUsedAt))
+      .map(x => ({ id: x.id, platform: x.platform, via: x.via, createdAt: x.createdAt, lastUsedAt: x.lastUsedAt, current: x.id === user.sid }));
+    // A cookie made before sessions had records is valid but cannot be listed or ended one by one.
+    json(res, 200, { sessions: live, thisSessionListed: !!user.sid });
+  },
+  'POST /api/me/sessions/revoke': async (req, res) => {
+    const user = requirePasskeySession(req, res); if (!user) return;
+    const body = await readBody(req);
+    const rec = db.deviceSessions.find(x => x.id === String(body.id || '') && x.userId === user.id && sessionIsLive(x));
+    if (!rec) return json(res, 404, { error: 'esa sesión no existe o ya terminó' });
+    rec.revokedAt = new Date().toISOString();
+    secEvent('session_revoked', { userId: user.id, meta: { platform: rec.platform } });
+    saveDb();
+    json(res, 200, { ok: true, current: rec.id === user.sid }, rec.id === user.sid ? { 'Set-Cookie': clearCookie } : undefined);
+  },
+  // The member's own security activity (newest first). Somebody else having done it is shown; who is not.
+  'GET /api/me/security-events': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    json(res, 200, { events: eventsFor(db, user.id, 40) });
+  },
   'POST /api/logout': async (req, res) => {
     const user = readSession(req);
     if (user?.authLevel === 'pin') {
@@ -1093,6 +1497,7 @@ const routes = {
       appendSharedAudit(db, { event: 'staff_locked', deviceId: user.sharedDeviceId, userId: user.id });
       saveDb();
     }
+    if (user?.sid) { const rec = db.deviceSessions.find(x => x.id === user.sid); if (rec && !rec.revokedAt) { rec.revokedAt = new Date().toISOString(); saveDb(); } }
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
   },
 
@@ -1105,6 +1510,8 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     user.sv = sessionVersion(user) + 1;
     db.sharedStaffSessions.filter(s => s.userId === user.id && s.active).forEach(s => { s.active = false; s.revokedAt = new Date().toISOString(); });
+    revokeDeviceSessions(user.id);
+    secEvent('logout_all', { userId: user.id });
     saveDb();
     json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
   },
@@ -1369,18 +1776,22 @@ const routes = {
   // One row per user, cheap enough for a personal instance (reads each state file once).
   'GET /api/admin/users': async (req, res) => {
     if (!requireAdmin(req, res)) return;
+    // The list reads a light derived summary per member (lib/user-summary.js), not every encrypted state file: a stat per file, a decrypt only for the
+    // member whose file changed behind the summary's back. lastSync (when the app last synced) and lastWorkoutAt (the newest workout date) are different facts.
+    userSummaries.prune(db.users.map(u => u.id));
     const users = db.users.map(u => {
-      const S = readState(u.id) || {};
-      const workouts = S.workouts || [];
-      const last = workouts[workouts.length - 1];
+      const sum = userSummaries.summaryFor(u.id, { fingerprint: () => stateFingerprint(u.id), read: () => readState(u.id) });
+      const live = livePresence(u.id);
       return {
         id: u.id, name: u.name, created: u.created || null,
         disabled: !!u.disabled, admin: isAdmin(u), trainer: isTrainer(u), invitedBy: u.invitedBy || null,
-        workouts: workouts.length,
-        lastWorkout: last ? last.d : null,
-        lastSync: S._ts || null,
+        role: isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member',
+        assignedTrainers: Array.isArray(u.assignedTrainers) ? u.assignedTrainers : [],
+        workoutCount: sum.workoutCount, lastWorkoutAt: sum.lastWorkoutAt,
+        lastSync: sum.lastSync,
         hasPush: db.subs.some(s => s.userId === u.id),
-        live: livePresence(u.id)
+        live, activeNow: !!live,
+        ...(sum.unreadable ? { stateUnreadable: true } : {})
       };
     });
     json(res, 200, { users, invite_only: INVITE_ONLY, now: Date.now() });
@@ -1615,9 +2026,8 @@ const routes = {
   },
   // The routine-review cycles of one member for the TRAINER panel (same data the cycle editor needs, nothing from the follow-up/health summary). Trainer or admin.
   'GET /api/trainer/routine-cycles': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
-    const u = db.users.find(x => x.id === new URL(req.url, 'http://x').searchParams.get('id'));
-    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const staff = requireTrainer(req, res); if (!staff) return;
+    const u = memberFor(res, staff, new URL(req.url, 'http://x').searchParams.get('id'), 'ese usuario no existe'); if (!u) return;
     const S = readState(u.id);
     if (!S) return json(res, 200, { routineCycles: [], sync: null });
     json(res, 200, { routineCycles: routineReviews(S, new Date().toISOString().slice(0, 10)).map(cycleView), sync: S._sync ? { revision: S._sync.revision, generation: S._sync.generation } : null });
@@ -1627,8 +2037,7 @@ const routes = {
   'POST /api/admin/user/routine-cycle': async (req, res) => {
     const staff = requireTrainer(req, res); if (!staff) return;       // trainer or admin — the existing trainer permission, nothing wider
     const body = await readBody(req);
-    const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const u = memberFor(res, staff, body.id, 'ese usuario no existe'); if (!u) return;
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado' });
     const replay = directReceipt(S, body, 'admin-routine-cycle');
@@ -1636,10 +2045,14 @@ const routes = {
     const patch = {};
     for (const k of ['start', 'due']) if (Object.prototype.hasOwnProperty.call(body, k)) patch[k] = body[k];
     if (!Object.keys(patch).length) return json(res, 400, { error: 'nada que cambiar' });
-    if (!setCycleDates(S, String(body.routineId || ''), patch, staff.id)) return json(res, 400, { error: 'fechas o rutina no válidas' });
+    const isProgram = typeof body.programId === 'string' && !!body.programId;
+    const saved = isProgram ? setProgramCycleDates(S, body.programId, patch, staff.id) : setCycleDates(S, String(body.routineId || ''), patch, staff.id);
+    if (!saved) return json(res, 400, { error: 'fechas o rutina no válidas' });
     S._ts = Date.now();
-    const cycle = routineReviews(S, new Date().toISOString().slice(0, 10)).map(cycleView).find(c => c.routineId === body.routineId) || null;
+    const cycle = routineReviews(S, new Date().toISOString().slice(0, 10)).map(cycleView).find(c => isProgram ? c.programId === body.programId : c.routineId === body.routineId) || null;
     saveDirect(u.id, S, body, 'admin-routine-cycle', { ok: true, cycle });
+    // The decision trail (staff only, roster side): a moved review date is something the trainer chose.
+    if (Object.prototype.hasOwnProperty.call(patch, 'due')) recordPrivateEvent(coachDeps, u, { kind: 'review_rescheduled', by: staff.id, ref: isProgram ? { kind: 'program', id: body.programId } : { kind: 'routine', id: String(body.routineId || '') } });
     json(res, 200, { ok: true, cycle, sync: { revision: S._sync.revision, generation: S._sync.generation } });
   },
   // "Rutina revisada" from the staff side (Requiere atención): closes the routine-review notice and restarts that routine's cycle from today. Writes only
@@ -1648,13 +2061,15 @@ const routes = {
   'POST /api/admin/user/routine-reviewed': async (req, res) => {
     const staff = requireTrainer(req, res); if (!staff) return;       // trainer or admin
     const body = await readBody(req);
-    const u = db.users.find(x => x.id === body.id);
-    if (!u) return json(res, 404, { error: 'ese usuario no existe' });
+    const u = memberFor(res, staff, body.id, 'ese usuario no existe'); if (!u) return;
     const S = readState(u.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado' });
     const replay = directReceipt(S, body, 'admin-routine-reviewed');
     if (replay) return json(res, 200, replay);
-    if (!markReviewed(S, String(body.routineId || ''), new Date().toISOString().slice(0, 10), staff.id)) return json(res, 400, { error: 'esa rutina no existe en este miembro' });
+    const isProgram = typeof body.programId === 'string' && !!body.programId;
+    const marked = isProgram ? markProgramReviewed(S, body.programId, new Date().toISOString().slice(0, 10), staff.id)
+      : markReviewed(S, String(body.routineId || ''), new Date().toISOString().slice(0, 10), staff.id);
+    if (!marked) return json(res, 400, { error: isProgram ? 'ese programa no está activo en este miembro' : 'esa rutina no existe en este miembro' });
     S._ts = Date.now();
     saveDirect(u.id, S, body, 'admin-routine-reviewed', { ok: true });
     json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation } });
@@ -1666,20 +2081,12 @@ const routes = {
   'POST /api/admin/user/role': async (req, res) => {
     const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
-    const role = String(body.role || '');
-    if (!['member', 'trainer', 'admin'].includes(role)) return json(res, 400, { error: 'rol no válido' });
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
-    const oldRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
-    if (role !== 'admin' && ADMIN_UIDS.includes(u.id)) return json(res, 409, { error: 'este administrador viene de la configuración del servidor (ADMIN_UIDS)', code: 'admin_by_config' });
-    if (role !== 'admin' && isAdmin(u) && !db.users.some(x => x.id !== u.id && !x.disabled && isAdmin(x))) return json(res, 409, { error: 'no puede quedar el sistema sin administradores', code: 'last_admin' });
-    if (role === 'admin') { u.admin = true; delete u.trainer; }
-    else { delete u.admin; if (role === 'trainer') u.trainer = true; else delete u.trainer; }
-    const newRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
-    if (oldRole !== newRole) revokeSharedStaffSessions(u.id, admin.id, 'role_changed');
-    saveDb();
-    json(res, 200, { ok: true, id: u.id, role: isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member', admin: isAdmin(u), trainer: isTrainer(u) });
+    const r = changeRole(admin, u, String(body.role || ''));
+    json(res, r.status, r.body);
   },
+
   // The member's own view of their follow-up: only the schedule, never who reviewed.
   'GET /api/followup': async (req, res) => {
     const user = readSession(req);
@@ -1876,6 +2283,7 @@ const routes = {
     u.disabled = !!body.disabled;
     if (u.disabled) revokeSharedStaffSessions(u.id, admin.id, 'account_disabled');
     if (u.disabled) presence.delete(u.id);   // drop them off "training now" at once
+    secEvent(u.disabled ? 'account_disabled' : 'account_enabled', { userId: u.id, actorId: admin.id });
     saveDb();
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
   },
@@ -1883,16 +2291,17 @@ const routes = {
   // Grants/revokes the Trainer role — gym staff who can publish routines to Social's
   // "Entrenadores" section and assign one directly onto a member's plan. Admins are always
   // trainers too (isTrainer), so this flag only matters for non-admin staff accounts.
+  // DEPRECATED (nothing in the app calls it): kept for old clients, but it is only a spelling of the canonical role change, so ADMIN_UIDS, the last-admin rule,
+  // the Shared Staff revocations, the dropped assignments and the audit event all apply. trainer:true → trainer (an admin stays admin); trainer:false → member (an admin stays admin).
   'POST /api/admin/user/trainer': async (req, res) => {
     const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
-    u.trainer = !!body.trainer;
-    if (!isTrainer(u)) revokeSharedStaffSessions(u.id, admin.id, 'trainer_role_removed');
-    saveDb();
-    json(res, 200, { ok: true, id: u.id, trainer: u.trainer });
+    const r = changeRole(admin, u, isAdmin(u) ? 'admin' : body.trainer ? 'trainer' : 'member');
+    json(res, r.status, r.status === 200 ? { ok: true, id: u.id, trainer: isTrainer(u), deprecated: 'use /api/admin/user/role' } : r.body, { Deprecation: 'true' });
   },
+
 
   // Admin-assisted recovery: a short-lived, single-use link that lets a member who lost their
   // only device register a new passkey onto their EXISTING account — see /api/recover/options
@@ -1910,14 +2319,26 @@ const routes = {
     let token;
     do { token = crypto.randomBytes(8).toString('hex').toUpperCase(); } while (db.recoveries.some(r => r.token === token));
     const expiresAt = Date.now() + 15 * 60000;
-    db.recoveries.push({ token, userId: u.id, createdBy: admin.id, created: new Date().toISOString(), expiresAt });
+    // By default the link retires every passkey the account had (the lost-device case); keepExisting: true is for a member who only needs one more.
+    const revokeOld = body.keepExisting !== true;
+    db.recoveries.push({ token, userId: u.id, createdBy: admin.id, created: new Date().toISOString(), expiresAt, revokeOld });
+    secEvent('recovery_link_created', { userId: u.id, actorId: admin.id, meta: { kept: !revokeOld } });
     saveDb();
-    json(res, 200, { token, expiresAt });
+    json(res, 200, { token, expiresAt, revokesOldPasskeys: revokeOld });
   },
 
   // Pending "I lost my passkey" requests raised from the login screen — see POST
   // /api/recover/request above. Newest first; resolved ones drop off after being marked so this
   // never grows without bound.
+  // Admin view of the security log: optionally one person, with names resolved here (the log itself holds ids only).
+  'GET /api/admin/security-events': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const q = new URL(req.url, 'http://x').searchParams;
+    const name = id => (id ? (db.users.find(u => u.id === id) || {}).name || null : null);
+    const events = eventsForAdmin(db, { userId: q.get('userId') || null, limit: Number(q.get('limit')) || 100 })
+      .map(e => ({ ...e, userName: name(e.userId), actorName: name(e.actorId) }));
+    json(res, 200, { events });
+  },
   'GET /api/admin/recovery-requests': async (req, res) => {
     if (!requireAdmin(req, res)) return;
     const open = db.recoveryRequests.filter(r => !r.resolved).map(r => ({
@@ -2033,7 +2454,7 @@ const routes = {
     const stars = Math.round(Number(body.stars));
     if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'las estrellas deben ser de 1 a 5' });
     const post = social.routines.find(r => r.id === body.id);
-    if (!post) return json(res, 404, { error: 'esa rutina no existe' });
+    if (!post || (post.authorId !== user.id && !canViewSocialShare(user, post.authorId, 'routine'))) return json(res, 404, { error: 'esa rutina no existe' });
     post.ratings = post.ratings || [];
     const existing = post.ratings.find(x => x.uid === user.id);
     if (existing) { existing.stars = stars; existing.at = Date.now(); }
@@ -2050,6 +2471,7 @@ const routes = {
     const post = social.routines.find(r => r.id === body.id);
     if (!post) return json(res, 404, { error: 'esa rutina no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (post.authorId !== user.id) moderationRemoved(user, post.authorId, 'routine', post.id);
     deleteUploadedImage(post.image);
     social.routines = social.routines.filter(r => r.id !== body.id);
     saveSocial();
@@ -2292,7 +2714,7 @@ const routes = {
     const stars = Math.round(Number(body.stars));
     if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json(res, 400, { error: 'las estrellas deben ser de 1 a 5' });
     const post = social.programs.find(p => p.id === body.id);
-    if (!post) return json(res, 404, { error: 'ese programa no existe' });
+    if (!post || (post.authorId !== user.id && !canViewSocialShare(user, post.authorId, 'program'))) return json(res, 404, { error: 'ese programa no existe' });
     post.ratings = post.ratings || [];
     const existing = post.ratings.find(x => x.uid === user.id);
     if (existing) { existing.stars = stars; existing.at = Date.now(); }
@@ -2309,6 +2731,7 @@ const routes = {
     const post = social.programs.find(p => p.id === body.id);
     if (!post) return json(res, 404, { error: 'ese programa no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (post.authorId !== user.id) moderationRemoved(user, post.authorId, 'program', post.id);
     deleteUploadedImage(post.image);
     social.programs = social.programs.filter(p => p.id !== body.id);
     saveSocial();
@@ -2322,7 +2745,7 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const visible = social.wall.filter(w => w.authorId === user.id || (w.public && canViewSocialShare(user, w.authorId, 'pr')));
-    json(res, 200, { wall: [...visible].sort((a, b) => b.createdAt - a.createdAt) });
+    json(res, 200, { wall: [...visible].sort((a, b) => b.createdAt - a.createdAt).map(w => ({ ...w, comments: (w.comments || []).filter(c => !hiddenByBlock(user, c.authorId)) })) });
   },
 
   // body: { exId, exName, mode, value, sourceDate, note?, public? } — re-checked against the
@@ -2388,6 +2811,8 @@ const routes = {
     const post = social.wall.find(w => w.id === body.id);
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     if (post.authorId !== user.id && (!post.public || !canViewSocialShare(user, post.authorId, 'pr'))) return json(res, 404, { error: 'esa publicación no existe' });
+    if (hiddenByBlock(user, post.authorId)) return json(res, 404, { error: 'esa publicación no existe' });
+    if (throttled(res, user, LIMITS.commentBurst, LIMITS.commentHour)) return;
     post.comments = post.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     post.comments.push(comment);
@@ -2404,6 +2829,7 @@ const routes = {
     const comment = (post.comments || []).find(c => c.id === body.commentId);
     if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
     if (comment.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (comment.authorId !== user.id) moderationRemoved(user, comment.authorId, 'comment', 'wall:' + post.id + ':' + comment.id);
     post.comments = post.comments.filter(c => c.id !== body.commentId);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2416,6 +2842,7 @@ const routes = {
     const post = social.wall.find(w => w.id === body.id);
     if (!post) return json(res, 404, { error: 'esa publicación no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (post.authorId !== user.id) moderationRemoved(user, post.authorId, 'wall', post.id);
     social.wall = social.wall.filter(w => w.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2428,7 +2855,8 @@ const routes = {
   'GET /api/social/topics': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    json(res, 200, { topics: [...social.topics].sort((a, b) => b.createdAt - a.createdAt) });
+    const topics = social.topics.filter(tp => !hiddenByBlock(user, tp.authorId)).map(tp => ({ ...tp, comments: (tp.comments || []).filter(c => !hiddenByBlock(user, c.authorId)) }));
+    json(res, 200, { topics: topics.sort((a, b) => b.createdAt - a.createdAt) });
   },
 
   'POST /api/social/topics': async (req, res) => {
@@ -2438,6 +2866,7 @@ const routes = {
     const title = String(body.title || '').trim().slice(0, 80);
     const text = String(body.text || '').trim().slice(0, 1000);
     if (!title || !text) return json(res, 400, { error: 'el tema necesita un título y un mensaje' });
+    if (throttled(res, user, LIMITS.topic)) return;
     const topic = {
       id: crypto.randomBytes(9).toString('base64url'),
       authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member',
@@ -2455,7 +2884,8 @@ const routes = {
     const text = String(body.text || '').trim().slice(0, 300);
     if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
     const topic = social.topics.find(t => t.id === body.id);
-    if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
+    if (!topic || hiddenByBlock(user, topic.authorId)) return json(res, 404, { error: 'ese tema ya no existe' });
+    if (throttled(res, user, LIMITS.commentBurst, LIMITS.commentHour)) return;
     topic.comments = topic.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     topic.comments.push(comment);
@@ -2472,6 +2902,7 @@ const routes = {
     const comment = (topic.comments || []).find(c => c.id === body.commentId);
     if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
     if (comment.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    if (comment.authorId !== user.id) moderationRemoved(user, comment.authorId, 'comment', 'topic:' + topic.id + ':' + comment.id);
     topic.comments = topic.comments.filter(c => c.id !== body.commentId);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2484,6 +2915,7 @@ const routes = {
     const topic = social.topics.find(t => t.id === body.id);
     if (!topic) return json(res, 404, { error: 'ese tema ya no existe' });
     if (topic.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    if (topic.authorId !== user.id) moderationRemoved(user, topic.authorId, 'topic', topic.id);
     social.topics = social.topics.filter(t => t.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2497,7 +2929,8 @@ const routes = {
   'GET /api/social/board': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    json(res, 200, { board: [...social.board].sort((a, b) => b.createdAt - a.createdAt) });
+    const board = social.board.filter(b => !hiddenByBlock(user, b.authorId)).map(b => ({ ...b, comments: (b.comments || []).filter(c => !hiddenByBlock(user, c.authorId)) }));
+    json(res, 200, { board: board.sort((a, b) => b.createdAt - a.createdAt) });
   },
 
   'POST /api/social/board': async (req, res) => {
@@ -2533,10 +2966,11 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const post = social.board.find(b => b.id === body.id);
-    if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
+    if (!post || hiddenByBlock(user, post.authorId)) return json(res, 404, { error: 'ese aviso ya no existe' });
     if (!post.commentsEnabled) return json(res, 403, { error: 'los comentarios están desactivados en este aviso' });
     const text = String(body.text || '').trim().slice(0, 300);
     if (!text) return json(res, 400, { error: 'el comentario no puede estar vacío' });
+    if (throttled(res, user, LIMITS.commentBurst, LIMITS.commentHour)) return;
     post.comments = post.comments || [];
     const comment = { id: crypto.randomBytes(9).toString('base64url'), authorId: user.id, authorName: user.name, authorKind: isTrainer(user) ? 'trainer' : 'member', text, createdAt: Date.now() };
     post.comments.push(comment);
@@ -2553,6 +2987,7 @@ const routes = {
     const comment = (post.comments || []).find(c => c.id === body.commentId);
     if (!comment) return json(res, 404, { error: 'ese comentario no existe' });
     if (comment.authorId !== user.id && !isAdmin(user) && !isTrainer(user)) return json(res, 403, { error: 'prohibido' });
+    if (comment.authorId !== user.id) moderationRemoved(user, comment.authorId, 'comment', 'board:' + post.id + ':' + comment.id);
     post.comments = post.comments.filter(c => c.id !== body.commentId);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2565,6 +3000,7 @@ const routes = {
     const post = social.board.find(b => b.id === body.id);
     if (!post) return json(res, 404, { error: 'ese aviso ya no existe' });
     if (post.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (post.authorId !== user.id) moderationRemoved(user, post.authorId, 'board', post.id);
     social.board = social.board.filter(b => b.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2582,7 +3018,7 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const today = new Date().toISOString().slice(0, 10);
-    const list = social.challenges.map(c => ({
+    const list = social.challenges.filter(c => !hiddenByBlock(user, c.authorId)).map(c => ({
       id: c.id, name: c.name, description: c.description, type: c.type,
       targetWorkouts: c.targetWorkouts || null, exId: c.exId || null, exName: c.exName || null,
       metric: c.metric || null, targetValue: c.targetValue || null,
@@ -2600,9 +3036,9 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const id = new URL(req.url, 'http://x').searchParams.get('id') || '';
     const c = social.challenges.find(x => x.id === id);
-    if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
+    if (!c || hiddenByBlock(user, c.authorId)) return json(res, 404, { error: 'ese desafío ya no existe' });
     const leaderboardVisible = c.participants.includes(user.id) || user.id === c.authorId || isTrainer(user);
-    const leaderboard = (leaderboardVisible ? c.participants : []).filter(uid => canViewSocialShare(user, uid, 'challenge')).map(uid => {
+    const leaderboard = (leaderboardVisible ? c.participants : []).filter(uid => !hiddenByBlock(user, uid) && canViewSocialShare(user, uid, 'challenge')).map(uid => {
       const u = db.users.find(x => x.id === uid);
       return { userId: uid, userName: u ? u.name : 'Socio', value: challengeProgress(c, readState(uid)) };
     }).sort((a, b) => b.value - a.value);
@@ -2653,7 +3089,7 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     const c = social.challenges.find(x => x.id === body.id);
-    if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
+    if (!c || hiddenByBlock(user, c.authorId)) return json(res, 404, { error: 'ese desafío ya no existe' });
     if (!c.participants.includes(user.id)) {
       c.participants.push(user.id);
       if (c.authorId !== user.id) {
@@ -2683,6 +3119,7 @@ const routes = {
     const c = social.challenges.find(x => x.id === body.id);
     if (!c) return json(res, 404, { error: 'ese desafío ya no existe' });
     if (c.authorId !== user.id && !isAdmin(user)) return json(res, 403, { error: 'prohibido' });
+    if (c.authorId !== user.id) moderationRemoved(user, c.authorId, 'challenge', c.id);
     social.challenges = social.challenges.filter(x => x.id !== body.id);
     saveSocial();
     json(res, 200, { ok: true });
@@ -2694,7 +3131,15 @@ const routes = {
   'GET /api/social/goals': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const list = social.goals.map(g => {
+    // A goal is somebody's own number: the author sees theirs; an exercise goal follows the "records" privacy like a mark; body weight is health data and
+    // only ever reaches accepted friends who may see the profile. Blocks cut both.
+    const goalVisible = g => {
+      if (g.userId === user.id) return true;
+      if (hiddenByBlock(user, g.userId)) return false;
+      if (g.kind === 'bodyweight') { const p = notificationStore.privacyFor(g.userId); return p.profile !== 'private' && p.activity !== 'nobody' && socialFriends(g.userId, user.id); }
+      return canViewSocialShare(user, g.userId, 'pr');
+    };
+    const list = social.goals.filter(goalVisible).map(g => {
       const S = readState(g.userId);
       const current = !S ? 0 : g.kind === 'bodyweight'
         ? ((S.bodyweight || []).length ? S.bodyweight[S.bodyweight.length - 1].w : 0)
@@ -2745,8 +3190,8 @@ const routes = {
   // Trimmed member list for a trainer's "assign to..." picker — just enough to search/identify
   // someone, not the full admin detail view.
   'GET /api/trainer/members': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
-    const members = db.users.filter(u => !u.disabled).map(u => ({ id: u.id, name: u.name, avatar: u.avatar || null }));
+    const staff = requireTrainer(req, res); if (!staff) return;
+    const members = db.users.filter(u => !u.disabled && canAccessMember(staff, u, isAdmin)).map(u => ({ id: u.id, name: u.name, avatar: u.avatar || null }));
     json(res, 200, { members });
   },
 
@@ -2761,8 +3206,7 @@ const routes = {
     const post = social.routines.find(r => r.id === body.routineId);
     if (!post) return json(res, 404, { error: 'esa rutina no existe' });
     if (post.authorId !== trainer.id) return json(res, 403, { error: 'solo puedes asignar rutinas que hayas publicado tú mismo' });
-    const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, trainer, body.memberId, 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
     const replay = directReceipt(S, body, 'assign-routine');
@@ -2786,8 +3230,7 @@ const routes = {
     const post = social.programs.find(p => p.id === body.programId);
     if (!post) return json(res, 404, { error: 'ese programa no existe' });
     if (post.authorId !== trainer.id) return json(res, 403, { error: 'solo puedes asignar programas que hayas publicado tú mismo' });
-    const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, trainer, body.memberId, 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
     if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
     const replay = directReceipt(S, body, 'assign-program');
@@ -2814,12 +3257,12 @@ const routes = {
   // purpose — never the member's workout history or body weight, same reduced blast radius
   // GET /api/trainer/members already keeps to.
   'GET /api/trainer/member-plan': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
-    const memberId = new URL(req.url, 'http://x').searchParams.get('id') || '';
-    const member = db.users.find(x => x.id === memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const staff = requireTrainer(req, res); if (!staff) return;
+    const member = memberFor(res, staff, new URL(req.url, 'http://x').searchParams.get('id') || '', 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
-    json(res, 200, { routines: S?.routines || [], programs: S?.programs || [], sync: S ? { revision: S._sync.revision, generation: S._sync.generation } : null });
+    json(res, 200, { routines: S?.routines || [], programs: S?.programs || [],
+      gym: S ? { availableEquipment: gymEquipmentContext(S).availableEquipment } : null,
+      sync: S ? { revision: S._sync.revision, generation: S._sync.generation } : null });
   },
 
   // body: { memberId, routineId?, name, emoji, ex, customExDefs?, prog? } — same validation as
@@ -2827,10 +3270,9 @@ const routes = {
   // replaces it in place (same id, so a program's routineIds referencing it stay valid);
   // omitting it (or passing one that doesn't match) appends a new routine instead.
   'POST /api/trainer/member-routine': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
+    const staff = requireTrainer(req, res); if (!staff) return;
     const body = await readBody(req);
-    const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, staff, body.memberId, 'ese miembro no existe'); if (!member) return;
     const name = String(body.name || '').trim().slice(0, 60);
     const ex = Array.isArray(body.ex) ? body.ex : null;
     if (!name || !ex || !ex.length) return json(res, 400, { error: 'una rutina necesita un nombre y al menos un ejercicio' });
@@ -2877,10 +3319,9 @@ const routes = {
   // `week` travels with it (weekday -> routineId), since here the trainer is scheduling it
   // directly rather than leaving that step for the member to do afterward.
   'POST /api/trainer/member-program': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
+    const staff = requireTrainer(req, res); if (!staff) return;
     const body = await readBody(req);
-    const member = db.users.find(x => x.id === body.memberId);
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, staff, body.memberId, 'ese miembro no existe'); if (!member) return;
     const name = String(body.name || '').trim().slice(0, 60);
     const routineIds = Array.isArray(body.routineIds) ? body.routineIds : null;
     const guidedProgramId = typeof body.guidedProgramId === 'string' ? body.guidedProgramId : '';
@@ -2949,10 +3390,9 @@ const routes = {
   // brief only asks to be able to SEE that a meaningfully-changed assignment used to look
   // different, not to revert it.
   'GET /api/trainer/routine-versions': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
+    const staff = requireTrainer(req, res); if (!staff) return;
     const q = new URL(req.url, 'http://x').searchParams;
-    const member = db.users.find(x => x.id === (q.get('memberId') || ''));
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, staff, q.get('memberId') || '', 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
     const routineId = q.get('routineId') || '';
     const current = (S?.routines || []).find(r => r.id === routineId) || null;
@@ -2962,10 +3402,9 @@ const routes = {
 
   // Same idea for programs.
   'GET /api/trainer/program-versions': async (req, res) => {
-    if (!requireTrainer(req, res)) return;
+    const staff = requireTrainer(req, res); if (!staff) return;
     const q = new URL(req.url, 'http://x').searchParams;
-    const member = db.users.find(x => x.id === (q.get('memberId') || ''));
-    if (!member) return json(res, 404, { error: 'ese miembro no existe' });
+    const member = memberFor(res, staff, q.get('memberId') || '', 'ese miembro no existe'); if (!member) return;
     const S = readState(member.id);
     const programId = q.get('programId') || '';
     const current = (S?.programs || []).find(p => p.id === programId) || null;
@@ -2983,7 +3422,7 @@ const routes = {
   // Same factory shape as coachRoutes, but its own file (coach/trainer-ai.js) so this instance's
   // member-facing Coach and the trainer panel's "Generate with AI" can be configured, connected
   // and even enabled/disabled completely independently of each other.
-  ...trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer }),
+  ...trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer, memberFor }),
 
   /* ---------- IA auxiliar de 2J (siempre Gemini, hoy solo exercise_import_matching) ---------- */
   // Same factory shape again — its own file (lib/aux-ai-config.js), its own credential, its own
@@ -2994,19 +3433,26 @@ const routes = {
   // Same factory shape as coachRoutes — their own data/friends.json and data/chat.json, no
   // per-member/per-trainer assignment concept to hook into (trainer status is global, see
   // isTrainer above), so chat is one shared inbox every trainer/admin can see and reply to.
-  ...friendsRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'friend_request'), users: () => db.users, notify: notificationStore.create }),
-  ...chatRoutes({ json, readBody, readSession, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'message'), isTrainer, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), resolveShare: (id, viewer) => {
+  ...friendsRoutes({ json, readBody, readSession, limit: socialLimit, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'friend_request'), users: () => db.users, notify: notificationStore.create }),
+  ...chatRoutes({ json, readBody, readSession, limit: socialLimit, sendPush: (uid, payload) => sendSocialPush(uid, payload, 'message'), isTrainer, canReachMember: (staff, memberId) => { const m = db.users.find(u => u.id === memberId); return !!m && canAccessMember(staff, m, isAdmin); }, users: () => db.users, notify: notificationStore.create, markThreadNotificationsRead: (uid, id) => notificationStore.markTargetRead(uid, 'chat', id), resolveShare: (id, viewer) => {
     const share = sharingStore.findShare(id); if (!share) return null;
+    if (share.snapshot) return canOpenPrivateShare(share, viewer) ? { id: share.id, kind: share.kind, authorName: share.authorName, card: snapshotCard(share), private: true } : null;
     const pref = notificationStore.privacyFor(share.authorId);
     const kind = share.kind === 'record' ? 'pr' : ['routine', 'program'].includes(share.kind) ? 'routine' : ['achievement', 'streak'].includes(share.kind) ? 'achievement' : share.kind;
     if (!canViewSocialShare(viewer, share.authorId, kind)) return null;
-    const card = resolveShareTarget(share.authorId, share.kind, share.targetId);
+    const card = resolveShareTarget(share.authorId, share.kind, share.targetId, share.include);
     return card ? { id: share.id, kind: share.kind, authorName: share.authorName, card } : null;
   }, isFriend: (a, b) => {
     // Friend graph is the existing authoritative relationship model.
     return friendsStore.friendIdsOf(a).includes(b) && !friendsStore.isBlocked(a, b) && !friendsStore.isBlocked(b, a);
   } }),
-  ...sharingRoutes({ json, readBody, readSession, users: () => db.users, isAdmin, resolveTarget: resolveShareTarget, canShareWith: (ownerId, viewerId, kind) => canViewSocialShare({ id: viewerId }, ownerId, kind === 'record' ? 'pr' : ['routine', 'program'].includes(kind) ? 'routine' : ['achievement', 'streak'].includes(kind) ? 'achievement' : kind), resolveReported: resolveReportedContent, removeReported: removeReportedContent, notify: notificationStore.create, sendPush: (uid, payload, type) => sendSocialPush(uid, payload, type) }),
+  ...sharingRoutes({ json, readBody, readSession, limit: socialLimit, moderated: (actor, authorId, type, id) => moderationRemoved(actor, authorId, type, id), featureOn: key => featuresStore.isOn(key), postSnapshot: (ownerId, kind, targetId) => {
+    const p = (kind === 'routine' ? social.routines : social.programs).find(x => x.id === targetId && x.authorId === ownerId);
+    if (!p) return null;
+    const meta = { level: p.level, goal: p.goal, duration: p.duration, origin: 'community' };
+    return kind === 'routine' ? { snapshot: { name: p.name, emoji: p.emoji, prog: p.prog, ex: p.ex, customExDefs: p.customExDefs }, meta }
+      : { snapshot: { name: p.name, emoji: p.emoji, routines: p.routines, daysPerWeek: p.daysPerWeek }, meta };
+  }, users: () => db.users, isAdmin, resolveTarget: resolveShareTarget, canShareWith: (ownerId, viewerId, kind) => canViewSocialShare({ id: viewerId }, ownerId, kind === 'record' ? 'pr' : ['routine', 'program'].includes(kind) ? 'routine' : ['achievement', 'streak'].includes(kind) ? 'achievement' : kind), resolveReported: resolveReportedContent, removeReported: removeReportedContent, notify: notificationStore.create, sendPush: (uid, payload, type) => sendSocialPush(uid, payload, type) }),
   ...notificationRoutes({ json, readBody, readSession }),
 
   /* ---------- Bunker (gym-floor kiosk) ---------- */
@@ -3015,6 +3461,7 @@ const routes = {
   // above. sign/verifySig are the exact functions the signed session cookie itself uses, reused
   // for the kiosk's own short-lived, narrowly-scoped tokens (never a full login).
   ...bunkerRoutes({
+    audit: (actorId, kind, userId, meta) => { secEvent('admin_action', { userId: userId || null, actorId, meta: { kind, ...meta } }); saveDb(); },
     json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users,
     registerInactivitySweep: sweep => {
       // Independent deadlines live in each persisted active workout, never in this tick.
@@ -3060,10 +3507,21 @@ http.createServer(async (req, res) => {
   const key = req.method + ' ' + url.pathname;
   const handler = routes[key];
   if (!handler) return json(res, 404, { error: 'no encontrado' });
+  const gate = featureOfRoute(url.pathname);
+  if (gate && !featuresStore.isOn(gate)) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
   if (requiresStrongAuth(key) && !requireStrongAuth(req, res)) return;
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);
+    if ((e.status || 500) >= 500) opsErrors.record(key, e.status || 500);
     if (!res.headersSent) json(res, e.status || 500, { error: e.status ? e.message : 'error del servidor', code: e.code });
+  }
+  // An administrator's successful write leaves one audit event (what, whom, at most a target id or a count; never a value). See lib/admin-audit.js.
+  const rule = ADMIN_AUDIT[key];
+  if (rule && res.statusCode < 400) {
+    try {
+      const actor = readSession(req);
+      if (actor && isAdmin(actor)) { const d = describeAction(rule, req._body); secEvent('admin_action', { userId: d.userId, actorId: actor.id, meta: d.meta }); saveDb(); }
+    } catch (e) { console.error('admin audit', key, e); }
   }
 }).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));

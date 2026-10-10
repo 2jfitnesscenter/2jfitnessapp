@@ -65,13 +65,10 @@ describe('member', () => {
 })
 
 describe('staff signal', () => {
-  it('"Needs attention" ranks high fatigue under "coming up" and names the signals; text mentions the proposal', async () => {
+  it('the staff follow-up names the fatigue signals and mentions the proposal (the triage side is covered in api/test/coach-followup.test.js)', async () => {
     memory = new Map(); await boot()
-    const { rankAttention } = await import('../lib/attention.js')
     const { alertText } = await import('./AdminFollowUp.jsx')
     const a = { code: 'fatigue_high', points: 7, proposed: true, signals: [{ code: 'effort_up' }, { code: 'hard' }] }
-    const rank = rankAttention([{ user: { id: 'u1', name: 'Ana' }, summary: {}, alerts: [a] }], TODAY)
-    expect(rank.soon).toHaveLength(1); expect(rank.urgent).toHaveLength(0)
     const text = alertText(a)
     expect(text).toContain('Accumulated fatigue is high'); expect(text).toContain('harder effort at the same loads'); expect(text).toContain('A deload has been proposed')
   })

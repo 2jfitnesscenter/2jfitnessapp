@@ -1,0 +1,169 @@
+{
+  "metadata": {
+    "title": "Training Quality V1 and final Program Review UX"
+  },
+  "targetCommit": "c4b30c5b71db20dc11939f0ae48ee7797e518f34",
+  "expectedCurrentCommit": "8458b54f51cd074c63c0623c9192f63f5f6f6f2a",
+  "rollbackCommit": "8458b54f51cd074c63c0623c9192f63f5f6f6f2a",
+  "expectedCommitCount": 13,
+  "maxCommits": 13,
+  "expectedFrontendTests": 1469,
+  "expectedApiTests": 456,
+  "expectedApiPassed": 456,
+  "expectedApiSkipped": 0,
+  "deltaPaths": [
+    "AI_HANDOFF.md",
+    "api/coach/payload.js",
+    "api/coach/prompts/common.md",
+    "api/lib/followup.js",
+    "api/lib/routine-review.js",
+    "api/server.js",
+    "api/test/blocks.test.js",
+    "api/test/protocol-ai.test.js",
+    "api/test/routine-review.test.js",
+    "CHANGELOG.md",
+    "frontend/src/components/RoutineReviewCard.jsx",
+    "frontend/src/components/training-quality-panel.css",
+    "frontend/src/components/TrainingQualityPanel.jsx",
+    "frontend/src/index.css",
+    "frontend/src/lib/routine-review-text.js",
+    "frontend/src/lib/routine-review.js",
+    "frontend/src/lib/routine-review.test.js",
+    "frontend/src/lib/routine-structure.js",
+    "frontend/src/lib/routine-structure.test.js",
+    "frontend/src/locales/es.js",
+    "frontend/src/v3-library.css",
+    "frontend/src/views/AdminAttention.jsx",
+    "frontend/src/views/AdminFollowUp.jsx",
+    "frontend/src/views/Home.jsx",
+    "frontend/src/views/routine-review-ui.test.jsx",
+    "frontend/src/views/Seguimiento.jsx",
+    "frontend/src/views/trainer/Constructor.jsx",
+    "frontend/src/views/trainer/TrainerAIGenerate.jsx",
+    "frontend/src/views/trainer/TrainerClientPlan.jsx",
+    "frontend/src/views/trainer/TrainerRoutineBuilder.jsx"
+  ],
+  "sync": {
+    "rollbackBase": "51a221d8ef524776334d8d67109fb9102407eff2",
+    "syncJsSha256Lf": "8b402562d3a5eccfe7054db5246ca4e9f796b70b24306f9c2f8e0c53470fd586",
+    "syncJsSha256CrLf": "6cd72a0fbf910612efba88fa1a56700664e4b3e322103632ae025c1174085859"
+  },
+  "probes": {
+    "sourceFiles": [
+      "api/server.js",
+      "api/lib/routine-review.js",
+      "api/test/routine-review.test.js",
+      "api/lib/rest-alerts.js",
+      "api/test/rest-alert-routes.test.js",
+      "frontend/src/lib/routine-review.js",
+      "frontend/src/lib/routine-review.test.js",
+      "frontend/src/views/routine-review-ui.test.jsx",
+      "frontend/src/components/RoutineReviewCard.jsx",
+      "frontend/src/components/TrainingQualityPanel.jsx",
+      "frontend/src/views/Home.jsx",
+      "frontend/src/views/Seguimiento.jsx"
+    ],
+    "sourceMarkers": [
+      {
+        "marker": "'GET /api/trainer/routine-cycles'",
+        "file": "api/server.js"
+      },
+      {
+        "marker": "'POST /api/admin/user/routine-reviewed'",
+        "file": "api/server.js"
+      },
+      {
+        "marker": "nextReviewAt: dueDate",
+        "file": "api/lib/routine-review.js"
+      },
+      {
+        "marker": "today < dueDate",
+        "file": "api/lib/routine-review.js"
+      },
+      {
+        "marker": "export function markProgramReviewed",
+        "file": "frontend/src/lib/routine-review.js"
+      },
+      {
+        "marker": "const reviewedInCurrentCycle = isDate(saved.lastReviewAt) && today < dueDate",
+        "file": "frontend/src/lib/routine-review.js"
+      },
+      {
+        "marker": "pendingReviews = (S, today)",
+        "file": "frontend/src/lib/routine-review.js"
+      },
+      {
+        "marker": "pendingReviews(S, todayISO())[0]",
+        "file": "frontend/src/views/Home.jsx"
+      },
+      {
+        "marker": "d.reviews.map",
+        "file": "frontend/src/views/Seguimiento.jsx"
+      },
+      {
+        "marker": "className=\"v3-rr\"",
+        "file": "frontend/src/components/RoutineReviewCard.jsx"
+      },
+      {
+        "marker": "analyzeRoutineStructure",
+        "file": "frontend/src/components/TrainingQualityPanel.jsx"
+      }
+    ],
+    "unauthenticatedRoutes": [
+      {
+        "method": "GET",
+        "path": "/api/shared-device/status",
+        "status": 200,
+        "expectUnauthenticated": true,
+        "requiredBodyMarker": "\"authorized\":false"
+      },
+      {
+        "method": "POST",
+        "path": "/api/shared-device/pin",
+        "status": 403,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/shared-device/step-up",
+        "status": 403,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/admin/shared-devices",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/admin/shared-device/revoke",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/shared-staff/pin",
+        "status": 403,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/admin/shared-staff/pin",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "status": 200,
+        "path": "/api/push/public-key"
+      },
+      {
+        "method": "POST",
+        "expectUnauthenticated": true,
+        "status": 403,
+        "path": "/api/push/subscribe"
+      }
+    ]
+  }
+}

@@ -37,7 +37,10 @@ export default function LineChart({ points, h = 150, unit = '', color = 'var(--a
     tip.style.top = (cy < th + 14 ? Math.min(ch - th - M, cy + 14) : M) + 'px'
   })
 
-  if (!points || points.length === 0) return <div className="empty small">{t('No data yet')}</div>
+  // A point needs a moment to sit on the x axis: its own `t`, else its day. One with neither (or a non-finite y) is left out — never drawn at NaN.
+  const timed = (points || []).map(p => (p && Number.isFinite(p.t) ? p : p && p.d && Number.isFinite(+new Date(p.d + 'T12:00:00')) ? { ...p, t: +new Date(p.d + 'T12:00:00') } : null)).filter(p => p && Number.isFinite(p.y))
+  if (timed.length === 0) return <div className="empty small">{t('No data yet')}</div>
+  points = timed
   const H = h
   const P = { l: axes ? 34 : 8, r: 12, t: 10, b: axes ? 22 : 8 }
   const single = points.length === 1
