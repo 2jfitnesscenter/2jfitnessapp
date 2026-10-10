@@ -73,10 +73,11 @@ const RP_NAME = process.env.RP_NAME || '2J Fitness Center';
 // code the admin generates. Both default off so a fresh self-hosted instance stays open.
 const ADMIN_UIDS = (process.env.ADMIN_UIDS || '').split(',').map(s => s.trim()).filter(Boolean);
 const INVITE_ONLY = /^(1|true|yes|on)$/i.test(process.env.INVITE_ONLY || '');
-// Platform proof issuance and backend exchange are independent, explicit opt-ins. In particular,
+// Platform proof issuance, exchange and reconciliation are independent explicit opt-ins. In particular,
 // credentials, NODE_ENV, request headers, and hostnames never enable either capability.
 const PLATFORM_PROOF_ISSUANCE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_ISSUANCE_ENABLED || '');
 const PLATFORM_PROOF_EXCHANGE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_EXCHANGE_ENABLED || '');
+const PLATFORM_PROOF_RECONCILIATION_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_RECONCILIATION_ENABLED || '');
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
@@ -792,6 +793,7 @@ const routes = {
     json, readSession, store: platformProofStore, users: () => db.users,
     issuanceEnabled: PLATFORM_PROOF_ISSUANCE_ENABLED,
     exchangeEnabled: PLATFORM_PROOF_EXCHANGE_ENABLED,
+    reconciliationEnabled: PLATFORM_PROOF_RECONCILIATION_ENABLED,
     serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
   }),
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
