@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Cron-friendly alarm from the same files the admin ops view reads (no network, no API, no SaaS). Exit 1 and say why when:
+# Cron-friendly alarm from the same files the admin ops view reads (no network, no API, no SaaS, and NO Node: pure shell + coreutils, so it
+# runs on a host that only has Docker). Exit 1 and say why when:
 #   the last backup failed or is older than 36 h (or never ran), the last restore rehearsal failed, or the disk is nearly full.
-#   scripts/ops-check.sh [min_free_percent]      e.g.  */30 * * * * cd /opt/2jfitness && scripts/ops-check.sh
+# A restore rehearsal that is "due" (> 100 days) or never done is only a note (the admin view shows it), not an alarm.
+#   scripts/ops-check.sh [min_free_percent]      e.g.  */30 * * * * cd /opt/2jfitness && scripts/ops-check.sh   (installed by scripts/install-ops-cron.sh)
 #   scripts/ops-check.sh --alert-test            sends one "test" through the alert command and exits (proves the wiring)
-# A restore rehearsal that is merely "due" (> 100 days) or never done is reported but is not an alarm here (see the admin view).
+# Reads $OPS_DIR/backup-status.json and restore-status.json (default <repo>/data/ops, which may be mode 700 root:root: run it as root, as cron does).
 #
 # Alert hook (optional, provider-agnostic, nothing hardcoded): set OPS_ALERT_COMMAND to any command you trust (a mail wrapper, a curl
 # script, ...). It is run through `bash -c "$OPS_ALERT_COMMAND" ops-alert "<message>"`, so inside it the message is "$1"; it is ALSO on
@@ -27,38 +29,73 @@ alert() { # status subject message
   return "$rc"
 }
 
+# No OPS_ALERT_COMMAND but the owner has put a destination in /etc/2j-alert.conf: use the reference command shipped with the repo.
+if [ -z "${OPS_ALERT_COMMAND:-}" ] && [ -s "${OPS_ALERT_CONF:-/etc/2j-alert.conf}" ]; then OPS_ALERT_COMMAND="bash '$SCRIPT_DIR/ops-alert.sh' \"\$1\""; fi
+
 if [ "${1:-}" = "--alert-test" ]; then
   [ -n "${OPS_ALERT_COMMAND:-}" ] || { echo "ops-check: OPS_ALERT_COMMAND is not set" >&2; exit 2; }
-  alert test "2J ops: alert test" "This is a test of the 2J ops alert command."
+  alert test "2J ops: alert test" "This is a test of the 2J ops alert command." || { echo "ops-check: test alert FAILED (the alert command did not exit 0)" >&2; exit 1; }
   echo "ops-check: test alert sent"; exit 0
 fi
 
 min_free="${1:-15}"
-out="$(OPS_DIR="$OPS_DIR" MIN_FREE="$min_free" node --input-type=module -e '
-import fs from "node:fs";
-const rd = f => { try { return JSON.parse(fs.readFileSync(process.env.OPS_DIR + "/" + f, "utf8")); } catch { return null; } };
-const problems = [], notes = [];
-const b = rd("backup-status.json");
-if (!b) problems.push("backup: never ran (no backup-status.json)");
-else if (b.ok !== true) problems.push("backup: last run FAILED (" + (b.reason || "unknown") + " at " + (b.stage || "?") + ", " + b.at + ")");
-else if (!(Date.now() - Date.parse(b.at) < 36 * 3600000)) problems.push("backup: last success is older than 36 h (" + b.at + ")");
-const r = rd("restore-status.json");
-if (!r) notes.push("restore rehearsal: never done");
-else if (r.ok !== true) problems.push("restore rehearsal: last run FAILED (" + (r.stage || "?") + ", " + r.at + ")");
-else if (!(Date.now() - Date.parse(r.at) < 100 * 86400000)) notes.push("restore rehearsal: due (" + r.at + ")");
-try { const s = fs.statfsSync(process.env.OPS_DIR); const free = Number(s.bavail) / Number(s.blocks) * 100; if (free < Number(process.env.MIN_FREE)) problems.push("disk: " + free.toFixed(1) + "% free"); } catch {}
-for (const n of notes) console.log("note: " + n);
-for (const p of problems) console.log("ALARM: " + p);
-process.exit(problems.length ? 1 : 0);
-')"; rc=$?
-[ -n "$out" ] && echo "$out"
+MAX_BACKUP_AGE_S=$(( 36 * 3600 )); REHEARSAL_DUE=$(( 100 * 86400 ))
+now="$(date +%s)"
+problems=(); notes=()
+
+# --- tiny JSON readers for the flat files our own scripts write (fixed words, numbers, ISO times; no nesting) ---
+field() { # file key -> value ("" when absent)
+  sed -n "s/.*\"$2\":[[:space:]]*\"\{0,1\}\([^\",}]*\)\"\{0,1\}.*/\1/p" "$1" 2>/dev/null | head -n 1
+}
+epoch() { # ISO-8601 UTC -> epoch seconds ("" when unparsable); GNU date first, BSD date as a fallback
+  date -u -d "$1" +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%SZ' "$1" +%s 2>/dev/null || true
+}
+# status of one file: missing | unreadable | present
+presence() { if [ -e "$1" ]; then if [ -r "$1" ]; then echo present; else echo unreadable; fi; else echo missing; fi; }
+
+# --- backup ---
+bf="$OPS_DIR/backup-status.json"
+case "$(presence "$bf")" in
+  missing) problems+=("backup: never ran (no backup-status.json)") ;;
+  unreadable) problems+=("backup: status file is not readable by this user (run it as root / check permissions)") ;;
+  present)
+    b_at="$(field "$bf" at)"; b_ok="$(field "$bf" ok)"; b_ts="$(epoch "$b_at")"
+    if [ "$b_ok" != "true" ]; then b_reason="$(field "$bf" reason)"; b_stage="$(field "$bf" stage)"; problems+=("backup: last run FAILED (${b_reason:-unknown} at ${b_stage:-?}, $b_at)")
+    elif [ -z "$b_ts" ] || [ $(( now - b_ts )) -ge "$MAX_BACKUP_AGE_S" ]; then problems+=("backup: last success is older than 36 h ($b_at)")
+    fi ;;
+esac
+
+# --- restore rehearsal ---
+rf="$OPS_DIR/restore-status.json"
+case "$(presence "$rf")" in
+  missing) notes+=("restore rehearsal: never done") ;;
+  unreadable) problems+=("restore rehearsal: status file is not readable by this user (run it as root / check permissions)") ;;
+  present)
+    r_at="$(field "$rf" at)"; r_ok="$(field "$rf" ok)"; r_ts="$(epoch "$r_at")"
+    if [ "$r_ok" != "true" ]; then problems+=("restore rehearsal: last run FAILED ($(field "$rf" stage), $r_at)")
+    elif [ -z "$r_ts" ] || [ $(( now - r_ts )) -ge "$REHEARSAL_DUE" ]; then notes+=("restore rehearsal: due ($r_at)")
+    fi ;;
+esac
+
+# --- disk (same rule as disk-check.sh: percent still free on the filesystem holding the ops dir) ---
+disk_path="$OPS_DIR"; [ -d "$disk_path" ] || disk_path="$(dirname "$OPS_DIR")"
+used="$(df -P "$disk_path" 2>/dev/null | awk 'NR==2 {gsub("%","",$5); print $5}')"
+if [ -n "$used" ] && [ "$used" -eq "$used" ] 2>/dev/null; then
+  free=$(( 100 - used ))
+  [ "$free" -lt "$min_free" ] && problems+=("disk: ${free}% free")
+fi
+
+out=""; rc=0
+for n in "${notes[@]+"${notes[@]}"}"; do out+="note: $n"$'\n'; done
+for p in "${problems[@]+"${problems[@]}"}"; do out+="ALARM: $p"$'\n'; rc=1; done
+printf '%s' "$out"
 [ "$rc" -eq 0 ] && echo "ops-check: ok"
 
 # alert hook: tell someone when the alarm starts or changes (then at most every OPS_ALERT_REPEAT_MIN), and once when it clears
 if [ -n "${OPS_ALERT_COMMAND:-}" ]; then
-  alarms="$(printf '%s\n' "$out" | grep '^ALARM: ' || true)"
+  alarms="$(printf '%s' "$out" | grep '^ALARM: ' || true)"
   sig="$(printf '%s' "$alarms" | cksum | cut -d' ' -f1)"
-  now="$(date +%s)"; prev_sig=""; prev_at=0
+  prev_sig=""; prev_at=0
   [ -f "$STATE" ] && read -r prev_sig prev_at < "$STATE" 2>/dev/null
   if [ "$rc" -ne 0 ]; then
     if [ "$sig" != "$prev_sig" ] || [ $(( now - ${prev_at:-0} )) -ge $(( ${OPS_ALERT_REPEAT_MIN:-360} * 60 )) ]; then

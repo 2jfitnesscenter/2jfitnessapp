@@ -13,7 +13,7 @@ const posix = p => p.split(path.sep).join('/');
 const hasBash = spawnSync('bash', ['-c', 'command -v openssl tar gzip sha256sum >/dev/null']).status === 0;
 const opts = { skip: hasBash ? false : 'bash/openssl not available' };
 const rm = d => fs.rmSync(d, { recursive: true, force: true });
-const OPS_SCRIPTS = ['backup-data.sh', 'backup-offsite.sh', 'restore-backup.sh', 'restore-rehearsal.sh', 'ops-check.sh', 'mark-deploy.sh', 'disk-check.sh'];
+const OPS_SCRIPTS = ['backup-data.sh', 'backup-offsite.sh', 'restore-backup.sh', 'restore-rehearsal.sh', 'ops-check.sh', 'mark-deploy.sh', 'disk-check.sh', 'install-ops-cron.sh', 'ops-alert.sh'];
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), '2j-opsx-'));
@@ -209,4 +209,11 @@ test('restore-backup --verify-only: an archive without data/ is exit 6, a wrong 
   fs.rmSync(enc + '.sha256');
   assert.equal(f.run('restore-backup.sh', ['--verify-only', posix(enc)]).status, 5, 'without a sidecar the decrypt/gzip check catches it');
   rm(f.root);
+});
+
+test('every ops script is committed executable (the release runner and cron call them directly)', () => {
+  const r = spawnSync('git', ['ls-files', '-s', ...OPS_SCRIPTS.map(s => `scripts/${s}`)], { cwd: repo, encoding: 'utf8' });
+  if (r.status !== 0 || !r.stdout.trim()) return;                  // not a git checkout (e.g. an exported tree): nothing to assert
+  const modes = Object.fromEntries(r.stdout.trim().split('\n').map(l => { const [mode, , , file] = l.split(/\s+/); return [file, mode]; }));
+  for (const s of OPS_SCRIPTS) assert.equal(modes[`scripts/${s}`], '100755', `${s} must be mode 100755`);
 });
