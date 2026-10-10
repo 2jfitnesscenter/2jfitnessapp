@@ -307,7 +307,7 @@ try {
   & docker rm --force $ImageSmokeName | Out-Null
 }
 Write-Host 'Validacion local (tests, build, locales, generadores)...'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs' @('tests 30', 'pass 30', 'fail 0', 'skipped 0')
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs' @('tests 38', 'pass 38', 'fail 0', 'skipped 0')
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend 'npx vitest run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx' @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
@@ -500,7 +500,9 @@ http_probe_for_retry() {
 }
 
 wait_status() {
-  local expected=$1 url=$2 body=$3 headers=$4 timeout=${5:-45} encoding=${6:-} method=${7:-GET} data=${8:-}
+  # gate (9th argument, e.g. feature_off): for a route the admin can switch off, a 403 whose body carries that exact code counts as the expected "closed to
+  # an anonymous caller" answer, same as the 401. Any other 403, or any other status, is still fatal.
+  local expected=$1 url=$2 body=$3 headers=$4 timeout=${5:-45} encoding=${6:-} method=${7:-GET} data=${8:-} gate=${9:-}
   local status=000 transport=0 probe_result deadline=$((SECONDS + timeout)) remaining attempt_time sleep_time attempt=0 transient
   while (( SECONDS < deadline )); do
     attempt=$((attempt + 1))
@@ -513,7 +515,8 @@ wait_status() {
     read -r transport status <<< "$probe_result"
     [[ -n "$status" ]] || status=000
     transient=0
-    if (( transport == 0 )) && [[ "$status" == "$expected" ]]; then
+    if (( transport == 0 )) && [[ "$status" == "$expected" || ( -n "$gate" && "$status" == 403 ) ]] && { [[ "$status" == "$expected" ]] || grep -Eq "\"code\"[[:space:]]*:[[:space:]]*\"$gate\"" "$body"; }; then
+      [[ "$status" == "$expected" ]] || printf 'HTTP_FEATURE_GATE url=%s status=403 code=%s (closed by the admin switch)\n' "$url" "$gate" >&2
       printf 'HTTP_OK attempt=%s url=%s status=%s\n' "$attempt" "$url" "$status" >&2
       printf '%s' "$status"
       return 0
@@ -1757,24 +1760,24 @@ if grep -Eq "$HEALTH_KEYS" /tmp/2j-bunker-settings-body; then printf 'PRIVACY_LE
 if grep -q '"uid"' /tmp/2j-bunker-body; then grep -q '"restSec"' /tmp/2j-bunker-body || { printf 'BUNKER_REST_SEC_MISSING\n'; false; }; fi
 
 STEP=social-smoke
-SOCIAL_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/wall /tmp/2j-social-body /tmp/2j-social-headers "$SMOKE_TIMEOUT_SEC")
+SOCIAL_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/wall /tmp/2j-social-body /tmp/2j-social-headers "$SMOKE_TIMEOUT_SEC" '' GET '' feature_off)
 
 STEP=community-v2-smoke
-FRIENDS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends /tmp/2j-friends-body /tmp/2j-friends-headers "$SMOKE_TIMEOUT_SEC")
-FRIENDS_REQUEST_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/request /tmp/2j-friends-request-body /tmp/2j-friends-request-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-FRIENDS_BLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/block /tmp/2j-friends-block-body /tmp/2j-friends-block-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-FRIENDS_UNBLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/unblock /tmp/2j-friends-unblock-body /tmp/2j-friends-unblock-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-CHAT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/threads /tmp/2j-chat-body /tmp/2j-chat-headers "$SMOKE_TIMEOUT_SEC")
-CHAT_DIRECT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/direct /tmp/2j-chat-direct-body /tmp/2j-chat-direct-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+FRIENDS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends /tmp/2j-friends-body /tmp/2j-friends-headers "$SMOKE_TIMEOUT_SEC" '' GET '' feature_off)
+FRIENDS_REQUEST_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/request /tmp/2j-friends-request-body /tmp/2j-friends-request-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
+FRIENDS_BLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/block /tmp/2j-friends-block-body /tmp/2j-friends-block-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
+FRIENDS_UNBLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/unblock /tmp/2j-friends-unblock-body /tmp/2j-friends-unblock-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
+CHAT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/threads /tmp/2j-chat-body /tmp/2j-chat-headers "$SMOKE_TIMEOUT_SEC" '' GET '' feature_off)
+CHAT_DIRECT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/direct /tmp/2j-chat-direct-body /tmp/2j-chat-direct-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
 NOTIFICATIONS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/notifications /tmp/2j-notifications-body /tmp/2j-notifications-headers "$SMOKE_TIMEOUT_SEC")
 NOTIFICATION_READ_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/notifications/read /tmp/2j-notification-read-body /tmp/2j-notification-read-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
 NOTIFICATION_READ_ALL_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/notifications/read-all /tmp/2j-notification-read-all-body /tmp/2j-notification-read-all-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
 SOCIAL_PREFS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/preferences /tmp/2j-social-prefs-body /tmp/2j-social-prefs-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-SOCIAL_SHARE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/shares /tmp/2j-social-share-body /tmp/2j-social-share-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-SOCIAL_REPORT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/reports /tmp/2j-social-report-body /tmp/2j-social-report-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+SOCIAL_SHARE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/shares /tmp/2j-social-share-body /tmp/2j-social-share-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
+SOCIAL_REPORT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/reports /tmp/2j-social-report-body /tmp/2j-social-report-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
 MODERATION_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/social-reports /tmp/2j-moderation-body /tmp/2j-moderation-headers "$SMOKE_TIMEOUT_SEC")
 MODERATION_RESOLVE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/social-reports/resolve /tmp/2j-moderation-resolve-body /tmp/2j-moderation-resolve-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-for status in "$FRIENDS_STATUS" "$FRIENDS_REQUEST_STATUS" "$FRIENDS_BLOCK_STATUS" "$FRIENDS_UNBLOCK_STATUS" "$CHAT_STATUS" "$CHAT_DIRECT_STATUS" "$NOTIFICATIONS_STATUS" "$NOTIFICATION_READ_STATUS" "$NOTIFICATION_READ_ALL_STATUS" "$SOCIAL_PREFS_STATUS" "$SOCIAL_SHARE_STATUS" "$SOCIAL_REPORT_STATUS" "$MODERATION_STATUS" "$MODERATION_RESOLVE_STATUS"; do [[ "$status" == 401 ]]; done
+for status in "$FRIENDS_STATUS" "$FRIENDS_REQUEST_STATUS" "$FRIENDS_BLOCK_STATUS" "$FRIENDS_UNBLOCK_STATUS" "$CHAT_STATUS" "$CHAT_DIRECT_STATUS" "$NOTIFICATIONS_STATUS" "$NOTIFICATION_READ_STATUS" "$NOTIFICATION_READ_ALL_STATUS" "$SOCIAL_PREFS_STATUS" "$SOCIAL_SHARE_STATUS" "$SOCIAL_REPORT_STATUS" "$MODERATION_STATUS" "$MODERATION_RESOLVE_STATUS"; do [[ "$status" == 401 || "$status" == 403 ]]; done   # 403 only ever comes back from wait_status for a switched-off feature (code feature_off); any other 403 already failed there
 verify_poststart_data
 printf 'COMMUNITY_V2=OK friends=%s requests=%s blocks=%s direct_chat=%s auth_boundary=401\n' "$FRIENDS_STATUS" "$FRIENDS_REQUEST_STATUS" "$FRIENDS_BLOCK_STATUS" "$CHAT_DIRECT_STATUS"
 printf 'NOTIFICATIONS=OK inbox=%s read=%s read_all=%s dedupe=release_contract push_opt_in=release_contract\n' "$NOTIFICATIONS_STATUS" "$NOTIFICATION_READ_STATUS" "$NOTIFICATION_READ_ALL_STATUS"

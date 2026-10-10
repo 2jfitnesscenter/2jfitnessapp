@@ -64,6 +64,7 @@ export function validateConfig(c) {
   const pinProbeStatuses = []
   const noOriginPushProbeStatuses = []
   for (const r of c.probes.unauthenticatedRoutes) {
+    if (r.featureGate !== undefined && (r.featureGate !== true || r.status !== 401 || r.expectUnauthenticated !== true)) fail('INVALID_FEATURE_GATE_ROUTE')
     if (!['GET', 'POST'].includes(r.method) || !/^\/api\/[A-Za-z0-9/_-]+$/.test(r.path) || !Number.isInteger(r.status) || r.status < 200 || r.status > 599) fail('INVALID_UNAUTHENTICATED_ROUTE')
     if (NO_CREDENTIAL_PIN_PROBES.some(p => p.method === r.method && p.path === r.path)) pinProbeStatuses.push({ route: r, status: r.status })
     if (NO_ORIGIN_PUSH_PROBES.some(p => p.method === r.method && p.path === r.path)) noOriginPushProbeStatuses.push({ route: r, status: r.status })
@@ -96,7 +97,7 @@ function renderPostStartProbes(c) {
     const headers = `/tmp/2j-release-probe-${i + 1}-headers`
     const url = `https://app.2jfitnesscenter.com${route.path}`
     if (route.path.startsWith('/api/shared-') || route.path.startsWith('/api/admin/shared-')) lines.push(`printf 'SHARED_STAFF_PROBE route=${route.path} method=${route.method} expected=${route.status}\\n'`)
-    lines.push(`${key}_STATUS=$(wait_status ${route.status} ${shQuote(url)} ${body} ${headers} 45${route.method === 'POST' ? ` '' POST '{}'` : ''})`)
+    lines.push(`${key}_STATUS=$(wait_status ${route.status} ${shQuote(url)} ${body} ${headers} 45${route.method === 'POST' ? ` '' POST '{}'` : route.featureGate ? ` '' GET ''` : ''}${route.featureGate ? ' feature_off' : ''})`)
     if (route.expectUnauthenticated === true) lines.push(`if grep -Eqi '"(user|staff|session|deviceToken|pinHash)"[[:space:]]*:' ${body}; then printf 'SHARED_ROUTE_DATA_LEAK=${route.path}\\n'; false; fi`)
     if (route.requiredBodyMarker) lines.push(`grep -Fq ${shQuote(route.requiredBodyMarker)} ${body}`)
   }
