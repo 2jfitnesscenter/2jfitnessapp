@@ -1,0 +1,53 @@
+{
+  "taskId": "2J-078F-A",
+  "title": "Training durable proof receipt and reconciliation endpoint",
+  "status": "implementation_complete_local_checks_pass_remote_ci_pending",
+  "repository": "2jfitnesscenter/2jfitnessapp",
+  "baseSha": "0ac1317686cea81e63674a2bcb8cde870d5d6dcc",
+  "branch": "agent/codex/2J-078F-A-proof-receipt-reconciliation",
+  "worktree": "C:\\Users\\juanj\\Dev\\2J\\worktrees\\codex\\2jfitnessapp\\2J-078F-A",
+  "pullRequest": null,
+  "headSha": null,
+  "receipt": {
+    "version": 1,
+    "fields": ["receiptId", "receiptVersion", "proofId", "transactionId", "personId", "audience", "purpose", "challengeDigest", "trainingUserId", "verifiedAt"],
+    "immutable": true,
+    "retention": "indefinite in this phase; not pruned with 90-day proof records",
+    "persistence": "Existing encrypted platform-link-proofs.dat; proof consume and receipt persisted in one synchronous write",
+    "multiReplicaSafe": false,
+    "fsyncGuaranteed": false
+  },
+  "reconciliation": {
+    "method": "POST",
+    "path": "/api/platform/v1/link-proofs/reconcile",
+    "request": "strict {v,transactionId,personId,audience,purpose,challengeDigest}; no code or caller trainingUserId",
+    "authentication": "2J-SERVICE-AUTH-V1 exact path; existing PLATFORM_SERVICE_AUTH_KEYS allowlist and replay store",
+    "freshRequestIdRequired": true,
+    "sameContextDifferentRequestId": "returns same immutable receipt",
+    "notFound": "404 verification_receipt_not_found for all exact-context misses",
+    "historicalAccountState": "reconciliation does not require current enabled account"
+  },
+  "flags": {
+    "PLATFORM_PROOF_ISSUANCE_ENABLED": false,
+    "PLATFORM_PROOF_EXCHANGE_ENABLED": false,
+    "PLATFORM_PROOF_RECONCILIATION_ENABLED": false,
+    "credentialsEnableFlags": false
+  },
+  "canonicalLinkCreated": false,
+  "ssoImplemented": false,
+  "liveEnabled": false,
+  "validation": {
+    "protocolTests": "21 passed, 0 failed, 0 skipped",
+    "apiFullSuite": "466 passed, 0 failed, 5 skipped: four Bash/OpenSSL backup tests and one Bash secret-separation shell test unavailable on this Windows host",
+    "frontendSuite": "1445 passed, 0 failed, 0 skipped with two workers",
+    "frontendBuild": "passed",
+    "localeCheck": "passed; Spanish 4540/4540, existing other locale partial coverage 1160/4540",
+    "coachLibraryCheck": "passed; 1324 exercises",
+    "apiImage": "fresh no-cache Docker build passed; runtime smoke healthy without credentials; reconciliation disabled returned 423",
+    "audit": "unchanged baseline not clean: API 3 (1 moderate, 1 high, 1 critical); frontend 21 (1 low, 6 moderate, 10 high, 4 critical); no dependency files changed",
+    "secretScan": "no local gitleaks/trufflehog/detect-secrets executable; no production credential added; remote CI pending",
+    "gitDiffCheck": "passed",
+    "githubChecks": "pending"
+  },
+  "reviewRequired": "Independent security and QA review; do not merge"
+}

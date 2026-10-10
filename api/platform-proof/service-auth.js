@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 
 export const SERVICE_AUTH_PATH = '/api/platform/v1/link-proofs/exchange';
+export const SERVICE_RECONCILIATION_PATH = '/api/platform/v1/link-proofs/reconcile';
+const SERVICE_AUTH_PATHS = new Set([SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH]);
 export const SERVICE_AUTH_FRESHNESS_MS = 60_000;
 export const SERVICE_AUTH_REPLAY_TTL_MS = 2 * SERVICE_AUTH_FRESHNESS_MS;
 const KEY_ID = /^[A-Za-z0-9._-]{1,80}$/;
@@ -29,7 +31,7 @@ export function verifyPlatformServiceRequest({ method, requestTarget, headers, b
   const header = name => typeof headers?.[name] === 'string' ? headers[name] : null;
   const keyId = header('x-2j-key-id'), timestamp = header('x-2j-timestamp'), requestId = header('x-2j-request-id'), signature = header('x-2j-signature');
   if (!keyId || !timestamp || !requestId || !signature) return { status: 'service_auth_required' };
-  if (!KEY_ID.test(keyId) || !UUID.test(requestId) || !SIGNATURE.test(signature) || method !== 'POST' || requestTarget !== SERVICE_AUTH_PATH) return { status: 'service_auth_invalid' };
+  if (!KEY_ID.test(keyId) || !UUID.test(requestId) || !SIGNATURE.test(signature) || method !== 'POST' || !SERVICE_AUTH_PATHS.has(requestTarget)) return { status: 'service_auth_invalid' };
   if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(timestamp)) return { status: 'service_auth_invalid' };
   const timestampMs = Date.parse(timestamp);
   if (!Number.isFinite(timestampMs) || new Date(timestampMs).toISOString() !== timestamp || Math.abs(now - timestampMs) > freshnessMs) return { status: 'service_auth_invalid' };

@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { SERVICE_AUTH_PATH, verifyPlatformServiceRequest } from './service-auth.js';
+import { SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH, verifyPlatformServiceRequest } from './service-auth.js';
 
 export const PLATFORM_LINK_AUDIENCE = '2j-training-account-link';
 export const PLATFORM_LINK_PURPOSE = 'training-account-link';
@@ -20,6 +20,11 @@ const exchangeSchema = z.object({
   v: z.literal(1), code: z.string().min(43).max(128).regex(/^[A-Za-z0-9_-]+$/),
   transactionId: z.string().regex(UUID), personId: z.string().regex(UUID),
   audience: z.string().min(1).max(120).regex(/^[\x21-\x7e]+$/), purpose: z.string().min(1).max(120).regex(/^[\x21-\x7e]+$/),
+  challengeDigest: z.string().regex(SHA256),
+}).strict();
+const reconciliationSchema = z.object({
+  v: z.literal(1), transactionId: z.string().regex(UUID), personId: z.string().regex(UUID),
+  audience: z.literal(PLATFORM_LINK_AUDIENCE), purpose: z.literal(PLATFORM_LINK_PURPOSE),
   challengeDigest: z.string().regex(SHA256),
 }).strict();
 
@@ -56,7 +61,7 @@ function canonicalPlatformExpiry(value, timestamp) {
 
 const error = (json, res, status, code) => json(res, status, { error: code });
 
-export function createPlatformProofRoutes({ json, readSession, store, users, issuanceEnabled = false, exchangeEnabled = false, serviceKeys = new Map(), now = Date.now }) {
+export function createPlatformProofRoutes({ json, readSession, store, users, issuanceEnabled = false, exchangeEnabled = false, reconciliationEnabled = false, serviceKeys = new Map(), now = Date.now }) {
   return {
     'POST /api/platform/v1/link-proofs': async (req, res) => {
       res.setHeader?.('Cache-Control', 'no-store');
@@ -116,6 +121,8 @@ export function createPlatformProofRoutes({ json, readSession, store, users, iss
         if (result.status === 'exchanged') return json(res, 200, result.receipt);
         const responses = {
           service_request_replayed: [409, 'service_request_replayed'],
+          verification_receipt_conflict: [409, 'verification_receipt_conflict'],
+          verification_receipt_exists: [409, 'verification_receipt_exists'],
           proof_not_found: [404, 'proof_not_found'],
           proof_expired: [410, 'proof_expired'],
           proof_already_consumed: [409, 'proof_already_consumed'],
@@ -123,6 +130,35 @@ export function createPlatformProofRoutes({ json, readSession, store, users, iss
         };
         const [status, codeName] = responses[result.status] || [503, 'platform_linking_unavailable'];
         return error(json, res, status, codeName);
+      } catch {
+        return error(json, res, 503, 'platform_linking_unavailable');
+      }
+    },
+
+    'POST /api/platform/v1/link-proofs/reconcile': async (req, res) => {
+      res.setHeader?.('Cache-Control', 'no-store');
+      if (!reconciliationEnabled) return error(json, res, 423, 'platform_linking_disabled');
+      let raw;
+      try { raw = await readRawBody(req); }
+      catch (cause) { return error(json, res, cause?.code === 'BODY_TOO_LARGE' ? 413 : 400, 'invalid_context'); }
+      const authorization = verifyPlatformServiceRequest({
+        method: req.method, requestTarget: req.url, headers: req.headers,
+        body: raw, keys: serviceKeys, now: now(),
+      });
+      if (authorization.status !== 'ok') return error(json, res, 401, authorization.status);
+      if (req.headers?.['content-type']?.split(';', 1)[0]?.trim().toLowerCase() !== 'application/json') return error(json, res, 400, 'invalid_context');
+      const parsed = reconciliationSchema.safeParse(parseJson(raw));
+      if (!parsed.success) return error(json, res, 400, 'invalid_context');
+      try {
+        const result = store.reconcile({ requestId: authorization.requestId, context: parsed.data });
+        if (result.status === 'verified') return json(res, 200, result.receipt);
+        const responses = {
+          service_request_replayed: [409, 'service_request_replayed'],
+          verification_receipt_not_found: [404, 'verification_receipt_not_found'],
+          verification_receipt_conflict: [409, 'verification_receipt_conflict'],
+        };
+        const [status, code] = responses[result.status] || [503, 'platform_linking_unavailable'];
+        return error(json, res, status, code);
       } catch {
         return error(json, res, 503, 'platform_linking_unavailable');
       }

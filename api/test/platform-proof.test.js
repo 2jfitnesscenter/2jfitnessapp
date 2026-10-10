@@ -9,8 +9,8 @@ import { tempData } from './helpers.mjs';
 const DIR = tempData();
 const { createPlatformProofStore, platformProofStoreConstants } = await import('../platform-proof/store.js');
 const { createPlatformProofRoutes, PLATFORM_LINK_AUDIENCE, PLATFORM_LINK_PURPOSE, PLATFORM_PROOF_TTL_MS } = await import('../platform-proof/routes.js');
-const { parseServiceAuthKeys, signPlatformServiceRequest, verifyPlatformServiceRequest, SERVICE_AUTH_PATH } = await import('../platform-proof/service-auth.js');
-const { decrypt } = await import('../lib/crypto.js');
+const { parseServiceAuthKeys, signPlatformServiceRequest, verifyPlatformServiceRequest, SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH } = await import('../platform-proof/service-auth.js');
+const { decrypt, encrypt } = await import('../lib/crypto.js');
 
 const SECRET_A = Buffer.alloc(32, 0x42);
 const SECRET_B = Buffer.alloc(32, 0x43);
@@ -26,7 +26,7 @@ const context = (overrides = {}) => ({
   ...overrides,
 });
 
-function fixture({ issuanceEnabled = true, exchangeEnabled = true, session = { id: platformUserA, authLevel: 'passkey' }, clock = Date.now() } = {}) {
+function fixture({ issuanceEnabled = true, exchangeEnabled = true, reconciliationEnabled = true, session = { id: platformUserA, authLevel: 'passkey' }, clock = Date.now() } = {}) {
   let current = typeof clock === 'function' ? clock() : clock;
   const now = () => current;
   const dataDir = fs.mkdtempSync(path.join(DIR, 'fixture-'));
@@ -39,6 +39,7 @@ function fixture({ issuanceEnabled = true, exchangeEnabled = true, session = { i
     users: () => activeUsers,
     issuanceEnabled,
     exchangeEnabled,
+    reconciliationEnabled,
     serviceKeys: keys,
     now,
   });
@@ -89,6 +90,14 @@ async function exchange(f, code, ctx = context(), options = {}) {
   const signed = signedHeaders({ body, ...options.signing });
   const headers = { ...signed.headers, ...(options.headers || {}) };
   return { response: await invoke(f.routes['POST /api/platform/v1/link-proofs/exchange'], 'POST', options.requestTarget || SERVICE_AUTH_PATH, body, headers), body, signed };
+}
+
+async function reconcile(f, ctx = context(), options = {}) {
+  const { expiresAt: _expiresAt, v: _version, ...reconciliationContext } = ctx;
+  const body = Buffer.from(JSON.stringify({ v: 1, ...reconciliationContext, ...options.bodyOverrides }));
+  const signed = signedHeaders({ body, path: SERVICE_RECONCILIATION_PATH, ...options.signing });
+  const headers = { ...signed.headers, ...(options.headers || {}) };
+  return { response: await invoke(f.routes['POST /api/platform/v1/link-proofs/reconcile'], 'POST', options.requestTarget || SERVICE_RECONCILIATION_PATH, body, headers), body, signed };
 }
 
 test('feature flags stay independently off by default and issuance requires a real account session', async () => {
@@ -298,4 +307,226 @@ test('service request IDs persist across store reload and concurrent exchanges h
   assert.equal(seenAgain.statusCode, 409);
   assert.equal(seenAgain.body.error, 'service_request_replayed', 'service replay state survives a process/store reload');
   assert.equal(JSON.stringify(reloadedStore.auditEvents()).includes(issued.body.code), false);
+});
+
+test('exchange atomically persists one immutable receipt with proof consumption and keeps secrets out of receipt and audit', async () => {
+  const f = fixture();
+  const ctx = context();
+  const issued = await issue(f, ctx);
+  const success = await exchange(f, issued.body.code, ctx);
+  assert.equal(success.response.statusCode, 200);
+  const persisted = decrypt(fs.readFileSync(path.join(f.dataDir, platformProofStoreConstants.STORE_FILE), 'utf8'), platformProofStoreConstants.INFO);
+  assert.equal(persisted.proofs[0].status, 'consumed');
+  assert.equal(persisted.receipts.length, 1);
+  assert.equal(persisted.receipts[0].proofId, persisted.proofs[0].proofId);
+  assert.equal(persisted.receipts[0].receiptVersion, 1);
+  assert.equal(persisted.receipts[0].transactionId, ctx.transactionId);
+  assert.equal(persisted.receipts[0].personId, ctx.personId);
+  assert.equal(persisted.receipts[0].challengeDigest, ctx.challengeDigest);
+  assert.equal(JSON.stringify(persisted.receipts[0]).includes(issued.body.code), false);
+  assert.equal(Object.hasOwn(persisted.receipts[0], 'codeHash'), false);
+  assert.equal(JSON.stringify(f.store.auditEvents()).includes(platformUserA), false);
+  assert.equal(JSON.stringify(f.store.auditEvents()).includes(ctx.challengeDigest), false);
+  assert.equal(JSON.stringify(f.store.auditEvents()).includes(issued.body.code), false);
+  assert.equal(persisted.canonicalLinks, undefined);
+});
+
+test('reconciliation is gated independently and browser cookies alone cannot authorize it', async () => {
+  const disabled = fixture({ reconciliationEnabled: false });
+  const disabledResult = await reconcile(disabled);
+  assert.equal(disabledResult.response.statusCode, 423);
+  assert.equal(disabledResult.response.body.error, 'platform_linking_disabled');
+  const f = fixture({ reconciliationEnabled: true });
+  const raw = Buffer.from(JSON.stringify({ v: 1, transactionId: context().transactionId, personId: context().personId, audience: PLATFORM_LINK_AUDIENCE, purpose: PLATFORM_LINK_PURPOSE, challengeDigest: 'a'.repeat(64) }));
+  const cookieOnly = await invoke(f.routes['POST /api/platform/v1/link-proofs/reconcile'], 'POST', SERVICE_RECONCILIATION_PATH, raw, { 'content-type': 'application/json', cookie: 'gymsid=valid-looking-cookie' });
+  assert.equal(cookieOnly.statusCode, 401);
+  assert.equal(cookieOnly.body.error, 'service_auth_required');
+});
+
+test('reconciliation requires path-bound service auth, valid signature, strict context and no caller Training identity', async () => {
+  const f = fixture();
+  const ctx = context();
+  const body = Buffer.from(JSON.stringify({ v: 1, transactionId: ctx.transactionId, personId: ctx.personId, audience: ctx.audience, purpose: ctx.purpose, challengeDigest: ctx.challengeDigest }));
+  const unsigned = await invoke(f.routes['POST /api/platform/v1/link-proofs/reconcile'], 'POST', SERVICE_RECONCILIATION_PATH, body, { 'content-type': 'application/json' });
+  assert.equal(unsigned.body.error, 'service_auth_required');
+  const signed = signedHeaders({ body, path: SERVICE_RECONCILIATION_PATH });
+  const invalidSignature = await invoke(f.routes['POST /api/platform/v1/link-proofs/reconcile'], 'POST', SERVICE_RECONCILIATION_PATH, body, { ...signed.headers, 'x-2j-signature': 'A'.repeat(43) });
+  assert.equal(invalidSignature.body.error, 'service_auth_invalid');
+  const wrongPath = await invoke(f.routes['POST /api/platform/v1/link-proofs/reconcile'], 'POST', SERVICE_AUTH_PATH, body, signed.headers);
+  assert.equal(wrongPath.body.error, 'service_auth_invalid');
+  for (const bodyOverrides of [
+    { trainingUserId: platformUserA }, { audience: 'other' }, { purpose: 'other' },
+    { challengeDigest: 'A'.repeat(64) }, { personId: 'not-a-uuid' }, { surprise: true },
+  ]) {
+    const result = await reconcile(f, ctx, { bodyOverrides });
+    assert.equal(result.response.statusCode, 400, JSON.stringify(bodyOverrides));
+    assert.equal(result.response.body.error, 'invalid_context');
+  }
+});
+
+test('missing, wrong-person, wrong-transaction and wrong-digest receipt lookups are indistinguishable 404s', async () => {
+  const f = fixture();
+  const ctx = context();
+  const proof = await issue(f, ctx);
+  assert.equal((await exchange(f, proof.body.code, ctx)).response.statusCode, 200);
+  for (const mismatch of [
+    { transactionId: '55555555-5555-4555-8555-555555555555' },
+    { personId: '33333333-3333-4333-8333-333333333333' },
+    { transactionId: '44444444-4444-4444-8444-444444444444' }, { challengeDigest: 'b'.repeat(64) },
+  ]) {
+    const result = await reconcile(f, { ...ctx, ...mismatch });
+    assert.equal(result.response.statusCode, 404);
+    assert.deepEqual(result.response.body, { error: 'verification_receipt_not_found' });
+  }
+});
+
+test('two fresh signed reconciliation requests return one receipt; a repeated requestId is rejected', async () => {
+  const f = fixture();
+  const ctx = context();
+  const proof = await issue(f, ctx);
+  await exchange(f, proof.body.code, ctx);
+  const firstRequestId = randomUUID();
+  const [first, second] = await Promise.all([
+    reconcile(f, ctx, { signing: { requestId: firstRequestId } }), reconcile(f, ctx),
+  ]);
+  assert.equal(first.response.statusCode, 200);
+  assert.equal(second.response.statusCode, 200);
+  assert.deepEqual(first.response.body, second.response.body);
+  assert.equal(first.response.body.v, 1);
+  assert.equal(first.response.body.status, 'verified');
+  assert.deepEqual(first.response.body, {
+    v: 1, status: 'verified', receiptId: first.response.body.receiptId, receiptVersion: 1,
+    transactionId: ctx.transactionId, personId: ctx.personId, trainingUserId: platformUserA,
+    audience: ctx.audience, purpose: ctx.purpose, challengeDigest: ctx.challengeDigest,
+    verifiedAt: first.response.body.verifiedAt,
+  });
+  assert.match(first.response.body.receiptId, /^[0-9a-f-]{36}$/);
+  const replay = await reconcile(f, ctx, { signing: { requestId: firstRequestId } });
+  assert.equal(replay.response.statusCode, 409);
+  assert.equal(replay.response.body.error, 'service_request_replayed');
+  const events = f.store.auditEvents();
+  assert.equal(events.filter(event => event.event === 'platform_proof.receipt_created').length, 1);
+  assert.ok(events.filter(event => event.event === 'platform_proof.receipt_reconciled').length >= 2);
+  assert.equal(JSON.stringify(events).includes(platformUserA), false);
+});
+
+test('ambiguous lost exchange response recovers the authoritative result without reusing the consumed proof', async () => {
+  const f = fixture();
+  const ctx = context();
+  const proof = await issue(f, ctx);
+  const exchangeResponseThatPlatformLoses = await exchange(f, proof.body.code, ctx);
+  assert.equal(exchangeResponseThatPlatformLoses.response.statusCode, 200);
+  // Simulate the caller discarding this response; recovery sends no proof code and gets a fresh requestId.
+  const recovered = await reconcile(f, ctx);
+  assert.equal(recovered.response.statusCode, 200);
+  assert.equal(recovered.response.body.trainingUserId, platformUserA);
+  assert.equal(recovered.response.body.transactionId, ctx.transactionId);
+  assert.equal(recovered.response.body.personId, ctx.personId);
+  assert.equal(recovered.response.body.challengeDigest, ctx.challengeDigest);
+  assert.equal(Object.hasOwn(recovered.body, 'code'), false);
+  const replay = await exchange(f, proof.body.code, ctx);
+  assert.equal(replay.response.statusCode, 409);
+  assert.equal(replay.response.body.error, 'proof_already_consumed');
+});
+
+test('receipt survives store reload, proof pruning and later account disablement', async () => {
+  const f = fixture();
+  const ctx = context();
+  const proof = await issue(f, ctx);
+  await exchange(f, proof.body.code, ctx);
+  f.setNow(f.now() + platformProofStoreConstants.PROOF_RETENTION_MS + 1);
+  const reloadedStore = createPlatformProofStore({ dataDir: f.dataDir, now: f.now });
+  f.activeUsers[0].disabled = true;
+  const reloadedRoutes = createPlatformProofRoutes({
+    json: (res, status, value) => { res.statusCode = status; res.body = value; return res; },
+    readSession: () => null, store: reloadedStore, users: () => f.activeUsers,
+    issuanceEnabled: false, exchangeEnabled: false, reconciliationEnabled: true, serviceKeys: keys, now: f.now,
+  });
+  const body = Buffer.from(JSON.stringify({ v: 1, transactionId: ctx.transactionId, personId: ctx.personId, audience: ctx.audience, purpose: ctx.purpose, challengeDigest: ctx.challengeDigest }));
+  const responseAfterReload = await invoke(reloadedRoutes['POST /api/platform/v1/link-proofs/reconcile'], 'POST', SERVICE_RECONCILIATION_PATH, body,
+    signedHeaders({ body, path: SERVICE_RECONCILIATION_PATH, timestamp: new Date(f.now()).toISOString() }).headers);
+  assert.equal(responseAfterReload.statusCode, 200);
+  assert.equal(responseAfterReload.body.trainingUserId, platformUserA);
+  assert.equal(responseAfterReload.body.status, 'verified');
+  const persisted = decrypt(fs.readFileSync(path.join(f.dataDir, platformProofStoreConstants.STORE_FILE), 'utf8'), platformProofStoreConstants.INFO);
+  assert.equal(persisted.proofs.length, 0, 'shorter-lived proof record was pruned');
+  assert.equal(persisted.receipts.length, 1, 'receipt has no coupled short retention');
+});
+
+test('concurrent proof consumers have one successful winner and concurrent receipt reads agree', async () => {
+  const f = fixture();
+  const ctx = context();
+  const proof = await issue(f, ctx);
+  const [first, second] = await Promise.all([exchange(f, proof.body.code, ctx), exchange(f, proof.body.code, ctx)]);
+  assert.deepEqual([first.response.statusCode, second.response.statusCode].sort(), [200, 409]);
+  const [readA, readB] = await Promise.all([reconcile(f, ctx), reconcile(f, ctx)]);
+  assert.equal(readA.response.statusCode, 200);
+  assert.deepEqual(readA.response.body, readB.response.body);
+  assert.equal(f.store.auditEvents().filter(event => event.event === 'platform_proof.receipt_created').length, 1);
+});
+
+test('a conflicting subject for an already receipted transaction context fails closed', async () => {
+  const f = fixture();
+  const ctx = context();
+  const first = f.store.issue({ ...ctx, platformExpiresAtMs: Date.parse(ctx.expiresAt) }, platformUserA);
+  assert.equal((await exchange(f, first.code, ctx)).response.statusCode, 200);
+  const second = f.store.issue({ ...ctx, platformExpiresAtMs: Date.parse(ctx.expiresAt) }, 'training-account-B');
+  const conflict = await exchange(f, second.code, ctx);
+  assert.equal(conflict.response.statusCode, 409);
+  assert.equal(conflict.response.body.error, 'verification_receipt_conflict');
+  const persisted = decrypt(fs.readFileSync(path.join(f.dataDir, platformProofStoreConstants.STORE_FILE), 'utf8'), platformProofStoreConstants.INFO);
+  assert.equal(persisted.receipts.length, 1);
+  assert.equal(persisted.receipts[0].trainingUserId, platformUserA);
+});
+
+test('a second proof for an already receipted context cannot claim a new successful receipt', async () => {
+  const f = fixture();
+  const ctx = context();
+  const proofA = f.store.issue({ ...ctx, platformExpiresAtMs: Date.parse(ctx.expiresAt) }, platformUserA);
+  const receiptA = await exchange(f, proofA.code, ctx);
+  assert.equal(receiptA.response.statusCode, 200);
+  const proofB = f.store.issue({ ...ctx, platformExpiresAtMs: Date.parse(ctx.expiresAt) }, platformUserA);
+  const receiptB = await exchange(f, proofB.code, ctx);
+  assert.equal(receiptB.response.statusCode, 409);
+  assert.equal(receiptB.response.body.error, 'verification_receipt_exists');
+  const persisted = decrypt(fs.readFileSync(path.join(f.dataDir, platformProofStoreConstants.STORE_FILE), 'utf8'), platformProofStoreConstants.INFO);
+  const originalProof = persisted.proofs.find(proof => proof.proofId === persisted.receipts[0].proofId);
+  const secondProof = persisted.proofs.find(proof => proof.proofId !== persisted.receipts[0].proofId);
+  assert.equal(originalProof.status, 'consumed');
+  assert.equal(secondProof.status, 'pending');
+  assert.equal(persisted.receipts.length, 1);
+  assert.equal(persisted.receipts[0].trainingUserId, receiptA.response.body.trainingUserId);
+});
+
+test('failed persistence never reports exchange success and leaves proof pending without a partial receipt', async () => {
+  const f = fixture();
+  const ctx = context();
+  const proof = await issue(f, ctx);
+  const originalRename = fs.renameSync;
+  fs.renameSync = () => { throw new Error('simulated persistence failure'); };
+  try {
+    const failed = await exchange(f, proof.body.code, ctx);
+    assert.equal(failed.response.statusCode, 503);
+    assert.equal(failed.response.body.error, 'platform_linking_unavailable');
+  } finally {
+    fs.renameSync = originalRename;
+  }
+  const persisted = decrypt(fs.readFileSync(path.join(f.dataDir, platformProofStoreConstants.STORE_FILE), 'utf8'), platformProofStoreConstants.INFO);
+  assert.equal(persisted.proofs[0].status, 'pending');
+  assert.equal(persisted.receipts.length, 0);
+});
+
+test('existing encrypted schema-version-1 stores without a receipts field remain readable', async () => {
+  const f = fixture();
+  await issue(f, context());
+  const file = path.join(f.dataDir, platformProofStoreConstants.STORE_FILE);
+  const legacyState = decrypt(fs.readFileSync(file, 'utf8'), platformProofStoreConstants.INFO);
+  delete legacyState.receipts;
+  fs.writeFileSync(file, encrypt(legacyState, platformProofStoreConstants.INFO), { mode: 0o600 });
+  const compatibleStore = createPlatformProofStore({ dataDir: f.dataDir, now: f.now });
+  assert.ok(compatibleStore.auditEvents().some(event => event.event === 'platform_proof.issued'));
+  assert.equal(compatibleStore.reconcile({ requestId: randomUUID(), context: {
+    transactionId: context().transactionId, personId: context().personId,
+    audience: PLATFORM_LINK_AUDIENCE, purpose: PLATFORM_LINK_PURPOSE, challengeDigest: 'a'.repeat(64),
+  } }).status, 'verification_receipt_not_found');
 });
