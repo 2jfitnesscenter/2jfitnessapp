@@ -100,6 +100,8 @@ for (let i = 0; i < 100; i++) { try { if ((await fetch(base + '/api/health')).ok
 const cookie = uid => { const p = `${uid}:${Date.now() + 86400000}:0`; return `gymsid=${p}.${crypto.createHmac('sha256', SECRET).update(p).digest('base64url')}`; };
 const get = async uid => { const r = await fetch(base + '/api/admin/users', { headers: uid ? { cookie: cookie(uid) } : {} }); const text = await r.text(); return { status: r.status, text, data: r.status === 200 ? JSON.parse(text) : null }; };
 const readCount = async () => { await new Promise(r => setTimeout(r, 150)); return Number(fs.readFileSync(path.join(hdir, 'reads.count'), 'utf8')); };
+// the server reads the states once at boot (schedulers); wait until the count stops moving so that only the poll is measured, however slow the machine is
+const settle = async () => { let last = -1; for (let i = 0; i < 40; i++) { const now = await readCount(); if (now === last) { await new Promise(r => setTimeout(r, 300)); if ((await readCount()) === now) return now; } last = now; } return last; };
 let firstPollReads = 0;
 test.after(() => child.kill());
 
@@ -107,7 +109,7 @@ test('GET /api/admin/users: admin only, the same fields the list had plus the se
   assert.equal((await get(null)).status, 401);
   assert.equal((await get('m1')).status, 403);
   assert.equal((await get('coach')).status, 403);
-  const before = await readCount();
+  const before = await settle();
   const r = await get('admin');
   firstPollReads = (await readCount()) - before;
   assert.equal(r.status, 200); assert.equal(r.data.users.length, 32);
