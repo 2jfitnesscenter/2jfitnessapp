@@ -55,7 +55,7 @@ function Range({ S, metric }) {
     return <div className="cg-range">
       <span className="cg-k">{t('Reference')}</span>
       <b>{r.unit === 'BMI' ? `BMI ${fmtNum(r.value)}` : `${fmtNum(r.value)} %`} · {t(r.band.label)} ({r.band.text})</b>
-      <small className="dim">{t('Basis: {0}. A general reference, not a diagnosis.', r.basis)}{r.unit === 'BMI' ? ' ' + t('BMI does not tell muscle from fat.') : ''}</small>
+      <small className="dim">{t('Basis: {0}. A general reference, not a diagnosis.', r.basis)}{r.unit === 'BMI' ? ' ' + t('BMI does not tell muscle from fat.') : ''}{r.sex ? ' ' + t('Band for {0}; change your sex in your profile if this is not right.', t(r.sex === 'female' ? 'women' : 'men')) : ''}</small>
     </div>
   }
   if (r.kind === 'needs') return <div className="cg-range"><small className="dim">{t(NEEDS[r.need])}</small></div>

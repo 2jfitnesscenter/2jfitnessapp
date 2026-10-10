@@ -132,7 +132,7 @@ export function referenceRange(S, key, today = todayISO()) {
     if (!sex) return { kind: 'needs', need: 'sex' }
     const cur = metricSummary(S, 'bodyFat', 'all', today)?.current
     if (!cur) return { kind: 'none', why: 'no-reading' }
-    return { kind: 'band', basis: 'ACE (adults)', value: cur.v, unit: '%', band: bandOf(ACE[sex], cur.v) }
+    return { kind: 'band', basis: 'ACE (adults)', value: cur.v, unit: '%', band: bandOf(ACE[sex], cur.v), sex }
   }
   return { kind: 'none', why: 'unknown' }
 }

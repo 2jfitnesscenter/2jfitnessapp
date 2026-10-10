@@ -209,6 +209,7 @@ export function PremiumDetail() {
         <p>{x.evidenceSummary}</p>
         <p className="dim small">{sourceLabel ? t(sourceLabel) : ''}{summary.author?.name ? ` · ${summary.author.name}${summary.author.work ? ' — ' + summary.author.work : ''}` : ''}</p>
         <p className="dim small">{t('This describes how the method is built. It is not a promise of results and it is not medical advice.')}</p>
+        {summary.sourceType !== 'own' && <p className="dim small">{t('Independent description written by 2J Fitness Center. It is not affiliated with, endorsed by or licensed by the author or the owners of the method name.')}</p>}
         {p.coverImageAttribution && <p className="dim small">{t('Photo')}: {p.coverImageSource ? <a href={p.coverImageSource} target="_blank" rel="noreferrer noopener">{p.coverImageAttribution}</a> : p.coverImageAttribution}</p>}
       </Section>
     </div>

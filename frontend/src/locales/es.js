@@ -5286,4 +5286,8 @@ export default {
   'Average': 'Promedio',
   'Above the average range': 'Por encima del rango promedio',
   'Trend': 'Tendencia',
+  'Band for {0}; change your sex in your profile if this is not right.': 'Banda para {0}; cambia tu sexo en tu perfil si no es correcto.',
+  'Independent description written by 2J Fitness Center. It is not affiliated with, endorsed by or licensed by the author or the owners of the method name.': 'Descripción independiente escrita por 2J Fitness Center. No está afiliada, avalada ni licenciada por el autor ni por los titulares del nombre del método.',
+  'women': 'mujeres',
+  'men': 'hombres',
 }

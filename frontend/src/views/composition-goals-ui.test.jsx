@@ -39,7 +39,7 @@ describe('Composition goals', () => {
   })
   it('documented ranges only: BMI (WHO) and body fat (ACE) with their basis; muscle mass says there is no accepted range', async () => {
     const h = html(S({ targetW: 78 }))
-    expect(h).toContain('Basis: WHO (adults)'); expect(h).toContain('Basis: ACE (adults)'); expect(h).toContain('Above the normal range'); expect(h).toContain('Average'); expect(h).toContain('not a diagnosis')
+    expect(h).toContain('Basis: WHO (adults)'); expect(h).toContain('Basis: ACE (adults)'); expect(h).toContain('Band for men'); expect(h).toContain('Above the normal range'); expect(h).toContain('Average'); expect(h).toContain('not a diagnosis')
     expect(h).toContain('There is no widely accepted reference range for muscle mass')
   })
   it('without a birth date it asks for it instead of guessing', async () => {

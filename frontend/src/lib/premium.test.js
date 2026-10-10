@@ -75,3 +75,19 @@ describe('catalogue: recommendation and compatibility', () => {
     expect(compatibility({}, { programDefinition: prog('531').programDefinition }).total).toBeGreaterThan(3)
   })
 })
+
+describe('official program updated while a member follows the old version', () => {
+  it('the member keeps v1 (plan, label, history) and a new activation gets v2', () => {
+    const v1 = prog('531'), v2 = { ...JSON.parse(JSON.stringify(v1)), version: 2, name: '5/3/1 (revised)' }
+    v2.programDefinition.weeks[0].sessions[0].blocks[0].sets[0].pct = 0.7
+    let S = { workouts: [], unit: 'kg' }
+    S = { ...S, premium: activate(S, v1, { tm: TM, now: NOW, id: 'old' }) }
+    const before = JSON.stringify(planSession(S.premium.active, []))
+    expect(S.premium.active.programVersion).toBe(1); expect(runningView(S, NOW).summary.version).toBe(1)
+    expect(JSON.stringify(planSession(S.premium.active, []))).toBe(before)          // the catalogue moved on; this run did not
+    S = { ...S, premium: finish(S, { now: NOW + 1 }) }
+    S = { ...S, premium: activate(S, v2, { tm: TM, now: NOW + 2, id: 'new' }) }
+    expect(S.premium.active.programVersion).toBe(2); expect(S.premium.history[0]).toMatchObject({ instanceId: 'old', programVersion: 1 })
+    expect(planSession(S.premium.active, []).blocks[0].sets[0].w).not.toBe(planSession({ ...S.premium.active, snapshot: { ...S.premium.active.snapshot, definition: v1.programDefinition } }, []).blocks[0].sets[0].w)
+  })
+})
