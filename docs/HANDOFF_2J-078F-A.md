@@ -1,9 +1,11 @@
 # HANDOFF 2J-078F-A — durable proof receipt and reconciliation
 
-**Status:** implementation complete; PR/remote CI pending; no merge or deployment.
+**Status:** one draft PR open; no merge or deployment.
 **Expected base:** `0ac1317686cea81e63674a2bcb8cde870d5d6dcc` (must be refreshed from `origin/main` immediately before branch creation).
 **Branch:** `agent/codex/2J-078F-A-proof-receipt-reconciliation`.
 **Worktree:** `C:\Users\juanj\Dev\2J\worktrees\codex\2jfitnessapp\2J-078F-A`.
+**PR:** https://github.com/2jfitnesscenter/2jfitnessapp/pull/16 (draft; do not merge).
+**Implementation validation SHA:** `c22eadfbdaffa8bfe5cc91794005f6a6ce7aaace`; a documentation-only update records the initial remote CI result, and GitHub reruns all checks for the resulting final head.
 
 ## Implementation summary
 
@@ -33,6 +35,6 @@ The store's synchronous read/check/write serializes only within one API process.
 - API Docker image: fresh no-cache build passed. Runtime smoke booted without service credentials; `/api/health` returned `ok=true` and reconciliation returned `423 platform_linking_disabled` with no flags/keys configured.
 - `git diff --check`: passed.
 - Dependency audit is not clean on the unchanged baseline: API **3 advisories** (1 moderate, 1 high, 1 critical); frontend **21** (1 low, 6 moderate, 10 high, 4 critical). No package manifest or lockfile changed; remediation is outside this bounded task.
-- No local `gitleaks`, `trufflehog` or `detect-secrets` executable is installed. No production key or credential was added; remote CI checks are pending after PR creation.
+- No local `gitleaks`, `trufflehog` or `detect-secrets` executable is installed. No production key or credential was added.
 
-PR URL/head SHA and the exact GitHub `test`, `api` and `api-image` results are to be recorded after the single draft PR is opened. Independent security and QA review is required; do not merge.
+For implementation SHA `c22eadf`, GitHub `test`, `api` and `api-image` all passed. The final metadata-only head is being checked by the same three jobs; verify its exact SHA and checks before independent review. Independent security and QA review is required; do not merge.

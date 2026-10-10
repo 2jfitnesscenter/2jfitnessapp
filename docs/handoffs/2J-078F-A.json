@@ -1,12 +1,13 @@
 {
   "taskId": "2J-078F-A",
   "title": "Training durable proof receipt and reconciliation endpoint",
-  "status": "implementation_complete_local_checks_pass_remote_ci_pending",
+  "status": "draft_pr_open; implementation_and_prior_head_checks_pass; final_documentation_head_checks_pending",
   "repository": "2jfitnesscenter/2jfitnessapp",
   "baseSha": "0ac1317686cea81e63674a2bcb8cde870d5d6dcc",
   "branch": "agent/codex/2J-078F-A-proof-receipt-reconciliation",
   "worktree": "C:\\Users\\juanj\\Dev\\2J\\worktrees\\codex\\2jfitnessapp\\2J-078F-A",
-  "pullRequest": null,
+  "pullRequest": "https://github.com/2jfitnesscenter/2jfitnessapp/pull/16",
+  "implementationValidationSha": "c22eadfbdaffa8bfe5cc91794005f6a6ce7aaace",
   "headSha": null,
   "receipt": {
     "version": 1,
@@ -47,7 +48,7 @@
     "audit": "unchanged baseline not clean: API 3 (1 moderate, 1 high, 1 critical); frontend 21 (1 low, 6 moderate, 10 high, 4 critical); no dependency files changed",
     "secretScan": "no local gitleaks/trufflehog/detect-secrets executable; no production credential added; remote CI pending",
     "gitDiffCheck": "passed",
-    "githubChecks": "pending"
+    "githubChecks": "test, api and api-image passed for implementationValidationSha; pending for final documentation-only PR head"
   },
   "reviewRequired": "Independent security and QA review; do not merge"
 }
