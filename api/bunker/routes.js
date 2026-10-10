@@ -17,6 +17,7 @@ import { stampWorkoutActivity, workoutActivityKey, workoutInactive, inactivityFi
  *    FIXED code entered on the shared screen itself) — read the room's live sessions and close
  *    one, nothing else.
  */
+import { BUNKER_AUDITED, describeAction } from '../lib/admin-audit.js';
 import * as store from './store.js';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
@@ -28,7 +29,7 @@ import { completeGuidedProgramSession } from '../lib/guided-program-model.js';
 const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits in 4 hours
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
 
-export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], registerInactivitySweep = () => {}, rateLimiters = bunkerLimiters() }) {
+export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], registerInactivitySweep = () => {}, rateLimiters = bunkerLimiters() }) {
   const credentialKey = (kind, value) => createHash('sha256').update(kind + ':' + String(value)).digest('hex');
   const limitAttempt = (kind, ip, value) => {
     const ipLimiter = rateLimiters[kind];
@@ -279,7 +280,17 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
     }
   });
 
-  return {
+  // The admin writes (check-in, forced close, pause, set edit, PIN and room-key resets, settings) leave one audit event: who, which member, never a value.
+  const withAudit = routes => Object.fromEntries(Object.entries(routes).map(([key, handler]) => {
+    const rule = BUNKER_AUDITED[key];
+    if (!rule) return [key, handler];
+    return [key, async (req, res) => {
+      await handler(req, res);
+      if (res.statusCode >= 400) return;
+      try { const actor = guardAdmin(req); if (actor) { const d = describeAction(rule, req._body); audit(actor, rule.kind, d.userId, d.meta.target ? { target: d.meta.target } : {}); } } catch { /* the audit never fails the action */ }
+    }];
+  }));
+  const handlers = {
     'POST /api/active/activity': async (req, res) => {
       const me = readSession(req);
       if (!me) return json(res, 401, { error: 'no has iniciado sesion' });
@@ -624,4 +635,5 @@ export function bunkerRoutes({ json, readBody, readSession, sign, verifySig, use
       json(res, 200, store.setSettings(patch));
     },
   };
+  return withAudit(handlers);
 }

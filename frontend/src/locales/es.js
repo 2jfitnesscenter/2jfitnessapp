@@ -5034,4 +5034,5 @@ export default {
   'Body weight, health and notes are never included.': 'El peso corporal, la salud y las notas nunca se incluyen.',
   'Records': 'Récords',
   'Per workout': 'Por entreno',
+  'An administrator changed something': 'Un administrador cambió algo',
 }

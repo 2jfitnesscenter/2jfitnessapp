@@ -36,6 +36,7 @@ import * as bunkerStore from './bunker/store.js';
 import { exportMember, eraseMember, ErasureError } from './lib/account-erasure.js';
 import { stateFile, stateFingerprint } from './lib/state-store.js';
 import * as userSummaries from './lib/user-summary.js';
+import { AUDITED as ADMIN_AUDIT, describeAction } from './lib/admin-audit.js';
 import { bunkerRoutes } from './bunker/routes.js';
 import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
@@ -874,6 +875,20 @@ function findComment(id) {
   return comment ? { kind, post, comment } : null;
 }
 const snippet = s => String(s || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 80);
+// The one place a role changes (members, trainers, admins): the protections for ADMIN_UIDS and the last admin, the revocations, the dropped assignments and the audit event.
+function changeRole(admin, u, role) {
+  if (!['member', 'trainer', 'admin'].includes(role)) return { status: 400, body: { error: 'rol no válido' } };
+  const oldRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
+  if (role !== 'admin' && ADMIN_UIDS.includes(u.id)) return { status: 409, body: { error: 'este administrador viene de la configuración del servidor (ADMIN_UIDS)', code: 'admin_by_config' } };
+  if (role !== 'admin' && isAdmin(u) && !db.users.some(x => x.id !== u.id && !x.disabled && isAdmin(x))) return { status: 409, body: { error: 'no puede quedar el sistema sin administradores', code: 'last_admin' } };
+  if (role === 'admin') { u.admin = true; delete u.trainer; }
+  else { delete u.admin; if (role === 'trainer') u.trainer = true; else delete u.trainer; }
+  const newRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
+  if (oldRole !== newRole) { revokeSharedStaffSessions(u.id, admin.id, 'role_changed'); secEvent('role_changed', { userId: u.id, actorId: admin.id, meta: { from: oldRole, to: newRole } }); }
+  if (newRole === 'member') dropTrainerAssignments(u.id);
+  saveDb();
+  return { status: 200, body: { ok: true, id: u.id, role: newRole, admin: isAdmin(u), trainer: isTrainer(u) } };
+}
 function resolveReportedContent(viewer, type, id) {
   if (type === 'message') {
     const [threadId, messageId] = String(id).split(':');
@@ -947,7 +962,7 @@ function readBody(req, maxBytes = MAX_BODY) {
       chunks.push(d);
     });
     req.on('end', () => {
-      try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
+      try { const parsed = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}; req._body = parsed; resolve(parsed); }
       catch { reject(new Error('bad json')); }
     });
     req.on('error', reject);
@@ -2042,21 +2057,12 @@ const routes = {
   'POST /api/admin/user/role': async (req, res) => {
     const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
-    const role = String(body.role || '');
-    if (!['member', 'trainer', 'admin'].includes(role)) return json(res, 400, { error: 'rol no válido' });
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
-    const oldRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
-    if (role !== 'admin' && ADMIN_UIDS.includes(u.id)) return json(res, 409, { error: 'este administrador viene de la configuración del servidor (ADMIN_UIDS)', code: 'admin_by_config' });
-    if (role !== 'admin' && isAdmin(u) && !db.users.some(x => x.id !== u.id && !x.disabled && isAdmin(x))) return json(res, 409, { error: 'no puede quedar el sistema sin administradores', code: 'last_admin' });
-    if (role === 'admin') { u.admin = true; delete u.trainer; }
-    else { delete u.admin; if (role === 'trainer') u.trainer = true; else delete u.trainer; }
-    const newRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
-    if (oldRole !== newRole) { revokeSharedStaffSessions(u.id, admin.id, 'role_changed'); secEvent('role_changed', { userId: u.id, actorId: admin.id, meta: { from: oldRole, to: newRole } }); }
-    if (newRole === 'member') dropTrainerAssignments(u.id);
-    saveDb();
-    json(res, 200, { ok: true, id: u.id, role: isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member', admin: isAdmin(u), trainer: isTrainer(u) });
+    const r = changeRole(admin, u, String(body.role || ''));
+    json(res, r.status, r.body);
   },
+
   // The member's own view of their follow-up: only the schedule, never who reviewed.
   'GET /api/followup': async (req, res) => {
     const user = readSession(req);
@@ -2261,19 +2267,17 @@ const routes = {
   // Grants/revokes the Trainer role — gym staff who can publish routines to Social's
   // "Entrenadores" section and assign one directly onto a member's plan. Admins are always
   // trainers too (isTrainer), so this flag only matters for non-admin staff accounts.
+  // DEPRECATED (nothing in the app calls it): kept for old clients, but it is only a spelling of the canonical role change, so ADMIN_UIDS, the last-admin rule,
+  // the Shared Staff revocations, the dropped assignments and the audit event all apply. trainer:true → trainer (an admin stays admin); trainer:false → member (an admin stays admin).
   'POST /api/admin/user/trainer': async (req, res) => {
     const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
-    const trainerBefore = isTrainer(u) ? (isAdmin(u) ? 'admin' : 'trainer') : 'member';
-    u.trainer = !!body.trainer;
-    if (!isTrainer(u)) { revokeSharedStaffSessions(u.id, admin.id, 'trainer_role_removed'); dropTrainerAssignments(u.id); }
-    const trainerAfter = isTrainer(u) ? (isAdmin(u) ? 'admin' : 'trainer') : 'member';
-    if (trainerBefore !== trainerAfter) secEvent('role_changed', { userId: u.id, actorId: admin.id, meta: { from: trainerBefore, to: trainerAfter } });
-    saveDb();
-    json(res, 200, { ok: true, id: u.id, trainer: u.trainer });
+    const r = changeRole(admin, u, isAdmin(u) ? 'admin' : body.trainer ? 'trainer' : 'member');
+    json(res, r.status, r.status === 200 ? { ok: true, id: u.id, trainer: isTrainer(u), deprecated: 'use /api/admin/user/role' } : r.body, { Deprecation: 'true' });
   },
+
 
   // Admin-assisted recovery: a short-lived, single-use link that lets a member who lost their
   // only device register a new passkey onto their EXISTING account — see /api/recover/options
@@ -3433,6 +3437,7 @@ const routes = {
   // above. sign/verifySig are the exact functions the signed session cookie itself uses, reused
   // for the kiosk's own short-lived, narrowly-scoped tokens (never a full login).
   ...bunkerRoutes({
+    audit: (actorId, kind, userId, meta) => { secEvent('admin_action', { userId: userId || null, actorId, meta: { kind, ...meta } }); saveDb(); },
     json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users,
     registerInactivitySweep: sweep => {
       // Independent deadlines live in each persisted active workout, never in this tick.
@@ -3485,5 +3490,13 @@ http.createServer(async (req, res) => {
   catch (e) {
     console.error(key, e);
     if (!res.headersSent) json(res, e.status || 500, { error: e.status ? e.message : 'error del servidor', code: e.code });
+  }
+  // An administrator's successful write leaves one audit event (what, whom, at most a target id or a count; never a value). See lib/admin-audit.js.
+  const rule = ADMIN_AUDIT[key];
+  if (rule && res.statusCode < 400) {
+    try {
+      const actor = readSession(req);
+      if (actor && isAdmin(actor)) { const d = describeAction(rule, req._body); secEvent('admin_action', { userId: d.userId, actorId: actor.id, meta: d.meta }); saveDb(); }
+    } catch (e) { console.error('admin audit', key, e); }
   }
 }).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));

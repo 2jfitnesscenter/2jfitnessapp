@@ -1,5 +1,9 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Center Management Foundation V1 (candidato; NO desplegado; producción `30007337`)
+
+- Detalle y benchmark en `docs/CENTER_MANAGEMENT_FOUNDATION_V1.md`. **Auditoría de acciones de admin**: evento `admin_action` (kind, miembro afectado, a lo sumo un id/contador; nunca valores) por cada escritura admin correcta, clasificada en `lib/admin-audit.js` (un test falla si aparece una ruta admin sin decisión); el Búnker audita sus rutas admin; `POST /api/admin/user/trainer` queda deprecada y delega en `changeRole` (ADMIN_UIDS, último admin, revocaciones, audit). **`GET /api/admin/users`** lee un resumen derivado (`lib/user-summary.js`: `lastSync`, `workoutCount`, `lastWorkoutAt`; validado por mtime+size, regenerable, cifrado, sin datos sensibles) en vez de descifrar todos los estados: 101 lecturas → 0 por poll, 194 ms → 8,7 ms con 100 miembros. `lastSync` ≠ `lastWorkoutAt`.
+
 ## Social & Compartir V2 (candidato; NO desplegado; producción `a0f3a94`)
 
 - Rama `codex/social-v2`; detalle en `docs/SOCIAL_V2.md`. **ACL**: el bloqueo corta todo el social en ambos sentidos (valorar, comentarios, temas, tablón, retos, metas, marcas); valorar exige poder ver el post; las metas de peso corporal solo llegan a amigos aceptados; los hilos de soporte solo los ve el miembro, el admin y el entrenador asignado (`assignedTrainers`); los interruptores de admin social/chat/friends/challenges se aplican en el API (403 `feature_off`).
