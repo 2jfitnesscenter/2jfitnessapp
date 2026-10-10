@@ -146,14 +146,14 @@ const accJug = {
   deadlift: [acc(ID.row, 3, 8, 12), acc(ID.legRaise, 3, 10, 15)], press: [acc(ID.pulldown, 3, 8, 12), acc(ID.lateral, 3, 12, 15)],
 }
 const pjug = {
-  id: 'premium-juggernaut-method', slug: 'juggernaut-method', name: 'Juggernaut Method',
+  id: 'premium-juggernaut-method', slug: 'juggernaut-method', name: 'ONDAS 10/8/5/3',
   shortDescription: 'Sixteen weeks in four waves (10s, 8s, 5s, 3s): build volume, raise intensity, test, then deload.',
   longDescription: 'The program is a long block of four waves. Each wave works in a different rep range (10, 8, 5 and 3) and moves through four weeks: accumulation (more sets, lighter weight), intensification (heavier), realization (a final set to as many reps as possible) and a deload. Weights are percentages of your Training Max. This version follows the publicly described wave idea with 2J’s own percentages — it does not reproduce any book table. At the end of the sixteen weeks 2J proposes a Training Max update for you to confirm.',
   goalTags: ['strength', 'strength-muscle'], level: 'advanced', daysPerWeek: 4, durationDescription: '16 weeks (four waves)',
   methodType: 'percentage-wave', sourceType: 'principles', author: { name: 'Wave idea described by Chad Wesley Smith', work: 'The Juggernaut Method' },
   evidenceSummary: 'Wave-style periodization (volume first, intensity later, planned deloads) is a common approach in strength sport; there is no direct evidence for this specific arrangement. The percentages used here are 2J’s own, not the book’s.',
   equipmentRequirements: ['barbell', 'rack', 'bench'], progressionModel: 'training-max-cycle',
-  legal: { status: 'review', note: 'Name belongs to a commercial method. This program uses its public wave idea with original percentages; confirm licence/trademark or rename before promoting it.' },
+  legal: { status: 'none', note: 'Renamed from the commercial method name (owner decision): neutral name, original percentages, the wave idea credited in author/reference only. The stable id and slug are kept for compatibility.' },
   featured: false, badge: null,
   copy: {
     howItWorks: ['Four waves of four weeks: 10s, 8s, 5s and 3s.', 'Inside a wave: accumulation, intensification, realization (last set AMRAP), deload.', 'Everything is a percentage of your Training Max; you confirm changes at the end.'],

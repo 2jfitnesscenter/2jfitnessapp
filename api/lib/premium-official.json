@@ -1898,7 +1898,7 @@
   {
    "id": "premium-juggernaut-method",
    "slug": "juggernaut-method",
-   "name": "Juggernaut Method",
+   "name": "ONDAS 10/8/5/3",
    "shortDescription": "Sixteen weeks in four waves (10s, 8s, 5s, 3s): build volume, raise intensity, test, then deload.",
    "longDescription": "The program is a long block of four waves. Each wave works in a different rep range (10, 8, 5 and 3) and moves through four weeks: accumulation (more sets, lighter weight), intensification (heavier), realization (a final set to as many reps as possible) and a deload. Weights are percentages of your Training Max. This version follows the publicly described wave idea with 2J’s own percentages — it does not reproduce any book table. At the end of the sixteen weeks 2J proposes a Training Max update for you to confirm.",
    "goalTags": [
@@ -1922,8 +1922,8 @@
    ],
    "progressionModel": "training-max-cycle",
    "legal": {
-    "status": "review",
-    "note": "Name belongs to a commercial method. This program uses its public wave idea with original percentages; confirm licence/trademark or rename before promoting it."
+    "status": "none",
+    "note": "Renamed from the commercial method name (owner decision): neutral name, original percentages, the wave idea credited in author/reference only. The stable id and slug are kept for compatibility."
    },
    "featured": false,
    "coverImage": "/premium/covers/juggernaut-method.jpg",

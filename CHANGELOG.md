@@ -2,7 +2,7 @@
 
 ### Entrenamientos Premium V1 + Home personalizable + Salud V2 (objetivos) — candidato, NO desplegado
 
-- Nuevo catálogo **Premium** de 12 metodologías (5/3/1, Texas, Juggernaut, GZCL, PHUL, PHAT, DUP, powerbuilding, cuerpo completo, recomposición 2J, concurrente, acondicionamiento) con portada, ficha, filtros y recomendación por objetivo/nivel/días; programa activo con ciclo/semana, pausa, saltar, Training Max, propuesta de ciclo y cambio con historial.
+- Nuevo catálogo **Premium** de 12 metodologías (5/3/1, Texas, ONDAS 10/8/5/3, GZCL, PHUL, PHAT, DUP, powerbuilding, cuerpo completo, recomposición 2J, concurrente, acondicionamiento) con portada, ficha, filtros y recomendación por objetivo/nivel/días; programa activo con ciclo/semana, pausa, saltar, Training Max, propuesta de ciclo y cambio con historial.
 - Administración → Entrenamientos Premium: crear, editar, duplicar, publicar, ocultar, destacar (NUEVO/Destacado/Recomendado), archivar, ordenar, versiones y portada; el entrenador gestiona solo los suyos. Interruptor global en Funciones.
 - Inicio: bloques reordenables y ocultables (los obligatorios no se ocultan) con «restaurar por defecto»; tarjeta «Tu programa». Ajustes → Entrenamiento: programa Premium activo.
 - Seguimiento del Coach: «5/3/1 · Ciclo 3 · Semana 2/4» en la fila y la ficha; la IA recibe versión, fase, ciclo y semana.

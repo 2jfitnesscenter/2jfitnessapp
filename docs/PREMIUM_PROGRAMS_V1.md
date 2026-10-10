@@ -65,7 +65,7 @@ Ver `scripts/premium/official-programs.mjs` (descripciones propias, atribución,
 |---|---|---|
 | 5/3/1 | A establecido | Revisión legal |
 | Texas Method | A establecido | Revisión legal |
-| Juggernaut Method | B principios | Porcentajes propios; revisión legal del nombre |
+| ONDAS 10/8/5/3 (antes «Juggernaut Method»; id `premium-juggernaut-method` estable) | B principios | Porcentajes propios; renombrado por decisión del propietario, idea de ondas atribuida en autor/obra |
 | GZCL | B principios | Revisión legal del nombre |
 | PHUL | A establecido | Revisión legal |
 | PHAT | A establecido | Revisión legal |
