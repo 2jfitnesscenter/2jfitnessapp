@@ -65,7 +65,26 @@ function Invoke-2JRun {
 
 # The API suite exercises the backup/restore/secret scripts and needs bash + openssl. Put Git for Windows' on THIS run's PATH (ahead of System32's WSL bash.exe;
 # tar stays the system one). The configured API pass/skip counts below are exact release gates.
-$GitForTests = Split-Path (Split-Path (Get-Command git.exe -ErrorAction Stop).Source -Parent) -Parent
+# git.exe may live in Git\cmd, Git\bin or Git\mingw64\bin, so the Git for Windows root is found by walking up from it until a directory holds a bash.exe
+# (bin, usr\bin or mingw64\bin), never by counting parents. Fails naming every path it tried.
+# ---- begin git-root ----
+function Resolve-GitRoot([string]$GitExePath) {
+  $tried = @()
+  $dir = Split-Path -Parent $GitExePath
+  while ($dir) {
+    foreach ($rel in @('bin\bash.exe', 'usr\bin\bash.exe', 'mingw64\bin\bash.exe')) {
+      $candidate = Join-Path $dir $rel
+      $tried += $candidate
+      if (Test-Path -LiteralPath $candidate -PathType Leaf) { return [pscustomobject]@{ Root = $dir; Bash = $candidate } }
+    }
+    $parent = Split-Path -Parent $dir
+    if (-not $parent -or $parent -eq $dir) { break }
+    $dir = $parent
+  }
+  throw ("GIT_BASH_NOT_FOUND from $GitExePath. Paths tried:" + [Environment]::NewLine + ($tried -join [Environment]::NewLine))
+}
+# ---- end git-root ----
+$GitForTests = (Resolve-GitRoot (Get-Command git.exe -ErrorAction Stop).Source).Root
 foreach ($p in @((Join-Path $GitForTests 'mingw64\bin'), (Join-Path $GitForTests 'bin'))) { if (Test-Path -LiteralPath $p) { $env:PATH = "$p;$env:PATH" } }
 
 $Commit = '@@TARGET_COMMIT@@'
@@ -288,7 +307,7 @@ try {
   & docker rm --force $ImageSmokeName | Out-Null
 }
 Write-Host 'Validacion local (tests, build, locales, generadores)...'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs' @('tests 24', 'pass 24', 'fail 0', 'skipped 0')
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs' @('tests 30', 'pass 30', 'fail 0', 'skipped 0')
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend 'npx vitest run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx' @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
@@ -2227,9 +2246,9 @@ if (-not $SimulationScript.Contains('__VERIFY_CURRENT_PRODUCTION__')) { throw 'S
 $SimulationScript = $SimulationScript.Replace('__VERIFY_CURRENT_PRODUCTION__', $currentProductionBlock)
 [System.IO.File]::WriteAllText($SimulationRunner, ($SimulationScript -replace "`r`n", "`n"), $Utf8NoBom)
 $GitExe = (Get-Command git.exe -ErrorAction Stop).Source
-$GitRoot = Split-Path (Split-Path $GitExe -Parent) -Parent
-$Bash = Join-Path $GitRoot 'bin\bash.exe'
-if (-not (Test-Path -LiteralPath $Bash)) { throw "Git Bash no encontrado junto a Git: $Bash" }
+$GitResolved = Resolve-GitRoot $GitExe
+$GitRoot = $GitResolved.Root
+$Bash = $GitResolved.Bash
 function ConvertTo-GitBashPath([string]$Path) {
   $full = [System.IO.Path]::GetFullPath($Path)
   $drive = $full.Substring(0, 1).ToLowerInvariant()
