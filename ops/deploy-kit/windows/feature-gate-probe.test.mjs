@@ -63,7 +63,9 @@ test('4. 200, redirects and unexpected 404 are rejected', async () => {
 test('5. a 5xx is rejected', async () => assert.notEqual((await probe('/boom', { gate: 'feature_off' })).exit, 0))
 
 test('the generator emits the gate only for routes marked featureGate, and refuses a gate on anything but an unauthenticated 401', () => {
-  const m = JSON.parse(fs.readFileSync(path.join(here, '../releases/social-v2.json'), 'utf8'))
+  const base = JSON.parse(fs.readFileSync(path.join(here, '../releases/training-quality-review.json'), 'utf8'))
+  const gated = ['/api/social/goals', '/api/chat/messages', '/api/social/shares/item'].map(p => ({ method: 'GET', path: p, status: 401, expectUnauthenticated: true, featureGate: true }))
+  const m = { ...base, probes: { ...base.probes, unauthenticatedRoutes: [...base.probes.unauthenticatedRoutes, ...gated, { method: 'GET', path: '/api/admin/social-reports', status: 401, expectUnauthenticated: true }] } }
   const rendered = renderTemplate(template, m)
   for (const p of ['/api/social/goals', '/api/chat/messages', '/api/social/shares/item']) assert.ok(new RegExp(`wait_status 401 'https://app\\.2jfitnesscenter\\.com${p}' \\S+ \\S+ 45 '' GET '' feature_off\\)`).test(rendered), p)
   assert.equal(/admin\/social-reports'[^\n]*feature_off/.test(rendered), false, 'a route no switch covers stays strictly 401')
