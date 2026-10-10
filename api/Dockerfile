@@ -21,6 +21,7 @@ RUN npm ci --omit=dev --include=optional \
  && ./node_modules/.bin/codex --version
 COPY server.js ./
 COPY lib/ ./lib/
+COPY platform-proof/ ./platform-proof/
 COPY coach/ ./coach/
 COPY friends/ ./friends/
 COPY chat/ ./chat/
