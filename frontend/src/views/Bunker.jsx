@@ -27,6 +27,8 @@ import { guidedBlocksOf } from '../lib/guided.js'
 import { TYPE_LABEL } from '../lib/protocol/index.js'
 import { drainPendingActive, retryPendingFinish, stagePendingFinish } from '../lib/bunker-persistence.js'
 import { alternativesSheet } from '../sheets.jsx'
+import { goToExercise } from '../lib/bunker-nav.js'
+import { buildBunkerActive, BunkerTodayPicker, BunkerOutline, BunkerStepper, BunkerSupersetSwitch, BunkerExerciseMedia, BunkerPanelGrid } from './BunkerRoutine.jsx'
 
 const BOARD_POLL_MS = 4000
 const AFTER_SET_MINIMIZE_MS = 20000
@@ -183,18 +185,6 @@ function BunkerCheckinPad({ onClose, onSuccess }) {
 }
 
 /* ============================ individual training panel ============================ */
-// A brand-new session for `routine`, built with the exact same shared helper the phone app's
-// beginWorkout()/beginPastWorkout() use (lib/progression.js's buildRoutineEntries) — hidden
-// exercises, supersets, progression and buildSets() all behave identically here, because it is
-// the same function, not a second guess at what it does.
-function buildBunkerActive(S, routine) {
-  return {
-    id: uid(), d: todayISO(), start: Date.now(), routineId: routine.id,
-    name: routine.name, bw: null, cur: 0,
-    entries: buildRoutineEntries(S, routine),
-    ...(guidedBlocksOf(routine).length ? { guidedBlocks: guidedBlocksOf(routine) } : {}),
-  }
-}
 function lastResultFor(recentWorkouts, exId) {
   for (let i = recentWorkouts.length - 1; i >= 0; i--) {
     const e = recentWorkouts[i].entries.find(x => x.id === exId)
@@ -491,6 +481,8 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
 
   autoFinishRef.current = () => finish('inactivity_timeout')
 
+  // Moves between exercises of THIS panel's session: the cursor only. Entries are never touched, so no set can be lost by navigating back.
+  const goTo = i => { touch(); const next = goToExercise(active, i); sync(next, next.cur); setExIdx(next.cur) }
   const entry = active.entries[exIdx]
   const last = entry ? lastResultFor(plan.recentWorkouts, entry.id) : null
   const ssInfo = supersetGroupInfo(active.entries)
@@ -551,23 +543,16 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
       <div className="bk-live-progress-label"><span>{t('{0} of {1} exercises', progress.doneExercises, progress.totalExercises)}</span><strong>{progress.percent}%</strong><span>{t('{0} of {1} sets', progress.doneSets, progress.totalSets)}</span></div>
       <div className="bk-live-progress-track" role="progressbar" aria-label={t('Workout progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}><span style={{ width: `${progress.percent}%` }} /></div>
     </div>
-    {active.entries.length > 0 && <div className="bk-exlist">
-      {active.entries.map((e, i) => {
-        const doneN = e.sets.filter(s => s.done).length
-        return <button key={i} className={'bk-extab' + (i === exIdx ? ' on' : '') + (doneN === e.sets.length ? ' done' : '')}
-          onClick={() => { touch(); sync(active, i); setExIdx(i) }}>
-          <span className="bk-extab-title"><b className="bk-extab-code">{ssInfo[i] ? supersetLabel(ssInfo[i]) : i + 1}</b><span className="bk-extab-name">{exName(e.id, plan.customEx)}</span></span>
-          <span className="bk-extab-n">{doneN}/{e.sets.length}</span>
-        </button>
-      })}
+    <BunkerOutline entries={active.entries} cur={exIdx} ssInfo={ssInfo} nameOf={id => exName(id, plan.customEx)} onGo={goTo}>
       {freeTraining && <button disabled={!!conflict} className="bk-extab bk-extab-add" onClick={() => { touch(); setShowAdd(true) }} aria-label={t('Add exercise')}><Icon name="plus" /></button>}
-    </div>}
+    </BunkerOutline>
+    <BunkerStepper entries={active.entries} cur={exIdx} nameOf={id => exName(id, plan.customEx)} onGo={goTo} disabled={!!conflict} />
     {freeTraining && !active.entries.length && <div className="bk-empty">
       {t('Freestyle workout — add your first exercise.')}
       <button className="bk-join" style={{ marginTop: 16 }} onClick={() => { touch(); setShowAdd(true) }}><Icon name="plus" />{t('Add exercise')}</button>
     </div>}
     {entry && <div className="bk-sets">
-      {(EXIDX[entry.id]?.gif || EXIDX[entry.id]?.img) && <img className="bk-exmedia" src={EXIDX[entry.id]?.gif ? gifSrc(EXIDX[entry.id]) : imgSrc(EXIDX[entry.id])} alt={exName(entry.id, plan.customEx)} loading="lazy" decoding="async" />}
+      <BunkerExerciseMedia key={entry.id} ex={EXIDX[entry.id]} name={exName(entry.id, plan.customEx)} />
       <div className="bk-exname-row">
         <div className="bk-exname">{ssInfo[exIdx] && <span className="bk-ssbadge">{supersetLabel(ssInfo[exIdx])}</span>}{exName(entry.id, plan.customEx)}</div>
         <button disabled={!!conflict} className="bk-exchange-btn" onClick={() => { touch(); alternativesSheet(EXIDX[entry.id] || { id: entry.id, n: exName(entry.id, plan.customEx), eq: 'custom' }, doSwap, true, plan) }}>
@@ -578,7 +563,7 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
         </button>}
       </div>
       {guidedHere && <div className="bk-guided-note" role="note"><Icon name="timer" /><span>{t('Guided block ({0}): at the Bunker it is logged set by set, resting what its timing says between rounds. The paced timer runs in the app on the phone.', t(guidedHere.timing?.preset === 'tabata' ? 'Tabata' : TYPE_LABEL[guidedHere.type] || guidedHere.type))}</span></div>}
-      {currentUnit.length > 1 && <div className="bk-superset-line"><Icon name="link" />{currentUnit.map(i => `${supersetLabel(ssInfo[i])} ${exName(active.entries[i].id, plan.customEx)}`).join(' + ')}</div>}
+      <BunkerSupersetSwitch entries={active.entries} cur={exIdx} ssInfo={ssInfo} nameOf={id => exName(id, plan.customEx)} onGo={goTo} />
       {/* Same plan.why the phone logger's own .progline shows (lib/progression.js's
           nextPrescription) — what the routine planned for this exercise and why, kept visibly
           separate from the editable set rows below (what is actually being done). */}
@@ -632,31 +617,6 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
         <ExerciseSearchList excludeIds={active.entries.map(e => e.id)} onPick={doAdd} />
       </div>
     </div>}
-  </div>
-}
-
-// "¿Qué quieres entrenar hoy?" — shown only when there is neither an S.active already in
-// progress nor a routine scheduled for today (Bunker.jsx's own mount effect leaves `active`
-// null in exactly that case, never auto-building or auto-picking anything). A routine picked
-// here only ever feeds buildBunkerActive/sync(), same as a normally-scheduled day — it writes
-// S.active and nothing else, so it can never bleed into S.week/dayPlan/programs. Routines that
-// would produce zero entries (every exercise in them hidden, or a routine with none at all) are
-// left out — offering one would just be a picker option that goes nowhere.
-function BunkerTodayPicker({ routines, sessionS, onPickRoutine, onFreeTraining }) {
-  const usable = (routines || []).filter(r => buildRoutineEntries(sessionS(), r).length > 0)
-  return <div className="bk-picker">
-    <div className="bk-picker-title">{t('What do you want to train today?')}</div>
-    <div className="bk-picker-list">
-      {usable.map(r => (
-        <button key={r.id} className="bk-tool-exrow" onClick={() => onPickRoutine(r)}>
-          <span className="bk-picker-routine-icon"><Icon name={glyphOf(r.emoji)} /></span>
-          <span className="bk-tool-exname">{r.name}</span>
-          <span className="bk-tool-exmeta">{exCount(r.ex.length)}</span>
-        </button>
-      ))}
-      {!usable.length && <div className="bk-tool-empty">{t('No saved routines yet.')}</div>}
-    </div>
-    <button className="bk-join" onClick={onFreeTraining}><Icon name="shuffle" />{t('Freestyle workout (pick as you go)')}</button>
   </div>
 }
 
@@ -821,10 +781,10 @@ export default function Bunker() {
                 {minimized.map(([uid, credential]) => <button key={uid} className="bk-restore" onClick={() => expand(uid)}><Icon name="expand" />{credential.name}</button>)}
                 <button className="bk-join" onClick={() => setShowCheckin(true)}><Icon name="plus" /> {t('Join the Bunker')}</button>
               </div>
-              <div className={`bk-multi-grid users-${Math.min(open.length, 3)}${open.length > 3 ? ' overflow-panels' : ''}`}>{Object.entries(credentials).map(([uid, current]) =>
-                <BunkerTrainingPanel key={uid} token={current.token} name={current.name} settings={settings} hidden={!activeUids.includes(uid)}
+              <BunkerPanelGrid credentials={credentials} activeUids={activeUids} renderPanel={(uid, current, hidden) =>
+                <BunkerTrainingPanel key={uid} token={current.token} name={current.name} settings={settings} hidden={hidden}
                   onMinimize={() => minimize(uid)} onFinish={() => releaseActive(uid)} onInvalid={() => releaseActive(uid)} />
-              )}</div>
+              } />
             </div>}
         {!open.length && <BunkerBoard board={board} settings={settings} credentials={credentials}
               onCheckin={() => setShowCheckin(true)} onResume={expand} />}

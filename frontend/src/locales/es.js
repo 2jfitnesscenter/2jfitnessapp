@@ -5080,4 +5080,9 @@ export default {
   'Today, members and trainers in one place': 'Hoy, miembros y entrenadores en un solo sitio',
   'Joined recently': 'Recién llegados',
   'New member': 'Nuevo',
+  'Previous exercise': 'Ejercicio anterior',
+  'Up next: {0}': 'Siguiente: {0}',
+  'All exercises done': 'Todos los ejercicios hechos',
+  'Exercise {0} of {1}': 'Ejercicio {0} de {1}',
+  'No image available': 'Sin imagen disponible',
 }

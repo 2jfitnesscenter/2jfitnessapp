@@ -3674,3 +3674,26 @@ body:has(.sync-pill) #app{padding-top:8px}
 .internal-share-include{margin:0 0 10px;padding:0;border:0;min-width:0}.internal-share-include legend{padding:0;margin:0 0 6px;font-size:12px;font-weight:700;color:var(--label-2)}
 .internal-share-include>div{display:flex;flex-wrap:wrap;gap:8px 14px}.internal-share-include label{display:inline-flex;align-items:center;gap:6px;font-size:13px}
 .internal-share-include small{display:block;margin-top:6px;color:var(--label-3);font-size:11px}
+
+/* ---- Bunker routine navigation: next marker, previous/next, superset A/B, image fallback ---- */
+.bk-extab.next{border-color:rgba(16,185,129,.45)}
+.bk-extab-tag{font-style:normal;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#10B981;margin-right:6px}
+.bk-stepper{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+.bk-step{width:56px;height:56px;flex:none;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#fff;display:grid;place-items:center;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.bk-step:disabled{opacity:.3}
+.bk-step svg{width:26px;height:26px}
+.bk-step-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:center}
+.bk-step-pos{font-variant-numeric:tabular-nums;font-weight:700;font-size:15px}
+.bk-step-next{font-size:13px;color:#8d9aa3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-ab{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+.bk-ab>svg{width:18px;height:18px;color:#10B981;flex:none}
+.bk-ab-chip{display:flex;align-items:center;gap:8px;min-height:48px;padding:8px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#e8eef2;font-size:15px;min-width:0}
+.bk-ab-chip.on{border-color:#10B981;background:rgba(16,185,129,.16)}
+.bk-ab-chip b{font-weight:800}
+.bk-ab-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
+.bk-ab-chip i{font-style:normal;font-variant-numeric:tabular-nums;color:#8d9aa3}
+.bk-exmedia-fallback{display:flex;align-items:center;justify-content:center;gap:10px;color:#8d9aa3;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.14);border-radius:16px}
+.bk-exmedia-fallback svg{width:30px;height:30px;color:#10B981;flex:none}
+.bk-exmedia-fallback span{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%}
+.bk-multi-grid.users-3 .bk-step{width:48px;height:48px}
+.bk-multi-grid.users-3 .bk-ab-chip{padding:6px 10px;font-size:13px}
