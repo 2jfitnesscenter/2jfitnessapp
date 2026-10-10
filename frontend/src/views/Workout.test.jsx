@@ -260,13 +260,24 @@ describe('rest V2', () => {
 })
 
 describe('the training guide trigger', () => {
+  // startFlow never starts the session itself for a new member: it opens the guide and returns; the session exists only after the guide's onDone runs startFlow again.
+  // The weigh-in is dated today so the quick check-in sheet (a different, stale-weight rule) does not stand between onDone and the session.
+  const weighedToday = async () => { const { todayISO } = await import('../lib/format.js'); write(s => { s.bodyweight = [{ d: todayISO(), w: 78 }] }) }
   it('opens before a new member’s first workout and never for an existing profile', async () => {
+    await weighedToday()
     write(s => { s.active = null; s.workouts = []; s.workoutGuidePending = true })
     sheets.startFlow('r1')
     expect(guide.openWorkoutGuide).toHaveBeenCalledTimes(1)
-    expect(store.getState().S.active).toBeNull()
+    expect(store.getState().S.active).toBeNull()               // the guide is open: no session yet
 
-    write(s => { s.workoutGuidePending = false })
+    const { onDone } = guide.openWorkoutGuide.mock.calls[0][0]
+    expect(typeof onDone).toBe('function')
+    write(s => { s.workoutGuidePending = false })              // what finishing the guide does
+    onDone()
+    expect(guide.openWorkoutGuide).toHaveBeenCalledTimes(1)    // it does not open again
+    expect(store.getState().S.active?.routineId).toBe('r1')
+
+    write(s => { s.active = null })                            // an existing profile: straight to the session, no guide
     sheets.startFlow('r1')
     expect(guide.openWorkoutGuide).toHaveBeenCalledTimes(1)
     expect(store.getState().S.active?.routineId).toBe('r1')
