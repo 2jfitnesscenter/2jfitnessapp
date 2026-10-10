@@ -33,6 +33,7 @@ export default function TrainerClients() {
       <a className="trainer-back" href="#/trainer/seguimiento" style={{ marginRight: 10 }}><Icon name="chartLine" />{t('Follow-up')}</a>
       <a className="trainer-back" href="#/trainer/blocks" style={{ marginRight: 10 }}><Icon name="list" />{t('Block library')}</a>
       <a className="trainer-back" href="#/trainer/guided" style={{ marginRight: 10 }}><Icon name="play" />{t('Train with 2J')}</a>
+      <a className="trainer-back" href="#/premium/manage" style={{ marginRight: 10 }}><Icon name="trophy" />{t('Premium programs')}</a>
       <a className="trainer-back" href="#/admin/bunker" style={{ marginRight: 10 }}><Icon name="dumbbell" />{t('Room admin')}</a>
       <a className="trainer-back" href="#/home"><Icon name="chevronLeft" />{t('Back to the app')}</a>
     </div>

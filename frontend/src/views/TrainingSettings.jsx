@@ -7,7 +7,9 @@ import { wakeLockSupported } from '../lib/wakelock.js'
 import { t } from '../lib/i18n.js'
 import { MOBILE } from '../lib/mobile.js'
 import { effortOf } from '../lib/history.js'
-import { uxOn } from '../lib/features.js'
+import { uxOn, allowedByAdmin } from '../lib/features.js'
+import { runningView, finish } from '../lib/premium.js'
+import { confirmSheet } from '../sheets.jsx'
 import { LEVELS } from '../lib/rp-volume.js'
 import { workoutPrefs } from '../lib/workout-prefs.js'
 import { useUI } from '../store/useUI.js'
@@ -35,6 +37,7 @@ export default function TrainingSettings() {
   const wakeOK = wakeLockSupported()
   const use2J = S.use2JRoomEquipment !== false
   const inc = S.customIncrements || DEFAULT_INC
+  const running = runningView(S)
   const set = (k, v) => update(s => { s[k] = v })
   const setInc = (k, v) => update(s => { s.customIncrements = { ...(s.customIncrements || DEFAULT_INC), [k]: v } })
 
@@ -43,6 +46,14 @@ export default function TrainingSettings() {
       <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 8 }}><h1>{t('Training')}</h1></div>
     </div>
+
+    {/* Premium program: the running one can always be seen and finished here, whatever the gym's catalogue switch says. */}
+    {(running || allowedByAdmin('premium')) && <Section title={t('Premium program')} footer={running ? t('Finishing it keeps your workouts and records; the program moves to your history.') : null}>
+      {running ? <>
+        <Row icon="trophy" iconTint="var(--yellow)" title={running.inst.name} subtitle={t('Cycle {0} · Week {1}/{2}', running.pos.cycle, running.pos.week, running.pos.weeks) + (running.inst.status === 'paused' ? ' · ' + t('Paused') : '')} accessory="chevron" onClick={() => nav('/premium/active')} />
+        <Row icon="check" title={t('Finish program')} danger onClick={() => confirmSheet({ title: t('Finish this program?'), message: t('Your workouts, records and history stay. The program moves to your history.'), confirmText: t('Finish program'), danger: true, onConfirm: () => update(s => { s.premium = finish(s) }) })} />
+      </> : <Row icon="trophy" iconTint="var(--yellow)" title={t('Premium training')} subtitle={t('Proven methods, adapted to you.')} accessory="chevron" onClick={() => nav('/premium')} />}
+    </Section>}
 
     <Section title={t('View')} footer={t('Two ways to see the same workout — switch any time, even mid-session.')}>
       <div className="lrow" style={{ paddingTop: 11, paddingBottom: 11 }}>

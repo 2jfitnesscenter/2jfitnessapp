@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutine, effectiveRoutineId, activeWeek, streakWeeks } from '../lib/history.js'
@@ -23,6 +23,8 @@ import IntelligenceToday from '../components/IntelligenceToday.jsx'
 import NewsBlock from '../components/NewsBlock.jsx'
 import { uxOn, configurable } from '../lib/features.js'
 import { weekReorderSuggestion } from '../lib/session-adaptation.js'
+import { visibleHomeBlocks } from '../lib/home-blocks.js'
+import PremiumHomeCard from '../components/PremiumHomeCard.jsx'
 
 // A job in flight or a proposal waiting is the only reason the Coach interrupts Home. When it
 // has nothing to say it renders nothing at all — and it only polls while Home is on screen.
@@ -110,30 +112,21 @@ export default function Home() {
     else dayOverrideSheet(todayISO())
   }
 
-  return <div className="narrow">
-    <HomeHero S={S} user={user} routine={routine} doneToday={doneToday} rescheduled={todayOvr}
-      week={{ done: wThisWeek, planned: plannedPerWeek, streak }} onToday={onToday} onWeek={() => calendarSheet()} now={today} />
-
-    <ReadinessSection compact />
-
-    {reviewNow && <RoutineReviewCard compact review={reviewNow} onView={() => nav(reviewNow.kind === 'program' ? '/train2j/program/' + (S.programs || []).find(p => p.id === reviewNow.programId)?.catalogId : '/plan/r/' + reviewNow.routineId)} />}
-
-    <FollowUpCard fu={followUp} S={S} nav={nav} compact />
-
-    <NewsBlock />
-
-    <PersonalizeInvite nav={nav} />
-
-    <div className="card">
+  // The blocks of Home, in the member's order (the default order is the one Home always had). Each one keeps its own gates.
+  const blocks = {
+    readiness: () => <ReadinessSection compact />,
+    review: () => reviewNow && <RoutineReviewCard compact review={reviewNow} onView={() => nav(reviewNow.kind === 'program' ? '/train2j/program/' + (S.programs || []).find(p => p.id === reviewNow.programId)?.catalogId : '/plan/r/' + reviewNow.routineId)} />,
+    followup: () => <FollowUpCard fu={followUp} S={S} nav={nav} compact />,
+    news: () => <><NewsBlock /><PersonalizeInvite nav={nav} /></>,
+    week: () => <div className="card">
       <div className="row between" style={{ marginBottom: 8 }}>
         <button className="iconbtn" style={{ width: 30, height: 30, fontSize: 15 }} onClick={() => setWeekOffset(w => w - 1)} aria-label={t('Previous week')}><Icon name="chevronLeft" /></button>
         <div className="small muted" style={{ fontWeight: 500 }}>{wkLabel}</div>
         <button className="iconbtn" style={{ width: 30, height: 30, fontSize: 15 }} onClick={() => setWeekOffset(w => w + 1)} aria-label={t('Next week')}><Icon name="chevronRight" /></button>
       </div>
       <div className="week">{strip}</div>
-    </div>
-
-    {reorder && <div className="card" style={{ borderColor: 'var(--acc)' }}>
+    </div>,
+    reorder: () => reorder && <div className="card" style={{ borderColor: 'var(--acc)' }}>
       <div className="row" style={{ gap: 10, marginBottom: 8 }}>
         <span className="lrow-i"><Icon name="calendar" /></span>
         <div className="grow"><div className="ttl">{t('Rearrange week')}</div><div className="muted small">{reorder.expressAvailable
@@ -141,21 +134,25 @@ export default function Home() {
           : t('Move {0} to {1}.', reorder.routine.name, fmtDate(reorder.target))}</div></div>
       </div>
       <Button variant="primary" onClick={() => weekReorderSheet(reorder)}>{reorder.expressAvailable ? t('See Express options') : t('Review week change')}</Button>
-    </div>}
-
-    {/* Entrena con 2J: one discreet way into the official guided routines (no extra tab). */}
-    {uxOn(S, 'train2j') && <button className="card tappable t2-promo" onClick={() => nav('/train2j')}>
+    </div>,
+    // Entrena con 2J: one discreet way into the official guided routines (no extra tab).
+    train2j: () => uxOn(S, 'train2j') && <button className="card tappable t2-promo" onClick={() => nav('/train2j')}>
       <WorkoutCover r={{ id: 'home-promo', category: 'tabata' }} shape="square" />
       <span className="grow">
         <span className="t2-promo-k">{t('Train with 2J')}</span>
         <span className="t2-promo-t">{t('Ready-to-start workouts: Tabata, HIIT, circuits, cardio and mobility.')}</span>
       </span>
       <Icon name="chevronRight" className="chev" />
-    </button>}
+    </button>,
+    premium: () => <PremiumHomeCard />,
+    coach: () => coachOn && uxOn(S, 'coach') && <CoachCard nav={nav} />,
+    intelligence: () => <IntelligenceToday key={user?.id || 'local'} S={S} user={user} max={1} compact showIntro />,
+  }
+  return <div className="narrow">
+    <HomeHero S={S} user={user} routine={routine} doneToday={doneToday} rescheduled={todayOvr}
+      week={{ done: wThisWeek, planned: plannedPerWeek, streak }} onToday={onToday} onWeek={() => calendarSheet()} now={today} />
 
-    {coachOn && uxOn(S, 'coach') && <CoachCard nav={nav} />}
-
-    <IntelligenceToday key={user?.id || 'local'} S={S} user={user} max={1} compact showIntro />
+    {visibleHomeBlocks(S).map(id => <Fragment key={id}>{blocks[id]()}</Fragment>)}
 
     {!S.routines.length && !S.active && (
       <div className="card">

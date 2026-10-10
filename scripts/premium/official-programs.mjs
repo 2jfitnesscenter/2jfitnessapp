@@ -11,6 +11,7 @@
  *  - Nothing here claims one program is better than another: `evidenceSummary` says what is known and what is not.
  *  - English is the source language; `locales.es` carries the Spanish editorial text.
  */
+import { readFileSync } from 'node:fs'
 
 const SEEDED = '2026-10-11T00:00:00.000Z'
 const ID = {
@@ -498,10 +499,14 @@ const ORDER = [p531, ptexas, pjug, pgzcl, pphul, pphat, pdup, ppb, pfbh, prec, p
 const TEXT_KEYS = ['shortDescription', 'longDescription', 'durationDescription', 'evidenceSummary']
 const LIST_KEYS = ['howItWorks', 'forWhom', 'notIdealIf', 'tracking']
 
+// Cover photos: scripts/premium/fetch-covers.mjs downloads them into frontend/public/premium/covers and writes covers.json (author, licence, source page).
+const COVERS = JSON.parse(readFileSync(new URL('./covers.json', import.meta.url), 'utf8'))
+
 export const OFFICIAL_PROGRAMS = ORDER.map((p, i) => {
   const { definition, es, copy, badge, ...rest } = p
+  if (!COVERS[p.slug]) throw new Error('no cover for ' + p.slug)
   return {
-    ...rest,
+    ...rest, ...COVERS[p.slug],
     copy: { howItWorks: copy.howItWorks, forWhom: copy.forWhom, notIdealIf: copy.notIdealIf, tracking: copy.tracking },
     programDefinition: definition,
     locales: { es: Object.fromEntries([...TEXT_KEYS, ...LIST_KEYS].filter(k => es[k]).map(k => [k, es[k]])) },

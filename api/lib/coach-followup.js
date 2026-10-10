@@ -12,6 +12,8 @@ import { routineReviews } from './routine-review.js';
 import { fatigueState, deloadProposal, activeDeload } from './fatigue.js';
 import { countsForProgression } from './workout-policy.js';
 import { nextReview as measurementNext } from './followup.js';
+import { premiumOf, premiumFacts } from './premium-context.js';
+export { premiumOf, premiumFacts };
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const DAY = 86400000;
@@ -332,6 +334,7 @@ export function overviewRow({ S, u, today }) {
     adherence: { pct28: adh.d28.pct, done28: adh.d28.full + adh.d28.partial, planned28: adh.d28.planned, pct7: adh.d7.pct, done7: adh.d7.full + adh.d7.partial, planned7: adh.d7.planned, trend: adh.trend },
     lastWorkout: adh.lastWorkout, daysSince: adh.daysSince, nextReview: next, reviewIn,
     flagged: !!u?.followUp?.flag, followUpActive: !!u?.followUp,
+    premium: (() => { const p = premiumOf(S); return p ? { name: p.name, version: p.version, cycle: p.cycle, week: p.week, weeks: p.weeks, status: p.status, label: p.label } : null; })(),
   };
 }
 
@@ -379,6 +382,7 @@ export function memberView({ S, u, today, structure = null }) {
     fatigue: { level: fat.level, points: fat.points, signals: fat.signals.map(x => x.code) },
     checkin: shared ? { shared: true, count: rec.length, avg: { energy: avg('energy'), sleep: avg('sleep'), fatigue: avg('fatigue') }, highFatigue14: rec.filter(c => c.fatigue >= 4).length, pain14: Object.entries(zones).map(([zone, n]) => ({ zone, n })).sort((a, b) => b.n - a.n) } : { shared: false },
     hasPlan: (S?.routines || []).length > 0 || (S?.programs || []).length > 0,
+    premium: premiumOf(S),
     created, joinedDays: created ? daysBetween(created, today) : null,
     analysis: analysisFrom({ signals, adh, prog, goal }),
   };
@@ -456,6 +460,7 @@ export function aiFacts(view, { structure = null, recent = [] } = {}) {
     structure: cleanStructure(structure),
     checkin: view.checkin.shared ? { avg: view.checkin.avg, highFatigue14: view.checkin.highFatigue14, pain14: view.checkin.pain14.slice(0, 3) } : null,
     recent: recent.slice(0, 5).map(e => ({ kind: clip(e.kind, 30), d: clip(e.d, 10) })),
+    premiumProgram: view.premium ? premiumFacts(view.premium) : null,
   };
   const size = () => JSON.stringify(facts).length;
   for (const drop of ['recent', 'structure', 'checkin', 'body']) if (size() > AI_PAYLOAD_MAX) facts[drop] = drop === 'recent' || drop === 'structure' ? [] : null;

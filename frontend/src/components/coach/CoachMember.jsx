@@ -15,6 +15,8 @@ import { reviewReasons } from '../../lib/routine-review-text.js'
 import * as cf from '../../lib/coach-followup.js'
 import { RoutineCycles } from '../../views/AdminFollowUp.jsx'
 import Icon from '../Icon.jsx'
+import { EXIDX } from '../../lib/exercises.js'
+import { runLabel, INCIDENT_LABEL } from '../../lib/premium-text.js'
 import { Surface, Pill, ProgressBar, Sparkline, Skeleton } from '../v2.jsx'
 import { Button, Avatar, TextArea, Row } from '../ui.jsx'
 import './coach-followup.css'
@@ -105,6 +107,24 @@ function Summary({ d, id, nav, reload, admin }) {
     {admin && d.trainers && <div className="cf-team small dim"><Icon name="users" /> {d.trainers.assigned.length ? t('Trainers: {0}', d.trainers.options.filter(o => d.trainers.assigned.includes(o.id)).map(o => o.name).join(', ')) : t('Only administrators have access.')}
       <button type="button" className="v3-link" onClick={() => openSheet(close => <TeamSheet id={id} team={d.trainers} onSaved={reload} close={close} />)}>{t('Manage')}</button></div>}
   </Surface>
+}
+
+/* The Premium program the member follows (name, version, phase, cycle, week, adherence, progression, incidents) — read-only context for the review. */
+export function PremiumRun({ p }) {
+  const unit = p.methodState?.unit || 'kg'
+  const tms = Object.entries(p.methodState?.trainingMax || {}).filter(([, v]) => v != null)
+  return <>
+    <ul className="cf-list">
+      <li><span>{t('Program')}</span><b>{p.name} · {t('version {0}', p.version)}</b></li>
+      <li><span>{t('Position')}</span><b>{runLabel(p)}{p.phase ? ' · ' + p.phase : ''}</b></li>
+      <li><span>{t('Sessions this cycle')}</span><b>{t('{0} of {1}', p.completedInCycle, p.totalInCycle)}</b></li>
+      <li><span>{t('Adherence')}</span><b>{p.adherence?.pct != null ? p.adherence.pct + '% · ' + t('{0} of {1} sessions', p.adherence.done, p.adherence.expected) : '—'}</b></li>
+      {(p.lastAmrap || []).length > 0 && <li><span>{t('Latest AMRAP sets')}</span><b>{p.lastAmrap.map(a => `${t(EXIDX[a.exercise]?.n || a.exercise)} ${a.w}×${a.reps}`).join(' · ')}</b></li>}
+      {tms.length > 0 && <li><span>{t('Training Max')}</span><b>{tms.map(([k, v]) => `${k} ${v} ${unit}`).join(' · ')}</b></li>}
+      {(p.incidents || []).length > 0 && <li className="note"><span>{t('Incidents')}</span><b>{p.incidents.map(i => t(INCIDENT_LABEL[i] || i)).join(' · ')}</b></li>}
+    </ul>
+    <p className="small dim">{t('Changing sets, percentages or loads in the program workouts may affect the method. Supplementary work, cardio and scheduling stay open to you.')}</p>
+  </>
 }
 
 /* ------------------------------------------------------------------ now / progress / adherence */
@@ -315,6 +335,7 @@ export function MemberView({ d, plan = null, id, back, reload = () => {}, setDat
     </div>
     <Summary d={d} id={id} nav={nav} reload={reload} admin={!!user?.admin} />
     <Acc title={t('Now')} icon="bolt" open><Now view={view} /></Acc>
+    {view.premium && <Acc title={t('Premium program')} icon="trophy" open hint={runLabel(view.premium)}><PremiumRun p={view.premium} /></Acc>}
     <Acc title={t('Progress')} icon="chartLine" hint={t(cf.PROGRESSION_TEXT[p.progression.status])}><Progress view={view} /></Acc>
     <Acc title={t('Adherence')} icon="calendar" hint={a.d28.pct != null ? a.d28.pct + '%' : a.d28.full + a.d28.partial ? t('{0} sessions', a.d28.full + a.d28.partial) : null}><Adherence view={view} /></Acc>
     <Acc id="cf-review" title={t('Review cycle')} icon="clipboard" open={pendingReview} hint={view.review.next ? fmtDate(view.review.next) : null}>

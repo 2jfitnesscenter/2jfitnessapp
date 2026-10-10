@@ -177,3 +177,48 @@ test('the global switch: OFF hides the catalogue from members (403 feature_off) 
   await call('admin', 'POST', '/api/admin/features', { features: { premium: true } });
   assert.equal((await call('a', 'GET', '/api/premium')).status, 200);
 });
+
+test('covers: every official program has its own picture, shipped with the app, with alt text, source, licence and credit', async () => {
+  const list = (await call('a', 'GET', '/api/premium')).data.programs.filter(p => p.scope === 'official');
+  const files = new Set();
+  for (const p of list) {
+    assert.match(p.coverImage, /^\/premium\/covers\/[a-z0-9-]+\.jpg$/, p.slug);
+    assert.ok(p.coverImageAlt.length > 10, p.slug + ' alt'); assert.match(p.coverImageSource, /^https:\/\/commons\.wikimedia\.org\//, p.slug);
+    assert.match(p.coverImageLicense, /^(Public domain|CC0|CC BY 2\.0)$/, p.slug); assert.ok(p.coverImageAttribution.length > 5, p.slug + ' credit');
+    assert.ok(p.coverFocalPoint.x >= 0 && p.coverFocalPoint.x <= 100);
+    const file = fileURLToPath(new URL('../../frontend/public' + p.coverImage, import.meta.url));
+    assert.ok(fs.existsSync(file) && fs.statSync(file).size > 20000 && fs.statSync(file).size < 450000, p.slug + ' file');
+    files.add(crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'));
+  }
+  assert.equal(files.size, 12, 'no picture is repeated');
+});
+
+test('covers: a trainer or admin sets, replaces and removes a cover; it never creates a version and it persists', async () => {
+  const created = (await call('trainer-a', 'POST', '/api/premium/save', { program: mini({ name: 'With cover' }) })).data.program;
+  const mine = (await call('trainer-a', 'GET', '/api/premium/program?id=' + created.id)).data.program;
+  assert.equal(mine.coverImage, '');
+  const withCover = { ...mine, coverImage: 'https://upload.wikimedia.org/x/cover.jpg', coverImageAlt: 'A lifter', coverImageSource: 'https://commons.wikimedia.org/wiki/File:X.jpg', coverImageLicense: 'CC0', coverImageAttribution: 'Someone, CC0', coverFocalPoint: { x: 20, y: 70 } };
+  const r = await call('trainer-a', 'POST', '/api/premium/save', { program: withCover });
+  assert.equal(r.status, 200, JSON.stringify(r.data)); assert.equal(r.data.program.version, 1, 'cosmetic: no new version');
+  const again = (await call('trainer-a', 'GET', '/api/premium/program?id=' + mine.id)).data.program;
+  assert.deepEqual([again.coverImage, again.coverImageAlt, again.coverFocalPoint], ['https://upload.wikimedia.org/x/cover.jpg', 'A lifter', { x: 20, y: 70 }]);
+  const media = await call('trainer-a', 'POST', '/api/premium/save', { program: { ...again, coverImage: 'media:abc123.jpg' } });
+  assert.equal(media.data.program.coverImage, 'media:abc123.jpg');
+  const cleared = await call('trainer-a', 'POST', '/api/premium/save', { program: { ...again, coverImage: '', coverImageAlt: '', coverFocalPoint: null } });
+  assert.deepEqual([cleared.data.program.coverImage, cleared.data.program.coverFocalPoint], ['', null]);
+  // an official program's cover can be replaced by the admin and survives; the seed file is untouched
+  const off = (await call('admin', 'GET', '/api/premium/program?id=premium-dup')).data.program;
+  const sw = await call('admin', 'POST', '/api/premium/save', { program: { ...off, coverImage: '/premium/covers/531.jpg', coverImageAlt: 'Replaced' } });
+  assert.equal(sw.data.program.coverImage, '/premium/covers/531.jpg'); assert.equal(sw.data.program.version, off.version);
+  assert.equal((await call('a', 'GET', '/api/premium')).data.programs.find(p => p.id === 'premium-dup').coverImageAlt, 'Replaced');
+  assert.equal(seedHash(), SEED_HASH);
+});
+
+test('covers: unsafe or incomplete covers are refused with the reason', async () => {
+  const made = (await call('trainer-a', 'POST', '/api/premium/save', { program: mini({ name: 'Bad covers' }) })).data.program;
+  const mine = (await call('trainer-a', 'GET', '/api/premium/program?id=' + made.id)).data.program;
+  for (const [cover, issue] of [['javascript:alert(1)', 'cover-image'], ['http://plain.example/x.jpg', 'cover-image'], ['/etc/passwd', 'cover-image'], ['data:image/png;base64,AAAA', 'cover-image'], ['../premium/covers/x.jpg', 'cover-image'], ['https://ok.example/x.jpg', 'cover-alt']]) {
+    const r = await call('trainer-a', 'POST', '/api/premium/save', { program: { ...mine, coverImage: cover, coverImageAlt: '' } });
+    assert.equal(r.status, 400, cover); assert.ok(r.data.issues.includes(issue), cover + ' ' + JSON.stringify(r.data.issues));
+  }
+});

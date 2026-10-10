@@ -45,6 +45,9 @@ import GymProfile, { GymCompatibility } from './components/GymProfile.jsx'
 import { EX_DRAG_TYPE } from './components/constructor/drag.js'
 import { searchExercises, prioritize, scopeList, facets, movementLabel, equipmentLabel, variantLabel, isRecommended, isDeprecated, familiesOf,
   preferredOf, variantsFor, favSetOf, toggleFav } from './lib/library/index.js'
+import { runningView } from './lib/premium.js'
+import { premiumEntries } from './lib/premium-session.js'
+import { originOf } from './lib/premium-model.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { guidedBlocksOf, buildSteps, summarize } from './lib/guided.js'
 import { completeGuidedProgramSession } from './lib/guided-programs.js'
@@ -1955,6 +1958,36 @@ export function beginOfficialWorkout(r, bw, programContext = null) {
   nav('/workout')
   if (skipped) toast(t('{0} exercise(s) skipped — not currently available', skipped))
 }
+/* ---- Premium Training Programs: the next session of the running program, started as a normal workout ----
+   Same path as every other session (Workout V2, finish payload, history); `premium` carries where it came from so the
+   program moves on by itself when it is saved, and nothing about the member's routines, plan or past workouts changes. */
+export function startPremiumSession() {
+  const st = S()
+  if (st.active) {
+    confirmSheet({ title: t('You have a workout in progress'), message: t('Finish or discard it before starting another one.'),
+      confirmText: t('Go to the workout'), onConfirm: () => nav('/workout') })
+    return
+  }
+  const view = runningView(st)
+  if (!view || !view.plan) return
+  if (view.inst.status === 'paused') { toast(t('Resume the program to train')); return }
+  if (view.missing.length) { toast(t('Set your Training Max first')); nav('/premium/active'); return }
+  if (shouldShowWorkoutGuide(st)) { openWorkoutGuide({ onDone: () => startPremiumSession() }); return }
+  if (hasRecentWeighIn(st)) { beginPremiumWorkout(null); return }
+  bwSheet({ required: true, onDone: bw => beginPremiumWorkout(bw) })
+}
+export function beginPremiumWorkout(bw) {
+  const st = S()
+  const view = runningView(st)
+  if (!view?.plan) return
+  const entries = premiumEntries(st, view.plan, { unit: view.inst.methodState.unit, warmups: st.warmupEnabled !== false })
+  update(s => {
+    s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId: null, name: view.inst.name + ' · ' + view.plan.title, bw: bw || null, cur: 0, entries,
+      premium: originOf(view.inst, view.plan) }
+  })
+  useUI.getState().stopRest()
+  nav('/workout')
+}
 // A workout logged after the fact — same session shape as a live one (Workout.jsx's
 // ActiveWorkout drives both from S.active), just dated in the past and flagged `past` so the UI
 // skips everything that only makes sense in real time: the rest timer, the live-presence ping,
@@ -2616,6 +2649,7 @@ async function doFinishWorkout({ automatic = false, excludeFromProgression = fal
   if (guided.length) w.guided = guided
   // Entrena con 2J: which official routine this was (for Recent / Again? / completed counts).
   if (A.src2j) w.src2j = A.src2j
+  if (A.premium) w.premium = A.premium
   w.vol = workoutVolume(w)
   // A Bluetooth heart-rate sensor read during this session (lib/ble-hr.js): its measured summary
   // (avg/max and 2J-derived zones — never a stream) becomes the workout's cardio record, and the

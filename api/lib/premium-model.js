@@ -113,6 +113,9 @@ export function validateDefinition(def, ctx = {}) {
   return [...new Set(issues)]
 }
 
+/** The cover of a program: a file shipped with the app (/premium/covers/…), an image uploaded through the app's media system (media:<id>) or an https URL. Nothing else. */
+export const COVER_RE = /^(\/premium\/covers\/[a-z0-9][a-z0-9._-]{0,80}\.(jpe?g|png|webp|avif)|media:[A-Za-z0-9_-]{1,40}\.jpg|https:\/\/[^\s"'<>]{4,400})$/i
+
 /** Editorial fields + definition. Returns the list of problems (empty = fine). */
 export function validateProgram(p, ctx = {}) {
   const issues = []
@@ -134,6 +137,10 @@ export function validateProgram(p, ctx = {}) {
   if (!int(p.version, 1, 10000)) issues.push('version')
   if (!STATUSES.includes(p.status)) issues.push('status')
   if (p.legal && !LEGAL_STATES.includes(p.legal.status)) issues.push('legal')
+  if (p.coverImage) {
+    if (!COVER_RE.test(p.coverImage)) issues.push('cover-image')
+    else if (!String(p.coverImageAlt || '').trim()) issues.push('cover-alt')
+  }
   const def = validateDefinition(p.programDefinition, ctx).map(i => `definition.${i}`)
   issues.push(...def)
   if (!def.length) {
@@ -156,7 +163,8 @@ export function newInstance(program, { id, now = Date.now(), tm = {}, unit = 'kg
     startedAt: now, status: 'active', pausedAt: null, pausedMs: 0, cycle: 1,
     methodState: { unit: unitKey(unit), tm: lifts },
     skipped: [], adaptations: [], pending: null,
-    snapshot: { name: program.name, slug: program.slug, version: program.version, level: program.level, daysPerWeek: program.daysPerWeek, goalTags: program.goalTags, definition: def },
+    snapshot: { name: program.name, slug: program.slug, version: program.version, level: program.level, daysPerWeek: program.daysPerWeek, goalTags: program.goalTags, definition: def,
+      ...(program.coverImage ? { coverImage: program.coverImage, coverImageAlt: program.coverImageAlt || '', ...(program.coverFocalPoint ? { coverFocalPoint: program.coverFocalPoint } : {}) } : {}) },
   }
 }
 
@@ -376,5 +384,13 @@ export function sanitizeEditorial(input) {
     copy: { howItWorks: list(copy.howItWorks, 6, 240), forWhom: list(copy.forWhom, 6, 240), notIdealIf: list(copy.notIdealIf, 6, 240), tracking: list(copy.tracking, 6, 240) },
     legal: isObj(i.legal) ? { status: LEGAL_STATES.includes(i.legal.status) ? i.legal.status : 'none', note: str(i.legal.note, 400) } : { status: 'none', note: '' },
     programDefinition: sanitizeDefinition(i.programDefinition),
+    ...sanitizeCover(i),
   }
+}
+
+/** Cover metadata (cosmetic: it never creates a version). Source/licence/attribution travel with the image. */
+export function sanitizeCover(i) {
+  const img = str(i?.coverImage, 420)
+  const f = isObj(i?.coverFocalPoint) ? { x: Math.min(100, Math.max(0, fin(i.coverFocalPoint.x) ?? 50)), y: Math.min(100, Math.max(0, fin(i.coverFocalPoint.y) ?? 50)) } : null
+  return { coverImage: img, coverImageAlt: str(i?.coverImageAlt, 200), coverImageSource: str(i?.coverImageSource, 240), coverImageLicense: str(i?.coverImageLicense, 80), coverImageAttribution: str(i?.coverImageAttribution, 300), coverFocalPoint: f }
 }

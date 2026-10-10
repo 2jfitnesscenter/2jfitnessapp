@@ -276,12 +276,12 @@ describe('Closing fixes', () => {
     const off = await render(views.Health)
     expect(off).not.toContain('>Composition<')
   })
-  it('15 feature keys, identical on both sides', async () => {
+  it('16 feature keys, identical on both sides', async () => {
     await boot()
-    expect(F.FEATURE_KEYS).toHaveLength(15)
+    expect(F.FEATURE_KEYS).toHaveLength(16)
     const server = readFileSync(new URL('../../../api/lib/features-store.js', import.meta.url), 'utf8')
     const list = server.slice(server.indexOf('FEATURE_KEYS'), server.indexOf('];', server.indexOf('FEATURE_KEYS')))
-    expect([...list.matchAll(/'([a-z0-9]+)'/g)]).toHaveLength(15)
+    expect([...list.matchAll(/'([a-z0-9]+)'/g)]).toHaveLength(16)
   })
   it('i18n never shows undefined or a raw key: unknown keys fall back to their English source, every new Health V2 string has Spanish', async () => {
     await boot()
