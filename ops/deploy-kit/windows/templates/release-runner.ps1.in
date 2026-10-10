@@ -307,7 +307,7 @@ try {
   & docker rm --force $ImageSmokeName | Out-Null
 }
 Write-Host 'Validacion local (tests, build, locales, generadores)...'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs' @('tests 38', 'pass 38', 'fail 0', 'skipped 0')
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs' @('tests 43', 'pass 43', 'fail 0', 'skipped 0')
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend 'npx vitest run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx' @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
@@ -1961,6 +1961,31 @@ printf 'PWA=OK manifest=%s sw=%s icons=%s/%s\n' "$MANIFEST_STATUS" "$SW_STATUS" 
 printf 'ASSET=%s status=%s style=%s style_status=%s\n' "$ASSET" "$ASSET_STATUS" "$STYLE" "$STYLE_STATUS"
 printf 'STUDIO_ADMIN=OK posts=[%s ] library_get=%s library_post=%s member_writes=%s ai_deprecated=%s overlay_rev=%s %s\n' "$STUDIO_POST_STATUSES" "$LIBADMIN_GET_STATUS" "$LIBADMIN_POST_STATUS" "$(PROBE_FIELD member_writes)" "$(PROBE_FIELD ai_deprecated)" "$(PROBE_FIELD overlay_rev)" "$GUIDED_REV"
 printf 'SERVICES=OK api,web,caddy\n'
+# DEPLOY_MARKER_BEGIN - reached ONLY when every check above passed (a failure runs rollback() and never gets here). Best effort: the
+# marker is information for the admin ops view, so a problem writing it is reported but never fails or rolls back a good deploy.
+if [[ -x "$APP/scripts/mark-deploy.sh" ]]; then
+  if OPS_DIR="$APP/data/ops" "$APP/scripts/mark-deploy.sh" "$TARGET_COMMIT" release >/dev/null 2>&1; then
+    chown --reference="$APP/data" "$APP/data/ops" "$APP/data/ops/deploy-marker.json" 2>/dev/null || true
+    printf 'DEPLOY_MARKER=ok:%s\n' "$TARGET_COMMIT"
+  else
+    printf 'DEPLOY_MARKER=SKIPPED:write_failed (non-blocking)\n'
+  fi
+else
+  printf 'DEPLOY_MARKER=SKIPPED:no_mark_deploy_script (non-blocking)\n'
+fi
+# DEPLOY_MARKER_END
+# OPS_CRON_BEGIN - keeps the daily off-site backup, the ops-check and the log rotation installed (idempotent). Best effort and only on the real server
+# layout: never in the local simulation (APP differs there), never fails or rolls back a good deploy.
+if [[ "$APP" == /opt/2jfitness && -x "$APP/scripts/install-ops-cron.sh" && -s /etc/2j-ops.env ]]; then
+  if "$APP/scripts/install-ops-cron.sh" >/tmp/2j-ops-cron.log 2>&1; then
+    printf 'OPS_CRON=ok (%s)\n' "$(tail -n 1 /tmp/2j-ops-cron.log)"
+  else
+    printf 'OPS_CRON=SKIPPED:install_failed (non-blocking; see /tmp/2j-ops-cron.log)\n'
+  fi
+else
+  printf 'OPS_CRON=SKIPPED:not_the_server_layout_or_no_etc_2j-ops.env (non-blocking)\n'
+fi
+# OPS_CRON_END
 printf 'LOG=%s\n' "$LOG"
 '@
 
@@ -2144,7 +2169,8 @@ if run_mutable_probe >/dev/null 2>&1; then printf 'SIM_PLAINTEXT_CHAT_INVALID_NO
 cp -p "$SIM_ROOT/chat-original.json" "$APP/data/chat.json"
 printf 'SIM_ENCRYPTED_CHAT_GUARDS=PASS corrupted+wrong_key+invalid_plaintext_rejected\n'
 run_mutable_probe
-DATA_BEFORE=$(find "$APP/data" -type f -print0 | sort -z | xargs -0 sha256sum)
+# data/ops holds operational metadata (deploy marker, backup status); the simulated success writes the marker, and a rollback leaves it alone, so it is not part of the member-data comparison
+DATA_BEFORE=$(find "$APP/data" -type f ! -path "$APP/data/ops/*" -print0 | sort -z | xargs -0 sha256sum)
 printf 'SIM_COMMUNITY_CORRUPTION=PASS missing+truncated+invalid_json_rejected\n'
 __FINALIZE_SUMMARY__
 
@@ -2178,7 +2204,7 @@ rmdir "$NEG_MARKER/.deployed-commit"
 [[ -f "$APP/.deployed-commit" && "$(cat "$APP/.deployed-commit")" == "$ROLLBACK_COMMIT" ]]
 printf 'SIM_ROLLBACK_MARKER_GUARDS=PASS bad_health_and_unwritable_marker_rejected isolated_dirs\n'
 verify_tree "$RB_TREE" "$ROLLBACK_COMMIT"
-DATA_AFTER=$(find "$APP/data" -type f -print0 | sort -z | xargs -0 sha256sum)
+DATA_AFTER=$(find "$APP/data" -type f ! -path "$APP/data/ops/*" -print0 | sort -z | xargs -0 sha256sum)
 [[ "$DATA_AFTER" == "$DATA_BEFORE" ]]
 printf 'SIM_ROLLBACK=OK commit=%s exact_tree=yes data=unchanged state_files=17 secret=unchanged gym-profile=preserved notifications/chat/friends/social/shares/reports/vapid=preserved\n' "$ROLLBACK_COMMIT"
 '@

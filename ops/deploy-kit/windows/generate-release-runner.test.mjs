@@ -161,3 +161,74 @@ test('release protocol probes the program-level review routes without pinning an
   assert.ok(template.includes("grep -Fq 'setProgramCycleDates' \"$RELEASE_CHECK_DIR/api/server.js\""))
   assert.ok(!template.includes("import { markReviewed, setCycleDates, routineReviews }"))
 })
+
+// ---- deploy marker: written by the server runner only at the very end of a SUCCESSFUL deploy -----------------------------------------
+import { spawnSync } from 'node:child_process'
+import os from 'node:os'
+
+const lf = template.replace(/\r\n?/g, '\n')
+const markerBlock = lf.slice(lf.indexOf('# DEPLOY_MARKER_BEGIN'), lf.indexOf('# DEPLOY_MARKER_END'))
+const repoRoot = path.resolve(here, '../../..')
+const hasBash = spawnSync('bash', ['-c', 'true']).status === 0
+
+test('deploy marker: present once, after DEPLOY_OK and every probe, never in rollback or the error path', () => {
+  assert.equal(lf.split('# DEPLOY_MARKER_BEGIN').length, 2)
+  const at = lf.indexOf('# DEPLOY_MARKER_BEGIN')
+  assert.ok(at > lf.indexOf("printf 'DEPLOY_OK=%s"), 'after DEPLOY_OK')
+  assert.ok(at > lf.indexOf("printf 'SERVICES=OK api,web,caddy"), 'after the last probe (services)')
+  assert.ok(at > lf.indexOf('trap on_error ERR'), 'in the success path, after the error trap is armed')
+  assert.ok(lf.slice(lf.indexOf('# OPS_CRON_END')).startsWith('# OPS_CRON_END\nprintf \'LOG=%s\\n\' "$LOG"\n\'@'), 'the marker and the ops cron are the last things in the script, right before the final LOG line')
+  assert.ok(lf.indexOf('# OPS_CRON_BEGIN') > lf.indexOf('# DEPLOY_MARKER_END'), 'the ops cron step comes after the marker')
+  const rollbackFn = lf.slice(lf.indexOf('rollback() {'), lf.indexOf('trap on_error ERR'))
+  assert.ok(!rollbackFn.includes('mark-deploy') && !rollbackFn.includes('DEPLOY_MARKER'), 'rollback never marks')
+  assert.ok(markerBlock.includes('scripts/mark-deploy.sh') && markerBlock.includes('"$TARGET_COMMIT"'), 'reuses mark-deploy.sh with the target commit')
+  assert.ok(!/\bfalse\b|\bexit\b/.test(markerBlock), 'a marker problem can never fail a good deploy')
+})
+
+function runBlock({ withScript = true, readonlyData = false } = {}) {
+  const app = fs.mkdtempSync(path.join(os.tmpdir(), '2j-marker-'))
+  fs.mkdirSync(path.join(app, 'scripts')); fs.mkdirSync(path.join(app, 'data'))
+  if (withScript) { fs.copyFileSync(path.join(repoRoot, 'scripts/mark-deploy.sh'), path.join(app, 'scripts/mark-deploy.sh')); fs.chmodSync(path.join(app, 'scripts/mark-deploy.sh'), 0o755) }
+  if (readonlyData) fs.writeFileSync(path.join(app, 'data/ops'), 'a file where the directory should be')
+  const target = 'dd7897a294095a2f615cff24cfa2720bfd65d6e1'
+  const script = `set -Eeuo pipefail\nAPP='${app.split(path.sep).join('/')}'\nTARGET_COMMIT=${target}\ntrap 'echo ERR_TRAP_FIRED' ERR\n${markerBlock}\necho FINISHED\n`
+  const r = spawnSync('bash', ['-c', script], { encoding: 'utf8' })
+  const file = path.join(app, 'data/ops/deploy-marker.json')
+  const marker = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null
+  fs.rmSync(app, { recursive: true, force: true })
+  return { r, marker, target }
+}
+
+test('deploy marker: a successful deploy leaves the target sha in data/ops/deploy-marker.json', { skip: !hasBash }, () => {
+  const { r, marker, target } = runBlock()
+  assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, new RegExp(`DEPLOY_MARKER=ok:${target}`)); assert.ok(r.stdout.includes('FINISHED'))
+  assert.equal(marker.sha, target); assert.equal(marker.note, 'release')
+})
+
+test('deploy marker: a missing script or an unwritable ops dir is reported but never fails the deploy', { skip: !hasBash }, () => {
+  for (const opt of [{ withScript: false }, { readonlyData: true }]) {
+    const { r, marker } = runBlock(opt)
+    assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /DEPLOY_MARKER=SKIPPED/); assert.ok(r.stdout.includes('FINISHED')); assert.ok(!r.stdout.includes('ERR_TRAP_FIRED'))
+    assert.equal(marker, null)
+  }
+})
+
+// ---- ops cron: the runner keeps the backup / ops-check / logrotate installed, only on the real server layout, never failing a good deploy -------
+const cronBlock = lf.slice(lf.indexOf('# OPS_CRON_BEGIN'), lf.indexOf('# OPS_CRON_END'))
+
+test('ops cron step: present once, guarded to the real server layout, non-blocking, reuses install-ops-cron.sh', () => {
+  assert.equal(lf.split('# OPS_CRON_BEGIN').length, 2)
+  assert.ok(cronBlock.includes('"$APP" == /opt/2jfitness') && cronBlock.includes('/etc/2j-ops.env'), 'only /opt/2jfitness with its env file (never the local simulation)')
+  assert.ok(cronBlock.includes('scripts/install-ops-cron.sh'))
+  assert.ok(!/\bfalse\b|\bexit\b/.test(cronBlock), 'a cron problem can never fail a good deploy')
+  const rollbackFn = lf.slice(lf.indexOf('rollback() {'), lf.indexOf('trap on_error ERR'))
+  assert.ok(!rollbackFn.includes('install-ops-cron') && !rollbackFn.includes('OPS_CRON'), 'rollback never installs cron')
+})
+
+test('ops cron step: outside the server layout it is skipped quietly and the deploy goes on', { skip: !hasBash }, () => {
+  const app = fs.mkdtempSync(path.join(os.tmpdir(), '2j-cron-'))
+  const script = `set -Eeuo pipefail\nAPP='${app.split(path.sep).join('/')}'\ntrap 'echo ERR_TRAP_FIRED' ERR\n${cronBlock}\necho FINISHED\n`
+  const r = spawnSync('bash', ['-c', script], { encoding: 'utf8' })
+  fs.rmSync(app, { recursive: true, force: true })
+  assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /OPS_CRON=SKIPPED:not_the_server_layout/); assert.ok(r.stdout.includes('FINISHED')); assert.ok(!r.stdout.includes('ERR_TRAP_FIRED'))
+})
