@@ -34,7 +34,8 @@ import * as sharingStore from './social/sharing-store.js';
 import * as chatStore from './chat/store.js';
 import * as bunkerStore from './bunker/store.js';
 import { exportMember, eraseMember, ErasureError } from './lib/account-erasure.js';
-import { stateFile } from './lib/state-store.js';
+import { stateFile, stateFingerprint } from './lib/state-store.js';
+import * as userSummaries from './lib/user-summary.js';
 import { bunkerRoutes } from './bunker/routes.js';
 import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
@@ -370,7 +371,7 @@ const erasureDeps = () => ({
   db, social, saveDb, saveSocial, readState, stateFile, uploadsDir, deleteUploadedImage,
   chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore,
   isStaff: isTrainer, clearCoach: coachJobs.clearUser,
-  forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); },
+  forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); userSummaries.forget(uid); },
 });
 
 // "Workout planned today" reminder — one per user per day, at their chosen time.
@@ -1736,18 +1737,22 @@ const routes = {
   // One row per user, cheap enough for a personal instance (reads each state file once).
   'GET /api/admin/users': async (req, res) => {
     if (!requireAdmin(req, res)) return;
+    // The list reads a light derived summary per member (lib/user-summary.js), not every encrypted state file: a stat per file, a decrypt only for the
+    // member whose file changed behind the summary's back. lastSync (when the app last synced) and lastWorkoutAt (the newest workout date) are different facts.
+    userSummaries.prune(db.users.map(u => u.id));
     const users = db.users.map(u => {
-      const S = readState(u.id) || {};
-      const workouts = S.workouts || [];
-      const last = workouts[workouts.length - 1];
+      const sum = userSummaries.summaryFor(u.id, { fingerprint: () => stateFingerprint(u.id), read: () => readState(u.id) });
+      const live = livePresence(u.id);
       return {
         id: u.id, name: u.name, created: u.created || null,
         disabled: !!u.disabled, admin: isAdmin(u), trainer: isTrainer(u), invitedBy: u.invitedBy || null,
-        workouts: workouts.length,
-        lastWorkout: last ? last.d : null,
-        lastSync: S._ts || null,
+        role: isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member',
+        assignedTrainers: Array.isArray(u.assignedTrainers) ? u.assignedTrainers : [],
+        workoutCount: sum.workoutCount, lastWorkoutAt: sum.lastWorkoutAt,
+        lastSync: sum.lastSync,
         hasPush: db.subs.some(s => s.userId === u.id),
-        live: livePresence(u.id)
+        live, activeNow: !!live,
+        ...(sum.unreadable ? { stateUnreadable: true } : {})
       };
     });
     json(res, 200, { users, invite_only: INVITE_ONLY, now: Date.now() });

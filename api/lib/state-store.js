@@ -14,6 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { encrypt, decrypt } from './crypto.js';
+import { noteWrite } from './user-summary.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const INFO = 'user-state';
@@ -31,6 +32,10 @@ const normalizeSync = value => ({
 });
 
 export const stateFile = uid => path.join(DATA, 'state-' + safe(uid) + '.json');
+/** A cheap fingerprint of the state file (mtime + size), without reading it. null when the file does not exist. */
+export function stateFingerprint(uid) {
+  try { const s = fs.statSync(stateFile(uid)); return s.mtimeMs + ':' + s.size; } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+}
 
 // A file written before this feature existed is plain JSON, always starting with '{'; an
 // encrypted one is a single base64 blob, which the base64 alphabet ([A-Za-z0-9+/=]) can never
@@ -74,6 +79,7 @@ export function writeState(uid, state) {
   const file = stateFile(uid), tmp = file + '.tmp';
   fs.writeFileSync(tmp, encrypt({ ...state, _sync: meta }, INFO), { mode: 0o600 });
   fs.renameSync(tmp, file);
+  try { noteWrite(uid, state, stateFingerprint(uid)); } catch { /* the summary is a derived cache; it must never fail a save */ }
   delete state._sync;
   Object.defineProperty(state, '_sync', { value: meta, writable: true, configurable: true });
 }
