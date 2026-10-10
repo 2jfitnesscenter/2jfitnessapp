@@ -34,7 +34,7 @@ export function buildFinishedWorkout(active, end = Date.now()) {
   const w = { id: active.id, d: active.d, start: active.start, end,
     routineId: active.routineId, name: active.name, bw: active.bw,
     entries: active.entries.map(e => ({ id: e.id, sets: e.sets, target: e.target, topW: e.topW || null })).filter(e => e.sets.some(s => s.done)),
-    prs: [], ...(active.src2j ? { src2j: active.src2j } : {}) }
+    prs: [], ...(active.src2j ? { src2j: active.src2j } : {}), ...(active.premium ? { premium: active.premium } : {}) }
   w.vol = w.entries.reduce((n, e) => n + e.sets.reduce((v, s) => v + (s.done && s.type !== 'warmup' ? (s.w || 0) * (s.r || 0) : 0), 0), 0)
   return w
 }

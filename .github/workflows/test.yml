@@ -74,6 +74,10 @@ jobs:
       # that forgets to regenerate it would otherwise only surface as "the Coach can't find
       # that exercise" on somebody's instance.
       - run: node scripts/build-coach-library.mjs --check
+      # The Premium seed (api/lib/premium-official.json) and the API's copy of the shared program model are generated and committed: a change to
+      # scripts/premium/official-programs.mjs or frontend/src/lib/premium-model.js that forgets to regenerate them fails here, not on a gym's phone.
+      - run: node scripts/build-premium-programs.mjs --check
+      - run: node scripts/sync-premium-model.mjs --check
 
   # Building the api image is the only place that proves the bundled Claude CLI actually
   # installs and starts on alpine — the Dockerfile runs `claude --version` as a build step.

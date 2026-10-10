@@ -622,6 +622,9 @@ export default function Admin() {
     <AdminNavCard icon="gear" tint="var(--indigo)" title={t('App features')}
       sub={t('Choose which modules your gym offers to members')} onClick={() => nav('/admin/features')} />
 
+    <AdminNavCard icon="trophy" tint="var(--yellow)" title={t('Premium training programs')}
+      sub={t('Catalogue, covers, featured programs and what members can start')} onClick={() => nav('/premium/manage')} />
+
     <AdminNavCard icon="bell" tint="var(--acc)" title={t('News / Notices')}
       sub={t('Announcements shown on every member’s Home')} onClick={() => nav('/admin/news')} />
 

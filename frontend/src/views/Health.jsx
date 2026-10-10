@@ -21,6 +21,7 @@ import { PAIN_ZONE, checkinOn } from '../lib/checkin.js'
 import { api } from '../lib/api.js'
 import { getBridge, platformLabel } from '../lib/health-bridge.js'
 import { visibleProgressCards } from '../lib/progress-cards.js'
+import CompositionGoals from '../components/CompositionGoals.jsx'
 
 // Health V2 — "your physical evolution". Everything here is derived from what the profile
 // already holds (lib/health.js): measured body readings with their source when known, the
@@ -158,6 +159,7 @@ export default function Health() {
     </div>}
     <FollowUpCard fu={followUp} S={S} nav={nav} />
     {bmi != null && <div className="dim small hv-bmi">{t('BMI {0} · calculated from your weight and height', fmtNum(bmi))}</div>}
+    {(uxOn(S, 'bodyweight') || uxOn(S, 'bioimpedance')) && <CompositionGoals S={S} />}
 
     {metrics.length > 0 && <>
       <div className="row between hv-rangebar">

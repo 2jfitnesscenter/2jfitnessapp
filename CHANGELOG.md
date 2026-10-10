@@ -1,5 +1,13 @@
 # Changelog
 
+### Entrenamientos Premium V1 + Home personalizable + Salud V2 (objetivos) — candidato, NO desplegado
+
+- Nuevo catálogo **Premium** de 12 metodologías (5/3/1, Texas, ONDAS 10/8/5/3, GZCL, PHUL, PHAT, DUP, powerbuilding, cuerpo completo, recomposición 2J, concurrente, acondicionamiento) con portada, ficha, filtros y recomendación por objetivo/nivel/días; programa activo con ciclo/semana, pausa, saltar, Training Max, propuesta de ciclo y cambio con historial.
+- Administración → Entrenamientos Premium: crear, editar, duplicar, publicar, ocultar, destacar (NUEVO/Destacado/Recomendado), archivar, ordenar, versiones y portada; el entrenador gestiona solo los suyos. Interruptor global en Funciones.
+- Inicio: bloques reordenables y ocultables (los obligatorios no se ocultan) con «restaurar por defecto»; tarjeta «Tu programa». Ajustes → Entrenamiento: programa Premium activo.
+- Seguimiento del Coach: «5/3/1 · Ciclo 3 · Semana 2/4» en la fila y la ficha; la IA recibe versión, fase, ciclo y semana.
+- Salud: objetivos opcionales de peso, grasa y músculo con tendencia y estado en palabras; rangos solo con base (OMS/ACE), sin inventar umbrales.
+
 ### Mis métricas V1 — candidato, NO desplegado
 
 - La página de Progreso es un catálogo cerrado de 11 bloques (destacados, último entreno y recuperación, composición, peso, mapa de actividad, músculos y volumen, línea de tiempo, tests de cardio, esfuerzo y zonas, progreso por ejercicio, salud y WHOOP). El socio los muestra/oculta y los sube/baja desde Ajustes → Personalizar mi experiencia. Se guarda en `S.ux.progress` (campos opcionales, aditivo): sin `S.ux` o sin el campo, la página es exactamente la de siempre. Cabecera, portada del periodo, seguimiento y entrenos recientes son estructurales.

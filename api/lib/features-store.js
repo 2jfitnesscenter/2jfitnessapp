@@ -17,7 +17,7 @@ const FILE = () => path.join(process.env.DATA_DIR || '/data', 'features.json');
 
 export const FEATURE_KEYS = [
   'coach', 'suggestions', 'effort', 'volume', 'train2j', 'health', 'bioimpedance', 'recovery',
-  'bodyweight', 'social', 'chat', 'friends', 'challenges', 'activity', 'timeline',
+  'bodyweight', 'social', 'chat', 'friends', 'challenges', 'activity', 'timeline', 'premium',
 ];
 
 let cache = null;

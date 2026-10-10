@@ -56,6 +56,11 @@ const Social = lazy(() => import('./views/Social.jsx'))
 // Entrena con 2J Studio (admins): loaded only when an admin opens it.
 const ProgramEditor = lazy(() => import('./views/trainer/studio/ProgramEditor.jsx'))
 const LibraryQuality = lazy(() => import('./views/trainer/studio/LibraryQuality.jsx'))
+const PremiumCatalog = lazy(() => import('./views/Premium.jsx').then(m => ({ default: m.PremiumCatalog })))
+const PremiumDetail = lazy(() => import('./views/Premium.jsx').then(m => ({ default: m.PremiumDetail })))
+const PremiumActive = lazy(() => import('./views/Premium.jsx').then(m => ({ default: m.PremiumActive })))
+const PremiumManage = lazy(() => import('./views/PremiumManage.jsx').then(m => ({ default: m.PremiumManage })))
+const PremiumEditor = lazy(() => import('./views/PremiumManage.jsx').then(m => ({ default: m.PremiumEditor })))
 const GuidedProgramCatalog = lazy(() => import('./views/GuidedPrograms.jsx').then(m => ({ default: m.GuidedProgramCatalog })))
 const GuidedProgramDetail = lazy(() => import('./views/GuidedPrograms.jsx').then(m => ({ default: m.GuidedProgramDetail })))
 const Friends = lazy(() => import('./views/Friends.jsx'))
@@ -281,6 +286,12 @@ function Shell() {
               <Route path="/train2j/program/:id" element={<Feat k="train2j"><GuidedProgramDetail /></Feat>} />
               <Route path="/train2j/c/:id" element={<Feat k="train2j"><Train2JCollection /></Feat>} />
               <Route path="/train2j/r/:id" element={<Feat k="train2j"><Train2JDetail /></Feat>} />
+              {/* Premium programs: the catalogue and a sheet follow the admin's switch (and say so themselves); the running program's page never depends on it. */}
+              <Route path="/premium" element={<PremiumCatalog />} />
+              <Route path="/premium/p/:slug" element={<PremiumDetail />} />
+              <Route path="/premium/active" element={<PremiumActive />} />
+              <Route path="/premium/manage" element={user?.admin || user?.trainer ? <PremiumManage /> : <Navigate to="/premium" replace />} />
+              <Route path="/premium/manage/edit/:id" element={user?.admin || user?.trainer ? <PremiumEditor /> : <Navigate to="/premium" replace />} />
               <Route path="/stretch" element={<Stretch />} />
               <Route path="/tests" element={<TestSession />} />
               <Route path="/clock" element={<ClockPicker />} />
