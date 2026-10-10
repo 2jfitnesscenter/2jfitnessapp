@@ -72,6 +72,9 @@ import { deviceLabel, cleanName } from './lib/device-labels.js';
 import { createLinkStore } from './lib/device-link.js';
 import { appendSharedAudit, createPinLimiter, hashStaffPin, publicStaffUsers, validateStaffPin, verifyStaffPin } from './lib/shared-staff.js';
 import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
+import { createPlatformProofStore } from './platform-proof/store.js';
+import { createPlatformProofRoutes } from './platform-proof/routes.js';
+import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
@@ -85,6 +88,12 @@ const RP_NAME = process.env.RP_NAME || '2J Fitness Center';
 // code the admin generates. Both default off so a fresh self-hosted instance stays open.
 const ADMIN_UIDS = (process.env.ADMIN_UIDS || '').split(',').map(s => s.trim()).filter(Boolean);
 const INVITE_ONLY = /^(1|true|yes|on)$/i.test(process.env.INVITE_ONLY || '');
+// Platform proof issuance, exchange and reconciliation are independent explicit opt-ins. In particular,
+// credentials, NODE_ENV, request headers, and hostnames never enable either capability.
+const PLATFORM_PROOF_ISSUANCE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_ISSUANCE_ENABLED || '');
+const PLATFORM_PROOF_EXCHANGE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_EXCHANGE_ENABLED || '');
+const PLATFORM_PROOF_RECONCILIATION_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_RECONCILIATION_ENABLED || '');
+const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
 // internet don't want the same number. Only affects cookies minted from now on — the expiry is
@@ -117,6 +126,7 @@ libraryAdmin.setUsageProbe(id => guidedStore.exerciseUsage().has(id));
 const SECRET = ensureSecret();   // ./data/secret by default; SECRET_FILE moves it out of the data folder (lib/secret.js)
 
 const dbFile = path.join(DATA, 'db.json');
+const platformProofStore = createPlatformProofStore({ dataDir: DATA });
 let db = { users: [], creds: [], subs: [], invites: [], recoveries: [] };
 try { db = JSON.parse(fs.readFileSync(dbFile, 'utf8')); } catch {}
 db.subs = db.subs || [];
@@ -1008,6 +1018,13 @@ const routes = {
     pinLoginGate: (req, res) => authGate(req, res, pinLoginIpLimiter),
     pinLoginFailure: ip => pinLoginIpLimiter.fail(ip), pinLoginSuccess: ip => pinLoginIpLimiter.success(ip),
     dummyPin: DUMMY_STAFF_PIN, saveDb
+  }),
+  ...createPlatformProofRoutes({
+    json, readSession, store: platformProofStore, users: () => db.users,
+    issuanceEnabled: PLATFORM_PROOF_ISSUANCE_ENABLED,
+    exchangeEnabled: PLATFORM_PROOF_EXCHANGE_ENABLED,
+    reconciliationEnabled: PLATFORM_PROOF_RECONCILIATION_ENABLED,
+    serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
   }),
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
   // Operations view for the administrator (docs/SECURITY_OPS_V1.md): backup / restore-rehearsal / deploy marker / disk / recent 5xx. Read-only, no secrets.

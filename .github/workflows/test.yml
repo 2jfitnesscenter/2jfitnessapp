@@ -3,12 +3,9 @@
 name: Tests
 
 on:
+  # No paths filter on pull requests: main requires the test / api / api-image checks, and a filtered workflow never reports them for docs- or scripts-only PRs,
+  # which would make those PRs unmergeable. (The push trigger below keeps its filter: nothing is required there.)
   pull_request:
-    paths:
-      - 'frontend/**'
-      - 'api/**'
-      - 'scripts/build-coach-library.mjs'
-      - '.github/workflows/test.yml'
   push:
     branches: [main]
     paths:

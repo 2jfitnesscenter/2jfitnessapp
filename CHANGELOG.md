@@ -31,6 +31,14 @@
 - Validación del hotfix: frontend 1474/1474 secuencial; API completa 452 pass y 5 skips operativos, pruebas de Routine Review 10/10; build y diff-check OK. Sin deploy.
 - Validación final: frontend 1469/1469, API 456/456 sin skips, build y español 4577/4577 OK. Producción previamente confirmada en `8458b54f51cd074c63c0623c9192f63f5f6f6f2a`. PrepareOnly del nuevo target y simulaciones pendientes; sin deploy.
 
+
+### Megasprint — separación IA, progresión/histórico y Seguimiento (2026-10-07) — NOT DEPLOYED
+
+- Se separa la IA profesional del consentimiento de IA personal con payload profesional reducido. Entrenamientos marcados `excludeFromProgression` siguen en asistencia/duración pero no aportan evidencia de progresión, fatiga, cobertura, PR o Coach. Se añade edición validada de sesiones terminadas sin reescribir rutinas base.
+- La superficie administrativa de Seguimiento muestra objetivo y permite notas privadas cifradas, limitadas a admin y excluidas de Sync, IA y Community. Trainers no reciben acceso a esas notas porque todavía no existe un scope trainer↔socio.
+- Política EOL reproducible y mapa de archivos generados. El deploy-kit se conserva como tooling no instalado; no se modificó producción.
+- El runner de release corrige probes Community/Push que usaban marcadores inexistentes y la simulación Windows para rutas Node/respuesta de clave pública; `PrepareOnly` del target exacto completa install/rollback simulado y rechazo de artefacto manipulado.
+- Validación local: frontend 1445/1445, API 450/450 (incluidos tests Bash/OpenSSL), build y español 4540/4540; checks de catálogo/protocolo/tooling y simulaciones pasan. Producción permanece en `4230b17f3b4f9703f4706df9df65f36315e21eff`.
 ### Web Push diagnóstico para alertas de descanso PWA (2026-10-07) — NO DESPLEGADO
 
 - Se añade alta explícita de suscripciones por cuenta/dispositivo y una cola persistente `db.restAlerts` con recuperación tras reinicio, cancelación, idempotencia, expiración y reintentos acotados. Reutiliza VAPID, `db.subs` y el service worker actual.
