@@ -8,4 +8,5 @@ fs.readFileSync = function (file, ...rest) {
   return real.call(this, file, ...rest);
 };
 const out = path.join(process.env.DATA_DIR || '.', 'reads.count');
-setInterval(() => { try { fs.writeFileSync(out, String(n)); } catch { /* ignore */ } }, 50).unref();
+// written atomically (tmp + rename): a plain writeFileSync truncates first, and a reader landing in that gap saw an empty file, i.e. 0 reads
+setInterval(() => { try { fs.writeFileSync(out + '.tmp', String(n)); fs.renameSync(out + '.tmp', out); } catch { /* ignore */ } }, 50).unref();

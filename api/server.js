@@ -38,6 +38,7 @@ import { stateFile, stateFingerprint } from './lib/state-store.js';
 import * as userSummaries from './lib/user-summary.js';
 import { centerRoutes } from './lib/center-routes.js';
 import { AUDITED as ADMIN_AUDIT, describeAction } from './lib/admin-audit.js';
+import { opsStatus, createErrorRing } from './lib/ops-status.js';
 import { bunkerRoutes } from './bunker/routes.js';
 import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
@@ -74,6 +75,8 @@ import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
+const STARTED_AT = Date.now();
+const opsErrors = createErrorRing();   // last server-side failures (route + status + time only), shown in GET /api/admin/ops
 const RP_ID = process.env.RP_ID || 'localhost';
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
 const WEBAUTHN_ORIGINS = expectedOrigins(ORIGIN);   // web origin + the approved Android shell origin(s)
@@ -1007,6 +1010,8 @@ const routes = {
     dummyPin: DUMMY_STAFF_PIN, saveDb
   }),
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
+  // Operations view for the administrator (docs/SECURITY_OPS_V1.md): backup / restore-rehearsal / deploy marker / disk / recent 5xx. Read-only, no secrets.
+  'GET /api/admin/ops': async (req, res) => { if (!requireAdmin(req, res)) return; json(res, 200, opsStatus({ dataDir: DATA, startedAt: STARTED_AT, users: db.users.length, errors: opsErrors.snapshot() })); },
 
   // Public config the login screen needs before anyone is signed in. `coach` is absent unless
   // the instance has both switched the Coach on and successfully connected a provider — the
@@ -3491,6 +3496,7 @@ http.createServer(async (req, res) => {
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);
+    if ((e.status || 500) >= 500) opsErrors.record(key, e.status || 500);
     if (!res.headersSent) json(res, e.status || 500, { error: e.status ? e.message : 'error del servidor', code: e.code });
   }
   // An administrator's successful write leaves one audit event (what, whom, at most a target id or a count; never a value). See lib/admin-audit.js.

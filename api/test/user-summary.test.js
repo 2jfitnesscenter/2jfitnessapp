@@ -99,7 +99,12 @@ const child = spawn(process.execPath, ['--import', pathToFileURL(path.resolve('t
 for (let i = 0; i < 100; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* starting */ } await new Promise(r => setTimeout(r, 100)); }
 const cookie = uid => { const p = `${uid}:${Date.now() + 86400000}:0`; return `gymsid=${p}.${crypto.createHmac('sha256', SECRET).update(p).digest('base64url')}`; };
 const get = async uid => { const r = await fetch(base + '/api/admin/users', { headers: uid ? { cookie: cookie(uid) } : {} }); const text = await r.text(); return { status: r.status, text, data: r.status === 200 ? JSON.parse(text) : null }; };
-const readCount = async () => { await new Promise(r => setTimeout(r, 150)); return Number(fs.readFileSync(path.join(hdir, 'reads.count'), 'utf8')); };
+// the counter is a number in a file the server rewrites every 50 ms: never trust an empty or half-written read (it parsed as 0), read again until it is a number
+const readCount = async () => {
+  await new Promise(r => setTimeout(r, 150));
+  for (let i = 0; i < 50; i++) { try { const t = fs.readFileSync(path.join(hdir, 'reads.count'), 'utf8').trim(); if (/^\d+$/.test(t)) return Number(t); } catch { /* being replaced */ } await new Promise(r => setTimeout(r, 20)); }
+  throw new Error('reads.count never held a number');
+};
 // the server reads the states once at boot (schedulers); wait until the count stops moving so that only the poll is measured, however slow the machine is
 const settle = async () => { let last = -1; for (let i = 0; i < 40; i++) { const now = await readCount(); if (now === last) { await new Promise(r => setTimeout(r, 300)); if ((await readCount()) === now) return now; } last = now; } return last; };
 let firstPollReads = 0;

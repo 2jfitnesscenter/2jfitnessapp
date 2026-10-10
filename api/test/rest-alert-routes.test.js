@@ -4,13 +4,16 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import net from 'node:net'
 import { spawn } from 'node:child_process'
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), '2j-rest-alerts-'))
 const secret = 'r'.repeat(64)
 fs.writeFileSync(path.join(dir, 'secret'), secret, { mode: 0o600 })
 fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({ users: [{ id: 'member', name: 'Member' }], creds: [], subs: [], invites: [], recoveries: [] }))
-const port = 41000 + Math.floor(Math.random() * 12000)
+// An OS-assigned free port: a random one can land in a range Windows reserves (e.g. 50798-50897), where listen() fails with EACCES and the server never starts.
+const freePort = () => new Promise((resolve, reject) => { const s = net.createServer(); s.once('error', reject); s.listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => resolve(port)) }) })
+const port = await freePort()
 const base = `http://127.0.0.1:${port}`
 const apiDir = path.resolve('..', 'api')
 const child = spawn(process.execPath, ['server.js'], { cwd: apiDir, env: { ...process.env, PORT: String(port), DATA_DIR: dir, ORIGIN: base, RP_ID: 'localhost' }, stdio: ['ignore', 'ignore', 'inherit'] })

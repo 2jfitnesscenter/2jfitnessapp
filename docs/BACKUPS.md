@@ -38,3 +38,5 @@ BACKUP_PASSPHRASE_FILE=/root/.2j-backup-pass scripts/restore-backup.sh 2jfitness
 # real recovery: stop the API, move ./data aside (keep it), put /tmp/restore-test/data in its place, start the API, check /api/health and one login
 ```
 The pre-deploy tarballs in `/root/backups` stay as the fast rollback; they are not off-site.
+
+Estado en vivo, ensayo de restore con validación, alarmas y protección de `main`: ver `docs/SECURITY_OPS_V1.md`.
