@@ -123,3 +123,30 @@ export const newerVersion = (plan, profiles = []) => {
   const p = (profiles || []).find(x => x.id === plan?.profileId)
   return p && p.version > plan.profileVersion ? p : null
 }
+
+/** The member asked for the next block again (they dismissed the proposal, or came back later): the same deterministic proposal, from the last control. */
+export function reproposeNext(S, { now = Date.now() } = {}) {
+  const cur = oppositionState(S)
+  const last = cur.plan?.evaluations?.[cur.plan.evaluations.length - 1]
+  if (!last) return cur
+  return { ...cur, plan: { ...cur.plan, proposal: model.proposeNext(cur.plan, last, { now }) } }
+}
+
+/** "3:24", "3:24.5" or "204" → seconds for a time test; a plain number otherwise. null when it is not a number. */
+export function parseMark(text, kind) {
+  const s = String(text ?? '').trim().replace(',', '.')
+  if (!s) return null
+  const m = /^(\d{1,3}):(\d{1,2}(?:\.\d+)?)$/.exec(s)
+  if (m && kind === 'time') { const sec = Number(m[1]) * 60 + Number(m[2]); return Number(m[2]) < 60 ? sec : null }
+  const n = Number(s)
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+/** A mark as people write it: 204 s → "3:24" for runs, reps and metres as they are. */
+export function formatMark(test, v) {
+  if (v == null || !Number.isFinite(Number(v))) return '—'
+  if (test.kind === 'time' && v >= 60) return model.fmtTime(v)
+  if (test.kind === 'time') return `${v} s`
+  if (test.kind === 'hold') return `${v} s`
+  if (test.kind === 'distance') return `${v} m`
+  return String(v)
+}
