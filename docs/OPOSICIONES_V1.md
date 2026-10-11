@@ -99,3 +99,22 @@ week, block, levelByCapacity, testResults, weakPoints, officialThresholds, testS
 `api/test/opposition-catalog.test.js` (6), `api/test/opposition-coach.test.js` (6), `frontend/src/lib/opposition-model.test.js` (27),
 `opposition.test.js` (11), `views/opposition-ui.test.jsx` (9), más las de Premium (segunda ola). Marcas verificadas una a una contra las
 tablas oficiales transcritas.
+
+## V1.1 — el producto es la preparación física, no las marcas
+
+Las marcas y baremos solo sirven para la evaluación inicial, detectar déficits, fijar objetivos, medir progreso y reajustar. El plan genera **sesiones completas**
+(`buildDay` en `opposition-model.js`) sobre el motor Premium (sin segundo motor):
+
+- **Qué se entrena** (`qualitiesOf`): cada prueba se mapea a capacidades — carrera → aeróbica/ritmo; 200 m → velocidad + potencia; agilidad → agilidad/COD + potencia;
+  dominadas/suspensión → fuerza relativa + resistencia muscular; flexiones/banca → resistencia muscular; salto → potencia + fuerza; natación → natación. Siempre fuerza, core y movilidad.
+- **Días de la semana** (`planDays`): según necesidades, días y piscina: fuerza inferior + potencia, fuerza superior + tracción, velocidad/agilidad, resistencia (1–2),
+  natación + hombro, inferior/superior 2; con 2 días, cuerpo completo + lo más necesario. Una persona floja corriendo y fuerte no recibe la misma semana que otra al revés.
+- **Fuerza con progresión real**: series × rango de repeticiones × RPE × descanso en cada ejercicio (principal, segundo, accesorios, unilateral, cadena posterior, core),
+  doble progresión de la app, semana 4 de descarga, superseries (`sg`, ahora transportado por el motor Premium), ajuste de tiempo por sesión.
+- **Fases** (RX por fase): Base (volumen, RPE 7, hipertrofia funcional), Desarrollo (más pesado, potencia, intervalos/tempo alternos), Específica (trabajo directo de las pruebas),
+  Competitiva (mantenimiento de fuerza, volumen reducido).
+- **Controles** = checkpoints entre bloques (sin cambios): comparan y proponen; nada se aplica sin confirmación.
+- **UX**: la pantalla principal es «Esta semana» (fase, capacidades que se trabajan, sesiones de la semana con su estado, empezar la siguiente), seguida de fase y
+  evolución; marcas, baremos y fuente oficial están en la sección plegable «Pruebas y marcas».
+- Límites: el RPE va en la nota del bloque y el objetivo de carga lo gestiona la doble progresión de la app (sin Training Max); sin equipo (`gym` y `weights` desactivados)
+  se usan variantes de peso corporal.

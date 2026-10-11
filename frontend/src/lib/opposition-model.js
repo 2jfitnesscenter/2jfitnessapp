@@ -291,7 +291,7 @@ const half = x => Math.round(x * 2) / 2
 const DEFAULT_KMH = { beginner: 9, intermediate: 11.5, advanced: 14 }
 
 /* ------------------------------------------------------------------------------------------------ the plan */
-const EX = { run: '0684', sprint: '0858', pullup: '0652', assisted: '0017', row: '0499', pushup: '0662', bench: '0025', dip: '0251', squat: '0043', jump: '0514', legRaise: '0472', plank: '0464', deadBug: '0276', swim: '3433', bike: '0003', rdl: '0085', lunge: '0336' }
+const EX = { front: '0042', deadlift: '0032', legPress: '0739', thrust: '0058', calf: '0605', legCurl: '0586', stepup: '0114', split: '2368', dropJump: '3543', swing: '0549', medBall: '1302', dbBench: '0289', incline: '0047', press: '1456', dbPress: '0426', pendlay: '3017', dbRow: '0327', pushdown: '0201', curl: '0031', cableRow: '0861', pulldown: '0198', chinup: '1326', rear: '0203', lateral: '0334', crunch: '0274', hangKnee: '0011', mobility: '1585', run: '0684', sprint: '0858', pullup: '0652', assisted: '0017', row: '0499', pushup: '0662', bench: '0025', dip: '0251', squat: '0043', jump: '0514', legRaise: '0472', plank: '0464', deadBug: '0276', swim: '3433', bike: '0003', rdl: '0085', lunge: '0336' }
 const SUBSTITUTE = {   // restriction → { exercise: [replacement, note] }
   knee: { [EX.jump]: [EX.squat, 'Sin saltos por tu restricción de rodilla: sentadilla controlada.'], [EX.lunge]: [EX.rdl, 'Sin zancadas por tu restricción de rodilla.'], [EX.sprint]: [EX.bike, 'Sin sprint por tu rodilla: bici a intensidad alta.'] },
   shoulder: { [EX.bench]: [EX.pushup, 'Sin press de banca por tu restricción de hombro: flexiones.'], [EX.dip]: [EX.pushup, 'Sin fondos por tu hombro.'] },
@@ -338,6 +338,7 @@ function trainCapacity(cap, f, phase, w, level, scale = 1) {
       const dist = f.test.distanceM || (f.test.durationS ? Math.round(f.v * 1000 / 3.6 * f.test.durationS / 3600) : 1000)
       const easy = f.v * 0.62
       if (phase === 'base') return [cond(EX.run, (20 + 4 * w + 6 * L) * scale, { speed: easy, note: `Rodaje suave y continuo, a ritmo de conversación (~${r1(easy)} km/h). Es la base: no lo aceleres.` })]
+      if (phase === 'development' && w % 2 === 0) return [cond(EX.run, 8, { speed: easy, note: 'Calentamiento suave.' }), cond(EX.run, Math.round((14 + 3 * w) * scale), { speed: f.v * 0.88, note: `Tempo continuo a ritmo de umbral (~${r1(f.v * 0.88)} km/h), RPE 7: sostenido pero controlado.` }), cond(EX.run, 6, { speed: easy, note: 'Vuelta a la calma.' })]
       if (phase === 'development') {
         const reps = 2 + w
         return [cond(EX.run, 8, { speed: easy, note: 'Calentamiento suave.' }), cond(EX.run, Math.round(reps * 4.5 * scale), { speed: f.v * 0.95, note: `${reps} × 3 min a ritmo fuerte (~${r1(f.v * 0.95)} km/h) con 90 s suaves entre series.` }), cond(EX.run, 6, { speed: easy, note: 'Vuelta a la calma.' })]
@@ -406,26 +407,6 @@ export function needsOf(profile, cat, marks, ambition = 'pass') {
   return needs
 }
 
-/** Frequencies per week: every tested capacity at least once, the neediest more often, endurance twice, packed into the available days within the time per session. */
-function weekFocus(needs, days, minutes, order) {
-  const caps = order.filter(c => needs[c] != null)
-  const slots = []
-  for (const c of caps) { const n = c === 'endurance' ? (needs[c] > 0.45 ? 3 : 2) : needs[c] > 0.55 ? 2 : 1; for (let i = 0; i < n; i++) slots.push({ c, need: needs[c] }) }
-  slots.sort((a, b) => b.need - a.need)
-  const per = Array.from({ length: days }, () => [])
-  const budget = Math.max(30, minutes)
-  const cost = list => list.reduce((a, c) => a + SESSION_MIN[c], 0)
-  for (const s of slots) {
-    const candidates = per.map((l, i) => i).filter(i => !per[i].includes(s.c) && cost(per[i]) + SESSION_MIN[s.c] <= budget + 10 && per[i].length < 3)
-    if (!candidates.length) continue
-    const i = candidates.sort((a, b) => cost(per[a]) - cost(per[b]) || a - b)[0]
-    per[i].push(s.c)
-  }
-  for (const l of per) if (!l.length) l.push(caps[0] || 'endurance')
-  // keep hard running away from each other: endurance first inside a session, speed/agility never after a long endurance block
-  return per.map(l => l.sort((a, b) => (a === 'endurance' ? -1 : 0) - (b === 'endurance' ? -1 : 0)))
-}
-
 const CAP_ORDER = ['endurance', 'speed', 'agility', 'pull', 'push', 'power', 'swim']
 const KEY = i => 'd' + (i + 1)
 
@@ -453,6 +434,93 @@ function controlWeek(profile, cat, days, level, factsBy, phase, restrictions = [
   return { label: `Semana de control · ${phase}`, phase: 'control', sessions: sessions.slice(0, 7) }
 }
 
+/* ------------------------------------------------------------------------------------------------ training: real strength & conditioning sessions */
+// [sets, repsMin, repsMax, RPE, rest seconds] per tier and phase. The app's own double progression raises the load when the top of the range is reached at the target effort.
+const RX = {
+  base: { main: [4, 6, 8, 7, 120], second: [3, 8, 10, 7, 90], acc: [3, 10, 12, 8, 60] },
+  development: { main: [5, 3, 5, 8, 180], second: [4, 5, 8, 8, 120], acc: [3, 8, 10, 8, 75] },
+  specificity: { main: [4, 3, 5, 8, 150], second: [3, 5, 8, 8, 105], acc: [2, 8, 12, 8, 60] },
+  competitive: { main: [3, 2, 4, 7, 150], second: [2, 4, 6, 7, 90], acc: [2, 8, 10, 7, 60] },
+}
+const mss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+/** One strength exercise with its prescription: sets, rep range, target effort (RPE) and rest. Week 4 of a block is the deload; beginners carry fewer sets and more reps. */
+function lift(ex, tier, phase, w, level, o = {}) {
+  let [n, lo, hi, rpe, rest] = RX[phase]?.[tier] || RX.base[tier]
+  if (level === 'beginner') { n = Math.max(2, n - 1); lo += 2; hi += 2; rpe = Math.min(rpe, 7) }
+  if (w >= 4) { n = Math.max(1, n - 1); rpe = Math.max(5, rpe - 1) }
+  const cue = w >= 4 ? 'Semana de descarga: mismo patrón, menos series.' : o.cue || (w === 1 ? 'Empieza conservador y deja 2–3 repeticiones en reserva.' : 'Sube la carga si cierras el techo del rango con el RPE indicado.')
+  return { ...sets(ex, n, lo, hi, { role: tier === 'main' ? 'main' : 'accessory', rest, note: `RPE ${rpe} · descanso ${mss(rest)}. ${cue}` }), ...(o.sg ? { sg: o.sg } : {}) }
+}
+const minutesOf = b => (b.scheme ? b.scheme.sets * ((b.rest || 60) / 60 + 0.7) : b.conditioning?.min ? b.conditioning.min : 2)
+const mobilityBlock = () => cond(EX.mobility, 5, { note: 'Movilidad y prevención: cadera, tobillo, hombro y espalda torácica. Controlado, sin dolor.' })
+
+/** The week's day types, chosen from the member's needs, the days they have and the facilities: strength is never dropped, conditioning follows the tested capacities. */
+export function planDays(needs, days, { pool = true } = {}) {
+  const n = c => needs[c] ?? null
+  const has = c => n(c) != null
+  const cond0 = []
+  if (has('endurance')) cond0.push({ type: 'endurance', score: 0.6 + n('endurance') })
+  if (has('speed') || has('agility') || has('power')) cond0.push({ type: 'speed', score: 0.5 + Math.max(n('speed') ?? 0, n('agility') ?? 0, n('power') ?? 0) })
+  if (has('swim') && pool) cond0.push({ type: 'swim', score: 0.5 + n('swim') })
+  cond0.sort((a, b) => b.score - a.score)
+  if (days <= 2) return [{ type: 'full' }, cond0[0] ? { type: cond0[0].type } : { type: 'upper' }].slice(0, days)
+  const cand = [{ type: 'lower', score: 0.9 }, { type: 'upper', score: 0.9 + 0.1 * Math.max(n('pull') ?? 0, n('push') ?? 0) }, ...cond0]
+  if (has('endurance')) cand.push({ type: 'endurance2', score: 0.35 + (n('endurance') ?? 0) * 0.8 })
+  cand.push({ type: 'lower2', score: 0.3 }, { type: 'upper2', score: 0.28 })
+  const chosen = cand.sort((a, b) => b.score - a.score).slice(0, days).map(c => c.type)
+  const ORDER = ['lower', 'endurance', 'upper', 'speed', 'swim', 'lower2', 'endurance2', 'upper2']
+  return chosen.sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)).map(type => ({ type }))
+}
+
+const DAY_TITLE = { full: 'Cuerpo completo', lower: 'Fuerza inferior + potencia', lower2: 'Fuerza inferior 2 + unilateral', upper: 'Fuerza superior + tracción', upper2: 'Fuerza superior 2 + empuje', speed: 'Velocidad / agilidad', endurance: 'Resistencia', endurance2: 'Resistencia 2', swim: 'Natación + hombro' }
+
+/** One complete session: ordered blocks (power/speed first, then strength, then specific work, core and mobility), fitted to the minutes available. */
+function buildDay(type, ctx) {
+  const { phase, w, byCap, levels, minutes, scale, bodyweight } = ctx
+  const lvl = c => levels?.byCapacity?.[c]?.level || levels?.global?.level || 'beginner'
+  const strengthLvl = ['pull', 'push', 'power'].map(lvl).sort((a, b) => LEVEL_RANK[a] - LEVEL_RANK[b])[0] || 'beginner'
+  const spec = c => (byCap[c] ? trainCapacity(c, byCap[c], phase, w, lvl(c), scale) : [])
+  const core = () => [hold(EX.plank, phase === 'base' ? 40 : 30, 'Plancha: 2 series, sin perder la posición.'), lift(EX.legRaise, 'acc', phase, w, strengthLvl, { cue: 'Control, sin balanceo.' })]
+  const warm = [cond(EX.run, 6, { speed: 6, note: 'Calentamiento: trote suave y movilidad dinámica.' })]
+  const power = () => (phase === 'base'
+    ? [lift(EX.swing, 'acc', phase, w, strengthLvl, { cue: 'Bisagra de cadera explosiva, técnica limpia.' })]
+    : [{ ...sets(EX.jump, phase === 'competitive' ? 3 : 4, 3, 5, { role: 'main', rest: 90, note: 'Potencia: salta con máxima intención, aterriza con control. Calidad sobre cantidad.' }) }])
+  let blocks = []
+  const need = []   // [priority block groups], trimmed from the end to fit the time
+  if (type === 'lower' || type === 'full') {
+    blocks.push(...(type === 'lower' ? power() : []), lift(bodyweight ? EX.split : EX.squat, 'main', phase, w, strengthLvl), lift(EX.rdl, 'second', phase, w, strengthLvl))
+    need.push(...(type === 'full' ? [] : [lift(EX.split, 'second', phase, w, strengthLvl, { cue: 'Unilateral: mismo rango en ambas piernas.' }), lift(EX.thrust, 'acc', phase, w, strengthLvl)]))
+    if (type === 'full') { blocks.push(...spec('pull').slice(0, 1), lift(EX.bench, 'second', phase, w, strengthLvl)) }
+  }
+  if (type === 'lower2') blocks.push(lift(EX.deadlift, 'main', phase, w, strengthLvl), lift(EX.legPress, 'second', phase, w, strengthLvl), ...power().slice(0, 1))
+  if (type === 'lower2') need.push(lift(EX.stepup, 'acc', phase, w, strengthLvl, { sg: 'a' }), lift(EX.calf, 'acc', phase, w, strengthLvl, { sg: 'a' }), lift(EX.legCurl, 'acc', phase, w, strengthLvl))
+  if (type === 'lower') need.push(lift(EX.calf, 'acc', phase, w, strengthLvl, { sg: 'b' }), lift(EX.legCurl, 'acc', phase, w, strengthLvl, { sg: 'b' }))
+  if (type === 'upper') {
+    blocks.push(...(byCap.pull ? spec('pull') : [lift(EX.pulldown, 'main', phase, w, strengthLvl)]), ...(byCap.push ? spec('push').slice(0, 1) : [lift(EX.bench, 'main', phase, w, strengthLvl)]), lift(EX.pendlay, 'second', phase, w, strengthLvl))
+    need.push(lift(EX.dbPress, 'acc', phase, w, strengthLvl, { sg: 'c' }), lift(EX.rear, 'acc', phase, w, strengthLvl, { sg: 'c' }), lift(EX.curl, 'acc', phase, w, strengthLvl))
+  }
+  if (type === 'upper2') {
+    blocks.push(lift(EX.press, 'main', phase, w, strengthLvl), lift(EX.chinup, 'second', phase, w, strengthLvl), lift(EX.dbRow, 'second', phase, w, strengthLvl))
+    need.push(...(byCap.push ? spec('push') : []), lift(EX.dip, 'acc', phase, w, strengthLvl, { sg: 'd' }), lift(EX.lateral, 'acc', phase, w, strengthLvl, { sg: 'd' }), lift(EX.pushdown, 'acc', phase, w, strengthLvl))
+  }
+  if (type === 'speed') {
+    blocks.push(...(byCap.speed ? [] : warm), ...spec('speed'), ...spec('agility'))
+    blocks.push(...(phase === 'base' ? [lift(EX.jump, 'acc', phase, w, strengthLvl, { cue: 'Saltos bajos y técnica de aterrizaje.' })] : power()))
+    need.push(lift(EX.legCurl, 'acc', phase, w, strengthLvl, { cue: 'Prevención de isquiotibiales.' }))
+  }
+  if (type === 'endurance' || type === 'endurance2') blocks.push(...(type === 'endurance2' && phase !== 'competitive' ? [cond(EX.run, 24 + 3 * w, { speed: (byCap.endurance?.v || 10) * 0.62, note: 'Rodaje fácil de recuperación activa, RPE 4–5: aeróbico sin fatiga extra.' })] : spec('endurance')))
+  if (type === 'swim') { blocks.push(...spec('swim'), lift(EX.pulldown, 'second', phase, w, strengthLvl), lift(EX.rear, 'acc', phase, w, strengthLvl, { cue: 'Estabilidad escapular para nadar.' })) }
+  const tail = [...core(), mobilityBlock()]
+  // fit the time: required blocks first, then the optional ones while they still fit, then core and mobility
+  let total = [...blocks, ...tail].reduce((a, b) => a + minutesOf(b), 0)
+  const optional = []
+  for (const b of need) { if (total + minutesOf(b) <= minutes) { optional.push(b); total += minutesOf(b) } }
+  return [...blocks, ...optional, ...tail]
+}
+
+/** Session titles use the capacities the day really trains. */
+const dayTitle = (type, pullFocus) => (type === 'upper' && pullFocus ? 'Fuerza superior + dominadas' : DAY_TITLE[type])
+
 /** One 5-week block (four training weeks + one control week) as a Premium definition. `startWeek` is the calendar week of the plan the block starts in. */
 export function buildBlock({ profile, plan, blockIndex = 0, startWeek = 1, marks, levels, scale = 1, focusUp = [] }) {
   const cat = plan.category
@@ -461,6 +529,8 @@ export function buildBlock({ profile, plan, blockIndex = 0, startWeek = 1, marks
   const blockWeeks = Math.min(BLOCK_WEEKS, Math.max(2, weeksLeft))
   const days = clamp(plan.intake.days, 2, 6)
   const minutes = clamp(plan.intake.minutes || 60, 30, 150)
+  const eq = plan.intake.equipment || {}
+  const bodyweight = !eq.gym && !eq.weights
   const needs = needsOf(profile, cat, marks, plan.ambition)
   for (const c of focusUp) if (needs[c] != null) needs[c] = Math.min(1, needs[c] + 0.3)
   const factsBy = Object.fromEntries(testsFor(profile, cat).map(t => [t.id, factsOf(profile, t, cat, marks, plan.ambition, levels?.byCapacity?.[t.capacity]?.level || levels?.global?.level || 'beginner')]))
@@ -468,29 +538,35 @@ export function buildBlock({ profile, plan, blockIndex = 0, startWeek = 1, marks
   for (const t of testsFor(profile, cat)) if (!byCap[t.capacity]) byCap[t.capacity] = factsBy[t.id]
   const weeks = []
   const phaseFirst = phaseAtWeek(phases, startWeek)
+  const dayTypes = planDays(needs, days, { pool: eq.pool !== false })
   for (let k = 0; k < blockWeeks; k++) {
     const calendarWeek = startWeek + k
     const phase = phaseAtWeek(phases, calendarWeek)
     if (k === blockWeeks - 1) { weeks.push(controlWeek(profile, cat, days, levels?.global?.level || 'beginner', factsBy, phase, plan.intake.restrictions)); continue }
     const w = Math.min(4, k + 1)
-    const wscale = (w === 4 ? 0.8 : 1) * scale   // week 4 of the block is the lighter one before the control week
-    const focus = weekFocus(needs, days, minutes, CAP_ORDER)
-    const sessions = focus.map((caps, i) => {
-      let blocks = []
-      for (const c of caps) {
-        const f = byCap[c]
-        if (!f) continue
-        const lvl = levels?.byCapacity?.[c]?.level || levels?.global?.level || 'beginner'
-        blocks.push(...trainCapacity(c, f, phase, w, lvl, wscale))
-      }
-      if (minutes >= 70 && blocks.length < 8) blocks.push(hold(EX.plank, 40, 'Plancha de 30–45 s, dos veces: estabilidad para todas las pruebas.'), sets(EX.legRaise, 2, 8, 15, { rest: 45 }))
-      return { key: KEY(i), title: `Sesión ${i + 1} · ${caps.map(c => TITLE[c]).join(' + ')}`, blocks: applyRestrictions(blocks, plan.intake.restrictions).slice(0, 14) }
-    })
+    const ctx = { phase, w, byCap, levels, minutes, scale: (w === 4 ? 0.8 : 1) * scale, bodyweight }
+    const sessions = dayTypes.map((d, i) => ({ key: KEY(i), title: `Sesión ${i + 1} · ${dayTitle(d.type, !!byCap.pull && (needs.pull ?? 0) >= (needs.push ?? 0))}`, kind: d.type, blocks: applyRestrictions(buildDay(d.type, ctx), plan.intake.restrictions).slice(0, 14) }))
     weeks.push({ label: `Semana ${k + 1} · ${phase}`, phase, sessions })
   }
   const def = { schema: 1, cycleWeeks: blockWeeks, weeks }
   const perWeek = Math.max(...weeks.map(w => w.sessions.length))
-  return { definition: def, meta: { phase: phaseFirst, startWeek, weeks: blockWeeks, daysPerWeek: perWeek, focus: [...new Set(weeks[0].sessions.flatMap(s => s.title.split('·')[1]?.split('+').map(x => x.trim()) || []))], needs } }
+  return { definition: def, meta: { phase: phaseFirst, startWeek, weeks: blockWeeks, daysPerWeek: perWeek, dayTypes: dayTypes.map(d => d.type), qualities: qualitiesOf(profile, cat), needs } }
+}
+
+/** What each test asks the body for, so the plan trains the capacities, not the numbers: every plan also carries strength, core and mobility. */
+export function qualitiesOf(profile, cat) {
+  const q = new Set(['strength'])
+  for (const t of testsFor(profile, cat)) {
+    if (t.movement === 'run') q.add('aerobic')
+    if (t.movement === 'sprint') { q.add('speed'); q.add('power') }
+    if (t.movement === 'agility') { q.add('agility'); q.add('power'); q.add('speed') }
+    if (t.movement === 'pullup' || t.movement === 'hang') { q.add('relative-strength'); q.add('muscular-endurance') }
+    if (t.movement === 'pushup' || t.movement === 'bench') q.add('muscular-endurance')
+    if (t.movement === 'jump') q.add('power')
+    if (t.movement === 'swim') q.add('swim')
+  }
+  q.add('core'); q.add('mobility')
+  return [...q]
 }
 
 /* ------------------------------------------------------------------------------------------------ plan instance */
@@ -501,7 +577,7 @@ export function sanitizeIntake(i) {
     organism: str(o.organism, 160), convocatoria: str(o.convocatoria, 200), testVersion: str(o.testVersion, 80),
     sex: o.sex === 'f' ? 'f' : o.sex === 'm' ? 'm' : null, age: fin(o.age) != null ? clamp(Math.round(fin(o.age)), 16, 70) : null,
     days: clamp(Math.round(fin(o.days) ?? 3), 2, 6), minutes: clamp(Math.round(fin(o.minutes) ?? 60), 30, 150),
-    equipment: { gym: !!eq.gym, track: !!eq.track, pool: !!eq.pool, bar: !!eq.bar, weights: !!eq.weights },
+    equipment: isObj(o.equipment) ? { gym: !!eq.gym, track: !!eq.track, pool: !!eq.pool, bar: !!eq.bar, weights: !!eq.weights } : { gym: true, track: true, pool: true, bar: true, weights: true },
     runningExp: ['none', 'some', 'regular'].includes(o.runningExp) ? o.runningExp : 'none', swimmingExp: ['none', 'some', 'regular'].includes(o.swimmingExp) ? o.swimmingExp : 'none',
     yearsTraining: clamp(fin(o.yearsTraining) ?? 0, 0, 60),
     restrictions: (Array.isArray(o.restrictions) ? o.restrictions : []).filter(r => RESTRICTIONS.includes(r)).slice(0, 6),

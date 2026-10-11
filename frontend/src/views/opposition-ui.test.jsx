@@ -61,7 +61,7 @@ describe('without a plan', () => {
     const html = await render('OppositionHub')
     expect(html).toContain('Train for your public-service exam'); expect(html).toContain('Choose your exam')
     for (const p of seed.profiles) { expect(html).toContain(p.name.replace('&', '&amp;')); expect(html).toContain(p.source.reference) }
-    expect(html).not.toContain('Time left')
+    expect(html).not.toContain('This week')
   })
   it('while the Premium entry is hidden (or nothing is published) the member sees "not available", never an empty or broken page', async () => {
     await seedState({ published: false })
@@ -75,11 +75,11 @@ describe('with a running plan', () => {
     await seedState({ plan: true })
     const html = await render('OppositionHub')
     expect(html).toContain('Bombero/a · Consorcio de Emergencias de Gran Canaria')
-    expect(html).toContain('Time left'); expect(html).toContain('weeks left'); expect(html).toContain('Plan phases')
+    expect(html).toContain('This week'); expect(html).toContain('What we are training'); expect(html).toContain('Fuerza inferior'); expect(html).toContain('weeks left'); expect(html).toContain('Plan phases')
     for (const l of ['Endurance', 'Speed', 'Pulling strength', 'Pushing strength', 'Swimming']) expect(html).toContain(l)
-    expect(html).toContain('Marks against the official minimum'); expect(html).toContain('Dominadas'); expect(html).toContain('Press de banca (40 kg)')
+    expect(html).toContain('Tests and marks'); expect(html).toContain('Dominadas'); expect(html).toContain('Press de banca (40 kg)')
     expect(html).toContain('Official source'); expect(html).toContain('BOP Las Palmas nº 153'); expect(html).toContain('version 1')
-    expect(html).toContain('Go to my training'); expect(html).not.toContain('Record my control marks')
+    expect(html).toContain('Start: '); expect(html).not.toContain('Record my control marks')
     expect(html).not.toContain('Proposal for the next block')
   })
   it('marks missing are shown as "No mark yet", never as a number', async () => {
