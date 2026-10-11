@@ -152,7 +152,7 @@ export function categoryOf(profile, { sex, age } = {}) {
   if (cats.bySex && !sx) return null
   let band = null
   if (bands.length) {
-    if (!(age >= 0)) return null
+    if (!Number.isFinite(age)) return null
     band = bands.find(b => age >= b.from && age <= b.to)?.id || null
     if (!band) return null
   }
@@ -427,7 +427,7 @@ const CAP_ORDER = ['endurance', 'speed', 'agility', 'pull', 'push', 'power', 'sw
 const KEY = i => 'd' + (i + 1)
 
 /** A control week: the official tests spread over a few days like a real convocatoria (running · strength · swimming), the rest of the days easy. */
-function controlWeek(profile, cat, days, level, factsBy, phase) {
+function controlWeek(profile, cat, days, level, factsBy, phase, restrictions = []) {
   const groups = [
     ['Pruebas de carrera', ['run', 'sprint', 'agility']],
     ['Pruebas de fuerza', ['pullup', 'hang', 'pushup', 'bench', 'jump']],
@@ -435,14 +435,14 @@ function controlWeek(profile, cat, days, level, factsBy, phase) {
   ].map(([title, mv]) => [title, testsFor(profile, cat).filter(t => mv.includes(t.movement))]).filter(([, ts]) => ts.length)
   const sessions = groups.map(([title, ts], i) => ({
     key: 'control-' + (i + 1), title: 'Control · ' + title,
-    blocks: [cond(EX.run, 10, { speed: DEFAULT_KMH[level] * 0.6, note: 'Calentamiento completo antes de las pruebas.' }),
+    blocks: applyRestrictions([cond(EX.run, 10, { speed: DEFAULT_KMH[level] * 0.6, note: 'Calentamiento completo antes de las pruebas.' }),
       ...ts.map(t => {
         const f = factsBy[t.id]
         const tg = f?.target ? ` Objetivo: ${f.target.value} ${t.unit}.` : ''
         const ex = { run: EX.run, sprint: EX.sprint, agility: EX.sprint, pullup: EX.pullup, hang: EX.pullup, pushup: EX.pushup, bench: EX.bench, jump: EX.jump, swim: EX.swim }[t.movement]
         const note = `PRUEBA: ${t.name}. Hazla como en la convocatoria y anota tu mejor marca (${t.unit}) en la evaluación.${tg}`
         return t.kind === 'hold' ? hold(ex, f?.current ? f.current : 40, note) : t.kind === 'reps' ? sets(ex, 1, 1, Math.max(2, Math.round(f?.target?.value || 10)), { role: 'main', rest: 180, note }) : cond(ex, Math.max(2, Math.round((t.distanceM || 200) / (f?.vt || 10) * 3.6 / 60 + 2)), { note })
-      })],
+      })], restrictions),
   }))
   const easy = Math.max(0, days - sessions.length)
   for (let i = 0; i < easy; i++) sessions.push({ key: 'recovery-' + (i + 1), title: 'Recuperación activa', blocks: [cond(EX.run, 20, { speed: DEFAULT_KMH[level] * 0.55, note: 'Muy suave, solo para soltar las piernas. Descansa lo suficiente antes de las pruebas.' })] })
@@ -467,7 +467,7 @@ export function buildBlock({ profile, plan, blockIndex = 0, startWeek = 1, marks
   for (let k = 0; k < blockWeeks; k++) {
     const calendarWeek = startWeek + k
     const phase = phaseAtWeek(phases, calendarWeek)
-    if (k === blockWeeks - 1) { weeks.push(controlWeek(profile, cat, days, levels?.global?.level || 'beginner', factsBy, phase)); continue }
+    if (k === blockWeeks - 1) { weeks.push(controlWeek(profile, cat, days, levels?.global?.level || 'beginner', factsBy, phase, plan.intake.restrictions)); continue }
     const w = Math.min(4, k + 1)
     const wscale = (w === 4 ? 0.8 : 1) * scale   // week 4 of the block is the lighter one before the control week
     const focus = weekFocus(needs, days, minutes, CAP_ORDER)
@@ -509,7 +509,7 @@ export function sanitizeIntake(i) {
 export function missingForPlan(profile, intake, examDate, months) {
   const out = []
   if (needsSex(profile) && !intake.sex) out.push('sex')
-  if (needsAge(profile) && !(intake.age >= 0)) out.push('age')
+  if (needsAge(profile) && !Number.isFinite(intake.age)) out.push('age')
   if (!examDate && !HORIZONS.includes(months)) out.push('horizon')
   if (profile.askBeforeStart?.includes('organism') && !intake.organism) out.push('organism')
   if (profile.askBeforeStart?.includes('convocatoria') && !intake.convocatoria) out.push('convocatoria')

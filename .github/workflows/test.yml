@@ -78,6 +78,9 @@ jobs:
       # scripts/premium/official-programs.mjs or frontend/src/lib/premium-model.js that forgets to regenerate them fails here, not on a gym's phone.
       - run: node scripts/build-premium-programs.mjs --check
       - run: node scripts/sync-premium-model.mjs --check
+      # The Oposiciones seed (official profiles) and the API's copy of the shared plan model are generated and committed the same way.
+      - run: node scripts/build-opposition-profiles.mjs --check
+      - run: node scripts/sync-opposition-model.mjs --check
 
   # Building the api image is the only place that proves the bundled Claude CLI actually
   # installs and starts on alpine — the Dockerfile runs `claude --version` as a build step.
