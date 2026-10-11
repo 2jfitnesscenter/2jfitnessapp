@@ -3,7 +3,7 @@ import seed from '../../../api/lib/premium-official.json'
 import library from '../../../api/coach/library.json'
 import {
   validateProgram, validateDefinition, newInstance, positionOf, planSession, proposalFor, advanceCycle, setTrainingMax, skipSession, pauseInstance, resumeInstance,
-  historyEntry, originOf, progressOf, adherenceOf, summarize, missingTrainingMax, sessionsOf, STATUSES, GOAL_TAGS,
+  historyEntry, originOf, progressOf, adherenceOf, summarize, missingTrainingMax, sessionsOf, sanitizeDefinition, STATUSES, GOAL_TAGS,
 } from './premium-model.js'
 
 const byId = new Map(library.exercises.map(e => [e.id, e]))
@@ -240,5 +240,17 @@ describe('the hidden second wave runs on the same engine', () => {
       expect(p.legal.status).toBe('none')
     }
     expect(program('fitness-race-prep').legal.note).toMatch(/no affiliation/i)
+  })
+})
+
+describe('superset groups in a block', () => {
+  it('a block with `sg` reaches the planned cfg, so consecutive blocks become a superset in the workout', () => {
+    const def = { schema: 1, cycleWeeks: 1, weeks: [{ sessions: [{ key: 'day-a', title: 'A', blocks: [
+      { role: 'accessory', exercise: '0334', scheme: { sets: 2, repsMin: 10, repsMax: 12, prog: 'double' }, sg: 'c' },
+      { role: 'accessory', exercise: '0203', scheme: { sets: 2, repsMin: 10, repsMax: 12, prog: 'double' }, sg: 'c' }] }] }] }
+    expect(validateDefinition(def, ctx)).toEqual([])
+    expect(sanitizeDefinition(def).weeks[0].sessions[0].blocks.map(b => b.sg)).toEqual(['c', 'c'])
+    const inst = newInstance({ id: 'x', slug: 'x', name: 'X', version: 1, level: 'beginner', daysPerWeek: 1, goalTags: ['health'], programDefinition: def }, { id: 'i', now: NOW })
+    expect(planSession(inst, []).blocks.map(b => b.cfg.sg)).toEqual(['c', 'c'])
   })
 })

@@ -18,3 +18,4 @@ export const FATIGUE_LABEL = { low: 'Fresh', normal: 'Normal', high: 'Very tired
 export const DIFF_LABEL = { source: 'The official source or its date changed', convocatoria: 'The convocatoria changed', marks: 'The minimum marks changed', 'test-added': 'A test was added', 'test-removed': 'A test was removed', 'test-changed': 'A test description changed', scoring: 'The scoring rule changed' }
 export const STATUS_PROFILE = { draft: 'Draft', published: 'Published', hidden: 'Hidden', archived: 'Archived' }
 export const KIND_LABEL = { time: 'Time', reps: 'Repetitions', hold: 'Hold (seconds)', distance: 'Distance' }
+export const QUALITY_LABEL = { strength: 'Strength', 'relative-strength': 'Relative strength', power: 'Power', speed: 'Speed & acceleration', agility: 'Agility & change of direction', aerobic: 'Aerobic capacity & pace', 'muscular-endurance': 'Muscular endurance', swim: 'Swimming', core: 'Core', mobility: 'Mobility & prevention' }
