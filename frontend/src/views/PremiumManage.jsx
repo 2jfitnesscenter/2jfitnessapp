@@ -18,7 +18,7 @@ import './premium.css'
 
 const GOALS = ['hypertrophy', 'strength', 'strength-muscle', 'recomposition', 'conditioning', 'health']
 const LEVELS = ['beginner', 'intermediate', 'advanced']
-const METHODS = ['percentage-wave', 'weekly-load', 'tiered', 'upper-lower', 'split', 'undulating', 'full-body', 'concurrent', 'conditioning', 'recomposition']
+const METHODS = ['percentage-wave', 'weekly-load', 'tiered', 'upper-lower', 'split', 'undulating', 'full-body', 'concurrent', 'conditioning', 'recomposition', 'opposition']
 const SOURCES = ['established', 'principles', 'own']
 const PROGRESSIONS = ['training-max-cycle', 'weekly-linear', 'double-progression', 'linear', 'tiered', 'undulating', 'none']
 

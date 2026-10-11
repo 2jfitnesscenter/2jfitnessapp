@@ -5,7 +5,7 @@
 // (its definition is pinned in the snapshot), so hiding a program or switching the catalogue off never reaches it: new activations stop, viewing,
 // training and finishing continue.
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { usePremium } from '../lib/premium-api.js'
@@ -52,12 +52,12 @@ function ProgramCard({ p, rec, L, staff, wide, eager, onOpen }) {
       <span className="pm-card-cap">
         <span className="pm-kicker">{t(GOAL_LABEL[p.goalTags?.[0]] || 'Training')} · {t(LEVEL_KEY[p.level])}</span>
         <b className="pm-card-title">{x.name}</b>
-        <span className="pm-card-sub">{t('{0} days/week', p.daysPerWeek)}</span>
+        <span className="pm-card-sub">{p.methodType === 'opposition' ? t('Adaptive long-term plan') : t('{0} days/week', p.daysPerWeek)}</span>
       </span>
     </PremiumCover>
     <span className="pm-card-body">
       <span className="pm-card-desc">{x.shortDescription}</span>
-      <span className="pm-tags"><i>{t(GOAL_LABEL[p.goalTags?.[0]] || 'Training')}</i><i>{t('{0} days', p.daysPerWeek)}</i><i>{t(LEVEL_KEY[p.level])}</i></span>
+      <span className="pm-tags"><i>{t(GOAL_LABEL[p.goalTags?.[0]] || 'Training')}</i>{p.methodType === 'opposition' ? <i>{t('Adaptive')}</i> : <i>{t('{0} days', p.daysPerWeek)}</i>}<i>{t(LEVEL_KEY[p.level])}</i></span>
     </span>
   </button>
 }
@@ -163,6 +163,7 @@ export function PremiumDetail() {
     if (!summary) return
     usePremium.getState().detail(summary.id).then(setFull).catch(e => setErr(e.message))
   }, [summary?.id])   // eslint-disable-line react-hooks/exhaustive-deps
+  if (summary?.methodType === 'opposition') return <Navigate to="/oposiciones" replace />   // the Oposiciones family has its own flow: intake, plan by phases, control tests
   if (!summary) return <main className="pm-page"><header className="pm-hero"><div className="pm-hero-top"><Back to="/premium" /></div><h1>{c.status === 'ready' ? t('Program unavailable') : t('Loading…')}</h1></header></main>
   const L = lang(S)
   const p = full || summary

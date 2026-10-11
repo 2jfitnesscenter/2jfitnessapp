@@ -21,12 +21,12 @@ function finishCurrent(inst, workouts, { reps } = {}) {
 }
 
 describe('the official seed', () => {
-  it('has 29 programs (12 published + 17 hidden) with stable unique ids and slugs, all valid against the real library', () => {
-    expect(seed.programs).toHaveLength(29)
+  it('has 30 programs (12 published + 18 hidden) with stable unique ids and slugs, all valid against the real library', () => {
+    expect(seed.programs).toHaveLength(30)
     expect(seed.programs.filter(p => p.status === 'published')).toHaveLength(12)
-    expect(seed.programs.filter(p => p.status === 'hidden')).toHaveLength(17)
-    expect(new Set(seed.programs.map(p => p.id)).size).toBe(29)
-    expect(new Set(seed.programs.map(p => p.slug)).size).toBe(29)
+    expect(seed.programs.filter(p => p.status === 'hidden')).toHaveLength(18)
+    expect(new Set(seed.programs.map(p => p.id)).size).toBe(30)
+    expect(new Set(seed.programs.map(p => p.slug)).size).toBe(30)
     for (const p of seed.programs) expect(validateProgram(p, ctx), p.id).toEqual([])
   })
   it('covers hypertrophy, strength, strength + muscle, recomposition and conditioning, and every third-party method asks for legal review', () => {
@@ -216,7 +216,7 @@ describe('programs that use the app’s own progression instead of a TM', () => 
 })
 
 describe('the hidden second wave runs on the same engine', () => {
-  const wave = seed.programs.filter(p => p.status === 'hidden')
+  const wave = seed.programs.filter(p => p.status === 'hidden' && p.methodType !== 'opposition')
   it('every session of every program plans cleanly, and BFR / race programs carry their safety notes', () => {
     expect(wave).toHaveLength(17)
     for (const p of wave) {

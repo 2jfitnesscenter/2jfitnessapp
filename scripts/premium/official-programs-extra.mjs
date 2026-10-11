@@ -521,5 +521,31 @@ export function buildExtras(K) {
     }) },
   })
 
-  return [lin5, hlm, conj, block, dupPb, ppl, hfs, hst, bfr, pol, thr, base, ffe, race, raceAdv, cut, met]
+  /* ------------------------------------------------------------------------------------------------ 18 · Entrena tus Oposiciones (special family) */
+  // The catalogue entry of the Oposiciones family. Its programDefinition is a placeholder that is never run: opening it goes to the Oposiciones flow, which
+  // builds a long-term plan from the official profile of the member's exam (tests, minimum marks, source and date live in api/lib/opposition-official.json).
+  const opo = P({
+    slug: 'entrena-tus-oposiciones', name: 'Entrena tus Oposiciones', goal: ['conditioning', 'strength'], level: 'intermediate', days: 3, method: 'opposition', source: 'own', prog: 'none',
+    author: { name: '2J Fitness Center, with official convocatoria data' },
+    equip: ['running route', 'pull-up bar', 'pool', 'cardio machine'], legal: NONE('Uses only official, public convocatoria data (BOE, BOC, BOP, organisms). No affiliation with any body.'),
+    t: {
+      short: ['A long-term plan for the physical tests of your public-service exam, built on the official tests and minimum marks of your convocatoria.', 'Un plan a largo plazo para las pruebas físicas de tu oposición, construido sobre las pruebas y marcas mínimas oficiales de tu convocatoria.'],
+      long: ['Choose your exam, tell us about your marks, your time and your equipment, and 2J builds a plan in phases (Base, Development, Specificity and Competitive) over 6, 12, 18 or 24 months, training every capacity of the real tests. Every few weeks a control week measures your marks against the official minimum and your target, and proposes the next block — you confirm it; nothing changes by itself. If a figure is missing or your convocatoria is not in the catalogue, the app says so instead of inventing it.', 'Elige tu oposición, cuéntanos tus marcas, tu tiempo y tu material, y 2J construye un plan por fases (Base, Desarrollo, Especificidad y Competitiva) a 6, 12, 18 o 24 meses, entrenando todas las capacidades de las pruebas reales. Cada pocas semanas una semana de control mide tus marcas frente al mínimo oficial y a tu objetivo, y propone el siguiente bloque: tú lo confirmas; nada cambia solo. Si falta un dato o tu convocatoria no está en el catálogo, la app lo dice en lugar de inventarlo.'],
+      dur: ['6, 12, 18 or 24 months', '6, 12, 18 o 24 meses'],
+      evidence: ['Tests and minimum marks come from the official publication of each convocatoria (source and date shown). The training follows general principles of periodization (base, development, specificity, taper) and specificity of the tested capacities; no controlled study supports this exact plan. Marks change between convocatorias: always check the bases of yours.', 'Las pruebas y las marcas mínimas proceden de la publicación oficial de cada convocatoria (se muestran la fuente y la fecha). El entrenamiento sigue principios generales de periodización (base, desarrollo, especificidad, puesta a punto) y de especificidad de las capacidades evaluadas; ningún estudio controlado respalda este plan concreto. Las marcas cambian entre convocatorias: comprueba siempre las bases de la tuya.'],
+    },
+    lists: {
+      how: [['Pick your exam and its official tests.', 'Elige tu oposición y sus pruebas oficiales.'], ['A plan in phases to your exam date, with a control week every 5 weeks.', 'Un plan por fases hasta tu fecha de examen, con una semana de control cada 5 semanas.'], ['You confirm every change of block.', 'Tú confirmas cada cambio de bloque.']],
+      who: [['You are preparing the physical tests of a public-service exam.', 'Preparas las pruebas físicas de una oposición.'], ['You want to see your marks against the official minimum.', 'Quieres ver tus marcas frente al mínimo oficial.']],
+      not: [['Your convocatoria is not in the catalogue yet: ask your trainer to add it.', 'Tu convocatoria aún no está en el catálogo: pide a tu entrenador que la añada.'], ['You have a medical restriction that has not been cleared for hard efforts.', 'Tienes una restricción médica sin autorización para esfuerzos duros.']],
+      track: [['Marks per test, level per capacity and time left.', 'Marcas por prueba, nivel por capacidad y tiempo restante.'], ['Adherence and control results.', 'Adherencia y resultados de los controles.']],
+    },
+    def: { schema: 1, cycleWeeks: 1, weeks: [{ label: 'Plan', phase: 'Plan', sessions: [
+      day('endurance', 'Endurance', [cond(ID.run, 30, { speed: 8, note: 'Placeholder: the real sessions are built in the Oposiciones flow.' })]),
+      day('strength', 'Strength', [acc(ID.chinup, 3, 5, 10)]),
+      day('tests', 'Control tests', [cond(ID.run, 15, { note: 'Placeholder: the control tests come from your official profile.' })]),
+    ] }] },
+  })
+
+  return [lin5, hlm, conj, block, dupPb, ppl, hfs, hst, bfr, pol, thr, base, ffe, race, raceAdv, cut, met, opo]
 }

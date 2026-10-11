@@ -1,6 +1,6 @@
 {
  "seedVersion": 1,
- "count": 29,
+ "count": 30,
  "programs": [
   {
    "id": "premium-531",
@@ -35160,6 +35160,158 @@
    },
    "badge": null,
    "order": 29,
+   "version": 1,
+   "sourceKind": "official",
+   "createdBy": "2j",
+   "updatedBy": "2j",
+   "createdAt": "2026-10-11T00:00:00.000Z",
+   "updatedAt": "2026-10-11T00:00:00.000Z",
+   "publishedAt": null
+  },
+  {
+   "id": "premium-entrena-tus-oposiciones",
+   "slug": "entrena-tus-oposiciones",
+   "name": "Entrena tus Oposiciones",
+   "status": "hidden",
+   "shortDescription": "A long-term plan for the physical tests of your public-service exam, built on the official tests and minimum marks of your convocatoria.",
+   "longDescription": "Choose your exam, tell us about your marks, your time and your equipment, and 2J builds a plan in phases (Base, Development, Specificity and Competitive) over 6, 12, 18 or 24 months, training every capacity of the real tests. Every few weeks a control week measures your marks against the official minimum and your target, and proposes the next block — you confirm it; nothing changes by itself. If a figure is missing or your convocatoria is not in the catalogue, the app says so instead of inventing it.",
+   "goalTags": [
+    "conditioning",
+    "strength"
+   ],
+   "level": "intermediate",
+   "daysPerWeek": 3,
+   "durationDescription": "6, 12, 18 or 24 months",
+   "methodType": "opposition",
+   "sourceType": "own",
+   "author": {
+    "name": "2J Fitness Center, with official convocatoria data"
+   },
+   "evidenceSummary": "Tests and minimum marks come from the official publication of each convocatoria (source and date shown). The training follows general principles of periodization (base, development, specificity, taper) and specificity of the tested capacities; no controlled study supports this exact plan. Marks change between convocatorias: always check the bases of yours.",
+   "equipmentRequirements": [
+    "running route",
+    "pull-up bar",
+    "pool",
+    "cardio machine"
+   ],
+   "progressionModel": "none",
+   "legal": {
+    "status": "none",
+    "note": "Uses only official, public convocatoria data (BOE, BOC, BOP, organisms). No affiliation with any body."
+   },
+   "featured": false,
+   "coverImage": "/premium/covers/entrena-tus-oposiciones.jpg",
+   "coverImageAlt": "A swimmer in goggles mid-stroke in a pool",
+   "coverFocalPoint": {
+    "x": 50,
+    "y": 40
+   },
+   "coverImageSource": "https://commons.wikimedia.org/wiki/File:Flickr_-_DVIDSHUB_-_RIMPAC_2012_international_swim_meet_(Image_8_of_13).jpg",
+   "coverImageLicense": "CC BY 2.0",
+   "coverImageAttribution": "DVIDSHUB, CC BY 2.0, via Wikimedia Commons",
+   "copy": {
+    "howItWorks": [
+     "Pick your exam and its official tests.",
+     "A plan in phases to your exam date, with a control week every 5 weeks.",
+     "You confirm every change of block."
+    ],
+    "forWhom": [
+     "You are preparing the physical tests of a public-service exam.",
+     "You want to see your marks against the official minimum."
+    ],
+    "notIdealIf": [
+     "Your convocatoria is not in the catalogue yet: ask your trainer to add it.",
+     "You have a medical restriction that has not been cleared for hard efforts."
+    ],
+    "tracking": [
+     "Marks per test, level per capacity and time left.",
+     "Adherence and control results."
+    ]
+   },
+   "programDefinition": {
+    "schema": 1,
+    "cycleWeeks": 1,
+    "weeks": [
+     {
+      "label": "Plan",
+      "phase": "Plan",
+      "sessions": [
+       {
+        "key": "endurance",
+        "title": "Endurance",
+        "blocks": [
+         {
+          "role": "conditioning",
+          "exercise": "0684",
+          "conditioning": {
+           "min": 30,
+           "speed": 8
+          },
+          "note": "Placeholder: the real sessions are built in the Oposiciones flow."
+         }
+        ]
+       },
+       {
+        "key": "strength",
+        "title": "Strength",
+        "blocks": [
+         {
+          "role": "accessory",
+          "exercise": "1326",
+          "scheme": {
+           "sets": 3,
+           "repsMin": 5,
+           "repsMax": 10,
+           "prog": "double"
+          }
+         }
+        ]
+       },
+       {
+        "key": "tests",
+        "title": "Control tests",
+        "blocks": [
+         {
+          "role": "conditioning",
+          "exercise": "0684",
+          "conditioning": {
+           "min": 15
+          },
+          "note": "Placeholder: the control tests come from your official profile."
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "locales": {
+    "es": {
+     "shortDescription": "Un plan a largo plazo para las pruebas físicas de tu oposición, construido sobre las pruebas y marcas mínimas oficiales de tu convocatoria.",
+     "longDescription": "Elige tu oposición, cuéntanos tus marcas, tu tiempo y tu material, y 2J construye un plan por fases (Base, Desarrollo, Especificidad y Competitiva) a 6, 12, 18 o 24 meses, entrenando todas las capacidades de las pruebas reales. Cada pocas semanas una semana de control mide tus marcas frente al mínimo oficial y a tu objetivo, y propone el siguiente bloque: tú lo confirmas; nada cambia solo. Si falta un dato o tu convocatoria no está en el catálogo, la app lo dice en lugar de inventarlo.",
+     "durationDescription": "6, 12, 18 o 24 meses",
+     "evidenceSummary": "Las pruebas y las marcas mínimas proceden de la publicación oficial de cada convocatoria (se muestran la fuente y la fecha). El entrenamiento sigue principios generales de periodización (base, desarrollo, especificidad, puesta a punto) y de especificidad de las capacidades evaluadas; ningún estudio controlado respalda este plan concreto. Las marcas cambian entre convocatorias: comprueba siempre las bases de la tuya.",
+     "howItWorks": [
+      "Elige tu oposición y sus pruebas oficiales.",
+      "Un plan por fases hasta tu fecha de examen, con una semana de control cada 5 semanas.",
+      "Tú confirmas cada cambio de bloque."
+     ],
+     "forWhom": [
+      "Preparas las pruebas físicas de una oposición.",
+      "Quieres ver tus marcas frente al mínimo oficial."
+     ],
+     "notIdealIf": [
+      "Tu convocatoria aún no está en el catálogo: pide a tu entrenador que la añada.",
+      "Tienes una restricción médica sin autorización para esfuerzos duros."
+     ],
+     "tracking": [
+      "Marcas por prueba, nivel por capacidad y tiempo restante.",
+      "Adherencia y resultados de los controles."
+     ]
+    }
+   },
+   "badge": null,
+   "order": 30,
    "version": 1,
    "sourceKind": "official",
    "createdBy": "2j",
