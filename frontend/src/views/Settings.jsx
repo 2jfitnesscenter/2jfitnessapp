@@ -26,6 +26,7 @@ import './experience.css'
 import Icon from '../components/Icon.jsx'
 import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button, Avatar } from '../components/ui.jsx'
 import PrivacySummary from '../components/PrivacySummary.jsx'
+import PersonalizationSection from '../components/PersonalizationSection.jsx'
 import { bridgeState, getBridge, platformLabel } from '../lib/health-bridge.js'
 import { openAccent } from '../components/AccentSheet.jsx'
 
@@ -137,6 +138,9 @@ export default function Settings() {
         </>}
       </Section>
     )}
+
+    {/* ---------- 1b. personalisation: Home and Progress layout, directly here ---------- */}
+    <PersonalizationSection />
 
     {/* ---------- 2. appearance ---------- */}
     <h3 className="set-grp">{t('Appearance')}<span>{t('How 2J looks and what you see')}</span></h3>

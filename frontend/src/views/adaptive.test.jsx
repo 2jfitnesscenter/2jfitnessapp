@@ -66,10 +66,13 @@ describe('Home stays simple', () => {
   })
   it('Train with 2J disappears when the admin or the member switches it off', async () => {
     await seed({ ...HISTORY() })
+    expect(await render(views.Home)).not.toContain('Train with 2J')            // the default Home is clean: it is one tap away (Personalise → Add)
+    const ALL = ['week', 'premium', 'reorder', 'review', 'followup', 'news', 'readiness', 'coach', 'train2j', 'intelligence']
+    await seed({ ...HISTORY(), ux: { ...ux({}), home: { order: ALL, hidden: [] } } })
     expect(await render(views.Home)).toContain('Train with 2J')
-    await seed({ ...HISTORY(), ux: ux({ train2j: false }) })
+    await seed({ ...HISTORY(), ux: { ...ux({ train2j: false }), home: { order: ALL, hidden: [] } } })
     expect(await render(views.Home)).not.toContain('Train with 2J')
-    await seed({ ...HISTORY() }, { train2j: false })
+    await seed({ ...HISTORY(), ux: { ...ux({}), home: { order: ALL, hidden: [] } } }, { train2j: false })
     expect(await render(views.Home)).not.toContain('Train with 2J')
   })
   it('existing profiles get one discreet invitation to personalise; new choices or dismissal remove it', async () => {
