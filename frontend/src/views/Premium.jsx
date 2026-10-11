@@ -318,7 +318,7 @@ export function PremiumActive() {
       {v.missing.length > 0 && <p className="pm-note warn"><Icon name="info" />{t('Set the Training Max of every main lift to unlock the next session.')}</p>}
       {v.plan && <section className="pm-sec next"><h2>{t('Next workout')} · {v.plan.title}</h2><div className="pm-sec-body">
         <ul className="pm-plan">{v.plan.blocks.map((b, i) => <li key={i}><b>{exName(b.exercise)}</b>
-          <small>{b.kind === 'fixed' ? b.sets.map(s => `${s.w}×${s.r}${s.amrap ? '+' : ''}`).join(' · ') : b.kind === 'cfg' ? `${b.cfg.sets}×${b.cfg.targetRepsMin ? b.cfg.targetRepsMin + '-' + b.cfg.targetRepsMax : b.cfg.reps}` : b.kind === 'conditioning' ? (b.conditioning.min ? b.conditioning.min + ' min' : b.conditioning.sec + ' s') : t('Set the Training Max')}</small></li>)}</ul>
+          <small>{b.kind === 'fixed' ? b.sets.map(s => `${s.w}×${s.r}${s.amrap ? '+' : ''}`).join(' · ') : b.kind === 'cfg' ? `${b.cfg.sets}×${b.cfg.targetRepsMin ? b.cfg.targetRepsMin + '-' + b.cfg.targetRepsMax : b.cfg.reps}` : b.kind === 'conditioning' ? (b.conditioning.min ? b.conditioning.min + ' min' : b.conditioning.sec + ' s') : t('Set the Training Max')}</small>{b.note && <em className="pm-bnote">{t(b.note)}</em>}</li>)}</ul>
         <div className="pm-actions"><button className="pm-primary" disabled={paused || v.missing.length > 0} onClick={startPremiumSession}><Icon name="play" />{t('Start workout')}</button>
           <button className="pm-ghost" disabled={paused} onClick={skipOne}>{t('Skip session')}</button></div></div></section>}
       <ProposalCard v={v} update={update} />

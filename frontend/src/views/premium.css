@@ -126,7 +126,7 @@ textarea.pm-input{padding:10px 12px}
 .pm-prog{display:grid;gap:6px}
 .pm-prog small{color:var(--label-2);font-size:12px}
 .pm-plan{list-style:none;margin:0 0 12px;padding:0}
-.pm-plan li{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--pm-line);font-size:14px}
+.pm-plan li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;padding:11px 0;border-top:1px solid var(--pm-line);font-size:14px}
 .pm-plan li:first-child{border-top:0}
 .pm-plan small{color:var(--label-2);text-align:right;overflow-wrap:anywhere}
 .pm-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -208,3 +208,4 @@ textarea.pm-input{padding:10px 12px}
 .pm-replace>svg{flex:none;width:20px;height:20px;color:#B8902F;margin-top:2px}
 .pm-replace b{display:block;font-size:14px;margin-bottom:4px}
 .pm-replace p{margin:0 0 4px;font-size:13px;line-height:1.45;color:var(--label)}
+.pm-plan .pm-bnote{display:block;flex-basis:100%;margin-top:2px;font-size:11.5px;font-style:normal;line-height:1.35;color:var(--muted,#6b7a75)}

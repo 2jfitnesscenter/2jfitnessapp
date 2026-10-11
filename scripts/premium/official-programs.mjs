@@ -12,6 +12,7 @@
  *  - English is the source language; `locales.es` carries the Spanish editorial text.
  */
 import { readFileSync } from 'node:fs'
+import { buildExtras } from './official-programs-extra.mjs'
 
 const SEEDED = '2026-10-11T00:00:00.000Z'
 const ID = {
@@ -495,7 +496,9 @@ const pfbc = {
 }
 
 /* ---------------------------------------------------------------------------------------------------------------- the catalogue */
-const ORDER = [p531, ptexas, pjug, pgzcl, pphul, pphat, pdup, ppb, pfbh, prec, pcon, pfbc]
+// The second wave ships HIDDEN: an administrator reviews, publishes, features and orders each program (see official-programs-extra.mjs).
+const EXTRA = buildExtras({ ID, LIFTS4, INC_STD, TM_RULE, main, supp, acc, heavy, cond, S, day, weeksOf })
+const ORDER = [p531, ptexas, pjug, pgzcl, pphul, pphat, pdup, ppb, pfbh, prec, pcon, pfbc, ...EXTRA]
 const TEXT_KEYS = ['shortDescription', 'longDescription', 'durationDescription', 'evidenceSummary']
 const LIST_KEYS = ['howItWorks', 'forWhom', 'notIdealIf', 'tracking']
 
@@ -510,8 +513,8 @@ export const OFFICIAL_PROGRAMS = ORDER.map((p, i) => {
     copy: { howItWorks: copy.howItWorks, forWhom: copy.forWhom, notIdealIf: copy.notIdealIf, tracking: copy.tracking },
     programDefinition: definition,
     locales: { es: Object.fromEntries([...TEXT_KEYS, ...LIST_KEYS].filter(k => es[k]).map(k => [k, es[k]])) },
-    badge: badge || null, order: i + 1, version: 1, status: 'published', sourceKind: 'official',
-    createdBy: '2j', updatedBy: '2j', createdAt: SEEDED, updatedAt: SEEDED, publishedAt: SEEDED,
+    badge: badge || null, order: i + 1, version: 1, status: p.status || 'published', sourceKind: 'official',
+    createdBy: '2j', updatedBy: '2j', createdAt: SEEDED, updatedAt: SEEDED, publishedAt: (p.status || 'published') === 'published' ? SEEDED : null,
   }
 })
 export const SEED_VERSION = 1

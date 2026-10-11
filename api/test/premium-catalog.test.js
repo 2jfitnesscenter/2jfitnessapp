@@ -222,3 +222,39 @@ test('covers: unsafe or incomplete covers are refused with the reason', async ()
     assert.equal(r.status, 400, cover); assert.ok(r.data.issues.includes(issue), cover + ' ' + JSON.stringify(r.data.issues));
   }
 });
+
+const SECOND_WAVE = ['linear-5x5', 'heavy-light-medium', 'conjugate-strength', 'block-periodization-strength', 'dup-powerbuilding', 'ppl-powerbuilding', 'high-frequency-strength', 'hst-style-hypertrophy',
+  'bfr-hypertrophy', 'polarized-endurance', 'threshold-builder', 'aerobic-base-intervals', 'functional-fitness-engine', 'fitness-race-prep', 'fitness-race-advanced', 'strength-zone2-cut', 'metabolic-resistance-progression'];
+
+test('second wave: 17 programs ship HIDDEN, complete and licensed; members never see them until an administrator publishes one', async () => {
+  const seed = JSON.parse(fs.readFileSync(seedFile, 'utf8'));
+  assert.equal(seed.count, 29);
+  const wave = seed.programs.filter(p => SECOND_WAVE.includes(p.slug));
+  assert.equal(wave.length, 17);
+  const files = new Set(seed.programs.map(p => crypto.createHash('sha256').update(fs.readFileSync(fileURLToPath(new URL('../../frontend/public' + p.coverImage, import.meta.url)))).digest('hex')));
+  assert.equal(files.size, 29, 'no cover is repeated across the whole catalogue');
+  for (const p of wave) {
+    assert.equal(p.status, 'hidden', p.slug); assert.equal(p.publishedAt, null, p.slug); assert.equal(p.featured, false); assert.equal(p.badge, null);
+    assert.ok(p.evidenceSummary.length > 120 && p.locales.es.evidenceSummary.length > 120, p.slug + ' evidence (en + es)');
+    assert.ok(p.locales.es.shortDescription && p.locales.es.longDescription && p.locales.es.howItWorks.length >= 3, p.slug + ' es text');
+    assert.ok(['none', 'review'].includes(p.legal.status) && p.legal.note, p.slug + ' legal flag');
+    assert.match(p.coverImageLicense, /^(Public domain|CC0|CC BY 2\.0|CC BY 3\.0)$/, p.slug + ' licence has no NC/ND'); assert.ok(p.coverImageAttribution && p.coverImageSource && p.coverImageAlt, p.slug + ' credit');
+    assert.ok(p.programDefinition.weeks.length === p.programDefinition.cycleWeeks, p.slug);
+  }
+  // legal: no brand/league affiliation anywhere in the text
+  assert.doesNotMatch(JSON.stringify(wave), /crossfit|hyrox|rogue|wodapalooza/i);
+  // members: still the 12 published ones; the admin sees all 29
+  const officialFor = async uid => (await list(uid)).programs.filter(p => p.scope === 'official');
+  assert.equal((await officialFor('a')).length, 12);
+  const adminSlugs = (await list('admin')).programs.filter(p => p.scope === 'official');
+  assert.equal(adminSlugs.length, 29);
+  assert.equal((await call('a', 'GET', '/api/premium/program?slug=bfr-hypertrophy')).status, 404, 'a hidden program is not served to a member who does not follow it');
+  // the administrator publishes one; the others stay hidden; then it is hidden again
+  assert.equal((await call('admin', 'POST', '/api/premium/status', { id: 'premium-polarized-endurance', status: 'published' })).status, 200);
+  const after = await list('a');
+  const visible = after.programs.filter(p => p.scope === 'official');
+  assert.equal(visible.length, 13); assert.deepEqual(visible.filter(p => SECOND_WAVE.includes(p.slug)).map(p => p.slug), ['polarized-endurance']); assert.equal(visible.find(p => p.slug === 'polarized-endurance').programDefinition, undefined);
+  assert.equal((await call('admin', 'POST', '/api/premium/status', { id: 'premium-polarized-endurance', status: 'hidden' })).status, 200);
+  assert.equal((await officialFor('a')).length, 12);
+  assert.equal(seedHash(), SEED_HASH, 'the seed file never changes at runtime');
+});
