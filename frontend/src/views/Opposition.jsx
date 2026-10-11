@@ -79,18 +79,18 @@ function OppositionIntro({ cat, available, loading, staff }) {
 const DAYS = [2, 3, 4, 5, 6]
 const MINUTES = [30, 45, 60, 75, 90, 120]
 
-function OppositionWizard({ summary, close }) {
+export function OppositionWizard({ summary, close, initialProfile = null }) {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
   const user = useStore(s => s.user)
   const cat = useOpposition()
-  const [profile, setProfile] = useState(null)
+  const [profile, setProfile] = useState(initialProfile)
   const [err, setErr] = useState('')
   const [step, setStep] = useState(0)
   const [f, setF] = useState({ organism: '', convocatoria: '', testVersion: '', sex: null, age: '', yearsTraining: 1, selfLevel: 'beginner', runningExp: 'some', swimmingExp: 'some', days: 4, minutes: 60, equipment: { gym: true, track: true, pool: true, bar: true, weights: true }, restrictions: [], examDate: '', months: null, ambition: 'pass', marks: {} })
-  useEffect(() => { cat.detail(summary.id).then(setProfile).catch(e => setErr(e.message)) }, [summary.id])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!initialProfile) cat.detail(summary.id).then(setProfile).catch(e => setErr(e.message)) }, [summary.id])   // eslint-disable-line react-hooks/exhaustive-deps
   const set = patch => setF(v => ({ ...v, ...patch }))
   const intake = useMemo(() => model.sanitizeIntake({ ...f, age: f.age === '' ? null : Number(f.age), days: f.days, minutes: f.minutes }), [f])
   if (err) return <main className="pm-page op-page"><header className="pm-hero"><div className="pm-hero-top"><Back to="/premium" /></div><h1>{t('Program unavailable')}</h1></header><p className="pm-note warn"><Icon name="info" />{err}</p></main>
