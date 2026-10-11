@@ -5627,4 +5627,9 @@ export default {
   'Mobility & prevention': 'Movilidad y prevención',
   'What we will train': 'Qué vamos a entrenar',
   'The marks only set your starting point and targets: the plan is real gym, track and conditioning work for each of these.': 'Las marcas solo fijan tu punto de partida y tus objetivos: el plan es trabajo real de gimnasio, pista y acondicionamiento para cada una de estas capacidades.',
+  'Layout': 'Vista',
+  'Compact': 'Compacto',
+  'Back to grid': 'Volver a la cuadrícula',
+  'Session changed on another device': 'Sesión cambiada en otro dispositivo',
+  'Changes pending': 'Cambios pendientes',
 }
