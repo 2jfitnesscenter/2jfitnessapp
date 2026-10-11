@@ -39,6 +39,7 @@ import SecuritySettings from './views/SecuritySettings.jsx'
 import LinkApprove from './views/LinkApprove.jsx'
 import TrainingSettings from './views/TrainingSettings.jsx'
 import StatsSettings from './views/StatsSettings.jsx'
+import PersonalizationSettings from './views/PersonalizationSettings.jsx'
 import RpVolumeCalibration from './views/RpVolumeCalibration.jsx'
 import RpVolumeStats from './views/RpVolumeStats.jsx'
 import Bunker from './views/Bunker.jsx'
@@ -316,6 +317,7 @@ function Shell() {
               <Route path="/link/:id" element={<LinkApprove />} />
               <Route path="/settings/training" element={<TrainingSettings />} />
               <Route path="/settings/stats" element={<StatsSettings />} />
+              <Route path="/settings/personalisation" element={<PersonalizationSettings />} />
               <Route path="/settings/experience" element={<ExperienceSetup />} />
               <Route path="/settings/rp-volume" element={<Feat k="volume"><RpVolumeCalibration /></Feat>} />
               <Route path="/stats/rp-volume" element={<Feat k="volume"><RpVolumeStats /></Feat>} />

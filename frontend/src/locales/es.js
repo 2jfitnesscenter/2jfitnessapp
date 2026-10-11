@@ -5612,4 +5612,5 @@ export default {
   'Train for your public-service exam: a long-term plan built from the official tests and minimum marks of your convocatoria': 'Entrena para tu oposición: un plan a largo plazo construido con las pruebas y marcas mínimas oficiales de tu convocatoria',
   '17 new Premium programs ready for your gym to publish, and an Actions screen with Premium and Train with 2J': '17 programas Premium nuevos para que tu gimnasio los publique, y una pantalla de acciones con Premium y Entrena con 2J',
   'Home starts clean — Calendar and Premium — and you choose what to see, in Home and in Progress': 'Inicio empieza limpio —Calendario y Premium— y eliges qué ver, en Inicio y en Progreso',
+  'Order and choose what to see in Home and Progress': 'Ordena y elige qué ver en Inicio y Progreso',
 }
