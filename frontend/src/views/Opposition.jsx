@@ -224,8 +224,9 @@ function OppositionActive({ view, cat }) {
   const end = () => confirmSheet({ title: t('End this plan?'), message: t('Your workouts, records and history stay. The plan moves to your history.'), confirmText: t('End plan'), danger: true,
     onConfirm: () => update(s => { const r = op.endPlan(s); s.opposition = r.opposition; s.premium = r.premium }) })
   const again = () => update(s => { s.opposition = op.reproposeNext(s) })
+  const restart = () => { const r = op.resumeBlock(useStore.getState().S, {}); if (!r.error) update(s => { s.premium = r.premium }) }
   return <main className="pm-page op-page op-running">
-    <PremiumCover p={OPPOSITION_COVER} ratio="16 / 8" eager className="pm-detail-cover short">
+    <PremiumCover p={OPPOSITION_COVER} ratio="16 / 10" eager className="pm-detail-cover short">
       <div className="pm-hero-top over"><Back to="/premium" /><span className={'pm-badge ' + (view.finished ? 'muted' : 'green')}>{t(PHASE_LABEL[view.controlWeek ? 'control' : view.phase])}</span></div>
       <span className="pm-detail-cap"><span className="pm-kicker">{t('Your plan')}</span><h1>{profile.name}</h1>
         <span className="pm-facts"><span><Icon name="calendar" />{plan.examDate ? t('Exam {0}', fmtDate(plan.examDate)) : t('{0} months', plan.months)}</span><span>{t('{0} weeks left', view.weeksLeft)}</span></span></span>
@@ -237,13 +238,14 @@ function OppositionActive({ view, cat }) {
       <section className="pm-sec"><h2>{t('Time left')}</h2><div className="pm-sec-body"><Phases plan={plan} week={Math.min(view.calendarWeek, plan.weeksTotal)} />
         <p className="dim small">{t('Week {0} of {1} · block {2}', Math.min(view.calendarWeek, plan.weeksTotal), plan.weeksTotal, plan.blockIndex + 1)}</p></div></section>
 
-      {!view.finished && <section className="pm-sec next"><h2>{view.canEvaluate ? t('Control week') : t('Next workout')}</h2><div className="pm-sec-body">
+      {!view.finished && <section className="pm-sec next"><h2>{view.canEvaluate ? t('Control week') : view.blockDone ? t('Block completed') : t('Next workout')}</h2><div className="pm-sec-body">
         {view.inst && <div className="pm-prog"><span className="pm-bar" role="progressbar" aria-label={t('Program progress')} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(view.pos.finished * 100 / view.pos.totalInCycle)}><i style={{ width: Math.round(view.pos.finished * 100 / view.pos.totalInCycle) + '%' }} /></span>
           <small>{t('{0} of {1} sessions this cycle', view.pos.completedInCycle, view.pos.totalInCycle)}</small></div>}
         {next && <p className="op-next"><Icon name="play" />{next}</p>}
         {view.noBlock && <p className="pm-note warn"><Icon name="info" />{t('This plan has no block running. Prepare the next one below.')}</p>}
         <div className="pm-actions">
-          {view.inst && <button className="pm-primary" onClick={() => nav('/premium/active')}><Icon name="play" />{t('Go to my training')}</button>}
+          {view.inst && !view.blockDone && <button className="pm-primary" onClick={() => nav('/premium/active')}><Icon name="play" />{t('Go to my training')}</button>}
+          {view.noBlock && <button className="pm-primary" onClick={restart}><Icon name="play" />{t('Restart this block')}</button>}
           {view.canEvaluate && <button className="pm-primary alt" onClick={() => openSheet(close => <EvaluationSheet view={view} close={close} />)}><Icon name="target" />{t('Record my control marks')}</button>}
         </div></div></section>}
 

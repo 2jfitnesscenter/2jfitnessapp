@@ -117,3 +117,18 @@ describe('a new convocatoria and ending the plan', () => {
     expect(S.workouts).toHaveLength(1)
   })
 })
+
+describe('a plan whose block was closed', () => {
+  it('can restart its current block from where the plan is (marks, levels and workouts untouched); nothing happens while a block is running', () => {
+    const S = withPlan()
+    expect(o.resumeBlock(S, { now: NOW }).error).toBe('running')
+    const closedPremium = premiumState({ ...S, premium: S.premium })
+    const S2 = { ...S, premium: { v: 1, active: null, history: closedPremium.history } }
+    expect(o.planView(S2, NOW + 2 * WEEK).noBlock).toBe(true)
+    const r = o.resumeBlock(S2, { now: NOW + 2 * WEEK, instanceId: 'pr-9' })
+    expect(r.error).toBeUndefined()
+    expect(r.premium.active.programId).toBe('opposition-opp-t-b1'); expect(r.premium.active.id).toBe('pr-9')
+    expect(r.opposition.plan.marks).toEqual(S.opposition.plan.marks)
+    expect(o.planView({ ...S2, premium: r.premium }, NOW + 2 * WEEK).noBlock).toBe(false)
+  })
+})

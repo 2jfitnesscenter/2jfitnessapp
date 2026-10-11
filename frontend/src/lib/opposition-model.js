@@ -479,7 +479,7 @@ export function buildBlock({ profile, plan, blockIndex = 0, startWeek = 1, marks
         const lvl = levels?.byCapacity?.[c]?.level || levels?.global?.level || 'beginner'
         blocks.push(...trainCapacity(c, f, phase, w, lvl, wscale))
       }
-      if (minutes >= 70 && blocks.length < 8) blocks.push(sets(EX.plank, 2, 1, 1, { rest: 45, note: 'Plancha 30–45 s: estabilidad para todas las pruebas.' }), sets(EX.legRaise, 2, 8, 15, { rest: 45 }))
+      if (minutes >= 70 && blocks.length < 8) blocks.push(hold(EX.plank, 40, 'Plancha de 30–45 s, dos veces: estabilidad para todas las pruebas.'), sets(EX.legRaise, 2, 8, 15, { rest: 45 }))
       return { key: KEY(i), title: `Sesión ${i + 1} · ${caps.map(c => TITLE[c]).join(' + ')}`, blocks: applyRestrictions(blocks, plan.intake.restrictions).slice(0, 14) }
     })
     weeks.push({ label: `Semana ${k + 1} · ${phase}`, phase, sessions })

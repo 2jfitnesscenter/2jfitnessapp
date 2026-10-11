@@ -96,6 +96,17 @@ export function confirmProposal(S, { now = Date.now(), instanceId } = {}) {
   return { opposition: { ...cur, plan: nextPlan }, premium }
 }
 
+/** The plan has no block running (the member switched or finished the Premium program): start the current block again from where the plan is. Nothing else changes. */
+export function resumeBlock(S, { now = Date.now(), instanceId } = {}) {
+  const cur = oppositionState(S)
+  const plan = cur.plan
+  if (!plan || runsPlan(S, plan)) return { error: 'running' }
+  const startWeek = Math.min(plan.weeksTotal, model.calendarWeek(plan, now))
+  const block = model.buildBlock({ profile: plan.profile, plan, blockIndex: plan.blockIndex, startWeek, marks: plan.marks, levels: plan.levels })
+  const program = model.programFor(plan, block, { cover: COVER })
+  return { opposition: cur, premium: activate(S, program, { now, id: instanceId }) }
+}
+
 /** Declines the proposal (the member keeps repeating the current block: nothing changes, the evaluation stays recorded). */
 export function dismissProposal(S) {
   const cur = oppositionState(S)

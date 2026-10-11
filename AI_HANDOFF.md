@@ -887,6 +887,31 @@ dispositivo; ver `docs/HEALTH_NATIVE_BRIDGE.md`.
 **Reconciliación de energía (Android validado en hardware real, desplegable):** prioridad = NO duplicar kcal. Se usa el AGREGADO oficial de energía activa del intervalo (nunca suma de registros, sin umbral de cobertura): cualquier energía externa > 0 → 2J no escribe y la muestra localmente como agregada. Android: con permiso de lectura y escritura y agregado realmente 0 tras ~15 min, escribe UNA estimación etiquetada `2j:<id>:kcal-est` (doble guardia justo antes) y la borra solo si luego aparece fuente externa. iOS: una lectura vacía es ambigua (HealthKit), así que NUNCA escribe kcal; el entreno se exporta sin kcal y la estimación se ve en 2J como ESTIMATED. Código: `lib/energy-reconcile.js` (cola local transitoria `health_energy_v1:<uid>`), plugins `readEnergy`/`writeEstimatedEnergy`/`deleteEstimatedEnergy` (esta pareja solo Android). Validación real en S25 Ultra: agregado 0 → escribe una sola muestra `2j:<id>:kcal-est`; agregado > 0 (WHOOP) → `external_available`; idempotente; `deleteEstimatedEnergy` borra solo lo propio; datos externos intactos. Nota: el agregado de Health Connect no cuenta la muestra de 2J mientras 2J no esté en la prioridad de fuentes del usuario (la guardia la excluye igualmente, sin riesgo de duplicado). Quedan fuera de alcance el borrado de sesiones 2J desde la app y todo iOS (la parte iOS de esta política —no escribir kcal— está escrita pero sin compilar ni commitear). Detalle en docs/HEALTH_NATIVE_BRIDGE.md.
 **Shell remoto Android + passkeys (validado en S25 Ultra):** `frontend/capacitor.remote.config.json` (server.url = https://app.2jfitnesscenter.com, allowNavigation solo ese host) se copia a `android/app/src/main/assets/capacitor.config.json` antes de compilar el APK; la config standalone no cambia. `MainActivity` activa WebAuthn en el WebView (`WEB_AUTHENTICATION_SUPPORT_FOR_APP`, androidx.webkit 1.12.1). Requisitos de producción ya desplegados: `/.well-known/assetlinks.json` (get_login_creds + handle_all_urls, huella del certificado DEBUG), `Caddyfile` que atiende `Host: app.2jfitnesscenter.com.` (Google DAL lo usa con punto final) y `api/lib/webauthn-origins.js` (origin `android:apk-key-hash:<hash>` exacto, además del web; sin comodines; `ANDROID_APK_KEY_HASHES` para añadir el hash de release). Probado: login con passkey existente, sesión real, datos Sync V2 y TwoJHealth disponible. PENDIENTE antes de distribuir: keystore de release, su huella en assetlinks.json y su hash en `webauthn-origins.js`; el APK sideload actual es de depuración. Sync V2 y auth del servidor no cambian salvo la lista de orígenes.
 
+## 13d. Sprint Personalización V2 + Premium expansion + Oposiciones V1 (rama `codex/personalization-v2-premium-oposiciones`, NO desplegado)
+
+Base `origin/main` 6bc9552; producción `6c53aef` (no es ancestro de main a propósito). Sin merge, sin deploy, sin Platform/Android/reservas/auth nuevos.
+
+- **A — Personalización:** Home por defecto limpio (cabecera, CALENDARIO, PREMIUM, resto lógico; «Train with 2J» y «Hoy para ti» ocultos si nunca se personalizó),
+  modo «Personalizar» discreto en Home y Progreso (ordenar/ocultar/mostrar/añadir/restaurar), guía visual de primer uso (una vez, con flag, re-armable),
+  sección «Personalización» en Ajustes, «Recuperación muscular» como bloque propio de Progreso. Estado en `S.ux.home|progress|guide` (opaco para Sync V2); catálogos
+  cerrados `HOME_BLOCKS`/`PROGRESS_CARDS`; un diseño guardado solo si difiere del por defecto; bloques desconocidos nunca rompen. `lib/ux-layout.js`,
+  `components/LayoutEditor.jsx`, `PersonalizeGuide.jsx`, `PersonalizationSection.jsx`.
+- **B — Pantalla de acciones** (hoja del tab Train): rediseño oscuro/glass moderado, acciones «Entrenamiento Premium» y «Entrena con 2J», y aviso (texto exacto
+  del encargo) al empezar un Premium sobre una planificación activa: se aparta, nunca se borra historial/entrenos/snapshots. `ActionsSheet` en `sheets.jsx`.
+- **C — Premium segunda ola:** 17 programas **hidden** + entrada especial de Oposiciones (`scripts/premium/official-programs-extra.mjs`; ver
+  `docs/PREMIUM_PROGRAMS_V1.md`). Portadas propias y licenciadas, evidencia honesta, `legal` explícito, nombres descriptivos sin afiliación CrossFit/HYROX, BFR con
+  avisos de seguridad. Notas de bloque visibles (y traducidas) en el programa activo. 30 programas en total (12 publicados + 18 ocultos).
+- **D — Oposiciones V1** (`docs/OPOSICIONES_V1.md`): perfiles oficiales **versionados y con fuente** (Policía Local Canarias, Policía Nacional, Guardia Civil, Bomberos
+  CEGC; todos `hidden`), modelo compartido `opposition-model.js` (+ `sync-opposition-model.mjs`, `build-opposition-profiles.mjs --check` en CI), store/rutas
+  admin, plan por fases 6/12/18/24 m en bloques de 5 semanas sobre el **motor Premium** (`S.opposition` + `S.premium.active`), niveles por capacidad, semana de
+  control, propuesta de adaptación **siempre confirmada**, nueva convocatoria = nueva versión que el socio acepta, Coach (roster/ficha) e IA (`oppositionPlan`,
+  sin datos personales ni texto libre), Administración → Oposiciones.
+- **Límites declarados:** tablas con rarezas impresas (Cooper PL Canarias «2.499», suspensión femenina «83 a 94», solape en salto) conservadas tal cual con nota; circuito de
+  agilidad de PN/GC es una imagen no recogida; press de banca CEGC solo imprime mínimo/máximo; la biblioteca no tiene natación/vallas (ejercicio sustituto con nota);
+  contenido de oposiciones en español (documentos oficiales españoles); imágenes genéricas pendientes de fotografía propia.
+- **Para una release futura:** retarget de las guardas de la plantilla de runner (contadores de features/rutas/seeds), añadir `build-opposition-profiles --check` y
+  `sync-opposition-model --check` al PrepareOnly; NO relajar guardas.
+
 ## 13. Workflow con Claude (ahorro de contexto)
 
 1. Leer este archivo. 2. Inspeccionar solo los archivos relevantes. 3. No reauditar toda la app.

@@ -103,3 +103,7 @@
 .op-edit .op-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .op-edit .op-scale{margin-top:8px}
 .op-issues{margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(248,113,113,.12);color:#FCA5A5;font-size:12.5px;line-height:1.5}
+
+/* long official names (the cover caption must stay clear of the top bar) */
+.op-running .pm-detail-cap h1,.op-page .pm-detail-cap h1{font-size:clamp(20px,5.4vw,30px);line-height:1.12;overflow-wrap:anywhere}
+.op-running .pm-detail-cover{min-height:210px}

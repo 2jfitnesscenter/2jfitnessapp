@@ -15,7 +15,6 @@ export function buildExtras(K) {
   const BIKE = '0003', KB = '0549', ROPE = '2612', THRUSTER = '3305', STEPUP = '0114', BEAR = '3360', BATTLE = '0128'
   const rep = (n, pct, reps, o) => Array.from({ length: n }, () => S(pct, reps, o))
   const r2 = x => Math.round(x * 100) / 100
-  const pair = (en, es) => ({ en, es })
 
   /** One program from compact, paired text. `t` holds [en, es] pairs; `lists` hold arrays of [en, es]. */
   const P = (c) => {
