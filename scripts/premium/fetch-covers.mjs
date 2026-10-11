@@ -8,7 +8,7 @@
  * hotlink; scripts/premium/covers.json keeps the author, licence and page of each one, and the app shows that credit on the program's sheet.
  * Run it again only to replace an image (edit the title here first). Wikimedia asks for an identifying User-Agent.
  */
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,12 +30,34 @@ const COVERS = {
   '2j-recomposition': { file: 'Strong woman using cable machine for upper body workout in gym.jpg', width: 1280, focal: { x: 55, y: 55 }, alt: 'A lifter pulling a rope on a cable machine' },
   'concurrent-strength-cardio': { file: 'Young blonde woman running on a treadmill in the gym closeup.jpg', width: 1280, focal: { x: 45, y: 40 }, alt: 'An athlete on a treadmill in a gym, with strength equipment around' },
   'full-body-conditioning': { file: 'Scott Webb 2015-06-17 (Unsplash).jpg', width: 1280, focal: { x: 30, y: 50 }, alt: 'An athlete swinging battle ropes in a dark training space' },
+  // ---- second wave (hidden programs; the admin publishes them) ----
+  'linear-5x5': { file: 'Heidemarie Couch, CIV (5) (14321535058).jpg', width: 1200, focal: { x: 55, y: 55 }, alt: 'Black-and-white close-up of an athlete loading a plate onto a barbell' },
+  'heavy-light-medium': { file: 'MWR GWOT.JPEG', width: 1200, focal: { x: 55, y: 45 }, alt: 'A lifter pressing a loaded barbell on the bench with a spotter' },
+  'conjugate-strength': { file: 'MCAS Iwakuni Women’s Power Lifting (9352356).jpg', width: 1200, focal: { x: 45, y: 55 }, alt: 'A powerlifter benching between rack uprights with plates in the foreground' },
+  'block-periodization-strength': { file: 'IMCOM Powerlifting Championship (8148602).jpg', width: 1280, focal: { x: 50, y: 50 }, alt: 'A powerlifter at the bottom of a competition squat with spotters' },
+  'dup-powerbuilding': { file: 'Sporty girl posing in gym on weigh rack.jpg', width: 1280, focal: { x: 55, y: 45 }, alt: 'An athlete leaning on a rack of dumbbells in a gym' },
+  'ppl-powerbuilding': { file: 'Young man using a leg press machine at the gym.jpg', width: 900, focal: { x: 45, y: 50 }, alt: 'Feet on the plate of a leg press machine' },
+  'high-frequency-strength': { file: 'The Soviet Union 1964 CPA 3074 stamp (1964 Summer Olympics, Tokyo. Weightlifting. Clean and jerk).jpg', width: 1126, focal: { x: 50, y: 50 }, alt: 'Vintage stamp illustration of a weightlifter in the clean and jerk' },
+  'hst-style-hypertrophy': { file: 'Strength training (Unsplash).jpg', width: 1280, focal: { x: 50, y: 40 }, alt: 'An athlete in front of a gym mirror with a rack of dumbbells' },
+  'bfr-hypertrophy': { file: 'Girl playing weights with legs on the exercise machine.jpg', width: 1280, focal: { x: 40, y: 50 }, alt: 'Legs pressing against a leg press plate in a gym' },
+  'polarized-endurance': { file: 'Runner in Stainburn Forest (Unsplash).jpg', width: 1280, focal: { x: 62, y: 45 }, alt: 'A runner on a gravel road under a wide blue sky' },
+  'threshold-builder': { file: 'Runners in a race, Vieux-Limoilou.jpg', width: 1280, focal: { x: 45, y: 40 }, alt: 'Runners at a steady pace in a road race' },
+  'aerobic-base-intervals': { file: 'Cycling in the countryside (Unsplash).jpg', width: 1280, focal: { x: 62, y: 60 }, alt: 'A cyclist riding on an empty road through hills at dusk' },
+  'functional-fitness-engine': { file: 'Airborne Burpee.jpg', width: 1280, focal: { x: 50, y: 40 }, alt: 'An athlete jumping at the top of a burpee while others do push-ups' },
+  'fitness-race-prep': { file: 'Obstacle race 1.jpg', width: 1280, focal: { x: 45, y: 45 }, alt: 'A participant crawling through sand in an obstacle race' },
+  'fitness-race-advanced': { file: 'Running up "insult hill" (6985646263).jpg', width: 1280, focal: { x: 50, y: 60 }, alt: 'Runners charging up a grassy hill in a city park' },
+  'strength-zone2-cut': { file: 'Woman doing push-up on yogi mat in the forest with sunset background - 51525476019.jpg', width: 1280, focal: { x: 55, y: 55 }, alt: 'An athlete holding a plank on a mat in a forest at sunset' },
+  'metabolic-resistance-progression': { file: 'Girl doing push-ups from the side.jpg', width: 1280, focal: { x: 55, y: 55 }, alt: 'An athlete doing push-ups outdoors on a mat' },
+  'entrena-tus-oposiciones': { file: 'Flickr - DVIDSHUB - RIMPAC 2012 international swim meet (Image 8 of 13).jpg', width: 1200, focal: { x: 50, y: 40 }, alt: 'A swimmer in goggles mid-stroke in a pool' },
 }
 
 const strip = h => String(h || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim()
 mkdirSync(outDir, { recursive: true })
-const meta = {}
+const metaFile = join(root, 'scripts', 'premium', 'covers.json')
+const meta = existsSync(metaFile) ? JSON.parse(readFileSync(metaFile, 'utf8')) : {}
+const force = process.argv.includes('--force')
 for (const [slug, c] of Object.entries(COVERS)) {
+  if (meta[slug] && existsSync(join(outDir, slug + '.jpg')) && !force) continue   // already downloaded: --force replaces it
   const api = 'https://commons.wikimedia.org/w/api.php?action=query&titles=' + encodeURIComponent('File:' + c.file) + '&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=' + c.width + '&format=json'
   const j = await (await fetch(api, { headers: UA })).json()
   const i = Object.values(j.query.pages)[0].imageinfo?.[0]
@@ -54,5 +76,5 @@ for (const [slug, c] of Object.entries(COVERS)) {
   }
   console.log(slug.padEnd(28), licence.padEnd(14), (buf.length / 1024).toFixed(0) + ' KB', author.slice(0, 50))
 }
-writeFileSync(join(root, 'scripts', 'premium', 'covers.json'), JSON.stringify(meta, null, 1) + '\n')
+writeFileSync(metaFile, JSON.stringify(meta, null, 1) + '\n')
 console.log('covers.json written')

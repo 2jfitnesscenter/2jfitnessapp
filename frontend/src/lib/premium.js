@@ -95,3 +95,19 @@ export function filterCatalog(S, programs, { goal = 'all', level = 'all', days =
       && (level === 'all' || p.level === level) && (days === 'all' || p.daysPerWeek === Number(days)))
   return rows.map((r, i) => ({ ...r, i })).sort((a, b) => Number(!!b.p.featured) - Number(!!a.p.featured) || Number(b.rec.recommended) - Number(a.rec.recommended) || a.i - b.i)
 }
+
+/* ------------------------------------------------------------------------------------------------ replacing the active plan */
+/** The member's active planning (a program they are following), or null. Premium programs bring their own periodisation, so starting one replaces it. */
+export function activePlanOf(S) {
+  const p = (S?.programs || []).find(x => x.id === S?.activeProgramId)
+  return p && !['completed', 'abandoned'].includes(p.status) ? { id: p.id, name: p.name } : null
+}
+/** Called on a draft state when a Premium program starts over an active plan: the plan is set aside, never deleted (the program stays saved, a guided program is paused, history and workouts are untouched). */
+export function setAsidePlan(S) {
+  const plan = activePlanOf(S)
+  if (!plan) return null
+  const prog = S.programs.find(x => x.id === plan.id)
+  if (prog.source === 'guided-v2' && prog.status === 'active') prog.status = 'paused'
+  S.activeProgramId = null
+  return plan
+}

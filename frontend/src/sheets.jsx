@@ -2,7 +2,7 @@ import { workoutInactive, inactivityFinishMetadata, workoutActivityKey } from '.
 import { replaceWorkoutEntries, setWorkoutExcluded, reconcileExerciseWeightCache } from './lib/workout-edit.js'
 import { trackedWeightFor } from './lib/history.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { uxOn } from './lib/features.js'
+import { uxOn, allowedByAdmin } from './lib/features.js'
 import { useStore } from './store/useStore.js'
 import { shouldShowWorkoutGuide } from './lib/workout-prefs.js'
 import { openWorkoutGuide } from './components/WorkoutGuide.jsx'
@@ -45,7 +45,8 @@ import GymProfile, { GymCompatibility } from './components/GymProfile.jsx'
 import { EX_DRAG_TYPE } from './components/constructor/drag.js'
 import { searchExercises, prioritize, scopeList, facets, movementLabel, equipmentLabel, variantLabel, isRecommended, isDeprecated, familiesOf,
   preferredOf, variantsFor, favSetOf, toggleFav } from './lib/library/index.js'
-import { runningView } from './lib/premium.js'
+import { runningView, premiumState } from './lib/premium.js'
+import './components/actions-sheet.css'
 import { premiumEntries } from './lib/premium-session.js'
 import { originOf } from './lib/premium-model.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
@@ -1874,19 +1875,30 @@ export function WorkoutRow({ w, onClick }) {
 // this entirely (TabBar.jsx goes straight to /workout instead). Each destination handles its own
 // flow from here (the scheduled-workout chooser, freestyle straight in, or a dedicated screen).
 function ActionsSheet({ close }) {
+  const st = useStore(x => x.S)
   const act = fn => () => { close(); fn() }
-  return <>
-    <h3>{t('Actions')}</h3>
-    <div className="muted small" style={{ marginBottom: 10 }}>{t('Choose an action')}</div>
-    <div className="sect-b">
-      <Row icon="play" iconTint="var(--acc)" title={t('Start scheduled workout')} onClick={act(() => nav('/workout'))} />
-      <Row icon="shuffle" iconTint="var(--indigo)" title={t('Start a freestyle workout')} onClick={act(() => startFlow(null))} />
-      <Row icon="history" iconTint="var(--teal)" title={t('Log a past workout')} onClick={act(() => pastWorkoutSheet())} />
-      <Row icon="clipboard" iconTint="var(--teal)" title={t('Start a test session')} onClick={act(() => nav('/tests'))} />
-      <Row icon="timer" iconTint="var(--orange)" title={t('Clock')} onClick={act(() => nav('/clock'))} />
-      <Row icon="figureRun" iconTint="var(--mint)" title="Estiramiento" onClick={act(() => nav('/stretch'))} />
+  const premium = premiumState(st).active
+  const showPremium = !!premium || allowedByAdmin('premium')
+  // Premium: a running program opens its page, otherwise the catalogue. Train with 2J opens its own screen.
+  const Tile = ({ icon, label, sub, onClick, tone = '', wide = false }) => <button type="button" className={'ax-tile ' + tone + (wide ? ' wide' : '')} onClick={onClick}>
+    <span className="ax-ico"><Icon name={icon} /></span>
+    <span className="ax-txt"><b>{label}</b>{sub && <small>{sub}</small>}</span>
+  </button>
+  return <div className="ax">
+    <div className="ax-head"><h3>{t('Actions')}</h3><span>{t('Choose an action')}</span></div>
+    <Tile wide tone="primary" icon="play" label={t('Start scheduled workout')} sub={t('Today’s plan')} onClick={act(() => nav('/workout'))} />
+    <div className="ax-feat">
+      {showPremium && <Tile tone="gold" icon="trophy" label={t('Premium training')} sub={premium ? t('Your program') : t('Catalogue')} onClick={act(() => nav(premium ? '/premium/active' : '/premium'))} />}
+      {uxOn(st, 'train2j') && <Tile tone="green" icon="dumbbell" label={t('Train with 2J')} sub={t('Ready-made workouts')} onClick={act(() => nav('/train2j'))} />}
     </div>
-  </>
+    <div className="ax-grid">
+      <Tile icon="shuffle" label={t('Start a freestyle workout')} onClick={act(() => startFlow(null))} />
+      <Tile icon="history" label={t('Log a past workout')} onClick={act(() => pastWorkoutSheet())} />
+      <Tile icon="clipboard" label={t('Start a test session')} onClick={act(() => nav('/tests'))} />
+      <Tile icon="timer" label={t('Clock')} onClick={act(() => nav('/clock'))} />
+      <Tile icon="figureRun" label={t('Stretching')} onClick={act(() => nav('/stretch'))} />
+    </div>
+  </div>
 }
 export const actionsSheet = () => ui().openSheet(close => <ActionsSheet close={close} />)
 

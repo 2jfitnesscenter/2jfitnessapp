@@ -32,6 +32,7 @@ export function MemberCard({ r, open }) {
       <div className="cf-who">
         <div className="tt capitalize">{r.name}</div>
         <div className="small dim">{goal || t('No goal set')}{r.goal.priority === 'high' && ' · ' + t('High priority')}</div>
+        {r.opposition && <div className="small dim cf-premium-line"><Icon name="flag" /> {r.opposition.name} · {t('{0} weeks left', r.opposition.weeksLeft)}{r.opposition.review ? ' · ' + t('Review') : ''}</div>}
         {r.premium && <div className="small dim cf-premium-line"><Icon name="trophy" /> {runLabel(r.premium)}{r.premium.status === 'paused' ? ' · ' + t('Paused') : ''}</div>}
       </div>
       <Pill tone={lv.tone === 'acc' ? 'acc' : undefined} className={'cf-lv ' + r.level}><i className="dot" aria-hidden="true" />{t(lv.word)}</Pill>

@@ -6,7 +6,7 @@ import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { PRESETS, configurable, currentUses, makeUx, allowedByAdmin } from '../lib/features.js'
 import { PROGRESS_CARDS, normalizeProgress, progressOrder, progressChoice, recommendedFor } from '../lib/progress-cards.js'
-import { HOME_BLOCKS, normalizeHome, homeOrder, homeChoice, defaultHomeLayout } from '../lib/home-blocks.js'
+import { HOME_BLOCKS, homeLayoutOf, homeChoice, defaultHomeLayout } from '../lib/home-blocks.js'
 import { orderedBodyWeightSeries } from '../lib/bodyweight.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Switch } from '../components/ui.jsx'
@@ -112,7 +112,7 @@ export default function ExperienceSetup({ mode = 'settings' }) {
   // The Progress-page layout being edited: the saved one, or the default when never touched (S.ux.progress absent).
   const [layout, setLayout] = useState(() => ({ order: progressOrder(S), hidden: normalizeProgress(S.ux?.progress).hidden }))
   // The Home layout being edited: the saved one, or the default when never touched (S.ux.home absent).
-  const [home, setHome] = useState(() => ({ order: homeOrder(S), hidden: normalizeHome(S.ux?.home).hidden }))
+  const [home, setHome] = useState(() => homeLayoutOf(S))
   const set = (k, v) => setUses(u => ({ ...u, [k]: v }))
   // Applying a preset (or restoring the recommended settings) is the ONLY moment the member's goal shapes the layout; afterwards their choices rule.
   const recommend = id => {
@@ -123,7 +123,7 @@ export default function ExperienceSetup({ mode = 'settings' }) {
   const pick = recommend
 
   const save = () => {
-    update(s => { s.ux = makeUx(uses, Date.now(), { progress: progressChoice(layout.order, layout.hidden), home: homeChoice(home.order, home.hidden) }); s.uxSetup = false; s.uxInviteDismissed = true })
+    update(s => { s.ux = makeUx(uses, Date.now(), { progress: progressChoice(layout.order, layout.hidden), home: homeChoice(home.order, home.hidden), guide: S.ux?.guide }); s.uxSetup = false; s.uxInviteDismissed = true })
     if (!onboarding) nav('/settings')
   }
   const skip = () => update(s => { s.uxSetup = false })   // keeps everything on (S.ux stays null)

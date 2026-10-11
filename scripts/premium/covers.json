@@ -130,5 +130,203 @@
   "coverImageSource": "https://commons.wikimedia.org/wiki/File:Scott_Webb_2015-06-17_(Unsplash).jpg",
   "coverImageLicense": "CC0",
   "coverImageAttribution": "Scott Webb scottwebb (CC0), via Wikimedia Commons"
+ },
+ "linear-5x5": {
+  "coverImage": "/premium/covers/linear-5x5.jpg",
+  "coverImageAlt": "Black-and-white close-up of an athlete loading a plate onto a barbell",
+  "coverFocalPoint": {
+   "x": 55,
+   "y": 55
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Heidemarie_Couch,_CIV_(5)_(14321535058).jpg",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "U.S. Department of Defense Current Photos (Public domain), via Wikimedia Commons"
+ },
+ "heavy-light-medium": {
+  "coverImage": "/premium/covers/heavy-light-medium.jpg",
+  "coverImageAlt": "A lifter pressing a loaded barbell on the bench with a spotter",
+  "coverFocalPoint": {
+   "x": 55,
+   "y": 45
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:MWR_GWOT.JPEG",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "Defense Visual Information SSGT RICKY A. BLOOM (Public domain), via Wikimedia Commons"
+ },
+ "conjugate-strength": {
+  "coverImage": "/premium/covers/conjugate-strength.jpg",
+  "coverImageAlt": "A powerlifter benching between rack uprights with plates in the foreground",
+  "coverFocalPoint": {
+   "x": 45,
+   "y": 55
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:MCAS_Iwakuni_Women%E2%80%99s_Power_Lifting_(9352356).jpg",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "U.S. Marine Corps photo by Lance Cpl. Siwan Lewis (Public domain), via Wikimedia Commons"
+ },
+ "block-periodization-strength": {
+  "coverImage": "/premium/covers/block-periodization-strength.jpg",
+  "coverImageAlt": "A powerlifter at the bottom of a competition squat with spotters",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 50
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:IMCOM_Powerlifting_Championship_(8148602).jpg",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "U.S. Army Reserve photo by Sgt. 1st Class Abel Aungst (Public domain), via Wikimedia Commons"
+ },
+ "dup-powerbuilding": {
+  "coverImage": "/premium/covers/dup-powerbuilding.jpg",
+  "coverImageAlt": "An athlete leaning on a rack of dumbbells in a gym",
+  "coverFocalPoint": {
+   "x": 55,
+   "y": 45
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Sporty_girl_posing_in_gym_on_weigh_rack.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Nenad Stojkovic, CC BY 2.0, via Wikimedia Commons"
+ },
+ "ppl-powerbuilding": {
+  "coverImage": "/premium/covers/ppl-powerbuilding.jpg",
+  "coverImageAlt": "Feet on the plate of a leg press machine",
+  "coverFocalPoint": {
+   "x": 45,
+   "y": 50
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Young_man_using_a_leg_press_machine_at_the_gym.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Nenad Stojkovic, CC BY 2.0, via Wikimedia Commons"
+ },
+ "high-frequency-strength": {
+  "coverImage": "/premium/covers/high-frequency-strength.jpg",
+  "coverImageAlt": "Vintage stamp illustration of a weightlifter in the clean and jerk",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 50
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:The_Soviet_Union_1964_CPA_3074_stamp_(1964_Summer_Olympics,_Tokyo._Weightlifting._Clean_and_jerk).jpg",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "Post of the Soviet Union (P. E. Bendel, I. I. Shapenkov). (Public domain), via Wikimedia Commons"
+ },
+ "hst-style-hypertrophy": {
+  "coverImage": "/premium/covers/hst-style-hypertrophy.jpg",
+  "coverImageAlt": "An athlete in front of a gym mirror with a rack of dumbbells",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 40
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Strength_training_(Unsplash).jpg",
+  "coverImageLicense": "CC0",
+  "coverImageAttribution": "Scott Webb scottwebb (CC0), via Wikimedia Commons"
+ },
+ "bfr-hypertrophy": {
+  "coverImage": "/premium/covers/bfr-hypertrophy.jpg",
+  "coverImageAlt": "Legs pressing against a leg press plate in a gym",
+  "coverFocalPoint": {
+   "x": 40,
+   "y": 50
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Girl_playing_weights_with_legs_on_the_exercise_machine.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Nenad Stojkovic, CC BY 2.0, via Wikimedia Commons"
+ },
+ "polarized-endurance": {
+  "coverImage": "/premium/covers/polarized-endurance.jpg",
+  "coverImageAlt": "A runner on a gravel road under a wide blue sky",
+  "coverFocalPoint": {
+   "x": 62,
+   "y": 45
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Runner_in_Stainburn_Forest_(Unsplash).jpg",
+  "coverImageLicense": "CC0",
+  "coverImageAttribution": "Jenny Hill jennyhill (CC0), via Wikimedia Commons"
+ },
+ "threshold-builder": {
+  "coverImage": "/premium/covers/threshold-builder.jpg",
+  "coverImageAlt": "Runners at a steady pace in a road race",
+  "coverFocalPoint": {
+   "x": 45,
+   "y": 40
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Runners_in_a_race,_Vieux-Limoilou.jpg",
+  "coverImageLicense": "CC0",
+  "coverImageAttribution": "Wilfredor (CC0), via Wikimedia Commons"
+ },
+ "aerobic-base-intervals": {
+  "coverImage": "/premium/covers/aerobic-base-intervals.jpg",
+  "coverImageAlt": "A cyclist riding on an empty road through hills at dusk",
+  "coverFocalPoint": {
+   "x": 62,
+   "y": 60
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Cycling_in_the_countryside_(Unsplash).jpg",
+  "coverImageLicense": "CC0",
+  "coverImageAttribution": "David Marcu davidmarcu (CC0), via Wikimedia Commons"
+ },
+ "functional-fitness-engine": {
+  "coverImage": "/premium/covers/functional-fitness-engine.jpg",
+  "coverImageAlt": "An athlete jumping at the top of a burpee while others do push-ups",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 40
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Airborne_Burpee.jpg",
+  "coverImageLicense": "Public domain",
+  "coverImageAttribution": "Marine Corps photo by Sgt. Ryan Young (Public domain), via Wikimedia Commons"
+ },
+ "fitness-race-prep": {
+  "coverImage": "/premium/covers/fitness-race-prep.jpg",
+  "coverImageAlt": "A participant crawling through sand in an obstacle race",
+  "coverFocalPoint": {
+   "x": 45,
+   "y": 45
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Obstacle_race_1.jpg",
+  "coverImageLicense": "CC BY 3.0",
+  "coverImageAttribution": "User:Rahzel, CC BY 3.0, via Wikimedia Commons"
+ },
+ "fitness-race-advanced": {
+  "coverImage": "/premium/covers/fitness-race-advanced.jpg",
+  "coverImageAlt": "Runners charging up a grassy hill in a city park",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 60
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Running_up_%22insult_hill%22_(6985646263).jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Marlin Keesler from Streamwood, IL, CC BY 2.0, via Wikimedia Commons"
+ },
+ "strength-zone2-cut": {
+  "coverImage": "/premium/covers/strength-zone2-cut.jpg",
+  "coverImageAlt": "An athlete holding a plank on a mat in a forest at sunset",
+  "coverFocalPoint": {
+   "x": 55,
+   "y": 55
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Woman_doing_push-up_on_yogi_mat_in_the_forest_with_sunset_background_-_51525476019.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "Nenad Stojkovic, CC BY 2.0, via Wikimedia Commons"
+ },
+ "metabolic-resistance-progression": {
+  "coverImage": "/premium/covers/metabolic-resistance-progression.jpg",
+  "coverImageAlt": "An athlete doing push-ups outdoors on a mat",
+  "coverFocalPoint": {
+   "x": 55,
+   "y": 55
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Girl_doing_push-ups_from_the_side.jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "PTPioneer, CC BY 2.0, via Wikimedia Commons"
+ },
+ "entrena-tus-oposiciones": {
+  "coverImage": "/premium/covers/entrena-tus-oposiciones.jpg",
+  "coverImageAlt": "A swimmer in goggles mid-stroke in a pool",
+  "coverFocalPoint": {
+   "x": 50,
+   "y": 40
+  },
+  "coverImageSource": "https://commons.wikimedia.org/wiki/File:Flickr_-_DVIDSHUB_-_RIMPAC_2012_international_swim_meet_(Image_8_of_13).jpg",
+  "coverImageLicense": "CC BY 2.0",
+  "coverImageAttribution": "DVIDSHUB, CC BY 2.0, via Wikimedia Commons"
  }
 }

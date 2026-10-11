@@ -13,6 +13,9 @@ export const CHANGELOG = [
   {
     version: null, date: null,
     items: [
+      'Train for your public-service exam: a long-term plan built from the official tests and minimum marks of your convocatoria',
+      '17 new Premium programs ready for your gym to publish, and an Actions screen with Premium and Train with 2J',
+      'Home starts clean — Calendar and Premium — and you choose what to see, in Home and in Progress',
       '2J Story: a shareable picture of your week or month — weight is never included unless you choose it',
       'Progress opens with your week or month at a glance, compared with the same stretch of the previous one',
       'My 2J is now your athlete passport: records with their evolution and achievements grouped by what matters',
