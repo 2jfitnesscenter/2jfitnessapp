@@ -909,6 +909,14 @@ Base `origin/main` 6bc9552; producción `6c53aef` (no es ancestro de main a prop
 - **Límites declarados:** tablas con rarezas impresas (Cooper PL Canarias «2.499», suspensión femenina «83 a 94», solape en salto) conservadas tal cual con nota; circuito de
   agilidad de PN/GC es una imagen no recogida; press de banca CEGC solo imprime mínimo/máximo; la biblioteca no tiene natación/vallas (ejercicio sustituto con nota);
   contenido de oposiciones en español (documentos oficiales españoles); imágenes genéricas pendientes de fotografía propia.
+- **Revisión final PR #19 (cierre):** sin bugs funcionales salvo uno: los ejercicios sustitutos de natación y circuito de vallas no se distinguían de uno real. Microfix en
+  `opposition-model.js`: esos bloques llevan `substitute: true` y la nota empieza por `SUBSTITUTE_TAG` («[SUSTITUTO TEMPORAL…]»); en la semana de control dicen «hazla de verdad y
+  anota tu marca oficial a mano»; la escala oficial y el objetivo no se tocan (test específico). Para sustituirlos cuando exista el ejercicio real: buscar `substitute` en el modelo,
+  cambiar `EX.swim`/`EX.sprint` en `asSubstitute(...)` y quitar la etiqueta. Un test fija que nada de esto altera los umbrales.
+- **Cómo continuar (Codex):** leer `docs/OPOSICIONES_V1.md` y `docs/PREMIUM_PROGRAMS_V1.md`; regenerar con `node scripts/build-premium-programs.mjs` / `build-opposition-profiles.mjs` y
+  `sync-*-model.mjs` tras tocar fuentes; probar con `api: npm test`, `frontend: npx vitest run && npm run build`. Pasos pendientes del dueño: publicar desde Administración (programas
+  Premium y perfiles de Oposiciones; todo llega `hidden`), foto propia para portadas, decidir release (no hay runner ni deploy). Trampas de entorno: los heredocs de Git Bash eliminan
+  barras invertidas (usar Write/Edit); las capturas del navegador integrado salen recortadas por la derecha (verificar por DOM).
 - **Para una release futura:** retarget de las guardas de la plantilla de runner (contadores de features/rutas/seeds), añadir `build-opposition-profiles --check` y
   `sync-opposition-model --check` al PrepareOnly; NO relajar guardas.
 

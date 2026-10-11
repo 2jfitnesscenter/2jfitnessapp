@@ -311,6 +311,9 @@ export function applyRestrictions(blocks, restrictions = []) {
   })
 }
 
+/** A block that stands in for a test the exercise library does not have (swimming, the hurdle circuit): it says so in its first words, never changes the official target, and carries `substitute: true` so it can be swapped for the real exercise later. */
+export const SUBSTITUTE_TAG = '[SUSTITUTO TEMPORAL: sin ejercicio real en la biblioteca] '
+const asSubstitute = b => ({ ...b, substitute: true, note: (SUBSTITUTE_TAG + (b.note || '')).slice(0, 200) })
 const cond = (exercise, min, o = {}) => ({ role: 'conditioning', exercise, conditioning: { min: Math.max(1, Math.round(min)), ...(o.speed ? { speed: half(o.speed) } : {}) }, ...(o.note ? { note: String(o.note).slice(0, 200) } : {}) })
 const hold = (exercise, sec, note) => ({ role: 'conditioning', exercise, conditioning: { sec: Math.max(5, Math.round(sec)) }, rest: 90, ...(note ? { note: String(note).slice(0, 200) } : {}) })
 const sets = (exercise, n, lo, hi, o = {}) => ({ role: o.role || 'accessory', exercise, scheme: { sets: n, repsMin: Math.max(1, lo), repsMax: Math.max(Math.max(1, lo), hi), prog: 'double' }, ...(o.rest ? { rest: o.rest } : {}), ...(o.note ? { note: String(o.note).slice(0, 200) } : {}) })
@@ -354,7 +357,7 @@ function trainCapacity(cap, f, phase, w, level, scale = 1) {
     }
     case 'agility': {
       const reps = { base: 4, development: 6, specificity: 8, competitive: 6 }[phase] + (w > 2 ? 1 : 0)
-      return [cond(EX.sprint, Math.round((reps * 1.5 + 4) * scale), { note: `Circuito de vallas/conos con cambios de dirección: ${reps} repeticiones con 90 s de descanso, saliendo desde parado. Practica el recorrido real si lo conoces.` })]
+      return [asSubstitute(cond(EX.sprint, Math.round((reps * 1.5 + 4) * scale), { note: `Circuito con conos/vallas y cambios de dirección: ${reps} rep., 90 s de descanso. Practica el recorrido real.` }))]
     }
     case 'pull': {
       const base = f.test.movement === 'hang'
@@ -381,7 +384,7 @@ function trainCapacity(cap, f, phase, w, level, scale = 1) {
     case 'swim': {
       const mins = { base: 30, development: 35, specificity: 35, competitive: 25 }[phase]
       const detail = { base: 'técnica: 8 × 25 m con 20 s de descanso, respiración y patada.', development: '10 × 25 m a ritmo fuerte con 20 s de descanso.', specificity: '6 × 50 m a ritmo de prueba con 45 s de descanso.', competitive: '4 × 25 m a ritmo de prueba y 1 × 50 m completo.' }[phase]
-      return [cond(EX.swim, mins * scale, { note: `Sesión de piscina (la natación no está en la biblioteca de ejercicios: anota aquí el tiempo). ${detail}${tgt ? ` Objetivo: ${tgt} s en 50 m.` : ''}` })]
+      return [asSubstitute(cond(EX.swim, mins * scale, { note: `Haz la sesión en la piscina; esto no mide la prueba. ${detail}${tgt ? ` Objetivo: ${tgt} s.` : ''}` }))]
     }
     default: return []
   }
@@ -441,7 +444,8 @@ function controlWeek(profile, cat, days, level, factsBy, phase, restrictions = [
         const tg = f?.target ? ` Objetivo: ${f.target.value} ${t.unit}.` : ''
         const ex = { run: EX.run, sprint: EX.sprint, agility: EX.sprint, pullup: EX.pullup, hang: EX.pullup, pushup: EX.pushup, bench: EX.bench, jump: EX.jump, swim: EX.swim }[t.movement]
         const note = `PRUEBA: ${t.name}. Hazla como en la convocatoria y anota tu mejor marca (${t.unit}) en la evaluación.${tg}`
-        return t.kind === 'hold' ? hold(ex, f?.current ? f.current : 40, note) : t.kind === 'reps' ? sets(ex, 1, 1, Math.max(2, Math.round(f?.target?.value || 10)), { role: 'main', rest: 180, note }) : cond(ex, Math.max(2, Math.round((t.distanceM || 200) / (f?.vt || 10) * 3.6 / 60 + 2)), { note })
+        const block = t.kind === 'hold' ? hold(ex, f?.current ? f.current : 40, note) : t.kind === 'reps' ? sets(ex, 1, 1, Math.max(2, Math.round(f?.target?.value || 10)), { role: 'main', rest: 180, note }) : cond(ex, Math.max(2, Math.round((t.distanceM || 200) / (f?.vt || 10) * 3.6 / 60 + 2)), { note })
+        return t.movement === 'swim' || t.movement === 'agility' ? asSubstitute({ ...block, note: `PRUEBA ${t.name.split(' · ')[0]}: hazla de verdad y anota tu marca oficial a mano.${tg}` }) : block
       })], restrictions),
   }))
   const easy = Math.max(0, days - sessions.length)

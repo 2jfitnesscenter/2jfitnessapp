@@ -167,10 +167,10 @@ describe('plan generation from a profile', () => {
   })
   it('the control week carries every test of the member’s category, with the official name and the target', () => {
     const r = m.newPlan({ profile: profile('bomberos-cegc'), intake: intake(), marks, months: 12, now: NOW })
-    const notes = r.block.definition.weeks[4].sessions.flatMap(s => s.blocks.map(b => b.note || '')).filter(n => n.startsWith('PRUEBA'))
+    const notes = r.block.definition.weeks[4].sessions.flatMap(s => s.blocks.map(b => b.note || '')).filter(n => n.includes('PRUEBA'))
     expect(notes).toHaveLength(5); expect(notes.some(n => /Dominadas/.test(n) && /Objetivo: 8/.test(n))).toBe(true)
     const pn = m.newPlan({ profile: profile('policia-nacional'), intake: intake({ sex: 'f' }), marks: {}, months: 12, now: NOW })
-    const pnTests = pn.block.definition.weeks[4].sessions.flatMap(s => s.blocks.map(b => b.note || '')).filter(n => n.startsWith('PRUEBA')).join('|')
+    const pnTests = pn.block.definition.weeks[4].sessions.flatMap(s => s.blocks.map(b => b.note || '')).filter(n => n.includes('PRUEBA')).join('|')
     expect(pnTests).toMatch(/Suspensión/); expect(pnTests).not.toMatch(/Dominadas/)
   })
   it('missing facts are asked for, never guessed', () => {
@@ -275,5 +275,23 @@ describe('control, projection and adaptation', () => {
     expect(moved.profileVersion).toBe(2); expect(moved.profileHistory.map(h => h.version)).toEqual([1]); expect(moved.profileHistory[0].snapshot.tests[1].marks.m[0].v).toBe(8)
     expect(m.summarizePlan(moved, { now: later }).officialThresholds.dominadas.minimum).toBe(10)
     expect(plan.profileVersion).toBe(1)
+  })
+})
+
+describe('stand-in exercises for tests the library does not have (swimming, hurdle circuit)', () => {
+  it('are flagged as temporary substitutes, never alter the official target and carry the real test only as an instruction to log the mark by hand', () => {
+    const p = profile('bomberos-cegc')
+    const r = m.newPlan({ profile: p, intake: { sex: 'm', age: 30, days: 5, minutes: 75, organism: 'CEGC', convocatoria: 'x' }, marks: {}, months: 12, now: NOW })
+    const blocks = r.block.definition.weeks.flatMap(w => w.sessions.flatMap(s => s.blocks))
+    const subs = blocks.filter(b => b.substitute)
+    expect(subs.length).toBeGreaterThan(0)
+    for (const b of subs) expect(b.note.startsWith(m.SUBSTITUTE_TAG.slice(0, 20))).toBe(true)
+    expect(subs.some(b => b.exercise === '3433')).toBe(true)
+    expect(blocks.filter(b => b.exercise === '3433').every(b => b.substitute)).toBe(true)
+    expect(profile('policia-nacional').tests.find(t => t.id === 'agilidad').marks.m[4].v).toBe(10.5)   // the official scale is untouched
+    const pn = m.newPlan({ profile: profile('policia-nacional'), intake: { sex: 'm', age: 30, days: 4, minutes: 60 }, marks: {}, months: 12, now: NOW })
+    const ctl = pn.block.definition.weeks[4].sessions.flatMap(s => s.blocks).filter(b => b.substitute)
+    expect(ctl.length).toBe(1); expect(ctl[0].note).toMatch(/anota tu marca oficial a mano/)
+    expect(validateDefinition(pn.block.definition, ctx)).toEqual([])
   })
 })
