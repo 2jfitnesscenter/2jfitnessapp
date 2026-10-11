@@ -17,7 +17,6 @@ export default function PersonalizationSection() {
   useStore(s => s.features)
   const toast = useUI(s => s.toast)
   return <>
-    <h3 className="set-grp" id="personalisation">{t('Personalisation')}<span>{t('Choose what you see in Home and Progress')}</span></h3>
     <div className="card pz-set" aria-label={t('Home')}>
       <h4 className="sec" style={{ marginTop: 0 }}>{t('Home')}</h4>
       <LayoutEditor S={S} catalog={HOME_BLOCKS} layout={homeLayoutOf(S)} canHide={isHomeOptional} compact isDefault={!S.ux?.home}
