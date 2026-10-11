@@ -1,5 +1,10 @@
 # Changelog
 
+### Oposiciones V1.1 y Búnker compacto — candidato, NO desplegado
+
+- Entrena tus Oposiciones V1.1: preparación física real (fuerza, potencia, velocidad/agilidad, resistencia, natación) con series, repeticiones, RPE, descansos, superseries y descargas por fases; las marcas son checkpoints en «Pruebas y marcas»; la pantalla principal es «Esta semana».
+- Búnker V2.1: selector Normal/Compacto con tarjetas por socio (ejercicio, posición, series/reps, RPE, descanso, superserie A/B, siguiente) para 6–10 personas; al tocar se abre el panel completo y se vuelve a la cuadrícula.
+
 ### Personalización V2 + Premium ampliado + Entrena tus Oposiciones V1 — candidato, NO desplegado
 
 - Inicio por defecto limpio (saludo, calendario, Entrenamientos Premium); «Personalizar» discreto en Inicio y Progreso (ordenar, ocultar, mostrar, añadir, restaurar), guía de primer uso mostrada una sola vez y Ajustes → Personalización. Los diseños ya guardados se respetan; «Recuperación muscular» es un bloque propio de Progreso.

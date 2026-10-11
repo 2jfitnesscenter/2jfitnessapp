@@ -28,7 +28,8 @@ import { TYPE_LABEL } from '../lib/protocol/index.js'
 import { drainPendingActive, retryPendingFinish, stagePendingFinish } from '../lib/bunker-persistence.js'
 import { alternativesSheet } from '../sheets.jsx'
 import { goToExercise } from '../lib/bunker-nav.js'
-import { buildBunkerActive, BunkerTodayPicker, BunkerOutline, BunkerStepper, BunkerSupersetSwitch, BunkerExerciseMedia, BunkerPanelGrid } from './BunkerRoutine.jsx'
+import { buildBunkerActive, BunkerTodayPicker, BunkerOutline, BunkerStepper, BunkerSupersetSwitch, BunkerExerciseMedia, BunkerPanelGrid, BunkerCompactCard } from './BunkerRoutine.jsx'
+import { compactFacts, bunkerUnit } from '../lib/bunker-nav.js'
 
 const BOARD_POLL_MS = 4000
 const AFTER_SET_MINIMIZE_MS = 20000
@@ -117,6 +118,16 @@ function TodayPrs({ prs, compact = false }) {
       <small>{t('Only records members chose to share appear here.')}</small>
     </div>}
   </section>
+}
+
+const LAYOUT_KEY = 'gym_bunker_layout'
+const readLayout = () => { try { return localStorage.getItem(LAYOUT_KEY) === 'compact' ? 'compact' : 'normal' } catch { return 'normal' } }
+
+/** Normal / Compact: a display preference of THIS screen only (nothing about the members' data). */
+function BunkerLayoutToggle({ layout, onChange }) {
+  return <div className="bk-layout" role="group" aria-label={t('Layout')}>
+    {['normal', 'compact'].map(k => <button key={k} className={layout === k ? 'on' : ''} aria-pressed={layout === k} onClick={() => onChange(k)}>{k === 'normal' ? t('Normal') : t('Compact')}</button>)}
+  </div>
 }
 
 function BunkerBoard({ board, settings, credentials, onCheckin, onResume }) {
@@ -211,7 +222,7 @@ function exName(exId, customEx) {
 // simply disappeared from the board); and a session that turns out not to load at all (an
 // actually-expired/invalid token) drops the credential too, so a stale card self-heals into
 // asking for the PIN again instead of silently doing nothing on the next tap.
-function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize, onFinish, onInvalid }) {
+function BunkerTrainingPanel({ token, name, settings, hidden = false, compact = false, onOpen, onBack, onMinimize, onFinish, onInvalid }) {
   const [plan, setPlan] = useState(null)
   const [active, setActive] = useState(null)
   const [exIdx, setExIdx] = useState(0)
@@ -236,8 +247,12 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
   const finishKey = 'gym_bunker_finish_queue:' + token.slice(-24)
   const idleMs = (settings?.autoLockSec || 60) * 1000
 
-  const armIdle = ms => { clearTimeout(idleRef.current); idleRef.current = setTimeout(onMinimize, ms) }
+  const compactRef = useRef(compact)
+  compactRef.current = compact
+  // The compact grid is a wall display: its cards never auto-minimise (the full panel still does, as always).
+  const armIdle = ms => { clearTimeout(idleRef.current); if (!compactRef.current) idleRef.current = setTimeout(onMinimize, ms) }
   const touch = () => armIdle(idleMs)
+  useEffect(() => { if (!compact) armIdle(idleMs) }, [compact])   // opening a card from the compact grid starts the normal idle timer
   const persistPending = () => {
     try {
       if (pendingRef.current.length) localStorage.setItem(pendingKey, JSON.stringify(pendingRef.current))
@@ -530,8 +545,19 @@ function BunkerTrainingPanel({ token, name, settings, hidden = false, onMinimize
     } catch { setConnection('pending') }
   }
 
+  if (compact) {
+    const facts = compactFacts(active.entries, exIdx, { effortKind })
+    const unit = facts ? bunkerUnit(active.entries, exIdx) : []
+    const partners = unit.filter(i => i !== exIdx).map(i => (ssInfo[i] ? supersetLabel(ssInfo[i]) + ' ' : '') + exName(active.entries[i].id, plan.customEx))
+    return <BunkerCompactCard name={name} routineName={active.name} facts={facts} exName={entry ? exName(entry.id, plan.customEx) : ''}
+      nextName={facts?.nextId != null ? exName(facts.nextId, plan.customEx) : null} ssLabel={ssInfo[exIdx] ? supersetLabel(ssInfo[exIdx]) : ''}
+      partner={partners.join(', ')} progress={progress} hidden={hidden} onOpen={onOpen}
+      warn={conflict ? t('Session changed on another device') : connection === 'pending' ? t('Changes pending') : null}
+      rest={restEndsAt ? <RestRing endsAt={restEndsAt} total={restTotal} size={40} /> : null} />
+  }
   return <div className="bk-panel" style={panelStyle} onClick={touch}>
     <div className="bk-panel-hd">
+      {onBack && <button className="bk-minimize" onClick={onBack}><Icon name="grid" /> {t('Back to grid')}</button>}
       <button className="bk-minimize" onClick={onMinimize}><Icon name="chevronDown" /> {t('Minimize / resting')}</button>
       <div className="bk-panel-name">{name}</div>
       {restEndsAt && <RestRing endsAt={restEndsAt} total={restTotal} size={52} />}
@@ -722,6 +748,9 @@ export default function Bunker() {
   // neither this nor the timer's own running state should reset just because the member
   // switches which tab they're looking at.
   const [tool, setTool] = useState('training')
+  const [layout, setLayoutState] = useState(readLayout)
+  const [focusUid, setFocusUid] = useState(null)   // the member opened from the compact grid
+  const setLayout = k => { setLayoutState(k); setFocusUid(null); try { localStorage.setItem(LAYOUT_KEY, k) } catch { /* display preference only */ } }
   const [timer, setTimer] = useState(DEFAULT_TIMER_STATE)
   const tapsRef = useRef([])
   const paired = (() => { try { return JSON.parse(localStorage.getItem(PAIR_KEY) || 'null') } catch { return null } })()
@@ -753,9 +782,10 @@ export default function Bunker() {
   const releaseActive = uid => {
     setCredentials(c => { if (!(uid in c)) return c; const next = { ...c }; delete next[uid]; return next })
     setActiveUids(list => list.filter(x => x !== uid))
+    setFocusUid(f => (f === uid ? null : f))
   }
   const expand = uid => setActiveUids(list => list.includes(uid) ? list : [...list, uid])
-  const minimize = uid => setActiveUids(list => list.filter(x => x !== uid))
+  const minimize = uid => { setActiveUids(list => list.filter(x => x !== uid)); setFocusUid(f => (f === uid ? null : f)) }
 
   // A discreet way off a public kiosk — three quick taps on the room header, then the same
   // admin code the room-admin overlay already asks for, rather than a visible "exit" button
@@ -778,14 +808,17 @@ export default function Bunker() {
       <div style={{ display: tool === 'training' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         {!!Object.keys(credentials).length && <div className="bk-multi" style={open.length ? undefined : { display: 'none' }}>
               <div className="bk-multi-actions">
+                <BunkerLayoutToggle layout={layout} onChange={setLayout} />
                 {minimized.map(([uid, credential]) => <button key={uid} className="bk-restore" onClick={() => expand(uid)}><Icon name="expand" />{credential.name}</button>)}
                 <button className="bk-join" onClick={() => setShowCheckin(true)}><Icon name="plus" /> {t('Join the Bunker')}</button>
               </div>
-              <BunkerPanelGrid credentials={credentials} activeUids={activeUids} renderPanel={(uid, current, hidden) =>
-                <BunkerTrainingPanel key={uid} token={current.token} name={current.name} settings={settings} hidden={hidden}
+              <BunkerPanelGrid credentials={credentials} activeUids={activeUids} compact={layout === 'compact'} focusUid={focusUid} renderPanel={(uid, current, hidden, mode = {}) =>
+                <BunkerTrainingPanel key={uid} token={current.token} name={current.name} settings={settings} hidden={hidden} compact={!!mode.compact}
+                  onOpen={() => setFocusUid(uid)} onBack={mode.focused ? () => setFocusUid(null) : undefined}
                   onMinimize={() => minimize(uid)} onFinish={() => releaseActive(uid)} onInvalid={() => releaseActive(uid)} />
               } />
             </div>}
+        {!open.length && <div className="bk-board-tools"><BunkerLayoutToggle layout={layout} onChange={setLayout} /></div>}
         {!open.length && <BunkerBoard board={board} settings={settings} credentials={credentials}
               onCheckin={() => setShowCheckin(true)} onResume={expand} />}
         <TodayPrs prs={todayPrs} compact={open.length > 0} />

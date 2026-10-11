@@ -107,3 +107,24 @@
 /* long official names (the cover caption must stay clear of the top bar) */
 .op-running .pm-detail-cap h1,.op-page .pm-detail-cap h1{font-size:clamp(20px,5.4vw,30px);line-height:1.12;overflow-wrap:anywhere}
 .op-running .pm-detail-cover{min-height:210px}
+
+/* v1.1: the week's training comes first; marks live in a collapsible section */
+.op-phase-line{margin:0 0 8px;font-size:13px;color:var(--label-2)}
+.op-phase-line b{color:var(--label)}
+.op-focus{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.op-focus i{font-style:normal;font-size:11.5px;font-weight:650;padding:4px 10px;border-radius:99px;background:rgba(52,211,153,.14);color:#BFF2DB}
+.op-week-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
+.op-week-list li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.04)}
+.op-week-list li svg{flex:none;width:18px;color:var(--label-3)}
+.op-week-list li.done svg{color:var(--pm-emerald-2)}
+.op-week-list li.done b{color:var(--label-2);font-weight:600}
+.op-week-list li.next{outline:1.5px solid rgba(52,211,153,.55)}
+.op-week-list span{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.op-week-list b{font-size:13.5px;overflow-wrap:anywhere}
+.op-week-list small{font-size:11px;color:var(--label-2)}
+.op-week-list em{font-style:normal;font-size:11px;font-weight:750;color:var(--pm-emerald-2)}
+.op-details>summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:14px 16px}
+.op-details>summary::-webkit-details-marker{display:none}
+.op-details>summary h2{margin:0}
+.op-details>summary small{color:var(--label-2);font-size:12px}
+.op-details[open]>summary{border-bottom:1px solid var(--pm-line)}

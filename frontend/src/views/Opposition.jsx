@@ -12,7 +12,8 @@ import { usePremium } from '../lib/premium-api.js'
 import { activePlanOf, setAsidePlan, premiumState } from '../lib/premium.js'
 import * as model from '../lib/opposition-model.js'
 import * as op from '../lib/opposition.js'
-import { CAP_LABEL, PHASE_LABEL, STATUS_LABEL, LEVEL_LABEL, BODY_LABEL, AMBITION_LABEL, AMBITION_HINT, REASON_LABEL, RESTRICTION_LABEL, EQUIPMENT_LABEL, EXP_LABEL, FATIGUE_LABEL, DIFF_LABEL } from '../lib/opposition-text.js'
+import { keyOf } from '../lib/premium-model.js'
+import { CAP_LABEL, QUALITY_LABEL, PHASE_LABEL, STATUS_LABEL, LEVEL_LABEL, BODY_LABEL, AMBITION_LABEL, AMBITION_HINT, REASON_LABEL, RESTRICTION_LABEL, EQUIPMENT_LABEL, EXP_LABEL, FATIGUE_LABEL, DIFF_LABEL } from '../lib/opposition-text.js'
 import { allowedByAdmin } from '../lib/features.js'
 import { fmtDate } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
@@ -58,7 +59,7 @@ function OppositionIntro({ cat, available, loading, staff }) {
       <span className="pm-detail-cap"><span className="pm-kicker">2J PREMIUM</span><h1>{t('Train for your public-service exam')}</h1></span>
     </PremiumCover>
     <div className="pm-detail-body">
-      <p className="op-lead">{t('A long-term plan for the physical tests of your exam, built from the official tests and minimum marks of your convocatoria. Every few weeks a control week measures you against them.')}</p>
+      <p className="op-lead">{t('A full physical-preparation plan — strength, power, speed, endurance and more — built to pass the physical tests of your exam. The official tests and marks only set your starting point, your targets and your checkpoints.')}</p>
       {loading && <div className="pm-empty" role="status"><b>{t('Loading…')}</b></div>}
       {!loading && !available && <section className="pm-empty" role="status"><Icon name="info" /><b>{t('Not available yet')}</b><p>{t('Your gym has not opened this plan yet. Come back later — your training is not affected.')}</p></section>}
       {!loading && available && published.length === 0 && <section className="pm-empty" role="status"><Icon name="info" /><b>{t('No exam is published yet')}</b><p>{t('Ask your trainer to add the official tests of your convocatoria. Nothing is invented: a plan needs the real tests and marks.')}</p></section>}
@@ -185,6 +186,8 @@ export function OppositionWizard({ summary, close, initialProfile = null }) {
       {levels && <><h3 className="op-h3">{t('Your starting level')}</h3>
         <div className="op-levels">{Object.entries(levels.byCapacity).map(([c, x]) => <div key={c}><span>{t(CAP_LABEL[c])}</span><LevelPill l={x.level} estimated={x.estimated} /></div>)}</div>
         <p className="dim small">{levels.global.estimated ? t('We have no marks yet, so these levels are an estimate from what you told us. The first control week will measure them.') : t('Calculated from your marks, test by test.')}</p></>}
+      {cats && <><h3 className="op-h3">{t('What we will train')}</h3><div className="op-focus">{model.qualitiesOf(profile, cats).map(q => <i key={q}>{t(QUALITY_LABEL[q])}</i>)}</div>
+        <p className="dim small">{t('The marks only set your starting point and targets: the plan is real gym, track and conditioning work for each of these.')}</p></>}
       {preview?.plan && <><h3 className="op-h3">{t('Phases')}</h3><Phases plan={preview.plan} week={1} /></>}
       <ul className="op-facts"><li><span>{t('Length')}</span><b>{preview?.plan ? t('{0} weeks', preview.plan.weeksTotal) : '—'}</b></li><li><span>{t('Training')}</span><b>{t('{0} days · {1} min', f.days, f.minutes)}</b></li><li><span>{t('Control tests')}</span><b>{t('Every 5 weeks')}</b></li></ul>
       {replaced && <div className="pm-replace" role="alert"><Icon name="info" /><div><b>{t('Premium programs use their own periodisation.')}</b><p>{t('If you start this program, it will replace your current active planning ({0}).', replaced.name)}</p><p>{t('Your history, completed workouts and saved routines will not be deleted.')}</p></div></div>}
@@ -221,6 +224,9 @@ function OppositionActive({ view, cat }) {
   const newer = op.newerVersion(plan, cat.profiles)
   const last = plan.evaluations[plan.evaluations.length - 1] || null
   const next = view.inst && view.pos?.session ? view.pos.session.title : null
+  const qualities = model.qualitiesOf(profile, plan.category)
+  const wk = view.inst ? view.inst.snapshot.definition.weeks[(view.pos?.week || 1) - 1] : null
+  const weekSessions = (wk?.sessions || []).map((x, i) => ({ key: x.key, title: x.title, blocks: x.blocks.length, done: !!view.pos?.doneKeys?.has(keyOf(view.pos.cycle, view.pos.week, i)), next: view.pos?.index === i }))
   const end = () => confirmSheet({ title: t('End this plan?'), message: t('Your workouts, records and history stay. The plan moves to your history.'), confirmText: t('End plan'), danger: true,
     onConfirm: () => update(s => { const r = op.endPlan(s); s.opposition = r.opposition; s.premium = r.premium }) })
   const again = () => update(s => { s.opposition = op.reproposeNext(s) })
@@ -235,16 +241,16 @@ function OppositionActive({ view, cat }) {
       {newer && <section className="op-banner" role="status"><Icon name="info" /><div><b>{t('There is a new version of this convocatoria')}</b><p>{t('Your plan keeps using version {0} until you decide. Review what changed first.', plan.profileVersion)}</p></div>
         <button className="pm-ghost" onClick={() => openSheet(close => <VersionSheet plan={plan} newer={newer} close={close} />)}>{t('Review changes')}</button></section>}
 
-      <section className="pm-sec"><h2>{t('Time left')}</h2><div className="pm-sec-body"><Phases plan={plan} week={Math.min(view.calendarWeek, plan.weeksTotal)} />
-        <p className="dim small">{t('Week {0} of {1} · block {2}', Math.min(view.calendarWeek, plan.weeksTotal), plan.weeksTotal, plan.blockIndex + 1)}</p></div></section>
-
-      {!view.finished && <section className="pm-sec next"><h2>{view.canEvaluate ? t('Control week') : view.blockDone ? t('Block completed') : t('Next workout')}</h2><div className="pm-sec-body">
+      {!view.finished && <section className="pm-sec next"><h2>{view.canEvaluate ? t('Control week') : view.blockDone ? t('Block completed') : t('This week')}</h2><div className="pm-sec-body">
+        <p className="op-phase-line"><b>{t(PHASE_LABEL[view.controlWeek ? 'control' : view.phase])}</b> · {t('Week {0} of {1} · block {2}', Math.min(view.calendarWeek, plan.weeksTotal), plan.weeksTotal, plan.blockIndex + 1)}</p>
+        <div className="op-focus" aria-label={t('What we are training')}>{qualities.map(q => <i key={q}>{t(QUALITY_LABEL[q])}</i>)}</div>
+        {weekSessions.length > 0 && <ul className="op-week-list">{weekSessions.map((x, i) => <li key={x.key} className={(x.done ? 'done ' : '') + (x.next ? 'next' : '')}>
+          <Icon name={x.done ? 'checkCircle' : 'dot'} /><span><b>{x.title}</b><small>{t('{0} exercises', x.blocks)}</small></span>{x.next && <em>{t('Next')}</em>}</li>)}</ul>}
         {view.inst && <div className="pm-prog"><span className="pm-bar" role="progressbar" aria-label={t('Program progress')} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(view.pos.finished * 100 / view.pos.totalInCycle)}><i style={{ width: Math.round(view.pos.finished * 100 / view.pos.totalInCycle) + '%' }} /></span>
           <small>{t('{0} of {1} sessions this cycle', view.pos.completedInCycle, view.pos.totalInCycle)}</small></div>}
-        {next && <p className="op-next"><Icon name="play" />{next}</p>}
         {view.noBlock && <p className="pm-note warn"><Icon name="info" />{t('This plan has no block running. Prepare the next one below.')}</p>}
         <div className="pm-actions">
-          {view.inst && !view.blockDone && <button className="pm-primary" onClick={() => nav('/premium/active')}><Icon name="play" />{t('Go to my training')}</button>}
+          {view.inst && !view.blockDone && <button className="pm-primary" onClick={() => nav('/premium/active')}><Icon name="play" />{next ? t('Start: {0}', next) : t('Go to my training')}</button>}
           {view.noBlock && <button className="pm-primary" onClick={restart}><Icon name="play" />{t('Restart this block')}</button>}
           {view.canEvaluate && <button className="pm-primary alt" onClick={() => openSheet(close => <EvaluationSheet view={view} close={close} />)}><Icon name="target" />{t('Record my control marks')}</button>}
         </div></div></section>}
@@ -253,12 +259,13 @@ function OppositionActive({ view, cat }) {
       {!plan.proposal && (view.blockDone || view.noBlock) && last && <section className="pm-sec"><h2>{t('Next block')}</h2><div className="pm-sec-body"><p className="dim small">{t('You have recorded your control. Prepare the next block when you are ready.')}</p>
         <button className="pm-primary" onClick={again}>{t('Prepare the next block')}</button></div></section>}
 
-      <section className="pm-sec"><h2>{t('Your level')}</h2><div className="pm-sec-body">
+      <section className="pm-sec"><h2>{t('Phase and evolution')}</h2><div className="pm-sec-body"><Phases plan={plan} week={Math.min(view.calendarWeek, plan.weeksTotal)} />
         <div className="op-levels"><div className="global"><span>{t('Overall')}</span><LevelPill l={plan.levels.global.level} estimated={plan.levels.global.estimated} /></div>
           {Object.entries(plan.levels.byCapacity).map(([c, x]) => <div key={c}><span>{t(CAP_LABEL[c])}</span><LevelPill l={x.level} estimated={x.estimated} /></div>)}</div>
-        {plan.levels.global.estimated && <p className="dim small">{t('Some levels are estimated: record your marks in the control week to measure them.')}</p>}</div></section>
+        {plan.levels.global.estimated && <p className="dim small">{t('Some levels are estimated: record your marks in the control week to measure them.')}</p>}
+        {plan.evaluations.length > 0 && <p className="dim small">{t('Controls done')}: {plan.evaluations.length}</p>}</div></section>
 
-      <section className="pm-sec"><h2>{t('Marks against the official minimum')}</h2><div className="pm-sec-body">
+      <details className="pm-sec op-details"><summary><h2>{t('Tests and marks')}</h2><small>{t('Your marks against the official minimum and your target')}</small></summary><div className="pm-sec-body">
         <ul className="op-marks">{tests.map(x => {
           const s = summary.tests.find(y => y.id === x.id)
           const st = last?.perTest?.[x.id]?.status || (s?.mark == null ? 'no-data' : null)
@@ -267,13 +274,12 @@ function OppositionActive({ view, cat }) {
             {s?.points != null && profile.scoring.model === 'points' && <small className="dim">{s.points} {t('points')}</small>}</li>
         })}</ul>
         {last && <p className="dim small">{t('Last control')}: {fmtDate(new Date(last.at).toISOString().slice(0, 10))}{last.overall.average != null && profile.scoring.rule.kind === 'average' ? ` · ${t('average')} ${last.overall.average}` : ''}</p>}
-        {last?.needsReview && <p className="pm-note warn"><Icon name="info" />{t('Your trainer will review this plan.')}</p>}</div></section>
-
-      <section className="pm-sec"><h2>{t('Official source')}</h2><div className="pm-sec-body"><ul className="op-facts">
-        <li><span>{t('Organism')}</span><b>{profile.organism}</b></li><li><span>{t('Convocatoria')}</span><b>{profile.convocatoria?.title}</b></li>
-        <li><span>{t('Publication')}</span><b>{profile.source.publication}</b></li><li><span>{t('Reference')}</span><b>{profile.source.reference}</b></li>
-        <li><span>{t('Source date')}</span><b>{fmtDate(profile.source.date)} · {t('version {0}', plan.profileVersion)}</b></li></ul>
-        {profile.notes?.map((n, i) => <p key={i} className="dim small">{n}</p>)}</div></section>
+        {last?.needsReview && <p className="pm-note warn"><Icon name="info" />{t('Your trainer will review this plan.')}</p>}
+        <h3 className="op-h3">{t('Official source')}</h3><ul className="op-facts">
+          <li><span>{t('Organism')}</span><b>{profile.organism}</b></li><li><span>{t('Convocatoria')}</span><b>{profile.convocatoria?.title}</b></li>
+          <li><span>{t('Publication')}</span><b>{profile.source.publication}</b></li><li><span>{t('Reference')}</span><b>{profile.source.reference}</b></li>
+          <li><span>{t('Source date')}</span><b>{fmtDate(profile.source.date)} · {t('version {0}', plan.profileVersion)}</b></li></ul>
+        {profile.notes?.map((n, i) => <p key={i} className="dim small">{n}</p>)}</div></details>
 
       <div className="pm-actions wide"><button className="pm-ghost danger" onClick={end}>{t('End plan')}</button></div>
       <History items={op.oppositionState(S).history} />

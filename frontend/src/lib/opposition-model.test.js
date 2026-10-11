@@ -190,11 +190,53 @@ describe('plan generation from a profile', () => {
     const speedOf = d => d.weeks[0].sessions.flatMap(s => s.blocks).find(b => b.exercise === '0684' && b.conditioning?.speed).conditioning.speed
     expect(speedOf(strong.block.definition)).toBeGreaterThan(speedOf(r.block.definition))
   })
-  it('weak capacities are trained more often than strong ones', () => {
-    const r = m.newPlan({ profile: profile('bomberos-cegc'), intake: intake({ days: 5, minutes: 90 }), marks: { 'natacion-50': 40, dominadas: 2, 'press-banca': 38, 'velocidad-200': 28, 'resistencia-1500': 340 }, months: 12, now: NOW })
-    const titles = r.block.definition.weeks[0].sessions.map(s => s.title).join('|')
-    const count = word => (titles.match(new RegExp(word, 'g')) || []).length
-    expect(count('Dominadas')).toBeGreaterThanOrEqual(count('Natación')); expect(count('Dominadas')).toBeGreaterThanOrEqual(2)
+  it('different people get different plans: a strong runner who cannot pull and a weak runner who is strong are not given the same week', () => {
+    const base = { days: 4, minutes: 75 }
+    const weakPull = m.newPlan({ profile: profile('bomberos-cegc'), intake: intake(base), marks: { 'natacion-50': 40, dominadas: 2, 'press-banca': 38, 'velocidad-200': 28, 'resistencia-1500': 340 }, months: 12, now: NOW })
+    const weakRun = m.newPlan({ profile: profile('bomberos-cegc'), intake: intake(base), marks: { 'natacion-50': 40, dominadas: 18, 'press-banca': 38, 'velocidad-200': 28, 'resistencia-1500': 540 }, months: 12, now: NOW })
+    const days = r => r.block.meta.dayTypes
+    expect(days(weakRun)).toContain('endurance'); expect(days(weakRun)).toContain('endurance2')
+    expect(days(weakPull)).not.toEqual(days(weakRun))
+    const pullBlocks = r => r.block.definition.weeks[0].sessions.flatMap(x => x.blocks).filter(b => ['0652', '0017', '1326'].includes(b.exercise)).length
+    expect(pullBlocks(weakPull)).toBeGreaterThanOrEqual(1)
+    expect(m.planDays({ endurance: 0.9, pull: 0.1 }, 4).map(d => d.type)).toEqual(expect.arrayContaining(['lower', 'upper', 'endurance', 'endurance2']))
+    expect(m.planDays({ endurance: 0.2, pull: 0.9, swim: 0.5 }, 4, { pool: false }).map(d => d.type)).not.toContain('swim')
+    expect(m.planDays({ endurance: 0.5, pull: 0.5 }, 2).map(d => d.type)).toEqual(['full', 'endurance'])
+  })
+  it('sessions are complete gym sessions: main and second lifts, accessories, supersets, core and mobility, with sets, rep range, RPE and rest', () => {
+    const r = m.newPlan({ profile: profile('bomberos-cegc'), intake: intake({ days: 5, minutes: 90 }), marks: { 'natacion-50': 40, dominadas: 5, 'press-banca': 20, 'velocidad-200': 33, 'resistencia-1500': 380 }, months: 12, now: NOW })
+    const week = r.block.definition.weeks[0]
+    const lower = week.sessions.find(x => x.kind === 'lower'), upper = week.sessions.find(x => x.kind === 'upper')
+    const ex = x => x.blocks.map(b => b.exercise)
+    expect(ex(lower)).toEqual(expect.arrayContaining(['0043', '0085', '2368', '0464', '1585'])); expect(ex(upper)).toEqual(expect.arrayContaining(['0025', '1585']))
+    const strength = lower.blocks.filter(b => b.scheme)
+    for (const b of strength) { expect(b.rest).toBeGreaterThan(0); expect(b.note).toMatch(/RPE \d/); expect(b.scheme.repsMax).toBeGreaterThanOrEqual(b.scheme.repsMin); expect(b.scheme.prog).toBe('double') }
+    const sg = week.sessions.flatMap(x => x.blocks.map((b, i, a) => [b.sg, a[i + 1]?.sg, a[i - 1]?.sg])).filter(([g]) => g)
+    expect(sg.length).toBeGreaterThan(0); expect(sg.every(([g, nx, pv]) => g === nx || g === pv)).toBe(true)   // a superset group is always adjacent
+    const total = x => x.blocks.reduce((a, b) => a + (b.scheme ? b.scheme.sets * ((b.rest || 60) / 60 + 0.7) : b.conditioning?.min || 2), 0)
+    for (const x of week.sessions) expect(total(x), x.title).toBeLessThanOrEqual(110)
+    expect(validateDefinition(r.block.definition, ctx)).toEqual([])
+  })
+  it('phases change the training: base builds volume (RPE 7), development heavier and lower reps with power, competitive tapers; week 4 is a deload', () => {
+    const mk = months => { const r = m.newPlan({ profile: profile('bomberos-cegc'), intake: intake({ days: 5, minutes: 90, selfLevel: 'advanced' }), marks: {}, months, now: NOW }); return r }
+    const base = mk(24)
+    const set = (r, wk) => r.block.definition.weeks[wk].sessions.find(x => x.kind === 'lower').blocks.find(b => b.exercise === '0043').scheme
+    expect(set(base, 0).repsMax).toBeGreaterThanOrEqual(8)
+    const w1 = set(base, 0), w4 = set(base, 3)
+    expect(w4.sets).toBeLessThan(w1.sets)
+    expect(base.block.definition.weeks[3].sessions[0].blocks.some(b => /descarga/.test(b.note || ''))).toBe(true)
+    const late = m.blockFor({ ...base.plan, blockIndex: 0 }, { startWeek: base.plan.weeksTotal - 3, scale: 1, focusUp: [] })
+    const comp = late.definition.weeks[0].sessions.find(x => x.kind === 'lower').blocks.find(b => b.exercise === '0043').scheme
+    expect(comp.repsMax).toBeLessThanOrEqual(4)
+    const dev = m.blockFor({ ...base.plan, blockIndex: 0 }, { startWeek: Math.round(base.plan.weeksTotal * 0.55), scale: 1, focusUp: [] })
+    const d = dev.definition.weeks[0].sessions.find(x => x.kind === 'lower')
+    expect(d.blocks.some(b => b.exercise === '0514')).toBe(true)   // power appears once the base phase is over
+  })
+  it('every test is mapped to the capacities it asks for; strength, core and mobility are always trained', () => {
+    const q = id => m.qualitiesOf(profile(id), 'm')
+    expect(q('bomberos-cegc')).toEqual(expect.arrayContaining(['aerobic', 'speed', 'power', 'relative-strength', 'muscular-endurance', 'swim', 'strength', 'core', 'mobility']))
+    expect(q('policia-local-canarias')).toEqual(expect.arrayContaining(['aerobic', 'power', 'swim', 'relative-strength']))
+    expect(m.qualitiesOf(profile('policia-nacional'), 'f')).toEqual(expect.arrayContaining(['agility', 'aerobic', 'relative-strength']))
   })
   it('availability and restrictions shape the plan: days/week, a knee restriction removes jumps, an ankle restriction removes running', () => {
     const three = m.newPlan({ profile: profile('policia-local-canarias'), intake: intake({ days: 3, minutes: 45 }), marks: {}, months: 12, now: NOW })

@@ -13,7 +13,7 @@
  *   Block = { role, exercise | lift, sets:[{ pct, reps, amrap?, type? }]           // load = percentage of the lift's Training Max (+ `steps` planned increments)
  *                                | scheme:{ sets, reps | repsMin+repsMax, prog? }  // load chosen by the app's existing progression engine
  *                                | conditioning:{ min, speed? | sec? },            // cardio / timed work
- *             warmup?, rest?, steps?, note? }
+ *             warmup?, rest?, steps?, note?, sg? }
  *
  * The member's side lives in S.premium = { v:1, active: Instance|null, history:[…] }. An Instance pins a SNAPSHOT of the definition, so a later
  * catalogue edit can never change a program already under way. Which sessions are done is DERIVED from S.workouts (w.premium.instanceId), exactly like
@@ -285,7 +285,7 @@ export function planSession(inst, workouts = []) {
     if (b.scheme) {
       const s2 = b.scheme
       return { kind: 'cfg', exercise, role: b.role, rest: b.rest || null, note: b.note || null,
-        cfg: { id: exercise, sets: s2.sets, reps: s2.reps || s2.repsMax, ...(s2.repsMin ? { targetRepsMin: s2.repsMin, targetRepsMax: s2.repsMax } : {}), mode: 'reps', prog: s2.prog || (s2.repsMin ? 'double' : 'linear'), ...(b.rest ? { rest: b.rest } : {}), ...(b.note ? { note: b.note } : {}) } }
+        cfg: { id: exercise, sets: s2.sets, reps: s2.reps || s2.repsMax, ...(s2.repsMin ? { targetRepsMin: s2.repsMin, targetRepsMax: s2.repsMax } : {}), mode: 'reps', prog: s2.prog || (s2.repsMin ? 'double' : 'linear'), ...(b.rest ? { rest: b.rest } : {}), ...(b.note ? { note: b.note } : {}), ...(b.sg ? { sg: b.sg } : {}) } }
     }
     return { kind: 'conditioning', exercise, role: b.role, rest: b.rest || null, note: b.note || null, conditioning: clone(b.conditioning) }
   })
@@ -352,6 +352,7 @@ function cleanBlock(b) {
   if (b?.rest != null) out.rest = fin(b.rest)
   if (b?.steps != null) out.steps = fin(b.steps)
   if (b?.note) out.note = str(b.note, 200)
+  if (b?.sg) out.sg = str(b.sg, 8)   // superset group: consecutive blocks with the same value are done as a superset
   return out
 }
 

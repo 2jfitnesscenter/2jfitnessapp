@@ -47,3 +47,35 @@ export function goToExercise(active, idx) {
   const cur = Math.max(0, Math.min(Number(idx) || 0, n - 1))
   return active.cur === cur ? active : { ...active, cur }
 }
+
+/** What a compact card shows for one panel's session: position, current set, the target, the effort (RPE/RIR) and the next exercise — all derived, nothing stored. */
+export function compactFacts(entries = [], cur = 0, { effortKind = 'none' } = {}) {
+  const rows = Array.isArray(entries) ? entries : []
+  const e = rows[cur]
+  if (!e) return null
+  const ss = sets(e)
+  const done = ss.filter(s => s?.done).length
+  const tg = e.target || {}
+  const lo = tg.targetRepsMin, hi = tg.targetRepsMax
+  const reps = lo && hi && lo !== hi ? lo + '-' + hi : (tg.reps ?? ss[0]?.r ?? null)
+  const mode = tg.mode === 'cardio' ? 'cardio' : tg.mode === 'time' ? 'time' : 'reps'
+  const working = ss.find(s => !s?.done) || ss[ss.length - 1]
+  let rpe = null
+  if (effortKind !== 'none' && Number.isFinite(Number(working?.[effortKind])) && working?.[effortKind] !== null) rpe = { kind: effortKind, value: Number(working[effortKind]) }
+  else { const m = /RPE\s*(\d+(?:[.,]\d)?)/i.exec(String(tg.note || e.note || '')); if (m) rpe = { kind: 'rpe', value: Number(m[1].replace(',', '.')), planned: true } }
+  const nxt = upNext(rows, cur)
+  return {
+    position: cur + 1, total: rows.length, setNo: Math.min(done + 1, ss.length || 1), setTotal: ss.length, done,
+    target: mode === 'cardio' ? { mode, min: ss[0]?.min ?? null } : { mode, sets: tg.sets ?? ss.length, reps },
+    rpe, nextId: nxt === null ? null : rows[nxt].id, unit: bunkerUnit(rows, cur),
+  }
+}
+
+/** Columns for the compact grid: few rows (3 on a small screen, 2 on a tall one), never narrower than a readable card. */
+export function compactCols(n, width = 1920, height = 1080) {
+  if (n <= 1) return 1
+  if (n <= 2) return 2
+  const rows = height >= 950 ? 2 : 3
+  const maxCols = Math.max(2, Math.floor(width / 270))
+  return Math.max(2, Math.min(maxCols, Math.ceil(n / rows)))
+}
