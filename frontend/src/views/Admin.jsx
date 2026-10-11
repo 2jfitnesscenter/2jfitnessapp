@@ -624,6 +624,8 @@ export default function Admin() {
 
     <AdminNavCard icon="trophy" tint="var(--yellow)" title={t('Premium training programs')}
       sub={t('Catalogue, covers, featured programs and what members can start')} onClick={() => nav('/premium/manage')} />
+    <AdminNavCard icon="flag" tint="var(--yellow)" title={t('Oposiciones')}
+      sub={t('Official profiles, tests, minimum marks and sources of each convocatoria')} onClick={() => nav('/oposiciones/manage')} />
 
     <AdminNavCard icon="bell" tint="var(--acc)" title={t('News / Notices')}
       sub={t('Announcements shown on every member’s Home')} onClick={() => nav('/admin/news')} />

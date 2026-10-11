@@ -82,3 +82,18 @@ describe('cover', () => {
     expect(html(<Cover p={{ coverImage: 'https://upload.wikimedia.org/a.jpg', coverImageAlt: 'x' }} />)).toContain('src="https://upload.wikimedia.org/a.jpg"')
   })
 })
+
+describe('activating Premium over an active plan', () => {
+  it('warns clearly (replaces the active planning; history, workouts and routines are kept) and offers Continue / Cancel', async () => {
+    await seed({ programs: [{ id: 'p1', name: 'My 4-week block', status: 'active', week: {} }], activeProgramId: 'p1', routines: [{ id: 'r1', name: 'Push', ex: [] }] })
+    const { ActivateSheet } = await import('./Premium.jsx')
+    const h = html(<ActivateSheet program={seed531} text={{ name: '5/3/1' }} compat={null} close={() => {}} onDone={() => {}} />)
+    for (const k of ['Premium programs use their own periodisation.', 'it will replace your current active planning (My 4-week block).', 'Your history, completed workouts and saved routines will not be deleted.', 'Continue', 'Cancel']) expect(h, k).toContain(k)
+  })
+  it('no warning without an active plan', async () => {
+    await seed()
+    const { ActivateSheet } = await import('./Premium.jsx')
+    const h = html(<ActivateSheet program={seed531} text={{ name: '5/3/1' }} compat={null} close={() => {}} onDone={() => {}} />)
+    expect(h).not.toContain('periodisation'); expect(h).toContain('Start program')
+  })
+})

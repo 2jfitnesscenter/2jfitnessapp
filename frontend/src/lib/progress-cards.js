@@ -9,7 +9,8 @@
 // recent-workouts list are structural and not part of the catalogue.
 export const PROGRESS_CARDS = [
   { id: 'insights', label: 'Highlights', icon: 'sparkles' },
-  { id: 'last', label: 'Last workout & recovery', icon: 'history' },
+  { id: 'last', label: 'Last workout', icon: 'history' },
+  { id: 'recovery', label: 'Muscle recovery', icon: 'heart', feature: 'recovery' },
   { id: 'composition', label: 'Body composition', icon: 'figureStrength', feature: 'bioimpedance' },
   { id: 'weight', label: 'Body weight', icon: 'scale', feature: 'bodyweight' },
   { id: 'activity', label: 'Activity map', icon: 'flame' },

@@ -102,3 +102,53 @@ Pendiente de sustituir por fotografía propia del gimnasio cuando exista (varias
 ## Pruebas
 
 `frontend/src/lib/premium-model.test.js`, `premium.test.js`, `premium-session.test.js`, `home-blocks.test.js`, `views/home-premium.test.jsx`, `views/premium-coach-ui.test.jsx`; `api/test/premium-catalog.test.js` (CRUD, ACL, estados, destacar/orden, promover, borrado seguro, versiones, interruptor, portadas) y `premium-coach.test.js` (Coach/IA).
+
+
+## Segunda ola (hidden por defecto) — Sprint Personalización V2 + Premium expansion
+
+17 programas nuevos + la entrada especial «Entrena tus Oposiciones» (ver `OPOSICIONES_V1.md`), **todos `status: hidden`**: el administrador los
+revisa, edita, publica, destaca, marca NUEVO y ordena desde Administración → Premium. Semilla: `scripts/premium/official-programs-extra.mjs`
+(helpers compartidos, sin import circular) → `api/lib/premium-official.json` (30 programas: 12 publicados + 18 ocultos). Mismo motor genérico;
+solo se amplió `METHOD_TYPES` con `opposition` y las notas de bloque se muestran en la página del programa activo (traducidas con t()).
+
+| Familia | Programas |
+|---|---|
+| Fuerza | Linear 5×5, Heavy / Light / Medium, Conjugate Strength, Block Periodization Strength, High Frequency Strength |
+| Fuerza + hipertrofia | DUP Powerbuilding, PPL Powerbuilding, Progressive Load Hypertrophy (estilo HST), Blood Flow Restriction Hypertrophy |
+| Resistencia | Polarized Endurance, Threshold Builder, Aerobic Base + Intervals |
+| Funcional / mixto | Functional Fitness Engine, Fitness Race Prep, Fitness Race Advanced |
+| Pérdida de grasa / recomposición | Strength + Zone 2 Cut, Metabolic Resistance Progression |
+
+Reglas de contenido: principios públicos en palabras propias con atribución; evidencia **honesta** (se dice cuando no hay ensayo controlado del
+método) con referencias (Seiler 2010, Stöggl & Sperlich 2014, Issurin 2010, Bartolomei 2014, Schoenfeld 2016/2017, Grgic 2018, Patterson 2019,
+Lixandrão 2018, Wilson 2012, Garthe 2011, Feito 2018…); los métodos con nombre comercial llevan `legal.status: 'review'` y nombre neutro
+(«Progressive Load Hypertrophy», no «HST»). **Sin afiliación con CrossFit, HYROX ni ninguna marca/liga**: nombres descriptivos y `legal.note`
+explícito; un test comprueba que ningún texto los menciona. BFR lleva contraindicaciones y avisos de seguridad en cada bloque. No se copia
+ningún libro, plantilla de pago ni PDF protegido.
+
+Portadas nuevas (propias de cada programa, sin repetir, con fuente/licencia/atribución; sin NC/ND; `scripts/premium/fetch-covers.mjs`, incremental):
+
+| Slug | Archivo Commons | Licencia |
+|---|---|---|
+| linear-5x5 | Heidemarie Couch, CIV (5) (14321535058).jpg | Public domain |
+| heavy-light-medium | MWR GWOT.JPEG | Public domain |
+| conjugate-strength | MCAS Iwakuni Women’s Power Lifting (9352356).jpg | Public domain |
+| block-periodization-strength | IMCOM Powerlifting Championship (8148602).jpg | Public domain |
+| dup-powerbuilding | Sporty girl posing in gym on weigh rack.jpg | CC BY 2.0 |
+| ppl-powerbuilding | Young man using a leg press machine at the gym.jpg | CC BY 2.0 |
+| high-frequency-strength | The Soviet Union 1964 CPA 3074 stamp (1964 Summer Olympics, Tokyo. Weightlifting. Clean and jerk).jpg | Public domain |
+| hst-style-hypertrophy | Strength training (Unsplash).jpg | CC0 |
+| bfr-hypertrophy | Girl playing weights with legs on the exercise machine.jpg | CC BY 2.0 |
+| polarized-endurance | Runner in Stainburn Forest (Unsplash).jpg | CC0 |
+| threshold-builder | Runners in a race, Vieux-Limoilou.jpg | CC0 |
+| aerobic-base-intervals | Cycling in the countryside (Unsplash).jpg | CC0 |
+| functional-fitness-engine | Airborne Burpee.jpg | Public domain |
+| fitness-race-prep | Obstacle race 1.jpg | CC BY 3.0 |
+| fitness-race-advanced | Running up "insult hill" (6985646263).jpg | CC BY 2.0 |
+| strength-zone2-cut | Woman doing push-up on yogi mat in the forest with sunset background - 51525476019.jpg | CC BY 2.0 |
+| metabolic-resistance-progression | Girl doing push-ups from the side.jpg | CC BY 2.0 |
+| entrena-tus-oposiciones | Flickr - DVIDSHUB - RIMPAC 2012 international swim meet (Image 8 of 13).jpg | CC BY 2.0 |
+
+Pendiente: sustituir por fotografía propia del gimnasio (varias son genéricas o proceden de fotos de servicios militares; alguna puede mostrar marcas o uniformes de forma incidental: revisar cada
+imagen antes de promocionar el programa). No incluidos todavía: HST «enhanced», Novice Linear Progression como programa
+separado, Mixed Modal Conditioning y Strength-Hypertrophy Block independientes (cubiertos en parte por los anteriores).

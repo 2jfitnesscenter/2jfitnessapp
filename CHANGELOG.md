@@ -1,5 +1,13 @@
 # Changelog
 
+### Personalización V2 + Premium ampliado + Entrena tus Oposiciones V1 — candidato, NO desplegado
+
+- Inicio por defecto limpio (saludo, calendario, Entrenamientos Premium); «Personalizar» discreto en Inicio y Progreso (ordenar, ocultar, mostrar, añadir, restaurar), guía de primer uso mostrada una sola vez y Ajustes → Personalización. Los diseños ya guardados se respetan; «Recuperación muscular» es un bloque propio de Progreso.
+- Pantalla de Acciones renovada con «Entrenamiento Premium» y «Entrena con 2J»; al empezar un Premium sobre una planificación activa se avisa y se aparta sin borrar historial, entrenos, rutinas ni snapshots.
+- 17 programas Premium nuevos **ocultos por defecto** (el administrador los publica), con evidencia, metadata legal, portadas licenciadas y avisos de seguridad (BFR); sin afiliación a ninguna marca.
+- Entrena tus Oposiciones: perfiles oficiales versionados y con fuente (Policía Local Canarias, Policía Nacional, Guardia Civil, Bomberos CEGC; ocultos por defecto), plan por fases a 6/12/18/24 meses, semana de control, propuesta de adaptación que el socio confirma, Coach e IA con la versión fijada del plan y Administración → Oposiciones. Natación y circuito de vallas usan un sustituto temporal claramente marcado.
+- Sin migraciones: `S.ux`, `S.premium` y `S.opposition` son claves opcionales de Sync V2.
+
 ### Entrenamientos Premium V1 + Home personalizable + Salud V2 (objetivos) — candidato, NO desplegado
 
 - Nuevo catálogo **Premium** de 12 metodologías (5/3/1, Texas, ONDAS 10/8/5/3, GZCL, PHUL, PHAT, DUP, powerbuilding, cuerpo completo, recomposición 2J, concurrente, acondicionamiento) con portada, ficha, filtros y recomendación por objetivo/nivel/días; programa activo con ciclo/semana, pausa, saltar, Training Max, propuesta de ciclo y cambio con historial.

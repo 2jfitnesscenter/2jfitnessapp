@@ -23,7 +23,10 @@ import IntelligenceToday from '../components/IntelligenceToday.jsx'
 import NewsBlock from '../components/NewsBlock.jsx'
 import { uxOn, configurable } from '../lib/features.js'
 import { weekReorderSuggestion } from '../lib/session-adaptation.js'
-import { visibleHomeBlocks } from '../lib/home-blocks.js'
+import { visibleHomeBlocks, homeLayoutOf, HOME_BLOCKS, isHomeOptional } from '../lib/home-blocks.js'
+import { setLayout, restoreLayout, guideSeen, markGuideSeen } from '../lib/ux-layout.js'
+import LayoutEditor from '../components/LayoutEditor.jsx'
+import PersonalizeGuide from '../components/PersonalizeGuide.jsx'
 import PremiumHomeCard from '../components/PremiumHomeCard.jsx'
 
 // A job in flight or a proposal waiting is the only reason the Coach interrupts Home. When it
@@ -74,6 +77,11 @@ export default function Home() {
   const user = useStore(s => s.user)
   const config = useStore(s => s.config)
   const [weekOffset, setWeekOffset] = useState(0)
+  const [editing, setEditing] = useState(false)
+  const [guide, setGuide] = useState(false)
+  const update = useStore(s => s.update)
+  const startEditing = () => { setEditing(true); if (!guideSeen(S)) setGuide(true) }
+  const closeGuide = () => { setGuide(false); update(s => { markGuideSeen(s) }) }
   const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
   const reviewNow = pendingReviews(S, todayISO())[0] || null   // a routine due for review (shown only then)
   const followUp = useFollowUp()   // the gym's follow-up schedule; Home only shows it when a review is near or overdue
@@ -149,10 +157,20 @@ export default function Home() {
     intelligence: () => <IntelligenceToday key={user?.id || 'local'} S={S} user={user} max={1} compact showIntro />,
   }
   return <div className="narrow">
+    <div className="pz-row"><button type="button" className={'pz-btn' + (editing ? ' on' : '')} onClick={() => (editing ? setEditing(false) : startEditing())} aria-pressed={editing}><Icon name="pencil" />{t('Personalise')}</button></div>
     <HomeHero S={S} user={user} routine={routine} doneToday={doneToday} rescheduled={todayOvr}
       week={{ done: wThisWeek, planned: plannedPerWeek, streak }} onToday={onToday} onWeek={() => calendarSheet()} now={today} />
 
-    {visibleHomeBlocks(S).map(id => <Fragment key={id}>{blocks[id]()}</Fragment>)}
+    {editing
+      ? <section className="pz-panel" aria-label={t('Personalise Home')}>
+        <h2>{t('Personalise Home')}</h2>
+        <p className="pz-lead">{t('Move, hide or add the blocks of your Home. Nothing is deleted.')}</p>
+        <LayoutEditor S={S} catalog={HOME_BLOCKS} layout={homeLayoutOf(S)} canHide={isHomeOptional}
+          isDefault={!S.ux?.home} onChange={l => update(s => { setLayout(s, 'home', l) })} onRestore={() => update(s => { restoreLayout(s, 'home') })} />
+        <button type="button" className="btn primary pz-done" onClick={() => setEditing(false)}>{t('Done')}</button>
+      </section>
+      : visibleHomeBlocks(S).map(id => <Fragment key={id}>{blocks[id]()}</Fragment>)}
+    {guide && <PersonalizeGuide onClose={closeGuide} />}
 
     {!S.routines.length && !S.active && (
       <div className="card">

@@ -61,6 +61,9 @@ const PremiumDetail = lazy(() => import('./views/Premium.jsx').then(m => ({ defa
 const PremiumActive = lazy(() => import('./views/Premium.jsx').then(m => ({ default: m.PremiumActive })))
 const PremiumManage = lazy(() => import('./views/PremiumManage.jsx').then(m => ({ default: m.PremiumManage })))
 const PremiumEditor = lazy(() => import('./views/PremiumManage.jsx').then(m => ({ default: m.PremiumEditor })))
+const OppositionHub = lazy(() => import('./views/Opposition.jsx').then(m => ({ default: m.OppositionHub })))
+const OppositionManage = lazy(() => import('./views/OppositionManage.jsx').then(m => ({ default: m.OppositionManage })))
+const OppositionEditor = lazy(() => import('./views/OppositionManage.jsx').then(m => ({ default: m.OppositionEditor })))
 const GuidedProgramCatalog = lazy(() => import('./views/GuidedPrograms.jsx').then(m => ({ default: m.GuidedProgramCatalog })))
 const GuidedProgramDetail = lazy(() => import('./views/GuidedPrograms.jsx').then(m => ({ default: m.GuidedProgramDetail })))
 const Friends = lazy(() => import('./views/Friends.jsx'))
@@ -292,6 +295,10 @@ function Shell() {
               <Route path="/premium/active" element={<PremiumActive />} />
               <Route path="/premium/manage" element={user?.admin || user?.trainer ? <PremiumManage /> : <Navigate to="/premium" replace />} />
               <Route path="/premium/manage/edit/:id" element={user?.admin || user?.trainer ? <PremiumEditor /> : <Navigate to="/premium" replace />} />
+              {/* Entrena tus Oposiciones: a special Premium family (its catalogue entry is hidden until an administrator publishes it); administration is admin-only. */}
+              <Route path="/oposiciones" element={<OppositionHub />} />
+              <Route path="/oposiciones/manage" element={user?.admin ? <OppositionManage /> : <Navigate to="/oposiciones" replace />} />
+              <Route path="/oposiciones/manage/edit/:id" element={user?.admin ? <OppositionEditor /> : <Navigate to="/oposiciones" replace />} />
               <Route path="/stretch" element={<Stretch />} />
               <Route path="/tests" element={<TestSession />} />
               <Route path="/clock" element={<ClockPicker />} />

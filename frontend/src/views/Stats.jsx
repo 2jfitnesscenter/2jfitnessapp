@@ -3,7 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { EXIDX } from '../lib/exercises.js'
 import { orderedBodyWeightSeries } from '../lib/bodyweight.js'
-import { visibleProgressCards } from '../lib/progress-cards.js'
+import { visibleProgressCards, PROGRESS_CARDS, PROGRESS_IDS, progressOrder, normalizeProgress } from '../lib/progress-cards.js'
+import { setLayout, restoreLayout, guideSeen, markGuideSeen } from '../lib/ux-layout.js'
+import LayoutEditor from '../components/LayoutEditor.jsx'
+import PersonalizeGuide from '../components/PersonalizeGuide.jsx'
 import { lastBW, streakWeeks, setLabel, modeOf, effortOf } from '../lib/history.js'
 import { fmtNum, fmtDate, fmtVol, todayISO, weekKey } from '../lib/format.js'
 import { t, nameFor } from '../lib/i18n.js'
@@ -254,6 +257,9 @@ export default function Stats() {
   const deepLinkId = params.get('ex')
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
+  const update = useStore(s => s.update)
+  const [editing, setEditing] = useState(false)
+  const [guide, setGuide] = useState(false)
   useStore(s => s.features)   // admin switches may arrive after the first render
   const [range, setRange] = useState(90)
   const [exId, setExId] = useState(() => deepLinkId || null)
@@ -333,10 +339,8 @@ export default function Stats() {
   // Each block keeps its own data/feature gates; the header, the period cover, the follow-up card and the recent-workouts list are structural and always shown.
   const blocks = {
     insights: <ProgressInsights S={S} nav={nav} />,
-    last: S.workouts.length > 0 && <div className="home-grid2">
-      <LastWorkoutCard S={S} />
-      {uxOn(S, 'recovery') && <RecoveryCard nav={nav} S={S} compact />}
-    </div>,
+    last: S.workouts.length > 0 && <LastWorkoutCard S={S} />,
+    recovery: S.workouts.length > 0 && uxOn(S, 'recovery') && <RecoveryCard nav={nav} S={S} compact />,
     composition: uxOn(S, 'bioimpedance') && <>
       <BioimpedanceReminderCard S={S} nav={nav} />
       <BodyCompositionCard S={S} nav={nav} />
@@ -409,6 +413,10 @@ export default function Stats() {
   const shown = visibleProgressCards(S)
   const nodes = []
   shown.forEach((id, i) => {
+    // The last workout and the muscle recovery sit side by side when they are neighbours (the page as it always was); apart, each takes its own row.
+    if (id === 'last' && shown[i + 1] === 'recovery') { nodes.push(<div key="last" className="home-grid2">{blocks.last}{blocks.recovery}</div>); return }
+    if (id === 'recovery' && shown[i - 1] === 'last') return
+    if (id === 'last') { nodes.push(<div key="last" className="home-grid2">{blocks.last}</div>); return }
     if (id === 'exercise' && shown[i + 1] === 'health') { nodes.push(<div key="cols" className="cols">{blocks.exercise}{blocks.health}</div>, <Fragment key="whoop">{blocks.whoop}</Fragment>); return }
     if (id === 'health' && shown[i - 1] === 'exercise') return          // rendered next to the exercise card above
     if (id === 'health') { nodes.push(<Fragment key="health">{blocks.health}{blocks.whoop}</Fragment>); return }
@@ -416,11 +424,20 @@ export default function Stats() {
   })
 
   return <>
+    <div className="pz-row"><button type="button" className={'pz-btn' + (editing ? ' on' : '')} aria-pressed={editing} onClick={() => { if (editing) setEditing(false); else { setEditing(true); if (!guideSeen(S)) setGuide(true) } }}><Icon name="pencil" />{t('Personalise')}</button></div>
     <div className="hdr"><div><h1>{t('Stats')}</h1><div className="sub">{t('Progress & history')}</div></div>
       <button className="iconbtn" onClick={() => nav('/history')} aria-label={t('History')}><Icon name="history" /></button></div>
 
     <ProgressCover S={S} onStory={openStory} />
 
+    {editing && <section className="pz-panel" aria-label={t('Personalise Progress')}>
+      <h2>{t('Personalise Progress')}</h2>
+      <p className="pz-lead">{t('Choose which blocks Progress shows and in which order. Nothing is deleted.')}</p>
+      <LayoutEditor S={S} catalog={PROGRESS_CARDS} layout={{ order: progressOrder(S), hidden: normalizeProgress(S.ux?.progress).hidden }} isDefault={!S.ux?.progress}
+        onChange={l => update(s => { setLayout(s, 'progress', l) })} onRestore={() => update(s => { restoreLayout(s, 'progress') })} />
+      <button type="button" className="btn primary pz-done" onClick={() => setEditing(false)}>{t('Done')}</button>
+    </section>}
+    {guide && <PersonalizeGuide onClose={() => { setGuide(false); update(s => { markGuideSeen(s) }) }} />}
     <FollowUpCard fu={followUp} S={S} nav={nav} />
     {nodes}
 

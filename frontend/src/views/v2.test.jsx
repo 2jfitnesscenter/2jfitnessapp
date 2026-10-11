@@ -101,11 +101,13 @@ describe('Home hero', () => {
     expect(html).not.toContain('v2-hero-today')
     expect(html).toContain('Load starter plan (PPL)')
   })
-  it('keeps the news slot, the week strip and Train with 2J', async () => {
+  it('keeps the calendar and, when the member adds it, Train with 2J (hidden by default so Home stays clean)', async () => {
     await seed({ ...HISTORY() })
     const html = await render(views.Home)
     expect(html).toContain('class="week"')
-    expect(html).toContain('Train with 2J')
+    expect(html).not.toContain('Train with 2J')
+    await seed({ ...HISTORY(), ux: { v: 1, at: 1, uses: {}, home: { order: ['week', 'premium', 'reorder', 'review', 'followup', 'news', 'readiness', 'coach', 'train2j', 'intelligence'], hidden: [] } } })
+    expect(await render(views.Home)).toContain('Train with 2J')
   })
 })
 

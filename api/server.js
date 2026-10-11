@@ -49,6 +49,7 @@ import { whoopRoutes } from './whoop/routes.js';
 import { blocksRoutes } from './lib/blocks-routes.js';
 import { guidedRoutes } from './lib/guided-routes.js';
 import { premiumRoutes } from './lib/premium-routes.js';
+import { oppositionRoutes } from './lib/opposition-routes.js';
 import * as guidedStore from './lib/guided-store.js';
 import { libraryAdminRoutes } from './lib/library-admin-routes.js';
 import { newsRoutes } from './lib/news-routes.js';
@@ -3482,6 +3483,8 @@ const routes = {
     hiddenExercises: () => new Set(hiddenEx), availableEquipment: () => gymProfileConfig.load() }),
   /* ---------- Premium Training Programs: structured methods with their own state (the member's side lives in their own S.premium) ---------- */
   ...premiumRoutes({ json, readBody, readSession, requireTrainer, requireAdmin, isAdmin, isTrainer, featureOn: () => featuresStore.isOn('premium') }),
+  /* ---------- Entrena tus Oposiciones: the official-profile catalogue (the member's plan lives in their own S.opposition and runs on the Premium engine) ---------- */
+  ...oppositionRoutes({ json, readBody, readSession, requireAdmin, isAdmin, isTrainer, featureOn: () => featuresStore.isOn('premium') }),
   /* ---------- Exercise Library quality: the admin's corrections to the 2J layer ---------- */
   ...libraryAdminRoutes({ json, readBody, requireAdmin }),
   ...featuresRoutes({ json, readBody, readSession, requireAdmin }),

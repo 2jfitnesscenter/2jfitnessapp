@@ -17,6 +17,8 @@ import { RoutineCycles } from '../../views/AdminFollowUp.jsx'
 import Icon from '../Icon.jsx'
 import { EXIDX } from '../../lib/exercises.js'
 import { runLabel, INCIDENT_LABEL } from '../../lib/premium-text.js'
+import { CAP_LABEL, PHASE_LABEL, STATUS_LABEL, LEVEL_LABEL } from '../../lib/opposition-text.js'
+import { formatMark } from '../../lib/opposition.js'
 import { Surface, Pill, ProgressBar, Sparkline, Skeleton } from '../v2.jsx'
 import { Button, Avatar, TextArea, Row } from '../ui.jsx'
 import './coach-followup.css'
@@ -124,6 +126,24 @@ export function PremiumRun({ p }) {
       {(p.incidents || []).length > 0 && <li className="note"><span>{t('Incidents')}</span><b>{p.incidents.map(i => t(INCIDENT_LABEL[i] || i)).join(' · ')}</b></li>}
     </ul>
     <p className="small dim">{t('Changing sets, percentages or loads in the program workouts may affect the method. Supplementary work, cardio and scheduling stay open to you.')}</p>
+  </>
+}
+
+/* The Oposiciones plan the member follows: body and convocatoria, version and source date, time left, plan length and phase, level per capacity, marks against the official minimum and target, adherence and alerts — read-only context for the review. */
+export function OppositionRun({ o }) {
+  return <>
+    <ul className="cf-list">
+      <li><span>{t('Exam')}</span><b>{o.name} · {t('version {0}', o.oppositionVersion)}</b></li>
+      <li><span>{t('Official source')}</span><b>{o.organism}{o.sourceDate ? ' · ' + fmtDate(o.sourceDate) : ''}</b></li>
+      <li><span>{t('Time left')}</span><b>{o.examDate ? fmtDate(o.examDate) + ' · ' : ''}{t('{0} weeks left', o.weeksLeft)} · {t('{0} months', o.monthsPlan)}</b></li>
+      <li><span>{t('Phase')}</span><b>{t(PHASE_LABEL[o.phase] || 'Base')} · {t('Week {0} of {1}', Math.min(o.calendarWeek, o.weeksTotal), o.weeksTotal)} · {t('block {0}', o.block)}</b></li>
+      <li><span>{t('Level')}</span><b>{t(LEVEL_LABEL[o.levelGlobal] || 'Beginner')}{o.levelEstimated ? ' · ' + t('estimated') : ''} — {Object.entries(o.levelByCapacity || {}).map(([c, l]) => t(CAP_LABEL[c]) + ' ' + t(LEVEL_LABEL[l]).toLowerCase()).join(' · ')}</b></li>
+      <li><span>{t('Adherence')}</span><b>{o.adherence != null ? o.adherence + '%' : '—'}</b></li>
+      {(o.alerts || []).includes('review') && <li className="note"><span>{t('Review')}</span><b>{t('This plan needs a person to look at it.')}</b></li>}
+    </ul>
+    <ul className="cf-list">{o.tests.map(x => <li key={x.id}><span>{x.name}</span><b>{formatMark(x, x.mark)} · {t('min')} {formatMark(x, x.minimum)} · {t('target')} {formatMark(x, x.target)}{x.status ? ' · ' + t(STATUS_LABEL[x.status]) : ''}</b></li>)}</ul>
+    {(o.missingData || []).length > 0 && <p className="small dim">{t('No mark yet in: {0}.', o.tests.filter(x => o.missingData.includes(x.id)).map(x => x.name).join(', '))}</p>}
+    <p className="small dim">{t('The tests and minimum marks are the official ones of this convocatoria (see the source date). The plan only changes through its control tests and a proposal the member confirms.')}</p>
   </>
 }
 
@@ -336,6 +356,7 @@ export function MemberView({ d, plan = null, id, back, reload = () => {}, setDat
     <Summary d={d} id={id} nav={nav} reload={reload} admin={!!user?.admin} />
     <Acc title={t('Now')} icon="bolt" open><Now view={view} /></Acc>
     {view.premium && <Acc title={t('Premium program')} icon="trophy" open hint={runLabel(view.premium)}><PremiumRun p={view.premium} /></Acc>}
+    {view.opposition && <Acc title={t('Oposiciones plan')} icon="flag" open hint={`${view.opposition.name} · ${t(PHASE_LABEL[view.opposition.phase] || 'Base')}`}><OppositionRun o={view.opposition} /></Acc>}
     <Acc title={t('Progress')} icon="chartLine" hint={t(cf.PROGRESSION_TEXT[p.progression.status])}><Progress view={view} /></Acc>
     <Acc title={t('Adherence')} icon="calendar" hint={a.d28.pct != null ? a.d28.pct + '%' : a.d28.full + a.d28.partial ? t('{0} sessions', a.d28.full + a.d28.partial) : null}><Adherence view={view} /></Acc>
     <Acc id="cf-review" title={t('Review cycle')} icon="clipboard" open={pendingReview} hint={view.review.next ? fmtDate(view.review.next) : null}>

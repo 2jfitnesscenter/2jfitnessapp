@@ -5,11 +5,11 @@
 // (its definition is pinned in the snapshot), so hiding a program or switching the catalogue off never reaches it: new activations stop, viewing,
 // training and finishing continue.
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { usePremium } from '../lib/premium-api.js'
-import { activate, finish, pause, resume, skip, setTM, nextCycle, runningView, filterCatalog, recommendation, compatibility, premiumState, FILTERS } from '../lib/premium.js'
+import { activate, finish, pause, resume, skip, setTM, nextCycle, runningView, filterCatalog, recommendation, compatibility, premiumState, activePlanOf, setAsidePlan, FILTERS } from '../lib/premium.js'
 import { copyOf, labelOfRun, BADGE_LABEL, LEVEL_KEY, GOAL_LABEL, STATUS_LABEL, PROGRESSION_TEXT, REASON_LABEL } from '../lib/premium-text.js'
 import { allowedByAdmin } from '../lib/features.js'
 import { EXIDX } from '../lib/exercises.js'
@@ -52,12 +52,12 @@ function ProgramCard({ p, rec, L, staff, wide, eager, onOpen }) {
       <span className="pm-card-cap">
         <span className="pm-kicker">{t(GOAL_LABEL[p.goalTags?.[0]] || 'Training')} · {t(LEVEL_KEY[p.level])}</span>
         <b className="pm-card-title">{x.name}</b>
-        <span className="pm-card-sub">{t('{0} days/week', p.daysPerWeek)}</span>
+        <span className="pm-card-sub">{p.methodType === 'opposition' ? t('Adaptive long-term plan') : t('{0} days/week', p.daysPerWeek)}</span>
       </span>
     </PremiumCover>
     <span className="pm-card-body">
       <span className="pm-card-desc">{x.shortDescription}</span>
-      <span className="pm-tags"><i>{t(GOAL_LABEL[p.goalTags?.[0]] || 'Training')}</i><i>{t('{0} days', p.daysPerWeek)}</i><i>{t(LEVEL_KEY[p.level])}</i></span>
+      <span className="pm-tags"><i>{t(GOAL_LABEL[p.goalTags?.[0]] || 'Training')}</i>{p.methodType === 'opposition' ? <i>{t('Adaptive')}</i> : <i>{t('{0} days', p.daysPerWeek)}</i>}<i>{t(LEVEL_KEY[p.level])}</i></span>
     </span>
   </button>
 }
@@ -163,6 +163,7 @@ export function PremiumDetail() {
     if (!summary) return
     usePremium.getState().detail(summary.id).then(setFull).catch(e => setErr(e.message))
   }, [summary?.id])   // eslint-disable-line react-hooks/exhaustive-deps
+  if (summary?.methodType === 'opposition') return <Navigate to="/oposiciones" replace />   // the Oposiciones family has its own flow: intake, plan by phases, control tests
   if (!summary) return <main className="pm-page"><header className="pm-hero"><div className="pm-hero-top"><Back to="/premium" /></div><h1>{c.status === 'ready' ? t('Program unavailable') : t('Loading…')}</h1></header></main>
   const L = lang(S)
   const p = full || summary
@@ -221,7 +222,7 @@ export function PremiumDetail() {
   </main>
 }
 
-function ActivateSheet({ program, text, compat, close, onDone }) {
+export function ActivateSheet({ program, text, compat, close, onDone }) {
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
@@ -229,14 +230,23 @@ function ActivateSheet({ program, text, compat, close, onDone }) {
   const unit = S.unit || 'kg'
   const [tm, setTm] = useState({})
   const running = premiumState(S).active
+  const plan = activePlanOf(S)
   const ready = lifts.every(l => Number(tm[l.key]) > 0)
   const go = () => {
-    update(s => { s.premium = activate(s, program, { tm: Object.fromEntries(lifts.map(l => [l.key, Number(tm[l.key])])), unit }) })
+    update(s => {
+      const plan = setAsidePlan(s)                       // the active planning is set aside (kept saved), never deleted
+      s.premium = activate(s, program, { tm: Object.fromEntries(lifts.map(l => [l.key, Number(tm[l.key])])), unit })
+      if (plan) s.premium.active.replacedPlan = { id: plan.id, name: plan.name, at: Date.now() }
+    })
     toast(t('Program started'))
     close(); onDone()
   }
   return <div className="pm-sheet">
     <h3>{t('Start {0}', text.name)}</h3>
+    {plan && <div className="pm-replace" role="alert"><Icon name="info" /><div>
+      <b>{t('Premium programs use their own periodisation.')}</b>
+      <p>{t('If you start this program, it will replace your current active planning ({0}).', plan.name)}</p>
+      <p>{t('Your history, completed workouts and saved routines will not be deleted.')}</p></div></div>}
     <ul className="pm-list">
       <li><Icon name="check" />{t('A new program will guide your next sessions: loads, sets and the cycle.')}</li>
       <li><Icon name="check" />{t('Your workouts, records and saved routines are not changed.')}</li>
@@ -249,7 +259,7 @@ function ActivateSheet({ program, text, compat, close, onDone }) {
       {lifts.map(l => <label key={l.key} className="pm-field"><span>{exName(l.exercise)} ({unit})</span>
         <input className="pm-input" type="number" inputMode="decimal" min="1" value={tm[l.key] ?? ''} onChange={e => setTm(v => ({ ...v, [l.key]: e.target.value }))} /></label>)}
     </>}
-    <button className="pm-primary" disabled={!ready} onClick={go}>{t('Start program')}</button>
+    <button className="pm-primary" disabled={!ready} onClick={go}>{plan ? t('Continue') : t('Start program')}</button>
     <button className="pm-ghost full" onClick={close}>{t('Cancel')}</button>
   </div>
 }
@@ -309,7 +319,7 @@ export function PremiumActive() {
       {v.missing.length > 0 && <p className="pm-note warn"><Icon name="info" />{t('Set the Training Max of every main lift to unlock the next session.')}</p>}
       {v.plan && <section className="pm-sec next"><h2>{t('Next workout')} · {v.plan.title}</h2><div className="pm-sec-body">
         <ul className="pm-plan">{v.plan.blocks.map((b, i) => <li key={i}><b>{exName(b.exercise)}</b>
-          <small>{b.kind === 'fixed' ? b.sets.map(s => `${s.w}×${s.r}${s.amrap ? '+' : ''}`).join(' · ') : b.kind === 'cfg' ? `${b.cfg.sets}×${b.cfg.targetRepsMin ? b.cfg.targetRepsMin + '-' + b.cfg.targetRepsMax : b.cfg.reps}` : b.kind === 'conditioning' ? (b.conditioning.min ? b.conditioning.min + ' min' : b.conditioning.sec + ' s') : t('Set the Training Max')}</small></li>)}</ul>
+          <small>{b.kind === 'fixed' ? b.sets.map(s => `${s.w}×${s.r}${s.amrap ? '+' : ''}`).join(' · ') : b.kind === 'cfg' ? `${b.cfg.sets}×${b.cfg.targetRepsMin ? b.cfg.targetRepsMin + '-' + b.cfg.targetRepsMax : b.cfg.reps}` : b.kind === 'conditioning' ? (b.conditioning.min ? b.conditioning.min + ' min' : b.conditioning.sec + ' s') : t('Set the Training Max')}</small>{b.note && <em className="pm-bnote">{t(b.note)}</em>}</li>)}</ul>
         <div className="pm-actions"><button className="pm-primary" disabled={paused || v.missing.length > 0} onClick={startPremiumSession}><Icon name="play" />{t('Start workout')}</button>
           <button className="pm-ghost" disabled={paused} onClick={skipOne}>{t('Skip session')}</button></div></div></section>}
       <ProposalCard v={v} update={update} />
