@@ -21,10 +21,12 @@ function finishCurrent(inst, workouts, { reps } = {}) {
 }
 
 describe('the official seed', () => {
-  it('has 12 programs with stable unique ids and slugs, all valid against the real library', () => {
-    expect(seed.programs).toHaveLength(12)
-    expect(new Set(seed.programs.map(p => p.id)).size).toBe(12)
-    expect(new Set(seed.programs.map(p => p.slug)).size).toBe(12)
+  it('has 29 programs (12 published + 17 hidden) with stable unique ids and slugs, all valid against the real library', () => {
+    expect(seed.programs).toHaveLength(29)
+    expect(seed.programs.filter(p => p.status === 'published')).toHaveLength(12)
+    expect(seed.programs.filter(p => p.status === 'hidden')).toHaveLength(17)
+    expect(new Set(seed.programs.map(p => p.id)).size).toBe(29)
+    expect(new Set(seed.programs.map(p => p.slug)).size).toBe(29)
     for (const p of seed.programs) expect(validateProgram(p, ctx), p.id).toEqual([])
   })
   it('covers hypertrophy, strength, strength + muscle, recomposition and conditioning, and every third-party method asks for legal review', () => {
@@ -210,5 +212,33 @@ describe('programs that use the app’s own progression instead of a TM', () => 
     expect(positionOf(i, w).cycleComplete).toBe(true)
     expect(proposalFor(i, w)).toMatchObject({ proposals: {}, hasRule: false })
     expect(advanceCycle(i, w).cycle).toBe(2)
+  })
+})
+
+describe('the hidden second wave runs on the same engine', () => {
+  const wave = seed.programs.filter(p => p.status === 'hidden')
+  it('every session of every program plans cleanly, and BFR / race programs carry their safety notes', () => {
+    expect(wave).toHaveLength(17)
+    for (const p of wave) {
+      let inst = newInstance(p, { tm: TM })
+      const total = sessionsOf(p.programDefinition).length
+      for (let i = 0; i < total; i++) {
+        const plan = planSession(inst, [])
+        expect(plan.blocks.length, `${p.slug} session ${i}`).toBeGreaterThan(0)
+        for (const b of plan.blocks) expect(['fixed', 'cfg', 'conditioning']).toContain(b.kind)
+        inst = skipSession(inst, [])
+      }
+      expect(positionOf(inst, []).cycleComplete, p.slug).toBe(true)
+    }
+    const bfr = planSession(newInstance(program('bfr-hypertrophy'), { tm: TM }), [])
+    expect(bfr.blocks.some(b => /numbness/i.test(b.note || ''))).toBe(true)
+  })
+  it('functional and race programs use descriptive names only and declare no affiliation', () => {
+    for (const slug of ['functional-fitness-engine', 'fitness-race-prep', 'fitness-race-advanced']) {
+      const p = program(slug)
+      expect(JSON.stringify(p)).not.toMatch(/crossfit|hyrox/i)
+      expect(p.legal.status).toBe('none')
+    }
+    expect(program('fitness-race-prep').legal.note).toMatch(/no affiliation/i)
   })
 })
