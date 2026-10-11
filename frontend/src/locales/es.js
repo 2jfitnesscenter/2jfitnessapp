@@ -5319,4 +5319,9 @@ export default {
   'And "Restore default layout" puts everything back the way it came.': 'Y «Restaurar diseño por defecto» lo deja todo como venía.',
   'You can also do it from Settings': 'También puedes hacerlo desde Ajustes',
   'Settings → Personalisation has the same controls, and can show this guide again.': 'Ajustes → Personalización tiene los mismos controles y puede volver a mostrar esta guía.',
+  'If you start this program, it will replace your current active planning ({0}).': 'Si empiezas este programa, sustituirá tu planificación activa actual ({0}).',
+  'Premium programs use their own periodisation.': 'Los Entrenamientos Premium utilizan su propia periodización.',
+  'Ready-made workouts': 'Entrenamientos ya hechos',
+  'Today’s plan': 'El plan de hoy',
+  'Your history, completed workouts and saved routines will not be deleted.': 'Tu historial, tus entrenamientos completados y tus rutinas guardadas no se borrarán.',
 }

@@ -9,7 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { usePremium } from '../lib/premium-api.js'
-import { activate, finish, pause, resume, skip, setTM, nextCycle, runningView, filterCatalog, recommendation, compatibility, premiumState, FILTERS } from '../lib/premium.js'
+import { activate, finish, pause, resume, skip, setTM, nextCycle, runningView, filterCatalog, recommendation, compatibility, premiumState, activePlanOf, setAsidePlan, FILTERS } from '../lib/premium.js'
 import { copyOf, labelOfRun, BADGE_LABEL, LEVEL_KEY, GOAL_LABEL, STATUS_LABEL, PROGRESSION_TEXT, REASON_LABEL } from '../lib/premium-text.js'
 import { allowedByAdmin } from '../lib/features.js'
 import { EXIDX } from '../lib/exercises.js'
@@ -221,7 +221,7 @@ export function PremiumDetail() {
   </main>
 }
 
-function ActivateSheet({ program, text, compat, close, onDone }) {
+export function ActivateSheet({ program, text, compat, close, onDone }) {
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
@@ -229,14 +229,23 @@ function ActivateSheet({ program, text, compat, close, onDone }) {
   const unit = S.unit || 'kg'
   const [tm, setTm] = useState({})
   const running = premiumState(S).active
+  const plan = activePlanOf(S)
   const ready = lifts.every(l => Number(tm[l.key]) > 0)
   const go = () => {
-    update(s => { s.premium = activate(s, program, { tm: Object.fromEntries(lifts.map(l => [l.key, Number(tm[l.key])])), unit }) })
+    update(s => {
+      const plan = setAsidePlan(s)                       // the active planning is set aside (kept saved), never deleted
+      s.premium = activate(s, program, { tm: Object.fromEntries(lifts.map(l => [l.key, Number(tm[l.key])])), unit })
+      if (plan) s.premium.active.replacedPlan = { id: plan.id, name: plan.name, at: Date.now() }
+    })
     toast(t('Program started'))
     close(); onDone()
   }
   return <div className="pm-sheet">
     <h3>{t('Start {0}', text.name)}</h3>
+    {plan && <div className="pm-replace" role="alert"><Icon name="info" /><div>
+      <b>{t('Premium programs use their own periodisation.')}</b>
+      <p>{t('If you start this program, it will replace your current active planning ({0}).', plan.name)}</p>
+      <p>{t('Your history, completed workouts and saved routines will not be deleted.')}</p></div></div>}
     <ul className="pm-list">
       <li><Icon name="check" />{t('A new program will guide your next sessions: loads, sets and the cycle.')}</li>
       <li><Icon name="check" />{t('Your workouts, records and saved routines are not changed.')}</li>
@@ -249,7 +258,7 @@ function ActivateSheet({ program, text, compat, close, onDone }) {
       {lifts.map(l => <label key={l.key} className="pm-field"><span>{exName(l.exercise)} ({unit})</span>
         <input className="pm-input" type="number" inputMode="decimal" min="1" value={tm[l.key] ?? ''} onChange={e => setTm(v => ({ ...v, [l.key]: e.target.value }))} /></label>)}
     </>}
-    <button className="pm-primary" disabled={!ready} onClick={go}>{t('Start program')}</button>
+    <button className="pm-primary" disabled={!ready} onClick={go}>{plan ? t('Continue') : t('Start program')}</button>
     <button className="pm-ghost full" onClick={close}>{t('Cancel')}</button>
   </div>
 }

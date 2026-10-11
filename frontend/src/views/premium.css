@@ -204,3 +204,7 @@ textarea.pm-input{padding:10px 12px}
 .pm-cover-edit .pm-cover{max-width:560px}
 .pm-rail{scroll-padding-inline:16px}
 @media(min-width:640px){.pm-rail{scroll-padding-inline:24px}}
+.pm-replace{display:flex;gap:10px;align-items:flex-start;padding:12px 13px;margin:0 0 12px;border-radius:14px;border:1px solid rgba(217,180,91,.6);background:rgba(217,180,91,.12);color:var(--label)}
+.pm-replace>svg{flex:none;width:20px;height:20px;color:#B8902F;margin-top:2px}
+.pm-replace b{display:block;font-size:14px;margin-bottom:4px}
+.pm-replace p{margin:0 0 4px;font-size:13px;line-height:1.45;color:var(--label)}

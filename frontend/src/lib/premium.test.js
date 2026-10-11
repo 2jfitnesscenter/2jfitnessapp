@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import seed from '../../../api/lib/premium-official.json'
-import { activate, finish, pause, resume, skip, setTM, nextCycle, premiumState, runningView, recommendation, filterCatalog, compatibility, exercisesOf } from './premium.js'
+import { activate, finish, pause, resume, skip, setTM, nextCycle, premiumState, runningView, recommendation, filterCatalog, compatibility, exercisesOf, activePlanOf, setAsidePlan } from './premium.js'
 import { planSession, originOf } from './premium-model.js'
 
 const prog = slug => seed.programs.find(p => p.slug === slug)
@@ -90,4 +90,22 @@ describe('official program updated while a member follows the old version', () =
     expect(S.premium.active.programVersion).toBe(2); expect(S.premium.history[0]).toMatchObject({ instanceId: 'old', programVersion: 1 })
     expect(planSession(S.premium.active, []).blocks[0].sets[0].w).not.toBe(planSession({ ...S.premium.active, snapshot: { ...S.premium.active.snapshot, definition: v1.programDefinition } }, []).blocks[0].sets[0].w)
   })
+})
+
+describe('starting a Premium program over an active plan', () => {
+  const base = () => ({ unit: 'kg', workouts: [{ id: 'w1', d: '2026-10-01', entries: [] }], routines: [{ id: 'r1', name: 'Push' }], week: { 1: 'r1' },
+    programs: [{ id: 'p1', name: 'My 4-week block', source: 'guided-v2', status: 'active', week: { 2: 'r1' } }, { id: 'p2', name: 'Old', status: 'completed' }], activeProgramId: 'p1' })
+  it('finds the active planning; a finished or missing one is not a plan', () => {
+    expect(activePlanOf(base())).toEqual({ id: 'p1', name: 'My 4-week block' })
+    expect(activePlanOf({ ...base(), activeProgramId: 'p2' })).toBeNull(); expect(activePlanOf({})).toBeNull(); expect(activePlanOf({ ...base(), activeProgramId: 'nope' })).toBeNull()
+  })
+  it('sets it aside without deleting anything: the program stays saved (a guided one is paused), history, workouts and routines are untouched', () => {
+    const S = base(); const before = JSON.stringify({ w: S.workouts, r: S.routines, week: S.week })
+    const plan = setAsidePlan(S)
+    expect(plan.id).toBe('p1'); expect(S.activeProgramId).toBeNull()
+    expect(S.programs.map(p => p.id)).toEqual(['p1', 'p2']); expect(S.programs[0].status).toBe('paused')
+    expect(JSON.stringify({ w: S.workouts, r: S.routines, week: S.week })).toBe(before)
+    expect(setAsidePlan(S)).toBeNull()                                          // nothing left to set aside
+  })
+  it('a member without an active plan is never warned', () => { const S = { ...base(), activeProgramId: null }; expect(activePlanOf(S)).toBeNull(); expect(setAsidePlan(S)).toBeNull() })
 })
