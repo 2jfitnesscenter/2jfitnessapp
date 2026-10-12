@@ -1,24 +1,27 @@
 import { create } from 'zustand'
 import { uid } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
-import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { useStore } from './useStore.js'
 import { workoutPrefs } from '../lib/workout-prefs.js'
 import { cancelRestNotification, isAndroidNative, requestRestNotificationPermission, scheduleRestNotification } from '../lib/rest-notification.js'
+import { syncRestPushAlert } from '../lib/push.js'
 
-// Fire-and-forget: lets the server push a "rest over" alert if this tab gets suspended
-// before the local timer completes. No-ops for guests / offline.
-const pushRestTimer = (sec, exercise) => { if (useStore.getState().user) api('/api/push/rest-timer', { method: 'POST', body: JSON.stringify({ seconds: sec, exercise }) }).catch(() => {}) }
-const cancelPushRestTimer = () => { if (useStore.getState().user) api('/api/push/rest-timer/cancel', { method: 'POST', body: '{}' }).catch(() => {}) }
-const syncRestNotification = (tm, enabled) => {
+const syncRestNotification = (tm, enabled, cancelledTimer = tm) => {
   if (isAndroidNative()) {
     if (tm && enabled && !tm.paused) scheduleRestNotification(tm.endsAt)
     else cancelRestNotification()
     return
   }
-  if (tm && enabled && !tm.paused) pushRestTimer(tm.left, tm.exercise)
-  else cancelPushRestTimer()
+  const timer = tm || cancelledTimer
+  if (!timer) return
+  const ownerId = timer.ownerId || null
+  syncRestPushAlert({
+    timer,
+    ownerId,
+    enabled: !!tm && !!enabled && !tm.paused,
+    getCurrentOwnerId: () => useStore.getState().user?.id || null,
+  })
 }
 
 let toastTm = null
@@ -109,7 +112,7 @@ export const useUI = create((set, get) => {
   startRest(sec, exercise) {
     get().stopRest()
     const endsAt = Date.now() + sec * 1000
-    const timer = { left: sec, total: sec, endsAt, exercise, paused: false }
+    const timer = { left: sec, total: sec, endsAt, exercise, paused: false, alertId: uid(), ownerId: useStore.getState().user?.id || null }
     set({ timer })
     syncRestNotification(timer, restPrefs().restAlert)
     runRest()
@@ -143,7 +146,8 @@ export const useUI = create((set, get) => {
   },
   stopRest() {
     clearRestTick()
-    if (get().timer) syncRestNotification(null, false)
+    const timer = get().timer
+    if (timer) syncRestNotification(null, false, timer)
     set({ timer: null })
   },
   async setRestAlertPreference(enabled) {
@@ -213,4 +217,10 @@ export const useUI = create((set, get) => {
     set({ work: null })
   }
 }
+})
+
+// A rest countdown is ephemeral UI state. Never let one account's countdown survive an account
+// switch on a shared browser; the push scheduler also checks the captured owner before requests.
+if (typeof useStore.subscribe === 'function') useStore.subscribe((state, previous) => {
+  if (state.user?.id !== previous.user?.id && useUI.getState().timer) useUI.getState().stopRest()
 })

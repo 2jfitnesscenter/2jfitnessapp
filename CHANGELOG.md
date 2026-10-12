@@ -12,6 +12,9 @@
 - 17 programas Premium nuevos **ocultos por defecto** (el administrador los publica), con evidencia, metadata legal, portadas licenciadas y avisos de seguridad (BFR); sin afiliación a ninguna marca.
 - Entrena tus Oposiciones: perfiles oficiales versionados y con fuente (Policía Local Canarias, Policía Nacional, Guardia Civil, Bomberos CEGC; ocultos por defecto), plan por fases a 6/12/18/24 meses, semana de control, propuesta de adaptación que el socio confirma, Coach e IA con la versión fijada del plan y Administración → Oposiciones. Natación y circuito de vallas usan un sustituto temporal claramente marcado.
 - Sin migraciones: `S.ux`, `S.premium` y `S.opposition` son claves opcionales de Sync V2.
+### Web Push al terminar descansos — candidato local, NO desplegado
+
+- El temporizador de descanso web reutiliza la cola persistente existente y sincroniza/cancela avisos opacos por descanso. Solo usa permisos y suscripciones ya concedidos; el service worker conserva la UX local cuando la PWA está visible y muestra el aviso genérico al quedar en segundo plano. Prueba física en PWA móvil pendiente.
 
 ### Entrenamientos Premium V1 + Home personalizable + Salud V2 (objetivos) — candidato, NO desplegado
 

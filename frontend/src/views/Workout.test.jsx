@@ -204,6 +204,27 @@ describe('the set pad', () => {
 })
 
 describe('rest V2', () => {
+  it('schedules the existing opted-in web subscription and cancels the same alert on skip', async () => {
+    const subscription = { toJSON: () => ({ endpoint: 'https://push.example.test/rest', keys: { p256dh: 'p', auth: 'a' } }) }
+    Object.assign(window, { PushManager: function PushManager() {} })
+    vi.stubGlobal('navigator', { serviceWorker: { ready: Promise.resolve({ pushManager: { getSubscription: vi.fn().mockResolvedValue(subscription) } }) } })
+    vi.stubGlobal('Notification', { permission: 'granted' })
+    api.mockImplementation(async path => path === '/api/push/subscribe' ? { subscriptionId: 'rest-subscription' } : { ok: true })
+    store.setState({ user: { id: 'member-1' } })
+
+    ui.getState().startRest(60, 'Press')
+    await vi.waitFor(() => expect(api.mock.calls.some(([path]) => path === '/api/rest-alert')).toBe(true))
+    const schedule = api.mock.calls.find(([path]) => path === '/api/rest-alert')
+    const scheduled = JSON.parse(schedule[1].body)
+    expect(scheduled).toMatchObject({ subscriptionId: 'rest-subscription', endsAt: expect.any(Number) })
+    expect(scheduled).not.toHaveProperty('exercise')
+
+    ui.getState().stopRest()
+    await vi.waitFor(() => expect(api.mock.calls.some(([path]) => path === '/api/rest-alert/cancel')).toBe(true))
+    const cancel = api.mock.calls.find(([path]) => path === '/api/rest-alert/cancel')
+    expect(JSON.parse(cancel[1].body)).toEqual({ subscriptionId: 'rest-subscription', alertId: scheduled.alertId })
+  })
+
   it('pause freezes the countdown, resume continues it; the end alert follows alert/sound/vibration', async () => {
     vi.useFakeTimers()
     const { announceRestOver } = await import('../store/useUI.js')
@@ -217,7 +238,9 @@ describe('rest V2', () => {
     ui.getState().resumeRest()
     vi.advanceTimersByTime(2000)
     expect(ui.getState().timer.left).toBe(5)
-    expect(api.mock.calls.map(c => c[0])).toEqual(['/api/push/rest-timer', '/api/push/rest-timer/cancel', '/api/push/rest-timer'])
+    // Browser push is optional: this test runtime has no existing permission/subscription, so
+    // the local countdown remains the only active UX and no legacy in-memory endpoint is used.
+    expect(api.mock.calls.filter(c => c[0].includes('/api/push/rest-timer'))).toEqual([])
     vi.advanceTimersByTime(6000)
     expect(ui.getState().timer).toBeNull()
     expect(sound.vibrate).toHaveBeenCalledWith([200, 100, 200])
@@ -237,7 +260,7 @@ describe('rest V2', () => {
     write(s => { s.restAlert = false })
     ui.getState().startRest(5, 'Press')
     vi.advanceTimersByTime(6000)
-    expect(api.mock.calls.filter(c => c[0] === '/api/push/rest-timer')).toEqual([])
+    expect(api.mock.calls.filter(c => c[0].includes('/api/push/rest-timer'))).toEqual([])
   })
   it('native Android uses one local alert through rest edits and never sends a rest push', async () => {
     vi.useFakeTimers()
