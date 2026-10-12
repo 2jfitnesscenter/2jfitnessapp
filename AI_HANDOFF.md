@@ -1,5 +1,34 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Estado autoritativo — producción y prioridades (2026-10-12)
+
+Producción y resultado del deploy confirmados por el propietario. Este checkpoint prevalece sobre los estados de release de las notas históricas que siguen; esos bloques se conservan como registro, no como backlog vigente.
+
+### PRODUCCIÓN ACTUAL
+
+- Release desplegada: `51bb15e99b0f838ec8aaa439777fbf45169caaf8`.
+- Resultado reportado: `DEPLOY_OK=51bb15e99b0f838ec8aaa439777fbf45169caaf8`, `ROLLBACK=NOT_NEEDED`, health interno/externo 200, 28 estados preservados, hashes inmutables sin cambios, servicios API/web/Caddy sanos y marker/`DEPLOY_SCRIPT_OK` coincidentes.
+
+### CERRADO Y DESPLEGADO
+
+- **Personalización V2 / Ajustes:** ordenar, mostrar, ocultar y restaurar bloques de Home y Progreso; guía de primer uso y accesos desde ambas superficies. Ajustes usa una fila compacta que abre `/settings/personalisation`.
+- **Premium Training:** catálogo operativo con 12 programas originales publicados, gestión admin, motor reutilizable y programas adicionales ocultos por defecto.
+- **Oposiciones V1.1:** preparación física real mediante el motor Premium; sesiones y fases Base/Desarrollo/Específica/Competitiva con fuerza, fuerza relativa, potencia, velocidad, agilidad, resistencia, trabajo específico, natación cuando corresponde, core/preventivo, progresión y descargas. Las marcas son checkpoints de evaluación. Perfiles: Policía Local Canarias, Policía Nacional, Guardia Civil y Bomberos CEGC; horizontes 6/12/18/24 meses.
+- **Bunker V2.1 y core:** vista Normal/Compacta para aproximadamente 6–10 socios, tarjetas con estado de sesión y acceso al panel completo. Rutina completa, navegación, imágenes, superseries, swap, rutina libre/perfil, persistencia, aislamiento por uid y finish/historial están cerrados. V2.1 no cambió API, modelo de datos ni Sync V2.
+- También cerrados: Exercise Library V2 y taxonomía; búsqueda, swap, import y capa IA de ejercicios; Gym Profiles; Constructor V2 y bloques; Guided/Entrena con 2J; Social/Amigos; Shared Staff; Health V2; export/share; Coach/seguimiento base; progresión cardio; modo Express y reordenación semanal; Training Quality y revisión de programa. No reabrirlos como features nuevas sin una incidencia concreta reproducida.
+
+### PENDIENTE REAL
+
+- No hay otro sprint de Training pendiente confirmado. Validar Oposiciones V1.1 y el flujo de entrenamiento con uso real; agrupar incidencias reproducibles antes de cambiar producto.
+- Web Push para descanso sigue sin validación física confirmada ni conexión del aviso real al temporizador. El trabajo preparatorio está en una línea separada y no forma parte de esta base `main`; no asumir que está desplegado.
+- El APK Android firmado y distribuible queda expresamente para el final.
+
+### FUTURO Y ORDEN DE TRABAJO
+
+- Terminar Training antes de empezar Platform. No iniciar Platform ahora.
+- Siguiente bloque recomendado: validación de uso real de Oposiciones V1.1 y del flujo completo de entrenamiento; corregir solo fallos observados y agruparlos en un bloque pequeño.
+- Después de cerrar Training con evidencia, reconsiderar Platform. Android firmado/distribución se deja para el final.
+
 ## Home + Salud V2 + Entrenamientos Premium V1 (candidato; NO desplegado; base `172a89c` = origin/main tras el PR #17)
 
 - Rama `codex/premium-programs-v1`. Detalle en `docs/PREMIUM_PROGRAMS_V1.md` y `docs/HEALTH_COMPOSITION_V2.md`. **Premium** = catálogo de métodos estructurados (no paywall): motor genérico dirigido por datos (`lib/premium-model.js`, copia sincronizada en `api/lib`), 12 programas semilla versionados (`scripts/premium/official-programs.mjs` → `api/lib/premium-official.json`, CI `--check`), store con overlay `DATA/premium.json`, rutas `/api/premium/*`, flag `premium` (OFF = sin activaciones nuevas, los programas en marcha siguen). 5/3/1 es un programa del motor (Training Max, S1–S4, AMRAP, propuesta de ciclo que confirma el socio).
