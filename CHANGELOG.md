@@ -1,5 +1,9 @@
 # Changelog
 
+### Web Push al terminar descansos — candidato local, NO desplegado
+
+- El temporizador de descanso web reutiliza la cola persistente existente y sincroniza/cancela avisos opacos por descanso. Solo usa permisos y suscripciones ya concedidos; el service worker conserva la UX local cuando la PWA está visible y muestra el aviso genérico al quedar en segundo plano. Prueba física en PWA móvil pendiente.
+
 ### Entrenamientos Premium V1 + Home personalizable + Salud V2 (objetivos) — candidato, NO desplegado
 
 - Nuevo catálogo **Premium** de 12 metodologías (5/3/1, Texas, ONDAS 10/8/5/3, GZCL, PHUL, PHAT, DUP, powerbuilding, cuerpo completo, recomposición 2J, concurrente, acondicionamiento) con portada, ficha, filtros y recomendación por objetivo/nivel/días; programa activo con ciclo/semana, pausa, saltar, Training Max, propuesta de ciclo y cambio con historial.
