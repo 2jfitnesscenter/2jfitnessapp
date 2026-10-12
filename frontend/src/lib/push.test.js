@@ -91,3 +91,67 @@ describe('Web Push setup', () => {
     await expect(enablePush()).rejects.toThrow('public key unavailable')
   })
 })
+
+describe('rest timer Web Push scheduling', () => {
+  it('uses only an already granted permission and existing subscription, then schedules/cancels the same alert id', async () => {
+    const subscription = { endpoint: 'https://push.example.test/rest', toJSON: () => ({ endpoint: 'https://push.example.test/rest', keys: { p256dh: 'p', auth: 'a' } }) }
+    const requestPermission = vi.fn()
+    const reg = { pushManager: { getSubscription: vi.fn().mockResolvedValue(subscription) } }
+    browser({ ready: Promise.resolve(reg) }, { permission: 'granted', requestPermission })
+    api.mockImplementation(async path => path === '/api/push/subscribe' ? { subscriptionId: 'sub-id' } : { ok: true })
+    const { syncRestPushAlert } = await import('./push.js')
+    const timer = { alertId: 'rest_alert_123456', endsAt: Date.now() + 20_000, paused: false }
+    const getCurrentOwnerId = () => 'u1'
+
+    await syncRestPushAlert({ timer, ownerId: 'u1', enabled: true, getCurrentOwnerId })
+    await syncRestPushAlert({ timer, ownerId: 'u1', enabled: false, getCurrentOwnerId })
+
+    expect(requestPermission).not.toHaveBeenCalled()
+    expect(reg.pushManager.getSubscription).toHaveBeenCalledTimes(1)
+    expect(api.mock.calls.map(([path]) => path)).toEqual(['/api/push/subscribe', '/api/rest-alert', '/api/rest-alert/cancel'])
+    expect(JSON.parse(api.mock.calls[1][1].body)).toEqual({ subscriptionId: 'sub-id', alertId: timer.alertId, endsAt: timer.endsAt })
+    expect(JSON.parse(api.mock.calls[2][1].body)).toEqual({ subscriptionId: 'sub-id', alertId: timer.alertId })
+  })
+
+  it('silently skips denied permission, missing subscription, and a changed account', async () => {
+    const { syncRestPushAlert } = await import('./push.js')
+    const timer = { alertId: 'rest_alert_654321', endsAt: Date.now() + 20_000, paused: false }
+    const requestPermission = vi.fn()
+
+    browser({ ready: Promise.resolve({ pushManager: { getSubscription: vi.fn().mockResolvedValue(null) } }) }, { permission: 'denied', requestPermission })
+    await syncRestPushAlert({ timer, ownerId: 'u1', enabled: true, getCurrentOwnerId: () => 'u1' })
+    expect(api).not.toHaveBeenCalled()
+    expect(requestPermission).not.toHaveBeenCalled()
+
+    browser({ ready: Promise.resolve({ pushManager: { getSubscription: vi.fn().mockResolvedValue(null) } }) }, { permission: 'granted', requestPermission })
+    await syncRestPushAlert({ timer: { ...timer, alertId: 'rest_alert_654322' }, ownerId: 'u1', enabled: true, getCurrentOwnerId: () => 'u1' })
+    await syncRestPushAlert({ timer: { ...timer, alertId: 'rest_alert_654323' }, ownerId: 'u1', enabled: true, getCurrentOwnerId: () => 'u2' })
+    expect(api).not.toHaveBeenCalled()
+  })
+
+  it('serializes reschedule and cancellation so an older rest cannot replace a newer one', async () => {
+    const subscription = { toJSON: () => ({ endpoint: 'https://push.example.test/restart', keys: { p256dh: 'p', auth: 'a' } }) }
+    const reg = { pushManager: { getSubscription: vi.fn().mockResolvedValue(subscription) } }
+    browser({ ready: Promise.resolve(reg) }, { permission: 'granted', requestPermission: vi.fn() })
+    api.mockImplementation(async path => path === '/api/push/subscribe' ? { subscriptionId: 'sub-restart' } : { ok: true })
+    const { syncRestPushAlert } = await import('./push.js')
+    let currentOwner = 'u1'
+    const getCurrentOwnerId = () => currentOwner
+    const oldTimer = { alertId: 'rest_alert_old_1234', endsAt: Date.now() + 30_000, paused: false }
+    const newTimer = { alertId: 'rest_alert_new_1234', endsAt: Date.now() + 45_000, paused: false }
+
+    await syncRestPushAlert({ timer: oldTimer, ownerId: 'u1', enabled: true, getCurrentOwnerId })
+    await syncRestPushAlert({ timer: oldTimer, ownerId: 'u1', enabled: false, getCurrentOwnerId })
+    await syncRestPushAlert({ timer: newTimer, ownerId: 'u1', enabled: true, getCurrentOwnerId })
+    currentOwner = 'u2'
+    await syncRestPushAlert({ timer: newTimer, ownerId: 'u1', enabled: false, getCurrentOwnerId })
+
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      '/api/push/subscribe', '/api/rest-alert', '/api/rest-alert/cancel', '/api/push/subscribe', '/api/rest-alert',
+    ])
+    expect(JSON.parse(api.mock.calls.at(-1)[1].body).alertId).toBe(newTimer.alertId)
+    expect(JSON.parse(api.mock.calls.at(-1)[1].body)).not.toHaveProperty('exercise')
+    currentOwner = 'u1'
+    await syncRestPushAlert({ timer: newTimer, ownerId: 'u1', enabled: false, getCurrentOwnerId })
+  })
+})

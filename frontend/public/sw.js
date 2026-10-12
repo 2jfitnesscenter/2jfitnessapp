@@ -38,7 +38,14 @@ self.addEventListener('push', event => {
     try { data = event.data ? event.data.json() : {} } catch { return }
     if (data.type === 'rest-alert' || data.type === 'rest-alert-test') {
       const id = typeof data.id === 'string' && /^[A-Za-z0-9_-]{12,80}$/.test(data.id) ? data.id : ''
-      if (!id || !await claimRestAlert(id)) return
+      if (!id) return
+      // A visible app keeps its existing local countdown/toast UX. Only surface an OS
+      // notification while the PWA is not visible (background or screen locked).
+      try {
+        const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        if (windows.some(client => client.visibilityState === 'visible')) return
+      } catch { /* If visibility cannot be determined, prefer delivering the alert. */ }
+      if (!await claimRestAlert(id)) return
       try {
         await self.registration.showNotification('Descanso terminado', {
           body: 'Siguiente serie',

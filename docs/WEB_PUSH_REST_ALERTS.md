@@ -1,6 +1,6 @@
 # Web Push para avisos de descanso
 
-Estado 2026-10-07: infraestructura de prueba implementada localmente; **no desplegada ni validada físicamente**. El temporizador de descanso todavía no usa esta cola. Mantener la alerta Capacitor existente para la APK.
+Estado 2026-10-12: la integración local conecta el temporizador web existente con la cola persistente `/api/rest-alert`; **no desplegada ni validada físicamente**. La alerta Capacitor existente se conserva sin cambios para la APK.
 
 ## Arquitectura actual de esta fase
 
@@ -9,6 +9,9 @@ Estado 2026-10-07: infraestructura de prueba implementada localmente; **no despl
 - `db.restAlerts` es una cola pequeña de avisos, no un segundo sistema de sincronización. El proceso Node revisa vencimientos cada segundo, guarda estados en el `db.json` persistente y recupera los que estaban en envío al reiniciar. Reintenta fallos transitorios hasta 3 veces; los endpoints revocados se eliminan. Los registros terminales se conservan hasta 7 días y los avisos vencidos más de 24 horas se descartan. Web Push tiene TTL de 5 minutos.
 - El push de descanso contiene solo tipo, id opaco y ruta. El service worker fija el texto «Descanso terminado» / «Siguiente serie», etiqueta estable y `renotify:false`; un cache local de IDs evita mostrar dos veces el mismo aviso al recibir entregas duplicadas. El click vuelve a `#/workout`. Las notificaciones sociales mantienen su handler actual.
 - La prueba independiente programa a +5 s el mismo aviso fijo `Descanso terminado` / `Siguiente serie` que usará el descanso real, sin alterar una alerta pendiente. Primero se solicita permiso por acción explícita del socio; un permiso denegado muestra cómo habilitarlo desde los ajustes del navegador/dispositivo y no vuelve a abrir el diálogo automáticamente.
+- El temporizador web reutiliza un `alertId` opaco durante el mismo descanso y sincroniza `endsAt`; pausa, cancelación, finalización y sustitución por otro descanso cancelan el aviso anterior. Las solicitudes se serializan en el cliente para evitar que una programación retrasada sustituya un descanso más reciente. El servidor valida cuenta y suscripción, y la carga no contiene nombre de ejercicio ni datos personales.
+- La integración solo consulta y registra una suscripción que ya exista con permiso `granted`; no solicita permisos ni crea suscripciones al iniciar un descanso. Si el usuario no está autenticado, no hay permiso o no existe suscripción, la cuenta atrás local sigue como siempre y el fallo Web Push queda aislado. Si la PWA está visible al llegar el push, el service worker suprime el aviso del sistema para conservar la UX local; si está oculta/bloqueada, muestra la notificación genérica.
+- El scheduler del servidor conserva la hora objetivo tras un reload; la cuenta atrás visual no se restaura tras recargar, conforme al comportamiento previo del temporizador. Los IDs opacos y la deduplicación del service worker evitan mostrar dos veces una misma entrega.
 
 ## VAPID y recuperación
 
@@ -25,4 +28,4 @@ La clave VAPID identifica las suscripciones existentes: conservar el par durante
 
 ## Prueba física pendiente
 
-Cuando la build de esta fase esté disponible en la PWA de prueba, desde el teléfono iniciar sesión con passkey, abrir Ajustes → Entrenamiento → «Activar y probar notificaciones web», conceder permiso, pulsar el botón y minimizar 2J antes de que pasen cinco segundos. Confirmar que aparece «Descanso terminado» / «Siguiente serie» con la app minimizada y, por separado, con la pantalla apagada. Revisar también el click, el permiso denegado y la suscripción después de reabrir. Esta validación **no se ha realizado**; por tanto no declarar Web Push ni el aviso de descanso resueltos. Solo tras esa prueba se conecta `/api/rest-alert` al temporizador JS existente, con el mismo `alertId` durante pausa/reanudación/cambios y cancelación del anterior; sin segundo contador.
+En una build desplegada, desde la PWA instalada iniciar sesión con passkey, confirmar permiso/suscripción desde Ajustes → Entrenamiento y ejecutar un descanso breve. Verificar primero con la app minimizada y después con pantalla apagada. También comprobar descanso visible, cancelación/skip, pausa y reanudación, sustitución rápida por otro descanso, permiso denegado, suscripción ausente, reload y una sola notificación. Esta validación **no se ha realizado**; no declarar la entrega física cerrada hasta verla aparecer realmente en el dispositivo. No conectar ni modificar el temporizador Android como parte de esta tarea.

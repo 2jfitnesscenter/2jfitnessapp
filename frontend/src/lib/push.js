@@ -48,6 +48,59 @@ export async function enablePush() {
   return { subscriptionId: result.subscriptionId, subscription }
 }
 
+// Rest alerts use the durable, account-scoped scheduler. This path never requests permission
+// and never creates a subscription: it only schedules when this browser already has an active
+// subscription and the user explicitly granted notifications earlier in Settings.
+let restAlertQueue = Promise.resolve()
+let activeRestAlert = null
+const enqueueRestAlert = operation => {
+  const result = restAlertQueue.then(operation, operation)
+  restAlertQueue = result.catch(() => {})
+  return result
+}
+
+async function existingPushSubscriptionId(ownerId, getCurrentOwnerId) {
+  if (!ownerId || getCurrentOwnerId() !== ownerId || !pushSupported() || pushPermission() !== 'granted') return null
+  const registration = await globalThis.navigator.serviceWorker.ready
+  const manager = registration?.pushManager
+  if (!manager?.getSubscription) return null
+  const subscription = await manager.getSubscription()
+  if (!subscription || getCurrentOwnerId() !== ownerId) return null
+  const result = await api('/api/push/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({ subscription: subscription.toJSON(), deviceId: pushDeviceId() }),
+  })
+  return getCurrentOwnerId() === ownerId ? result?.subscriptionId || null : null
+}
+
+export function syncRestPushAlert({ timer, ownerId, enabled, getCurrentOwnerId = () => ownerId }) {
+  return enqueueRestAlert(async () => {
+    if (timer && enabled && !timer.paused) {
+      if (!ownerId || getCurrentOwnerId() !== ownerId || !/^[A-Za-z0-9_-]{12,80}$/.test(timer.alertId || '')) return false
+      const subscriptionId = activeRestAlert?.ownerId === ownerId
+        ? activeRestAlert.subscriptionId
+        : await existingPushSubscriptionId(ownerId, getCurrentOwnerId)
+      if (!subscriptionId || getCurrentOwnerId() !== ownerId) return false
+      activeRestAlert = { ownerId, subscriptionId, alertId: timer.alertId }
+      const result = await api('/api/rest-alert', {
+        method: 'POST',
+        body: JSON.stringify({ subscriptionId, alertId: timer.alertId, endsAt: timer.endsAt }),
+      })
+      return !!result?.ok
+    }
+
+    const alertId = timer?.alertId
+    const pending = activeRestAlert
+    if (!pending || (alertId && pending.alertId !== alertId) || getCurrentOwnerId() !== pending.ownerId) return false
+    await api('/api/rest-alert/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ subscriptionId: pending.subscriptionId, alertId: pending.alertId }),
+    })
+    if (activeRestAlert?.alertId === pending.alertId) activeRestAlert = null
+    return true
+  }).catch(() => false)
+}
+
 export async function disablePush() {
   if (!pushSupported()) return
   const reg = await navigator.serviceWorker.ready
