@@ -4,6 +4,8 @@
 **Branch:** `agent/codex/2J-089-bunker-summary-contract`  
 **Status:** local validation passed; draft PR/independent review/remote CI pending. No merge or deployment.
 
+**Training PR #28:** https://github.com/2jfitnesscenter/2jfitnessapp/pull/28 (implementation head `e92c42281237a471f5b2814b9c73fe2a625d38a6`). **Coordinated Platform PR #36:** https://github.com/2jfitnesscenter/2j-platform/pull/36 (implementation head `f4facbd7ab68e673459117e818e0bdf58ac36d60`). Review and merge these together; do not merge either alone.
+
 ## Change
 
 Added a default-off `POST /api/platform/v1/training-summary` route through the existing `api/platform-proof/` service-auth module. It uses the fixed path (not a URL parameter), strict `{v,trainingUserId}` request schema, exact `2J-SERVICE-AUTH-V1` signature, existing key allowlist and persisted replay protection.
