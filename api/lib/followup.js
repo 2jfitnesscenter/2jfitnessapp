@@ -3,11 +3,9 @@
 // Seguimiento V2 — staff follow-up of one member: which readings an assessment collects, how
 // often it is reviewed, and a deterministic "since the last review" summary with factual alerts.
 //
-// Access model (no new permissions): only staff with the existing admin role — the same people
-// GET /api/admin/user already shows the full workout history, weigh-ins and measurements to.
-// The plain trainer role has no member-health access today and there is no trainer↔member
-// relation to scope one to, so it gets none here either. Check-ins are new, member-authored
-// wellbeing data: they enter the summary only when the member turned on S.shareCheckins.
+// Access is enforced by the route layer: trainers may view operational follow-up for every
+// member; admin-only detail endpoints remain separately guarded. Member-authored check-ins
+// enter a trainer summary only when the member turned on S.shareCheckins.
 //
 import { pendingReviews } from './routine-review.js';
 import { fatigueState, deloadProposal, activeDeload } from './fatigue.js';

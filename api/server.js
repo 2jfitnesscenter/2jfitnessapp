@@ -110,7 +110,7 @@ const MAX_SCAN_BYTES = 8 * 1024 * 1024;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 const FOLLOWUP_PRIVATE_CRYPTO_INFO = '2j-followup-private-v1';
-// Seguimiento V3: a trainer who loses the role (or is demoted) must not keep the members an admin had assigned to them.
+// Organizational assignments are cleared when a trainer role is removed; role-based access is revoked independently by requireTrainer.
 function dropTrainerAssignments(trainerId) { for (const m of db.users) if (Array.isArray(m.assignedTrainers) && m.assignedTrainers.includes(trainerId)) { m.assignedTrainers = m.assignedTrainers.filter(id => id !== trainerId); if (!m.assignedTrainers.length) delete m.assignedTrainers; } }
 
 fs.mkdirSync(DATA, { recursive: true });
@@ -1000,15 +1000,15 @@ function livePresence(uid) {
 setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt > PRESENCE_TTL) presence.delete(k); }, 30000).unref();
 
 /* ---------- routes ---------- */
-// The ONE rule for every staff route that targets a member: admin → any user; trainer → only members an admin assigned (user.assignedTrainers). Anything else — unknown id,
-// unassigned member, staff account — answers the same 403 to a trainer, so ids cannot be probed; an admin gets a 404 for an id that does not exist.
+// The ONE rule for every staff route that targets a member: admin → any user; trainer → every member, independent of assignedTrainers. Staff accounts remain outside
+// the trainer's member scope; unknown ids answer 403 to trainers and 404 to admins.
 function memberFor(res, staff, memberId, notFound) {
   const m = db.users.find(x => x.id === String(memberId || ''));
   if (!m && isAdmin(staff)) { json(res, 404, { error: notFound }); return null; }
   if (!m || !canAccessMember(staff, m, isAdmin)) { json(res, 403, { error: 'prohibido' }); return null; }
   return m;
 }
-// Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, explicit trainer assignment, roster-side private data.
+// Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, all-member trainer scope, roster-side private data.
 const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
 const routes = {
   ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
@@ -1997,9 +1997,8 @@ const routes = {
     const { privateNotesEncrypted, ...publicFollowUp } = u.followUp;
     json(res, 200, { ok: true, followUp: { ...publicFollowUp, keys: templateKeys(u.followUp) } });
   },
-  // Private follow-up notes are roster-only, encrypted with a feature-specific key, and visible
-  // solely through this existing admin-gated surface. They never enter member state/Sync, AI or
-  // Community. Trainers remain excluded until 2J has an explicit trainer↔member scope.
+  // This legacy private admin-note surface remains admin-only. Trainers use the separate
+  // encrypted Coach V3 note flow; neither surface writes these notes into member state/Sync, AI or Community.
   'POST /api/admin/user/followup/notes': async (req, res) => {
     const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
@@ -3189,19 +3188,16 @@ const routes = {
     json(res, 200, { ok: true });
   },
 
-  // Trimmed member list for a trainer's "assign to..." picker — just enough to search/identify
-  // someone, not the full admin detail view.
+  // Trimmed member list for trainer actions — searchable across the centre, without admin-only profile fields.
   'GET /api/trainer/members': async (req, res) => {
     const staff = requireTrainer(req, res); if (!staff) return;
     const members = db.users.filter(u => !u.disabled && canAccessMember(staff, u, isAdmin)).map(u => ({ id: u.id, name: u.name, avatar: u.avatar || null }));
     json(res, 200, { members });
   },
 
-  // Pushes one of the TRAINER'S OWN published routines straight onto a member's plan — same
+  // Pushes one of the TRAINER'S OWN published routines straight onto any member's plan — same
   // mechanism as apply-starter-plan below: mutate the member's state file directly, bump _ts, let
-  // their own device pick it up on next pullState(). Deliberately restricted to routines the
-  // trainer authored themselves (not any routine in Social) to keep the blast radius of the
-  // trainer role obvious and small.
+  // their own device pick it up on next pullState(). Content authorship remains a separate rule.
   'POST /api/trainer/assign-routine': async (req, res) => {
     const trainer = requireTrainer(req, res); if (!trainer) return;
     const body = await readBody(req);

@@ -13,7 +13,7 @@ import { Avatar, Segmented, Button } from '../components/ui.jsx'
 import { UserDetail } from './Admin.jsx'
 import './center.css'
 
-/* Gestión del centro V1 — Hoy · Miembros · Entrenadores. It only arranges what the app already knows: assignments, the Coach follow-up engine, the derived workout
+/* Gestión del centro V1 — Hoy · Miembros · Entrenadores. It only arranges what the app already knows: organizational assignments, the Coach follow-up engine, the derived workout
    summary and the live presence (GET /api/center/*). Nothing is recomputed here and "active" never means "synced": activity is the last workout. */
 const TAB_LABEL = { today: 'Today', members: 'Members', trainers: 'Trainers' }
 
@@ -119,8 +119,8 @@ export function MembersView({ data, today, admin, filters, setFilters, onFollow,
         {t(STATUS_LABEL[k])}<em>{counts[k]}</em></button>)}
     </div>
     {shown.length ? <div className="cm-members">{shown.map(u => <MemberRow key={u.id} u={u} today={today} admin={admin} onFollow={onFollow} onProfile={onProfile} />)}</div>
-      : <EmptyState icon="users" title={t(list.length ? 'No members match' : !admin ? 'No members assigned yet' : 'No members yet')}>
-        {!admin && !list.length && <div className="muted small">{t('An administrator can assign members to you from their profile.')}</div>}</EmptyState>}
+      : <EmptyState icon="users" title={t(list.length ? 'No members match' : 'No members yet')}>
+        {!list.length && <div className="muted small">{t('Members appear here once they join.')}</div>}</EmptyState>}
   </>
 }
 
