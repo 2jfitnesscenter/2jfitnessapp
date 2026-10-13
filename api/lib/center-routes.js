@@ -1,11 +1,11 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* Gestión del centro V1 — the read side of the console (Hoy · Miembros · Entrenadores). It composes what already exists and owns no data:
- *  - who is who, who is assigned to whom: db.users (`assignedTrainers`, the one rule `canAccessMember`);
+ *  - who is who, organizational assignment labels: db.users (`assignedTrainers`);
  *  - training activity: the derived summary (lib/user-summary.js) — `lastWorkoutAt`, never `lastSync`, is "trained";
  *  - who needs attention and which reviews are near: the Coach follow-up engine itself (overviewRow / bucketRows), not a second set of rules;
  *  - who is training right now: the in-memory presence.
- * Admin sees everybody. A trainer only ever knows the members assigned to them (`canAccessMember`): the others are not listed, counted or aggregated, not even minimally.
+ * Admin sees every account. A trainer sees every member; trainer assignments remain organizational metadata and do not scope access.
  */
 import { overviewRow, unreadableRow, bucketRows } from './coach-followup.js';
 import { canAccessMember } from './coach-followup-routes.js';
@@ -41,7 +41,7 @@ export function centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, rea
     'GET /api/center/members': async (req, res) => {
       const staff = requireTrainer(req, res); if (!staff) return;
       const admin = isAdmin(staff);
-      const scope = admin ? 'all' : 'assigned';
+      const scope = 'all';
       userSummaries.prune(db.users.map(u => u.id));
       const users = [];
       for (const u of db.users) {
@@ -81,7 +81,7 @@ export function centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, rea
         .sort((a, b) => (b.since ?? 1e9) - (a.since ?? 1e9) || String(a.u.name).localeCompare(String(b.u.name)));
       const within = n => sums.filter(x => { const d = ago(x.sum); return d !== null && d >= 0 && d < n; }).length;
       json(res, 200, {
-        today, days, scope: isAdmin(staff) ? 'all' : 'assigned', members: sums.length,
+        today, days, scope: 'all', members: sums.length,
         activity: { activeNow: live.length, trainedToday: sums.filter(x => ago(x.sum) === 0).length, trained7d: within(7), trained30d: within(30), newMembers: fresh.length, neverTrained: sums.filter(x => x.sum.workoutCount === 0).length },
         activeNow: live.slice(0, LIST),
         attention: { count: buckets.counts.attention, list: buckets.attention.slice(0, LIST).map(brief) },
@@ -106,7 +106,7 @@ export function centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, rea
       };
       const assignedTo = id => scoped.filter(x => (x.u.assignedTrainers || []).includes(id));
       const people = admin ? db.users.filter(u => !u.disabled && isTrainer(u) && (u.trainer === true || assignedTo(u.id).length)) : [staff];
-      const trainers = people.map(u => ({ id: u.id, name: u.name, avatar: u.avatar || null, role: roleOf(u), ...stats(assignedTo(u.id)) }))
+      const trainers = people.map(u => ({ id: u.id, name: u.name, avatar: u.avatar || null, role: roleOf(u), ...stats(admin ? assignedTo(u.id) : scoped) }))
         .sort((a, b) => b.attention - a.attention || b.members - a.members || String(a.name).localeCompare(String(b.name)));
       json(res, 200, { today, admin, trainers, unassigned: admin ? stats(scoped.filter(x => !(x.u.assignedTrainers || []).length)) : null });
     },

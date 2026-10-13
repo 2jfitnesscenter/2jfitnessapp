@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
-/* Coach & Seguimiento PRO V3 over HTTP (real server): who may read what, the explicit trainer assignment, the private trail, and where it must NOT appear. */
+/* Coach & Seguimiento PRO V3 over HTTP (real server): centre-wide trainer operations, private trail and member-side privacy. */
 const today = () => new Date().toISOString().slice(0, 10);
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const set = (w, r) => ({ w, r, done: true });
@@ -27,8 +27,9 @@ fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({
   ], creds: [], subs: [], invites: [], recoveries: [],
 }, null, 2));
 const withShared = { ...absent, shareCheckins: true, checkins: [0, 1, 2].map(i => ({ d: addDays(today(), -i), energy: 2, sleep: 2, fatigue: 5, pain: true, zones: ['knee'] })) };
+const regularWithShared = { ...regular, shareCheckins: true, checkins: [{ d: today(), energy: 3, sleep: 4, fatigue: 2, pain: false, zones: [] }] };
 fs.writeFileSync(path.join(dir, 'state-u1.json'), JSON.stringify(withShared));
-fs.writeFileSync(path.join(dir, 'state-u2.json'), JSON.stringify(regular));
+fs.writeFileSync(path.join(dir, 'state-u2.json'), JSON.stringify(regularWithShared));
 fs.writeFileSync(path.join(dir, 'state-u3.json'), JSON.stringify(absent));
 const PORT = 34881;
 const base = `http://localhost:${PORT}`;
@@ -55,21 +56,30 @@ test('members and anonymous callers get nothing from the V3 surface', async () =
   }
 });
 
-test('a trainer sees nothing until an admin assigns members; then only those (no IDOR)', async () => {
-  assert.deepEqual((await get('/api/trainer/followup/overview', 'tr1')).body.assigned, 0);
-  assert.equal((await get('/api/trainer/followup/member?id=u1', 'tr1')).status, 403);
-  for (const w of WRITES) assert.equal((await post('/api/trainer/followup/' + w, 'tr1', { id: 'u1', text: 'x' })).status, 403, w);
-  // only an admin assigns; a trainer cannot assign themselves
+test('every trainer reads and edits every member independent of organizational assignment', async () => {
+  const overview = await get('/api/trainer/followup/overview', 'tr1');
+  assert.equal(overview.body.scope, 'all'); assert.equal(overview.body.members, 3);
+  assert.equal((await get('/api/trainer/followup/member?id=u1', 'tr1')).status, 200);
+  const unassigned = await get('/api/trainer/followup/member?id=u2', 'tr1');
+  assert.equal(unassigned.status, 200, 'unassigned member is readable');
+  assert.equal(unassigned.body.view.checkin.shared, true, 'existing check-in consent is honored for any trainer');
+  assert.equal((await post('/api/trainer/followup/start', 'tr1', { id: 'u2' })).status, 200, 'unassigned member follow-up can be started');
+  assert.equal((await post('/api/trainer/followup/goal', 'tr1', { id: 'u2', primary: 'fatloss' })).status, 200);
+  for (const w of WRITES) {
+    const r = await post('/api/trainer/followup/' + w, 'tr2', { id: 'u1', text: 'x', on: true, kind: 'program_changed' });
+    assert.ok(![401, 403].includes(r.status), `${w}: ${r.status}`);
+  }
+  // only an admin assigns organizational responsibility; trainers cannot edit that metadata
   assert.equal((await post('/api/admin/user/trainers', 'tr1', { id: 'u1', trainerIds: ['tr1'] })).status, 403);
   assert.equal((await post('/api/admin/user/trainers', 'ad', { id: 'u1', trainerIds: ['u2'] })).status, 400, 'only active trainers can be assigned');
   assert.equal((await post('/api/admin/user/trainers', 'ad', { id: 'tr1', trainerIds: ['tr1'] })).status, 404, 'staff are not assignable members');
   assert.equal((await post('/api/admin/user/trainers', 'ad', { id: 'u1', trainerIds: ['tr1'] })).status, 200);
   const o = await get('/api/trainer/followup/overview', 'tr1');
-  assert.deepEqual([...o.body.attention, ...o.body.upcoming, ...o.body.stable].map(r => r.id), ['u1']);
-  assert.equal(o.body.scope, 'assigned');
-  assert.equal((await get('/api/trainer/followup/member?id=u1', 'tr1')).status, 200);
-  assert.equal((await get('/api/trainer/followup/member?id=u2', 'tr1')).status, 403, 'u2 is not assigned to tr1');
-  assert.equal((await get('/api/trainer/followup/member?id=u1', 'tr2')).status, 403, 'tr2 is not assigned to u1');
+  assert.deepEqual([...o.body.attention, ...o.body.upcoming, ...o.body.stable].map(r => r.id).sort(), ['u1', 'u2', 'u4']);
+  assert.equal(o.body.scope, 'all');
+  assert.equal((await get('/api/trainer/followup/member?id=u1', 'tr2')).status, 200, 'another trainer reads the same member');
+  assert.equal((await post('/api/admin/user/followup', 'ad', { id: 'u2', stop: true })).status, 200, 'clean up test data for following cases');
+  assert.equal((await post('/api/admin/user/followup', 'ad', { id: 'u1', stop: true })).status, 200, 'clean up writes created for access coverage');
   assert.equal((await get('/api/trainer/followup/member?id=nobody', 'tr1')).status, 403, 'a trainer cannot probe ids');
   assert.equal((await get('/api/trainer/followup/member?id=nobody', 'ad')).status, 404);
   assert.equal((await get('/api/trainer/followup/member?id=tr2', 'ad')).status, 403, 'staff accounts are not members');
@@ -96,7 +106,7 @@ test('the sheet carries the triage, adherence, review, goal, check-in and timeli
   assert.equal(m.body.view.checkin.shared, true, 'u1 shared check-ins');
   assert.ok(m.body.view.signals.some(s => s.id === 'checkin_discomfort'));
   assert.equal(m.body.trainers, null, 'a trainer does not see the assignment list');
-  assert.equal((await get('/api/trainer/followup/member?id=u2', 'ad')).body.view.checkin.shared, false);
+  assert.equal((await get('/api/trainer/followup/member?id=u4', 'ad')).body.view.checkin.shared, false);
   const adm = await get('/api/trainer/followup/member?id=u1', 'ad');
   assert.deepEqual(adm.body.trainers.assigned, ['tr1']); assert.deepEqual(adm.body.trainers.options.map(t => t.id).sort(), ['tr1', 'tr2']);
   assert.equal((await get('/api/trainer/followup/member?id=u3', 'ad')).body.member.disabled, true);
@@ -130,7 +140,7 @@ test('goal, notes, decisions and the follow-up mark need an active follow-up, ar
   assert.deepEqual(m.timeline.map(e => e.kind).slice(0, 4), ['flag_set', 'recommendation_rejected', 'note_added', 'goal_changed']);
   assert.equal(m.notes[0].mine, true);
   assert.equal(m.followUp.privateNotesEncrypted, undefined, 'the ciphertext is never returned');
-  // another assigned trainer may read, but cannot delete someone else's note; the admin can
+  // another trainer may read centre-wide, but cannot delete someone else's note; the admin can
   await post('/api/admin/user/trainers', 'ad', { id: 'u1', trainerIds: ['tr1', 'tr2'] });
   const seen = (await get('/api/trainer/followup/member?id=u1', 'tr2')).body;
   assert.equal(seen.notes[0].mine, false);
@@ -175,7 +185,7 @@ test('disabled members cannot be written to; moving a review date leaves a decis
   const m0 = (await get('/api/trainer/followup/member?id=u2', 'ad')).body;
   assert.equal(m0.followUp, null);
   await post('/api/trainer/followup/start', 'ad', { id: 'u2' });
-  assert.equal((await get('/api/trainer/routine-cycles?id=u2', 'tr1')).status, 403, 'the legacy routine-cycle surface follows the same assignment rule');
+  assert.equal((await get('/api/trainer/routine-cycles?id=u2', 'tr1')).status, 200, 'legacy routine-cycle is centre-wide too');
   assert.equal((await post('/api/admin/user/trainers', 'ad', { id: 'u2', trainerIds: ['tr1'] })).status, 200);
   const cyc = (await get('/api/trainer/routine-cycles?id=u2', 'tr1'));
   assert.equal(cyc.status, 200);

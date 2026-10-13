@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Gestión del centro: the small pure helpers behind the console (Hoy · Miembros · Entrenadores). The data comes from /api/center/*, which composes
-// assignments, the derived workout summary and the Coach follow-up engine; nothing is recomputed here beyond how a row is labelled and filtered.
+// organizational assignments, the derived workout summary and the Coach follow-up engine; nothing is recomputed here beyond how a row is labelled and filtered.
 // "Last activity" is the last WORKOUT (lastWorkoutAt). Syncing is not training, and the console never calls it "active".
 import { api } from './api.js'
 

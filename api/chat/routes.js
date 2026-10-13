@@ -8,7 +8,7 @@ import { LIMITS } from '../lib/social-limits.js';
 
 const MAX_TEXT = 2000;
 
-/** The one rule for who may read a thread: a direct chat needs both people and a live, unblocked friendship; support is the member, an admin or the assigned trainer. */
+/** The one rule for who may read a thread: a direct chat needs both people and a live, unblocked friendship; support is the member, any trainer or an admin. */
 export const makeCanRead = ({ isTrainer, canReachMember, isFriend }) => (thread, user) => thread.kind === 'direct'
   ? ((thread.memberId === user.id || thread.recipientId === user.id) && isFriend(thread.memberId, thread.recipientId))
   : (thread.memberId === user.id || (isTrainer(user) && canReachMember(user, thread.memberId)));

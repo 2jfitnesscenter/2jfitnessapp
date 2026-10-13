@@ -1,11 +1,10 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// HTTP surface of Coach & Seguimiento PRO V3. Everything here is STAFF-only (requireTrainer = trainer or admin) and scoped by an explicit assignment:
-//   admin      → every member
-//   trainer    → only members whose roster entry lists them in `assignedTrainers` (an admin sets it; empty/absent = admin only)
+// HTTP surface of Coach & Seguimiento PRO V3. Everything here is STAFF-only (requireTrainer = trainer or admin):
+//   admin      → every user, including staff where the route permits it
+//   trainer    → every member in the centre, independent of organizational trainer assignment
 //   member     → none of it (403)
-// A trainer who is not assigned gets the same 403 as a member, so ids cannot be probed. The legacy trainer-panel endpoints (plan editing, routine cycles) keep
-// their role-based access untouched — this ACL guards the new health/check-in/notes/analysis surface, which until now was admin-only anyway.
+// `assignedTrainers` remains organizational metadata and does not grant or restrict access.
 // The roster entry holds the staff data (followUp.goalPlan, followUp.flag, the encrypted notes/events). Nothing is written to the member's synced state.
 import crypto from 'node:crypto';
 import { sanitizeFollowUp, templateKeys } from './followup.js';
@@ -16,11 +15,11 @@ import { emptyPrivate, normalizePrivate, pushEvent, addNote, deleteNote, timelin
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-/** The one access rule. `isAdmin` comes from the server so ADMIN_UIDS-configured admins count too. */
+/** The one operational access rule. `isAdmin` comes from the server so ADMIN_UIDS-configured admins count too. */
 export function canAccessMember(staff, member, isAdmin) {
   if (!staff || !member) return false;
   if (isAdmin(staff)) return true;
-  return Array.isArray(member.assignedTrainers) && member.assignedTrainers.includes(staff.id);
+  return staff.trainer === true && !isAdmin(member) && member.trainer !== true;
 }
 
 export function coachFollowUpRoutes(d) {
@@ -68,7 +67,7 @@ export function coachFollowUpRoutes(d) {
         rows.push(overviewRow({ S: S || {}, u, today }));
       }
       const b = bucketRows(rows);
-      json(res, 200, { today, counts: b.counts, attention: b.attention, upcoming: b.upcoming, stable: b.stable, scope: isAdmin(staff) ? 'all' : 'assigned', assigned: rows.length });
+      json(res, 200, { today, counts: b.counts, attention: b.attention, upcoming: b.upcoming, stable: b.stable, scope: 'all', members: rows.length });
     },
 
     /* ------------------------------ the sheet of one member ------------------------------ */

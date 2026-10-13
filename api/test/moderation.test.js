@@ -52,7 +52,7 @@ test('a support message can be reported by the member, and a dismissal changes n
   const evs = (await events()).length, ns = (await notices('trainer-a')).length;
   assert.equal((await call('admin', 'POST', '/api/admin/social-reports/resolve', { id: rep.data.id, action: 'dismiss' })).status, 200);
   assert.equal((await events()).length, evs); assert.equal((await notices('trainer-a')).length, ns);
-  assert.equal((await call('trainer-x', 'POST', '/api/social/reports', { targetType: 'message', targetId: `${th}:${reply.data.message.id}`, reason: 'spam' })).status, 404, 'an unassigned trainer cannot even reach it');
+  assert.ok([200, 409].includes((await call('trainer-x', 'POST', '/api/social/reports', { targetType: 'message', targetId: `${th}:${reply.data.message.id}`, reason: 'spam' })).status), 'any trainer can reach the centre support thread');
 });
 
 test('comments on a mark, a topic and a board post can be reported and removed; only others\' comments', async () => {

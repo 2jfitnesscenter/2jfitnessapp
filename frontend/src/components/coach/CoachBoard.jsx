@@ -13,8 +13,7 @@ import { Button, Avatar } from '../ui.jsx'
 import { runLabel } from '../../lib/premium-text.js'
 import './coach-followup.css'
 
-/* Seguimiento (staff): who needs attention, why, and what changed — in one request. The list is computed on the server (api/lib/coach-followup.js) for the members
-   this staff may see (admin: everyone; trainer: the members an admin assigned). Short cards, one reason each, one action. */
+/* Seguimiento (staff): who needs attention, why, and what changed — in one request. The server computes this for all active centre members. */
 const TABS = [['attention', 'Need attention'], ['upcoming', 'Upcoming reviews'], ['stable', 'Stable follow-up']]
 
 function Metric({ label, value, sub }) {
@@ -68,8 +67,8 @@ export function BoardBody({ d, shown, q = '', onTab = () => {}, onQuery = () => 
           <b>{d.counts[k]}</b><span>{t(label)}</span></button>)}
       </div>
       {total > 8 && <input className="input cf-search" type="search" aria-label={t('Search a member…')} placeholder={t('Search a member…')} value={q} onChange={e => onQuery(e.target.value)} />}
-      {total === 0 ? <EmptyState icon="users" title={t(d.scope === 'assigned' ? 'No members assigned yet' : 'No members yet')}>
-        <div className="muted small">{t(d.scope === 'all' ? 'Members appear here once they join.' : 'An administrator can assign members to you from their profile.')}</div></EmptyState>
+      {total === 0 ? <EmptyState icon="users" title={t('No members yet')}>
+        <div className="muted small">{t('Members appear here once they join.')}</div></EmptyState>
         : list.length === 0 ? <EmptyState icon="checkCircle" title={t(shown === 'attention' ? 'Nobody needs attention' : shown === 'upcoming' ? 'No reviews in the next 7 days' : 'Nobody here yet')} />
           : <div className="cf-grid">{list.map(r => <MemberCard key={r.id} r={r} open={open} />)}</div>}
   </>

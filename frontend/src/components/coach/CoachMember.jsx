@@ -68,13 +68,13 @@ function TeamSheet({ id, team, onSaved, close }) {
   const [ids, setIds] = useState(team.assigned)
   const [busy, setBusy] = useState(false)
   const toggle = k => setIds(a => a.includes(k) ? a.filter(x => x !== k) : [...a, k])
-  const save = () => { setBusy(true); cf.assignTrainers(id, ids).then(() => { toast(t('Access saved')); onSaved(); close() }).catch(e => toast(e.message)).finally(() => setBusy(false)) }
+  const save = () => { setBusy(true); cf.assignTrainers(id, ids).then(() => { toast(t('Organization assignment saved')); onSaved(); close() }).catch(e => toast(e.message)).finally(() => setBusy(false)) }
   return <>
-    <h3>{t('Trainers with access')}</h3>
-    <div className="dim small" style={{ marginBottom: 8 }}>{t('Administrators always have access. A trainer only sees the members assigned to them.')}</div>
+    <h3>{t('Organization assignment')}</h3>
+    <div className="dim small" style={{ marginBottom: 8 }}>{t('Assignments organize staff responsibility. Every trainer can access all members.')}</div>
     {team.options.length ? <div className="list">{team.options.map(o => <Row key={o.id} icon={ids.includes(o.id) ? 'checkCircle' : 'person'} iconTint={ids.includes(o.id) ? 'var(--acc)' : 'var(--grey)'} title={o.name} onClick={() => toggle(o.id)} />)}</div>
-      : <div className="dim small">{t('There are no trainers yet. Grant the trainer role to someone first.')}</div>}
-    <Button variant="primary" style={{ width: '100%', marginTop: 14 }} disabled={busy} onClick={save}>{t('Save access')}</Button>
+      : <div className="dim small">{t('No trainers assigned for organization tracking.')}</div>}
+    <Button variant="primary" style={{ width: '100%', marginTop: 14 }} disabled={busy} onClick={save}>{t('Save assignment')}</Button>
   </>
 }
 
@@ -106,7 +106,7 @@ function Summary({ d, id, nav, reload, admin }) {
       </> : <Button size="sm" variant="tinted" icon="plus" disabled={member.disabled} onClick={() => run(cf.startFollowUp(id), t('Follow-up started'))}>{t('Start follow-up')}</Button>}
     </div>
     {!followUp && <p className="small dim cf-hint">{t('Start the follow-up to keep a goal, notes and decisions for this member.')}</p>}
-    {admin && d.trainers && <div className="cf-team small dim"><Icon name="users" /> {d.trainers.assigned.length ? t('Trainers: {0}', d.trainers.options.filter(o => d.trainers.assigned.includes(o.id)).map(o => o.name).join(', ')) : t('Only administrators have access.')}
+    {admin && d.trainers && <div className="cf-team small dim"><Icon name="users" /> {d.trainers.assigned.length ? t('Organization: {0}', d.trainers.options.filter(o => d.trainers.assigned.includes(o.id)).map(o => o.name).join(', ')) : t('No organizational assignment.')}
       <button type="button" className="v3-link" onClick={() => openSheet(close => <TeamSheet id={id} team={d.trainers} onSaved={reload} close={close} />)}>{t('Manage')}</button></div>}
   </Surface>
 }
