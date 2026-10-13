@@ -57,14 +57,14 @@ describe('board', () => {
     const st = await html(<BoardBody d={board()} shown="stable" />)
     expect(st).toContain('marta'); expect(st).toContain('Yesterday')
   })
-  it('search appears with more than 8 members and filters by name; empty states tell a trainer what to do', async () => {
+  it('search appears with more than 8 members and filters by name; empty state is centre-wide', async () => {
     await boot()
     const { BoardBody } = await import('../components/coach/CoachBoard.jsx')
     const many = board({ counts: { attention: 0, upcoming: 0, stable: 9 }, attention: [], upcoming: [], stable: Array.from({ length: 9 }, (_, i) => row({ id: 's' + i, name: i === 4 ? 'zoe' : 'otro' + i, level: 'normal', signals: [], signalCount: 0 })) })
     const h = await html(<BoardBody d={many} shown="stable" q="zoe" />)
     expect(h).toContain('type="search"'); expect(h).toContain('zoe'); expect(h).not.toContain('otro1')
-    const none = await html(<BoardBody d={board({ scope: 'assigned', assigned: 0, counts: { attention: 0, upcoming: 0, stable: 0 }, attention: [], upcoming: [], stable: [] })} shown="stable" />)
-    expect(none).toContain('No members assigned yet'); expect(none).toContain('An administrator can assign members to you from their profile.')
+    const none = await html(<BoardBody d={board({ scope: 'all', members: 0, counts: { attention: 0, upcoming: 0, stable: 0 }, attention: [], upcoming: [], stable: [] })} shown="stable" />)
+    expect(none).toContain('No members yet'); expect(none).toContain('Members appear here once they join.')
     const quiet = await html(<BoardBody d={board({ counts: { attention: 0, upcoming: 0, stable: 1 }, attention: [] })} shown="attention" />)
     expect(quiet).toContain('Nobody needs attention')
   })
@@ -116,7 +116,7 @@ describe('member sheet', () => {
     const { MemberView } = await import('../components/coach/CoachMember.jsx')
     const h = await html(<MemberView d={sheet()} id="u1" back="/admin/attention" />)
     for (const k of ['Evento en diciembre', 'High priority', 'Priority', 'No workouts in the last 18 days.', 'Get in touch and ask what is getting in the way.', 'Discomfort in knee reported 3 times in the last 14 days.',
-      'Open plan', 'Edit goal', 'Mark for follow-up', 'Trainers: Marta', 'Manage']) expect(h).toContain(k)
+      'Open plan', 'Edit goal', 'Mark for follow-up', 'Organization: Marta', 'Manage']) expect(h).toContain(k)
     expect(h).not.toContain('Start follow-up')
     const none = await html(<MemberView d={sheet({ followUp: null })} id="u1" back="/x" />)
     expect(none).toContain('Start follow-up'); expect(none).toContain('Start the follow-up to keep a goal, notes and decisions for this member.'); expect(none).not.toContain('Edit goal')

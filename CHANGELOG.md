@@ -1,5 +1,9 @@
 # Changelog
 
+### Acceso operativo de entrenador a todo el centro — cambio local, NO desplegado
+
+- Los trainers pueden listar, buscar, abrir y gestionar datos operativos de cualquier socio del centro; `assignedTrainers` queda como metadato organizativo. Roles, permisos, staff, seguridad y funciones admin-only mantienen sus guards. Socios siguen limitados a sus propios datos y los check-ins respetan su consentimiento.
+
 ### Web Push al terminar descansos — candidato local, NO desplegado
 
 - El temporizador de descanso web reutiliza la cola persistente existente y sincroniza/cancela avisos opacos por descanso. Solo usa permisos y suscripciones ya concedidos; el service worker conserva la UX local cuando la PWA está visible y muestra el aviso genérico al quedar en segundo plano. Prueba física en PWA móvil pendiente.

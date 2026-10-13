@@ -98,7 +98,7 @@ export function trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer, 
       const body = await readBody(req);
       const memberId = String(body.memberId || '');
       if (!memberId) return json(res, 400, { error: 'falta el socio' });
-      if (!memberFor(res, trainer, memberId, 'ese miembro no existe')) return;      // admin: any member; trainer: only the ones assigned to them
+      if (!memberFor(res, trainer, memberId, 'ese miembro no existe')) return;      // admin: any user; trainer: any member
       try {
         const job = trainerJobs.enqueue(trainer.id, memberId, body.brief || {});
         json(res, 202, { job });

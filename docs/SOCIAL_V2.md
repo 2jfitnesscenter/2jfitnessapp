@@ -12,7 +12,7 @@ closes the holes an audit of production (`a0f3a94`) found and makes the most use
 | Goals | The author sees their own. An exercise goal follows the "records" privacy like a mark. **Body weight is health data: only accepted friends who may see the profile ever receive it.** |
 | Challenges | List, detail, join and the leaderboard hide a blocked author and blocked participants. |
 | Topics / board / mark comments | Reading, commenting and the comments themselves respect blocks. |
-| Support threads | Only the member, an admin, or a trainer assigned to that member (`assignedTrainers`) reach a support thread; notifications go to the same people. |
+| Support threads | Only the member, an admin, or any trainer at the centre reaches a support thread; notifications go to operational trainers. Direct chats remain friend-scoped. |
 | Admin switches | `social`, `chat`, `friends` and `challenges` (which also covers goals) are enforced by the API (403 `feature_off`). Privacy preferences and notifications stay reachable. A chat share needs `chat` and `friends`. |
 
 ## 2. Private routine / program shares

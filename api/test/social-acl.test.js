@@ -108,23 +108,23 @@ test('mark comments: a blocked person can neither write nor be read on the mark'
   await call('a', 'POST', '/api/social/preferences', { privacy: { profile: 'friends', activity: 'friends' } });
 });
 
-test('support threads: only the assigned trainer and the admin reach a member\'s thread', async () => {
+test('support threads: every trainer and the admin can reach a member\'s thread', async () => {
   const th = await call('a', 'POST', '/api/chat/threads', { text: 'Me duele el hombro' });
   assert.equal(th.status, 200);
   const id = th.data.thread.id;
   const idsOf = async uid => (await call(uid, 'GET', '/api/chat/threads')).data.threads.map(t => t.id);
   assert.ok((await idsOf('trainer-a')).includes(id)); assert.ok((await idsOf('admin')).includes(id)); assert.ok((await idsOf('a')).includes(id));
-  assert.equal((await idsOf('trainer-x')).includes(id), false, 'an unassigned trainer does not even list it');
-  assert.equal((await call('trainer-x', 'GET', '/api/chat/messages?threadId=' + id)).status, 403);
-  assert.equal((await call('trainer-x', 'POST', '/api/chat/messages', { threadId: id, text: 'hola' })).status, 403);
-  assert.equal((await call('trainer-x', 'POST', '/api/chat/threads/status', { threadId: id, status: 'closed' })).status, 404);
+  assert.ok((await idsOf('trainer-x')).includes(id), 'support inbox is centre-wide for trainers');
+  assert.equal((await call('trainer-x', 'GET', '/api/chat/messages?threadId=' + id)).status, 200);
+  assert.equal((await call('trainer-x', 'POST', '/api/chat/messages', { threadId: id, text: 'hola' })).status, 200);
   assert.equal((await call('c', 'GET', '/api/chat/messages?threadId=' + id)).status, 403);
   assert.equal((await call('trainer-a', 'POST', '/api/chat/messages', { threadId: id, text: 'Descansa' })).status, 200);
-  // notifications go to the people who can answer, not to every trainer
+  // notifications reach the operational staff who can answer.
   assert.equal((await call('trainer-a', 'GET', '/api/notifications')).data.notifications.some(n => n.target?.id === id), true);
   assert.equal((await call('admin', 'GET', '/api/notifications')).data.notifications.some(n => n.target?.id === id), true);
-  assert.equal((await call('trainer-x', 'GET', '/api/notifications')).data.notifications.some(n => n.target?.id === id), false);
-  // assignment moves the access
+  assert.equal((await call('trainer-x', 'GET', '/api/notifications')).data.notifications.some(n => n.target?.id === id), true);
+  // closing the thread remains an operational action available to any trainer.
+  assert.equal((await call('trainer-x', 'POST', '/api/chat/threads/status', { threadId: id, status: 'closed' })).status, 200);
   assert.equal((await call('trainer-a', 'POST', '/api/chat/threads/status', { threadId: id, status: 'closed' })).status, 200);
 });
 

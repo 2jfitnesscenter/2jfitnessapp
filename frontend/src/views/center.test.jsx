@@ -40,11 +40,11 @@ describe('Hoy', () => {
     expect(h).not.toMatch(/NaN|undefined|Invalid Date/)
     expect(h).not.toMatch(/active/i)           // "active" is never used for activity
   })
-  it('a trainer\'s scope reads "assigned to you", and an empty block says so instead of staying blank', async () => {
+  it('a trainer sees the centre-wide member count and empty states are not assignment-gated', async () => {
     await boot()
-    const empty = { ...today, scope: 'assigned', members: 3, activeNow: [], attention: { count: 0, list: [] }, upcoming: { count: 0, list: [] }, newMembers: { count: 0, list: [] }, idle: { count: 0, list: [] } }
+    const empty = { ...today, scope: 'all', members: 3, activeNow: [], attention: { count: 0, list: [] }, upcoming: { count: 0, list: [] }, newMembers: { count: 0, list: [] }, idle: { count: 0, list: [] } }
     const h = render(<mod.TodayView d={empty} days={14} onDays={() => {}} openMember={() => {}} goMembers={() => {}} />)
-    expect(h).toContain('3 members assigned to you'); expect(h).toContain('Nobody needs attention'); expect(h).toContain('Everybody has trained recently'); expect(h).not.toContain('See all in Members')
+    expect(h).toContain('3 members in the centre'); expect(h).toContain('Nobody needs attention'); expect(h).toContain('Everybody has trained recently'); expect(h).not.toContain('See all in Members')
   })
 })
 
@@ -63,7 +63,7 @@ describe('Miembros', () => {
     expect(h).toContain('Any trainer'); expect(h).toContain('Any role'); expect(h).not.toContain('Which members')
     expect(h).not.toMatch(/NaN|undefined|Invalid Date/)
   })
-    it('a trainer gets the same list without any "which members" control: only their own are ever sent, so there is nothing to switch', async () => {
+  it('a trainer gets the centre-wide member list without admin-only filters', async () => {
     await boot({ id: 'coach', name: 'Coach', trainer: true })
     const mine = { ...roster, admin: false, trainers: [], users: roster.users.filter(u => u.id !== 't') }
     const h = render(<mod.MembersView data={mine} today={roster.today} admin={false} filters={filters()} setFilters={() => {}} onFollow={() => {}} onProfile={() => {}} />)
@@ -77,10 +77,10 @@ describe('Miembros', () => {
     const byTrainer = view({ trainer: 't1' }); expect(byTrainer).toContain('Ana'); expect(byTrainer).not.toContain('Cris')
     expect(view({ q: 'zzz' })).toContain('No members match')
   })
-  it('empty states: a trainer with nobody assigned is told how that changes', async () => {
+  it('empty states: a trainer sees a neutral centre-wide empty state', async () => {
     await boot({ id: 'coach', name: 'Coach', trainer: true })
-    const h = render(<mod.MembersView data={{ scope: 'assigned', admin: false, today: '2026-10-10', trainers: [], users: [] }} today="2026-10-10" admin={false} filters={filters()} setFilters={() => {}} onFollow={() => {}} onProfile={() => {}} />)
-    expect(h).toContain('No members assigned yet'); expect(h).toContain('An administrator can assign members to you')
+    const h = render(<mod.MembersView data={{ scope: 'all', admin: false, today: '2026-10-10', trainers: [], users: [] }} today="2026-10-10" admin={false} filters={filters()} setFilters={() => {}} onFollow={() => {}} onProfile={() => {}} />)
+    expect(h).toContain('No members yet'); expect(h).toContain('Members appear here once they join.')
   })
 })
 
