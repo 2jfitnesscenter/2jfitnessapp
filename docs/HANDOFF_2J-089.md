@@ -2,7 +2,7 @@
 
 **Base SHA:** `d941f3afd8c2bf660f179640465506eb50d8cee4`  
 **Branch:** `agent/codex/2J-089-bunker-summary-contract`  
-**Status:** local validation passed; draft PR/independent review/remote CI pending. No merge or deployment.
+**Status:** local validation and current PR CI passed; draft PR/independent review pending. No merge or deployment.
 
 **Training PR #28:** https://github.com/2jfitnesscenter/2jfitnessapp/pull/28 (implementation head `e92c42281237a471f5b2814b9c73fe2a625d38a6`). **Coordinated Platform PR #36:** https://github.com/2jfitnesscenter/2j-platform/pull/36 (implementation head `f4facbd7ab68e673459117e818e0bdf58ac36d60`). Review and merge these together; do not merge either alone.
 
