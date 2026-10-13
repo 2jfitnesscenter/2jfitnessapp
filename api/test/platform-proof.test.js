@@ -9,7 +9,7 @@ import { tempData } from './helpers.mjs';
 const DIR = tempData();
 const { createPlatformProofStore, platformProofStoreConstants } = await import('../platform-proof/store.js');
 const { createPlatformProofRoutes, PLATFORM_LINK_AUDIENCE, PLATFORM_LINK_PURPOSE, PLATFORM_PROOF_TTL_MS } = await import('../platform-proof/routes.js');
-const { parseServiceAuthKeys, signPlatformServiceRequest, verifyPlatformServiceRequest, SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH } = await import('../platform-proof/service-auth.js');
+const { parseServiceAuthKeys, signPlatformServiceRequest, verifyPlatformServiceRequest, SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH, SERVICE_TRAINING_SUMMARY_PATH } = await import('../platform-proof/service-auth.js');
 const { decrypt, encrypt } = await import('../lib/crypto.js');
 
 const SECRET_A = Buffer.alloc(32, 0x42);
@@ -26,7 +26,7 @@ const context = (overrides = {}) => ({
   ...overrides,
 });
 
-function fixture({ issuanceEnabled = true, exchangeEnabled = true, reconciliationEnabled = true, session = { id: platformUserA, authLevel: 'passkey' }, clock = Date.now() } = {}) {
+function fixture({ issuanceEnabled = true, exchangeEnabled = true, reconciliationEnabled = true, trainingSummaryEnabled = false, session = { id: platformUserA, authLevel: 'passkey' }, clock = Date.now(), readState = () => null } = {}) {
   let current = typeof clock === 'function' ? clock() : clock;
   const now = () => current;
   const dataDir = fs.mkdtempSync(path.join(DIR, 'fixture-'));
@@ -37,9 +37,11 @@ function fixture({ issuanceEnabled = true, exchangeEnabled = true, reconciliatio
     readSession: () => session,
     store,
     users: () => activeUsers,
+    readState,
     issuanceEnabled,
     exchangeEnabled,
     reconciliationEnabled,
+    trainingSummaryEnabled,
     serviceKeys: keys,
     now,
   });
@@ -99,6 +101,58 @@ async function reconcile(f, ctx = context(), options = {}) {
   const headers = { ...signed.headers, ...(options.headers || {}) };
   return { response: await invoke(f.routes['POST /api/platform/v1/link-proofs/reconcile'], 'POST', options.requestTarget || SERVICE_RECONCILIATION_PATH, body, headers), body, signed };
 }
+
+async function requestTrainingSummary(f, trainingUserId, options = {}) {
+  const raw = Buffer.from(JSON.stringify({ v: 1, trainingUserId, ...options.bodyOverrides }));
+  const signed = signedHeaders({ body: raw, path: SERVICE_TRAINING_SUMMARY_PATH, method: 'POST', timestamp: new Date(f.now()).toISOString(), ...options.signing });
+  const headers = { ...signed.headers, ...(options.headers || {}) };
+  return { response: await invoke(f.routes[`POST ${SERVICE_TRAINING_SUMMARY_PATH}`], 'POST', options.requestTarget || SERVICE_TRAINING_SUMMARY_PATH, raw, headers), raw, signed };
+}
+
+test('Training summary rejects browser auth and accepts only exact signed Platform POST path', async () => {
+  const f = fixture({ trainingSummaryEnabled: true });
+  const body = Buffer.from(JSON.stringify({ v: 1, trainingUserId: platformUserA }));
+  const cookieOnly = await invoke(f.routes[`POST ${SERVICE_TRAINING_SUMMARY_PATH}`], 'POST', SERVICE_TRAINING_SUMMARY_PATH, body, { 'content-type': 'application/json', cookie: 'gymsid=ignored-session-cookie' });
+  assert.equal(cookieOnly.statusCode, 401);
+  const valid = await requestTrainingSummary(f, platformUserA);
+  assert.equal(valid.response.statusCode, 200);
+  const wrongPath = await invoke(f.routes[`POST ${SERVICE_TRAINING_SUMMARY_PATH}`], 'POST', `${SERVICE_TRAINING_SUMMARY_PATH}/`, body, valid.signed.headers);
+  assert.equal(wrongPath.statusCode, 401, 'signature is bound to the one static path');
+  const tampered = await invoke(f.routes[`POST ${SERVICE_TRAINING_SUMMARY_PATH}`], 'POST', SERVICE_TRAINING_SUMMARY_PATH, JSON.stringify({ v: 1, trainingUserId: 'training-account-B' }), valid.signed.headers);
+  assert.equal(tampered.statusCode, 401, 'signature is bound to the exact request body');
+});
+
+test('read-only Training summary is service-authenticated, replay-protected, coarse, and fail-closed', async () => {
+  const asOf = '2026-10-13T12:00:00.000Z';
+  const state = {
+    activeProgramId: 'program-1',
+    programs: [{ id: 'program-1', name: 'Fuerza base', status: 'active', trainerNote: 'must-not-leak' }],
+    workouts: [{ id: 'workout-1', d: '2026-10-12', bodyWeight: 90, health: { heartRate: 170 }, privateNotes: 'must-not-leak' }, { id: 'workout-2', d: '2026-09-01' }, { id: 'invalid', d: '2026-02-30' }],
+  };
+  const contractFixture = JSON.parse(fs.readFileSync(new URL('../../contracts/2J-089-training-summary-v1.json', import.meta.url), 'utf8'));
+  const f = fixture({ trainingSummaryEnabled: true, clock: Date.parse(asOf), readState: userId => userId === platformUserA ? state : null });
+  const unsigned = await invoke(f.routes[`POST ${SERVICE_TRAINING_SUMMARY_PATH}`], 'POST', SERVICE_TRAINING_SUMMARY_PATH, JSON.stringify({ v: 1, trainingUserId: platformUserA }), { 'content-type': 'application/json', cookie: 'gymsid=valid-looking-cookie' });
+  assert.equal(unsigned.statusCode, 401, 'cookies do not authorize this service-only route');
+  assert.equal((await requestTrainingSummary(f, 'missing-user')).response.statusCode, 404);
+  f.activeUsers[0].disabled = true;
+  assert.equal((await requestTrainingSummary(f, platformUserA)).response.statusCode, 404, 'disabled Training accounts stay hidden');
+  f.activeUsers[0].disabled = false;
+  const first = await requestTrainingSummary(f, platformUserA);
+  assert.equal(first.response.statusCode, 200);
+  assert.deepEqual(contractFixture, {
+    v: 1, trainingUserId: 'opaque-training-user-v1', trainingStatus: 'active', asOf,
+    currentProgram: { id: 'program-opaque-v1', name: 'Fuerza base' },
+    recentActivity: { lastTrainingAt: '2026-10-12', sessionsLast30Days: 4 },
+  });
+  assert.deepEqual(first.response.body, { ...contractFixture, trainingUserId: platformUserA, currentProgram: { id: 'program-1', name: contractFixture.currentProgram.name }, recentActivity: { lastTrainingAt: '2026-10-12', sessionsLast30Days: 1 } });
+  assert.equal(JSON.stringify(first.response.body).includes('must-not-leak'), false);
+  assert.equal(JSON.stringify(first.response.body).includes('bodyWeight'), false);
+  assert.equal((await requestTrainingSummary(f, platformUserA, { signing: { requestId: first.signed.requestId } })).response.body.error, 'service_request_replayed');
+  const malformed = await requestTrainingSummary(f, platformUserA, { bodyOverrides: { email: 'member@example.test' } });
+  assert.equal(malformed.response.statusCode, 400, 'strict contract rejects extra PII');
+  const disabled = fixture({ trainingSummaryEnabled: false });
+  assert.equal((await requestTrainingSummary(disabled, platformUserA)).response.body.error, 'training_summary_disabled');
+});
 
 test('feature flags stay independently off by default and issuance requires a real account session', async () => {
   const disabled = fixture({ issuanceEnabled: false, exchangeEnabled: false, session: null });

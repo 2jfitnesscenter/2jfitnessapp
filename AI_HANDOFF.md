@@ -1,5 +1,13 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Checkpoint actual — Platform ↔ Búnker (2J-089, 2026-10-13)
+
+Hay una integración de resumen V1 en revisión conjunta, todavía **sin merge ni despliegue**. Platform conserva la identidad humana `personId`, la relación canónica y su revocación; Training conserva `trainingUserId`, cuentas y todos los datos de entrenamiento. El endpoint backend de Training está apagado por defecto y usa el `2J-SERVICE-AUTH-V1` existente. Platform consulta solo enlaces verificados activos, devuelve un resumen agregado y mantiene Profile disponible si Training falla. No hay SSO, transferencia de sesión, matching por PII, sincronización de historial ni matriz de derechos Búnker.
+
+Las dos ramas de 2J-089 comparten el fixture V1 `contracts/2J-089-training-summary-v1.json` y deben revisarse/fusionarse juntas, nunca de forma independiente. Bases observadas: Platform `b919624f381a5a7c29ca072e40cd942d0ff169f8`; Training `d941f3afd8c2bf660f179640465506eb50d8cee4`. Validación local: Platform 285/285; Training API 675 pasados, 47 omitidos, 0 fallos y frontend 1.808/1.808. Mantener ambas PRs en Draft y ambos switches desactivados salvo pruebas locales expresas. Detalle y validación: [docs/HANDOFF_2J-089.md](docs/HANDOFF_2J-089.md).
+
+Los avisos de `npm audit` de API y frontend Training son deuda preexistente; esta TASK no cambia dependencias ni lockfiles.
+
 ## Estado autoritativo — producción y prioridades (2026-10-12)
 
 Producción y resultado del deploy confirmados por el propietario. Este checkpoint prevalece sobre los estados de release de las notas históricas que siguen; esos bloques se conservan como registro, no como backlog vigente.
