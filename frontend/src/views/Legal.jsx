@@ -36,7 +36,8 @@ export function LegalSheet() {
 
       <H>{t('Third parties')}</H>
       <ul className="dim" style={{ margin: 0, paddingLeft: 18 }}>
-        <li>{t('Exercise data and media: hasaneyldrm/exercises-dataset, under its own terms.')}</li>
+        <li>{t('Exercise records and non-media instructions: hasaneyldrm/exercises-dataset, MIT.')}</li>
+        <li>{t('Exercise images and animations: © Gym visual; separate permission is required, and 2J reuse is not verified. They are hidden until cleared.')}</li>
         <li>{t('Body diagram geometry: MuscleMap by Melih Colpan (MIT).')}</li>
         <li>{t('Open-source libraries such as React, React Router, Zustand and Vite, each under its own license.')}</li>
       </ul>

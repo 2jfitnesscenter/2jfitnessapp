@@ -67,8 +67,7 @@ function LibraryDetail({ ex, onBack }) {
   return <>
     <button className="bk-tool-back" onClick={onBack}><Icon name="chevronLeft" />{t('Back to search')}</button>
     <h3 className="bk-tool-exdetail-title capitalize">{nameFor(ex)}</h3>
-    {ex.gif && <img className="bk-tool-media" src={gifSrc(ex)} alt={nameFor(ex)} loading="lazy" />}
-    {!ex.gif && ex.img && <img className="bk-tool-media" src={imgSrc(ex)} alt={nameFor(ex)} loading="lazy" />}
+    {(ex.gif ? gifSrc(ex) : imgSrc(ex)) && <img className="bk-tool-media" src={ex.gif ? gifSrc(ex) : imgSrc(ex)} alt={nameFor(ex)} loading="lazy" />}
     <div className="bk-tool-chips">
       {ex.tg && <span className="bk-tool-tag capitalize">{t(ex.tg)}</span>}
       {ex.bp && ex.bp !== ex.tg && <span className="bk-tool-tag capitalize">{t(ex.bp)}</span>}
