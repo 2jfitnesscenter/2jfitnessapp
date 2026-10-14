@@ -12,6 +12,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), '2j-erasure-'));
 const SECRET = 'd'.repeat(64);
 fs.writeFileSync(path.join(dir, 'secret'), SECRET, { mode: 0o600 });
 fs.mkdirSync(path.join(dir, 'uploads'));
+fs.mkdirSync(path.join(dir, 'followup-photos'));
 const port = 39000 + Math.floor(Math.random() * 10000), base = `http://127.0.0.1:${port}`;
 const b64u = b => Buffer.from(b).toString('base64url');
 
@@ -34,7 +35,7 @@ const assertion = (key, credId, challenge, counter = 5) => {
 const write = (f, v) => fs.writeFileSync(path.join(dir, f), typeof v === 'string' ? v : JSON.stringify(v));
 write('db.json', {
   users: [
-    { id: 'member-a', name: 'Member A', username: 'membera', avatar: 'avatar-a.jpg', stravaAuth: { data: 'CANARY-TOKEN' }, created: '2026-01-01T00:00:00Z' },
+    { id: 'member-a', name: 'Member A', username: 'membera', avatar: 'avatar-a.jpg', stravaAuth: { data: 'CANARY-TOKEN' }, created: '2026-01-01T00:00:00Z', followUpV2: { assignments: [], responses: [{ id: 'answer-a', templateVersion: 3, snapshot: { name: 'Initial', questions: [] }, answers: { goal: 'CANARY-INTAKE' } }], photos: [{ id: '11111111-1111-4111-8111-111111111111.png', date: '2026-09-01', type: 'front', mime: 'image/png' }] } },
     { id: 'member-b', name: 'Member B', username: 'memberb' },
     { id: 'trainer', name: 'Trainer', username: 'trainer', trainer: true },
   ],
@@ -53,6 +54,7 @@ write('db.json', {
   machineAliases: [{ key: 'k', exId: '0001', name: 'Leg press' }],
 });
 for (const f of ['avatar-a.jpg', 'state-img-a.jpg', 'post-img-a.jpg', 'b-img.jpg']) fs.writeFileSync(path.join(dir, 'uploads', f), 'img');
+fs.writeFileSync(path.join(dir, 'followup-photos', '11111111-1111-4111-8111-111111111111.png'), 'private-progress-photo');
 write('state-member-a.json', { workouts: [{ id: 'w1', d: '2026-09-01', name: 'CANARY-WORKOUT', note: 'CANARY-NOTE', entries: [] }], bodyweight: [{ d: '2026-09-01', w: 81.5 }], routines: [{ id: 'r1', name: 'R', image: 'state-img-a.jpg' }], fitness: [{ hr: 'CANARY-HEALTH' }] });
 write('state-member-b.json', { workouts: [{ id: 'wb', d: '2026-09-02', name: 'B-WORKOUT', entries: [] }] });
 write('chat.json', {
@@ -111,6 +113,8 @@ test('export: everything the member owns, nothing of anyone else, no passkey key
   for (const mine of ['CANARY-WORKOUT', 'CANARY-NOTE', 'CANARY-HEALTH', 'CANARY-CHAT-A', 'CANARY-SHARE', 'CANARY-WALL', 'CANARY-COMMENT', 'CANARY-ROUTINE', '"4821"', 'CODEA']) assert.ok(json.includes(mine), 'missing from export: ' + mine);
   for (const notMine of ['B-KEEPS', 'B says hi to A', 'B post', 'B-WORKOUT', keyA.cose, 'CANARY-TOKEN']) assert.ok(!json.includes(notMine), 'leaked into export: ' + notMine);
   assert.equal(r.data.account.integrations.strava, true);
+  assert.equal(r.data.followUpV2.responses[0].answers.goal, 'CANARY-INTAKE');
+  assert.equal(r.data.followUpV2.progressPhotos[0].id, '11111111-1111-4111-8111-111111111111.png');
   assert.equal((await call('member-b', 'GET', '/api/me/export')).data.account.id, 'member-b', 'each member only gets their own');
   const anon = await fetch(base + '/api/me/export'); assert.equal(anon.status, 401);
 });
@@ -142,12 +146,13 @@ test('erasure with a fresh passkey assertion removes the person everywhere and l
   // nothing identifying the person is left in ANY file (chat is encrypted at rest: decrypt it for the scan)
   process.env.DATA_DIR = dir;
   const { decrypt } = await import('../lib/crypto.js');
-  const needles = ['member-a', 'membera', 'Member A', 'CANARY', 'cred-a', 'CODEA', '4821', 'avatar-a', 'state-img-a', 'post-img-a'];
+  const needles = ['member-a', 'membera', 'Member A', 'CANARY', 'cred-a', 'CODEA', '4821', 'avatar-a', 'state-img-a', 'post-img-a', '11111111-1111-4111-8111-111111111111.png'];
   for (const [file, text] of allText()) {
     const hay = file === 'chat.json' && !text.trim().startsWith('{') ? JSON.stringify(decrypt(text.trim(), 'chat-store')) : text;
     for (const n of needles) assert.ok(!hay.includes(n), `${file} still contains ${n}`);
   }
   assert.deepEqual(fs.readdirSync(path.join(dir, 'uploads')).sort(), ['b-img.jpg'], 'the member’s uploads are gone, others kept');
+  assert.deepEqual(fs.readdirSync(path.join(dir, 'followup-photos')), [], 'the erased member’s private follow-up photos are removed');
   // the rest of the community is untouched
   const db = JSON.parse(fs.readFileSync(path.join(dir, 'db.json'), 'utf8'));
   assert.deepEqual(db.users.map(u => u.id).sort(), ['member-b', 'trainer']);

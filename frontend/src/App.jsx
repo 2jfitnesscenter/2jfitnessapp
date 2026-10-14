@@ -78,6 +78,7 @@ const SocialReports = lazy(() => import('./views/SocialReports.jsx'))
 const AdminNews = lazy(() => import('./views/AdminNews.jsx'))
 const AdminFeatures = lazy(() => import('./views/AdminFeatures.jsx'))
 const AdminAI = lazy(() => import('./views/AdminAI.jsx'))
+const AdminFollowUpTemplates = lazy(() => import('./components/AdminFollowUpTemplates.jsx'))
 import NotificationWatcher from './components/NotificationWatcher.jsx'
 import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements, { SkinfoldsScreen, BodyMeasurementsScreen } from './views/Measurements.jsx'
@@ -351,6 +352,7 @@ function Shell() {
               <Route path="/admin/attention" element={user?.admin ? <AdminAttention /> : <Navigate to="/home" replace />} />
               <Route path="/admin/attention/:id" element={user?.admin ? <AdminAttentionMember /> : <Navigate to="/home" replace />} />
               <Route path="/admin/ai" element={user?.admin ? <AdminAI /> : <Navigate to="/home" replace />} />
+              <Route path="/admin/followup/templates" element={user?.admin ? <AdminFollowUpTemplates /> : <Navigate to="/home" replace />} />
               <Route path="/admin/features" element={user?.admin ? <AdminFeatures /> : <Navigate to="/home" replace />} />
               <Route path="/admin/news" element={user?.admin ? <AdminNews /> : <Navigate to="/home" replace />} />
               <Route path="/admin/social-reports" element={user?.admin ? <SocialReports /> : <Navigate to="/home" replace />} />

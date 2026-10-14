@@ -138,6 +138,7 @@ test('goal, notes, decisions and the follow-up mark need an active follow-up, ar
   assert.equal(m.view.goal.key, 'fatloss'); assert.equal(m.view.goal.source, 'staff'); assert.equal(m.view.goal.priority, 'high');
   assert.ok(m.view.signals.some(s => s.id === 'flagged'));
   assert.deepEqual(m.timeline.map(e => e.kind).slice(0, 4), ['flag_set', 'recommendation_rejected', 'note_added', 'goal_changed']);
+  assert.equal(m.timeline.find(e => e.kind === 'goal_changed').goal.after.primary, 'fatloss', 'goal snapshots are part of the existing encrypted decision timeline');
   assert.equal(m.notes[0].mine, true);
   assert.equal(m.followUp.privateNotesEncrypted, undefined, 'the ciphertext is never returned');
   // another trainer may read centre-wide, but cannot delete someone else's note; the admin can
