@@ -63,12 +63,12 @@ describe('supersets', () => {
 })
 
 describe('exercise image', () => {
-  it('uses the library image (gif first, then still) through the library\'s own helpers, never a hardcoded URL', async () => {
+  it('uses a safe placeholder while upstream media is unlicensed for 2J', async () => {
     await boot()
     const withGif = exlib.EXDB.find(x => x.gif), onlyImg = exlib.EXDB.find(x => !x.gif && x.img)
     const g = renderToStaticMarkup(<mod.BunkerExerciseMedia ex={withGif} name="Press" />)
-    expect(g).toContain('<img'); expect(g).toContain(`src="${exlib.gifSrc(withGif)}"`); expect(g).toContain('alt="Press"')
-    if (onlyImg) expect(renderToStaticMarkup(<mod.BunkerExerciseMedia ex={onlyImg} name="Row" />)).toContain(`src="${exlib.imgSrc(onlyImg)}"`)
+    expect(g).not.toContain('<img'); expect(g).toContain('bk-exmedia-fallback'); expect(g).toContain('Press')
+    if (onlyImg) expect(renderToStaticMarkup(<mod.BunkerExerciseMedia ex={onlyImg} name="Row" />)).toContain('bk-exmedia-fallback')
   })
   it('falls back to a clean placeholder with the name when there is no image or no library entry', async () => {
     await boot()

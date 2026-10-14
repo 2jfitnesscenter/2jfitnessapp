@@ -197,7 +197,7 @@ export default function GuidedRunner({ block }) {
           : <><b className="gx-time num">{e?.sets[step.s]?.r || e?.target?.reps || '—'}</b><span className="gx-unit">{t('reps')}</span></>}
       </Ring>
       {ex && <div className="gx-ex">
-        <div className="gx-media">{ex.img ? <img decoding="async" alt="" src={step.k === 'work' && prefs.images && ex.gif ? gifSrc(ex) : imgSrc(ex)} /> : <Thumb ex={ex} />}</div>
+        <div className="gx-media">{(step.k === 'work' && prefs.images && ex.gif ? gifSrc(ex) : imgSrc(ex)) ? <img decoding="async" alt="" src={step.k === 'work' && prefs.images && ex.gif ? gifSrc(ex) : imgSrc(ex)} /> : <Thumb ex={ex} />}</div>
         <div className="gx-ex-t">
           <span className="gx-ex-l">{step.k === 'work' ? t('Now') : t('Up next')}</span>
           <b className="capitalize">{nameFor(ex)}</b>

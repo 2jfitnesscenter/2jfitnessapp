@@ -1,5 +1,10 @@
 # Changelog
 
+### Exercise Library — cierre legal de medios (candidato local, NO desplegado)
+
+- Inventario reproducible de procedencia/licencia por registro y archivo. Distingue datos e instrucciones MIT del dataset de las imágenes/GIF de Gym visual, cuyo permiso upstream no prueba derechos de redistribución para 2J; las ilustraciones de estiramientos tampoco tienen una cadena de derechos demostrada.
+- Medios no verificados se ocultan y dejan de descargarse/servirse automáticamente; IDs, catálogo, instrucciones y flujos de entrenamiento permanecen disponibles con placeholders. Sin borrado de caches o datos locales.
+
 ### Seguimiento V2 final — release candidate, NO desplegado
 
 - Cuestionarios Basic/Intermedio/Pro administrables y versionados, respuestas inmutables, fotos de progreso privadas, comparación Antes/Después y cronología derivada de datos existentes.
