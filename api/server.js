@@ -95,6 +95,7 @@ const INVITE_ONLY = /^(1|true|yes|on)$/i.test(process.env.INVITE_ONLY || '');
 const PLATFORM_PROOF_ISSUANCE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_ISSUANCE_ENABLED || '');
 const PLATFORM_PROOF_EXCHANGE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_EXCHANGE_ENABLED || '');
 const PLATFORM_PROOF_RECONCILIATION_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_RECONCILIATION_ENABLED || '');
+const PLATFORM_TRAINING_SUMMARY_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_TRAINING_SUMMARY_ENABLED || '');
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
@@ -1022,10 +1023,11 @@ const routes = {
     dummyPin: DUMMY_STAFF_PIN, saveDb
   }),
   ...createPlatformProofRoutes({
-    json, readSession, store: platformProofStore, users: () => db.users,
+    json, readSession, store: platformProofStore, users: () => db.users, readState,
     issuanceEnabled: PLATFORM_PROOF_ISSUANCE_ENABLED,
     exchangeEnabled: PLATFORM_PROOF_EXCHANGE_ENABLED,
     reconciliationEnabled: PLATFORM_PROOF_RECONCILIATION_ENABLED,
+    trainingSummaryEnabled: PLATFORM_TRAINING_SUMMARY_ENABLED,
     serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
   }),
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),

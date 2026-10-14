@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH, verifyPlatformServiceRequest } from './service-auth.js';
+import { SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH, SERVICE_TRAINING_SUMMARY_PATH, verifyPlatformServiceRequest } from './service-auth.js';
 
 export const PLATFORM_LINK_AUDIENCE = '2j-training-account-link';
 export const PLATFORM_LINK_PURPOSE = 'training-account-link';
@@ -27,6 +27,33 @@ const reconciliationSchema = z.object({
   audience: z.literal(PLATFORM_LINK_AUDIENCE), purpose: z.literal(PLATFORM_LINK_PURPOSE),
   challengeDigest: z.string().regex(SHA256),
 }).strict();
+const trainingSummaryRequestSchema = z.object({ v: z.literal(1), trainingUserId: z.string().min(1).max(200).refine(value => value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value)) }).strict();
+
+function canonicalTrainingDay(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : null;
+}
+
+function readOnlyTrainingSummary(user, state, now) {
+  const currentDate = new Date(now()).toISOString().slice(0, 10);
+  const startDate = new Date(Date.parse(`${currentDate}T00:00:00.000Z`) - 29 * 86_400_000).toISOString().slice(0, 10);
+  const workouts = Array.isArray(state?.workouts) ? state.workouts : [];
+  const trainingDays = workouts.map(workout => canonicalTrainingDay(workout?.d)).filter(day => day && day >= startDate && day <= currentDate);
+  const lastTrainingAt = trainingDays.length ? trainingDays.reduce((latest, day) => day > latest ? day : latest) : null;
+  const activeProgramId = typeof state?.activeProgramId === 'string' ? state.activeProgramId : null;
+  const program = activeProgramId && Array.isArray(state?.programs)
+    ? state.programs.find(item => item?.id === activeProgramId && !['paused', 'abandoned', 'completed'].includes(item?.status))
+    : null;
+  const currentProgram = typeof program?.id === 'string' && program.id.length <= 200 && program.id.trim() === program.id && !/[\u0000-\u001f\u007f]/.test(program.id) && typeof program?.name === 'string' && program.name.trim() && !/[\u0000-\u001f\u007f]/.test(program.name)
+    ? { id: program.id, name: program.name.trim().slice(0, 120) }
+    : null;
+  return {
+    v: 1, trainingUserId: user.id, trainingStatus: 'active', asOf: new Date(now()).toISOString(),
+    ...(currentProgram ? { currentProgram } : {}),
+    recentActivity: { lastTrainingAt, sessionsLast30Days: trainingDays.length },
+  };
+}
 
 function readRawBody(request, maxBytes = PLATFORM_PROOF_BODY_MAX_BYTES) {
   return new Promise((resolve, reject) => {
@@ -61,8 +88,31 @@ function canonicalPlatformExpiry(value, timestamp) {
 
 const error = (json, res, status, code) => json(res, status, { error: code });
 
-export function createPlatformProofRoutes({ json, readSession, store, users, issuanceEnabled = false, exchangeEnabled = false, reconciliationEnabled = false, serviceKeys = new Map(), now = Date.now }) {
+export function createPlatformProofRoutes({ json, readSession, store, users, readState = () => null, issuanceEnabled = false, exchangeEnabled = false, reconciliationEnabled = false, trainingSummaryEnabled = false, serviceKeys = new Map(), now = Date.now }) {
   return {
+    [`POST ${SERVICE_TRAINING_SUMMARY_PATH}`]: async (req, res) => {
+      res.setHeader?.('Cache-Control', 'no-store');
+      if (!trainingSummaryEnabled) return error(json, res, 423, 'training_summary_disabled');
+      let raw;
+      try { raw = await readRawBody(req); }
+      catch (cause) { return error(json, res, cause?.code === 'BODY_TOO_LARGE' ? 413 : 400, 'invalid_summary_request'); }
+      const authorization = verifyPlatformServiceRequest({ method: req.method, requestTarget: req.url, headers: req.headers, body: raw, keys: serviceKeys, now: now() });
+      if (authorization.status !== 'ok') return error(json, res, 401, authorization.status);
+      if (req.headers?.['content-type']?.split(';', 1)[0]?.trim().toLowerCase() !== 'application/json') return error(json, res, 400, 'invalid_summary_request');
+      const parsed = trainingSummaryRequestSchema.safeParse(parseJson(raw));
+      if (!parsed.success) return error(json, res, 400, 'invalid_summary_request');
+      try {
+        const replay = store.acceptSummaryRequest(authorization.requestId);
+        if (replay.status === 'service_request_replayed') return error(json, res, 409, 'service_request_replayed');
+        const user = users().find(candidate => candidate.id === parsed.data.trainingUserId && !candidate.disabled);
+        if (!user) return error(json, res, 404, 'training_summary_not_found');
+        const summary = readOnlyTrainingSummary(user, readState(user.id), now);
+        return json(res, 200, summary);
+      } catch {
+        return error(json, res, 503, 'training_summary_unavailable');
+      }
+    },
+
     'POST /api/platform/v1/link-proofs': async (req, res) => {
       res.setHeader?.('Cache-Control', 'no-store');
       if (!issuanceEnabled) return error(json, res, 423, 'platform_linking_disabled');
