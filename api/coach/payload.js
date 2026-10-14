@@ -6,12 +6,10 @@
  * and a field added to the state blob next year cannot ride along by accident — which is the
  * property the FR-11 test actually asserts.
  *
- * Excluded on purpose and permanently: the profile's display name and user id (an opaque
- * handle stands in), passkey and credential material, push subscriptions, invite data, theme
+ * Excluded on purpose and permanently: the profile's display name and user id, passkey and
+ * credential material, push subscriptions, invite data, theme
  * and appearance settings, and every other profile's everything.
  */
-import crypto from 'node:crypto';
-import { readSecret } from '../lib/secret.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -89,12 +87,6 @@ export const DATA_CATEGORIES = [
   'profile',     // the intake answers you gave the Coach, including any limitations, plus age/sex/height from your account basics
   'prefs'        // unit, language, effort scale, and — when you've turned them on — your training level and weekly volume/intensity zone targets
 ];
-
-/** Stable per-profile pseudonym. Never the uid, never reversible, same across jobs. */
-function handle(uid) {
-  const secret = readSecret();
-  return crypto.createHmac('sha256', secret).update('coach-handle:' + uid).digest('base64url').slice(0, 16);
-}
 
 /* ---------- reading a session the way the engine reads it ----------
    Duplicated from frontend/src/lib/progression.js rather than shared: the two runtimes have
@@ -333,10 +325,10 @@ function cleanWorkout(w) {
  * Build a job payload.
  *
  * @param {object} S      the profile's synced state, as read from disk
- * @param {string} uid    used only to derive the opaque handle
+ * @param {string} _uid   retained for the caller contract; identifiers are never sent to providers
  * @param {object} opts   { kind, intake?, note?, refine?, previous? }
  */
-export function build(S, uid, opts = {}) {
+export function build(S, _uid, opts = {}) {
   const coach = S.coach || {};
   const profile = opts.intake || coach.profile || null;
   const structuralAnalysis = cleanStructuralAnalysis(opts.structuralAnalysis);
@@ -345,7 +337,6 @@ export function build(S, uid, opts = {}) {
     gymProfile: gymEquipmentContext(S),
     task: opts.kind === 'review' ? 'review' : 'create',
     meta: {
-      profile: handle(uid),
       lang: S.lang || 'en',
       unit: S.unit || 'kg',
       effortScale: effortOf(S),
@@ -451,7 +442,7 @@ export function build(S, uid, opts = {}) {
 /** Trainer AI is separate from member Coach consent. Keep its provider payload to the same
  * member plan the current trainer endpoint exposes, plus the trainer-supplied brief. Never
  * attach workout history, Health, body metrics, member Coach notes/log, or identity. */
-export function buildTrainer(S, uid, brief = {}) {
+export function buildTrainer(S, _uid, brief = {}) {
   const scoped = {
     routines: Array.isArray(S?.routines) ? S.routines : [],
     programs: Array.isArray(S?.programs) ? S.programs : [],
@@ -459,7 +450,5 @@ export function buildTrainer(S, uid, brief = {}) {
     lang: 'en',
     unit: 'kg'
   }
-  const payload = build(scoped, uid, { kind: 'create', intake: brief, structuralAnalysis: brief?.structuralAnalysis })
-  delete payload.meta.profile
-  return payload
+  return build(scoped, _uid, { kind: 'create', intake: brief, structuralAnalysis: brief?.structuralAnalysis })
 }

@@ -191,7 +191,7 @@ test('AI facts are compact, name-free, notes-free and never exceed the limit', (
   assert.doesNotMatch(json, /Ana|Secreta|u1|texto largo|privado|"id":"w/);
   assert.ok(!('workouts' in facts) && !('entries' in facts) && !('notes' in facts) && !('trainerNotes' in facts));
   assert.equal(facts.checkin.highFatigue14, 1);
-  assert.deepEqual(Object.keys(facts.structure[0]).sort(), ['category', 'id', 'severity']);
+  assert.deepEqual(Object.keys(facts.structure[0]).sort(), ['category', 'severity']);
   const noShare = aiFacts(memberView({ S: member({ checkins: S.checkins }), u: roster(), today: TODAY }));
   assert.equal(noShare.checkin, null, 'private check-ins never reach the AI');
 });

@@ -442,7 +442,8 @@ export const AI_PAYLOAD_MAX = 6000;     // characters of JSON sent to the provid
 export const SEV_LABEL = { review: 'review', priority: 'priority' };
 const cleanStructure = list => (Array.isArray(list) ? list : []).slice(0, 8)
   .filter(x => x && typeof x === 'object' && ['importante', 'revisar', 'info'].includes(x.severity))
-  .map(x => ({ id: clip(x.id, 80), category: clip(x.category, 30), severity: x.severity }));
+  .filter(x => ['equipment', 'library', 'redundancy', 'balance', 'distribution', 'history'].includes(x.category))
+  .map(x => ({ category: x.category, severity: x.severity }));
 export { cleanStructure };
 
 /**
@@ -453,7 +454,8 @@ export function aiFacts(view, { structure = null, recent = [], intake = [] } = {
   const a = view.adherence, p = view.progress;
   const facts = {
     v: 1, today: view.today,
-    goal: { key: view.goal.key, label: view.goal.label ? clip(view.goal.label, 80) : null, targetDate: view.goal.targetDate, priority: view.goal.priority },
+    // `label` is trainer-authored free text; the stable goal key carries the needed meaning.
+    goal: { key: view.goal.key, targetDate: view.goal.targetDate, priority: view.goal.priority },
     adherence: { plannedPerWeek: a.plannedPerWeek, d7: slim(a.d7), d28: slim(a.d28), trend: a.trend, perWeek: a.perWeek, daysSince: a.daysSince },
     progress: { prs28: p.prs28, prsPrev28: p.prsPrev28, progression: p.progression, plateau: p.plateau, sessions28: p.sessions28, cardio28: p.cardio28 },
     body: p.body && view.goal.lens === 'body' ? { delta: p.body.delta, span: p.body.span, n: p.body.n, toTarget: p.targetWeight != null ? Math.round((p.body.last - p.targetWeight) * 10) / 10 : null } : null,

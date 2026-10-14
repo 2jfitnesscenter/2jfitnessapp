@@ -48,10 +48,24 @@ test('server-side consent, single-flight and daily caps protect optional explana
   assert.throws(() => jobs.claimExplanation('no-consent'), e => e.code === 'consent');
   writeState(dir, 'consented', sampleState());
   cfg.save({ caps: { perProfileDaily: 1, instanceDaily: 0 } });
-  const release = jobs.claimExplanation('consented');
+  const lease = jobs.claimExplanation('consented');
   assert.throws(() => jobs.claimExplanation('consented'), e => e.code === 'busy');
-  release();
+  lease.release();
   assert.throws(() => jobs.claimExplanation('consented'), e => e.code === 'cap');
+});
+
+test('an explanation queued before consent revocation makes no provider call', async () => {
+  writeState(dir, 'revoked-explanation', sampleState());
+  const lease = jobs.claimExplanation('revoked-explanation');
+  jobs.clearUser('revoked-explanation');
+  let calls = 0;
+  const result = await explainSignal({ type: 'PLATEAU' }, {
+    canInvoke: lease.canInvoke,
+    adapter: { invoke: async () => { calls++; return { code: 0, text: '{"explanation":"Puedes mantener el plan y observar cómo te sientes."}' }; } }
+  });
+  lease.release();
+  assert.equal(calls, 0);
+  assert.deepEqual(result, { ok: false, error: 'consent' });
 });
 
 test('HTTP explanation route rejects unauthenticated and unconsented callers before provider use', async () => {

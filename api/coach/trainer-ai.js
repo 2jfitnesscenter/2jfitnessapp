@@ -25,6 +25,13 @@ const DEFAULTS = {
   log: []
 };
 const LOG_MAX = 100;
+const LOG_FIELDS = ['at', 'flow', 'outcome', 'errorClass', 'ms', 'status', 'provider'];
+function cleanLog(entries) {
+  return (Array.isArray(entries) ? entries : []).slice(-LOG_MAX).map(entry => Object.fromEntries(
+    LOG_FIELDS.filter(key => entry?.[key] != null && (!['ms', 'status'].includes(key) || Number.isFinite(Number(entry[key]))))
+      .map(key => [key, ['ms', 'status'].includes(key) ? Number(entry[key]) : String(entry[key]).slice(0, 80)])
+  ));
+}
 
 export const encrypt = obj => encryptWith(obj, CRYPTO_INFO);
 export const decrypt = blob => decryptWith(blob, CRYPTO_INFO);
@@ -39,11 +46,12 @@ export function load() {
   if (cache) return cache;
   let stored = {};
   try { stored = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { /* absent = feature off */ }
-  cache = { ...DEFAULTS, ...stored, caps: { ...DEFAULTS.caps, ...(stored.caps || {}) } };
+  cache = { ...DEFAULTS, ...stored, caps: { ...DEFAULTS.caps, ...(stored.caps || {}) }, log: cleanLog(stored.log) };
   return cache;
 }
 export function save(patch) {
   const next = { ...load(), ...patch };
+  next.log = cleanLog(next.log);
   cache = next;
   atomicWrite(FILE, JSON.stringify(next, null, 2), 0o600);
   return next;
@@ -91,7 +99,8 @@ export function jobEnv(jobDir) {
 /* ---------- instance-level job log (counts and outcomes only, same privacy rule as config.js) ---------- */
 export function logJob(entry) {
   const cfg = load();
-  const log = [...(cfg.log || []), entry].slice(-LOG_MAX);
+  // Never persist member identifiers, prompts, provider bodies or arbitrary detail fields.
+  const log = cleanLog([...(cfg.log || []), entry]);
   save({ log });
 }
 const todayISO = () => new Date().toISOString().slice(0, 10);

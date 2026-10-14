@@ -84,7 +84,7 @@ function pump() {
     const job = queue.shift();
     running++;
     execute(job)
-      .catch(e => { console.error('trainer-ai job crashed', job.id, e); setResult(job, { state: 'failed', errorClass: 'internal' }); })
+      .catch(() => { console.error('trainer-ai job crashed', job.id); setResult(job, { state: 'failed', errorClass: 'internal' }); })
       .finally(() => { running--; inflight.delete(keyOf(job.trainerId, job.memberId)); pump(); });
   }
 }
@@ -92,7 +92,7 @@ function pump() {
 function setResult(job, patch) {
   jobsByKey.set(keyOf(job.trainerId, job.memberId), { id: job.id, startedAt: job.startedAt, pending: null, errorClass: null, ...patch });
   trainerAI.logJob({
-    at: new Date().toISOString(), memberHandle: job.memberId.slice(0, 6),
+    at: new Date().toISOString(), flow: 'trainer-create',
     outcome: patch.state === 'done' ? 'ready' : 'failed', errorClass: patch.errorClass || null,
     ms: Date.now() - job.startedAt
   });

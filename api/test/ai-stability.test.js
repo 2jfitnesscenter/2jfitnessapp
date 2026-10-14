@@ -56,11 +56,22 @@ test('timeout → retry → success', async () => {
   assert.equal(t.calls, 2); assert.equal(out.failure.errorClass, 'timeout');
 });
 test('5xx / 529 overloaded / 429 → retry → success', async () => {
-  for (const err of [{ status: 503 }, { stderr: 'API Error: 529 {"type":"overloaded_error"}' }, { stderr: 'HTTP 429 Too Many Requests' }]) {
+  for (const err of [{ status: 500 }, { status: 503 }, { stderr: 'API Error: 529 {"type":"overloaded_error"}' }, { stderr: 'HTTP 429 Too Many Requests' }]) {
     const a = fake([{ code: 1, text: '', stderr: '', timedOut: false, spawnError: false, ...err }, OK]); const restore = quiet();
     const r = await aiRun.invokeWithRetry(a, {}, {}); restore();
     assert.equal(a.calls, 2, JSON.stringify(err)); assert.equal(r.failure, undefined);
   }
+});
+test('persistent 429 and 500 failures are bounded and leave the deterministic Coach available', async () => {
+  for (const status of [429, 500]) {
+    const a = fake(Array.from({ length: 3 }, () => ({ code: 1, status, text: '', stderr: '' })));
+    const restore = quiet();
+    const r = await aiRun.invokeWithRetry(a, {}, { flow: 't' }); restore();
+    assert.equal(a.calls, 3, `HTTP ${status} must stop after the configured maximum`);
+    assert.equal(r.failure.errorClass, 'provider');
+    assert.equal(r.failure.status, status);
+  }
+  assert.equal(cfg.isEnabled(), true, 'a failed optional provider call does not disable the deterministic Coach');
 });
 test('a crashed runtime and an empty answer are transient; at most 3 calls in total', async () => {
   const a = fake([new Error('Claude Code process exited with code 1'), { code: 0, text: '  ', stderr: '' }, { code: 1, text: '', stderr: 'API Error: 500' }]); const restore = quiet();
@@ -71,6 +82,7 @@ test('auth / config / missing runtime / bad request are never retried', async ()
   const cases = [
     [{ code: 1, text: '', stderr: 'API Error: 401 authentication_error: invalid x-api-key' }, 'auth'],
     [{ code: 2, text: '', stderr: 'Incorrect API key provided', status: 401 }, 'auth'],
+    [{ code: 2, text: '', stderr: 'provider access denied', status: 403 }, 'auth'],
     [{ code: -1, text: '', stderr: 'spawn codex ENOENT', spawnError: true }, 'missing'],
     [{ code: 1, text: '', stderr: 'invalid_request: prompt is too long', status: 400 }, 'provider'],
   ];

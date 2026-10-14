@@ -132,13 +132,23 @@ test('legacy Claude credentials are disabled until replaced with a setup token',
 
 test('the instance job log records outcomes, never contents', () => {
   cfg.save({ log: [] });
-  cfg.logJob({ at: new Date().toISOString(), uid: 'u1', kind: 'review', outcome: 'ready', ms: 1200 });
-  cfg.logJob({ at: new Date().toISOString(), uid: 'u1', kind: 'review', outcome: 'failed', errorClass: 'auth', ms: 400 });
+  cfg.logJob({ at: new Date().toISOString(), uid: 'CANARY-UID', kind: 'review', outcome: 'ready', ms: 1200, detail: 'CANARY-PROMPT', provider: 'gemini' });
+  cfg.logJob({ at: new Date().toISOString(), uid: 'CANARY-UID', kind: 'review', outcome: 'failed', errorClass: 'auth', ms: 400, stderr: 'CANARY-SECRET' });
   const log = cfg.load().log;
   assert.equal(log.length, 2);
   assert.equal(cfg.lastError().errorClass, 'auth');
   assert.equal(cfg.lastSuccess().outcome, 'ready');
-  assert.ok(!JSON.stringify(log).includes('changes'), 'no proposal content ever reaches the instance log');
+  const serialized = JSON.stringify(log);
+  for (const value of ['CANARY-UID', 'CANARY-PROMPT', 'CANARY-SECRET', 'stderr', 'detail']) assert.ok(!serialized.includes(value));
+  assert.equal(log[0].provider, 'gemini');
+});
+
+test('legacy instance logs are sanitized when loaded, not only when new jobs are written', () => {
+  fs.writeFileSync(`${DIR}/coach.json`, JSON.stringify({ enabled: true, provider: 'fixture', log: [{ at: new Date().toISOString(), uid: 'OLD-CANARY-UID', kind: 'review', outcome: 'failed', detail: 'OLD-CANARY-PROMPT' }] }));
+  cfg.reset();
+  const serialized = JSON.stringify(cfg.load().log);
+  assert.doesNotMatch(serialized, /OLD-CANARY-UID|OLD-CANARY-PROMPT|uid|detail/);
+  assert.match(serialized, /review|failed/);
 });
 
 /* ---------------- cadence ---------------- */
