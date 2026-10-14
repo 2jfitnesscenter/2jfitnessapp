@@ -53,8 +53,9 @@ Recommended 2J first and "More variants" from the master library.
 ## Recommended 2J vs master
 
 - **Recommended 2J** (179) = the curated protocol catalogue (161, what the official blocks use) +
-  a short extension of staples (`EXTRA_RECOMMENDED`). Each has a movement, equipment, image and
-  Spanish name — the check fails otherwise.
+  a short extension of staples (`EXTRA_RECOMMENDED`). Each has a movement, equipment, image
+  reference and Spanish name — the check fails otherwise. Referenced upstream media is not
+  currently rendered because a direct 2J reuse right has not been evidenced.
 - **Master** = all 1324. One tap away ("See the full library", "Full library" in the picker); a
   search with nothing in 2J offers the master results instead of a dead end.
 
@@ -170,10 +171,19 @@ Token figures are **estimates** (JSON bytes ÷ 3.6): no tokenizer is available o
 
 ## Exercise media and its licence
 
-Every record has a 180 × 180 JPG and GIF from the upstream dataset (`hasaneyldrm/exercises-dataset`), fetched on first run and never stored in this repository.
-The repository states the licence only as "(CC)" (`docker-compose.yml`, `scripts/fetch-media.sh`) and `THIRD_PARTY_NOTICES.md` says the media remains under the
-dataset's own terms. **The exact Creative Commons variant and its conditions cannot be confirmed from anything in this repository: pending.** Until it is, nothing
-new depends on that media (no new records, no bundling, no CDN), and the notice to review the upstream licence before redistributing stays in force.
+Each of the 1,324 records has a referenced JPG and GIF from `hasaneyldrm/exercises-dataset`.
+At revision `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`, the upstream `LICENSE` and `NOTICE.md`
+separate the data (MIT) from media owned by Gym visual.
+The upstream media permission is limited to 180 × 180, requires attribution, does not grant
+downstream users a licence, and directs them to obtain their own permission. No 2J-specific grant
+or licence is in this repository. The exact commit copied into the old untracked runtime `media/`
+volume is not recorded (old Compose and `fetch-media.sh` cloned the moving default branch; the
+mobile CDN URL did pin the revision above).
+Therefore all 2,648 dataset media references are `UNKNOWN_OR_UNVERIFIED`, are not rendered by the
+app and are blocked by Nginx. The stretch illustrations have a source comment that Juanjo supplied
+them, but no creator/license evidence; all 157 tracked files are also hidden and blocked pending
+verification. Exercise ids, plans and instructions remain available with icon placeholders. See
+the generated [asset inventory](legal/exercise-media-inventory.csv).
 
 ## Remaining limitations
 

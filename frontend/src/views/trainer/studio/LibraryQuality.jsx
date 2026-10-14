@@ -54,7 +54,7 @@ function Panel({ row, rows, onClose, onSaved }) {
   return <aside className="st-qpanel" aria-label={t('Edit exercise')}>
     <header><div className="grow"><small className="num dim">#{ex.id}</small><h2>{nameFor(ex) || ex.n}</h2></div>
       <button className="cx-icon" aria-label={t('Close')} onClick={onClose}><Icon name="xmark" /></button></header>
-    {ex.gif && <img className="st-qmedia" src={gifSrc(ex)} alt="" loading="lazy" onError={e => { e.currentTarget.src = imgSrc(ex) }} />}
+    {gifSrc(ex) && <img className="st-qmedia" src={gifSrc(ex)} alt="" loading="lazy" onError={e => { const still = imgSrc(ex); if (still) e.currentTarget.src = still; else e.currentTarget.remove() }} />}
     {row.dupes.length > 0 && <p className="st-warn"><Icon name="info" />{t('Looks like')}: {row.dupes.slice(0, 3).map(d => EXIDX[d]?.n || d).join(' · ')}</p>}
     <div className="cx-form">
       <label className="cx-field"><span>{t('Visible name (English)')}</span><input className="input" maxLength={80} value={f.n} onChange={e => set({ n: e.target.value })} /></label>

@@ -131,7 +131,7 @@ function WorkoutGuide({ close, onDone, replay }) {
       <h1>{t('Your trainer’s notes, always in view')}</h1>
       <p className="g-sub">{t('Notes are what your trainer wrote for you. Tips are the general how-to of the exercise. Machine taken? “Change exercise” keeps your sets.')}</p>
       <div className="g-preview g-hero" aria-hidden="true">
-        {prefs.images && ex?.img && <div className="g-img"><img src={imgSrc(ex)} alt="" /></div>}
+        {prefs.images && imgSrc(ex) && <div className="g-img"><img src={imgSrc(ex)} alt="" /></div>}
         <div className="exname" style={{ fontSize: 20 }}>{nameFor(ex)}</div>
         <div className="shero-meta"><span className="tag nocap"><Icon name="target" />3 × 8-10 {t('reps')}</span><span className="tag swap nocap"><Icon name="shuffle" />{t('Change exercise')}</span></div>
         <div className="cues">

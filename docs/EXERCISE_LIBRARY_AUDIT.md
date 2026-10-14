@@ -182,8 +182,8 @@ Kept as they are: without a visual comparison they are not deprecated. Candidate
 
 ## Images
 
-- Every record has an image and a GIF: yes; file names start with the record id: yes; unique: yes.
-- Media are fetched from the upstream dataset and keep its own terms (see THIRD_PARTY_NOTICES.md); none is copied into this repository.
+- Every record has image/GIF filename references: yes; image names start with the record id: yes; unique: yes.
+- Exercise media rights are not cleared for 2J: dataset images/GIFs and stretch illustrations are hidden and blocked from serving; see docs/legal/exercise-media-inventory.csv.
 
 ## Imports
 

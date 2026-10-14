@@ -22,7 +22,8 @@ describe('Legal & credits', () => {
     expect(html).toContain('GNU Affero General Public License v3.0 or later')
     for (const u of [SOURCE_URL, UPSTREAM_URL, LICENSE_URL]) expect(html).toContain(`href="${u}"`)
     expect(html).toContain('MuscleMap by Melih Colpan (MIT)')
-    expect(html).toContain('hasaneyldrm/exercises-dataset')
+    expect(html).toContain('Exercise records and non-media instructions: hasaneyldrm/exercises-dataset, MIT.')
+    expect(html).toContain('Exercise images and animations: © Gym visual; separate permission is required, and 2J reuse is not verified. They are hidden until cleared.')
   })
   it('the repository notices agree with the screen and the license stays AGPL', () => {
     expect(doc('LICENSE')).toMatch(/^\s*GNU AFFERO GENERAL PUBLIC LICENSE\s+Version 3, 19 November 2007/)

@@ -129,8 +129,8 @@ describe('prescription cues', () => {
     expect(html).toContain('Bajada lenta de 3 segundos')
     expect(html).not.toContain('class="cue tips"')
   })
-  it('images follow their preference', async () => {
-    expect(await render()).toContain('exmedia')
+  it('does not render unverified dataset media even when the preference is enabled', async () => {
+    expect(await render()).not.toContain('exmedia')
     write(s => { s.showExerciseImages = false })
     expect(await render()).not.toContain('exmedia')
   })

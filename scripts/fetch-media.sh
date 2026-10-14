@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
-# Manually download the exercise images (JPG) and animations (GIF) into ./media.
-# You normally DON'T need this — `docker compose up` fetches them automatically.
-# Source: hasaneyldrm/exercises-dataset (CC).
-set -euo pipefail
-cd "$(dirname "$0")/.."
-tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
-git clone --depth 1 https://github.com/hasaneyldrm/exercises-dataset "$tmp"
-mkdir -p media/img media/gif
-cp "$tmp"/images/*.jpg media/img/
-cp "$tmp"/videos/*.gif media/gif/
-echo "✓ $(ls media/img | wc -l) images, $(ls media/gif | wc -l) GIFs"
+# Deliberately fail closed: the dataset's images/GIFs are Gym visual media and no direct 2J
+# permission is recorded. See docs/legal/exercise-media-inventory.csv before adding any media.
+set -eu
+echo "Exercise media was not fetched: 2J rights are unverified. Review docs/legal/exercise-media-inventory.csv."
+exit 1

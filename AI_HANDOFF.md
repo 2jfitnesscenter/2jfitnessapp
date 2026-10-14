@@ -1,5 +1,11 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Exercise Library — cierre legal de medios (candidato local, NO desplegado; 2026-10-14)
+
+- Revisión de derechos separa el dataset de ejercicios y sus textos (licencia MIT en la revisión upstream fijada `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`) de sus imágenes/GIF, sujetos a derechos de Gym visual sin licencia downstream demostrada para 2J. Los 2.648 medios del dataset y las 157 ilustraciones de estiramientos se clasifican como no verificados; no se atribuye titularidad a 2J por el comentario de origen.
+- Medios no autorizados quedan ocultos por defecto y se bloquea su descarga/servicio automático. Se mantienen IDs, registros, instrucciones, búsqueda, compatibilidad, swaps y flujos de Library/Constructor/Workout/Bunker/Train2J; los componentes usan placeholders. No se borran caches ni archivos locales preexistentes.
+- Inventario por registro/archivo en `docs/legal/exercise-media-inventory.csv`, generado y comprobable mediante `scripts/build-exercise-media-inventory.mjs`. `THIRD_PARTY_NOTICES.md`, pantalla Legal, docs de Exercise Library y avisos de fallback reflejan el alcance de las licencias. Este candidato no está desplegado ni tiene validación de release.
+
 ## Seguimiento V2 final — candidato local (2026-10-14, NO desplegado)
 
 - Extiende Coach/Seguimiento PRO V3 y el consentimiento existente: cuestionarios Básico/Intermedio/Pro configurables por admin, asignación staff→socio, snapshot versionado y una respuesta inmutable por asignación. No requiere migración; socios antiguos siguen usando su ficha actual.
