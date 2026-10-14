@@ -449,7 +449,7 @@ export { cleanStructure };
  * Facts for the professional AI. Built from the sheet — never from raw state: no name, no id, no notes of any kind (staff notes stay out of every AI by policy),
  * no workout JSON, no catalogue. Check-in numbers only when the member shared them. Trimmed field by field until it fits AI_PAYLOAD_MAX.
  */
-export function aiFacts(view, { structure = null, recent = [] } = {}) {
+export function aiFacts(view, { structure = null, recent = [], intake = [] } = {}) {
   const a = view.adherence, p = view.progress;
   const facts = {
     v: 1, today: view.today,
@@ -463,11 +463,12 @@ export function aiFacts(view, { structure = null, recent = [] } = {}) {
     structure: cleanStructure(structure),
     checkin: view.checkin.shared ? { avg: view.checkin.avg, highFatigue14: view.checkin.highFatigue14, pain14: view.checkin.pain14.slice(0, 3) } : null,
     recent: recent.slice(0, 5).map(e => ({ kind: clip(e.kind, 30), d: clip(e.d, 10) })),
+    intake: (Array.isArray(intake) ? intake : []).slice(0, 6).map(x => ({ question: clip(x.question, 80), answer: typeof x.answer === 'string' ? clip(x.answer, 120) : Array.isArray(x.answer) ? x.answer.slice(0, 5).map(v => clip(v, 80)) : x.answer })),
     premiumProgram: view.premium ? premiumFacts(view.premium) : null,
     oppositionPlan: view.opposition ? oppositionFacts(view.opposition) : null,
   };
   const size = () => JSON.stringify(facts).length;
-  for (const drop of ['recent', 'structure', 'checkin', 'body']) if (size() > AI_PAYLOAD_MAX) facts[drop] = drop === 'recent' || drop === 'structure' ? [] : null;
+  for (const drop of ['recent', 'structure', 'checkin', 'body', 'intake']) if (size() > AI_PAYLOAD_MAX) facts[drop] = drop === 'recent' || drop === 'structure' || drop === 'intake' ? [] : null;
   while (size() > AI_PAYLOAD_MAX && facts.signals.length > 2) facts.signals.pop();
   return facts;
 }

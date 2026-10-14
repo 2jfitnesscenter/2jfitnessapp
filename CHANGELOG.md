@@ -1,5 +1,10 @@
 # Changelog
 
+### Seguimiento V2 final — release candidate, NO desplegado
+
+- Cuestionarios Basic/Intermedio/Pro administrables y versionados, respuestas inmutables, fotos de progreso privadas, comparación Antes/Después y cronología derivada de datos existentes.
+- Conserva Routine Review, ACL global de trainer, consentimiento de Coach y stores actuales; sin cambios en Sync V2 ni Social.
+
 ### Oposiciones V1.1 y Búnker compacto — candidato, NO desplegado
 
 - Entrena tus Oposiciones V1.1: preparación física real (fuerza, potencia, velocidad/agilidad, resistencia, natación) con series, repeticiones, RPE, descansos, superseries y descargas por fases; las marcas son checkpoints en «Pruebas y marcas»; la pantalla principal es «Esta semana».

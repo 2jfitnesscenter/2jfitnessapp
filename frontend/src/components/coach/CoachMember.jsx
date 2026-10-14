@@ -19,6 +19,7 @@ import { EXIDX } from '../../lib/exercises.js'
 import { runLabel, INCIDENT_LABEL } from '../../lib/premium-text.js'
 import { CAP_LABEL, PHASE_LABEL, STATUS_LABEL, LEVEL_LABEL } from '../../lib/opposition-text.js'
 import { formatMark } from '../../lib/opposition.js'
+import { TrainerFollowUpRecords } from '../FollowUpV2.jsx'
 import { Surface, Pill, ProgressBar, Sparkline, Skeleton } from '../v2.jsx'
 import { Button, Avatar, TextArea, Row } from '../ui.jsx'
 import './coach-followup.css'
@@ -367,6 +368,7 @@ export function MemberView({ d, plan = null, id, back, reload = () => {}, setDat
     </Acc>
     <Acc title={t('2J analysis')} icon="sparkles" open><Analysis d={d} plan={plan} id={id} nav={nav} notesRef={notesRef} setDraft={setDraft} reload={reload} /></Acc>
     <Acc title={t('Check-in')} icon="heart"><Checkin view={view} /></Acc>
+    <Acc title={t('Questionnaires, measurements and photos')} icon="chartLine"><TrainerFollowUpRecords id={id} /></Acc>
     <Acc title={t('Professional history')} icon="history" count={d.timeline.length || null}><Timeline items={d.timeline} /></Acc>
     <Acc title={t('Notes')} icon="pencil" count={d.notes.length || null}><Notes d={d} id={id} draft={draft} setDraft={setDraft} notesRef={notesRef} reload={reload} admin={!!user?.admin} /></Acc>
   </div>

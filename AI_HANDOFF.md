@@ -1,5 +1,12 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Seguimiento V2 final — release candidate (2026-10-14, NO desplegado)
+
+- PR #29 merged as `7b11fb7`; release branch is based on production `6f1a9e22d6de050bf230488adbef462732cecc02` and carries only PR #29 changes.
+- Includes admin-managed versioned questionnaires, immutable assignment responses, private progress photos, date comparison, derived follow-up timeline, and existing Routine Review history integration.
+- Photos are authenticated, stored under `DATA/followup-photos`, excluded from Social and Coach, and deleted with the member account. Coach intake uses existing consent and admin-curated structured answers only.
+- No schema migration or Sync V2 changes. Release validation is in progress; no deployment has been performed.
+
 ## Home + Salud V2 + Entrenamientos Premium V1 (candidato; NO desplegado; base `172a89c` = origin/main tras el PR #17)
 
 - Rama `codex/premium-programs-v1`. Detalle en `docs/PREMIUM_PROGRAMS_V1.md` y `docs/HEALTH_COMPOSITION_V2.md`. **Premium** = catálogo de métodos estructurados (no paywall): motor genérico dirigido por datos (`lib/premium-model.js`, copia sincronizada en `api/lib`), 12 programas semilla versionados (`scripts/premium/official-programs.mjs` → `api/lib/premium-official.json`, CI `--check`), store con overlay `DATA/premium.json`, rutas `/api/premium/*`, flag `premium` (OFF = sin activaciones nuevas, los programas en marcha siguen). 5/3/1 es un programa del motor (Training Max, S1–S4, AMRAP, propuesta de ciclo que confirma el socio).

@@ -34,6 +34,8 @@ export function exportMember(d, uid) {
       pushSubscriptions: d.db.subs.filter(x => x.userId === uid).length,
     },
     state: state || null,
+    followUpV2: user.followUpV2 ? { assignments: user.followUpV2.assignments || [], responses: user.followUpV2.responses || [],
+      progressPhotos: (user.followUpV2.photos || []).map(({ id, date, type, note, mime, createdAt }) => ({ id, date, type, note, mime, createdAt })) } : null,
     chat: d.chat.exportUser(uid),
     friends: d.friends.exportUser(uid),
     notifications: d.notifications.exportUser(uid),
@@ -61,6 +63,7 @@ export function eraseMember(d, uid) {
   let stateText = '';
   try { stateText = JSON.stringify(d.readState(uid) || {}); } catch { /* unreadable state: nothing to scan */ }
   try { for (const f of fs.readdirSync(d.uploadsDir)) if (stateText.includes(f)) uploads.add(f); } catch { /* no uploads folder */ }
+  const followupPhotoIds = (user.followUpV2?.photos || []).map(x => x.id).filter(id => /^[0-9a-f-]{36}\.(jpg|png|webp)$/.test(id));
 
   // 2. stores that own a file each
   report.chat = d.chat.removeUser(uid);
@@ -85,6 +88,9 @@ export function eraseMember(d, uid) {
   let removedUploads = 0;
   for (const f of uploads) { try { d.deleteUploadedImage(f); removedUploads++; } catch { /* already gone */ } }
   report.uploads = removedUploads;
+  let removedFollowupPhotos = 0;
+  for (const id of followupPhotoIds) { try { fs.unlinkSync(path.join(d.followupPhotosDir, id)); removedFollowupPhotos++; } catch { /* already gone */ } }
+  report.followupPhotos = removedFollowupPhotos;
 
   // 5. accounts file last: if anything above failed halfway the account still exists and the operation can simply be repeated
   const before = { creds: d.db.creds.length, subs: d.db.subs.length, restAlerts: (d.db.restAlerts || []).length, rec: d.db.recoveries.length, req: (d.db.recoveryRequests || []).length };

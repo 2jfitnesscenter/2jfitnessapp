@@ -11,6 +11,7 @@ import { sanitizeFollowUp, templateKeys } from './followup.js';
 import { routineReviews } from './routine-review.js';
 import { memberView, overviewRow, unreadableRow, bucketRows, sanitizeGoal, aiFacts, cleanStructure } from './coach-followup.js';
 import { emptyPrivate, normalizePrivate, pushEvent, addNote, deleteNote, timeline, DECISION_KINDS } from './coach-followup-private.js';
+import { consentedCoachIntake } from './followup-v2.js';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -113,8 +114,9 @@ export function coachFollowUpRoutes(d) {
       const g = sanitizeGoal(body, u.followUp.goalPlan);
       if (g.error) return json(res, 400, { error: g.error });
       if (JSON.stringify(g.value || null) === JSON.stringify(u.followUp.goalPlan || null)) return json(res, 200, { ok: true, goalPlan: u.followUp.goalPlan || null, changed: false });
+      const previousGoal = u.followUp.goalPlan ? { primary: u.followUp.goalPlan.primary || null, label: u.followUp.goalPlan.label || null, targetDate: u.followUp.goalPlan.targetDate || null, priority: u.followUp.goalPlan.priority || null } : null;
       if (g.value) u.followUp.goalPlan = { ...g.value, by: staff.id, at: new Date().toISOString() }; else delete u.followUp.goalPlan;
-      writePriv(u, pushEvent(priv, { kind: 'goal_changed', by: staff.id, text: typeof body.comment === 'string' ? body.comment.trim() : '' }));
+      writePriv(u, pushEvent(priv, { kind: 'goal_changed', by: staff.id, text: typeof body.comment === 'string' ? body.comment.trim() : '', goal: { before: previousGoal, after: g.value || null } }));
       json(res, 200, { ok: true, goalPlan: u.followUp.goalPlan || null, changed: true });
     },
 
@@ -190,7 +192,10 @@ export function coachFollowUpRoutes(d) {
       const pr = readPriv(u);
       const nm = names();
       const recent = timeline({ S, f: u.followUp, priv: pr.priv, names: nm, limit: 5 }).map(e => ({ kind: e.kind, d: e.d }));
-      const facts = aiFacts(view, { structure, recent });
+      // Questionnaire context is doubly gated: the member's existing Coach consent and per-question admin curation.
+      // Photos, free-text questions, health/limitation prompts, names, ids and staff notes never enter this payload.
+      const intake = consentedCoachIntake(S, u.followUpV2);
+      const facts = aiFacts(view, { structure, recent, intake });
       const base = { analysis: view.analysis, signals: view.signals.filter(s => s.severity !== 'info').length };
       if (!ai.available()) return json(res, 200, { ...base, source: 'deterministic', ai: { available: false } });
       try {

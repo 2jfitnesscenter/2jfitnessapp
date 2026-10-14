@@ -22,11 +22,22 @@ export function normalizePrivate(d) {
 }
 
 const cleanRef = ref => (ref && typeof ref === 'object' && ['program', 'routine'].includes(ref.kind) && typeof ref.id === 'string' ? { kind: ref.kind, id: clip(ref.id, 80) } : undefined);
+const cleanGoal = goal => {
+  if (!goal || typeof goal !== 'object' || Array.isArray(goal)) return null;
+  const value = {
+    primary: typeof goal.primary === 'string' ? clip(goal.primary, 40) : null,
+    label: typeof goal.label === 'string' ? clip(goal.label, 80) : null,
+    targetDate: typeof goal.targetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(goal.targetDate) ? goal.targetDate : null,
+    priority: ['low', 'normal', 'high'].includes(goal.priority) ? goal.priority : null,
+  };
+  return Object.values(value).some(Boolean) ? value : null;
+};
 
 /** Appends one event (returns a new blob). kind ∈ EVENT_KINDS; `text` is the staff's reason, kept short. */
-export function pushEvent(d, { kind, by, ref, text, at = new Date().toISOString() }) {
+export function pushEvent(d, { kind, by, ref, text, goal, at = new Date().toISOString() }) {
   if (!EVENT_KINDS.includes(kind)) throw new Error('evento no válido');
-  const ev = { at, by: String(by), action: kind, kind, ...(cleanRef(ref) ? { ref: cleanRef(ref) } : {}), ...(text ? { text: clip(text, 300) } : {}) };
+  const goalValue = kind === 'goal_changed' && goal && typeof goal === 'object' ? { before: cleanGoal(goal.before), after: cleanGoal(goal.after) } : null;
+  const ev = { at, by: String(by), action: kind, kind, ...(cleanRef(ref) ? { ref: cleanRef(ref) } : {}), ...(text ? { text: clip(text, 300) } : {}), ...(goalValue ? { goal: goalValue } : {}) };
   return { ...d, events: [...d.events, ev].slice(-EVENT_CAP) };
 }
 
@@ -68,7 +79,7 @@ export function timeline({ S, f, priv, names = {}, limit = 25 }) {
   out.push(...versions.sort((a, b) => b.d.localeCompare(a.d)).slice(0, 4));
   for (const e of priv?.events || []) {
     if (!EVENT_KINDS.includes(e.kind) || !ISO_AT.test(e.at || '')) continue;       // legacy note_updated / note_cleared are not decisions
-    out.push({ d: e.at.slice(0, 10), at: e.at, kind: e.kind, ref: e.ref || null, text: e.text || null, by: who(e.by) });
+    out.push({ d: e.at.slice(0, 10), at: e.at, kind: e.kind, ref: e.ref || null, text: e.text || null, ...(e.kind === 'goal_changed' && e.goal ? { goal: { before: cleanGoal(e.goal.before), after: cleanGoal(e.goal.after) } } : {}), by: who(e.by) });
   }
   return out.sort((a, b) => (b.at || b.d + 'T12').localeCompare(a.at || a.d + 'T12')).slice(0, limit);
 }

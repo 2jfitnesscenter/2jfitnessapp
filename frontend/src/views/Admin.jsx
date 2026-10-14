@@ -606,6 +606,9 @@ export default function Admin() {
     <AdminNavCard icon="chartLine" tint="var(--orange)" title={t('Follow-up')}
       sub={t('Who needs attention, upcoming reviews and who is on track')} onClick={() => nav('/admin/attention')} />
 
+    <AdminNavCard icon="clipboard" tint="var(--purple)" title={t('Questionnaire templates')}
+      sub={t('Create, version and publish member intake forms')} onClick={() => nav('/admin/followup/templates')} />
+
     <AdminNavCard icon="users" tint="var(--blue)" title={t('Members')}
       sub={users ? t('{0} users · {1} active this week', users.length, activeCount) : t('Loading…')} onClick={() => nav('/admin/members')} />
 
