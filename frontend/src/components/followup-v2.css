@@ -23,6 +23,8 @@
 .fu2-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:10px}
 .fu2-photos figure{margin:0;min-width:0;overflow:hidden;border-radius:12px;background:var(--surface-2)}
 .fu2-photo-images{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,110px),1fr));gap:2px}
+.fu2-photo-comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fu2-photo-point{min-width:0}.fu2-photo-point h4{margin:0;font-size:13px}.fu2-photo-point>p{margin:4px 0 8px}
 .fu2-photos img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--surface-3)}
 .fu2-photos figcaption{padding:7px 9px;font-size:11px;line-height:1.35;color:var(--label-2);overflow-wrap:anywhere}
 .fu2-timeline{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:0}

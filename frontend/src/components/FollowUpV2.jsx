@@ -45,7 +45,7 @@ function PhotoList({ photos }) {
   if (!photos?.length) return <p className="small dim">{t('No progress photos yet.')}</p>
   const entries = new Map()
   for (const photo of photos) {
-    const key = photo.entryId || photo.id
+    const key = `${photo.entryId || photo.id}:${photo.date}`
     if (!entries.has(key)) entries.set(key, { ...photo, images: [] })
     entries.get(key).images.push(photo)
   }
@@ -53,6 +53,14 @@ function PhotoList({ photos }) {
     <div className="fu2-photo-images">{entry.images.map(photo => <img key={photo.id} src={photo.url} alt={t('Private progress photo')} loading="lazy" />)}</div>
     <figcaption>{fmtDate(entry.date)} · {t(({ front: 'Front', side: 'Side', back: 'Back', free: 'Other' })[entry.type] || 'Other')}{entry.note ? ` · ${entry.note}` : ''}</figcaption>
   </figure>)}</div>
+}
+
+function PhotoComparison({ points }) {
+  return <div className="fu2-photo-comparison">{[['Before', points.before], ['After', points.after]].map(([label, point]) =>
+    <section className="fu2-photo-point" aria-label={t(label)} key={label}><h4>{t(label)}</h4>
+      {point.date ? <><p className="small dim">{t('Photo from {0}', fmtDate(point.date))}</p><PhotoList photos={point.photos.map(photo => ({ ...photo, url: `/api/followup/photo?id=${encodeURIComponent(photo.id)}` }))} /></>
+        : <p className="small dim">{t('No photo available.')}</p>}
+    </section>)}</div>
 }
 
 function MemberPhotos({ data, onReload }) {
@@ -96,7 +104,7 @@ function TrainerRecords({ id, data, reload }) {
       <div className="fu2-inline"><label>{t('From')}<input className="input" type="date" value={from} onChange={e => setFrom(e.target.value)} /></label><label>{t('To')}<input className="input" type="date" value={to} onChange={e => setTo(e.target.value)} /></label><Button size="sm" variant="tinted" disabled={!from || !to} onClick={compare}>{t('Compare')}</Button></div>
       {comparison && <div className="fu2-entry"><b>{fmtDate(comparison.from)} → {fmtDate(comparison.to)}</b><span>{t('Weight')}: {comparison.weight.delta == null ? '—' : `${comparison.weight.delta > 0 ? '+' : ''}${comparison.weight.delta} kg`}</span>
         {Object.entries(comparison.measurements).map(([key, x]) => <span key={key}>{t(key)}: {x.delta == null ? '—' : `${x.delta > 0 ? '+' : ''}${x.delta}`}</span>)}
-        <span>{t('Goal')}: {comparison.goal.from?.label || comparison.goal.from?.primary || '—'} → {comparison.goal.to?.label || comparison.goal.to?.primary || '—'}{!comparison.goal.from && !comparison.goal.to ? ` · ${t('No objective history for these dates.')}` : ''}</span><PhotoList photos={comparison.photos.map(x => ({ ...x, url: `/api/followup/photo?id=${encodeURIComponent(x.id)}` }))} /></div>}
+        <span>{t('Goal')}: {comparison.goal.from?.label || comparison.goal.from?.primary || '—'} → {comparison.goal.to?.label || comparison.goal.to?.primary || '—'}{!comparison.goal.from && !comparison.goal.to ? ` · ${t('No objective history for these dates.')}` : ''}</span><PhotoComparison points={comparison.photos} /></div>}
       <p className="small dim">{t('Photos are compared manually. No image analysis is performed.')}</p>
     </section>
     <section className="fu2-block"><h3>{t('Progress photos')} <span className="dim">{data?.photos?.length || 0}</span></h3><p className="small dim">{t('Private files; visible only to the member and centre staff.')}</p><PhotoList photos={data?.photos} /></section>
