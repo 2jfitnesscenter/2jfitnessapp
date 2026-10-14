@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { DEFAULT_FOLLOWUP_TEMPLATES, sanitizeQuestionnaireTemplate, makeAssignment, submitAssignment, compareProgress, followupTimeline } from './followup-v2.js';
+import { DEFAULT_FOLLOWUP_TEMPLATES, sanitizeQuestionnaireTemplate, makeAssignment, submitAssignment, compareProgress, followupTimeline, isValidISODate } from './followup-v2.js';
 import { canAccessMember } from './coach-followup-routes.js';
 
 const clone = x => structuredClone(x);
@@ -26,7 +26,6 @@ function decodeImage(value) {
   if ((match[1] === 'jpeg' && jpeg) || (match[1] === 'png' && png) || (match[1] === 'webp' && webp)) return { buf, ext: match[1] === 'jpeg' ? 'jpg' : match[1], mime: match[1] === 'jpeg' ? 'image/jpeg' : `image/${match[1]}` };
   return null;
 }
-const iso = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value + 'T00:00:00Z')) && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
 
 export function followUpV2Routes(d) {
   const { db, json, readBody, readSession, requireAdmin, requireTrainer, isAdmin, isTrainer, saveDb, readState, dataDir, followupPhotosDir } = d;
@@ -78,8 +77,8 @@ export function followUpV2Routes(d) {
     if (!images.length || images.length > 4) return { error: 'una entrada admite entre 1 y 4 fotos' };
     const decoded = images.map(decodeImage);
     if (decoded.some(x => !x) || decoded.reduce((n, x) => n + x.buf.length, 0) > MAX_PHOTO_BYTES) return { error: 'fotos no válidas: usa JPEG, PNG o WebP con un máximo total de 5 MB por entrada' };
-    if (body.date != null && body.date !== '' && !iso(body.date)) return { error: 'fecha de foto no válida' };
-    const date = iso(body.date) ? body.date : new Date().toISOString().slice(0, 10);
+    if (body.date != null && body.date !== '' && !isValidISODate(body.date)) return { error: 'fecha de foto no válida' };
+    const date = isValidISODate(body.date) ? body.date : new Date().toISOString().slice(0, 10);
     const type = ['front', 'side', 'back', 'free'].includes(body.type) ? body.type : 'free';
     const note = typeof body.note === 'string' ? body.note.trim().slice(0, 300) : '';
     const entryId = crypto.randomUUID(), createdAt = new Date().toISOString();

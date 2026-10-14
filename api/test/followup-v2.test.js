@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { sanitizeQuestionnaireTemplate, makeAssignment, submitAssignment, compareProgress, coachSafeIntake, consentedCoachIntake } from '../lib/followup-v2.js';
+import { sanitizeQuestionnaireTemplate, makeAssignment, submitAssignment, validateQuestionnaireAnswers, compareProgress, coachSafeIntake, consentedCoachIntake } from '../lib/followup-v2.js';
 import { memberView, aiFacts } from '../lib/coach-followup.js';
 
 const today = new Date().toISOString().slice(0, 10);
@@ -119,6 +119,30 @@ test('pure questionnaire helpers keep old snapshots and comparisons reject inval
   ];
   const compare = compareProgress({}, {}, '2026-02-01', '2026-10-01', goals).value.goal;
   assert.equal(compare.from.label, 'Fuerza'); assert.equal(compare.to.label, 'Salud'); assert.equal(compare.changed, true);
+});
+
+test('questionnaire dates reject impossible calendar days', () => {
+  const snapshot = { questions: [{ id: 'date', label: 'Fecha', type: 'date', active: true, required: true }] };
+  assert.deepEqual(validateQuestionnaireAnswers(snapshot, { date: '2026-02-28' }), { value: { date: '2026-02-28' } });
+  assert.match(validateQuestionnaireAnswers(snapshot, { date: '2026-02-31' }).error, /respuesta no válida/);
+});
+
+test('photo comparison selects the closest album on or before each comparison date', () => {
+  const records = { photos: [
+    { id: 'start-a', entryId: 'album-start', date: '2026-02-27', type: 'front' },
+    { id: 'start-b', entryId: 'album-start', date: '2026-02-27', type: 'side' },
+    { id: 'middle', entryId: 'album-middle', date: '2026-03-03', type: 'front' },
+    { id: 'end-a', entryId: 'album-end', date: '2026-03-08', type: 'front' },
+    { id: 'end-b', entryId: 'album-end', date: '2026-03-08', type: 'side' },
+    { id: 'future', entryId: 'album-future', date: '2026-03-12', type: 'front' },
+  ] };
+  const result = compareProgress({}, records, '2026-03-01', '2026-03-10').value.photos;
+  assert.equal(result.before.date, '2026-02-27');
+  assert.deepEqual(result.before.photos.map(x => x.id), ['start-a', 'start-b']);
+  assert.equal(result.after.date, '2026-03-08');
+  assert.deepEqual(result.after.photos.map(x => x.id), ['end-a', 'end-b']);
+  const empty = compareProgress({}, {}, '2026-03-01', '2026-03-10').value.photos;
+  assert.deepEqual(empty, { before: { date: null, photos: [] }, after: { date: null, photos: [] } });
 });
 
 test('Coach intake requires existing consent and only sends curated non-sensitive structured answers', () => {

@@ -3,6 +3,9 @@
 import crypto from 'node:crypto';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+export const isValidISODate = value => typeof value === 'string' && ISO.test(value)
+  && !Number.isNaN(Date.parse(value + 'T00:00:00Z'))
+  && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;
 const TYPES = new Set(['short_text', 'long_text', 'number', 'yes_no', 'single', 'multiple', 'scale', 'date']);
 const clone = value => structuredClone(value);
 
@@ -80,7 +83,7 @@ export function validateQuestionnaireAnswers(snapshot, answers) {
     } else if (q.type === 'yes_no') {
       if (typeof value !== 'boolean') return { error: `respuesta no válida: ${q.label}` }; out[q.id] = value;
     } else if (q.type === 'date') {
-      if (typeof value !== 'string' || !ISO.test(value) || Number.isNaN(Date.parse(value + 'T00:00:00Z'))) return { error: `respuesta no válida: ${q.label}` }; out[q.id] = value;
+      if (!isValidISODate(value)) return { error: `respuesta no válida: ${q.label}` }; out[q.id] = value;
     } else if (q.type === 'single') {
       if (typeof value !== 'string' || !q.options?.includes(value)) return { error: `respuesta no válida: ${q.label}` }; out[q.id] = value;
     } else if (q.type === 'multiple') {
@@ -143,12 +146,11 @@ export function consentedCoachIntake(state, records) {
   return state?.coach?.consent?.agreedAt && state.coach.consent.version === 1 ? coachSafeIntake(records) : [];
 }
 
-const validDate = x => typeof x === 'string' && ISO.test(x) && !Number.isNaN(Date.parse(x + 'T00:00:00Z')) && new Date(x + 'T00:00:00Z').toISOString().slice(0, 10) === x;
 export function compareProgress(S, records, from, to, goalHistory = []) {
-  if (!validDate(from) || !validDate(to) || from >= to) return { error: 'elige dos fechas válidas y distintas' };
+  if (!isValidISODate(from) || !isValidISODate(to) || from >= to) return { error: 'elige dos fechas válidas y distintas' };
   const at = list => {
     let best = null;
-    for (const x of Array.isArray(list) ? list : []) if (validDate(x?.d) && x.d <= to && (!best || x.d > best.d)) best = x;
+    for (const x of Array.isArray(list) ? list : []) if (isValidISODate(x?.d) && x.d <= to && (!best || x.d > best.d)) best = x;
     return best;
   };
   const keys = new Set(Object.keys(S?.measurements || {}));
@@ -161,7 +163,7 @@ export function compareProgress(S, records, from, to, goalHistory = []) {
   }
   const weightA = at((S?.bodyweight || []).filter(x => x.d <= from));
   const weightB = at(S?.bodyweight);
-  const goalChanges = (Array.isArray(goalHistory) ? goalHistory : []).filter(x => x?.kind === 'goal_changed' && x.goal && validDate(x.d)).sort((a, b) => a.d.localeCompare(b.d));
+  const goalChanges = (Array.isArray(goalHistory) ? goalHistory : []).filter(x => x?.kind === 'goal_changed' && x.goal && isValidISODate(x.d)).sort((a, b) => a.d.localeCompare(b.d));
   const goalAt = date => {
     const prior = goalChanges.filter(x => x.d <= date).at(-1);
     if (prior) return prior.goal.after;
@@ -169,7 +171,13 @@ export function compareProgress(S, records, from, to, goalHistory = []) {
   };
   const goalFrom = goalAt(from), goalTo = goalAt(to);
   const responses = (records?.responses || []).filter(x => x.completedAt?.slice(0, 10) <= to);
-  const photos = (records?.photos || []).filter(x => x.date >= from && x.date <= to).map(({ id, entryId, date, type, note, mime, createdAt }) => ({ id, entryId, date, type, note, mime, createdAt }));
+  const photoFields = ({ id, entryId, date, type, note, mime, createdAt }) => ({ id, entryId, date, type, note, mime, createdAt });
+  const photosAt = cutoff => {
+    const eligible = (records?.photos || []).filter(x => isValidISODate(x?.date) && x.date <= cutoff);
+    const date = eligible.reduce((latest, photo) => !latest || photo.date > latest ? photo.date : latest, null);
+    return { date, photos: date ? eligible.filter(photo => photo.date === date).map(photoFields) : [] };
+  };
+  const photos = { before: photosAt(from), after: photosAt(to) };
   return { value: { from, to, weight: { from: weightA ? { date: weightA.d, value: weightA.w } : null,
     to: weightB && weightB.d <= to ? { date: weightB.d, value: weightB.w } : null,
     delta: weightA && weightB && weightB.d <= to ? Math.round((weightB.w - weightA.w) * 10) / 10 : null },
@@ -190,5 +198,5 @@ export function followupTimeline({ S = {}, records = {}, shareCheckins = false, 
   for (const [key, list] of Object.entries(S.measurements || {})) for (const m of list || []) out.push({ d: m.d, kind: 'measurement', ref: { key } });
   for (const w of S.bodyweight || []) out.push({ d: w.d, kind: 'weight_measurement' });
   if (shareCheckins) for (const c of S.checkins || []) out.push({ d: c.d, kind: 'checkin' });
-  return out.filter(x => validDate(x.d)).sort((a, b) => (b.at || b.d).localeCompare(a.at || a.d)).slice(0, 80);
+  return out.filter(x => isValidISODate(x.d)).sort((a, b) => (b.at || b.d).localeCompare(a.at || a.d)).slice(0, 80);
 }
