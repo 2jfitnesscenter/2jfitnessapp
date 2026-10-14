@@ -14,6 +14,7 @@ import { Surface, Stat, EmptyState } from '../components/v2.jsx'
 import { Button } from '../components/ui.jsx'
 import RoutineReviewCard from '../components/RoutineReviewCard.jsx'
 import ReadinessSection from '../components/ReadinessSection.jsx'
+import { MemberFollowUpRecords } from '../components/FollowUpV2.jsx'
 
 /* Seguimiento V3 — "how am I doing with my plan": goal, last weeks, next review, today's check-in, coach notes and plan changes. Reuses the gym's existing
    follow-up schedule (GET /api/followup) and the existing check-in; only blocks that have real content are drawn. */
@@ -36,6 +37,8 @@ export default function Seguimiento() {
     </div>
 
     <ReadinessSection />
+
+    <MemberFollowUpRecords />
 
     {d.reviews.map(rv => <RoutineReviewCard key={rv.kind === 'program' ? rv.programId : rv.routineId} review={rv} onView={() => nav(rv.kind === 'program' ? '/train2j/program/' + (S.programs || []).find(p => p.id === rv.programId)?.catalogId : '/plan/r/' + rv.routineId)} />)}
 

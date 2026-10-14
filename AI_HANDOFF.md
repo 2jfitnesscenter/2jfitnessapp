@@ -1,5 +1,13 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Seguimiento V2 final — candidato local (2026-10-14, NO desplegado)
+
+- Extiende Coach/Seguimiento PRO V3 y el consentimiento existente: cuestionarios Básico/Intermedio/Pro configurables por admin, asignación staff→socio, snapshot versionado y una respuesta inmutable por asignación. No requiere migración; socios antiguos siguen usando su ficha actual.
+- Añade fotos privadas en `DATA/followup-photos` con validación del contenido JPEG/PNG/WebP, máximo 4 imágenes y 5 MB por entrada, acceso autenticado por socio/trainer/admin, sin ruta Social y borrado al eliminar la cuenta. Las copias de seguridad existentes incluyen el nuevo directorio bajo `DATA`.
+- La comparación y cronología son proyecciones de medidas/peso, cuestionarios, fotos, check-ins compartidos y el historial existente de revisiones/decisiones/versiones; no se crea otro historial. Los cambios nuevos de objetivos conservan snapshots dentro del registro profesional cifrado; objetivos previos a esta captura no se pueden reconstruir.
+- Coach solo recibe respuestas de opción cerrada/números expresamente seleccionadas por admin, después del consentimiento Coach v1 ya existente. Texto libre, etiquetas sensibles, fotos, Social y datos identificativos quedan fuera.
+- UI en Seguimiento de socio y ficha profesional, y editor admin en `/admin/followup/templates`. Validación local: frontend 1.808/1.808; API 680 aprobados, 0 fallos y 47 pruebas operativas omitidas por necesitar Bash/OpenSSL no disponible en Windows; build OK, español completo y `git diff --check` OK. Producción confirmada: `51bb15e99b0f838ec8aaa439777fbf45169caaf8`. Candidato aún sin merge/deploy.
+
 ## Checkpoint actual — Platform ↔ Búnker (2J-089, 2026-10-13)
 
 Hay una integración de resumen V1 en revisión conjunta, todavía **sin merge ni despliegue**. Platform conserva la identidad humana `personId`, la relación canónica y su revocación; Training conserva `trainingUserId`, cuentas y todos los datos de entrenamiento. El endpoint backend de Training está apagado por defecto y usa el `2J-SERVICE-AUTH-V1` existente. Platform consulta solo enlaces verificados activos, devuelve un resumen agregado y mantiene Profile disponible si Training falla. No hay SSO, transferencia de sesión, matching por PII, sincronización de historial ni matriz de derechos Búnker.

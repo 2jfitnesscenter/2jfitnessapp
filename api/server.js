@@ -66,6 +66,8 @@ import { sanitizeRoutineBlocks, sanitizePlanMeta, enforcePlanPolicy, blockTypesO
 import { expectedOrigins } from './lib/webauthn-origins.js';
 import { sanitizeFollowUp, followUpSummary, addReview, nextReview, lastReview, templateKeys } from './lib/followup.js';
 import { coachFollowUpRoutes, recordPrivateEvent, canAccessMember } from './lib/coach-followup-routes.js';
+import { emptyPrivate, normalizePrivate, timeline as followupProfessionalTimeline } from './lib/coach-followup-private.js';
+import { followUpV2Routes } from './lib/followup-v2-routes.js';
 import * as followUpAI from './coach/followup-ai.js';
 import { encrypt as encryptAtRest, decrypt as decryptAtRest } from './lib/crypto.js';
 import { markReviewed, setCycleDates, markProgramReviewed, setProgramCycleDates, routineReviews } from './lib/routine-review.js';
@@ -80,6 +82,7 @@ import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
+const followupPhotosDir = path.join(DATA, 'followup-photos');
 const STARTED_AT = Date.now();
 const opsErrors = createErrorRing();   // last server-side failures (route + status + time only), shown in GET /api/admin/ops
 const RP_ID = process.env.RP_ID || 'localhost';
@@ -387,6 +390,7 @@ function cancelRestTimer(userId) {
 // Everything lib/account-erasure.js needs, in one place: the stores that hold a person's data.
 const erasureDeps = () => ({
   db, social, saveDb, saveSocial, readState, stateFile, uploadsDir, deleteUploadedImage,
+  followupPhotosDir,
   chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore,
   isStaff: isTrainer, clearCoach: coachJobs.clearUser,
   forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); userSummaries.forget(uid); },
@@ -1014,6 +1018,14 @@ const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, i
 const routes = {
   ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
   ...coachFollowUpRoutes(coachDeps),
+  ...followUpV2Routes({ db, json, readBody, readSession, requireAdmin, requireTrainer, isAdmin, isTrainer, saveDb, readState, dataDir: DATA, followupPhotosDir,
+    existingTimeline: (member, S) => {
+      const encrypted = member.followUp?.privateNotesEncrypted;
+      let priv = emptyPrivate();
+      if (encrypted) { try { priv = normalizePrivate(decryptAtRest(encrypted, FOLLOWUP_PRIVATE_CRYPTO_INFO)) || emptyPrivate(); } catch { priv = emptyPrivate(); } }
+      const names = Object.fromEntries(db.users.filter(isTrainer).map(u => [u.id, u.name]));
+      return followupProfessionalTimeline({ S, f: member.followUp, priv, names, limit: 80 });
+    } }),
   ...sharedStaffRoutes({
     db, json, readBody, readSession, requireAdmin, requireSharedDevice, isAdmin, isTrainer,
     deviceForRequest, deviceTokenHash: sharedDeviceTokenHash, sessionCookie, clearCookie,

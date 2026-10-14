@@ -1,5 +1,11 @@
 # Changelog
 
+### Seguimiento V2 final — candidato local, no desplegado
+
+- Cuestionarios configurables y versionados, asignación y respuestas inmutables; ficha de socio y entrenador incorpora medidas, comparación por fechas, fotos privadas agrupadas y cronología derivada del seguimiento existente.
+- Las fotos usan almacenamiento privado autenticado y se eliminan con la cuenta. El contexto adicional de Coach queda sujeto al consentimiento vigente y a selección admin por pregunta; solo admite respuestas estructuradas, nunca texto libre ni fotos.
+- Se conserva Coach/Seguimiento PRO V3, Routine Review, consentimiento de check-ins, ACL global de trainer y el estado existente; no se modifica Sync V2 ni se añade un datastore de timeline.
+
 ### Acceso operativo de entrenador a todo el centro — cambio local, NO desplegado
 
 - Los trainers pueden listar, buscar, abrir y gestionar datos operativos de cualquier socio del centro; `assignedTrainers` queda como metadato organizativo. Roles, permisos, staff, seguridad y funciones admin-only mantienen sus guards. Socios siguen limitados a sus propios datos y los check-ins respetan su consentimiento.
