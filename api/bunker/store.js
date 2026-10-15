@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { isJsonRecord, readJsonStore } from '../lib/json-store.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = path.join(DATA, 'bunker.json');
@@ -29,13 +30,18 @@ const DEFAULT_SETTINGS = {
   autoLockSec: 60,           // how long the individual panel sits idle before it locks itself
 };
 const store = { pins: [], adminCodes: [], roomKey: null, settings: { ...DEFAULT_SETTINGS } };
-try {
-  const parsed = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-  store.pins = Array.isArray(parsed.pins) ? parsed.pins : [];
-  store.adminCodes = Array.isArray(parsed.adminCodes) ? parsed.adminCodes : [];
-  store.roomKey = typeof parsed.roomKey === 'string' ? parsed.roomKey : null;
-  store.settings = { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) };
-} catch { /* first boot — no file yet */ }
+const parsed = readJsonStore(FILE, {
+  initial: store,
+  validate: value => isJsonRecord(value) &&
+    (value.pins === undefined || Array.isArray(value.pins)) &&
+    (value.adminCodes === undefined || Array.isArray(value.adminCodes)) &&
+    (value.roomKey === undefined || value.roomKey === null || typeof value.roomKey === 'string') &&
+    (value.settings === undefined || isJsonRecord(value.settings))
+});
+store.pins = parsed.pins || [];
+store.adminCodes = parsed.adminCodes || [];
+store.roomKey = parsed.roomKey || null;
+store.settings = { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) };
 
 function atomicWrite(file, content) {
   const tmp = file + '.tmp';
