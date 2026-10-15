@@ -9,17 +9,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { readJsonStore } from '../lib/json-store.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = path.join(DATA, 'friends.json');
 
-const store = { codes: [], requests: [], blocked: [] };
-try {
-  const parsed = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-  store.codes = Array.isArray(parsed.codes) ? parsed.codes : [];
-  store.requests = Array.isArray(parsed.requests) ? parsed.requests : [];
-  store.blocked = Array.isArray(parsed.blocked) ? parsed.blocked : [];
-} catch { /* first boot — no file yet */ }
+const parsed = readJsonStore(FILE, {
+  initial: { codes: [], requests: [], blocked: [] },
+  validate: value => value !== null && typeof value === 'object' && !Array.isArray(value) &&
+    ['codes', 'requests', 'blocked'].every(key => value[key] === undefined || Array.isArray(value[key]))
+});
+const store = { codes: parsed.codes || [], requests: parsed.requests || [], blocked: parsed.blocked || [] };
 
 function atomicWrite(file, content) {
   const tmp = file + '.tmp';

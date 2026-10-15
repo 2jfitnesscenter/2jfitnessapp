@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* Admin "App features" over HTTP on a real spawned server: defaults (everything on, nothing written),
  * authenticated read, admin-only write (members and trainers refused), validation, persistence in
- * features.json (never in a member's state) and that an older/absent/corrupt file keeps today's behaviour. */
+ * features.json (never in a member's state), legacy file compatibility, and fail-closed corruption handling. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -22,7 +22,8 @@ const PORT = 34620, base = `http://localhost:${PORT}`;
 let child;
 const boot = async () => {
   child = spawn(process.execPath, ['server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base }, stdio: ['ignore', 'ignore', 'ignore'] });
-  for (let i = 0; i < 60; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* booting */ } await new Promise(r => setTimeout(r, 100)); }
+  for (let i = 0; i < 60; i++) { try { if ((await fetch(base + '/api/health')).ok) return true; } catch { /* booting */ } await new Promise(r => setTimeout(r, 100)); }
+  return false;
 };
 const stop = () => new Promise(r => { child.once('exit', r); child.kill(); });
 await boot();
@@ -82,14 +83,16 @@ test('state lives in features.json only, and survives a restart', async () => {
   assert.equal((await req('GET', '/api/features', 'm1')).body.features.coach, false);
 });
 
-test('an older, unknown-key or corrupt file never turns anything off by accident', async () => {
+test('legacy feature keys still load, but corrupt JSON fails closed without replacement', async () => {
   await stop();
   fs.writeFileSync(file, JSON.stringify({ v: 0, off: ['gone-feature', 'effort'] }));
   await boot();
   const f = (await req('GET', '/api/features', 'm1')).body.features;
   assert.equal(f.effort, false); assert.equal(f.coach, true); assert.ok(!('gone-feature' in f));
   await stop();
-  fs.writeFileSync(file, '{ not json');
-  await boot();
-  assert.ok(Object.values((await req('GET', '/api/features', 'm1')).body.features).every(v => v === true), 'corrupt file = today’s behaviour');
+  const corrupt = '{ not json';
+  fs.writeFileSync(file, corrupt);
+  assert.equal(await boot(), false, 'the server must not serve requests with a corrupt critical feature store');
+  assert.equal(child.exitCode, 1, 'startup exits as failed');
+  assert.equal(fs.readFileSync(file, 'utf8'), corrupt, 'the corrupt store remains untouched');
 });

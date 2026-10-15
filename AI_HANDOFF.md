@@ -1,5 +1,36 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Checkpoint autoritativo — Training seguro para integración futura con Platform (2026-10-15)
+
+Este bloque es la referencia vigente y supersede los checkpoints de producción anteriores que permanecen abajo como historial.
+
+### PRODUCCIÓN ACTUAL
+
+- Producción confirmada por el propietario: `aff0a694d37d2c8fbef298ffd6abcf4ab358f186` (`2fe3e39` privacy closure). No se consultó el VPS durante esta tarea.
+- `origin/main` observado en `35b003b0adc2db546899ee10517df0882c025ede`; este checkout de desarrollo está sobre esa rama, no sobre el commit desplegado. El commit de producción no es ancestro de `origin/main`. No inferir que `main` equivale a producción ni usarlo como payload wholesale.
+- Producción sigue releases controlados: cada release nuevo parte del commit exacto desplegado, se incorpora selectivamente y se valida contra su baseline real. Este cambio de preparación para integración no es un deploy.
+
+### OBJETIVO DE INTEGRACIÓN — PRIMERO EN LOCAL
+
+- La futura integración de Training con Platform empieza en un worktree local explícitamente creado desde el release Training elegido como canónico en ese momento. No reutilizar worktrees antiguos como evidencia de producción ni reconciliar `main` con producción a la fuerza.
+- Platform es propietaria de la identidad humana/global (`personId`), perfil global, membresías y derechos. Training conserva su `uid` estable, cuentas/passkeys y los datos de rutinas, entrenamientos, programas, progresión e historial. La relación futura es `personId → Training uid`; añadir el campo opcional no lo convierte en identidad de login, autorización, Sync ni sustituto de `uid`.
+- El cambio de origen/RP ID no está autorizado. La configuración de producción documentada en `.env.production.example` es `ORIGIN=https://app.2jfitnesscenter.com`, `RP_ID=app.2jfitnesscenter.com`; esto identifica el valor previsto por el template, no una lectura independiente del `.env` live. La decisión es mantener la experiencia integrada bajo ese origen y conservar un RP ID compatible con las passkeys actuales. Cambiar RP ID puede hacer inutilizables las passkeys registradas. Desarrollo local puede seguir usando `http://localhost:8080` / `localhost` y sus credenciales separadas.
+- No se tocaron `RP_ID`, `ORIGIN`, cookies, passkeys ni la arquitectura de proofs Platform existentes. No migrar `uid`, renombrar `state-<uid>.json` ni mover Social/Bunker/Health a Platform.
+- El WIP de Android/Web Push y los runners locales del checkout principal no son parte de esta preparación ni estado de producción.
+
+### ALCANCE DEL SPRINT PRE-INTEGRACIÓN
+
+- Rechazar al arranque stores JSON existentes ilegibles, corruptos o con estructura inválida; solo un archivo realmente ausente puede usar el valor inicial de primer arranque. Se añadieron únicamente guards de lectura inicial para `db.json`, `social.json`, `friends.json`, `bunker.json`, `notifications.json`, `social-sharing.json`, `features.json`, `gym-profile.json`, `hidden-exercises.json`, `unavailable-equipment.json` y `vapid.json`; no se cambiaron sus rutas, operaciones de dominio ni contratos de escritura. `state-<uid>.json` y el store cifrado de Chat ya tenían manejo seguro y no se modificaron.
+- Añadir `personId?: string` de forma aditiva a `db.users[]`, sin generar ni inferir valores y sin cambiar `uid` ni permisos.
+- Documentar ownership de identidad y la decisión de origen/RP ID. No abrir áreas de producto vecinas.
+- Rama de trabajo actual para este sprint: `codex/pre-platform-training-safety`; no desplegar.
+- Validación focalizada del candidato: 104 pruebas API relevantes aprobadas, sin fallos ni skips; incluye arranque rechazado ante store corrupto y preservación byte a byte del archivo. El candidato no está desplegado.
+
+### LÍMITES DE CAMBIO
+
+- No tocar Sync V2, borrado de cuenta, consentimiento de escaneos, Shared Staff, Exercise Media, lógica de Bunker/Social, Guided, Constructor, Seguimiento, Coach, Health, Android/iOS, Platform ni deploy-kit, salvo el guard de carga inicial de los stores indicado en este sprint.
+- `state-<uid>.json` ya devuelve `STATE_CORRUPT` y no lo sobrescribe; el store de Chat ya queda bloqueado en solo lectura si no puede descifrarse. No duplicar esas protecciones ni cambiar esos contratos.
+
 ## Exercise Library — medios reactivados (cambio local, NO desplegado)
 
 - Se reactivan las referencias históricas de imágenes/GIF del catálogo y las 157 ilustraciones de estiramientos por decisión del propietario del proyecto. Se usa el origen histórico existente, fijado a `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`, y los assets de estiramientos ya versionados.
