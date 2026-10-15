@@ -1,6 +1,5 @@
 import { EXDB } from './exercises-data.js'
 import { t } from './i18n.js'
-import { EXERCISE_DATASET_MEDIA_ENABLED } from './exercise-media-policy.js'
 // Loading the library layer applies the corrected English display names to EXDB once, before
 // anything reads `ex.n` (see lib/library/core.js).
 import './library/core.js'
@@ -63,12 +62,12 @@ export const allExercises = st => {
   return [...(st.customEx || []), ...EXDB.filter(e => !hidden.has(e.id) && !excluded.has(e.id))]
 }
 
-// Kept as source configuration for a future per-asset licensed route; rights policy below
-// returns no URL until a specific family is cleared.
+// Media normally sits next to the app (img/ and gif/, mounted into the web container).
+// A build can point them somewhere else — the demo/mobile build uses the pinned upstream CDN.
 const IMG_BASE = import.meta.env.VITE_IMG_BASE || 'img/'
 const GIF_BASE = import.meta.env.VITE_GIF_BASE || 'gif/'
-export const imgSrc = ex => EXERCISE_DATASET_MEDIA_ENABLED && ex?.img ? IMG_BASE + ex.img : null
-export const gifSrc = ex => EXERCISE_DATASET_MEDIA_ENABLED && ex?.gif ? GIF_BASE + ex.gif : null
+export const imgSrc = ex => ex?.img ? IMG_BASE + ex.img : null
+export const gifSrc = ex => ex?.gif ? GIF_BASE + ex.gif : null
 
 // Cardio exercises log time + speed instead of weight × reps.
 export const isCardio = idOrEx => (typeof idOrEx === 'string' ? EXIDX[idOrEx] : idOrEx)?.bp === 'cardio'

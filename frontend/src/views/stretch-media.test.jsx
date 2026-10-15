@@ -7,20 +7,25 @@ vi.mock('../store/useUI.js', () => ({ useUI: { openSheet: () => {} } }))
 import { StretchCard, StretchDetail } from './Stretch.jsx'
 import { STRETCHES } from '../lib/stretches.js'
 
-describe('unverified stretch illustration fallbacks', () => {
+describe('stretch illustrations', () => {
   const stretch = STRETCHES[0]
 
-  it('keeps the exercise card usable without rendering its image', () => {
+  it('renders the illustration in the exercise card', () => {
     const html = renderToStaticMarkup(<StretchCard s={stretch} onClick={() => {}} />)
-    expect(html).not.toContain('<img')
+    expect(html).toContain(`<img src="${stretch.img}"`)
     expect(html).toContain(stretch.n)
-    expect(html).toContain('<svg')
   })
 
-  it('keeps exercise instructions available with an accessible placeholder', () => {
+  it('renders the illustration alongside exercise instructions', () => {
     const html = renderToStaticMarkup(<StretchDetail s={stretch} />)
-    expect(html).not.toContain('<img')
-    expect(html).toContain('No image available')
+    expect(html).toContain(`<img src="${stretch.img}"`)
     expect(html).toContain(stretch.steps[0])
+  })
+
+  it('keeps a visible placeholder when a stretch illustration fails to load', async () => {
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const html = renderToStaticMarkup(<StretchCard s={{ ...stretch, img: '' }} onClick={() => {}} />)
+    expect(html).toContain('No image available')
+    expect(html).toContain(stretch.n)
   })
 })
