@@ -11,8 +11,9 @@ notifications and privacy preferences, shares and reports they made, and their B
    notifications (own inbox, preferences, and notifications elsewhere that name them), shares they authored and reports by/about them, Bunker PIN/codes/live session, community posts, comments, goals, challenges they
    created and their participation, the Coach per-user record, and every uploaded image they own (avatar, routine images). The accounts file is written last, so a failure midway leaves a retryable account.
 4. Idempotent and covered by `api/test/account-erasure.test.js`, which seeds one member with data in every store and scans **every file in `./data`** for any identifier after the call.
+5. Removes all device-session records for the account. Security-event rows linked to the account as subject or actor keep only anonymous event/time/action facts: account/actor links and metadata are removed so handles or targets cannot retain a direct identity reference.
 
-**Retention** — nothing about the member is kept. Anonymous residue by design: gym-wide machine/import aliases (no person), and an invite code stays single-use (`usedBy: "deleted-account"`).
+**Retention** — the account-linked event facts above remain anonymized for the bounded security audit log; they are no longer attributable to the deleted member. Other anonymous residue by design includes gym-wide machine/import aliases (no person), and an invite code stays single-use (`usedBy: "deleted-account"`). Earlier copies may remain in backups until their configured expiry.
 
 ## Decisions the owner should confirm (defaults implemented as written above)
 1. *No legal/financial retention needed.* The app stores no payments or invoices; if the gym must keep membership records for legal reasons, that lives outside 2J. Say so if a retention period is required and we will add a tombstone record.

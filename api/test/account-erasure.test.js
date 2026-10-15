@@ -35,7 +35,7 @@ const assertion = (key, credId, challenge, counter = 5) => {
 const write = (f, v) => fs.writeFileSync(path.join(dir, f), typeof v === 'string' ? v : JSON.stringify(v));
 write('db.json', {
   users: [
-    { id: 'member-a', name: 'Member A', username: 'membera', avatar: 'avatar-a.jpg', stravaAuth: { data: 'CANARY-TOKEN' }, created: '2026-01-01T00:00:00Z', followUpV2: { assignments: [], responses: [{ id: 'answer-a', templateVersion: 3, snapshot: { name: 'Initial', questions: [] }, answers: { goal: 'CANARY-INTAKE' } }], photos: [{ id: '11111111-1111-4111-8111-111111111111.png', date: '2026-09-01', type: 'front', mime: 'image/png' }] } },
+    { id: 'member-a', name: 'Member A', username: 'membera', email: 'member.a@example.test', avatar: 'avatar-a.jpg', stravaAuth: { data: 'CANARY-TOKEN' }, created: '2026-01-01T00:00:00Z', followUpV2: { assignments: [], responses: [{ id: 'answer-a', templateVersion: 3, snapshot: { name: 'Initial', questions: [] }, answers: { goal: 'CANARY-INTAKE' } }], photos: [{ id: '11111111-1111-4111-8111-111111111111.png', date: '2026-09-01', type: 'front', mime: 'image/png' }] } },
     { id: 'member-b', name: 'Member B', username: 'memberb' },
     { id: 'trainer', name: 'Trainer', username: 'trainer', trainer: true },
   ],
@@ -43,6 +43,15 @@ write('db.json', {
     { id: 'cred-a', userId: 'member-a', publicKey: keyA.cose, counter: 1, transports: ['internal'] },
     { id: 'cred-b', userId: 'member-b', publicKey: keyB.cose, counter: 1, transports: ['internal'] },
     { id: 'cred-t', userId: 'trainer', publicKey: keyB.cose, counter: 1 },
+  ],
+  deviceSessions: [
+    { id: 'device-a', userId: 'member-a', platform: 'web', createdAt: '2026-01-01T00:00:00Z' },
+    { id: 'device-b', userId: 'member-b', platform: 'web', createdAt: '2026-01-01T00:00:00Z' },
+  ],
+  securityEvents: [
+    { id: 'security-subject-a', at: '2026-01-01T00:00:00Z', event: 'login_ok', userId: 'member-a', meta: { platform: 'web', handle: 'member.a@example.test' } },
+    { id: 'security-actor-a', at: '2026-01-02T00:00:00Z', event: 'admin_action', userId: 'member-b', actorId: 'member-a', meta: { kind: 'member_update', target: 'member-a', reason: 'Member A member.a@example.test' } },
+    { id: 'security-b', at: '2026-01-03T00:00:00Z', event: 'login_ok', userId: 'member-b', meta: { platform: 'web' } },
   ],
   subs: [{ userId: 'member-a', endpoint: 'https://push.example/CANARY-A', keys: {} }, { userId: 'member-b', endpoint: 'https://push.example/b', keys: {} }],
   restAlerts: [
@@ -119,6 +128,19 @@ test('export: everything the member owns, nothing of anyone else, no passkey key
   const anon = await fetch(base + '/api/me/export'); assert.equal(anon.status, 401);
 });
 
+test('AI document scans require consent for each request before invoking Gemini', async () => {
+  const routes = ['/api/measurements/scan', '/api/routines/scan', '/api/exercises/scan-machine'];
+  for (const route of routes) {
+    const missing = await call('member-b', 'POST', route, { file: 'data:image/png;base64,c3ludGhldGlj' });
+    assert.equal(missing.status, 428, `${route} requires an explicit per-action consent`);
+    assert.equal(missing.data.code, 'SCAN_CONSENT_REQUIRED');
+    const invalid = await call('member-b', 'POST', route, { file: 'data:image/png;base64,c3ludGhldGlj', externalAiConsent: true });
+    assert.equal(invalid.status, 428, `${route} rejects non-contract consent values`);
+    const accepted = await call('member-b', 'POST', route, { file: 'data:image/png;base64,c3ludGhldGlj', externalAiConsent: 'external-ai-scan-v1' });
+    assert.equal(accepted.status, 400, `${route} accepts consent and reaches the existing scanner, which is unconfigured in this isolated test`);
+  }
+});
+
 test('erasure is refused without the right proof: staff, wrong username, missing/foreign passkey, stale challenge', async () => {
   assert.equal((await call('trainer', 'POST', '/api/me/delete/options', {})).status, 403, 'staff cannot self-erase');
   const o = await call('member-a', 'POST', '/api/me/delete/options', {});
@@ -146,7 +168,7 @@ test('erasure with a fresh passkey assertion removes the person everywhere and l
   // nothing identifying the person is left in ANY file (chat is encrypted at rest: decrypt it for the scan)
   process.env.DATA_DIR = dir;
   const { decrypt } = await import('../lib/crypto.js');
-  const needles = ['member-a', 'membera', 'Member A', 'CANARY', 'cred-a', 'CODEA', '4821', 'avatar-a', 'state-img-a', 'post-img-a', '11111111-1111-4111-8111-111111111111.png'];
+  const needles = ['member-a', 'membera', 'Member A', 'member.a@example.test', 'CANARY', 'cred-a', 'CODEA', '4821', 'avatar-a', 'state-img-a', 'post-img-a', '11111111-1111-4111-8111-111111111111.png'];
   for (const [file, text] of allText()) {
     const hay = file === 'chat.json' && !text.trim().startsWith('{') ? JSON.stringify(decrypt(text.trim(), 'chat-store')) : text;
     for (const n of needles) assert.ok(!hay.includes(n), `${file} still contains ${n}`);
@@ -157,6 +179,12 @@ test('erasure with a fresh passkey assertion removes the person everywhere and l
   const db = JSON.parse(fs.readFileSync(path.join(dir, 'db.json'), 'utf8'));
   assert.deepEqual(db.users.map(u => u.id).sort(), ['member-b', 'trainer']);
   assert.deepEqual(db.restAlerts.map(alert => alert.userId), ['member-b'], 'the erased account’s pending push alerts are removed');
+  assert.deepEqual(db.deviceSessions.map(session => session.userId), ['member-b'], 'only the erased account’s device sessions are removed');
+  assert.deepEqual(db.securityEvents, [
+    { id: 'security-subject-a', at: '2026-01-01T00:00:00Z', event: 'login_ok', userId: null },
+    { id: 'security-actor-a', at: '2026-01-02T00:00:00Z', event: 'admin_action', userId: 'member-b' },
+    { id: 'security-b', at: '2026-01-03T00:00:00Z', event: 'login_ok', userId: 'member-b', meta: { platform: 'web' } },
+  ], 'security history remains anonymous with no account or actor link');
   assert.equal(db.invites[0].usedBy, 'deleted-account', 'an invite stays single-use without naming anyone');
   assert.equal(db.machineAliases.length, 1);
   assert.ok(fs.existsSync(path.join(dir, 'state-member-b.json')));
