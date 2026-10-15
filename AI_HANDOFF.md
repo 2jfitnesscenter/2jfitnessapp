@@ -1,10 +1,10 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
-## Exercise Library — cierre legal de medios (candidato local, NO desplegado; 2026-10-14)
+## Exercise Library — medios reactivados (cambio local, NO desplegado)
 
-- Revisión de derechos separa el dataset de ejercicios y sus textos (licencia MIT en la revisión upstream fijada `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`) de sus imágenes/GIF, sujetos a derechos de Gym visual sin licencia downstream demostrada para 2J. Los 2.648 medios del dataset y las 157 ilustraciones de estiramientos se clasifican como no verificados; no se atribuye titularidad a 2J por el comentario de origen.
-- Medios no autorizados quedan ocultos por defecto y se bloquea su descarga/servicio automático. Se mantienen IDs, registros, instrucciones, búsqueda, compatibilidad, swaps y flujos de Library/Constructor/Workout/Bunker/Train2J; los componentes usan placeholders. No se borran caches ni archivos locales preexistentes.
-- Inventario por registro/archivo en `docs/legal/exercise-media-inventory.csv`, generado y comprobable mediante `scripts/build-exercise-media-inventory.mjs`. `THIRD_PARTY_NOTICES.md`, pantalla Legal, docs de Exercise Library y avisos de fallback reflejan el alcance de las licencias. Este candidato no está desplegado ni tiene validación de release.
+- Se reactivan las referencias históricas de imágenes/GIF del catálogo y las 157 ilustraciones de estiramientos por decisión del propietario del proyecto. Se usa el origen histórico existente, fijado a `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`, y los assets de estiramientos ya versionados.
+- La decisión de mostrarlos no acredita una licencia ni titularidad de 2J. La procedencia y clasificación `UNKNOWN_OR_UNVERIFIED` se conservan en `docs/legal/exercise-media-inventory.csv`, `THIRD_PARTY_NOTICES.md`, pantalla Legal y documentación de Exercise Library.
+- Se restauran rutas estáticas `/img/`, `/gif/`, `/stretch/`, montajes Compose y `scripts/fetch-media.sh`; la descarga se omite si los directorios ya contienen media y no sobrescribe archivos existentes. Placeholders/fallback siguen disponibles para recursos ausentes. IDs, datos, búsqueda, swaps y lógica de entrenamiento no cambian.
 
 ## Seguimiento V2 final — candidato local (2026-10-14, NO desplegado)
 

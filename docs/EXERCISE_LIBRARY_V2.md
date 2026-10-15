@@ -179,11 +179,11 @@ downstream users a licence, and directs them to obtain their own permission. No 
 or licence is in this repository. The exact commit copied into the old untracked runtime `media/`
 volume is not recorded (old Compose and `fetch-media.sh` cloned the moving default branch; the
 mobile CDN URL did pin the revision above).
-Therefore all 2,648 dataset media references are `UNKNOWN_OR_UNVERIFIED`, are not rendered by the
-app and are blocked by Nginx. The stretch illustrations have a source comment that Juanjo supplied
-them, but no creator/license evidence; all 157 tracked files are also hidden and blocked pending
-verification. Exercise ids, plans and instructions remain available with icon placeholders. See
-the generated [asset inventory](legal/exercise-media-inventory.csv).
+All 2,648 dataset media references remain `UNKNOWN_OR_UNVERIFIED`; by project-owner decision they
+are enabled in the app and served from the existing pinned source, without claiming a 2J licence
+or ownership. The stretch illustrations have a source comment that Juanjo supplied them, but no
+creator/license evidence; their display is also re-enabled by the same decision. The generated
+[asset inventory](legal/exercise-media-inventory.csv) preserves this status and provenance.
 
 ## Remaining limitations
 

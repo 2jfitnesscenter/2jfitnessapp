@@ -7,7 +7,6 @@ import { useUI } from '../store/useUI.js'
 import { beep, vibrate } from '../lib/sound.js'
 import { useStore } from '../store/useStore.js'
 import { STRETCHES, AREAS, AREA_LABEL, GOALS, LEVELS, stretchOr, autoSession } from '../lib/stretches.js'
-import { STRETCH_ILLUSTRATIONS_ENABLED } from '../lib/exercise-media-policy.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Check } from '../components/ui.jsx'
 
@@ -20,10 +19,16 @@ import { Button, Check } from '../components/ui.jsx'
 
 const fmtDur = sec => { const m = Math.floor(sec / 60), s = sec % 60; return m ? `${m} min${s ? ' ' + s + ' seg.' : ''}` : `${s} seg.` }
 
+function StretchImage({ src, style }) {
+  const [failed, setFailed] = useState(false)
+  useEffect(() => setFailed(false), [src])
+  if (failed || !src) return <div role="img" aria-label={t('No image available')} style={{ display: 'grid', placeItems: 'center', color: 'var(--dim)', background: 'var(--surface-2)', borderRadius: 14, ...style }}><Icon name="figureStrength" /></div>
+  return <img src={src} alt="" onError={() => setFailed(true)} style={style} />
+}
+
 export function StretchCard({ s, onClick, right }) {
-  const image = STRETCH_ILLUSTRATIONS_ENABLED ? s.img : null
   return <div className="item" onClick={onClick}>
-    {image ? <img src={image} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none', background: 'var(--surface-2)' }} /> : <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center', flex: 'none', background: 'var(--surface-2)' }}><Icon name="figureStrength" /></span>}
+    <StretchImage src={s.img} style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none', background: 'var(--surface-2)' }} />
     <div className="grow">
       <div className="tt">{s.n}</div>
       <div className="ss">{s.area.map(a => AREA_LABEL[a]).join(' · ')}{s.dur ? ' · ' + fmtDur(s.dur) : ''}</div>
@@ -34,13 +39,12 @@ export function StretchCard({ s, onClick, right }) {
 
 /* ---------- exercise detail (steps + caution) ---------- */
 export function StretchDetail({ s, onClose }) {
-  const image = STRETCH_ILLUSTRATIONS_ENABLED ? s.img : null
   return <>
     <div className="row between" style={{ marginBottom: 10 }}>
       <h3 style={{ margin: 0 }}>{s.n}</h3>
       {onClose && <button className="iconbtn" onClick={onClose} aria-label={t('Close')}><Icon name="xmark" /></button>}
     </div>
-    {image ? <img src={image} alt="" style={{ width: '100%', aspectRatio: '4/3', objectFit: 'contain', background: 'var(--surface-2)', borderRadius: 14, marginBottom: 12 }} /> : <div role="img" aria-label={t('No image available')} style={{ width: '100%', aspectRatio: '4/3', display: 'grid', placeItems: 'center', color: 'var(--dim)', background: 'var(--surface-2)', borderRadius: 14, marginBottom: 12 }}><Icon name="figureStrength" /></div>}
+    <StretchImage src={s.img} style={{ width: '100%', aspectRatio: '4/3', objectFit: 'contain', background: 'var(--surface-2)', borderRadius: 14, marginBottom: 12 }} />
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
       <span className="tag acc"><Icon name={s.type === 'dynamic' ? 'figureRun' : 'timer'} />{s.type === 'dynamic' ? 'Dinámico' : 'Mantenido'}</span>
       {s.area.map(a => <span key={a} className="tag">{AREA_LABEL[a]}</span>)}
@@ -171,7 +175,6 @@ function Preview({ ids, title, onStart, onEdit, onBack }) {
 function Player({ ids, onFinish, onExit }) {
   const [i, setI] = useState(0)
   const s = stretchOr(ids[i])
-  const image = STRETCH_ILLUSTRATIONS_ENABLED ? s.img : null
   const [left, setLeft] = useState(s.dur)
   const [paused, setPaused] = useState(false)
   const soundOn = useStore(st => st.S.sound)
@@ -208,7 +211,7 @@ function Player({ ids, onFinish, onExit }) {
       <div style={{ textAlign: 'center', flex: 1 }} className="sub">{`${i + 1} / ${ids.length}`}</div>
       <button className="iconbtn" style={{ visibility: 'hidden' }}><Icon name="xmark" /></button>
     </div>
-    {image ? <img src={image} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'contain', background: 'var(--surface-2)', borderRadius: 20, marginBottom: 14 }} /> : <div role="img" aria-label={t('No image available')} style={{ width: '100%', aspectRatio: '1/1', display: 'grid', placeItems: 'center', color: 'var(--dim)', background: 'var(--surface-2)', borderRadius: 20, marginBottom: 14 }}><Icon name="figureStrength" /></div>}
+    <StretchImage src={s.img} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'contain', background: 'var(--surface-2)', borderRadius: 20, marginBottom: 14 }} />
     <h2 style={{ textAlign: 'center', marginBottom: 4 }}>{s.n}</h2>
     <div className="dim small" style={{ textAlign: 'center', marginBottom: 16 }}>{s.area.map(a => AREA_LABEL[a]).join(' · ')}</div>
     <div style={{ fontSize: 44, fontWeight: 700, textAlign: 'center', letterSpacing: '-.02em', marginBottom: 6 }}>{left}s</div>
