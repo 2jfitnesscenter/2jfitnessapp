@@ -1,5 +1,10 @@
 # Changelog
 
+### Exercise Library — reactivación de media (no desplegado)
+
+- Se vuelven a mostrar imágenes/GIF de ejercicios y dibujos de estiramientos, y se restauran las rutas, montajes y descarga de la fuente histórica fijada. No se sobrescriben medios locales existentes.
+- Se conserva el inventario de procedencia y el estado de derechos no verificado. La decisión de habilitar su visualización no afirma licencia ni titularidad de 2J.
+
 ### Exercise Library — cierre legal de medios (candidato local, NO desplegado)
 
 - Inventario reproducible de procedencia/licencia por registro y archivo. Distingue datos e instrucciones MIT del dataset de las imágenes/GIF de Gym visual, cuyo permiso upstream no prueba derechos de redistribución para 2J; las ilustraciones de estiramientos tampoco tienen una cadena de derechos demostrada.

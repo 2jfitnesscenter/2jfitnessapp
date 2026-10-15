@@ -183,7 +183,7 @@ Kept as they are: without a visual comparison they are not deprecated. Candidate
 ## Images
 
 - Every record has image/GIF filename references: yes; image names start with the record id: yes; unique: yes.
-- Exercise media rights are not cleared for 2J: dataset images/GIFs and stretch illustrations are hidden and blocked from serving; see docs/legal/exercise-media-inventory.csv.
+- Dataset images/GIFs and stretch illustrations are enabled by project-owner decision. Their rights status remains unverified; see docs/legal/exercise-media-inventory.csv. Enabling display is not a claim of 2J ownership or licence.
 
 ## Imports
 

@@ -32,7 +32,7 @@ for (const ex of [...EXDB].sort((a, b) => String(a.id).localeCompare(String(b.id
       'Not cleared for 2J; upstream explicitly says cloning does not grant downstream rights',
       'Not cleared for 2J', 'Not cleared for 2J',
       `https://github.com/hasaneyldrm/exercises-dataset/blob/${DATASET_REV}/LICENSE; https://github.com/hasaneyldrm/exercises-dataset/blob/${DATASET_REV}/NOTICE.md; scripts/fetch-media.sh; docker-compose.yml`,
-      'Media is excluded from the dataset MIT licence. The mobile CDN reference uses this pinned revision; the old local runtime cache has no recorded revision. 2J permission/license evidence is absent. Hidden/blocked by default.'
+      'Media is excluded from the dataset MIT licence. The mobile CDN and restored web fetch use this pinned revision; old runtime cache provenance was not recorded. The owner has chosen to re-enable display; this is not evidence of a 2J grant or ownership. See THIRD_PARTY_NOTICES.md.'
     ])
   }
 }
@@ -50,7 +50,7 @@ for (const file of readdirSync(stretchRoot).filter(x => /\.(png|jpe?g|gif|webp|s
     '2J repository; stretches.js comment says Juanjo supplied the illustrations, but creator/license evidence is not recorded',
     'UNKNOWN_OR_UNVERIFIED', 'Not documented', 'Unknown', 'Unknown', 'Unknown', 'Unknown',
     'frontend/src/lib/stretches.js comment; git history for frontend/public/stretch',
-    referenced.has(file) ? 'Hidden/blocked by default until source and rights are documented.' : 'Tracked asset not referenced by the current stretch catalogue; provenance/rights still unverified.'
+    referenced.has(file) ? 'Display re-enabled by project-owner decision; creator/license evidence remains unverified and is not asserted. See THIRD_PARTY_NOTICES.md.' : 'Tracked asset not referenced by the current stretch catalogue; provenance/rights remain unverified. See THIRD_PARTY_NOTICES.md.'
   ])
 }
 

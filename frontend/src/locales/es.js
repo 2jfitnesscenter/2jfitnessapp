@@ -3313,7 +3313,7 @@ export default {
   'Source code and legal notices': 'Código fuente y avisos legales',
   'Third parties': 'Terceros',
   'Exercise records and non-media instructions: hasaneyldrm/exercises-dataset, MIT.': 'Registros e instrucciones no multimedia de ejercicios: hasaneyldrm/exercises-dataset, MIT.',
-  'Exercise images and animations: © Gym visual; separate permission is required, and 2J reuse is not verified. They are hidden until cleared.': 'Imágenes y animaciones de ejercicios: © Gym visual; se requiere permiso independiente y no se ha verificado el uso por 2J. Se mantienen ocultas hasta aclararlo.',
+  'Exercise images and animations: © Gym visual; display is enabled by project-owner decision. This does not establish a 2J licence or ownership; see the provenance inventory.': 'Imágenes y animaciones de ejercicios: © Gym visual; se muestran por decisión del propietario del proyecto. Esto no acredita una licencia ni titularidad de 2J; consulta el inventario de procedencia.',
   'Body diagram geometry: MuscleMap by Melih Colpan (MIT).': 'Geometría del diagrama corporal: MuscleMap de Melih Colpan (MIT).',
   'Open-source libraries such as React, React Router, Zustand and Vite, each under its own license.': 'Librerías de código abierto como React, React Router, Zustand y Vite, cada una con su propia licencia.',
   'Trademarks': 'Marcas',

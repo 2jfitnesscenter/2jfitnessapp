@@ -137,7 +137,7 @@ p('## Images');
 p('');
 const imgs = EXDB.map(e => e.img);
 p(`- Every record has image/GIF filename references: ${EXDB.every(e => e.img && e.gif) ? 'yes' : 'no'}; image names start with the record id: ${EXDB.every(e => e.img.startsWith(e.id)) ? 'yes' : 'no'}; unique: ${new Set(imgs).size === imgs.length ? 'yes' : 'no'}.`);
-p('- Exercise media rights are not cleared for 2J: dataset images/GIFs and stretch illustrations are hidden and blocked from serving; see docs/legal/exercise-media-inventory.csv.');
+p('- Dataset images/GIFs and stretch illustrations are enabled by project-owner decision. Their rights status remains unverified; see docs/legal/exercise-media-inventory.csv. Enabling display is not a claim of 2J ownership or licence.');
 p('');
 p('## Imports');
 p('');
