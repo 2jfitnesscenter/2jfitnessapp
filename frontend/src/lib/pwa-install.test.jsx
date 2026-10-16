@@ -1,12 +1,31 @@
 import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { MemoryRouter } from 'react-router-dom'
+vi.mock('../components/InstallPrompt.jsx', () => ({ default: () => React.createElement('section', { id: 'pwa-install-prompt' }, 'Install 2J Fitness') }))
+vi.mock('../store/useStore.js', () => {
+  const useStore = () => ({ setUser: vi.fn(), pullState: vi.fn(), setGuest: vi.fn() })
+  useStore.getState = () => ({ S: {} })
+  return { useStore, hasData: () => false }
+})
+vi.mock('../store/useUI.js', () => {
+  const useUI = () => ({ timer: null, work: null })
+  useUI.getState = () => ({ openSheet: vi.fn(), toast: vi.fn() })
+  return { useUI }
+})
+vi.mock('../lib/api.js', () => ({
+  BIO: 'Passkey', webauthnOK: () => true, passkeyLogin: vi.fn(), passkeyRegister: vi.fn(), passkeyRecover: vi.fn(),
+  api: vi.fn(), sharedDeviceStatus: vi.fn(), sharedStaffLogin: vi.fn(),
+}))
+vi.mock('../lib/demo.js', () => ({ DEMO: false }))
 import {
-  dismissPwaInstall, getPwaInstallMode, getPwaInstallSnapshot, initPwaInstallEvents,
+  dismissPwaInstall, getPwaInstallGuide, getPwaInstallMode, getPwaInstallSnapshot, initPwaInstallEvents,
   isIOSDevice, isStandalone, PWA_INSTALL_COOLDOWN_MS, PWA_INSTALL_DISMISSAL_KEY,
   promptPwaInstall, readInstallDismissedUntil, resetPwaInstallStateForTests,
 } from './pwa-install.js'
 import PwaInstallBanner from '../components/PwaInstallBanner.jsx'
+import PwaInstallPromptHost from '../components/PwaInstallPromptHost.jsx'
+import Login from '../views/Login.jsx'
 
 class EventTargetFake {
   events = new Map()
@@ -24,6 +43,29 @@ describe('PWA install prompt', () => {
     expect(isStandalone({ matchMedia: () => ({ matches: false }) }, { standalone: true })).toBe(true)
     expect(getPwaInstallMode({ standalone: true, ios: true })).toBe(null)
     expect(getPwaInstallMode({ installed: true, promptAvailable: true })).toBe(null)
+  })
+
+  it('shows manual installation guidance when Chrome does not provide its native prompt', () => {
+    expect(getPwaInstallMode({ ios: false, promptAvailable: false })).toBe('guide')
+    expect(getPwaInstallGuide({ userAgent: 'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36' })).toBe('desktop-chrome')
+    const html = renderToStaticMarkup(<PwaInstallBanner mode="guide" guide="desktop-chrome" instructionsOpen />)
+    expect(html).toContain('Install 2J Fitness')
+    expect(html).toContain('How to install')
+    expect(html).toContain('Install page as app')
+    expect(html).toContain('Not now')
+  })
+
+  it('keeps the invitation beside first-entry sign-in and renders one global host on Home', () => {
+    const login = renderToStaticMarkup(<MemoryRouter initialEntries={['/']}><><PwaInstallPromptHost /><Login /></></MemoryRouter>)
+    expect(login).toContain('Install 2J Fitness')
+    expect(login).toContain('Sign in with passkey')
+    const home = renderToStaticMarkup(<MemoryRouter initialEntries={['/home']}><><PwaInstallPromptHost /><main>Home</main></></MemoryRouter>)
+    expect((home.match(/id="pwa-install-prompt"/g) || [])).toHaveLength(1)
+  })
+
+  it('does not show a personal install invitation on the shared Bunker kiosk', () => {
+    const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/bunker']}><PwaInstallPromptHost /></MemoryRouter>)
+    expect(html).not.toContain('pwa-install-prompt')
   })
 
   it('captures beforeinstallprompt and makes the native Install action available', () => {
@@ -57,7 +99,14 @@ describe('PWA install prompt', () => {
     target.emit('beforeinstallprompt', event)
     expect(await promptPwaInstall()).toBe('dismissed')
     expect(getPwaInstallSnapshot().promptAvailable).toBe(false)
-    expect(getPwaInstallMode({ promptAvailable: false, ios: false })).toBe(null)
+    expect(getPwaInstallMode({ promptAvailable: false, ios: false })).toBe('guide')
+  })
+
+  it('selects conservative help for iOS, Android Chrome, Edge and generic browsers', () => {
+    expect(getPwaInstallGuide({ ios: true, userAgent: 'Mozilla/5.0 (iPhone; Safari)' })).toBe('ios-safari')
+    expect(getPwaInstallGuide({ userAgent: 'Mozilla/5.0 (Linux; Android 15) Chrome/140.0 Mobile Safari/537.36' })).toBe('android-chrome')
+    expect(getPwaInstallGuide({ userAgent: 'Mozilla/5.0 (Windows NT 10.0) Edg/140.0' })).toBe('desktop-edge')
+    expect(getPwaInstallGuide({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0' })).toBe('generic')
   })
 
   it('stores the seven-day Now not cooldown and becomes eligible when it expires', () => {
@@ -79,11 +128,11 @@ describe('PWA install prompt', () => {
     expect(isIOSDevice({ platform: 'MacIntel', maxTouchPoints: 5, userAgent: 'Mozilla/5.0 (Macintosh)' })).toBe(true)
     expect(getPwaInstallMode({ ios: true })).toBe('guide')
     expect(getPwaInstallMode({ ios: true, standalone: true })).toBe(null)
-    const closed = renderToStaticMarkup(<PwaInstallBanner mode="guide" />)
+    const closed = renderToStaticMarkup(<PwaInstallBanner mode="guide" guide="ios-safari" />)
     expect(closed).toContain('How to install')
     expect(closed).not.toContain('Tap Safari')
     expect(closed).not.toContain('Add to Home Screen')
-    const open = renderToStaticMarkup(<PwaInstallBanner mode="guide" instructionsOpen />)
+    const open = renderToStaticMarkup(<PwaInstallBanner mode="guide" guide="ios-safari" instructionsOpen />)
     expect(open).toContain('Tap Safari')
     expect(open).toContain('Add to Home Screen')
     expect(open).toContain('Confirm Add')
