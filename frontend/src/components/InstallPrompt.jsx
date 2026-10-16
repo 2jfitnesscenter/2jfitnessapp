@@ -3,7 +3,7 @@ import { useUI } from '../store/useUI.js'
 import { MOBILE } from '../lib/mobile.js'
 import PwaInstallBanner from './PwaInstallBanner.jsx'
 import {
-  dismissPwaInstall, getPwaInstallMode, getPwaInstallSnapshot, isIOSDevice, isStandalone,
+  dismissPwaInstall, getPwaInstallGuide, getPwaInstallMode, getPwaInstallSnapshot, isIOSDevice, isStandalone,
   promptPwaInstall, readInstallDismissedUntil, subscribePwaInstall,
 } from '../lib/pwa-install.js'
 
@@ -30,10 +30,12 @@ export default function InstallPrompt() {
     cooldown: dismissedUntil > Date.now(),
     activeWorkout: !!timer || !!work,
   })
+  const guide = getPwaInstallGuide({ ios: isIOSDevice(), userAgent: globalThis.navigator?.userAgent || '' })
   const nowNot = () => setDismissedUntil(dismissPwaInstall())
 
   return <PwaInstallBanner
     mode={mode}
+    guide={guide}
     instructionsOpen={instructionsOpen}
     onInstall={() => { void promptPwaInstall() }}
     onHowToInstall={() => setInstructionsOpen(open => !open)}
