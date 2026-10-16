@@ -57,6 +57,9 @@ function patchUser(uid, patch) {
 }
 /** Consent revoked, profile deleted, "reset everything" — no server-side residue (FR-51). */
 export function clearUser(uid) {
+  revocationVersion.set(uid, versionOf(uid) + 1);
+  for (let i = queue.length - 1; i >= 0; i--) if (queue[i].uid === uid) queue.splice(i, 1);
+  inflight.delete(uid);
   try { fs.unlinkSync(userFile(uid)); } catch { /* nothing to clear */ }
 }
 
@@ -113,7 +116,12 @@ function archive(uid, rec, outcome) {
 
 const queue = [];
 let running = 0;
-const inflight = new Set();     // uids with a job queued or running (FR-07 single-flight)
+const inflight = new Map();     // uid → owning job/lease, so stale completions cannot unlock a newer request
+const revocationVersion = new Map();
+const versionOf = uid => revocationVersion.get(uid) || 0;
+let adapterOverride = null;
+export function setAdapterForTests(adapter) { adapterOverride = adapter; }
+const hasConsent = S => !!S?.coach?.consent?.agreedAt && S.coach.consent.version === 1;
 
 class CoachError extends Error {
   constructor(code, message) { super(message); this.code = code; }
@@ -131,7 +139,7 @@ export function enqueue(uid, opts) {
   const S = readState(uid);
   // Consent is enforced here, server-side, not by the screen that collects it: a UI-only gate
   // is not a gate (FR-08/13).
-  if (!S?.coach?.consent?.agreedAt) throw new CoachError('consent', 'the Coach needs your go-ahead first');
+  if (!hasConsent(S)) throw new CoachError('consent', 'the Coach needs your go-ahead first');
 
   const caps = cfgStore.load().caps || {};
   const { used, limit } = capState(uid);
@@ -146,6 +154,7 @@ export function enqueue(uid, opts) {
   const job = {
     id: crypto.randomBytes(8).toString('hex'),
     uid,
+    revocationVersion: versionOf(uid),
     kind: opts.kind,                                  // 'create' | 'review'
     trigger: opts.trigger || 'manual',                // 'manual' | 'scheduled'
     intake: opts.intake || null,
@@ -154,7 +163,7 @@ export function enqueue(uid, opts) {
     state: 'queued',
     startedAt: Date.now()
   };
-  inflight.add(uid);
+  inflight.set(uid, job.id);
   patchUser(uid, { current: { id: job.id, kind: job.kind, state: 'queued', startedAt: job.startedAt } });
   queue.push(job);
   pump();
@@ -171,10 +180,15 @@ export function claimExplanation(uid) {
   const { used, limit } = capState(uid);
   if (limit > 0 && used >= limit) throw new CoachError('cap', 'daily limit reached');
   if (caps.instanceDaily > 0 && instanceUsedToday() >= caps.instanceDaily) throw new CoachError('cap', 'this instance has reached its daily limit');
-  inflight.add(uid);
+  const leaseId = 'explain:' + crypto.randomBytes(8).toString('hex');
+  inflight.set(uid, leaseId);
+  const consentVersion = versionOf(uid);
   bumpDaily(uid);
-  cfgStore.logJob({ at: new Date().toISOString(), uid, kind: 'intelligence-explanation', trigger: 'manual', outcome: 'requested' });
-  return () => inflight.delete(uid);
+  cfgStore.logJob({ at: new Date().toISOString(), kind: 'intelligence-explanation', trigger: 'manual', outcome: 'requested' });
+  return {
+    release: () => { if (inflight.get(uid) === leaseId) inflight.delete(uid); },
+    canInvoke: () => versionOf(uid) === consentVersion && hasConsent(readState(uid))
+  };
 }
 
 function pump() {
@@ -182,12 +196,14 @@ function pump() {
     const job = queue.shift();
     running++;
     execute(job)
-      .catch(e => { console.error('coach job crashed', job.id, e); finish(job, { outcome: 'failed', errorClass: 'internal' }); })
-      .finally(() => { running--; inflight.delete(job.uid); pump(); });
+      .catch(() => { console.error('coach job crashed', job.id); finish(job, { outcome: 'failed', errorClass: 'internal' }); })
+      .finally(() => { running--; if (inflight.get(job.uid) === job.id) inflight.delete(job.uid); pump(); });
   }
 }
 
 function finish(job, result) {
+  // A forget/revocation racing an in-flight request must not recreate the deleted Coach record.
+  if (versionOf(job.uid) !== job.revocationVersion) return;
   const rec = readUser(job.uid);
   const history = [...(rec.history || []), {
     id: job.id, kind: job.kind, trigger: job.trigger, outcome: result.outcome,
@@ -200,12 +216,12 @@ function finish(job, result) {
     history
   });
   cfgStore.logJob({
-    at: new Date().toISOString(), uid: job.uid, kind: job.kind, trigger: job.trigger,
-    outcome: result.outcome, errorClass: result.errorClass || null,
-    ms: Date.now() - job.startedAt, detail: result.detail || null
+    at: new Date().toISOString(), kind: job.kind, trigger: job.trigger,
+    outcome: result.outcome, errorClass: result.errorClass || null, status: result.status || null,
+    provider: cfgStore.load().provider, ms: Date.now() - job.startedAt
   });
   if (result.outcome === 'ready' && onProposal) {
-    try { onProposal(job.uid, result.pending, job); } catch (e) { console.error('coach notify failed', e); }
+    try { onProposal(job.uid, result.pending, job); } catch { console.error('coach notify failed', job.id); }
   }
 }
 
@@ -240,9 +256,10 @@ async function execute(job) {
 
   const S = readState(job.uid);
   if (!S) return finish(job, { outcome: 'failed', errorClass: 'nostate' });
+  if (!hasConsent(S)) return finish(job, { outcome: 'failed', errorClass: 'consent' });
 
   const cfg = cfgStore.load();
-  const adapter = adapterFor(cfg.provider);
+  const adapter = adapterOverride || adapterFor(cfg.provider);
   if (!adapter) return finish(job, { outcome: 'failed', errorClass: 'off' });
 
   const pendingCreate = job.refine ? readUser(job.uid).pending : null;
@@ -259,6 +276,7 @@ async function execute(job) {
   try {
     const ids = (await import('./adapters/spawn.js')).unprivilegedIds();
     if (ids) fs.chownSync(jobDir, ids.uid, ids.gid);
+    if (versionOf(job.uid) !== job.revocationVersion || !hasConsent(readState(job.uid))) return finish(job, { outcome: 'failed', errorClass: 'consent' });
 
     aiLog('AI_REQUEST_START', { flow: 'member-' + job.kind, job: job.id, provider: cfg.provider, trigger: job.trigger });
     let attempt = await invoke(adapter, cfg, payload, jobDir, env, job, null);
@@ -272,7 +290,7 @@ async function execute(job) {
     }
     if (!attempt.ok) {
       aiLog('AI_FINAL_FAILURE', { flow: 'member-' + job.kind, job: job.id, class: attempt.errorClass, ms: Date.now() - job.startedAt });
-      return finish(job, { outcome: 'failed', errorClass: attempt.errorClass, detail: attempt.detail });
+      return finish(job, { outcome: 'failed', errorClass: attempt.errorClass, status: attempt.status });
     }
     aiLog('AI_SUCCESS', { flow: 'member-' + job.kind, job: job.id, nochange: attempt.nochange ? 1 : null, ms: Date.now() - job.startedAt });
     if (attempt.nochange) {
@@ -298,10 +316,12 @@ async function invoke(adapter, cfg, payload, jobDir, env, job, repair) {
   // Transient provider failures (timeout, 429/5xx/overloaded, crashed runtime, empty answer) are
   // retried here, inside one job, before anything is reported (coach/ai-run.js).
   const r = await invokeWithRetry(adapter, { cfg, prompt, jobDir, env, model: cfg.model || null, timeoutMs: TIMEOUT_MS },
-    { flow: 'member-' + job.kind, job: job.id, provider: cfg.provider, repair: !!repair });
+    { flow: 'member-' + job.kind, job: job.id, provider: cfg.provider, repair: !!repair,
+      canInvoke: () => versionOf(job.uid) === job.revocationVersion && hasConsent(readState(job.uid)) });
+  if (versionOf(job.uid) !== job.revocationVersion || !hasConsent(readState(job.uid))) return { ok: false, errorClass: 'consent' };
   if (r.failure) {
     const errorClass = r.failure.errorClass === 'empty' ? 'provider' : r.failure.errorClass;
-    return { ok: false, errorClass, detail: [r.failure.status, (r.stderr || '').slice(0, 280)].filter(Boolean).join(' ') || null };
+    return { ok: false, errorClass, status: r.failure.status || null };
   }
 
   const parsed = extractJSON(r.text);

@@ -52,6 +52,13 @@ const DEFAULTS = {
   log: []
 };
 const LOG_MAX = 100;
+const LOG_FIELDS = ['at', 'kind', 'trigger', 'outcome', 'errorClass', 'ms', 'status', 'provider'];
+function cleanLog(entries) {
+  return (Array.isArray(entries) ? entries : []).slice(-LOG_MAX).map(entry => Object.fromEntries(
+    LOG_FIELDS.filter(key => entry?.[key] != null && (!['ms', 'status'].includes(key) || Number.isFinite(Number(entry[key]))))
+      .map(key => [key, ['ms', 'status'].includes(key) ? Number(entry[key]) : String(entry[key]).slice(0, 80)])
+  ));
+}
 
 /* ---------- at-rest encryption ---------- */
 // Delegates to the shared api/lib/crypto.js, keeping this feature's own HKDF namespace so
@@ -73,7 +80,7 @@ export function load() {
   let stored = {};
   try { stored = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { /* absent = feature off */ }
   const { customCommand: _customCommand, ...storedWithoutCustomCommand } = stored;
-  cache = { ...DEFAULTS, ...storedWithoutCustomCommand, caps: { ...DEFAULTS.caps, ...(stored.caps || {}) } };
+  cache = { ...DEFAULTS, ...storedWithoutCustomCommand, caps: { ...DEFAULTS.caps, ...(stored.caps || {}) }, log: cleanLog(stored.log) };
   // A retired provider must not leave the admin page in a state where no chip is selected, or
   // continue using its old credential. The next normal save also removes its legacy fields.
   if (!PROVIDERS[cache.provider]) {
@@ -84,6 +91,7 @@ export function load() {
 }
 export function save(patch) {
   const next = { ...load(), ...patch };
+  next.log = cleanLog(next.log);
   cache = next;
   atomicWrite(FILE, JSON.stringify(next, null, 2), 0o600);
   return next;
@@ -189,7 +197,8 @@ export function jobEnv(jobDir) {
 
 export function logJob(entry) {
   const cfg = load();
-  const log = [...(cfg.log || []), entry].slice(-LOG_MAX);
+  // Persist operational facts only; ids, provider bodies and arbitrary details stay out.
+  const log = cleanLog([...(cfg.log || []), entry]);
   save({ log });
 }
 export const lastError = () => [...(load().log || [])].reverse().find(e => e.outcome === 'failed') || null;

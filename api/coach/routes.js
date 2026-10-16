@@ -81,17 +81,17 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       const body = await readBody(req);
       const signal = compactSignal(body);
       if (!signal) return json(res, 400, { error: 'invalid-signal' });
-      let release;
-      try { release = jobs.claimExplanation(user.id); }
+      let lease;
+      try { lease = jobs.claimExplanation(user.id); }
       catch (e) { return failEnqueue(res, e); }
       try {
         // Only the enum and bounded numeric facts leave this server. The client keeps its
         // deterministic title, reason, action and priority regardless of the model output.
-        const result = await explainSignal(signal);
+        const result = await explainSignal(signal, { canInvoke: lease.canInvoke });
         json(res, 200, result);
       } catch {
         json(res, 200, { ok: false, error: 'unavailable' });
-      } finally { release(); }
+      } finally { lease.release(); }
     },
 
     'POST /api/coach/pending/resolve': async (req, res) => {

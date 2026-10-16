@@ -7,6 +7,7 @@ tempData();
 const trainerAI = await import('../coach/trainer-ai.js');
 const ai = await import('../coach/followup-ai.js');
 const { memberView, aiFacts, AI_PAYLOAD_MAX } = await import('../lib/coach-followup.js');
+const { coachFollowUpRoutes } = await import('../lib/coach-followup-routes.js');
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
@@ -92,4 +93,47 @@ test('provider failures are classified, one analysis at a time per member, and t
   assert.throws(() => ai.enqueue('tr', 'u5', { ...facts, big: 'y'.repeat(AI_PAYLOAD_MAX) }), e => e.code === 'size');
   assert.deepEqual(trainerAI.load().log.map(e => e.flow).filter(Boolean).every(f => f === 'followup'), true);
   assert.doesNotMatch(JSON.stringify(trainerAI.load().log), /NOMBRE-SECRETO|FACTS/, 'the instance log has counts and outcomes only');
+});
+
+test('a revoked curated-intake lease prevents the provider request and keeps deterministic fallback', async () => {
+  const before = calls.length;
+  const job = ai.enqueue('tr', 'u-revoked', { ...facts, intake: [{ question: 'Nivel', answer: 'Inicial' }] }, 'es', { canInvoke: () => false });
+  assert.equal(job.cached, false);
+  const result = await settle('tr', 'u-revoked');
+  assert.equal(calls.length, before);
+  assert.equal(result.errorClass, 'consent');
+  assert.equal(result.result, null, 'caller retains its deterministic analysis when optional wording is unavailable');
+});
+
+test('Follow-up V2 without current Coach consent returns deterministic analysis and never queues provider work', async () => {
+  const member = { id: 'route-member', name: 'CANARY-MEMBER' };
+  const trainer = { id: 'route-trainer', trainer: true };
+  let state = { routines: [], workouts: [], week: {}, coach: { consent: {} } };
+  let response, enqueues = 0, canInvoke;
+  const routes = coachFollowUpRoutes({
+    db: { users: [trainer, member] },
+    json: (_res, status, body) => { response = { status, body }; },
+    readBody: async () => ({ id: member.id, lang: 'es' }),
+    requireTrainer: () => trainer,
+    requireAdmin: () => null,
+    isAdmin: user => !!user?.admin,
+    isTrainer: user => !!user?.trainer,
+    readState: () => state,
+    encryptAtRest: () => '', decryptAtRest: () => null, info: {}, saveDb: () => {}, cycleView: x => x,
+    ai: { available: () => true, enqueue: (...args) => { enqueues++; canInvoke = args[4].canInvoke; return { id: 'queued' }; }, status: () => ({}) }
+  });
+  const analyze = routes['POST /api/trainer/followup/analyze'];
+  await analyze({ url: '/api/trainer/followup/analyze' }, {});
+  assert.equal(response.status, 200);
+  assert.equal(response.body.source, 'deterministic');
+  assert.equal(response.body.ai.error, 'consent');
+  assert.equal(enqueues, 0);
+
+  state = { routines: [], workouts: [], week: {}, coach: { consent: { agreedAt: '2026-10-01', version: 1 } } };
+  await analyze({ url: '/api/trainer/followup/analyze' }, {});
+  assert.equal(response.body.source, 'ai');
+  assert.equal(enqueues, 1);
+  assert.equal(canInvoke(), true);
+  state.coach.consent = {};
+  assert.equal(canInvoke(), false, 'revoking consent after queueing blocks the provider request');
 });

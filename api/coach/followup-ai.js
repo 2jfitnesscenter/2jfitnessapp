@@ -47,7 +47,7 @@ export function status(trainerId, memberId) {
 export function discard(trainerId, memberId) { records.delete(keyOf(trainerId, memberId)); return { ok: true }; }
 
 /** Starts (or reuses) an analysis. Throws FollowUpAIError('off'|'busy'|'cap'|'size'). Returns { id, cached }. */
-export function enqueue(trainerId, memberId, facts, lang = 'es') {
+export function enqueue(trainerId, memberId, facts, lang = 'es', { canInvoke = null } = {}) {
   if (!available()) throw new FollowUpAIError('off', 'la IA profesional no está configurada');
   if (JSON.stringify(facts).length > AI_PAYLOAD_MAX) throw new FollowUpAIError('size', 'los datos superan el límite de la IA');
   const key = keyOf(trainerId, memberId);
@@ -61,14 +61,14 @@ export function enqueue(trainerId, memberId, facts, lang = 'es') {
   inflight.add(key);
   records.set(key, { id, state: 'running', startedAt: Date.now(), hash });
   if (Date.now() - lastCleanup > 600000) { lastCleanup = Date.now(); for (const [k, r] of records) if (Date.now() - (r.finishedAt || r.startedAt) > 6 * 3600000) records.delete(k); }
-  run({ id, key, trainerId, memberId, facts, lang, hash }).finally(() => inflight.delete(key));
+  run({ id, key, trainerId, memberId, facts, lang, hash, canInvoke }).finally(() => inflight.delete(key));
   return { id, cached: false };
 }
 
 async function run(job) {
   const t0 = Date.now();
   const set = patch => records.set(job.key, { id: job.id, startedAt: t0, hash: job.hash, ...patch });
-  const fail = errorClass => { set({ state: 'failed', errorClass, finishedAt: Date.now() }); trainerAI.logJob({ at: new Date().toISOString(), flow: 'followup', memberHandle: job.memberId.slice(0, 6), outcome: 'failed', errorClass, ms: Date.now() - t0 }); };
+  const fail = errorClass => { set({ state: 'failed', errorClass, finishedAt: Date.now() }); trainerAI.logJob({ at: new Date().toISOString(), flow: 'followup', outcome: 'failed', errorClass, ms: Date.now() - t0 }); };
   const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'followup-ai-'));
   try {
     const adapter = adapterOverride || adapterFor('claude');
@@ -76,17 +76,18 @@ async function run(job) {
     if (ids) fs.chownSync(jobDir, ids.uid, ids.gid);
     const prompt = PROMPT + '\n\nlang: ' + (job.lang === 'en' ? 'en' : 'es') + '\n\nFACTS (JSON):\n' + JSON.stringify(job.facts);
     aiLog('AI_REQUEST_START', { flow: 'followup', job: job.id, provider: 'claude', chars: prompt.length });
-    const r = await invokeWithRetry(adapter, { prompt, jobDir, env: trainerAI.jobEnv(jobDir), model: null, timeoutMs: TIMEOUT_MS }, { flow: 'followup', job: job.id, provider: 'claude' });
+    const r = await invokeWithRetry(adapter, { prompt, jobDir, env: trainerAI.jobEnv(jobDir), model: null, timeoutMs: TIMEOUT_MS }, { flow: 'followup', job: job.id, provider: 'claude', canInvoke: job.canInvoke });
     if (r.failure) return fail(r.failure.errorClass === 'empty' ? 'provider' : r.failure.errorClass);
+    if (typeof job.canInvoke === 'function' && !job.canInvoke()) return fail('consent');
     const parsed = extractJSON(r.text);
     if (parsed.error) return fail('unusable');
     const v = validateAiAnswer(parsed.value);
     if (!v.ok) { aiLog('AI_UNUSABLE', { flow: 'followup', job: job.id, why: v.error }); return fail('unusable'); }
     set({ state: 'done', result: v.value, finishedAt: Date.now() });
-    trainerAI.logJob({ at: new Date().toISOString(), flow: 'followup', memberHandle: job.memberId.slice(0, 6), outcome: 'ready', errorClass: null, ms: Date.now() - t0 });
+    trainerAI.logJob({ at: new Date().toISOString(), flow: 'followup', outcome: 'ready', errorClass: null, ms: Date.now() - t0 });
     aiLog('AI_SUCCESS', { flow: 'followup', job: job.id, ms: Date.now() - t0 });
   } catch (e) {
-    console.error('followup-ai crashed', job.id, e?.message);
+    console.error('followup-ai crashed', job.id);
     fail('internal');
   } finally {
     fs.rmSync(jobDir, { recursive: true, force: true });

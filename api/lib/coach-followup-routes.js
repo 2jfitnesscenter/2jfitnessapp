@@ -198,8 +198,17 @@ export function coachFollowUpRoutes(d) {
       const facts = aiFacts(view, { structure, recent, intake });
       const base = { analysis: view.analysis, signals: view.signals.filter(s => s.severity !== 'info').length };
       if (!ai.available()) return json(res, 200, { ...base, source: 'deterministic', ai: { available: false } });
+      const consentAtQueue = S?.coach?.consent?.agreedAt || null;
+      if (!consentAtQueue || S?.coach?.consent?.version !== 1)
+        return json(res, 200, { ...base, source: 'deterministic', ai: { available: true, error: 'consent' } });
       try {
-        const job = ai.enqueue(staff.id, u.id, facts, body.lang === 'en' ? 'en' : 'es');
+        const canInvoke = () => {
+          let latest;
+          try { latest = readState(u.id); } catch { return false; }
+          return latest?.coach?.consent?.agreedAt === consentAtQueue && latest.coach.consent.version === 1 &&
+            (!intake.length || JSON.stringify(consentedCoachIntake(latest, u.followUpV2)) === JSON.stringify(intake));
+        };
+        const job = ai.enqueue(staff.id, u.id, facts, body.lang === 'en' ? 'en' : 'es', { canInvoke });
         json(res, 202, { ...base, source: 'ai', job, ai: { available: true } });
       } catch (e) {
         if (!e.code) throw e;

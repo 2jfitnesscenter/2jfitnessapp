@@ -60,15 +60,15 @@ export function startCadence(deps) {
       try {
         const S = jobs.readState(user.id);
         const coach = S?.coach;
-        if (!coach?.consent?.agreedAt) continue;         // consent revoked ⇒ cadence stops
+        if (!coach?.consent?.agreedAt || coach.consent.version !== 1) continue; // consent revoked ⇒ cadence stops
         const tz = coach.cadence?.monthly ? (S.reminder?.tz || 'UTC') : null;
         const now = tz ? deps.userNow(tz) : null;
         if (!isDue(coach, S, now)) continue;
         jobs.enqueue(user.id, { kind: 'review', trigger: 'scheduled' });
-        console.log('coach: scheduled review queued for', user.id);
+        console.log('coach: scheduled review queued');
       } catch (e) {
         // Caps, an in-flight job, a provider that just went down: all ordinary, all silent.
-        if (!(e instanceof jobs.CoachError)) console.error('coach cadence', user.id, e);
+        if (!(e instanceof jobs.CoachError)) console.error('coach cadence failed');
       }
     }
   }, TICK_MS);
