@@ -40,20 +40,20 @@ export const mediaUrl = id => id ? '/api/social/media?id=' + encodeURIComponent(
 // A bioimpedance report (photo or PDF, as a data URL) -> extracted {weight, bodyFat, muscleMass,
 // waterPct, visceralFat, boneMass}, each a number or null. Read-only — this never saves anything
 // itself, see components/ScanUpload.jsx.
-export const scanMeasurements = dataUrl =>
-  api('/api/measurements/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl }) }).then(r => r.values)
+export const scanMeasurements = (dataUrl, consent) =>
+  api('/api/measurements/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl, externalAiConsent: consent?.externalAiConsent }) }).then(r => r.values)
 
 // A printed/handwritten/photographed routine (photo or PDF, as a data URL) -> raw
 // { name, days: [{ label, exercises: [...] }] } — exercise names exactly as printed, not yet
 // matched to a library id. See lib/routine-scan.js's matchScannedRoutine() for that next step.
-export const scanRoutine = dataUrl =>
-  api('/api/routines/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl }) }).then(r => r.routine)
+export const scanRoutine = (dataUrl, consent) =>
+  api('/api/routines/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl, externalAiConsent: consent?.externalAiConsent }) }).then(r => r.routine)
 
 // A photo of a single gym machine/exercise (as a data URL) -> raw { name, nameEn } — the
 // exercise the AI thinks it recognises, not yet matched to a library id or checked against the
 // gym-wide machine-alias table. See lib/machine-scan.js's matchScannedMachine() for that.
-export const scanMachine = dataUrl =>
-  api('/api/exercises/scan-machine', { method: 'POST', body: JSON.stringify({ file: dataUrl }) })
+export const scanMachine = (dataUrl, consent) =>
+  api('/api/exercises/scan-machine', { method: 'POST', body: JSON.stringify({ file: dataUrl, externalAiConsent: consent?.externalAiConsent }) })
 
 // Gym-wide "this scanned machine already means this exercise" links (db.machineAliases on the
 // server) — shared across every member, since it's the same physical equipment for all of

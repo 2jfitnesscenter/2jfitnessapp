@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { resizeImageFile, scanMeasurements } from '../lib/media.js'
+import { scanAfterExplicitConsent } from '../lib/scan-consent.js'
 import { Button } from './ui.jsx'
 
 const readAsDataUrl = file => new Promise((resolve, reject) => {
@@ -24,15 +25,27 @@ export default function ScanUpload({ onResult, scanFn = scanMeasurements, label,
   const toast = useUI(s => s.toast)
   const inputRef = useRef(null)
   const [busy, setBusy] = useState(false)
+  const [pendingFile, setPendingFile] = useState(null)
 
-  const onFile = async e => {
+  const onFile = e => {
     const file = e.target.files[0]
     e.target.value = ''
     if (!file) return
+    setPendingFile(file)
+  }
+
+  const sendAfterConsent = async () => {
+    const file = pendingFile
+    if (!file) return
+    setPendingFile(null)
     setBusy(true)
     try {
-      const dataUrl = file.type === 'application/pdf' ? await readAsDataUrl(file) : await resizeImageFile(file)
-      const result = await scanFn(dataUrl)
+      const result = await scanAfterExplicitConsent({
+        file,
+        accepted: true,
+        readFile: f => f.type === 'application/pdf' ? readAsDataUrl(f) : resizeImageFile(f),
+        scan: scanFn,
+      })
       onResult(result)
     } catch (err) {
       toast(err.message || t('Could not read that file'))
@@ -48,8 +61,19 @@ export default function ScanUpload({ onResult, scanFn = scanMeasurements, label,
         (Take Photo / Photo Library / Browse), and a live capture is still one tap away in it. */}
     <input ref={inputRef} type="file" accept="image/*,application/pdf"
       style={{ display: 'none' }} onChange={onFile} />
-    <Button size="sm" variant="tinted" icon="scan" disabled={busy} onClick={() => inputRef.current.click()}>
+    {pendingFile ? <div className="card" role="dialog" aria-label={t('Confirm external AI scan')} style={{ padding: 14 }}>
+      <div className="tt" style={{ fontWeight: 700, marginBottom: 6 }}>{t('Before sending this file')}</div>
+      <div className="muted small" style={{ lineHeight: 1.5, display: 'grid', gap: 6 }}>
+        <div><strong>{t('File')}:</strong> {pendingFile.name}</div>
+        <div>{t('This file will be sent to the external AI provider Google Gemini to analyze it for this scan. It may contain personal or health information.')}</div>
+        <div>{t('The scan is processed for this request and is not added to your account. If you cancel, the file is not sent.')}</div>
+      </div>
+      <div className="row" style={{ gap: 8, marginTop: 12 }}>
+        <Button size="sm" variant="primary" disabled={busy} onClick={sendAfterConsent}>{t('Accept and continue')}</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => setPendingFile(null)}>{t('Cancel')}</Button>
+      </div>
+    </div> : <Button size="sm" variant="tinted" icon="scan" disabled={busy} onClick={() => inputRef.current.click()}>
       {busy ? (busyLabel || t('Reading…')) : (label || t('Scan report'))}
-    </Button>
+    </Button>}
   </>
 }
