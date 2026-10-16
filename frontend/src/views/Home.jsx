@@ -28,6 +28,7 @@ import { setLayout, restoreLayout, guideSeen, markGuideSeen } from '../lib/ux-la
 import LayoutEditor from '../components/LayoutEditor.jsx'
 import PersonalizeGuide from '../components/PersonalizeGuide.jsx'
 import PremiumHomeCard from '../components/PremiumHomeCard.jsx'
+import InstallPrompt from '../components/InstallPrompt.jsx'
 
 // A job in flight or a proposal waiting is the only reason the Coach interrupts Home. When it
 // has nothing to say it renders nothing at all — and it only polls while Home is on screen.
@@ -158,6 +159,7 @@ export default function Home() {
   }
   return <div className="narrow">
     <div className="pz-row"><button type="button" className={'pz-btn' + (editing ? ' on' : '')} onClick={() => (editing ? setEditing(false) : startEditing())} aria-pressed={editing}><Icon name="pencil" />{t('Personalise')}</button></div>
+    <InstallPrompt />
     <HomeHero S={S} user={user} routine={routine} doneToday={doneToday} rescheduled={todayOvr}
       week={{ done: wThisWeek, planned: plannedPerWeek, streak }} onToday={onToday} onWeek={() => calendarSheet()} now={today} />
 
