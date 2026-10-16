@@ -18,7 +18,6 @@ import RestTimer from './components/RestTimer.jsx'
 import HealthOnboardingGate from './components/HealthOnboarding.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
 import FriendsWatcher from './components/FriendsWatcher.jsx'
-import InstallPrompt from './components/InstallPrompt.jsx'
 import SharedStaffSessionGuard from './components/SharedStaffSessionGuard.jsx'
 import SyncConflictDialog from './components/SyncConflictDialog.jsx'
 import Login from './views/Login.jsx'
@@ -372,7 +371,6 @@ function Shell() {
       <ChatWatcher />
       <FriendsWatcher />
       <NotificationWatcher />
-      {!needsOnboarding && !needsUxSetup && <InstallPrompt />}
       <Modals />
       <Toast />
     </>

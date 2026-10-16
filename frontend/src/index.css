@@ -1304,24 +1304,20 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 
-/* --- install prompt (components/InstallPrompt.jsx) — floats above #tabbar, same offset #timer
-   already uses to clear it. */
-#install-prompt{
-  position:fixed;left:12px;right:12px;bottom:calc(88px + var(--sab));z-index:59;
-  background:color-mix(in srgb,var(--surface) 97%,transparent);
-  backdrop-filter:saturate(180%) blur(24px);
-  border:var(--hair) solid var(--acc);border-radius:var(--r-lg);padding:12px 12px 12px 14px;
-  display:flex;align-items:center;gap:10px;
-  box-shadow:0 12px 34px -8px rgba(0,0,0,.55);
-  animation:slideup var(--med) var(--ease);
+#pwa-install-prompt{
+  display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start;gap:10px 12px;
+  border:var(--hair) solid color-mix(in srgb,var(--acc) 56%,var(--sep));
 }
-#install-prompt .install-i{
+#pwa-install-prompt .install-i{
   flex:none;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;
   background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc);font-size:18px;
 }
-#install-prompt .grow{flex:1;min-width:0}
-#install-prompt .t{font-weight:600;font-size:calc(14px * var(--text-scale,1))}
-#install-prompt .s{font-size:calc(12px * var(--text-scale,1));color:var(--label-2);margin-top:1px}
+#pwa-install-prompt .pwa-install-copy{min-width:0}
+#pwa-install-prompt h2{margin:0 0 3px;color:var(--label);font-size:calc(14px * var(--text-scale,1));font-weight:600}
+#pwa-install-prompt p{margin:0;color:var(--label-2);font-size:calc(12px * var(--text-scale,1));line-height:1.45}
+#pwa-install-prompt .pwa-install-actions{grid-column:1/-1;display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
+#pwa-install-prompt .pwa-install-instructions{margin-top:10px;padding-top:10px;border-top:var(--hair) solid var(--sep)}
+#pwa-install-prompt .pwa-install-instructions ol{margin:6px 0 10px;padding-left:22px;color:var(--label-2);font-size:calc(12px * var(--text-scale,1));line-height:1.55}
 
 /* ---------------------------------------------------------------- modal -- */
 #modal-root{position:fixed;inset:0;z-index:100;display:none}
