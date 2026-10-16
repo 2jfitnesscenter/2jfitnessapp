@@ -74,6 +74,21 @@ export function isIOSDevice(nav = globalThis.navigator) {
   return /iPad|iPhone|iPod/i.test(ua) || (platform === 'MacIntel' && Number(nav?.maxTouchPoints) > 1)
 }
 
+/** Select conservative, browser-specific manual installation guidance. */
+export function getPwaInstallGuide({ ios = false, userAgent = '' } = {}) {
+  const ua = String(userAgent)
+  if (ios) return /Safari/i.test(ua) && !/(CriOS|FxiOS|EdgiOS|OPiOS)/i.test(ua) ? 'ios-safari' : 'ios'
+  if (/Android/i.test(ua)) {
+    if (/EdgA/i.test(ua)) return 'android-edge'
+    if (/SamsungBrowser/i.test(ua)) return 'android'
+    if (/(Chrome|Chromium)/i.test(ua) && !/OPR/i.test(ua)) return 'android-chrome'
+    return 'android'
+  }
+  if (/Edg\//i.test(ua)) return 'desktop-edge'
+  if (/(Chrome|Chromium)/i.test(ua) && !/OPR/i.test(ua)) return 'desktop-chrome'
+  return 'generic'
+}
+
 export function readInstallDismissedUntil(storage = browserStorage()) {
   try {
     const value = Number(storage?.getItem(PWA_INSTALL_DISMISSAL_KEY) || 0)
@@ -90,7 +105,7 @@ export function dismissPwaInstall(storage = browserStorage(), now = Date.now()) 
 export function getPwaInstallMode({ nativeBuild = false, standalone = false, ios = false, promptAvailable = false, installed: alreadyInstalled = false, cooldown = false, activeWorkout = false } = {}) {
   if (nativeBuild || standalone || alreadyInstalled || cooldown || activeWorkout) return null
   if (promptAvailable) return 'prompt'
-  return ios ? 'guide' : null
+  return 'guide'
 }
 
 export function resetPwaInstallStateForTests() {

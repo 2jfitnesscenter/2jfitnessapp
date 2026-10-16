@@ -79,6 +79,7 @@ const AdminFeatures = lazy(() => import('./views/AdminFeatures.jsx'))
 const AdminAI = lazy(() => import('./views/AdminAI.jsx'))
 const AdminFollowUpTemplates = lazy(() => import('./components/AdminFollowUpTemplates.jsx'))
 import NotificationWatcher from './components/NotificationWatcher.jsx'
+import PwaInstallPromptHost from './components/PwaInstallPromptHost.jsx'
 import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements, { SkinfoldsScreen, BodyMeasurementsScreen } from './views/Measurements.jsx'
 import Health from './views/Health.jsx'
@@ -387,5 +388,5 @@ function Feat({ k, children }) {
 export default function App() {
   const boot = useStore(s => s.boot)
   useEffect(() => { boot() }, [boot])
-  return <HashRouter><Shell /></HashRouter>
+  return <HashRouter><PwaInstallPromptHost /><Shell /></HashRouter>
 }
