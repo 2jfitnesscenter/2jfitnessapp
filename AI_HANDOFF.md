@@ -31,6 +31,14 @@ Este bloque es la referencia vigente y supersede los checkpoints de producción 
 - No tocar Sync V2, borrado de cuenta, consentimiento de escaneos, Shared Staff, Exercise Media, lógica de Bunker/Social, Guided, Constructor, Seguimiento, Coach, Health, Android/iOS, Platform ni deploy-kit, salvo el guard de carga inicial de los stores indicado en este sprint.
 - `state-<uid>.json` ya devuelve `STATE_CORRUPT` y no lo sobrescribe; el store de Chat ya queda bloqueado en solo lectura si no puede descifrarse. No duplicar esas protecciones ni cambiar esos contratos.
 
+## IA — capa de fiabilidad (candidato en PR, NO desplegado)
+
+- Rama `codex/ai-reliability-on-main` (candidato en PR contra `main`; NO desplegado, falta prueba con fotos reales). Parte de `main` + el cierre de privacidad #33 (aún abierto, ya presente en producción), porque los escaneos exigen `external-ai-scan-v1`. No define la línea de producción vigente: ese dato está en el checkpoint de arriba. Detalle, políticas y presupuestos en `docs/AI_RELIABILITY.md`.
+- `api/coach/ai-run.js` es la única puerta a los proveedores para Coach, IA del entrenador y escaneos; `api/coach/ai-generate.js` unifica generar → validar → puerta de protocolo → reparar; `api/lib/ai-vision.js` es el motor de los escaneos; `api/lib/measurements-consensus.js` y `routine-validate.js` son las comprobaciones deterministas.
+- Escaneos: `POST /api/scan/start|status|cancel` (trabajos en memoria, la foto no toca disco); los endpoints síncronos antiguos siguen para versiones instaladas. El consentimiento `external-ai-scan-v1` se valida en el servidor antes de leer nada.
+- Trabajos del entrenador en `data/trainer-ai-jobs.json`; los del Coach guardan la petición y se reanudan una vez tras un reinicio.
+- Límites: el respaldo es otro modelo del MISMO proveedor (`fallbackModel`, vacío por defecto, sin interfaz de administración todavía); no hay conmutación entre proveedores porque cada flujo guarda una sola credencial.
+
 ## Exercise Library — medios reactivados (cambio local, NO desplegado)
 
 - Se reactivan las referencias históricas de imágenes/GIF del catálogo y las 157 ilustraciones de estiramientos por decisión del propietario del proyecto. Se usa el origen histórico existente, fijado a `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`, y los assets de estiramientos ya versionados.

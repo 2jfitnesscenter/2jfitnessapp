@@ -79,6 +79,8 @@ export const JOB_ERRORS = {
   cap: 'The Coach is resting — try again tomorrow.',
   consent: 'The Coach needs your go-ahead first.',
   timeout: 'The Coach took too long and gave up.',
+  unavailable: 'The Coach is very busy right now. We already tried several times — please try again in a few minutes.',
+  cancelled: 'That request was cancelled.',
   auth: 'The Coach couldn’t sign in to its provider — the instance owner needs to check its setup.',
   missing: 'The Coach isn’t installed properly on this instance.',
   provider: 'The Coach couldn’t run — the instance owner needs to check its setup.',
