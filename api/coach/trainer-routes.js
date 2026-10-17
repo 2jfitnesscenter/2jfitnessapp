@@ -53,6 +53,8 @@ export function trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer, 
         enabled: !!cfg.enabled,
         auth: trainerAI.authStatus(),
         caps: cfg.caps,
+        model: cfg.model || null,
+        fallbackModel: cfg.fallbackModel || null,
         jobsToday: trainerAI.jobsToday(),
         lastSuccess: trainerAI.lastSuccess(),
         lastError: trainerAI.lastError(),
@@ -66,6 +68,12 @@ export function trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer, 
       const patch = {};
       if (body.enabled !== undefined) patch.enabled = !!body.enabled;
       if (body.caps) patch.caps = { instanceDaily: Math.max(0, Math.min(500, +body.caps.instanceDaily || 0)) };
+      for (const k of ['model', 'fallbackModel']) {
+        if (body[k] === undefined) continue;
+        const v = String(body[k] || '').trim();
+        if (v && !/^[a-zA-Z0-9._:-]{1,80}$/.test(v)) return json(res, 400, { error: 'nombre de modelo no válido' });
+        patch[k] = v || null;
+      }
       trainerAI.save(patch);
       json(res, 200, { ok: true });
     },

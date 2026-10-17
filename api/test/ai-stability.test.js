@@ -135,15 +135,15 @@ test('member review: overloaded (529) on the first call, then fine → ready, on
   assert.equal(lastOf('m-529').outcome, 'ready');
   assert.ok(s.pending);
 });
-test('member review: 503 twice, then fine → ready (3 calls, the maximum)', async () => {
+test('member review: 503 twice, then fine → ready (3 calls)', async () => {
   await runMember('m-503x2', '503-twice-then-valid');
   assert.equal(lastOf('m-503x2').outcome, 'ready');
 });
-test('member review: a provider that stays down fails as "provider" and the status says so', async () => {
+test('member review: a provider that stays down ends as "unavailable" (busy, not misconfigured) only after the whole budget, and the status says so', async () => {
   const s = await runMember('m-down', '503-always');
-  assert.deepEqual([lastOf('m-down').outcome, lastOf('m-down').errorClass], ['failed', 'provider']);
+  assert.deepEqual([lastOf('m-down').outcome, lastOf('m-down').errorClass], ['failed', 'unavailable']);
   assert.equal(s.pending, null);
-  assert.deepEqual([s.last.outcome, s.last.errorClass], ['failed', 'provider']);
+  assert.deepEqual([s.last.outcome, s.last.errorClass], ['failed', 'unavailable']);
 });
 test('member review: auth failure is reported at once as "auth" (no retry, no repair)', async () => {
   await runMember('m-auth', 'auth');
@@ -155,7 +155,7 @@ test('member review and create: an answer in prose + ```json fences is accepted'
   await runMember('m-fence-c', 'fenced', 'create');
   assert.equal(lastOf('m-fence-c').outcome, 'ready');
 });
-test('member: permanently invalid JSON → one repair, then "unusable"', async () => {
+test('member: permanently invalid JSON → repair rounds (bounded), then "unusable"', async () => {
   const s = await runMember('m-invalid', 'invalid');
   assert.deepEqual([lastOf('m-invalid').outcome, lastOf('m-invalid').errorClass], ['failed', 'unusable']);
   assert.equal(s.last.errorClass, 'unusable');
