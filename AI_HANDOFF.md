@@ -1,5 +1,13 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## IA — capa de fiabilidad (candidato en PR, NO desplegado)
+
+- Rama `codex/ai-reliability`, basada en producción `aff0a69`. Detalle, políticas y presupuestos en `docs/AI_RELIABILITY.md`.
+- `api/coach/ai-run.js` es la única puerta a los proveedores para Coach, IA del entrenador y escaneos; `api/coach/ai-generate.js` unifica generar → validar → puerta de protocolo → reparar; `api/lib/ai-vision.js` es el motor de los escaneos; `api/lib/measurements-consensus.js` y `routine-validate.js` son las comprobaciones deterministas.
+- Escaneos: `POST /api/scan/start|status|cancel` (trabajos en memoria, la foto no toca disco); los endpoints síncronos antiguos siguen para versiones instaladas. El consentimiento `external-ai-scan-v1` se valida en el servidor antes de leer nada.
+- Trabajos del entrenador en `data/trainer-ai-jobs.json`; los del Coach guardan la petición y se reanudan una vez tras un reinicio.
+- Límites: el respaldo es otro modelo del MISMO proveedor (`fallbackModel`, vacío por defecto, sin interfaz de administración todavía); no hay conmutación entre proveedores porque cada flujo guarda una sola credencial.
+
 ## Exercise Library — medios reactivados (cambio local, NO desplegado)
 
 - Se reactivan las referencias históricas de imágenes/GIF del catálogo y las 157 ilustraciones de estiramientos por decisión del propietario del proyecto. Se usa el origen histórico existente, fijado a `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`, y los assets de estiramientos ya versionados.

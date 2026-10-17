@@ -5,6 +5,7 @@
 // /api/social/media: DATA is a private volume nginx never sees, so uploads are served back
 // through the api itself rather than through the static img/gif dirs exercise media uses.
 import { api } from './api.js'
+import { t } from './i18n.js'
 
 // Downsizes a chosen photo onto an offscreen canvas (long edge capped at 960px) and hands back
 // a JPEG data URL — keeps an upload small without a bigger request-body cap or any server-side
@@ -37,23 +38,58 @@ export const uploadImage = dataUrl => api('/api/media/upload', { method: 'POST',
 
 export const mediaUrl = id => id ? '/api/social/media?id=' + encodeURIComponent(id) : null
 
+// The three AI scans are one tap for the person: the server retries, double-checks and, when the
+// provider is busy, waits — all behind this one call. We start a short job and ask for it every
+// couple of seconds; `consent.onPhase(phase)` lets the button say what is happening
+// (reading | retrying | fallback | verifying). A failure reaching the person is final: the server
+// has already spent its whole budget, so the message is plain and never mentions providers.
+const SCAN_POLL_MS = 1800
+const SCAN_GIVE_UP_MS = 4 * 60000
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+async function runScanJob(kind, dataUrl, consent) {
+  const { job } = await api('/api/scan/start', { method: 'POST', body: JSON.stringify({ kind, file: dataUrl, externalAiConsent: consent?.externalAiConsent }) })
+  const started = Date.now()
+  let lost = 0
+  for (;;) {
+    await sleep(SCAN_POLL_MS)
+    let st
+    try { st = await api('/api/scan/status?id=' + encodeURIComponent(job.id)); lost = 0 }
+    catch (e) {
+      if (e.status === 404 || e.status === 401) throw new Error(t('The scan was interrupted. Please try again.'))
+      if (++lost >= 8) throw new Error(t('The connection dropped while reading. Please try again.'))   // a few network blips are ridden out
+      continue
+    }
+    if (st.state === 'running') {
+      consent?.onPhase?.(st.phase || 'reading', Date.now() - started)
+      if (Date.now() - started > SCAN_GIVE_UP_MS) throw new Error(t('The scan is taking too long. Please try again in a few minutes.'))
+      continue
+    }
+    if (st.state === 'done') return st
+    throw new Error(st.error || t('The scan could not be completed. Please try again.'))
+  }
+}
+
 // A bioimpedance report (photo or PDF, as a data URL) -> extracted {weight, bodyFat, muscleMass,
 // waterPct, visceralFat, boneMass}, each a number or null. Read-only — this never saves anything
 // itself, see components/ScanUpload.jsx.
 export const scanMeasurements = (dataUrl, consent) =>
-  api('/api/measurements/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl, externalAiConsent: consent?.externalAiConsent }) }).then(r => r.values)
+  runScanJob('measurements', dataUrl, consent).then(r => {
+    // Fields the server could not confirm come back empty; `review` names them (not enumerable, so callers that only read values never see it).
+    Object.defineProperty(r.values, 'review', { value: r.review || [], enumerable: false })
+    return r.values
+  })
 
 // A printed/handwritten/photographed routine (photo or PDF, as a data URL) -> raw
 // { name, days: [{ label, exercises: [...] }] } — exercise names exactly as printed, not yet
 // matched to a library id. See lib/routine-scan.js's matchScannedRoutine() for that next step.
 export const scanRoutine = (dataUrl, consent) =>
-  api('/api/routines/scan', { method: 'POST', body: JSON.stringify({ file: dataUrl, externalAiConsent: consent?.externalAiConsent }) }).then(r => r.routine)
+  runScanJob('routine', dataUrl, consent).then(r => r.routine)
 
 // A photo of a single gym machine/exercise (as a data URL) -> raw { name, nameEn } — the
 // exercise the AI thinks it recognises, not yet matched to a library id or checked against the
 // gym-wide machine-alias table. See lib/machine-scan.js's matchScannedMachine() for that.
 export const scanMachine = (dataUrl, consent) =>
-  api('/api/exercises/scan-machine', { method: 'POST', body: JSON.stringify({ file: dataUrl, externalAiConsent: consent?.externalAiConsent }) })
+  runScanJob('machine', dataUrl, consent).then(r => ({ name: r.name, nameEn: r.nameEn }))
 
 // Gym-wide "this scanned machine already means this exercise" links (db.machineAliases on the
 // server) — shared across every member, since it's the same physical equipment for all of
