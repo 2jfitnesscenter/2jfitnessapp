@@ -88,13 +88,21 @@ A scan that ends without a result gives its daily slot back.
 `retry_success`, `repair_success`, `fallback_success`, `final_failure`, calls, 429 / 503 / other 5xx, timeouts, bad JSON, validation
 failures, second/third reads, cancelled, average attempts and latency. No prompt, photo, answer, member id or credential is ever recorded.
 
-## Benchmark with real, anonymised samples (not in git)
+## Real-photo test on your own PC (nothing goes to git)
 
 ```
-GEMINI_API_KEY=... node api/scripts/ai-scan-benchmark.mjs benchmarks/ai-scans --runs 3
+mkdir -p benchmarks/ai-scans            # git-ignored
+# copy in: measurements-01.jpg, routine-01.jpg, machine-01.jpg (any names after the kind prefix)
+node api/scripts/ai-scan-benchmark.mjs benchmarks/ai-scans --yes --runs 3
 ```
 
-Put pairs in `benchmarks/ai-scans/` (git-ignored): `measurements-01.jpg` + `measurements-01.expected.json`
-(`{"weight":82.4,"bodyFat":17.3,…}`), `routine-02.jpg` + `routine-02.expected.json` (`{"days":[{"exercises":[{"nameEn":"…","sets":3,"reps":10}]}]}`),
-`machine-03.jpg` + `machine-03.expected.json` (`{"nameEn":"leg press"}`). Only photos you may use (the member's permission, identifying details cropped).
-It prints, per sample, how many of the runs were exact, the average time, and calls per request. The key stays in the process; nothing is saved.
+* The Gemini key is not typed: the script reuses the one already configured in this machine's data folder
+  (`data/aux-ai.json`, else the Coach set to Gemini in `data/coach.json`), decrypted with that folder's own `secret`.
+  It works on COPIES inside a temp folder that is deleted at the end; the real data folder is never written.
+  `--data <folder>` or `BENCH_DATA_DIR` point it elsewhere; `GEMINI_API_KEY` is only the last resort.
+* `--yes` is required because the photos are sent to Google Gemini. Use photos you may use (your own, or a member's with permission, identifying details cropped).
+* Without an `.expected.json` it prints what it read, so you can judge it. With one it also scores exactness.
+  `measurements-01.expected.json`: `{"weight":82.4,"bodyFat":17.3,"muscleMass":62.1}` ·
+  `routine-01.expected.json`: `{"days":[{"exercises":[{"nameEn":"lat pulldown","sets":3,"reps":10}]}]}` ·
+  `machine-01.expected.json`: `{"nameEn":"leg press"}`.
+* It ends with the calls spent per request (average, retries, second and third reads) — the cost of reliability.
