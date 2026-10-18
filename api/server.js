@@ -18,6 +18,7 @@ import { trainerAIRoutes } from './coach/trainer-routes.js';
 import { scanBioimpedanceImage } from './lib/measurements-scan.js';
 import { scanRoutineDocument } from './lib/routine-scan.js';
 import { scanMachineImage } from './lib/machine-scan.js';
+import { hasAiScanConsent } from './lib/scan-consent.js';
 import { auxAIRoutes } from './lib/aux-ai-routes.js';
 import { matchImportExercises } from './lib/import-exercise-match.js';
 import { readState, writeState } from './lib/state-store.js';
@@ -2542,6 +2543,7 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
+    if (!hasAiScanConsent(body)) return json(res, 428, { error: 'acepta el aviso antes de enviar el archivo a Gemini', code: 'SCAN_CONSENT_REQUIRED' });
     const dataUrl = typeof body.file === 'string' ? body.file : '';
     const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
     if (!m) return json(res, 400, { error: 'archivo no válido' });
@@ -2566,6 +2568,7 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
+    if (!hasAiScanConsent(body)) return json(res, 428, { error: 'acepta el aviso antes de enviar el archivo a Gemini', code: 'SCAN_CONSENT_REQUIRED' });
     const dataUrl = typeof body.file === 'string' ? body.file : '';
     const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
     if (!m) return json(res, 400, { error: 'archivo no válido' });
@@ -2588,6 +2591,7 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
+    if (!hasAiScanConsent(body)) return json(res, 428, { error: 'acepta el aviso antes de enviar el archivo a Gemini', code: 'SCAN_CONSENT_REQUIRED' });
     const dataUrl = typeof body.file === 'string' ? body.file : '';
     const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
     if (!m) return json(res, 400, { error: 'archivo no válido' });

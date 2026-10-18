@@ -92,6 +92,32 @@ export function eraseMember(d, uid) {
   for (const id of followupPhotoIds) { try { fs.unlinkSync(path.join(d.followupPhotosDir, id)); removedFollowupPhotos++; } catch { /* already gone */ } }
   report.followupPhotos = removedFollowupPhotos;
 
+  // Device sessions are revocable credentials tied directly to the account and must not outlive it.
+  const sessions = Array.isArray(d.db.deviceSessions) ? d.db.deviceSessions : [];
+  d.db.deviceSessions = sessions.filter(session => session.userId !== uid);
+  report.deviceSessions = sessions.length - d.db.deviceSessions.length;
+
+  // Security events are useful as an audit trail, but account erasure must break every direct
+  // link. Keep only anonymous event facts; drop metadata on affected rows because fields such as
+  // credential handles/targets can identify the erased account even when the uid is removed.
+  const events = Array.isArray(d.db.securityEvents) ? d.db.securityEvents : [];
+  let anonymizedSecurityEvents = 0;
+  d.db.securityEvents = events.map(event => {
+    const subject = event.userId === uid;
+    const actor = event.actorId === uid;
+    if (!subject && !actor) return event;
+    anonymizedSecurityEvents++;
+    const next = { ...event };
+    if (subject) next.userId = null;
+    delete next.actorId;
+    // Metadata is intentionally discarded for either role: security metadata is an allowlist,
+    // but can still contain handles, targets or other identifiers that cannot be reliably
+    // anonymized by string matching.
+    delete next.meta;
+    return next;
+  });
+  report.securityEventsAnonymized = anonymizedSecurityEvents;
+
   // 5. accounts file last: if anything above failed halfway the account still exists and the operation can simply be repeated
   const before = { creds: d.db.creds.length, subs: d.db.subs.length, restAlerts: (d.db.restAlerts || []).length, rec: d.db.recoveries.length, req: (d.db.recoveryRequests || []).length };
   d.db.creds = d.db.creds.filter(c => c.userId !== uid);
