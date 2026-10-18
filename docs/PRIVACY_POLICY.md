@@ -32,10 +32,12 @@ To run the account and sign in securely; to store and sync training; to let gym 
 
 ## 5. Legal basis
 
-- Account, training and service features: performing the service the member uses (Art. 6(1)(b) GDPR).
-- Security log and backups: the legitimate interest in keeping the service secure and recoverable (Art. 6(1)(f) GDPR).
-- Health-related data, body measurements, follow-up and progress photos: explicit consent (Art. 9(2)(a) GDPR), given when the member enters, connects or uploads them, and withdrawable.
-- AI features, connected apps, push notifications and social sharing: specific consent, asked when they are switched on or used.
+The legal basis that applies to each processing is pending validation by the controller's advisor and data protection officer (LEGAL_TBD_LEGAL_BASIS_REVIEW). What follows is the basis currently foreseen, not yet a confirmed legal determination.
+
+- Account, training and service features: foreseen basis — performing the service the member uses (Art. 6(1)(b) GDPR).
+- Security log and backups: foreseen basis — the legitimate interest in keeping the service secure and recoverable (Art. 6(1)(f) GDPR).
+- Health-related data, body measurements, follow-up and progress photos: foreseen basis — explicit consent (Art. 9(2)(a) GDPR), given when the member enters, connects or uploads them, and withdrawable.
+- AI features, connected apps, push notifications and social sharing: foreseen basis — specific consent, asked when they are switched on or used.
 
 
 ## 6. Health-related data
@@ -106,6 +108,7 @@ To exercise any right or ask about the data: 2JFITNESSCENTER@GMAIL.COM. Requests
 
 | Placeholder | What is needed |
 |---|---|
+| LEGAL_TBD_LEGAL_BASIS_REVIEW | validation by the advisor / DPO (SIREINSA) of the specific legal basis of each processing, and of whether any legal duty to keep membership records applies |
 | LEGAL_TBD_DPO_CONTACT | a dedicated contact channel of SIREINSA, if it has one different from the privacy email |
 | LEGAL_TBD_SERVER_LOCATION | where the Contabo server that hosts the app physically is |
 | LEGAL_TBD_BACKUP_FREQUENCY | how often backup copies are made, only if an automated schedule really exists |

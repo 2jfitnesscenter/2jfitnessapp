@@ -61,11 +61,12 @@ const SECTIONS = {
 
   basis: () => <>
     <H>{t('Legal basis')}</H>
+    <P>{t('The legal basis that applies to each processing is pending validation by the controller’s advisor and data protection officer ({0}). What follows is the basis currently foreseen, not yet a confirmed legal determination.', VERIFY.legalBasis)}</P>
     <L items={[
-      t('Account, training and service features: performing the service you use (Art. 6(1)(b) GDPR).'),
-      t('Security log and backups: the legitimate interest in keeping the service secure and recoverable (Art. 6(1)(f) GDPR).'),
-      t('Health-related data, body measurements, follow-up and progress photos: your explicit consent (Art. 9(2)(a) GDPR), given when you enter, connect or upload them. You can withdraw it.'),
-      t('AI features, connected apps, push notifications and social sharing: your specific consent, asked when you switch them on or use them.')
+      t('Account, training and service features: foreseen basis — performing the service you use (Art. 6(1)(b) GDPR).'),
+      t('Security log and backups: foreseen basis — the legitimate interest in keeping the service secure and recoverable (Art. 6(1)(f) GDPR).'),
+      t('Health-related data, body measurements, follow-up and progress photos: foreseen basis — your explicit consent (Art. 9(2)(a) GDPR), given when you enter, connect or upload them. You can withdraw it.'),
+      t('AI features, connected apps, push notifications and social sharing: foreseen basis — your specific consent, asked when you switch them on or use them.')
     ]} />
   </>,
 

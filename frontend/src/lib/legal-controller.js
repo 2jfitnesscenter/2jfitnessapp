@@ -19,6 +19,7 @@ export const CONTROLLER = {
 // Facts that are still being verified. Remove an entry (and its mention in the text) only when
 // the real value is known.
 export const VERIFY = {
+  legalBasis: 'LEGAL_TBD_LEGAL_BASIS_REVIEW',           // the specific legal basis per processing, pending validation by the advisor / DPO (SIREINSA)
   dpoContact: 'LEGAL_TBD_DPO_CONTACT',                 // a dedicated SIREINSA channel, if it has one different from the privacy email
   serverLocation: 'LEGAL_TBD_SERVER_LOCATION',         // where the hosting provider's server physically is
   backupFrequency: 'LEGAL_TBD_BACKUP_FREQUENCY',       // only if an automated schedule really exists

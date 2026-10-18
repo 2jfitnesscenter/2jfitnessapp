@@ -21,7 +21,7 @@ describe('what the policy must cover', () => {
   it('names the controller with the owner’s real details; only unverified facts stay as placeholders', () => {
     for (const v of Object.values(CONTROLLER)) { expect(v).not.toMatch(/LEGAL_TBD_/); expect(all).toContain(v) }
     expect(all).toContain('JUAN JOSE PEREZ SANCHEZ'); expect(all).toContain('54088887V'); expect(all).toContain('SIREINSA'); expect(all).toContain('2JFITNESSCENTER@GMAIL.COM')
-    expect(pendingItems().sort()).toEqual(['LEGAL_TBD_AI_PROVIDER_TERMS', 'LEGAL_TBD_BACKUP_FREQUENCY', 'LEGAL_TBD_BACKUP_RETENTION', 'LEGAL_TBD_DPO_CONTACT', 'LEGAL_TBD_SERVER_LOCATION', 'LEGAL_TBD_TRANSFER_SAFEGUARDS'])
+    expect(pendingItems().sort()).toEqual(['LEGAL_TBD_AI_PROVIDER_TERMS', 'LEGAL_TBD_BACKUP_FREQUENCY', 'LEGAL_TBD_BACKUP_RETENTION', 'LEGAL_TBD_DPO_CONTACT', 'LEGAL_TBD_LEGAL_BASIS_REVIEW', 'LEGAL_TBD_SERVER_LOCATION', 'LEGAL_TBD_TRANSFER_SAFEGUARDS'])
     expect(hasPendingLegalItems()).toBe(true)
     expect(all).toContain('are still being verified')          // the notice shows only while something relevant is pending
     expect(all).not.toContain('pending confirmation by the controller')
@@ -30,6 +30,10 @@ describe('what the policy must cover', () => {
     for (const s of ['Who is responsible', 'Data we process', 'Who can see your data', 'Why we use it', 'Legal basis', 'Health-related data', 'Artificial intelligence',
       'External providers', 'International transfers', 'How long we keep it', 'Your rights', 'Contact']) expect(all).toContain(s)
     for (const s of ['Art. 6(1)(b)', 'Art. 6(1)(f)', 'Art. 9(2)(a)', 'AEPD', 'within one month', 'not legal advice']) expect(all).toContain(s)
+    // the bases are proposals: they must never read as validated until the advisor / DPO confirms them
+    expect(all).toContain('pending validation by the controller’s advisor and data protection officer')
+    expect(all).toContain('not yet a confirmed legal determination')
+    expect((all.match(/foreseen basis/g) || []).length).toBe(4)
   })
   it('does not claim compliance, server locations, safeguards or provider terms nobody verified', () => {
     for (const v of Object.values(VERIFY)) expect(all).toContain(v)
