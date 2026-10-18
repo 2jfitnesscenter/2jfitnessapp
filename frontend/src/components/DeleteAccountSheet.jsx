@@ -24,6 +24,7 @@ export default function DeleteAccountSheet({ close }) {
   return <div className="stack" style={{ gap: 12 }}>
     <h3>{t('Delete your account?')}</h3>
     <p className="small">{t('This permanently deletes your workouts, body measurements, Health data, messages, community posts and passkeys from this server. It cannot be undone.')}</p>
+    <p className="small dim">{t('Copies inside security backups disappear when those backups expire. Permissions you gave to WHOOP or Strava stay in those apps until you revoke them there. See the privacy policy for the details.')}</p>
     <p className="small muted">{t('Export your data first if you want a copy.')} {t('Apps you connected (WHOOP, Strava) keep their own access until you remove 2J in their settings.')}</p>
     <label className="small" htmlFor="del-confirm">{t('Type your username to confirm')}: <b>{name}</b></label>
     <TextField id="del-confirm" value={typed} onChange={e => setTyped(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={name} />
