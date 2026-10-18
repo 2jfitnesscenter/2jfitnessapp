@@ -2,11 +2,11 @@
 
 This is the repository copy of the policy shown in the app (Settings → Data → Privacy policy, `frontend/src/views/Privacy.jsx`). It describes what the code does today; it is information for the people whose data is processed, not legal advice, and it does not by itself certify compliance with any law. `frontend/src/views/Privacy.test.jsx` keeps the screen, this file and the code in step.
 
-**Pending items.** Anything written `LEGAL_TBD_…` is a fact that only the controller can supply or that nobody has verified yet. They are collected in `frontend/src/lib/legal-controller.js` and listed at the end of this file. They must be filled in by the owner; nothing here is a guess.
+**Pending items.** Anything still written `LEGAL_TBD_…` is a fact nobody has verified yet. The controller's details were supplied by the owner and live in `frontend/src/lib/legal-controller.js`; the remaining placeholders are listed at the end of this file. Nothing here is a guess.
 
 ## 1. Who is responsible
 
-The controller of the personal data processed by this app is LEGAL_TBD_CONTROLLER_NAME, tax ID LEGAL_TBD_TAX_ID, address LEGAL_TBD_POSTAL_ADDRESS. Privacy contact: LEGAL_TBD_PRIVACY_EMAIL. Data protection officer: LEGAL_TBD_DPO_OR_NOT_APPOINTED.
+The controller of the personal data processed by this app is JUAN JOSE PEREZ SANCHEZ, tax ID 54088887V, address FRANCISCO LOPEZ SANCHEZ 15, LOCAL, 35250 INGENIO, LAS PALMAS. Privacy contact: 2JFITNESSCENTER@GMAIL.COM. Data protection officer: SIREINSA (dedicated contact channel: LEGAL_TBD_DPO_CONTACT).
 
 2J Fitness is free software (AGPL). Whoever runs a copy of it for their own gym is the controller of the data in that copy.
 
@@ -30,14 +30,13 @@ Members see their own data. Trainers have operational access to the training and
 
 To run the account and sign in securely; to store and sync training; to let gym staff supervise training and follow-up; to offer optional features the member switches on (Coach and other AI features, social features, connected apps, notifications); to keep the service secure and recoverable (security log, backups); and to answer requests about the data. Data is not sold and not used for advertising.
 
-## 5. Legal basis (proposed — pending confirmation)
+## 5. Legal basis
 
 - Account, training and service features: performing the service the member uses (Art. 6(1)(b) GDPR).
 - Security log and backups: the legitimate interest in keeping the service secure and recoverable (Art. 6(1)(f) GDPR).
 - Health-related data, body measurements, follow-up and progress photos: explicit consent (Art. 9(2)(a) GDPR), given when the member enters, connects or uploads them, and withdrawable.
 - AI features, connected apps, push notifications and social sharing: specific consent, asked when they are switched on or used.
 
-These bases are proposed and await confirmation by the controller (LEGAL_TBD_LEGAL_BASIS_CONFIRMATION), including whether any legal duty to keep membership records applies.
 
 ## 6. Health-related data
 
@@ -50,8 +49,8 @@ AI acts only when the member or a member of staff asks for it, and the screen te
 | Function | Who starts it | Provider | What it receives | Consent |
 |---|---|---|---|---|
 | Coach: plan, review, explanations | the member | the configured provider: Anthropic Claude, OpenAI Codex, Google Gemini or OpenAI | a pseudonymous identifier, language and units, gym equipment, the plan, recent logged sets, effort and records (up to 12 weeks), weigh-ins and goal, the intake the member writes (goal, days, limitations, likes, notes), age, sex and height | specific Coach consent, revocable; turning it off discards what the Coach holds |
-| Routine drafts | a trainer | Anthropic Claude | the member's current routines and programs and the trainer's brief (for example goal, experience, days per week); no workout history, profile, name or measurements | does not use the member's Coach consent — LEGAL_TBD_TRAINER_AI_BASIS |
-| Follow-up analysis | a trainer | Anthropic Claude | compact calculated facts about the follow-up, without names, identifiers or notes; labelled as written by AI | staff function |
+| Routine drafts | a trainer | Anthropic Claude | the member's current routines and programs and the trainer's brief (for example goal, experience, days per week); no workout history, profile, name or measurements | the member's separate consent to **Staff AI tools** (Settings → Data), not the Coach consent; checked by the server before anything is built or sent, and again when the job starts |
+| Follow-up analysis | a trainer | Anthropic Claude | compact calculated facts about the follow-up, without names, identifiers or notes; labelled as written by AI | the same Staff AI tools consent; without it only the calculated analysis is shown |
 | Scans: body-composition report, routine sheet, machine photo | the member (or staff for a member) | Google Gemini | the selected file, for that scan only | per-file confirmation (`external-ai-scan-v1`), enforced again by the API; cancelling reads and sends nothing |
 | Import matching | the member importing a CSV | Google Gemini | exercise names from the file and 2J library names | optional feature |
 
@@ -71,13 +70,13 @@ The scan flow does not keep the file or the result: the member reviews the extra
 | Push services of the browser / phone vendor | notifications | notification text, device push address | yes | browser or phone permission | may involve it |
 | Google Fonts | the web app's typeface | IP address, browser details | no (web version) | — | may involve it |
 | jsDelivr | exercise images and animations in the standalone mobile build | IP address | no (mobile build) | — | — |
-| Hosting, HTTPS certificate authority, encrypted off-site backup | running the service | the stored data (backups encrypted) | no | — | LEGAL_TBD_HOSTING_PROVIDER, LEGAL_TBD_SERVER_LOCATION, LEGAL_TBD_BACKUP_DESTINATION |
+| Contabo (hosting) and the HTTPS certificate authority | running the service; backup copies are made on the server and within the hosting provider's infrastructure (no independent external backup provider) | the stored data | no | — | LEGAL_TBD_SERVER_LOCATION |
 
 Health Connect and HealthKit are read on the device with the operating system's permission; 2J does not pass that data to anyone else. `Privacy.test.jsx` fails if the source starts talking to an outside host that this list does not cover.
 
 ## 9. International transfers
 
-Some providers above may process data outside the European Economic Area. The legal safeguard for each (adequacy decision, standard contractual clauses or similar) has not been verified (LEGAL_TBD_TRANSFER_SAFEGUARDS), and the server location is LEGAL_TBD_SERVER_LOCATION.
+Some providers above may process data outside the European Economic Area. The legal safeguard for each (adequacy decision, standard contractual clauses or similar) has not been verified (LEGAL_TBD_TRANSFER_SAFEGUARDS), and the location of the hosting server is LEGAL_TBD_SERVER_LOCATION.
 
 ## 10. How long we keep it
 
@@ -87,35 +86,33 @@ Some providers above may process data outside the European Economic Area. The le
 - Security events: bounded log of the latest 3,000; staff-access audit: the latest 1,000.
 - Coach proposals not decided on expire after 14 days; scans keep nothing.
 - Sign-in sessions: 90 days by default, or until sign-out everywhere.
-- Backups: local copies for 14 days; encrypted off-site copies for the newest 30 files, so the time span depends on how often backups run (LEGAL_TBD_BACKUP_FREQUENCY).
+- Backups: technical copies made on the server and within the hosting provider's infrastructure are not kept indefinitely; how often they are made (LEGAL_TBD_BACKUP_FREQUENCY) and how long they are kept (LEGAL_TBD_BACKUP_RETENTION) are still being verified.
 
 ## 11. Rights and how to exercise them
 
 Access, rectification, erasure, restriction, portability and objection; withdrawal of any consent at any time; complaint to the data protection authority (in Spain, the AEPD).
 
-- **Export** — Settings → Data → *Export my data*: one file with the account, synced state, follow-up answers, messages, friends, community posts, notifications, shares and Bunker PIN. It leaves out passkey keys and provider tokens, other people's text, the image files of progress photos (only their descriptions) and the private professional notes of staff (LEGAL_TBD_STAFF_NOTES_ACCESS).
+- **Export** — Settings → Data → *Export my data*: one file with the account, synced state, follow-up answers, messages, friends, community posts, notifications, shares and Bunker PIN. It leaves out passkey keys and provider tokens, other people's text, the image files of progress photos (only their descriptions) and the private professional notes of staff. Access to those notes can be requested by writing to 2JFITNESSCENTER@GMAIL.COM; the answer may be limited when that is needed to protect the rights of other people, protected internal information or other legal limits.
 - **Rectification** — edit the profile, measurements and plan in the app; staff can correct measurements and routines for the member; anything else by request.
 - **Erasure** — Settings → Account → *Delete my account*; details in `docs/ACCOUNT_ERASURE.md`. Removed: account, passkeys, push subscriptions, recovery links, synced state, follow-up answers and progress photos, messages, friends, notifications, shares, Bunker PIN, community posts and comments, goals, challenges created, Coach record and uploaded images. Security events keep only anonymous facts (event, time, action). **What can remain:** copies in backups until they expire — restoring an old backup could bring back deleted data. Trainer and admin accounts cannot be deleted from the app; the gym administrator does it.
 - **Connected apps** — deleting the account removes the WHOOP and Strava tokens kept here; the permission granted stays in those apps until revoked there, and activities already created in Strava stay in Strava. AI providers keep nothing that 2J can delete, because 2J stores no copy of what it sent.
-- **Withdrawing consent** — turn the Coach off in the Coach; do not confirm a scan; disconnect WHOOP or Strava in Settings (and revoke them in those apps); turn notifications off in Settings; withdraw Health Connect or HealthKit in the phone settings; change sharing choices in Social. Withdrawing does not affect what happened before.
+- **Withdrawing consent** — turn the Coach off in the Coach; withdraw Staff AI tools in Settings → Data; do not confirm a scan; disconnect WHOOP or Strava in Settings (and revoke them in those apps); turn notifications off in Settings; withdraw Health Connect or HealthKit in the phone settings; change sharing choices in Social. Withdrawing does not affect what happened before.
 
 ## 12. Contact
 
-To exercise any right or ask about the data: LEGAL_TBD_PRIVACY_EMAIL. Requests are answered within one month, as the GDPR requires.
+To exercise any right or ask about the data: 2JFITNESSCENTER@GMAIL.COM. Requests are answered within one month, as the GDPR requires.
 
-## Open items for the controller (all `LEGAL_TBD_…`)
+## Still being verified (`LEGAL_TBD_…`)
 
 | Placeholder | What is needed |
 |---|---|
-| LEGAL_TBD_CONTROLLER_NAME, LEGAL_TBD_TAX_ID, LEGAL_TBD_POSTAL_ADDRESS | legal name, NIF/CIF and address of the controller |
-| LEGAL_TBD_PRIVACY_EMAIL | the mailbox that receives rights requests |
-| LEGAL_TBD_DPO_OR_NOT_APPOINTED | the DPO's contact, or the statement that none is appointed |
-| LEGAL_TBD_LEGAL_BASIS_CONFIRMATION | confirm the proposed legal bases and any legal duty to keep membership records |
-| LEGAL_TBD_TRAINER_AI_BASIS | decide whether trainer-side AI (routine drafts) needs the member's information or consent, since it does not use the Coach consent |
-| LEGAL_TBD_STAFF_NOTES_ACCESS | decide how members obtain a copy of staff's private professional notes (they are not in the automatic export) |
-| LEGAL_TBD_HOSTING_PROVIDER, LEGAL_TBD_SERVER_LOCATION | who hosts the server and where |
-| LEGAL_TBD_BACKUP_DESTINATION, LEGAL_TBD_BACKUP_FREQUENCY | where the off-site backup goes (if used) and how often backups run |
-| LEGAL_TBD_TRANSFER_SAFEGUARDS | the transfer mechanism for each provider that may process outside the EEA |
-| LEGAL_TBD_AI_PROVIDER_TERMS | the retention / training terms of the configured AI accounts |
+| LEGAL_TBD_DPO_CONTACT | a dedicated contact channel of SIREINSA, if it has one different from the privacy email |
+| LEGAL_TBD_SERVER_LOCATION | where the Contabo server that hosts the app physically is |
+| LEGAL_TBD_BACKUP_FREQUENCY | how often backup copies are made, only if an automated schedule really exists |
+| LEGAL_TBD_BACKUP_RETENTION | how long backup copies are kept |
+| LEGAL_TBD_TRANSFER_SAFEGUARDS | the transfer mechanism for each provider that may process outside the EEA, once provider, location and terms are verified |
+| LEGAL_TBD_AI_PROVIDER_TERMS | the retention / training terms and data-processing agreements of the real AI provider accounts |
 
-Also open, not placeholders: the web app loads its typeface from Google Fonts (an IP address reaches Google); serving the font from the app itself would remove that third party.
+Decisions already taken and applied: trainer-side AI needs the member's separate Staff AI tools consent and sends nothing without it; staff's private professional notes stay out of the automatic export and are available on request to 2JFITNESSCENTER@GMAIL.COM, with the limits stated in section 11.
+
+Open, handled separately: the web app loads its typeface from Google Fonts (an IP address reaches Google). Self-hosting the font is a separate micro-change.

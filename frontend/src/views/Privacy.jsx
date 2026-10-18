@@ -10,7 +10,7 @@
 // verified is written as a LEGAL_TBD_ placeholder (lib/legal-controller.js), never guessed, and the
 // text never claims legal compliance — it informs.
 import { t } from '../lib/i18n.js'
-import { CONTROLLER, VERIFY, controllerPending } from '../lib/legal-controller.js'
+import { CONTROLLER, VERIFY, hasPendingLegalItems } from '../lib/legal-controller.js'
 
 const H = ({ children }) => <div className="tt" style={{ fontWeight: 700, margin: '18px 0 4px' }}>{children}</div>
 const P = ({ children }) => <div className="dim" style={{ marginTop: 6 }}>{children}</div>
@@ -31,7 +31,7 @@ const SECTIONS = {
   controller: () => <>
     <H>{t('Who is responsible')}</H>
     <P>{t('The controller of the personal data processed by this app is {0}, tax ID {1}, address {2}.', CONTROLLER.name, CONTROLLER.taxId, CONTROLLER.address)}</P>
-    <P>{t('Privacy contact: {0}. Data protection officer: {1}.', CONTROLLER.privacyEmail, CONTROLLER.dpo)}</P>
+    <P>{t('Privacy contact: {0}. Data protection officer: {1} (dedicated contact channel: {2}).', CONTROLLER.privacyEmail, CONTROLLER.dpo, VERIFY.dpoContact)}</P>
     <P>{t('2J Fitness is free software (AGPL). Whoever runs a copy of it for their own gym is the controller of the data in that copy.')}</P>
   </>,
 
@@ -67,7 +67,6 @@ const SECTIONS = {
       t('Health-related data, body measurements, follow-up and progress photos: your explicit consent (Art. 9(2)(a) GDPR), given when you enter, connect or upload them. You can withdraw it.'),
       t('AI features, connected apps, push notifications and social sharing: your specific consent, asked when you switch them on or use them.')
     ]} />
-    <P>{t('These bases are proposed and are pending confirmation by the controller ({0}), including whether any legal duty to keep membership records applies.', VERIFY.legalBasis)}</P>
   </>,
 
   health: () => <>
@@ -80,8 +79,8 @@ const SECTIONS = {
     <P>{t('AI acts only when you or a member of staff ask for it, and the screen tells you when AI is involved. What it returns is a proposal: nothing is applied without you or the professional reviewing it, and it is not medical advice. Without AI the app still works: progression, swaps and the Intelligence suggestions are calculated by the app itself.')}</P>
     <L items={[
       t('Coach (plan, review and explanations): optional and off until you give your consent in the Coach. The configured provider (Anthropic Claude, OpenAI Codex, Google Gemini or OpenAI) receives a pseudonymous identifier, language and units, gym equipment, your plan, recent logged sets, effort and records (up to 12 weeks), weigh-ins and goal, the intake you write (goal, days, limitations, likes, notes) and age, sex and height. You can turn it off at any time; the Coach then discards what it holds for you.'),
-      t('Routine drafts by staff: when a trainer uses “Generate with AI”, Anthropic Claude receives your current routines and programs and the trainer’s brief (for example goal, experience and days per week). It does not receive your workout history, profile, name or measurements. This does not use your Coach consent ({0}).', VERIFY.trainerAiBasis),
-      t('Follow-up analysis by staff: Claude receives compact calculated facts about your follow-up, without names, identifiers or notes. The result is labelled as written by AI.'),
+      t('Routine drafts by staff: when a trainer uses “Generate with AI”, Anthropic Claude receives your current routines and programs and the trainer’s brief (for example goal, experience and days per week). It does not receive your workout history, profile, name or measurements. This needs your separate consent to Staff AI tools (Settings → Data → Staff AI tools), which is not the Coach consent; without it nothing is sent.'),
+      t('Follow-up analysis by staff: with the same Staff AI tools consent, Claude receives compact calculated facts about your follow-up, without names, identifiers or notes. The result is labelled as written by AI.'),
       t('Scans: a body-composition report, routine sheet or machine photo is sent to Google Gemini only after you confirm a notice for that file, and the server refuses the scan without it. The file is used for that scan; the scan does not keep the file or the result, and you review the values before saving anything. If you cancel, nothing is read or sent.'),
       t('Import matching: when you import another app’s CSV, Gemini may receive exercise names from the file and 2J library names to match them — not workouts, dates, weights or who you are.')
     ]} />
@@ -101,7 +100,7 @@ const SECTIONS = {
       t('Push services of your browser or phone vendor — if you enable notifications: the notification text and your device’s push address pass through them. Optional; needs your browser or phone permission.'),
       t('Google Fonts — the web app loads its typeface from Google when it opens, so your IP address and browser details reach Google. It is not optional in the web version and may involve processing outside the EEA.'),
       t('jsDelivr (content network) — only the standalone mobile build: exercise images and animations are loaded from it, so your IP address reaches that network.'),
-      t('Hosting and infrastructure — the server where your data is stored ({0}, {1}), the certificate authority that issues the HTTPS certificate (it handles the domain name) and, if used, the encrypted off-site backup destination ({2}).', VERIFY.hostingProvider, VERIFY.serverLocation, VERIFY.backupDestination)
+      t('Hosting and infrastructure — the server where your data is stored is provided by {0} (location: {1}), and the certificate authority that issues the HTTPS certificate handles the domain name. Backup copies are made on that server and within the hosting provider’s infrastructure; no independent external backup provider is used.', CONTROLLER.hosting, VERIFY.serverLocation)
     ]} />
     <P>{t('Health Connect and HealthKit are read on your device with the operating system’s permission; 2J does not pass that data to anyone else.')}</P>
   </>,
@@ -120,7 +119,7 @@ const SECTIONS = {
       t('Security events: a bounded log of the latest 3,000 events; staff-access audit: the latest 1,000.'),
       t('Coach proposals you have not decided on expire after 14 days. Scans keep nothing.'),
       t('Sign-in sessions: 90 days by default, or until you sign out everywhere.'),
-      t('Backups: local copies for 14 days; encrypted off-site copies are kept for the newest 30 files, so their time span depends on how often backups run ({0}).', VERIFY.backupFrequency)
+      t('Backups: technical copies made on the server and within the hosting provider’s infrastructure are not kept indefinitely; how often they are made ({0}) and how long they are kept ({1}) are still being verified.', VERIFY.backupFrequency, VERIFY.backupRetention)
     ]} />
   </>,
 
@@ -128,12 +127,12 @@ const SECTIONS = {
     <H>{t('Your rights')}</H>
     <P>{t('You can ask for access, rectification, erasure, restriction, portability and objection, withdraw any consent at any time, and complain to your data protection authority (in Spain, the AEPD).')}</P>
     <L items={[
-      t('Export: Settings → Data → Export my data downloads one file with your account, synced state, follow-up answers, messages, friends, community posts, notifications, shares and Bunker PIN. It leaves out passkey keys and provider tokens, other people’s text, the image files of progress photos (only their descriptions) and the private professional notes of staff ({0}).', VERIFY.staffNotesAccess),
+      t('Export: Settings → Data → Export my data downloads one file with your account, synced state, follow-up answers, messages, friends, community posts, notifications, shares and Bunker PIN. It leaves out passkey keys and provider tokens, other people’s text, the image files of progress photos (only their descriptions) and the private professional notes of staff. You can ask for access to those notes by writing to {0}; the answer may be limited when that is needed to protect the rights of other people, protected internal information or other legal limits.', CONTROLLER.privacyEmail),
       t('Rectification: edit your profile, measurements and plan in the app; staff can correct measurements and routines for you; ask us for anything else.'),
       t('Erasure: Settings → Account → Delete my account removes your account, passkeys, push subscriptions, recovery links, synced state, follow-up answers and progress photos, messages, friends, notifications, shares, Bunker PIN, community posts and comments, goals, challenges you created, Coach record and uploaded images. Security events keep only anonymous facts (event, time, action).'),
       t('What can remain: copies in backups until they expire (see How long we keep it) — restoring an old backup could bring back deleted data. Trainer and admin accounts cannot be deleted from the app; ask the gym administrator.'),
       t('Connected apps: deleting your account removes the WHOOP and Strava tokens kept here, but the permission you granted stays in those apps until you revoke it there, and activities already created in Strava stay in Strava. AI providers keep nothing that 2J can delete, because 2J stores no copy of what it sent.'),
-      t('Withdrawing consent: turn the Coach off in the Coach; do not confirm a scan; disconnect WHOOP or Strava in Settings (and revoke them in those apps); turn notifications off in Settings; withdraw Health Connect or HealthKit in your phone’s settings; change your sharing choices in Social. Withdrawing does not affect what happened before.')
+      t('Withdrawing consent: turn the Coach off in the Coach; withdraw Staff AI tools in Settings → Data; do not confirm a scan; disconnect WHOOP or Strava in Settings (and revoke them in those apps); turn notifications off in Settings; withdraw Health Connect or HealthKit in your phone’s settings; change your sharing choices in Social. Withdrawing does not affect what happened before.')
     ]} />
   </>,
 
@@ -149,8 +148,8 @@ export function PrivacySheet({ topic = 'policy' }) {
   return <>
     <h3>{topicTitle(topic)}</h3>
     <div className="small" style={{ lineHeight: 1.6 }}>
-      {controllerPending() && <div className="card" role="note" style={{ padding: 10, marginBottom: 6 }}>
-        {t('Items shown as LEGAL_TBD_… are pending confirmation by the controller and are not yet legal statements.')}
+      {hasPendingLegalItems() && <div className="card" role="note" style={{ padding: 10, marginBottom: 6 }}>
+        {t('Items shown as LEGAL_TBD_… are still being verified and are not yet legal statements.')}
       </div>}
       {ids.map(id => <div key={id}>{SECTIONS[id]()}</div>)}
     </div>

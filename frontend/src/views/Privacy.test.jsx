@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { PrivacySheet, TOPICS } from './Privacy.jsx'
-import { CONTROLLER, VERIFY, pendingItems } from '../lib/legal-controller.js'
+import { CONTROLLER, VERIFY, pendingItems, hasPendingLegalItems } from '../lib/legal-controller.js'
 
 /* The privacy policy tells people what the code really does. These tests keep the three places that
  * say it — the in-app policy, docs/PRIVACY_POLICY.md and the code — from drifting apart, and make
@@ -18,9 +18,13 @@ const text = html => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'")
 
 describe('what the policy must cover', () => {
   const all = text(page('policy'))
-  it('names the controller with explicit placeholders — never invented values', () => {
-    for (const v of Object.values(CONTROLLER)) { expect(v).toMatch(/^LEGAL_TBD_/); expect(all).toContain(v) }
-    expect(all).toContain('pending confirmation by the controller')
+  it('names the controller with the owner’s real details; only unverified facts stay as placeholders', () => {
+    for (const v of Object.values(CONTROLLER)) { expect(v).not.toMatch(/LEGAL_TBD_/); expect(all).toContain(v) }
+    expect(all).toContain('JUAN JOSE PEREZ SANCHEZ'); expect(all).toContain('54088887V'); expect(all).toContain('SIREINSA'); expect(all).toContain('2JFITNESSCENTER@GMAIL.COM')
+    expect(pendingItems().sort()).toEqual(['LEGAL_TBD_AI_PROVIDER_TERMS', 'LEGAL_TBD_BACKUP_FREQUENCY', 'LEGAL_TBD_BACKUP_RETENTION', 'LEGAL_TBD_DPO_CONTACT', 'LEGAL_TBD_SERVER_LOCATION', 'LEGAL_TBD_TRANSFER_SAFEGUARDS'])
+    expect(hasPendingLegalItems()).toBe(true)
+    expect(all).toContain('are still being verified')          // the notice shows only while something relevant is pending
+    expect(all).not.toContain('pending confirmation by the controller')
   })
   it('covers every point: data, purposes, legal basis, health, AI, providers, transfers, retention, rights, contact', () => {
     for (const s of ['Who is responsible', 'Data we process', 'Who can see your data', 'Why we use it', 'Legal basis', 'Health-related data', 'Artificial intelligence',
@@ -28,7 +32,7 @@ describe('what the policy must cover', () => {
     for (const s of ['Art. 6(1)(b)', 'Art. 6(1)(f)', 'Art. 9(2)(a)', 'AEPD', 'within one month', 'not legal advice']) expect(all).toContain(s)
   })
   it('does not claim compliance, server locations, safeguards or provider terms nobody verified', () => {
-    for (const v of [VERIFY.serverLocation, VERIFY.transferSafeguards, VERIFY.aiProviderTerms, VERIFY.legalBasis, VERIFY.trainerAiBasis, VERIFY.staffNotesAccess]) expect(all).toContain(v)
+    for (const v of Object.values(VERIFY)) expect(all).toContain(v)
     expect(all).not.toMatch(/fully compliant|GDPR[- ]compliant|certified|data processing agreement|DPA in place|servers? (are|is) located in/i)
   })
   it('lists every disclosed data category of the app', () => {
@@ -44,6 +48,10 @@ describe('AI disclosure', () => {
   it('covers each AI function with what it receives, and what is never sent', () => {
     for (const s of ['Coach (plan, review and explanations)', 'Routine drafts by staff', 'Follow-up analysis by staff', 'Scans:', 'Import matching', 'Never sent to AI', 'progress photos', 'WHOOP and Strava data']) expect(ai).toContain(s)
   })
+  it('staff AI needs the member’s separate consent and says so', () => {
+    for (const s of ['separate consent to Staff AI tools', 'which is not the Coach consent', 'without it nothing is sent', 'with the same Staff AI tools consent']) expect(ai).toContain(s)
+    expect(ai).not.toContain('This does not use your Coach consent')
+  })
   it('keeps the per-file scan consent and the "nothing is kept" statement', () => {
     expect(ai).toContain('only after you confirm a notice for that file')
     expect(ai).toContain('the server refuses the scan without it')
@@ -56,6 +64,8 @@ describe('third parties match the code', () => {
   const providers = text(page('providers'))
   it('names exactly the providers the app talks to, with purpose, data, optionality and transfer', () => {
     for (const s of ['Google (Gemini API)', 'Anthropic (Claude)', 'OpenAI', 'WHOOP', 'Strava', 'Push services', 'Google Fonts', 'jsDelivr', 'Hosting and infrastructure']) expect(providers).toContain(s)
+    expect(providers).toContain('provided by Contabo')
+    expect(providers).toContain('no independent external backup provider is used')
     expect(providers).toContain('Optional')
     expect(providers).toContain('outside the EEA')
   })
@@ -91,6 +101,7 @@ describe('entry points in Settings', () => {
   const settings = doc('frontend/src/views/Settings.jsx')
   it('Settings shows the policy, data, AI and providers entries, plus export and delete', () => {
     for (const topic of Object.keys(TOPICS)) expect(settings).toContain(`<PrivacySheet topic="${topic}" />`)
+    expect(settings).toContain('<StaffAiConsentSheet close={close} />')
     expect(settings).toContain("t('Export my data')")
     expect(settings).toContain("t('Delete my account')")
   })
@@ -105,10 +116,19 @@ describe('docs agree with the screen and the code', () => {
     for (const v of pendingItems()) expect(policy, v).toContain(v)
     for (const s of ['Art. 6(1)(b)', 'Art. 9(2)(a)', 'external-ai-scan-v1', 'AEPD', 'Google Fonts', 'jsDelivr', 'Never sent to AI', 'LEGAL_TBD_']) expect(policy).toContain(s)
   })
-  it('DATA_MAP no longer says the trainer AI needs the member’s Coach consent (it does not)', () => {
+  it('trainer AI is gated by the member’s separate Staff AI consent in the code, the map and the policy', () => {
     expect(doc('docs/DATA_MAP.md')).not.toContain('ALSO requires the member')
-    expect(doc('api/coach/trainer-jobs.js')).not.toMatch(/consent\.agreedAt/)
-    expect(policy).toContain('LEGAL_TBD_TRAINER_AI_BASIS')
+    expect(doc('docs/DATA_MAP.md')).toContain('Staff AI tools')
+    const jobs = doc('api/coach/trainer-jobs.js')
+    expect(jobs).toContain('hasStaffAiConsent(S)')
+    expect(jobs).not.toMatch(/coach\.consent/)                       // it is not the Coach consent
+    expect(doc('api/lib/coach-followup-routes.js')).toContain('hasStaffAiConsent(S)')
+    expect(policy).toContain('Staff AI tools')
+    expect(policy).not.toContain('LEGAL_TBD_TRAINER_AI_BASIS')
+  })
+  it('the repo policy carries the owner’s controller data', () => {
+    for (const v of Object.values(CONTROLLER)) if (v !== CONTROLLER.hosting) expect(policy).toContain(v)
+    expect(policy).toContain('Contabo')
   })
   it('the erasure notes describe follow-up data, staff accounts, connected apps and backups', () => {
     const erasure = doc('docs/ACCOUNT_ERASURE.md')

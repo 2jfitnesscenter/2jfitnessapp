@@ -21,6 +21,7 @@ import { RankGuideSheet } from './Rank.jsx'
 import { ChangelogSheet } from './Changelog.jsx'
 import { LegalSheet } from './Legal.jsx'
 import { PrivacySheet } from './Privacy.jsx'
+import StaffAiConsentSheet, { hasStaffAiConsent } from '../components/StaffAiConsentSheet.jsx'
 import DeleteAccountSheet from '../components/DeleteAccountSheet.jsx'
 import { api } from '../lib/api.js'
 import './experience.css'
@@ -310,6 +311,7 @@ export default function Settings() {
       <Row icon="lock" iconTint="var(--acc)" title={t('Privacy policy')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="policy" />)} />
       <Row icon="clipboard" iconTint="var(--acc)" title={t('Data we process')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="data" />)} />
       <Row icon="sparkles" iconTint="var(--acc)" title={t('Artificial intelligence')} subtitle={t('When it is used and what it receives')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="ai" />)} />
+      {signedIn && <Row icon="sparkles" iconTint="var(--acc)" title={t('Staff AI tools')} subtitle={hasStaffAiConsent(S) ? t('Allowed — you can withdraw it any time') : t('Off — staff cannot use AI with your data')} accessory="chevron" onClick={() => useUI.getState().openSheet(close => <StaffAiConsentSheet close={close} />)} />}
       <Row icon="globe" iconTint="var(--acc)" title={t('External providers')} subtitle={t('Who else receives data, and why')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="providers" />)} />
       {signedIn && !user.admin && !user.trainer && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} subtitle={t('Permanently deletes your profile and everything linked to it')} danger accessory="chevron" onClick={() => useUI.getState().openSheet(close => <DeleteAccountSheet close={close} />)} />}
     </Section>

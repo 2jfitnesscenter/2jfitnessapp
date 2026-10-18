@@ -12,6 +12,7 @@ import { routineReviews } from './routine-review.js';
 import { memberView, overviewRow, unreadableRow, bucketRows, sanitizeGoal, aiFacts, cleanStructure } from './coach-followup.js';
 import { emptyPrivate, normalizePrivate, pushEvent, addNote, deleteNote, timeline, DECISION_KINDS } from './coach-followup-private.js';
 import { consentedCoachIntake } from './followup-v2.js';
+import { hasStaffAiConsent } from './staff-ai-consent.js';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -198,6 +199,8 @@ export function coachFollowUpRoutes(d) {
       const facts = aiFacts(view, { structure, recent, intake });
       const base = { analysis: view.analysis, signals: view.signals.filter(s => s.severity !== 'info').length };
       if (!ai.available()) return json(res, 200, { ...base, source: 'deterministic', ai: { available: false } });
+      // The member's separate consent for staff AI tools: without it nothing is sent, the calculated analysis stands.
+      if (!hasStaffAiConsent(S)) return json(res, 200, { ...base, source: 'deterministic', ai: { available: true, consent: false } });
       try {
         const job = ai.enqueue(staff.id, u.id, facts, body.lang === 'en' ? 'en' : 'es');
         json(res, 202, { ...base, source: 'ai', job, ai: { available: true } });
