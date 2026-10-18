@@ -4,6 +4,7 @@ import { tempData, sampleState } from './helpers.mjs';
 
 tempData();
 const payload = await import('../coach/payload.js');
+const { buildPrompt } = await import('../coach/jobs.js');
 
 /* The promise the consent screen makes is only as good as this test. It asserts on the
    *absence* of things, which is the awkward direction to test and the only one that matters:
@@ -20,19 +21,27 @@ test('payload never carries identity, credentials or device data', () => {
   const json = JSON.stringify(p);
 
   assert.ok(!json.includes('user-abc-123'), 'the uid must never appear');
-  assert.equal(p.meta.profile.length, 16, 'an opaque handle stands in for the uid');
+  assert.equal(Object.hasOwn(p.meta, 'profile'), false, 'no persistent pseudonym is needed by the provider');
   for (const forbidden of ['theme', 'accent', 'gifSize', 'reminder', 'Europe/Lisbon', 'passkey', 'credential', 'subscription', 'invite']) {
     assert.ok(!json.includes(forbidden), `payload leaked ${forbidden}`);
   }
 });
 
-test('the same profile always gets the same handle, and two profiles never share one', () => {
-  const S = sampleState();
-  const a1 = payload.build(S, 'uid-a', { kind: 'review' }).meta.profile;
-  const a2 = payload.build(S, 'uid-a', { kind: 'review' }).meta.profile;
-  const b = payload.build(S, 'uid-b', { kind: 'review' }).meta.profile;
-  assert.equal(a1, a2);
-  assert.notEqual(a1, b);
+test('synthetic identity, private notes, photos and provider identifiers never reach the prompt', () => {
+  const S = sampleState({
+    name: 'CANARY-FIRST-LAST', email: 'CANARY-EMAIL@example.test', phone: 'CANARY-PHONE',
+    trainingUserId: 'CANARY-TRAINING-UID', privateTrainerNote: 'CANARY-STAFF-NOTE',
+    followUpV2: { responses: [{ answers: { note: 'CANARY-QUESTIONNAIRE-TEXT' }, photos: ['CANARY-PHOTO'] }] },
+    photos: ['CANARY-PHOTO-2'], social: { text: 'CANARY-SOCIAL' }, chat: [{ text: 'CANARY-CHAT' }]
+  });
+  S.workouts[0].fitness = { externalId: 'CANARY-PROVIDER-ID' };
+  const p = payload.build(S, 'CANARY-UID', { kind: 'review' });
+  const prompt = buildPrompt('review', p);
+  for (const canary of ['CANARY-FIRST-LAST', 'CANARY-EMAIL', 'CANARY-PHONE', 'CANARY-TRAINING-UID',
+    'CANARY-STAFF-NOTE', 'CANARY-QUESTIONNAIRE-TEXT', 'CANARY-PHOTO', 'CANARY-SOCIAL',
+    'CANARY-CHAT', 'CANARY-PROVIDER-ID', 'CANARY-UID']) {
+    assert.ok(!prompt.includes(canary), `provider prompt leaked ${canary}`);
+  }
 });
 
 test('review payload carries the plan, the window, effort and aggregates', () => {

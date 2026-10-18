@@ -67,6 +67,11 @@ export function aiLog(event, fields = {}) {
 export async function invokeWithRetry(adapter, args, ctx = {}) {
   let last = null, failure = null, attempt = 0;
   for (attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (typeof ctx.canInvoke === 'function' && !ctx.canInvoke()) {
+      failure = { ok: false, errorClass: 'consent', transient: false };
+      aiLog('AI_CONSENT_REVOKED', { flow: ctx.flow, job: ctx.job });
+      return { code: -1, text: '', stderr: '', failure, attempts: attempt - 1 };
+    }
     const t0 = Date.now();
     aiLog('AI_ATTEMPT', { flow: ctx.flow, job: ctx.job, provider: ctx.provider, attempt, repair: ctx.repair ? 1 : null });
     try { last = await adapter.invoke(args); }

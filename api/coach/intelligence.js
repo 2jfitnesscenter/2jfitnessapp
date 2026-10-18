@@ -39,7 +39,7 @@ give an exercise, load, set or repetition prescription, state a number, diagnose
 Return exactly JSON: {"explanation":"..."}. No other keys. ${repair ? 'Your previous answer did not meet this contract. Repair it.' : ''}
 Signal: ${JSON.stringify(signal)}`;
 
-export async function explainSignal(input, { adapter: override = null } = {}) {
+export async function explainSignal(input, { adapter: override = null, canInvoke = null } = {}) {
   const signal = compactSignal(input);
   if (!signal) return { ok: false, error: 'invalid-signal' };
   const cfg = cfgStore.load();
@@ -54,8 +54,9 @@ export async function explainSignal(input, { adapter: override = null } = {}) {
     for (let round = 0; round < 2; round++) {
       const result = await invokeWithRetry(adapter, {
         cfg, prompt: promptFor(signal, !!round), jobDir, env, model: cfg.model || null, timeoutMs: 30000
-      }, { flow: 'intelligence-explanation', job, provider: cfg.provider, repair: !!round });
+      }, { flow: 'intelligence-explanation', job, provider: cfg.provider, repair: !!round, canInvoke });
       if (result.failure) return { ok: false, error: result.failure.errorClass };
+      if (typeof canInvoke === 'function' && !canInvoke()) return { ok: false, error: 'consent' };
       const parsed = extractJSON(result.text);
       const value = parsed.value && Object.keys(parsed.value).length === 1 && validExplanation(parsed.value.explanation);
       if (value) { aiLog('AI_SUCCESS', { flow: 'intelligence-explanation', job }); return { ok: true, explanation: value }; }

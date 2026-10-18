@@ -9,6 +9,7 @@ import { tempData, writeState, sampleState } from './helpers.mjs';
 const DIR = tempData();
 const cfg = await import('../coach/config.js');
 const jobs = await import('../coach/jobs.js');
+const aiRun = await import('../coach/ai-run.js');
 
 cfg.save({ enabled: true, provider: 'fixture' });
 
@@ -52,6 +53,66 @@ test('no consent, no job — the gate is on the server, not the screen', () => {
   const uid = 'u-noconsent';
   writeState(DIR, uid, sampleState({ coach: {} }));
   assert.throws(() => jobs.enqueue(uid, { kind: 'review' }), e => e.code === 'consent');
+});
+
+test('consent must be the current Coach consent version', () => {
+  const uid = 'u-old-consent';
+  writeState(DIR, uid, sampleState({ coach: { consent: { agreedAt: '2026-01-01', version: 2 } } }));
+  assert.throws(() => jobs.enqueue(uid, { kind: 'review' }), e => e.code === 'consent');
+});
+
+test('revoking consent during a transient provider failure prevents retry and leaves no Coach residue', async () => {
+  const uid = 'u-revoked-during-retry';
+  writeState(DIR, uid, sampleState());
+  cfg.save({ enabled: true, provider: 'fixture', caps: { perProfileDaily: 20, instanceDaily: 0 } });
+  aiRun.setBackoffForTests([0, 0]);
+  let calls = 0;
+  jobs.setAdapterForTests({ invoke: async () => {
+    calls++;
+    writeState(DIR, uid, sampleState({ coach: { consent: {} } }));
+    jobs.clearUser(uid);
+    return { code: 1, text: '', stderr: 'HTTP 503', status: 503 };
+  } });
+  try {
+    jobs.enqueue(uid, { kind: 'review' });
+    const until = Date.now() + 5000;
+    while (Date.now() < until && jobs.status(uid).job) await new Promise(r => setTimeout(r, 10));
+    await new Promise(r => setTimeout(r, 100));
+    assert.equal(calls, 1, 'revocation stops the next retry');
+    assert.deepEqual(jobs.readUser(uid).history, [], 'finishing a stale job cannot recreate Coach state after forget');
+    assert.equal(jobs.status(uid).pending, null);
+  } finally { jobs.setAdapterForTests(null); aiRun.setBackoffForTests([1500, 4000]); }
+});
+
+test('a stale revoked job cannot release the single-flight lock owned by a newer consented job', async () => {
+  const uid = 'u-revocation-lock-owner';
+  writeState(DIR, uid, sampleState());
+  cfg.save({ enabled: true, provider: 'fixture', caps: { perProfileDaily: 20, instanceDaily: 0 } });
+  aiRun.setBackoffForTests([0, 0]);
+  let calls = 0, finishFirst, finishSecond;
+  jobs.setAdapterForTests({ invoke: () => {
+    calls++;
+    return new Promise(resolve => { if (calls === 1) finishFirst = resolve; else finishSecond = resolve; });
+  } });
+  const waitCalls = async count => {
+    const until = Date.now() + 3000;
+    while (Date.now() < until && calls < count) await new Promise(r => setTimeout(r, 5));
+    assert.equal(calls, count, 'provider request should have started');
+  };
+  try {
+    jobs.enqueue(uid, { kind: 'review' });
+    await waitCalls(1);
+    writeState(DIR, uid, sampleState({ coach: { consent: {} } }));
+    jobs.clearUser(uid);
+    writeState(DIR, uid, sampleState());
+    jobs.enqueue(uid, { kind: 'review' });
+    await waitCalls(2);
+    finishFirst({ code: 1, text: '', stderr: 'HTTP 503', status: 503 });
+    await new Promise(r => setTimeout(r, 40));
+    assert.throws(() => jobs.enqueue(uid, { kind: 'review' }), e => e.code === 'busy', 'old completion must not unlock the new job');
+    finishSecond({ code: 1, text: '', stderr: 'HTTP 401', status: 401 });
+    await settle(uid);
+  } finally { jobs.setAdapterForTests(null); aiRun.setBackoffForTests([1500, 4000]); }
 });
 
 test('one job per profile at a time', async () => {
