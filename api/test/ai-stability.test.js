@@ -180,6 +180,7 @@ test('two members at the same time: isolated jobs, both ready, no shared temp st
 
 /* ---------------- trainer panel, end to end ---------------- */
 
+const STAFF_AI = { staffAi: { consent: { agreedAt: new Date().toISOString(), version: 1 } } };
 async function settleTrainer(tid, mid, ms = 20000) {
   const until = Date.now() + ms;
   while (Date.now() < until) { const s = trainerJobs.status(tid, mid); if (!s.job) return s; await new Promise(r => setTimeout(r, 25)); }
@@ -188,7 +189,7 @@ async function settleTrainer(tid, mid, ms = 20000) {
 test('trainer generation: transient 529 retried → draft ready; auth → reported once; busy while running', async () => {
   trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
   trainerJobs.setAdapterForTests(adapterFor('fixture'));
-  writeState(DIR, 'mem-t', sampleState());
+  writeState(DIR, 'mem-t', sampleState(STAFF_AI));
   const brief = { goal: 'hypertrophy', experience: 'intermediate', daysPerWeek: 3 };
   const restore = quiet();
   try {
@@ -207,7 +208,7 @@ test('trainer generation: transient 529 retried → draft ready; auth → report
 });
 
 /* Trainer AI uses professional permissions and plan-only data, independent of member Coach consent. */
-test('trainer AI works without member AI consent and its provider payload excludes private history/profile data', async () => {
+test('trainer AI runs on the member’s staff-AI consent (not the Coach consent) and its provider payload excludes private history/profile data', async () => {
   trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
   let prompt = '';
   const base = adapterFor('fixture');
@@ -216,6 +217,7 @@ test('trainer AI works without member AI consent and its provider payload exclud
   const restore = quiet();
   try {
     writeState(DIR, 'mem-noconsent', sampleState({
+      ...STAFF_AI,
       coach: { profile: { notes: 'PRIVATE_MEMBER_COACH_NOTE' } },
       workouts: [{ id: 'private', d: '2026-01-01', privateNote: 'PRIVATE_WORKOUT_NOTE', entries: [] }],
       checkins: [{ d: '2026-01-01', fatigue: 5, note: 'PRIVATE_CHECKIN' }],
@@ -228,4 +230,37 @@ test('trainer AI works without member AI consent and its provider payload exclud
     assert.match(prompt, /Full body A/);
     for (const secret of ['PRIVATE_MEMBER_COACH_NOTE', 'PRIVATE_WORKOUT_NOTE', 'PRIVATE_CHECKIN', '9876.5']) assert.ok(!prompt.includes(secret), `${secret} was not sent`);
   } finally { restore(); delete process.env.FIXTURE_MODE; trainerJobs.setAdapterForTests(null); }
+});
+
+/* The member's SEPARATE consent for staff AI tools: no consent, nothing is built or sent. */
+test('trainer AI: without the member’s staff-AI consent nothing is sent — a Coach consent does not count', async () => {
+  trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
+  let calls = 0; const base = adapterFor('fixture');
+  trainerJobs.setAdapterForTests({ ...base, invoke: async args => { calls++; return base.invoke(args); } });
+  const brief = { goal: 'hypertrophy', experience: 'intermediate', daysPerWeek: 3 };
+  try {
+    writeState(DIR, 'mem-nocons', sampleState());                                                    // has the COACH consent, not the staff one
+    assert.throws(() => trainerJobs.enqueue('coach1', 'mem-nocons', brief), e => e.code === 'consent');
+    writeState(DIR, 'mem-oldver', sampleState({ staffAi: { consent: { agreedAt: new Date().toISOString(), version: 0 } } }));
+    assert.throws(() => trainerJobs.enqueue('coach1', 'mem-oldver', brief), e => e.code === 'consent', 'a consent of another version is not valid');
+    assert.equal(calls, 0, 'the provider was never reached');
+  } finally { trainerJobs.setAdapterForTests(null); }
+});
+
+test('trainer AI: consent withdrawn while the job is queued stops it before anything is sent', async () => {
+  trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
+  let calls = 0, release; const gate = new Promise(r => { release = r; }); const base = adapterFor('fixture');
+  trainerJobs.setAdapterForTests({ ...base, invoke: async args => { calls++; await gate; return base.invoke(args); } });
+  const brief = { goal: 'hypertrophy', experience: 'intermediate', daysPerWeek: 3 };
+  const restore = quiet();
+  try {
+    for (const m of ['mem-w1', 'mem-w2', 'mem-withdraw']) writeState(DIR, m, sampleState(STAFF_AI));
+    trainerJobs.enqueue('coach2', 'mem-w1', brief); trainerJobs.enqueue('coach2', 'mem-w2', brief);   // fill the two worker slots
+    trainerJobs.enqueue('coach2', 'mem-withdraw', brief);                                           // waits in the queue
+    writeState(DIR, 'mem-withdraw', sampleState());                                                  // the member withdraws now
+    release();
+    const s = await settleTrainer('coach2', 'mem-withdraw');
+    assert.equal(s.errorClass, 'consent'); assert.equal(calls, 2, 'only the two consented jobs reached the provider');
+    await settleTrainer('coach2', 'mem-w1'); await settleTrainer('coach2', 'mem-w2');
+  } finally { release(); restore(); trainerJobs.setAdapterForTests(null); }
 });

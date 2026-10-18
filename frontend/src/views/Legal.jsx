@@ -6,6 +6,7 @@
 // source, third parties, and the trademark note. The same facts live in NOTICE.md, AUTHORS.md,
 // THIRD_PARTY_NOTICES.md and TRADEMARKS.md; keep them in step.
 import { t } from '../lib/i18n.js'
+import { PrivacySheet } from './Privacy.jsx'
 
 export const SOURCE_URL = 'https://github.com/2jfitnesscenter/2jfitnessapp'
 export const UPSTREAM_URL = 'https://github.com/DuarteSantos8/openGym'
@@ -43,13 +44,11 @@ export function LegalSheet() {
       </ul>
 
       <H>{t('Privacy')}</H>
-      <div className="dim">{t('2J stores account, training, follow-up and service data needed to run the app. Members can export or delete their account from Settings. Account erasure removes device sessions and anonymizes linked security-event records; operational backups can retain prior copies until their configured expiry.')}</div>
-      <div className="dim" style={{ marginTop: 6 }}>{t('In the self-hosted web app, synced state and service records are held on the 2J server; the browser also keeps local app state and Sync V2 recovery/journal data. The standalone mobile build keeps a private app-data copy on the device. These local copies are not encrypted by 2J itself.')}</div>
-      <div className="dim" style={{ marginTop: 6 }}>{t('Trainers can access operational training and follow-up information for members across the centre. assignedTrainers is organizational metadata, not an access restriction. Account roles, staff, security and sensitive global settings remain admin-only.')}</div>
-      <div className="dim" style={{ marginTop: 6 }}>{t('Coach and trainer AI use their separate consent and access flows. Coach providers configurable in this app are Anthropic Claude, OpenAI Codex, Google Gemini and OpenAI; the trainer panel currently uses Claude. A selected body-composition report, routine or machine photo is sent to Google Gemini only after you confirm the notice for that file. It is processed for that scan and is not added to your account by the scan flow; do not upload a file you do not want processed by that provider.')}</div>
-      <div className="dim" style={{ marginTop: 6 }}>{t('With separate Coach consent, the Coach may send its configured, minimized training context and permitted measurements to the selected provider. Body-composition scan files and Health Connect/HealthKit data are excluded from that Coach payload.')}</div>
-      <div className="dim" style={{ marginTop: 6 }}>{t('Health Connect and HealthKit data are read on device only with operating-system permission; WHOOP and Strava use their existing connected-account flows. Health, activity and recovery data are excluded from Coach AI and are not exposed to Social. Social sharing is controlled separately by the sharing choices in the app.')}</div>
-      <div className="dim" style={{ marginTop: 6 }}>{t('This notice describes the current technical behavior of 2J Fitness. It is not legal advice or a determination of the legal basis or retention duties that apply to your organization.')}</div>
+      <div className="dim">{t('How 2J handles your data, which AI and outside providers are involved, and your rights are in one place: the privacy policy.')}</div>
+      <div style={{ marginTop: 6 }}>
+        <span className="tap" style={{ color: 'var(--acc)', cursor: 'pointer' }}
+          onClick={async () => { const { useUI } = await import('../store/useUI.js'); useUI.getState().openSheet(() => <PrivacySheet topic="policy" />) }}>{t('Privacy policy')}</span>
+      </div>
 
       <H>{t('Trademarks')}</H>
       <div className="dim">{t('The 2J Fitness Center name and the 2J logo identify 2J Fitness Center. The software license does not grant permission to use them; the code itself remains free under the AGPL.')}</div>

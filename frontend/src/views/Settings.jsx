@@ -20,6 +20,8 @@ import { forgetCoach } from '../lib/coach-api.js'
 import { RankGuideSheet } from './Rank.jsx'
 import { ChangelogSheet } from './Changelog.jsx'
 import { LegalSheet } from './Legal.jsx'
+import { PrivacySheet } from './Privacy.jsx'
+import StaffAiConsentSheet, { hasStaffAiConsent } from '../components/StaffAiConsentSheet.jsx'
 import DeleteAccountSheet from '../components/DeleteAccountSheet.jsx'
 import { api } from '../lib/api.js'
 import './experience.css'
@@ -305,6 +307,14 @@ export default function Settings() {
 
     {/* ---------- 7. data: your copy, in and out ---------- */}
     <h3 className="set-grp">{t('Data')}<span>{t('Your information is yours')}</span></h3>
+    <Section footer={t('What 2J stores, which AI and outside providers are involved, and how long it keeps it.')}>
+      <Row icon="lock" iconTint="var(--acc)" title={t('Privacy policy')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="policy" />)} />
+      <Row icon="clipboard" iconTint="var(--acc)" title={t('Data we process')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="data" />)} />
+      <Row icon="sparkles" iconTint="var(--acc)" title={t('Artificial intelligence')} subtitle={t('When it is used and what it receives')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="ai" />)} />
+      {signedIn && <Row icon="sparkles" iconTint="var(--acc)" title={t('Staff AI tools')} subtitle={hasStaffAiConsent(S) ? t('Allowed — you can withdraw it any time') : t('Off — staff cannot use AI with your data')} accessory="chevron" onClick={() => useUI.getState().openSheet(close => <StaffAiConsentSheet close={close} />)} />}
+      <Row icon="globe" iconTint="var(--acc)" title={t('External providers')} subtitle={t('Who else receives data, and why')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="providers" />)} />
+      {signedIn && !user.admin && !user.trainer && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} subtitle={t('Permanently deletes your profile and everything linked to it')} danger accessory="chevron" onClick={() => useUI.getState().openSheet(close => <DeleteAccountSheet close={close} />)} />}
+    </Section>
     <Section footer={t('Take a copy any time, or bring one back.')}>
       {signedIn && <Row icon="download" iconTint="var(--blue)" title={t('Export my data')} subtitle={t('Everything 2J holds about you, as one file')} accessory="chevron" onClick={exportMyData} />}
       <Row icon="download" iconTint="var(--blue)" title={t('Export backup (JSON)')} subtitle={t('Your plan, workouts and body weight')} accessory="chevron" onClick={doExport} />
