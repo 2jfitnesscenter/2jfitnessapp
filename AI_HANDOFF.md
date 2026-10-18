@@ -1,5 +1,36 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Checkpoint autoritativo — Training seguro para integración futura con Platform (2026-10-15)
+
+Este bloque es la referencia vigente y supersede los checkpoints de producción anteriores que permanecen abajo como historial.
+
+### PRODUCCIÓN ACTUAL
+
+- Producción confirmada por el propietario: `aff0a694d37d2c8fbef298ffd6abcf4ab358f186` (`2fe3e39` privacy closure). No se consultó el VPS durante esta tarea.
+- `origin/main` observado en `35b003b0adc2db546899ee10517df0882c025ede`; este checkout de desarrollo está sobre esa rama, no sobre el commit desplegado. El commit de producción no es ancestro de `origin/main`. No inferir que `main` equivale a producción ni usarlo como payload wholesale.
+- Producción sigue releases controlados: cada release nuevo parte del commit exacto desplegado, se incorpora selectivamente y se valida contra su baseline real. Este cambio de preparación para integración no es un deploy.
+
+### OBJETIVO DE INTEGRACIÓN — PRIMERO EN LOCAL
+
+- La futura integración de Training con Platform empieza en un worktree local explícitamente creado desde el release Training elegido como canónico en ese momento. No reutilizar worktrees antiguos como evidencia de producción ni reconciliar `main` con producción a la fuerza.
+- Platform es propietaria de la identidad humana/global (`personId`), perfil global, membresías y derechos. Training conserva su `uid` estable, cuentas/passkeys y los datos de rutinas, entrenamientos, programas, progresión e historial. La relación futura es `personId → Training uid`; añadir el campo opcional no lo convierte en identidad de login, autorización, Sync ni sustituto de `uid`.
+- El cambio de origen/RP ID no está autorizado. La configuración de producción documentada en `.env.production.example` es `ORIGIN=https://app.2jfitnesscenter.com`, `RP_ID=app.2jfitnesscenter.com`; esto identifica el valor previsto por el template, no una lectura independiente del `.env` live. La decisión es mantener la experiencia integrada bajo ese origen y conservar un RP ID compatible con las passkeys actuales. Cambiar RP ID puede hacer inutilizables las passkeys registradas. Desarrollo local puede seguir usando `http://localhost:8080` / `localhost` y sus credenciales separadas.
+- No se tocaron `RP_ID`, `ORIGIN`, cookies, passkeys ni la arquitectura de proofs Platform existentes. No migrar `uid`, renombrar `state-<uid>.json` ni mover Social/Bunker/Health a Platform.
+- El WIP de Android/Web Push y los runners locales del checkout principal no son parte de esta preparación ni estado de producción.
+
+### ALCANCE DEL SPRINT PRE-INTEGRACIÓN
+
+- Rechazar al arranque stores JSON existentes ilegibles, corruptos o con estructura inválida; solo un archivo realmente ausente puede usar el valor inicial de primer arranque. Se añadieron únicamente guards de lectura inicial para `db.json`, `social.json`, `friends.json`, `bunker.json`, `notifications.json`, `social-sharing.json`, `features.json`, `gym-profile.json`, `hidden-exercises.json`, `unavailable-equipment.json` y `vapid.json`; no se cambiaron sus rutas, operaciones de dominio ni contratos de escritura. `state-<uid>.json` y el store cifrado de Chat ya tenían manejo seguro y no se modificaron.
+- Añadir `personId?: string` de forma aditiva a `db.users[]`, sin generar ni inferir valores y sin cambiar `uid` ni permisos.
+- Documentar ownership de identidad y la decisión de origen/RP ID. No abrir áreas de producto vecinas.
+- Rama de trabajo actual para este sprint: `codex/pre-platform-training-safety`; no desplegar.
+- Validación focalizada del candidato: 104 pruebas API relevantes aprobadas, sin fallos ni skips; incluye arranque rechazado ante store corrupto y preservación byte a byte del archivo. El candidato no está desplegado.
+
+### LÍMITES DE CAMBIO
+
+- No tocar Sync V2, borrado de cuenta, consentimiento de escaneos, Shared Staff, Exercise Media, lógica de Bunker/Social, Guided, Constructor, Seguimiento, Coach, Health, Android/iOS, Platform ni deploy-kit, salvo el guard de carga inicial de los stores indicado en este sprint.
+- `state-<uid>.json` ya devuelve `STATE_CORRUPT` y no lo sobrescribe; el store de Chat ya queda bloqueado en solo lectura si no puede descifrarse. No duplicar esas protecciones ni cambiar esos contratos.
+
 ## Exercise Library — medios reactivados (cambio local, NO desplegado)
 
 - Se reactivan las referencias históricas de imágenes/GIF del catálogo y las 157 ilustraciones de estiramientos por decisión del propietario del proyecto. Se usa el origen histórico existente, fijado a `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`, y los assets de estiramientos ya versionados.
@@ -14,7 +45,7 @@
 - Coach solo recibe respuestas de opción cerrada/números expresamente seleccionadas por admin, después del consentimiento Coach v1 ya existente. Texto libre, etiquetas sensibles, fotos, Social y datos identificativos quedan fuera.
 - UI en Seguimiento de socio y ficha profesional, y editor admin en `/admin/followup/templates`. Validación local: frontend 1.808/1.808; API 680 aprobados, 0 fallos y 47 pruebas operativas omitidas por necesitar Bash/OpenSSL no disponible en Windows; build OK, español completo y `git diff --check` OK. Producción confirmada: `51bb15e99b0f838ec8aaa439777fbf45169caaf8`. Candidato aún sin merge/deploy.
 
-## Checkpoint actual — Platform ↔ Búnker (2J-089, 2026-10-13)
+## Histórico — Platform ↔ Búnker (2J-089, 2026-10-13; supersedido por el checkpoint autoritativo inicial)
 
 Hay una integración de resumen V1 en revisión conjunta, todavía **sin merge ni despliegue**. Platform conserva la identidad humana `personId`, la relación canónica y su revocación; Training conserva `trainingUserId`, cuentas y todos los datos de entrenamiento. El endpoint backend de Training está apagado por defecto y usa el `2J-SERVICE-AUTH-V1` existente. Platform consulta solo enlaces verificados activos, devuelve un resumen agregado y mantiene Profile disponible si Training falla. No hay SSO, transferencia de sesión, matching por PII, sincronización de historial ni matriz de derechos Búnker.
 
@@ -22,14 +53,13 @@ Las dos ramas de 2J-089 comparten el fixture V1 `contracts/2J-089-training-summa
 
 Los avisos de `npm audit` de API y frontend Training son deuda preexistente; esta TASK no cambia dependencias ni lockfiles.
 
-## Estado autoritativo — producción y prioridades (2026-10-12)
+## Histórico — checkpoint de producción y prioridades (2026-10-12; supersedido el 2026-10-15)
 
-Producción y resultado del deploy confirmados por el propietario. Este checkpoint prevalece sobre los estados de release de las notas históricas que siguen; esos bloques se conservan como registro, no como backlog vigente.
+El texto de esta sección registra lo que se comunicó como vigente el 2026-10-12. **No representa la producción actual ni el roadmap actual**; consultar el checkpoint autoritativo al inicio de este archivo.
 
-### PRODUCCIÓN ACTUAL
+### Producción indicada en el checkpoint de 2026-10-12 (histórica)
 
-- Release desplegada: `51bb15e99b0f838ec8aaa439777fbf45169caaf8`.
-- Resultado reportado: `DEPLOY_OK=51bb15e99b0f838ec8aaa439777fbf45169caaf8`, `ROLLBACK=NOT_NEEDED`, health interno/externo 200, 28 estados preservados, hashes inmutables sin cambios, servicios API/web/Caddy sanos y marker/`DEPLOY_SCRIPT_OK` coincidentes.
+- En aquella fecha se indicó el release `51bb15e99b0f838ec8aaa439777fbf45169caaf8`, con health 200 y datos/servicios preservados. La producción actual confirmada después es `aff0a694d37d2c8fbef298ffd6abcf4ab358f186`.
 
 ### CERRADO Y DESPLEGADO
 
@@ -39,22 +69,22 @@ Producción y resultado del deploy confirmados por el propietario. Este checkpoi
 - **Bunker V2.1 y core:** vista Normal/Compacta para aproximadamente 6–10 socios, tarjetas con estado de sesión y acceso al panel completo. Rutina completa, navegación, imágenes, superseries, swap, rutina libre/perfil, persistencia, aislamiento por uid y finish/historial están cerrados. V2.1 no cambió API, modelo de datos ni Sync V2.
 - También cerrados: Exercise Library V2 y taxonomía; búsqueda, swap, import y capa IA de ejercicios; Gym Profiles; Constructor V2 y bloques; Guided/Entrena con 2J; Social/Amigos; Shared Staff; Health V2; export/share; Coach/seguimiento base; progresión cardio; modo Express y reordenación semanal; Training Quality y revisión de programa. No reabrirlos como features nuevas sin una incidencia concreta reproducida.
 
-### PENDIENTE REAL
+### Prioridades comunicadas en aquel checkpoint (históricas; supersedidas)
 
 - No hay otro sprint de Training pendiente confirmado. Validar Oposiciones V1.1 y el flujo de entrenamiento con uso real; agrupar incidencias reproducibles antes de cambiar producto.
 - Web Push para descanso sigue sin validación física confirmada ni conexión del aviso real al temporizador. El trabajo preparatorio está en una línea separada y no forma parte de esta base `main`; no asumir que está desplegado.
 - El APK Android firmado y distribuible queda expresamente para el final.
 
-### FUTURO Y ORDEN DE TRABAJO
+### Orden de trabajo de aquel checkpoint (histórico; supersedido)
 
 - Terminar Training antes de empezar Platform. No iniciar Platform ahora.
 - Siguiente bloque recomendado: validación de uso real de Oposiciones V1.1 y del flujo completo de entrenamiento; corregir solo fallos observados y agruparlos en un bloque pequeño.
 - Después de cerrar Training con evidencia, reconsiderar Platform. Android firmado/distribución se deja para el final.
 
-### Cambio preparado en `main` (no desplegado)
+### Política de trainer registrada en aquel checkpoint (histórico)
 
 - Política operativa de Training: cualquier cuenta `trainer` puede listar, buscar, consultar y editar datos operativos de cualquier socio del centro, sin ACL por `assignedTrainers`. La asignación queda como dato organizativo editable solo por admin. Socios continúan aislados a su propia cuenta; roles, permisos globales, staff, seguridad, secretos, configuración sensible y otras rutas explícitamente admin-only siguen reservadas a admin. Los check-ins conservan el consentimiento ya existente.
-- Este cambio está en revisión en una rama/PR; no forma parte de producción `51bb15e` hasta un deploy posterior autorizado.
+- En aquel checkpoint el cambio estaba en revisión; esa frase no describe el estado actual de GitHub ni producción.
 
 ## Home + Salud V2 + Entrenamientos Premium V1 (candidato; NO desplegado; base `172a89c` = origin/main tras el PR #17)
 
@@ -178,7 +208,7 @@ Este bloque es la referencia vigente para el trabajo posterior a producción 423
 4. Después, agrupar incidencias de uso normal. Roadmap no comprometido: Bunker evolución, entrenamiento temporizado, UI/UX, Health/progreso visual, Library/análisis, seguridad/passkeys, Sync V3, Social, catálogo y reservas.
 
 ---
-## Estado actual — producción y alerta Android de descanso (2026-10-07)
+## Histórico — producción y alerta Android de descanso (2026-10-07; supersedido por el checkpoint autoritativo inicial)
 
 - **Producción actual reportada por el propietario:** `cca6dc4137afb28e4df823f229e939933efeae78` (release Android Rest Alert). Shared Staff Device permanece desplegado y validado; no reabrirlo.
 - **Alerta Capacitor Android:** se conserva en la APK para la release `cca6dc4`. Reutiliza el temporizador JS y una notificación local genérica, sin datos de ejercicio, Health ni cambios de Sync V2. El hallazgo actual se refiere a la mayoría de usuarios que usan la web/PWA, no a borrar ni reemplazar el mecanismo nativo.
@@ -325,7 +355,7 @@ Este bloque es la referencia vigente para el trabajo posterior a producción 423
 - **NO tocar:** Sync V2, Auth, bridge Health Android/iOS, política de kcal, `doFinishWorkout`, backends Social/Chat/Followup, permisos, contratos de datos.
 - **Hecho para Codex:** traducir el resto de claves nuevas a los 10 packs; test de contraste de `--v2-*` en claro/oscuro; revisión Android del glass.
 
-## 1. Estado actual (checkpoint 2026-10-01)
+## Histórico — estado del checkpoint 2026-10-01 (supersedido por el checkpoint autoritativo inicial)
 
 - **Ajuste UX + Admin IA (rama `feat/ux-ai-admin`, sobre `feat/adaptive-ux`; SIN desplegar):** Perfil: «Prioridades de entrenamiento» es una fila compacta que abre `/profile/priorities` (`views/TrainingPriorities.jsx`, mismos selectores y mismo guardado). Ajustes: Cuenta primero. Admin → «Inteligencia artificial» (`/admin/ai`, `views/AdminAI.jsx`): las 3 IA existentes (Coach, IA del panel de entrenador, IA auxiliar) con estado y «Configurar» que abre sus paneles actuales. Diagnóstico IA: el Coach funciona de extremo a extremo (proveedor fixture) y el runtime de Claude da razones exactas; no hay bug de código — un fallo con proveedor real es de credencial (reconectar desde la nueva pantalla). Tests: API `ai-admin.test.js` (7), frontend `ux-ai.test.jsx` (8).
 - **Adaptive UX + Funciones de la app + personalización (rama `feat/adaptive-ux`, sobre `feat/news-avisos`; SIN desplegar):** admin ∩ socio ∩ datos. Servidor: `api/lib/features-store.js` + `features-routes.js`, `DATA/features.json` (13 módulos; ausente = todo ON; `GET /api/features` autenticado, `POST /api/admin/features` solo admin). Cliente: `lib/features.js` (`uxOn(S,key)` = admin permite ∧ socio no lo ocultó; `S.ux` null = sin personalizar = todo ON; `helps` solo del socio), estado `features` en el store (caché offline `gym_features_v1`). `views/ExperienceSetup.jsx` (onboarding de perfiles nuevos tras el wizard físico vía `S.uxSetup`, y `/settings/experience`), `views/AdminFeatures.jsx` (`/admin/features`), invitación discreta en Home para perfiles existentes. Home simplificado; recuperación/mapa/peso/pasos-meta/Whoop/aviso bioimpedancia pasan a Progreso (`components/ProgressModules.jsx`) con profundidad por datos; Perfil y Ajustes reagrupados. Gates: `effortOf`, `coachAvailable`, `workoutPrefs.progression`, IntelligenceToday, rutas con `<Feat>`, TabBar, watchers. Tests: API `features.test.js` (6), frontend `features.test.js` + `adaptive.test.jsx` (28). Ver CHANGELOG.

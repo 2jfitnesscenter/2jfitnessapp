@@ -1,15 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { readJsonStore } from '../lib/json-store.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = path.join(DATA, 'social-sharing.json');
-const state = { shares: [], reports: [] };
-try {
-  const disk = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-  state.shares = Array.isArray(disk.shares) ? disk.shares : [];
-  state.reports = Array.isArray(disk.reports) ? disk.reports : [];
-} catch { /* first boot */ }
+const disk = readJsonStore(FILE, {
+  initial: { shares: [], reports: [] },
+  validate: value => value !== null && typeof value === 'object' && !Array.isArray(value) &&
+    ['shares', 'reports'].every(key => value[key] === undefined || Array.isArray(value[key]))
+});
+const state = { shares: disk.shares || [], reports: disk.reports || [] };
 function save() {
   fs.mkdirSync(DATA, { recursive: true });
   const tmp = FILE + '.tmp';

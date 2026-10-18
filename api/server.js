@@ -80,6 +80,7 @@ import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 import { createPlatformProofStore } from './platform-proof/store.js';
 import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
+import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
@@ -128,14 +129,25 @@ setOfficialGymEquipment(gymProfileConfig.load());
 // Entrena con 2J Admin: the library admin refuses to mark as a duplicate an exercise that active
 // official content still uses (the stores that know are wired here, so neither imports the other).
 libraryAdmin.setUsageProbe(id => guidedStore.exerciseUsage().has(id));
+// A corrupt persisted feature policy must not silently enable every feature. Load it during
+// startup so an existing invalid file stops the process before it serves requests.
+featuresStore.all();
 
 /* ---------- secret + db ---------- */
 const SECRET = ensureSecret();   // ./data/secret by default; SECRET_FILE moves it out of the data folder (lib/secret.js)
 
 const dbFile = path.join(DATA, 'db.json');
 const platformProofStore = createPlatformProofStore({ dataDir: DATA });
-let db = { users: [], creds: [], subs: [], invites: [], recoveries: [] };
-try { db = JSON.parse(fs.readFileSync(dbFile, 'utf8')); } catch {}
+const dbArrays = ['creds', 'subs', 'invites', 'recoveries', 'recoveryRequests', 'restAlerts', 'sharedDevices', 'staffPins',
+  'sharedStaffSessions', 'sharedStaffAudit', 'securityEvents', 'deviceSessions', 'machineAliases', 'importExerciseAliases'];
+const db = readJsonStore(dbFile, {
+  initial: { users: [], creds: [], subs: [], invites: [], recoveries: [] },
+  validate: value => isJsonRecord(value) && Array.isArray(value.users) &&
+    value.users.every(user => isJsonRecord(user) && typeof user.id === 'string' && user.id.length > 0 &&
+      (user.personId === undefined || (typeof user.personId === 'string' && user.personId.trim().length > 0 && user.personId.length <= 256)) &&
+      ['admin', 'trainer', 'disabled'].every(key => user[key] === undefined || typeof user[key] === 'boolean')) &&
+    dbArrays.every(key => value[key] === undefined || Array.isArray(value[key]))
+});
 db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.recoveries = db.recoveries || [];
@@ -219,8 +231,7 @@ if (db.users.some(u => !u.username)) {
 // (equipment this gym doesn't have, movements they'd rather not offer). Not a deletion: a
 // hidden id still resolves fine for anyone who already has it logged or in a routine.
 const hiddenExFile = path.join(DATA, 'hidden-exercises.json');
-let hiddenEx = [];
-try { hiddenEx = JSON.parse(fs.readFileSync(hiddenExFile, 'utf8')); if (!Array.isArray(hiddenEx)) hiddenEx = []; } catch {}
+let hiddenEx = readJsonStore(hiddenExFile, { initial: [], validate: Array.isArray });
 function saveHiddenEx() { atomicWrite(hiddenExFile, JSON.stringify(hiddenEx)); }
 
 // Equipment this location is temporarily without (a Smith machine out for repair, etc) — a
@@ -231,8 +242,7 @@ function saveHiddenEx() { atomicWrite(hiddenExFile, JSON.stringify(hiddenEx)); }
 // Restoring the equipment (removing it from this list) immediately un-blocks every exercise
 // that depends on it — nothing is deleted or rewritten anywhere else.
 const unavailableEqFile = path.join(DATA, 'unavailable-equipment.json');
-let unavailableEq = [];
-try { unavailableEq = JSON.parse(fs.readFileSync(unavailableEqFile, 'utf8')); if (!Array.isArray(unavailableEq)) unavailableEq = []; } catch {}
+let unavailableEq = readJsonStore(unavailableEqFile, { initial: [], validate: Array.isArray });
 function saveUnavailableEq() { atomicWrite(unavailableEqFile, JSON.stringify(unavailableEq)); }
 
 // state-<uid>.json (the member's own workout history, body-weight log and measurements) is
@@ -244,20 +254,17 @@ function saveUnavailableEq() { atomicWrite(unavailableEqFile, JSON.stringify(una
 // state-<uid>.json — same module-level cache + atomicWrite-the-whole-object shape as hiddenEx
 // above, just with content many different users contribute to instead of only the admin.
 const socialFile = path.join(DATA, 'social.json');
-let social = { routines: [], programs: [], wall: [], challenges: [], goals: [], topics: [], board: [] };
-try {
-  const parsed = JSON.parse(fs.readFileSync(socialFile, 'utf8'));
-  social.routines = Array.isArray(parsed.routines) ? parsed.routines : [];
-  social.programs = Array.isArray(parsed.programs) ? parsed.programs : [];
-  // Wall now doubles as "Marcas": every post predating the public/private toggle was shared
-  // under the old always-public behaviour, so it defaults `public` to true rather than silently
-  // hiding things members already chose to share.
-  social.wall = (Array.isArray(parsed.wall) ? parsed.wall : []).map(w => ({ public: true, ...w }));
-  social.challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
-  social.goals = Array.isArray(parsed.goals) ? parsed.goals : [];
-  social.topics = Array.isArray(parsed.topics) ? parsed.topics : [];
-  social.board = Array.isArray(parsed.board) ? parsed.board : [];
-} catch {}
+const socialDisk = readJsonStore(socialFile, {
+  initial: { routines: [], programs: [], wall: [], challenges: [], goals: [], topics: [], board: [] },
+  validate: value => isJsonRecord(value) && ['routines', 'programs', 'wall', 'challenges', 'goals', 'topics', 'board']
+    .every(key => value[key] === undefined || Array.isArray(value[key]))
+});
+// Wall now doubles as "Marcas": legacy posts predate the public/private toggle and remain public.
+const social = {
+  routines: socialDisk.routines || [], programs: socialDisk.programs || [],
+  wall: (socialDisk.wall || []).map(w => ({ public: true, ...w })),
+  challenges: socialDisk.challenges || [], goals: socialDisk.goals || [], topics: socialDisk.topics || [], board: socialDisk.board || []
+};
 function saveSocial() { atomicWrite(socialFile, JSON.stringify(social, null, 2)); }
 
 // Uploaded images — a routine/program's own cover (set from Plan, see POST /api/media/upload)
@@ -319,8 +326,12 @@ const envVapidPrivate = process.env.VAPID_PRIVATE_KEY || '';
 if (!!envVapidPublic !== !!envVapidPrivate) throw new Error('both VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY are required');
 if (envVapidPublic && envVapidPrivate) vapid = { publicKey: envVapidPublic, privateKey: envVapidPrivate };
 else {
-  try { vapid = JSON.parse(fs.readFileSync(vapidFile, 'utf8')); }
-  catch { vapid = webpush.generateVAPIDKeys(); fs.writeFileSync(vapidFile, JSON.stringify(vapid), { mode: 0o600 }); }
+  vapid = readJsonStore(vapidFile, {
+    initial: null,
+    validate: value => isJsonRecord(value) && typeof value.publicKey === 'string' && value.publicKey.length > 0 &&
+      typeof value.privateKey === 'string' && value.privateKey.length > 0
+  });
+  if (!vapid) { vapid = webpush.generateVAPIDKeys(); fs.writeFileSync(vapidFile, JSON.stringify(vapid), { mode: 0o600 }); }
 }
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || (SECURE ? ORIGIN : 'mailto:admin@localhost');
 webpush.setVapidDetails(VAPID_SUBJECT, vapid.publicKey, vapid.privateKey);

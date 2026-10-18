@@ -12,6 +12,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { isJsonRecord, readJsonStore } from './json-store.js';
 
 const FILE = () => path.join(process.env.DATA_DIR || '/data', 'features.json');
 
@@ -23,8 +24,12 @@ export const FEATURE_KEYS = [
 let cache = null;
 function load() {
   if (cache) return cache;
-  let s = {};
-  try { s = JSON.parse(fs.readFileSync(FILE(), 'utf8')); } catch { /* absent = everything on */ }
+  const s = readJsonStore(FILE(), {
+    initial: {},
+    validate: value => isJsonRecord(value) &&
+      (value.off === undefined || (Array.isArray(value.off) && value.off.every(key => typeof key === 'string'))) &&
+      (value.updatedAt === undefined || Number.isFinite(value.updatedAt))
+  });
   const off = new Set(Array.isArray(s.off) ? s.off.filter(k => FEATURE_KEYS.includes(k)) : []);
   cache = { off, updatedAt: Number(s.updatedAt) || 0 };
   return cache;

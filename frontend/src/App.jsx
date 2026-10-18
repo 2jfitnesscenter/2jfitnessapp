@@ -18,7 +18,6 @@ import RestTimer from './components/RestTimer.jsx'
 import HealthOnboardingGate from './components/HealthOnboarding.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
 import FriendsWatcher from './components/FriendsWatcher.jsx'
-import InstallPrompt from './components/InstallPrompt.jsx'
 import SharedStaffSessionGuard from './components/SharedStaffSessionGuard.jsx'
 import SyncConflictDialog from './components/SyncConflictDialog.jsx'
 import Login from './views/Login.jsx'
@@ -80,6 +79,7 @@ const AdminFeatures = lazy(() => import('./views/AdminFeatures.jsx'))
 const AdminAI = lazy(() => import('./views/AdminAI.jsx'))
 const AdminFollowUpTemplates = lazy(() => import('./components/AdminFollowUpTemplates.jsx'))
 import NotificationWatcher from './components/NotificationWatcher.jsx'
+import PwaInstallPromptHost from './components/PwaInstallPromptHost.jsx'
 import ConnectedApps from './views/ConnectedApps.jsx'
 import Measurements, { SkinfoldsScreen, BodyMeasurementsScreen } from './views/Measurements.jsx'
 import Health from './views/Health.jsx'
@@ -372,7 +372,6 @@ function Shell() {
       <ChatWatcher />
       <FriendsWatcher />
       <NotificationWatcher />
-      {!needsOnboarding && !needsUxSetup && <InstallPrompt />}
       <Modals />
       <Toast />
     </>
@@ -389,5 +388,5 @@ function Feat({ k, children }) {
 export default function App() {
   const boot = useStore(s => s.boot)
   useEffect(() => { boot() }, [boot])
-  return <HashRouter><Shell /></HashRouter>
+  return <HashRouter><PwaInstallPromptHost /><Shell /></HashRouter>
 }
