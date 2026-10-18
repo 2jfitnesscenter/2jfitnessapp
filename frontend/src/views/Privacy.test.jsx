@@ -20,8 +20,12 @@ describe('what the policy must cover', () => {
   const all = text(page('policy'))
   it('names the controller with the owner’s real details; only unverified facts stay as placeholders', () => {
     for (const v of Object.values(CONTROLLER)) { expect(v).not.toMatch(/LEGAL_TBD_/); expect(all).toContain(v) }
-    expect(all).toContain('JUAN JOSE PEREZ SANCHEZ'); expect(all).toContain('54088887V'); expect(all).toContain('SIREINSA'); expect(all).toContain('2JFITNESSCENTER@GMAIL.COM')
-    expect(pendingItems().sort()).toEqual(['LEGAL_TBD_AI_PROVIDER_TERMS', 'LEGAL_TBD_BACKUP_FREQUENCY', 'LEGAL_TBD_BACKUP_RETENTION', 'LEGAL_TBD_DPO_CONTACT', 'LEGAL_TBD_LEGAL_BASIS_REVIEW', 'LEGAL_TBD_SERVER_LOCATION', 'LEGAL_TBD_TRANSFER_SAFEGUARDS'])
+    expect(all).toContain('JUAN JOSE PEREZ SANCHEZ'); expect(all).toContain('54088887V'); expect(all).toContain('2JFITNESSCENTER@GMAIL.COM')
+    // SIREINSA is a privacy consultancy; no document establishes a formal DPO designation, so it is never called one
+    expect(all).toContain('SIREINSA provides privacy consultancy services'); expect(all).not.toContain('Data protection officer: SIREINSA')
+    expect(all).toContain('A formal designation of a data protection officer is not documented yet')
+    expect(all).toContain('Hub Europe'); expect(all).toContain('Auto Backup'); expect(all).toContain('no independent external backup provider is known'); expect(all).not.toContain('TIMP')
+    expect(pendingItems().sort()).toEqual(['LEGAL_TBD_AI_PROVIDER_TERMS', 'LEGAL_TBD_BACKUP_FREQUENCY', 'LEGAL_TBD_BACKUP_RETENTION', 'LEGAL_TBD_BACKUP_SCOPE', 'LEGAL_TBD_DPO_CONTACT', 'LEGAL_TBD_DPO_DESIGNATION', 'LEGAL_TBD_LEGAL_BASIS_REVIEW', 'LEGAL_TBD_RETENTION_POLICY', 'LEGAL_TBD_TRANSFER_SAFEGUARDS'])
     expect(hasPendingLegalItems()).toBe(true)
     expect(all).toContain('are still being verified')          // the notice shows only while something relevant is pending
     expect(all).not.toContain('pending confirmation by the controller')
@@ -31,7 +35,7 @@ describe('what the policy must cover', () => {
       'External providers', 'International transfers', 'How long we keep it', 'Your rights', 'Contact']) expect(all).toContain(s)
     for (const s of ['Art. 6(1)(b)', 'Art. 6(1)(f)', 'Art. 9(2)(a)', 'AEPD', 'within one month', 'not legal advice']) expect(all).toContain(s)
     // the bases are proposals: they must never read as validated until the advisor / DPO confirms them
-    expect(all).toContain('pending validation by the controller’s advisor and data protection officer')
+    expect(all).toContain('pending legal validation by the controller’s privacy advisor')
     expect(all).toContain('not yet a confirmed legal determination')
     expect((all.match(/foreseen basis/g) || []).length).toBe(4)
   })
@@ -68,8 +72,8 @@ describe('third parties match the code', () => {
   const providers = text(page('providers'))
   it('names exactly the providers the app talks to, with purpose, data, optionality and transfer', () => {
     for (const s of ['Google (Gemini API)', 'Anthropic (Claude)', 'OpenAI', 'WHOOP', 'Strava', 'Push services', 'Google Fonts', 'jsDelivr', 'Hosting and infrastructure']) expect(providers).toContain(s)
-    expect(providers).toContain('provided by Contabo')
-    expect(providers).toContain('no independent external backup provider is used')
+    expect(providers).toContain('provided by Contabo (Hub Europe')
+    expect(providers).toContain('no independent external backup provider is known')
     expect(providers).toContain('Optional')
     expect(providers).toContain('outside the EEA')
   })
@@ -131,8 +135,9 @@ describe('docs agree with the screen and the code', () => {
     expect(policy).not.toContain('LEGAL_TBD_TRAINER_AI_BASIS')
   })
   it('the repo policy carries the owner’s controller data', () => {
-    for (const v of Object.values(CONTROLLER)) if (v !== CONTROLLER.hosting) expect(policy).toContain(v)
-    expect(policy).toContain('Contabo')
+    for (const v of Object.values(CONTROLLER)) expect(policy).toContain(v)
+    expect(policy).toContain('Auto Backup'); expect(policy).not.toContain('TIMP')
+    expect(policy).not.toMatch(/Data protection officer: SIREINSA/)
   })
   it('the erasure notes describe follow-up data, staff accounts, connected apps and backups', () => {
     const erasure = doc('docs/ACCOUNT_ERASURE.md')

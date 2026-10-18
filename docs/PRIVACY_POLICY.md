@@ -6,7 +6,9 @@ This is the repository copy of the policy shown in the app (Settings → Data �
 
 ## 1. Who is responsible
 
-The controller of the personal data processed by this app is JUAN JOSE PEREZ SANCHEZ, tax ID 54088887V, address FRANCISCO LOPEZ SANCHEZ 15, LOCAL, 35250 INGENIO, LAS PALMAS. Privacy contact: 2JFITNESSCENTER@GMAIL.COM. Data protection officer: SIREINSA (dedicated contact channel: LEGAL_TBD_DPO_CONTACT).
+The controller of the personal data processed by this app is JUAN JOSE PEREZ SANCHEZ, tax ID 54088887V, address FRANCISCO LOPEZ SANCHEZ 15, LOCAL, 35250 INGENIO, LAS PALMAS. Privacy contact: 2JFITNESSCENTER@GMAIL.COM.
+
+Privacy consultancy: SIREINSA provides privacy consultancy services to the controller. A formal designation of a data protection officer is not documented yet (LEGAL_TBD_DPO_DESIGNATION; contact: LEGAL_TBD_DPO_CONTACT).
 
 2J Fitness is free software (AGPL). Whoever runs a copy of it for their own gym is the controller of the data in that copy.
 
@@ -32,7 +34,7 @@ To run the account and sign in securely; to store and sync training; to let gym 
 
 ## 5. Legal basis
 
-The legal basis that applies to each processing is pending validation by the controller's advisor and data protection officer (LEGAL_TBD_LEGAL_BASIS_REVIEW). What follows is the basis currently foreseen, not yet a confirmed legal determination.
+The legal basis that applies to each processing is pending legal validation by the controller's privacy advisor (LEGAL_TBD_LEGAL_BASIS_REVIEW). What follows is the basis currently foreseen, not yet a confirmed legal determination.
 
 - Account, training and service features: foreseen basis — performing the service the member uses (Art. 6(1)(b) GDPR).
 - Security log and backups: foreseen basis — the legitimate interest in keeping the service secure and recoverable (Art. 6(1)(f) GDPR).
@@ -58,7 +60,7 @@ AI acts only when the member or a member of staff asks for it, and the screen te
 
 **Never sent to AI:** health, activity, heart-rate and sleep data; WHOOP and Strava data; body-composition values and measurement tests; workout session notes; progress photos; messages, social and community content; the member's name and account identifier; credentials and push data.
 
-The scan flow does not keep the file or the result: the member reviews the extracted values and saves them through the normal flow. What a provider does with data after receiving it depends on its own terms and 2J cannot delete it (LEGAL_TBD_AI_PROVIDER_TERMS).
+The scan flow does not keep the file or the result: the member reviews the extracted values and saves them through the normal flow. What a provider does with data after receiving it, and where, depends on its own terms and data-processing agreement, and 2J cannot delete it (LEGAL_TBD_AI_PROVIDER_TERMS).
 
 ## 8. External providers
 
@@ -72,13 +74,13 @@ The scan flow does not keep the file or the result: the member reviews the extra
 | Push services of the browser / phone vendor | notifications | notification text, device push address | yes | browser or phone permission | may involve it |
 | Google Fonts | the web app's typeface | IP address, browser details | no (web version) | — | may involve it |
 | jsDelivr | exercise images and animations in the standalone mobile build | IP address | no (mobile build) | — | — |
-| Contabo (hosting) and the HTTPS certificate authority | running the service; backup copies are made on the server and within the hosting provider's infrastructure (no independent external backup provider) | the stored data | no | — | LEGAL_TBD_SERVER_LOCATION |
+| Contabo (hosting; server in "Hub Europe" — country and data centre not specified) and the HTTPS certificate authority | running the service; backups use the Auto Backup service contracted with Contabo (no independent external backup provider is known) | the stored data | no | — | not established |
 
 Health Connect and HealthKit are read on the device with the operating system's permission; 2J does not pass that data to anyone else. `Privacy.test.jsx` fails if the source starts talking to an outside host that this list does not cover.
 
 ## 9. International transfers
 
-Some providers above may process data outside the European Economic Area. The legal safeguard for each (adequacy decision, standard contractual clauses or similar) has not been verified (LEGAL_TBD_TRANSFER_SAFEGUARDS), and the location of the hosting server is LEGAL_TBD_SERVER_LOCATION.
+Some providers above may process data outside the European Economic Area. Where each current provider processes data and the legal safeguard that applies to it (adequacy decision, standard contractual clauses or similar) have not been verified (LEGAL_TBD_TRANSFER_SAFEGUARDS).
 
 ## 10. How long we keep it
 
@@ -88,7 +90,9 @@ Some providers above may process data outside the European Economic Area. The le
 - Security events: bounded log of the latest 3,000; staff-access audit: the latest 1,000.
 - Coach proposals not decided on expire after 14 days; scans keep nothing.
 - Sign-in sessions: 90 days by default, or until sign-out everywhere.
-- Backups: technical copies made on the server and within the hosting provider's infrastructure are not kept indefinitely; how often they are made (LEGAL_TBD_BACKUP_FREQUENCY) and how long they are kept (LEGAL_TBD_BACKUP_RETENTION) are still being verified.
+- Backups: the server uses the Auto Backup service contracted with the hosting provider; what it covers (LEGAL_TBD_BACKUP_SCOPE), how often it runs (LEGAL_TBD_BACKUP_FREQUENCY) and how long its copies are kept (LEGAL_TBD_BACKUP_RETENTION) are still being verified.
+
+These are the periods the app applies technically. The controller's own retention policy for member, training, routine, progress and AI data is still pending (LEGAL_TBD_RETENTION_POLICY); no period from other records of the business (tax, video surveillance, working-time register) is applied to this data.
 
 ## 11. Rights and how to exercise them
 
@@ -108,13 +112,15 @@ To exercise any right or ask about the data: 2JFITNESSCENTER@GMAIL.COM. Requests
 
 | Placeholder | What is needed |
 |---|---|
-| LEGAL_TBD_LEGAL_BASIS_REVIEW | validation by the advisor / DPO (SIREINSA) of the specific legal basis of each processing, and of whether any legal duty to keep membership records applies |
-| LEGAL_TBD_DPO_CONTACT | a dedicated contact channel of SIREINSA, if it has one different from the privacy email |
-| LEGAL_TBD_SERVER_LOCATION | where the Contabo server that hosts the app physically is |
-| LEGAL_TBD_BACKUP_FREQUENCY | how often backup copies are made, only if an automated schedule really exists |
-| LEGAL_TBD_BACKUP_RETENTION | how long backup copies are kept |
-| LEGAL_TBD_TRANSFER_SAFEGUARDS | the transfer mechanism for each provider that may process outside the EEA, once provider, location and terms are verified |
-| LEGAL_TBD_AI_PROVIDER_TERMS | the retention / training terms and data-processing agreements of the real AI provider accounts |
+| LEGAL_TBD_LEGAL_BASIS_REVIEW | legal validation by the privacy advisor of the specific legal basis of each processing, and of whether any legal duty to keep membership records applies (the foreseen bases are proposals; the old register does not close them) |
+| LEGAL_TBD_DPO_DESIGNATION | whether a data protection officer has been formally designated, and who. SIREINSA is documented as privacy consultancy, not as DPO |
+| LEGAL_TBD_DPO_CONTACT | the formal DPO contact channel, only if one is designated |
+| LEGAL_TBD_BACKUP_SCOPE | what Contabo's Auto Backup covers |
+| LEGAL_TBD_BACKUP_FREQUENCY | how often it runs |
+| LEGAL_TBD_BACKUP_RETENTION | how long its copies are kept |
+| LEGAL_TBD_RETENTION_POLICY | the controller's own retention policy for member, training, routine, progress and AI data |
+| LEGAL_TBD_TRANSFER_SAFEGUARDS | where each current provider processes data and the transfer mechanism, once provider, location and terms are verified |
+| LEGAL_TBD_AI_PROVIDER_TERMS | terms, data-processing agreement and processing location of the real AI provider accounts |
 
 Decisions already taken and applied: trainer-side AI needs the member's separate Staff AI tools consent and sends nothing without it; staff's private professional notes stay out of the automatic export and are available on request to 2JFITNESSCENTER@GMAIL.COM, with the limits stated in section 11.
 

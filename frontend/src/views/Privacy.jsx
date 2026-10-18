@@ -31,7 +31,8 @@ const SECTIONS = {
   controller: () => <>
     <H>{t('Who is responsible')}</H>
     <P>{t('The controller of the personal data processed by this app is {0}, tax ID {1}, address {2}.', CONTROLLER.name, CONTROLLER.taxId, CONTROLLER.address)}</P>
-    <P>{t('Privacy contact: {0}. Data protection officer: {1} (dedicated contact channel: {2}).', CONTROLLER.privacyEmail, CONTROLLER.dpo, VERIFY.dpoContact)}</P>
+    <P>{t('Privacy contact: {0}.', CONTROLLER.privacyEmail)}</P>
+    <P>{t('Privacy consultancy: {0} provides privacy consultancy services to the controller. A formal designation of a data protection officer is not documented yet ({1}; contact: {2}).', CONTROLLER.privacyAdvisor, VERIFY.dpoDesignation, VERIFY.dpoContact)}</P>
     <P>{t('2J Fitness is free software (AGPL). Whoever runs a copy of it for their own gym is the controller of the data in that copy.')}</P>
   </>,
 
@@ -61,7 +62,7 @@ const SECTIONS = {
 
   basis: () => <>
     <H>{t('Legal basis')}</H>
-    <P>{t('The legal basis that applies to each processing is pending validation by the controller’s advisor and data protection officer ({0}). What follows is the basis currently foreseen, not yet a confirmed legal determination.', VERIFY.legalBasis)}</P>
+    <P>{t('The legal basis that applies to each processing is pending legal validation by the controller’s privacy advisor ({0}). What follows is the basis currently foreseen, not yet a confirmed legal determination.', VERIFY.legalBasis)}</P>
     <L items={[
       t('Account, training and service features: foreseen basis — performing the service you use (Art. 6(1)(b) GDPR).'),
       t('Security log and backups: foreseen basis — the legitimate interest in keeping the service secure and recoverable (Art. 6(1)(f) GDPR).'),
@@ -86,7 +87,7 @@ const SECTIONS = {
       t('Import matching: when you import another app’s CSV, Gemini may receive exercise names from the file and 2J library names to match them — not workouts, dates, weights or who you are.')
     ]} />
     <P>{t('Never sent to AI: health, activity, heart-rate and sleep data; WHOOP and Strava data; body-composition values and measurement tests; workout session notes; progress photos; messages, social and community content; your name and account identifier; credentials and push data.')}</P>
-    <P>{t('What a provider does with data after receiving it depends on its own terms, and 2J cannot delete it for you ({0}).', VERIFY.aiProviderTerms)}</P>
+    <P>{t('What a provider does with data after receiving it, and where, depends on its own terms and data-processing agreement, and 2J cannot delete it for you ({0}).', VERIFY.aiProviderTerms)}</P>
   </>,
 
   providers: () => <>
@@ -101,14 +102,14 @@ const SECTIONS = {
       t('Push services of your browser or phone vendor — if you enable notifications: the notification text and your device’s push address pass through them. Optional; needs your browser or phone permission.'),
       t('Google Fonts — the web app loads its typeface from Google when it opens, so your IP address and browser details reach Google. It is not optional in the web version and may involve processing outside the EEA.'),
       t('jsDelivr (content network) — only the standalone mobile build: exercise images and animations are loaded from it, so your IP address reaches that network.'),
-      t('Hosting and infrastructure — the server where your data is stored is provided by {0} (location: {1}), and the certificate authority that issues the HTTPS certificate handles the domain name. Backup copies are made on that server and within the hosting provider’s infrastructure; no independent external backup provider is used.', CONTROLLER.hosting, VERIFY.serverLocation)
+      t('Hosting and infrastructure — the server where your data is stored is provided by {0} ({1}; the country and data centre are not specified), and the certificate authority that issues the HTTPS certificate handles the domain name. Backups use the Auto Backup service contracted with {0}; no independent external backup provider is known.', CONTROLLER.hosting, CONTROLLER.serverRegion)
     ]} />
     <P>{t('Health Connect and HealthKit are read on your device with the operating system’s permission; 2J does not pass that data to anyone else.')}</P>
   </>,
 
   transfers: () => <>
     <H>{t('International transfers')}</H>
-    <P>{t('Some providers above may process data outside the European Economic Area. The legal safeguard that applies to each one (adequacy decision, standard contractual clauses or similar) has not been verified yet ({0}), and the server location is {1}.', VERIFY.transferSafeguards, VERIFY.serverLocation)}</P>
+    <P>{t('Some providers above may process data outside the European Economic Area. Where each current provider processes data and the legal safeguard that applies to it (adequacy decision, standard contractual clauses or similar) have not been verified yet ({0}).', VERIFY.transferSafeguards)}</P>
   </>,
 
   retention: () => <>
@@ -120,8 +121,9 @@ const SECTIONS = {
       t('Security events: a bounded log of the latest 3,000 events; staff-access audit: the latest 1,000.'),
       t('Coach proposals you have not decided on expire after 14 days. Scans keep nothing.'),
       t('Sign-in sessions: 90 days by default, or until you sign out everywhere.'),
-      t('Backups: technical copies made on the server and within the hosting provider’s infrastructure are not kept indefinitely; how often they are made ({0}) and how long they are kept ({1}) are still being verified.', VERIFY.backupFrequency, VERIFY.backupRetention)
+      t('Backups: the server uses the Auto Backup service contracted with the hosting provider; what it covers ({0}), how often it runs ({1}) and how long its copies are kept ({2}) are still being verified.', VERIFY.backupScope, VERIFY.backupFrequency, VERIFY.backupRetention)
     ]} />
+    <P>{t('These are the periods the app applies technically. The controller’s own retention policy for member, training, routine, progress and AI data is still pending ({0}).', VERIFY.retentionPolicy)}</P>
   </>,
 
   rights: () => <>
