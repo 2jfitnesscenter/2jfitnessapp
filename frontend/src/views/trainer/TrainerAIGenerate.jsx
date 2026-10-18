@@ -85,7 +85,10 @@ export default function TrainerAIGenerate() {
   if (job) return <div id="trainer-app">
     <Topbar title={t('Generating…')} onBack={back} />
     <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-      <div className="muted small">{t('The AI is drafting routines for this member — this can take a minute or two.')}</div>
+      <div className="muted small">{job.phase === 'retrying' || job.phase === 'fallback' ? t('Taking a little longer than usual — still working on it.')
+        : job.phase === 'validating' ? t('Checking the draft against the 2J protocol…')
+        : job.phase === 'repairing' ? t('Adjusting a few details…')
+        : t('The AI is drafting routines for this member — this can take a minute or two.')}</div>
     </div>
   </div>
 

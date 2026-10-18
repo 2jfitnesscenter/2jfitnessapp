@@ -15,10 +15,10 @@ import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { trainerAIRoutes } from './coach/trainer-routes.js';
-import { scanBioimpedanceImage } from './lib/measurements-scan.js';
-import { scanRoutineDocument } from './lib/routine-scan.js';
-import { scanMachineImage } from './lib/machine-scan.js';
-import { hasAiScanConsent } from './lib/scan-consent.js';
+import { scanRoutes } from './lib/scan-routes.js';
+import { dropScanJobsFor } from './lib/scan-jobs.js';
+import * as aiMetrics from './lib/ai-metrics.js';
+import * as trainerJobs from './coach/trainer-jobs.js';
 import { auxAIRoutes } from './lib/aux-ai-routes.js';
 import { matchImportExercises } from './lib/import-exercise-match.js';
 import { readState, writeState } from './lib/state-store.js';
@@ -112,7 +112,6 @@ const SESSION_DAYS = Math.max(1, +(process.env.SESSION_DAYS || 90) || 90);
 // override, matching this app's existing "single household's gym" trust level (see jobs.js's own
 // framing) rather than treating a self-hosted single-tenant instance like public-internet SaaS.
 const MAX_BODY = 12 * 1024 * 1024;
-const MAX_SCAN_BYTES = 8 * 1024 * 1024;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 const FOLLOWUP_PRIVATE_CRYPTO_INFO = '2j-followup-private-v1';
@@ -405,7 +404,7 @@ const erasureDeps = () => ({
   followupPhotosDir,
   chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore,
   isStaff: isTrainer, clearCoach: coachJobs.clearUser,
-  forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); userSummaries.forget(uid); },
+  forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); userSummaries.forget(uid); dropScanJobsFor(uid); trainerJobs.forgetMember?.(uid); },
 });
 
 // "Workout planned today" reminder — one per user per day, at their chosen time.
@@ -2533,76 +2532,12 @@ const routes = {
     catch (e) { json(res, 400, { error: e.message }); }
   },
 
-  // Bioimpedance-report scan (photo or PDF) → structured values, for Admin's BioimpedanceSheet
-  // and Measurements' own "scan a report" sheet. Any signed-in user, member or admin — this only
-  // reads the file and hands back numbers, it never writes anyone's data itself. Saving still
-  // goes through the existing paths (POST /api/admin/user/measurements, or the client's own
-  // update() for a member's own profile) once the caller has reviewed the extracted values.
-  // body: { file: '<dataURL>' }.
-  'POST /api/measurements/scan': async (req, res) => {
-    const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const body = await readBody(req);
-    if (!hasAiScanConsent(body)) return json(res, 428, { error: 'acepta el aviso antes de enviar el archivo a Gemini', code: 'SCAN_CONSENT_REQUIRED' });
-    const dataUrl = typeof body.file === 'string' ? body.file : '';
-    const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
-    if (!m) return json(res, 400, { error: 'archivo no válido' });
-    const [, mimeType, b64] = m;
-    if (!/^image\//.test(mimeType) && mimeType !== 'application/pdf') {
-      return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
-    }
-    if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
-    const r = await scanBioimpedanceImage({ data: b64, mimeType, uid: user.id });
-    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
-    json(res, 200, { values: r.values });
-  },
-
-  // Printed/handwritten/photographed routine scan (photo or PDF) → raw exercise text, for the
-  // member's own "scan a routine" flow and the trainer panel's "scan a routine for this member".
-  // Same shape as /api/measurements/scan: any signed-in user, reads the file and hands back what
-  // it read, never writes anyone's plan itself — matching exercise names to real ids and saving
-  // happens client-side (frontend/src/lib/routine-scan.js's matchScannedRoutine(), then either
-  // mergePlan() for the member's own routines or the existing trainer/member-routine endpoints).
-  // body: { file: '<dataURL>' }.
-  'POST /api/routines/scan': async (req, res) => {
-    const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const body = await readBody(req);
-    if (!hasAiScanConsent(body)) return json(res, 428, { error: 'acepta el aviso antes de enviar el archivo a Gemini', code: 'SCAN_CONSENT_REQUIRED' });
-    const dataUrl = typeof body.file === 'string' ? body.file : '';
-    const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
-    if (!m) return json(res, 400, { error: 'archivo no válido' });
-    const [, mimeType, b64] = m;
-    if (!/^image\//.test(mimeType) && mimeType !== 'application/pdf') {
-      return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
-    }
-    if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
-    const r = await scanRoutineDocument({ data: b64, mimeType, uid: user.id });
-    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
-    json(res, 200, { routine: r.value });
-  },
-
-  // Single gym-machine/exercise photo → a raw name (no OCR, one Gemini vision call), for the
-  // member-facing "scan this machine" flow. Same shape/permissions as the two scans above —
-  // any signed-in user, reads the file and hands back what it read; matching against the
-  // library, the alias lookup below and any save both happen client-side.
-  // body: { file: '<dataURL>' }.
-  'POST /api/exercises/scan-machine': async (req, res) => {
-    const user = readSession(req);
-    if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
-    const body = await readBody(req);
-    if (!hasAiScanConsent(body)) return json(res, 428, { error: 'acepta el aviso antes de enviar el archivo a Gemini', code: 'SCAN_CONSENT_REQUIRED' });
-    const dataUrl = typeof body.file === 'string' ? body.file : '';
-    const m = dataUrl.match(/^data:([a-zA-Z0-9.+/-]+);base64,([\s\S]+)$/);
-    if (!m) return json(res, 400, { error: 'archivo no válido' });
-    const [, mimeType, b64] = m;
-    if (!/^image\//.test(mimeType) && mimeType !== 'application/pdf') {
-      return json(res, 400, { error: 'solo se aceptan imágenes o un PDF' });
-    }
-    if (Buffer.byteLength(b64, 'base64') > MAX_SCAN_BYTES) return json(res, 400, { error: 'el archivo es demasiado grande' });
-    const r = await scanMachineImage({ data: b64, mimeType, uid: user.id });
-    if (!r.ok) return json(res, r.code === 'DAILY_CAP' ? 429 : 400, { error: r.error, code: r.code });
-    json(res, 200, { name: r.value.name, nameEn: r.value.nameEn });
+  // The three AI scans (bioimpedance report, routine sheet, machine photo): see lib/scan-routes.js.
+  ...scanRoutes({ json, readBody, readSession }),
+  // Reliability counters of every AI flow: numbers only (lib/ai-metrics.js), never prompts, photos or answers.
+  'GET /api/admin/ai-metrics': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    json(res, 200, { flows: aiMetrics.snapshot() });
   },
 
   // Gym-wide machine→exercise alias lookup/save (db.machineAliases above). Any member can read
@@ -3520,6 +3455,7 @@ const routes = {
 // A job that was running when the process died is not coming back; say so rather than leaving
 // a spinner that never resolves.
 coachJobs.recoverOnBoot();
+trainerJobs.recoverOnBoot();
 // A ready proposal is the one Coach event worth a notification. Failures and "nothing to
 // change" stay silent on purpose (FR-38/E4).
 coachJobs.setProposalHook((uid, pending) => {
