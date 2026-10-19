@@ -30,4 +30,12 @@ describe('routine actions', () => {
     for (const label of ["t('Open routine')", "t('Edit')", "t('Duplicate')", "t('Delete routine')"]) expect(src).toContain(label)
     expect(src).toContain('confirmSheet')
   })
+
+  it('routines inside a program get the same ⋯ menu', () => {
+    const src = readFileSync(new URL('./TrainerClientPlan.jsx', import.meta.url), 'utf8')
+    const programs = src.slice(src.indexOf('plan.programs.map('), src.indexOf('loose.length'))
+    expect(programs).toContain('routineIds')
+    expect(programs).toContain('menu(r)')
+    expect(programs).not.toContain('"trash"')
+  })
 })

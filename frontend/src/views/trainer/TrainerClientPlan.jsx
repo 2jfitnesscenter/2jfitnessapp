@@ -75,11 +75,17 @@ export default function TrainerClientPlan() {
 
     <h4 className="sec">{t('Programs')}</h4>
     {(plan.programs || []).length ? <div className="list" style={{ marginBottom: 22 }}>
-      {plan.programs.map(p => <div key={p.id} className="item" onClick={() => nav('/trainer/' + memberId + '/build/p/' + p.id)}>
+      {plan.programs.map(p => <div key={p.id}><div className="item" onClick={() => nav('/trainer/' + memberId + '/build/p/' + p.id)}>
         {p.image ? <img src={mediaUrl(p.image)} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover', flex: 'none' }} />
           : <span className="lrow-i"><Icon name={glyphOf(p.emoji)} /></span>}
         <div className="grow"><div className="tt">{p.name}</div><div className="ss"><ProgramSummaryLine p={p} routines={plan.routines || []} /></div></div>
         <Icon name="chevronRight" className="chev" />
+      </div>
+      {(p.routineIds || []).map(rid => (plan.routines || []).find(r => r.id === rid)).filter(Boolean).map(r => <div key={r.id} className="item" style={{ paddingLeft: 28 }} onClick={() => open(r)}>
+        <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
+        <div className="grow"><div className="tt">{r.name}</div><div className="ss"><RoutineSummaryLine r={r} /></div></div>
+        <button className="iconbtn" aria-label={t('Routine actions')} aria-haspopup="menu" onClick={e => { e.stopPropagation(); menu(r) }}><Icon name="moreH" /></button>
+      </div>)}
       </div>)}
     </div> : <div className="dim small" style={{ margin: '4px 2px 22px' }}>{t('No programs yet.')}</div>}
 
