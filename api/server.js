@@ -3276,6 +3276,60 @@ const routes = {
     json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation }, routineId: routine.id });
   },
 
+  // body: { memberId, routineId, name? } — a copy of one routine of this member's plan, as a loose routine (no program, no schedule, no cover:
+  // a cover file belongs to the original). Same staff access as member-routine.
+  'POST /api/trainer/member-routine-duplicate': async (req, res) => {
+    const staff = requireTrainer(req, res); if (!staff) return;
+    const body = await readBody(req);
+    const member = memberFor(res, staff, body.memberId, 'ese miembro no existe'); if (!member) return;
+    const S = readState(member.id);
+    if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = trainerReceipt(S, body, 'member-routine-duplicate');
+    if (replay) return json(res, 200, replay);
+    const src = (S.routines || []).find(r => r.id === String(body.routineId || ''));
+    if (!src) return json(res, 404, { error: 'esa rutina no existe' });
+    const copy = JSON.parse(JSON.stringify(src));
+    delete copy.image;
+    copy.id = crypto.randomBytes(9).toString('base64url');
+    copy.name = (String(body.name || '').trim() || src.name + ' (copia)').slice(0, 60);
+    S.routines.push(copy);
+    S._ts = Date.now();
+    saveTrainer(member.id, S, body, 'member-routine-duplicate', { ok: true, routineId: copy.id });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation }, routineId: copy.id });
+  },
+
+  // body: { memberId, routineId } — takes ONE routine off this member's plan (same staff access as member-routine above).
+  // Only the plan changes: workouts, marks, progression and stats are never touched, and the old content stays in the
+  // member's routineVersions trace. If the routine drove the week (weekday map, a program's own map, a planned day) that slot
+  // is cleared, and an active program left with no routine at all is deactivated, so the member is left with no active routine.
+  'POST /api/trainer/member-routine-delete': async (req, res) => {
+    const staff = requireTrainer(req, res); if (!staff) return;
+    const body = await readBody(req);
+    const member = memberFor(res, staff, body.memberId, 'ese miembro no existe'); if (!member) return;
+    const S = readState(member.id);
+    if (!S) return json(res, 400, { error: 'este miembro nunca ha sincronizado — todavía no hay nada donde asignar' });
+    const replay = trainerReceipt(S, body, 'member-routine-delete');
+    if (replay) return json(res, 200, replay);
+    const id = String(body.routineId || '');
+    const old = (S.routines || []).find(r => r.id === id);
+    if (!old) return json(res, 404, { error: 'esa rutina no existe' });
+    snapshotVersionIfChanged(S, 'routineVersions', old, { ...old, archivedAt: Date.now() });
+    S.routines = S.routines.filter(r => r.id !== id);
+    const clear = map => { for (const k of Object.keys(map || {})) if (map[k] === id) delete map[k]; };
+    clear(S.week); clear(S.dayPlan);
+    S.programs = (S.programs || []).map(p => {
+      if (!(p.routineIds || []).includes(id) && !Object.values(p.week || {}).includes(id)) return p;
+      const q = { ...p, routineIds: (p.routineIds || []).filter(x => x !== id) };
+      if (p.week) { q.week = { ...p.week }; clear(q.week); }
+      return q;
+    });
+    const activeProg = S.activeProgramId && S.programs.find(p => p.id === S.activeProgramId);
+    if (activeProg && !activeProg.routineIds.length) S.activeProgramId = null;
+    S._ts = Date.now();
+    saveTrainer(member.id, S, body, 'member-routine-delete', { ok: true, routineId: id });
+    json(res, 200, { ok: true, sync: { revision: S._sync.revision, generation: S._sync.generation }, routineId: id });
+  },
+
   // body: { memberId, programId?, name, emoji, routineIds, week? } — routineIds must already be
   // on this member's plan (build them with member-routine first). Unlike assign-program above,
   // `week` travels with it (weekday -> routineId), since here the trainer is scheduling it

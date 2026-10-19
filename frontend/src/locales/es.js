@@ -5854,4 +5854,8 @@ export default {
   'Checking your plan against the 2J protocol…': 'Comprobando tu plan con el protocolo 2J…',
   'Adjusting a few details…': 'Ajustando algunos detalles…',
   'Checking the draft against the 2J protocol…': 'Comprobando el borrador con el protocolo 2J…',
+  'Routine duplicated': 'Rutina duplicada',
+  'It leaves {0}’s plan. Their past workouts, marks, progression and stats are kept. If it was their active routine, they will have no active routine.': 'Sale del plan de {0}. Sus entrenamientos pasados, marcas, progresión y estadísticas se conservan. Si era su rutina activa, se quedará sin rutina activa.',
+  'Routine deleted': 'Rutina eliminada',
+  'Routine actions': 'Acciones de la rutina',
 }
