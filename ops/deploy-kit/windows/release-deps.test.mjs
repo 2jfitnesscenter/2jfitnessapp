@@ -59,15 +59,15 @@ test('the rendered runner is valid PowerShell', { skip: !pwsh }, () => {
 
 // Behaviour of the real function from the rendered runner, with a fake npm on PATH (Windows runner only: it drives cmd.exe).
 const behave = { skip: !(pwsh && process.platform === 'win32') }
-function scenario({ lock = true, installed = false, fail = false }) {
+function scenario({ lock = true, installed = false, fail = false, pkg = { dependencies: { foo: '1.0.0' } } }) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-deps-'))
   const proj = path.join(tmp, 'frontend'), bin = path.join(tmp, 'bin'), log = path.join(tmp, 'npm-calls.log')
   fs.mkdirSync(proj, { recursive: true }); fs.mkdirSync(bin)
-  fs.writeFileSync(path.join(proj, 'package.json'), JSON.stringify({ dependencies: { foo: '1.0.0' } }))
+  fs.writeFileSync(path.join(proj, 'package.json'), JSON.stringify(pkg))
   if (lock) fs.writeFileSync(path.join(proj, 'package-lock.json'), '{}')
   if (installed) { fs.mkdirSync(path.join(proj, 'node_modules/foo'), { recursive: true }); fs.writeFileSync(path.join(proj, 'node_modules/foo/package.json'), '{}') }
   fs.writeFileSync(path.join(bin, 'npm.cmd'), `@echo off\r\necho %* >> "${log}"\r\nif "${fail ? '1' : '0'}"=="1" exit /b 1\r\nmkdir node_modules\\foo 2>nul\r\necho {} > node_modules\\foo\\package.json\r\nexit /b 0\r\n`)
-  const script = `$ErrorActionPreference='Stop'; $ValidationDir='${tmp.replace(/'/g, "''")}'\n${fn}\ntry { Ensure-NodeDependencies '${proj.replace(/'/g, "''")}'; 'RESULT=OK' } catch { 'RESULT=THROW:' + $_.Exception.Message }`
+  const script = `Set-StrictMode -Version Latest; $ErrorActionPreference='Stop'; $ValidationDir='${tmp.replace(/'/g, "''")}'\n${fn}\ntry { Ensure-NodeDependencies '${proj.replace(/'/g, "''")}'; 'RESULT=OK' } catch { 'RESULT=THROW:' + $_.Exception.Message }`
   const file = path.join(tmp, 'case.ps1'); fs.writeFileSync(file, script)
   const r = spawnSync('pwsh', ['-NoProfile', '-File', file], { encoding: 'utf8', env: { ...process.env, PATH: bin + path.delimiter + process.env.PATH } })
   const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : ''
@@ -98,4 +98,19 @@ test('no lockfile: fails before npm is ever called', behave, () => {
   const s = scenario({ lock: false })
   assert.match(s.out, /RESULT=THROW:DEPS_LOCKFILE_MISSING=/)
   assert.equal(s.calls, '')
+})
+
+// The runner runs under Set-StrictMode -Version Latest: an absent section must not throw PropertyNotFoundStrict.
+test('package.json with only dependencies / only devDependencies / both / neither: no strict-mode error, npm ci only when something declared is missing', behave, () => {
+  assert.match(runner, /Set-StrictMode -Version Latest/)
+  const only = scenario({ pkg: { dependencies: { foo: '1.0.0' } } })
+  assert.doesNotMatch(only.out, /PropertyNotFound/); assert.match(only.out, /RESULT=OK/); assert.equal(only.calls, 'ci --no-audit --no-fund')
+  const dev = scenario({ pkg: { devDependencies: { foo: '1.0.0' } } })
+  assert.doesNotMatch(dev.out, /PropertyNotFound/); assert.match(dev.out, /RESULT=OK/); assert.equal(dev.calls, 'ci --no-audit --no-fund')
+  const both = scenario({ pkg: { dependencies: { foo: '1.0.0' }, devDependencies: { bar: '1.0.0' } }, installed: true })
+  assert.doesNotMatch(both.out, /PropertyNotFound/); assert.match(both.out, /DEPS_INSTALL=.*missing 1 of 2/); assert.match(both.out, /RESULT=THROW:DEPS_INSTALL_INCOMPLETE=.*bar/); assert.equal(both.calls, 'ci --no-audit --no-fund')
+  const none = scenario({ pkg: { name: 'x' } })
+  assert.doesNotMatch(none.out, /PropertyNotFound/); assert.match(none.out, /DEPS_REUSED=.*declared=0/); assert.match(none.out, /RESULT=OK/); assert.equal(none.calls, '', 'nothing declared: nothing invented, nothing installed')
+  const empty = scenario({ pkg: { dependencies: {}, devDependencies: null } })
+  assert.doesNotMatch(empty.out, /PropertyNotFound/); assert.match(empty.out, /RESULT=OK/)
 })
