@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { isAllowedPostTargetPath, renderTemplate, validateConfig, validateWebPushSubscriptionWiring, verifyRegression } from './generate-release-runner.mjs'
+import { isAllowedPostTargetPath, isRepositoryOnlyPath, renderTemplate, validateConfig, validateWebPushSubscriptionWiring, verifyRegression } from './generate-release-runner.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const template = fs.readFileSync(path.join(here, 'templates', 'release-runner.ps1.in'), 'utf8')
@@ -233,4 +233,139 @@ test('ops cron step: outside the server layout it is skipped quietly and the dep
   const r = spawnSync('bash', ['-c', script], { encoding: 'utf8' })
   fs.rmSync(app, { recursive: true, force: true })
   assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /OPS_CRON=SKIPPED:not_the_server_layout/); assert.ok(r.stdout.includes('FINISHED')); assert.ok(!r.stdout.includes('ERR_TRAP_FIRED'))
+})
+
+/* ---------- repository-only (non-deployable) paths: in the Git delta, never deployed ---------- */
+// The real 89-path delta of the retarget 1a40473 over production 3106e4a: 76 deployable paths + 13 repository-only ones.
+const DEPLOYABLE_89 = `AI_HANDOFF.md
+CHANGELOG.md
+api/coach/adapters/gemini.js
+api/coach/ai-generate.js
+api/coach/ai-run.js
+api/coach/config.js
+api/coach/jobs.js
+api/coach/routes.js
+api/coach/trainer-ai.js
+api/coach/trainer-jobs.js
+api/coach/trainer-routes.js
+api/lib/account-erasure.js
+api/lib/ai-metrics.js
+api/lib/ai-vision.js
+api/lib/aux-ai-config.js
+api/lib/aux-ai-routes.js
+api/lib/coach-followup-routes.js
+api/lib/exercise-name-match.js
+api/lib/exercise-notes.js
+api/lib/machine-scan.js
+api/lib/measurements-consensus.js
+api/lib/measurements-scan.js
+api/lib/routine-scan.js
+api/lib/routine-validate.js
+api/lib/scan-jobs.js
+api/lib/scan-routes.js
+api/lib/staff-ai-consent.js
+api/package.json
+api/platform-proof/routes.js
+api/platform-proof/service-auth.js
+api/platform-proof/store.js
+api/scripts/ai-scan-benchmark.mjs
+api/server.js
+api/test/ai-reliability.test.js
+api/test/ai-stability.test.js
+api/test/exercise-notes.test.js
+api/test/platform-proof.test.js
+api/test/trainer-acl.test.js
+docs/ACCOUNT_ERASURE.md
+docs/AI_RELIABILITY.md
+docs/CENTER_MANAGEMENT_V1.md
+docs/COACH_FOLLOWUP_V3.md
+docs/DATA_MAP.md
+docs/HANDOFF_2J-089.md
+docs/PRIVACY_POLICY.md
+docs/SOCIAL_V2.md
+docs/TASK_2J-089.md
+frontend/src/components/DeleteAccountSheet.jsx
+frontend/src/components/ScanUpload.jsx
+frontend/src/components/SharedExerciseNote.jsx
+frontend/src/components/StaffAiConsentSheet.jsx
+frontend/src/components/coach/CoachMember.jsx
+frontend/src/components/constructor/DayCanvas.jsx
+frontend/src/components/shared-exercise-note.test.jsx
+frontend/src/index.css
+frontend/src/lib/coach-api.js
+frontend/src/lib/exercise-notes.js
+frontend/src/lib/legal-controller.js
+frontend/src/lib/media.js
+frontend/src/lib/scan-consent.js
+frontend/src/lib/trainer-ai-api.js
+frontend/src/lib/trainer-api.js
+frontend/src/locales/es.js
+frontend/src/store/useStore.js
+frontend/src/views/Coach.jsx
+frontend/src/views/Legal.jsx
+frontend/src/views/Legal.test.jsx
+frontend/src/views/Privacy.jsx
+frontend/src/views/Privacy.test.jsx
+frontend/src/views/Settings.jsx
+frontend/src/views/Workout.jsx
+frontend/src/views/trainer/Constructor.jsx
+frontend/src/views/trainer/TrainerAIGenerate.jsx
+frontend/src/views/trainer/TrainerClientPlan.jsx
+frontend/src/views/trainer/TrainerRoutineBuilder.jsx
+frontend/src/views/trainer/routine-actions.test.js`.split('\n')
+const REPO_ONLY_89 = [".env.example",".env.production.example",".gitattributes",".github/workflows/test.yml",".gitignore","contracts/2J-089-training-summary-v1.json","ops/deploy-kit/releases/bunker-v2.json","ops/deploy-kit/releases/megasprint-2026-10-07.json","ops/deploy-kit/windows/feature-gate-probe.test.mjs","ops/deploy-kit/windows/generate-release-runner.mjs","ops/deploy-kit/windows/generate-release-runner.test.mjs","ops/deploy-kit/windows/git-root.test.mjs","ops/deploy-kit/windows/templates/release-runner.ps1.in"]
+const withRepoOnly = (extra = {}) => ({ ...base, deltaPaths: [...DEPLOYABLE_89, ...REPO_ONLY_89], deployablePaths: DEPLOYABLE_89, nonDeployablePaths: REPO_ONLY_89, expectedCommitCount: 1, maxCommits: 1, ...extra })
+
+test('the real 89-path delta validates with SAFE_PATH untouched: 76 deployable + 13 exact repository-only', () => {
+  assert.equal(DEPLOYABLE_89.length, 76); assert.equal(REPO_ONLY_89.length, 13)
+  const v = validateConfig(withRepoOnly())
+  assert.equal(v.deployable.length, 76); assert.equal(v.nonDeployable.length, 13)
+  // the same delta without the classification is refused exactly as before
+  assert.throws(() => validateConfig({ ...withRepoOnly(), nonDeployablePaths: undefined, deployablePaths: undefined }), /INVALID_EXACT_DELTA_PATHS/)
+})
+
+test('the rendered runner expects the DEPLOYABLE delta from the archives, the full delta from Git, and builds the release from the production-preserving tree', () => {
+  const out = renderTemplate(template, withRepoOnly())
+  const start = out.indexOf('cat > "$EXPECTED_DELTA" <<')
+  const expected = out.slice(start, out.indexOf('\nDELTA\n', start)).split('\n').slice(1)
+  assert.deepEqual([...expected].sort(), [...DEPLOYABLE_89].sort(), 'the archive delta is exactly the deployable paths')
+  for (const p of REPO_ONLY_89) assert.ok(!expected.includes(p), 'never in the archive delta: ' + p)
+  assert.ok(out.includes('TARGET_DELTA=OK 89 files') && out.includes('deployable=76'))
+  assert.ok(out.includes('RELEASE_SCOPE=OK changed=76'))
+  assert.ok(out.includes('release-tree.mjs $Commit $RollbackCommit @NonDeployablePaths'))
+  assert.ok(out.includes('git archive --format=tar.gz --output=$Release $ReleaseSource'))
+  assert.ok(out.includes('git archive --format=tar.gz --output=$RollbackRelease $RollbackCommit'), 'the rollback archive stays the exact baseline')
+  for (const p of REPO_ONLY_89) assert.ok(out.includes("'" + p + "'"), 'declared in the runner: ' + p)
+})
+
+test('a path in the delta that is neither SAFE_PATH nor explicitly declared repository-only fails', () => {
+  const extra = 'contracts/other.json'
+  assert.throws(() => validateConfig(withRepoOnly({ deltaPaths: [...DEPLOYABLE_89, ...REPO_ONLY_89, extra] })), /DEPLOYABLE_PATHS_MISMATCH|INVALID_EXACT_DELTA_PATHS/)
+  assert.throws(() => validateConfig(withRepoOnly({ deltaPaths: [...DEPLOYABLE_89, ...REPO_ONLY_89, extra], deployablePaths: [...DEPLOYABLE_89, extra] })), /INVALID_EXACT_DELTA_PATHS/)
+})
+
+test('a repository-only path that is not in the delta, or is not on the fixed list, fails', () => {
+  assert.throws(() => validateConfig(withRepoOnly({ nonDeployablePaths: [...REPO_ONLY_89, '.gitkeep'] })), /INVALID_NON_DEPLOYABLE_PATHS/)
+  assert.throws(() => validateConfig(withRepoOnly({ deltaPaths: [...DEPLOYABLE_89, ...REPO_ONLY_89.slice(1)] })), /NON_DEPLOYABLE_NOT_IN_DELTA/)
+  for (const p of ['api/server.js', 'frontend/src/App.jsx', 'docs/X.md', 'CHANGELOG.md', 'ops/server/2j-deploy-gate', 'ops/deploy-kit/windows/2j-transport.ps1', 'ops/x', '.github/workflows/other.yml', '.env', '.env.production', 'data/db.json'])
+    assert.equal(isRepositoryOnlyPath(p), false, p + ' can never be repository-only')
+  for (const p of REPO_ONLY_89) assert.equal(isRepositoryOnlyPath(p), true, p)
+})
+
+test('an unsafe path declared deployable still fails; code paths cannot hide as repository-only', () => {
+  assert.throws(() => validateConfig(withRepoOnly({ deltaPaths: [...DEPLOYABLE_89, ...REPO_ONLY_89, '.env.production.local'], deployablePaths: [...DEPLOYABLE_89, '.env.production.local'] })), /INVALID_EXACT_DELTA_PATHS/)
+  const hidden = 'api/server.js'
+  assert.throws(() => validateConfig(withRepoOnly({ nonDeployablePaths: [...REPO_ONLY_89, hidden], deployablePaths: DEPLOYABLE_89.filter(p => p !== hidden) })), /INVALID_NON_DEPLOYABLE_PATHS/)
+})
+
+test('hiding a path of the delta (or inflating the classification) is refused: deployable must be exactly delta minus repository-only', () => {
+  assert.throws(() => validateConfig(withRepoOnly({ deployablePaths: DEPLOYABLE_89.slice(1) })), /DEPLOYABLE_PATHS_MISMATCH/)
+  assert.throws(() => validateConfig(withRepoOnly({ deployablePaths: [...DEPLOYABLE_89, '.gitignore'] })), /DEPLOYABLE_PATHS_MISMATCH/)
+  assert.throws(() => validateConfig(withRepoOnly({ nonDeployablePaths: [...REPO_ONLY_89, REPO_ONLY_89[0]] })), /INVALID_NON_DEPLOYABLE_PATHS/)
+  assert.throws(() => validateConfig(withRepoOnly({ nonDeployablePaths: REPO_ONLY_89, deployablePaths: undefined })), /DEPLOYABLE_PATHS_MISMATCH/)
+})
+
+test('manifests without repository-only paths render with an empty list (the archive is the plain target)', () => {
+  const out = renderTemplate(template, base)
+  assert.ok(out.includes('$NonDeployablePaths = @()'))
 })

@@ -152,7 +152,7 @@ function RowMenu({ e, close, onReplace, onNotes, onMore, onRemove, onVideo }) {
   return <div className="cx-menu">
     <h3 className="capitalize">{nameFor(exOr(e.id))}</h3>
     <button onClick={act(onReplace)}><Icon name="shuffle" />{t('Replace exercise')}</button>
-    <button onClick={act(onNotes)}><Icon name="clipboard" />{e.note ? t('Edit note') : t('Add a note')}</button>
+    <button onClick={act(onNotes)}><Icon name="clipboard" />{e.note ? t('Edit routine note') : t('Add a routine note')}</button>
     <button onClick={act(onMore)}><Icon name="gear" />{t('Mode, weight and progression')}</button>
     {onVideo && <button onClick={act(onVideo)}><Icon name="play" />{t('Video and instructions')}</button>}
     <button className="danger" onClick={act(onRemove)}><Icon name="trash" />{t('Remove from the day')}</button>

@@ -8,6 +8,15 @@ const root = path.resolve(here, '../../..')
 const TEMPLATE = path.join(here, 'templates', 'release-runner.ps1.in')
 const SHA40 = /^[0-9a-f]{40}$/
 const SAFE_PATH = /^(?:AI_HANDOFF\.md|CHANGELOG\.md|(?:api|frontend|scripts|web|docs)\/[A-Za-z0-9._/-]+)$/
+// Repository-only paths: part of the Git delta (and verified there, exactly) but NEVER deployed — the release archive carries them exactly as the
+// production baseline has them (see release-tree.mjs). Fail-closed: an exact list plus one narrow tooling pattern; anything else in the delta must be a
+// SAFE_PATH deployable path. Nothing under api/, frontend/, scripts/, web/ or docs/ can ever be declared repository-only.
+export const REPOSITORY_ONLY_EXACT = new Set([
+  '.env.example', '.env.production.example', '.gitattributes', '.gitignore', '.github/workflows/test.yml',
+  'contracts/2J-089-training-summary-v1.json', // read only by api/test/platform-proof.test.js (checked: no runtime code opens contracts/)
+])
+const REPOSITORY_ONLY_TOOLING = /^ops\/deploy-kit\/(?:releases\/[A-Za-z0-9._-]+\.json|windows\/(?:templates\/)?[A-Za-z0-9._-]+\.(?:mjs|in))$/
+export const isRepositoryOnlyPath = p => typeof p === 'string' && (REPOSITORY_ONLY_EXACT.has(p) || REPOSITORY_ONLY_TOOLING.test(p))
 const NO_CREDENTIAL_PIN_PROBES = [
   { method: 'POST', path: '/api/shared-device/pin', status: 403 },
   { method: 'POST', path: '/api/shared-staff/pin', status: 403 },
@@ -55,7 +64,17 @@ export function validateConfig(c) {
   if (!Number.isInteger(c.expectedFrontendTests) || c.expectedFrontendTests < 1) fail('INVALID_FRONTEND_TEST_COUNT')
   if (!Number.isInteger(c.expectedApiTests) || c.expectedApiTests < 1) fail('INVALID_API_TEST_COUNT')
   if (!Number.isInteger(c.expectedApiPassed) || !Number.isInteger(c.expectedApiSkipped) || c.expectedApiPassed + c.expectedApiSkipped !== c.expectedApiTests) fail('API_TEST_TOTAL_MISMATCH')
-  if (!Array.isArray(c.deltaPaths) || !c.deltaPaths.length || new Set(c.deltaPaths).size !== c.deltaPaths.length || c.deltaPaths.some(p => !SAFE_PATH.test(p))) fail('INVALID_EXACT_DELTA_PATHS')
+  if (!Array.isArray(c.deltaPaths) || !c.deltaPaths.length || new Set(c.deltaPaths).size !== c.deltaPaths.length || c.deltaPaths.some(p => typeof p !== 'string')) fail('INVALID_EXACT_DELTA_PATHS')
+  // deltaPaths is the COMPLETE Git delta. nonDeployablePaths are exact members of it that are never deployed; deployablePaths is everything else and must
+  // pass SAFE_PATH exactly as before.
+  const nonDeployable = c.nonDeployablePaths ?? []
+  if (!Array.isArray(nonDeployable) || new Set(nonDeployable).size !== nonDeployable.length || nonDeployable.some(p => !isRepositoryOnlyPath(p))) fail('INVALID_NON_DEPLOYABLE_PATHS')
+  if (nonDeployable.some(p => !c.deltaPaths.includes(p))) fail('NON_DEPLOYABLE_NOT_IN_DELTA')
+  const deployable = c.deltaPaths.filter(p => !nonDeployable.includes(p))
+  if (nonDeployable.length || c.deployablePaths !== undefined) {
+    if (!Array.isArray(c.deployablePaths) || JSON.stringify([...c.deployablePaths].sort()) !== JSON.stringify([...deployable].sort())) fail('DEPLOYABLE_PATHS_MISMATCH')
+  }
+  if (!deployable.length || deployable.some(p => !SAFE_PATH.test(p))) fail('INVALID_EXACT_DELTA_PATHS')
   if (c.maxCommits !== c.expectedCommitCount || !Number.isInteger(c.expectedCommitCount) || c.expectedCommitCount < 1) fail('INVALID_COMMIT_COUNT')
   if (!c.sync || !SHA40.test(c.sync.rollbackBase || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256Lf || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256CrLf || '')) fail('INVALID_SYNC_GUARD')
   if (!c.probes || !Array.isArray(c.probes.sourceFiles) || !Array.isArray(c.probes.sourceMarkers) || !Array.isArray(c.probes.unauthenticatedRoutes)) fail('INVALID_RELEASE_PROBES')
@@ -79,7 +98,7 @@ export function validateConfig(c) {
     if (matches.length > 1 || (matches.length === 1 && matches[0].status !== expected.status)) fail(`NO_ORIGIN_PUSH_PROBE_MUST_MATCH_CONTRACT_403:${expected.path}`)
   }
   if (new Set(noOriginPushProbeStatuses.map(p => p.status)).size > 1) fail('CONTRADICTORY_NO_ORIGIN_PUSH_EXPECTATIONS')
-  return { targetShort: c.targetCommit.slice(0, 7), expectedShort: c.expectedCurrentCommit.slice(0, 7) }
+  return { targetShort: c.targetCommit.slice(0, 7), expectedShort: c.expectedCurrentCommit.slice(0, 7), deployable, nonDeployable }
 }
 
 function renderSourceProbes(c) {
@@ -108,7 +127,7 @@ function renderPostStartProbes(c) {
 }
 
 export function renderTemplate(template, c) {
-  const { targetShort, expectedShort } = validateConfig(c)
+  const { targetShort, expectedShort, deployable, nonDeployable } = validateConfig(c)
   template = template.replace(/\r\n/g, '\n')
   const values = {
     RELEASE_TITLE: c.metadata.title,
@@ -123,7 +142,9 @@ export function renderTemplate(template, c) {
     API_SKIPPED: String(c.expectedApiSkipped),
     MAX_COMMITS: String(c.maxCommits),
     DELTA_COUNT: String(c.deltaPaths.length),
-    EXPECTED_DELTA_PATHS: [...c.deltaPaths].sort().join('\n'),
+    EXPECTED_DELTA_PATHS: [...deployable].sort().join('\n'),
+    DEPLOYABLE_COUNT: String(deployable.length),
+    NON_DEPLOYABLE_PATHS_PS: nonDeployable.map(psQuote).join(', '),
     DELTA_PATHS_PS: c.deltaPaths.map(psQuote).join(', '),
     SYNC_BASE: c.sync.rollbackBase,
     SYNC_JS_SHA256_LF: c.sync.syncJsSha256Lf,

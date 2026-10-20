@@ -141,7 +141,10 @@ Write-Host "TARGET_COMMITS=$($Commits.Count) over production (delta is checked f
 $DeltaPaths = @(git diff-tree --no-commit-id --name-only -r $ExpectedCurrentCommit $Commit | Sort-Object -Unique)
 $ExpectedDeltaPaths = @(@@DELTA_PATHS_PS@@)
 if ($LASTEXITCODE -ne 0 -or (Compare-Object $ExpectedDeltaPaths $DeltaPaths)) { throw "UNEXPECTED_TARGET_DELTA=$($DeltaPaths -join ',')" }
-Write-Host 'TARGET_DELTA=OK @@DELTA_COUNT@@ files (delta from verified production @@EXPECTED_CURRENT_SHORT@@)'
+# Repository-only paths: exact members of the delta above that are never deployed (generate-release-runner.mjs validates the list against a fixed allowlist).
+$NonDeployablePaths = @(@@NON_DEPLOYABLE_PATHS_PS@@)
+foreach ($NonDeployable in $NonDeployablePaths) { if ($DeltaPaths -notcontains $NonDeployable) { throw "NON_DEPLOYABLE_NOT_IN_DELTA=$NonDeployable" } }
+Write-Host "TARGET_DELTA=OK @@DELTA_COUNT@@ files (delta from verified production @@EXPECTED_CURRENT_SHORT@@) deployable=@@DEPLOYABLE_COUNT@@ repository_only=$($NonDeployablePaths.Count)"
 git diff --quiet --exit-code
 if ($LASTEXITCODE -ne 0) { throw 'Hay cambios tracked sin commit en el working tree' }
 git diff --cached --quiet --exit-code
@@ -307,7 +310,7 @@ try {
   & docker rm --force $ImageSmokeName | Out-Null
 }
 Write-Host 'Validacion local (tests, build, locales, generadores)...'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs' @('tests 43', 'pass 43', 'fail 0', 'skipped 0')
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs' @('tests 54', 'pass 54', 'fail 0', 'skipped 0')
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend 'npx vitest run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx' @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
@@ -374,7 +377,14 @@ if ($LASTEXITCODE -ne 0) { throw 'The local validation changed tracked files' }
 Assert-CleanTree 'despues-de-validar'
 
 if (Test-Path -LiteralPath $Release) { throw "Release artifact already exists; preserve it and choose a new temp path: $Release" }
-git archive --format=tar.gz --output=$Release $Commit
+# The archive is made from the target tree with every repository-only path put back exactly as production has it, so none of them can reach production.
+$ReleaseSource = $Commit
+if ($NonDeployablePaths.Count -gt 0) {
+  $ReleaseSource = (node ops/deploy-kit/windows/release-tree.mjs $Commit $RollbackCommit @NonDeployablePaths | Select-Object -First 1).Trim()
+  if ($LASTEXITCODE -ne 0 -or $ReleaseSource -notmatch '^[0-9a-f]{40}$') { throw 'RELEASE_TREE_FAILED: could not build the deployable release tree' }
+  Write-Host "RELEASE_TREE=$ReleaseSource repository_only_kept_as_production=$($NonDeployablePaths.Count)"
+}
+git archive --format=tar.gz --output=$Release $ReleaseSource
 if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
 if (Test-Path -LiteralPath $RollbackRelease) { throw "Rollback artifact already exists; preserve it and choose a new temp path: $RollbackRelease" }
 git archive --format=tar.gz --output=$RollbackRelease $RollbackCommit
@@ -1284,7 +1294,7 @@ grep -Fq 'notifyRev' "$RELEASE_CHECK_DIR/frontend/src/lib/guided-api.js"
 printf 'STUDIO_RELEASE=OK admin_routes=requireAdmin library_overlay=config+offline_cache guidedRev=config lazy_studio_chunks=3\n'
 printf 'GYM_PROFILES_V11_RELEASE=OK equipment=19 api_frontend_model=identical config_persistence=global default_fallback=present read=/api/config write=admin_only offline_cache=separate library+swap+constructor+workout+train2j+ai+bunker_context=present\n'
 @@SOURCE_PROBES@@
-printf 'RELEASE_SCOPE=OK changed=@@DELTA_COUNT@@ exact_delta_from_@@EXPECTED_CURRENT_SHORT@@ outside_delta_identical=yes\n'
+printf 'RELEASE_SCOPE=OK changed=@@DEPLOYABLE_COUNT@@ exact_delta_from_@@EXPECTED_CURRENT_SHORT@@ outside_delta_identical=yes\n'
 # Seguimiento V4 (routine review loop): the shared engine is one byte-identical file on both sides, the staff write is admin-only and only touches S.routineReviews,
 # the review never edits a routine, and Sync V2 / auth / the follow-up endpoints keep their guards.
 cmp -s "$RELEASE_CHECK_DIR/api/lib/routine-review.js" "$RELEASE_CHECK_DIR/frontend/src/lib/routine-review.js" || { printf 'ROUTINE_REVIEW_COPY_DIFFERS\n'; false; }

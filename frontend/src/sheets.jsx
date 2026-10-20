@@ -2255,7 +2255,7 @@ function ExerciseMenu({ ex, entry, close, actions }) {
       <Row icon="arrowDown" iconTint="var(--blue)" title={entry.dropset ? t('Remove dropset') : t('Add dropset')} onClick={act(actions.onDropsetToggle)} />
       <Row icon="play" iconTint="var(--pink)" title={t('Video and instructions')} onClick={act(() => exerciseDetailSheet(ex))} />
       <Row icon="history" iconTint="var(--green)" title={t('Exercise history')} onClick={act(() => nav('/stats?ex=' + ex.id))} />
-      <Row icon="clipboard" iconTint="var(--yellow)" title={t('Notes')} onClick={act(actions.onNotes)} />
+      <Row icon="clipboard" iconTint="var(--yellow)" title={t('Routine notes')} onClick={act(actions.onNotes)} />
     </div>
     <div className="sect-b" style={{ marginTop: 14 }}>
       <Row icon="shuffle" iconTint="var(--red)" title={t('Replace and don’t recommend')} danger onClick={act(actions.onReplaceExclude)} />
@@ -2273,7 +2273,7 @@ export const exerciseMenuSheet = (ex, entry, actions) => ui().openSheet(close =>
 function ExerciseNotes({ ex, entry, close, onSave }) {
   const [note, setNote] = useState(entry.note || '')
   return <>
-    <h3 className="capitalize">{t('Notes')} — {nameFor(ex)}</h3>
+    <h3 className="capitalize">{t('Routine notes')} — {nameFor(ex)}</h3>
     <TextArea rows={4} maxLength={500} placeholder={t('Setup, cues, anything you want to remember for this exercise')}
       value={note} onChange={e => setNote(e.target.value)} />
     <div style={{ height: 14 }} />
