@@ -194,6 +194,16 @@ function Invoke-Checked([string]$Name, [string]$Dir, [string]$CommandLine, [stri
       throw "LOCAL_$Name FAILED: output does not match '$re'. Log: $log"
     }
   }
+  if ($Name -eq 'DEPLOY_TOOLING_TESTS') {
+    $validator = Join-Path $Root 'ops/deploy-kit/windows/generate-release-runner.mjs'
+    $summaryResult = & node $validator --validate-node-test-summary $log ([string]$code) 2>&1
+    $summaryCode = $LASTEXITCODE
+    if ($summaryCode -ne 0) {
+      Write-Host (($summaryResult | Out-String).Trim())
+      throw "LOCAL_$Name FAILED: invalid test summary. Log: $log"
+    }
+    Write-Host (($summaryResult | Out-String).Trim())
+  }
   Write-Host "LOCAL_$Name=OK"
 }
 function Invoke-FrontendTests {
@@ -312,7 +322,7 @@ try {
   & docker rm --force $ImageSmokeName | Out-Null
 }
 Write-Host 'Validacion local (tests, build, locales, generadores)...'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs' @('tests 54', 'pass 54', 'fail 0', 'skipped 0')
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs' @()
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend 'npx vitest run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx' @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
