@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { renderTemplate } from './generate-release-runner.mjs'
 import { buildReleaseTree } from './release-tree.mjs'
 
 // A throwaway repository: a production baseline and a later target that changes deployable and repository-only paths.
@@ -56,5 +58,49 @@ test('fail-closed: unknown, directory, glob, traversal, duplicate and short-SHA 
   assert.throws(run([]), /REQUIRES_PATHS/)
   assert.throws(() => buildReleaseTree({ cwd: dir, target: 'abc1234', baseline: PROD, nonDeployable: NON }), /FULL_SHAS/)
 })
+
+/* ---------- regression: PrepareOnly "RELEASE_TREE_FAILED: could not build the deployable release tree" ----------
+ * release-tree.mjs was fine (exit 0, one 40-hex line), but the runner piped it into `Select-Object -First 1`; that closes the pipe early and Windows PowerShell 5.1
+ * then leaves $LASTEXITCODE = -1 even on success, so a correct tree id was rejected. The runner now captures the whole output and reads the exit code right after. */
+const here = path.dirname(fileURLToPath(import.meta.url))
+const runner = renderTemplate(fs.readFileSync(path.join(here, 'templates', 'release-runner.ps1.in'), 'utf8'), JSON.parse(fs.readFileSync(path.join(here, '../releases/831f691.json'), 'utf8')))
+const snippet = runner.slice(runner.indexOf('# <release-tree-begin>'), runner.indexOf('# <release-tree-end>'))
+const treeScript = fs.readFileSync(path.join(here, 'release-tree.mjs'), 'utf8')
+
+test('the runner never pipes release-tree.mjs into Select-Object, and checks one 40-hex line plus the exit code', () => {
+  assert.ok(snippet.includes('release-tree.mjs'))
+  assert.ok(!/release-tree\.mjs[^\n]*\|\s*Select-Object/.test(runner), 'no early-closing pipeline')
+  assert.ok(snippet.includes('$ReleaseTreeCode = $LASTEXITCODE'))
+  assert.ok(snippet.includes('$ReleaseTreeOutput.Count -ne 1') && snippet.includes("'^[0-9a-f]{40}$'"))
+  assert.ok(snippet.includes('RELEASE_TREE_FAILED: exit='))
+})
+
+const shells = [['pwsh', ['-NoProfile', '-File']], ...(process.platform === 'win32' ? [['powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File']]] : [])]
+  .filter(([exe]) => spawnSync(exe, ['-NoProfile', '-Command', '1'], { stdio: 'ignore' }).status === 0)
+function runSnippet([exe, args], { baseline = PROD } = {}) {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'release-tree-runner-'))
+  try {
+    execFileSync('git', ['clone', '-q', dir, repo])
+    fs.mkdirSync(path.join(repo, 'ops/deploy-kit/windows'), { recursive: true }); fs.writeFileSync(path.join(repo, 'ops/deploy-kit/windows/release-tree.mjs'), treeScript)
+    const q = s => `'${s.replace(/'/g, "''")}'`
+    const script = `$ErrorActionPreference='Stop'; Set-StrictMode -Version Latest; Set-Location -LiteralPath ${q(repo)}\n$Commit=${q(TARGET)}; $RollbackCommit=${q(baseline)}; $NonDeployablePaths=@(${NON.map(q).join(',')}); $ReleaseSource=$Commit\n` +
+      `try {\n${snippet}\n'RESULT=' + $ReleaseSource } catch { 'RESULT=THROW:' + $_.Exception.Message }\n`
+    const file = path.join(repo, 'case.ps1'); fs.writeFileSync(file, script)
+    return spawnSync(exe, [...args, file], { encoding: 'utf8' })
+  } finally { fs.rmSync(repo, { recursive: true, force: true }) }
+}
+
+for (const shell of shells) {
+  test(`the exact runner snippet accepts the tree id in ${shell[0] === 'pwsh' ? 'PowerShell 7' : 'Windows PowerShell 5.1'}`, () => {
+    const expected = buildReleaseTree({ cwd: dir, target: TARGET, baseline: PROD, nonDeployable: NON })
+    const r = runSnippet(shell)
+    assert.match(r.stdout, new RegExp(`RESULT=${expected}\\s*$`), r.stdout + r.stderr)
+    assert.doesNotMatch(r.stdout, /RELEASE_TREE_FAILED/)
+  })
+  test(`a failing release-tree surfaces its error and fails the runner step in ${shell[0] === 'pwsh' ? 'PowerShell 7' : 'Windows PowerShell 5.1'}`, () => {
+    const r = runSnippet(shell, { baseline: 'f'.repeat(40) })
+    assert.match(r.stdout, /RESULT=THROW:RELEASE_TREE_FAILED: exit=[1-9]/, r.stdout)
+  })
+}
 
 test.after(() => fs.rmSync(dir, { recursive: true, force: true }))

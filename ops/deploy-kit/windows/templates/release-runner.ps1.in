@@ -429,11 +429,16 @@ Assert-CleanTree 'despues-de-validar'
 if (Test-Path -LiteralPath $Release) { throw "Release artifact already exists; preserve it and choose a new temp path: $Release" }
 # The archive is made from the target tree with every repository-only path put back exactly as production has it, so none of them can reach production.
 $ReleaseSource = $Commit
+# <release-tree-begin> release-tree.mjs prints exactly one 40-hex tree id on stdout (errors go to stderr, exit != 0). The whole output is captured and the exit code read
+# right after the command: piping into Select-Object -First 1 closes the pipe early, which in Windows PowerShell 5.1 leaves $LASTEXITCODE = -1 even on success.
 if ($NonDeployablePaths.Count -gt 0) {
-  $ReleaseSource = (node ops/deploy-kit/windows/release-tree.mjs $Commit $RollbackCommit @NonDeployablePaths | Select-Object -First 1).Trim()
-  if ($LASTEXITCODE -ne 0 -or $ReleaseSource -notmatch '^[0-9a-f]{40}$') { throw 'RELEASE_TREE_FAILED: could not build the deployable release tree' }
+  $ReleaseTreeOutput = @(& node ops/deploy-kit/windows/release-tree.mjs $Commit $RollbackCommit @NonDeployablePaths)
+  $ReleaseTreeCode = $LASTEXITCODE
+  if ($ReleaseTreeCode -ne 0 -or $ReleaseTreeOutput.Count -ne 1 -or ([string]$ReleaseTreeOutput[0]).Trim() -notmatch '^[0-9a-f]{40}$') { throw "RELEASE_TREE_FAILED: exit=$ReleaseTreeCode output=[$($ReleaseTreeOutput -join '|')] (release-tree.mjs must print exactly one 40-hex tree id; its error is above)" }
+  $ReleaseSource = ([string]$ReleaseTreeOutput[0]).Trim()
   Write-Host "RELEASE_TREE=$ReleaseSource repository_only_kept_as_production=$($NonDeployablePaths.Count)"
 }
+# <release-tree-end>
 git archive --format=tar.gz --output=$Release $ReleaseSource
 if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
 if (Test-Path -LiteralPath $RollbackRelease) { throw "Rollback artifact already exists; preserve it and choose a new temp path: $RollbackRelease" }
