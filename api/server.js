@@ -51,6 +51,7 @@ import { blocksRoutes } from './lib/blocks-routes.js';
 import { guidedRoutes } from './lib/guided-routes.js';
 import { premiumRoutes } from './lib/premium-routes.js';
 import { oppositionRoutes } from './lib/opposition-routes.js';
+import * as exerciseNotes from './lib/exercise-notes.js';
 import * as guidedStore from './lib/guided-store.js';
 import { libraryAdminRoutes } from './lib/library-admin-routes.js';
 import { newsRoutes } from './lib/news-routes.js';
@@ -402,7 +403,7 @@ function cancelRestTimer(userId) {
 const erasureDeps = () => ({
   db, social, saveDb, saveSocial, readState, stateFile, uploadsDir, deleteUploadedImage,
   followupPhotosDir,
-  chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore,
+  chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore, exerciseNotes,
   isStaff: isTrainer, clearCoach: coachJobs.clearUser,
   forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); userSummaries.forget(uid); dropScanJobsFor(uid); trainerJobs.forgetMember?.(uid); },
 });
@@ -3499,6 +3500,8 @@ const routes = {
   ...premiumRoutes({ json, readBody, readSession, requireTrainer, requireAdmin, isAdmin, isTrainer, featureOn: () => featuresStore.isOn('premium') }),
   /* ---------- Entrena tus Oposiciones: the official-profile catalogue (the member's plan lives in their own S.opposition and runs on the Premium engine) ---------- */
   ...oppositionRoutes({ json, readBody, readSession, requireAdmin, isAdmin, isTrainer, featureOn: () => featuresStore.isOn('premium') }),
+  // The shared note per member + exercise (the member and the staff who may reach them edit the same text).
+  ...exerciseNotes.exerciseNoteRoutes({ db, json, readBody, readSession, isAdmin, isTrainer, canAccessMember }),
   /* ---------- Exercise Library quality: the admin's corrections to the 2J layer ---------- */
   ...libraryAdminRoutes({ json, readBody, requireAdmin }),
   ...featuresRoutes({ json, readBody, readSession, requireAdmin }),

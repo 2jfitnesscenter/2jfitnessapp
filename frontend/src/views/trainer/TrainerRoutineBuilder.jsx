@@ -19,6 +19,7 @@ import { Button, SelectRow } from '../../components/ui.jsx'
 import { POLICIES_FOR, POLICY_NAME, POLICY_DESC } from '../../lib/progression.js'
 import { fetchMemberPlan, saveMemberRoutine } from '../../lib/trainer-api.js'
 import TrainingQualityPanel from '../../components/TrainingQualityPanel.jsx'
+import SharedExerciseNote from '../../components/SharedExerciseNote.jsx'
 
 const emptyRoutine = () => ({ id: null, name: t('New routine'), emoji: DEFAULT_GLYPH, ex: [] })
 
@@ -159,6 +160,7 @@ export default function TrainerRoutineBuilder() {
             <div className="tt capitalize">{info && <span className="ss-badge">{supersetLabel(info)}</span>}{nameFor(ex)}</div>
             <div className="ss">{exLine(e, S.unit)}{e.dropset && <span className="tag acc" style={{ marginLeft: 6 }}>{t('Dropset')}</span>}</div>
             {e.note && <div className="ss">{e.note}</div>}
+            <SharedExerciseNote exerciseId={e.id} memberId={memberId} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 'none', alignItems: 'center' }}>
             <button className="iconbtn" aria-label={t('More options')} style={{ width: 32, height: 28, borderRadius: 8, fontSize: 15 }}
