@@ -178,7 +178,7 @@ test('post-target commits allow deploy tooling, handoff, line-ending metadata, a
 })
 
 test('timeout retry uses the supported single-worker Vitest option', () => {
-  assert.ok(template.includes('npx vitest run --maxWorkers=1 --reporter=json'))
+  assert.ok(template.includes('node `"$VitestBin`" run --maxWorkers=1 --reporter=json'))   // the project's own Vitest, never npx
   assert.ok(!template.includes('--minWorkers='))
 })
 
