@@ -2,7 +2,7 @@
 
 **Export** — Settings → Account → *Export my data* (`GET /api/me/export`): one JSON file with the account record (no passkey public keys, no provider tokens — only whether Strava/WHOOP are linked),
 the full synced state (workouts, body, Health aggregates, notes), the follow-up questionnaire answers and the descriptors (date, type, note) of progress photos — **not the photo image files and not staff's private professional notes** —, the messages the member wrote, friends/requests/blocks, community posts and comments they wrote, goals and joined challenges,
-notifications and privacy preferences, shares and reports they made, and their Bunker check-in PIN. Other people's text is never included.
+notifications and privacy preferences, shares and reports they made, their Bunker check-in PIN, and their shared exercise notes. Other people's text is never included.
 
 **Erasure** — Settings → Account → *Delete my account*. Server rules (`api/lib/account-erasure.js`, `POST /api/me/delete/options` + `POST /api/me/delete`):
 1. Only the signed-in member, and only with a **fresh passkey assertion from that same account** (a stolen cookie is not enough) **plus the typed username**.

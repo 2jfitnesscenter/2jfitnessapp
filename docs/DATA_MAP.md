@@ -19,6 +19,8 @@ The key sits next to the data (see Encryption caveat), so "AES" protects against
 | 12 | Secrets / config | `secret` (0600), `vapid.json`, `.env` | plain (root-only 0700 dir) | root/API user | never printed | none | permanent | rotate = re-login everyone and lose AES state unless re-keyed |
 | 13 | Follow-up V2 (questionnaire answers, progress photos) and staff's private professional notes | `db.json` user record (`followUpV2`; private notes encrypted at rest, AES), image files in `followup-photos/` (0600, **plain**) | answers plain; notes **AES**; photos plain | the member; staff with operational access; private notes: staff only | no | never to AI (the follow-up analysis gets calculated facts only) | until account removal | export: answers and photo descriptors only (no image files, no private notes); erased with the account, photo files unlinked |
 
+The shared exercise note (one text per member + exercise, up to 500 characters, edited by the member and by the staff who may reach them) is kept in `exercise-notes.json` (plain, like the Bunker file): it is included in the member's export and removed with their account.
+
 Bunker PINs (4 digits per member, `bunker.json`, plain) and admin kiosk codes (6 digits) are by design shown to admins/trainers; they only mint a kiosk token for check-in/workout display, not an app session.
 
 ## Third parties actually used (verified in code; the user-facing text is `docs/PRIVACY_POLICY.md` §8)

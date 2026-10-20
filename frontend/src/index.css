@@ -3725,3 +3725,13 @@ body:has(.sync-pill) #app{padding-top:8px}
 .bk-multi-grid.compact.dense .bk-cc-ex{-webkit-line-clamp:1}
 .bk-multi-grid.compact.dense .bk-cc-pos{display:none}
 @media (max-height:800px){.bk-multi-grid.compact .bk-cc-name{font-size:17px}.bk-multi-grid.compact .bk-cc-ex{font-size:16px}.bk-multi-grid.compact .bk-cc-meta{font-size:15px}.bk-multi-grid.compact .bk-ccard{padding:9px 12px;gap:3px}.bk-multi-grid.compact .bk-cc-ex{-webkit-line-clamp:1}.bk-multi-grid.compact .bk-cc-pos{display:none}}
+/* Shared exercise note (components/SharedExerciseNote.jsx): one quiet link when empty, the text itself when written */
+.sx-note{margin:6px 0 2px;font-size:13px}
+.sx-note button{font:inherit}
+.sx-note-add{display:inline-flex;align-items:center;gap:4px;background:none;border:0;padding:2px 0;color:var(--dim,#8a8a8e);cursor:pointer}
+.sx-note-add svg{width:13px;height:13px}
+.sx-note-text{display:flex;align-items:flex-start;gap:6px;width:100%;text-align:left;background:var(--fill,rgba(127,127,127,.12));border:0;border-radius:10px;padding:6px 10px;color:inherit;cursor:pointer}
+.sx-note-text svg{width:14px;height:14px;flex:none;margin-top:2px}
+.sx-note-text span{white-space:pre-wrap;overflow-wrap:anywhere}
+.sx-note.editing textarea{width:100%;resize:vertical;font-size:14px}
+.sx-note-actions{display:flex;gap:6px;margin-top:6px}

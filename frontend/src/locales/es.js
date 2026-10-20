@@ -5858,4 +5858,5 @@ export default {
   'It leaves {0}’s plan. Their past workouts, marks, progression and stats are kept. If it was their active routine, they will have no active routine.': 'Sale del plan de {0}. Sus entrenamientos pasados, marcas, progresión y estadísticas se conservan. Si era su rutina activa, se quedará sin rutina activa.',
   'Routine deleted': 'Rutina eliminada',
   'Routine actions': 'Acciones de la rutina',
+  'Note': 'Nota',
 }
