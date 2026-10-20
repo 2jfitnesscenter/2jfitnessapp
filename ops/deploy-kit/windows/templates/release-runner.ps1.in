@@ -216,7 +216,11 @@ function Ensure-NodeDependencies([string]$Dir) {
   if (-not (Test-Path -LiteralPath $lockFile -PathType Leaf)) { throw "DEPS_LOCKFILE_MISSING=$lockFile (npm ci needs the lockfile)" }
   $pkg = [System.IO.File]::ReadAllText($pkgFile) | ConvertFrom-Json
   $names = @()
-  foreach ($section in 'dependencies', 'devDependencies') { if ($pkg.$section) { $names += @($pkg.$section.PSObject.Properties.Name) } }
+  # StrictMode: a section that is absent from package.json must be tested through PSObject.Properties, never read directly.
+  foreach ($section in 'dependencies', 'devDependencies') {
+    $prop = $pkg.PSObject.Properties[$section]
+    if ($null -ne $prop -and $null -ne $prop.Value) { foreach ($declared in $prop.Value.PSObject.Properties) { $names += $declared.Name } }
+  }
   $missing = @($names | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Dir "node_modules/$_/package.json") -PathType Leaf) })
   if ($missing.Count -eq 0) { Write-Host "DEPS_REUSED=$Dir declared=$($names.Count)"; return }
   Write-Host "DEPS_INSTALL=$Dir npm ci --ignore-scripts=false (missing $($missing.Count) of $($names.Count) declared packages)"
