@@ -27,6 +27,27 @@ test('historical short-SHA substitution never creates the known hybrid SHA', () 
   assert.ok(!rendered.includes('TARGET_COMMIT=16a1bb7bc5584c345d91727e93007fd6f8750b76'))
 })
 
+test('API image feature probe validates FEATURE_KEYS structure without a stale fixed count', () => {
+  const start = template.indexOf('if (!Array.isArray(fe.FEATURE_KEYS)')
+  assert.notEqual(start, -1, 'generated API image probe must validate feature keys')
+  const end = template.indexOf("throw new Error('features module wrong');", start)
+  assert.notEqual(end, -1, 'feature validation must fail closed')
+  const guard = template.slice(start, end + "throw new Error('features module wrong');".length)
+  assert.doesNotMatch(guard, /FEATURE_KEYS\.length\s*!==\s*\d+/)
+  const validate = new Function('fe', `return (() => { ${guard}; return true })()`)
+
+  assert.equal(validate({ FEATURE_KEYS: ['coach', 'social', 'premium'] }), true)
+  for (const invalid of [
+    { FEATURE_KEYS: undefined },
+    { FEATURE_KEYS: null },
+    { FEATURE_KEYS: {} },
+    { FEATURE_KEYS: [] },
+    { FEATURE_KEYS: ['coach', 'coach'] },
+    { FEATURE_KEYS: ['coach', ''] },
+    { FEATURE_KEYS: ['coach', 1] },
+  ]) assert.throws(() => validate(invalid), /features module wrong/)
+})
+
 test('rejects malformed, equal, or inconsistent SHA inputs', () => {
   assert.throws(() => validateConfig({ ...base, targetCommit: '831f691' }), /INVALID_FULL_SHA40/)
   assert.throws(() => validateConfig({ ...base, expectedCurrentCommit: base.targetCommit }), /TARGET_MUST_DIFFER/)

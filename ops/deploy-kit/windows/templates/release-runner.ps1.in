@@ -269,7 +269,9 @@ await import('file:///app/lib/news-store.js');
 await import('file:///app/lib/news-routes.js');
 const fe = await import('file:///app/lib/features-store.js');
 await import('file:///app/lib/features-routes.js');
-if (fe.FEATURE_KEYS.length !== 15) throw new Error('features module wrong');
+if (!Array.isArray(fe.FEATURE_KEYS) || fe.FEATURE_KEYS.length === 0 ||
+  fe.FEATURE_KEYS.some(key => typeof key !== 'string' || key.trim().length === 0) ||
+  new Set(fe.FEATURE_KEYS).size !== fe.FEATURE_KEYS.length) throw new Error('features module wrong');
 const wo = await import('file:///app/lib/webauthn-origins.js');
 if (wo.expectedOrigins('https://x.test', '').length !== 3 || !wo.expectedOrigins('https://x.test', '').includes('android:apk-key-hash:Xtnl80w2A-0scA3f4Jtf5D5UvAZ0dgJ7RTpZsbqv3tE')) throw new Error('webauthn origins module wrong');
 const ai = await import('file:///app/coach/ai-run.js');
