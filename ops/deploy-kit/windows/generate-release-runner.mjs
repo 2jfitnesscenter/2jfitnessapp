@@ -17,6 +17,44 @@ export const REPOSITORY_ONLY_EXACT = new Set([
 ])
 const REPOSITORY_ONLY_TOOLING = /^ops\/deploy-kit\/(?:releases\/[A-Za-z0-9._-]+\.json|windows\/(?:templates\/)?[A-Za-z0-9._-]+\.(?:mjs|in))$/
 export const isRepositoryOnlyPath = p => typeof p === 'string' && (REPOSITORY_ONLY_EXACT.has(p) || REPOSITORY_ONLY_TOOLING.test(p))
+
+export function validateNodeTestSummary(output, exitCode) {
+  if (exitCode !== 0) return { ok: false, reason: `NONZERO_EXIT:${exitCode}` }
+  if (typeof output !== 'string' || output.trim() === '') return { ok: false, reason: 'EMPTY_OUTPUT' }
+  const readCount = (name, required = true) => {
+    // Node's built-in test runner emits either TAP (# tests N) or spec (ℹ tests N) summaries.
+    const matches = [...output.matchAll(new RegExp(`^(?:#|ℹ)\\s+${name}\\s+(\\d+)\\s*$`, 'gm'))]
+    if (matches.length === 0 && !required) return { value: 0 }
+    if (matches.length !== 1) return { error: `INVALID_${name.toUpperCase()}_COUNT` }
+    const value = Number(matches[0][1])
+    if (!Number.isSafeInteger(value) || value < 0) return { error: `INVALID_${name.toUpperCase()}_COUNT` }
+    return { value }
+  }
+  const tests = readCount('tests')
+  const pass = readCount('pass')
+  const fail = readCount('fail')
+  const cancelled = readCount('cancelled')
+  const skipped = readCount('skipped', false)
+  const todo = readCount('todo', false)
+  for (const result of [tests, pass, fail, cancelled, skipped, todo]) if (result.error) return { ok: false, reason: result.error }
+  const summary = { tests: tests.value, pass: pass.value, fail: fail.value, cancelled: cancelled.value, skipped: skipped.value, todo: todo.value }
+  if (summary.tests < 1) return { ok: false, reason: 'NO_TESTS_EXECUTED', summary }
+  if (summary.fail !== 0) return { ok: false, reason: 'TEST_FAILURES_PRESENT', summary }
+  if (summary.cancelled !== 0) return { ok: false, reason: 'TESTS_CANCELLED', summary }
+  if (summary.pass + summary.skipped + summary.todo !== summary.tests) return { ok: false, reason: 'INCONSISTENT_TEST_COUNTS', summary }
+  return { ok: true, reason: 'OK', summary }
+}
+
+function validateNodeTestSummaryFile(file, exitCode) {
+  const result = validateNodeTestSummary(fs.readFileSync(file, 'utf8'), Number(exitCode))
+  if (!result.ok) {
+    process.stderr.write(`DEPLOY_TOOLING_TEST_SUMMARY=FAIL reason=${result.reason}\n`)
+    process.exitCode = 1
+    return
+  }
+  const s = result.summary
+  process.stdout.write(`DEPLOY_TOOLING_TEST_SUMMARY=PASS tests=${s.tests} pass=${s.pass} skipped=${s.skipped} todo=${s.todo}\n`)
+}
 const NO_CREDENTIAL_PIN_PROBES = [
   { method: 'POST', path: '/api/shared-device/pin', status: 403 },
   { method: 'POST', path: '/api/shared-staff/pin', status: 403 },
@@ -227,5 +265,10 @@ function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { main() } catch (error) { console.error(`RUNNER_GENERATION_FAILED=${error.message}`); process.exitCode = 1 }
+  try {
+    if (process.argv[2] === '--validate-node-test-summary') {
+      if (!process.argv[3] || process.argv[4] === undefined) fail('usage: --validate-node-test-summary <log> <exit-code>')
+      validateNodeTestSummaryFile(process.argv[3], process.argv[4])
+    } else main()
+  } catch (error) { console.error(`RUNNER_GENERATION_FAILED=${error.message}`); process.exitCode = 1 }
 }

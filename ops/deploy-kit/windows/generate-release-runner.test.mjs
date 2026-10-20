@@ -3,13 +3,40 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { isAllowedPostTargetPath, isRepositoryOnlyPath, renderTemplate, validateConfig, validateWebPushSubscriptionWiring, verifyRegression } from './generate-release-runner.mjs'
+import { isAllowedPostTargetPath, isRepositoryOnlyPath, renderTemplate, validateConfig, validateNodeTestSummary, validateWebPushSubscriptionWiring, verifyRegression } from './generate-release-runner.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const template = fs.readFileSync(path.join(here, 'templates', 'release-runner.ps1.in'), 'utf8')
 const base = JSON.parse(fs.readFileSync(path.join(here, '../releases/831f691.json'), 'utf8'))
 const restAlert = JSON.parse(fs.readFileSync(path.join(here, '../releases/android-rest-alert.json'), 'utf8'))
 const trainingQuality = JSON.parse(fs.readFileSync(path.join(here, '../releases/training-quality-review.json'), 'utf8'))
+
+test('deploy tooling TAP summary accepts a valid variable test total and allowed skips', () => {
+  const output = '# tests 55\n# pass 55\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n'
+  assert.deepEqual(validateNodeTestSummary(output, 0), {
+    ok: true, reason: 'OK', summary: { tests: 55, pass: 55, fail: 0, cancelled: 0, skipped: 0, todo: 0 },
+  })
+  assert.equal(validateNodeTestSummary('# tests 3\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 1\n# todo 1\n', 0).ok, true)
+  assert.equal(validateNodeTestSummary('ℹ tests 55\nℹ pass 55\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\n', 0).ok, true)
+})
+
+test('deploy tooling TAP summary rejects failures, nonzero exit, and malformed or empty output', () => {
+  assert.equal(validateNodeTestSummary('# tests 2\n# pass 1\n# fail 1\n# cancelled 0\n', 0).ok, false)
+  assert.equal(validateNodeTestSummary('# tests 1\n# pass 1\n# fail 0\n# cancelled 0\n', 1).reason, 'NONZERO_EXIT:1')
+  assert.equal(validateNodeTestSummary('', 0).ok, false)
+  assert.equal(validateNodeTestSummary('all good', 0).ok, false)
+  assert.equal(validateNodeTestSummary('# tests 0\n# pass 0\n# fail 0\n# cancelled 0\n', 0).ok, false)
+  assert.equal(validateNodeTestSummary('# tests 2\n# pass 1\n# fail 0\n# cancelled 0\n', 0).reason, 'INCONSISTENT_TEST_COUNTS')
+})
+
+test('generated runner validates tooling TAP summary structurally without a pinned count', () => {
+  const rendered = renderTemplate(template, base)
+  const call = rendered.match(/Invoke-Checked 'DEPLOY_TOOLING_TESTS'[^\r\n]*/)?.[0]
+  assert.ok(call)
+  assert.doesNotMatch(call, /tests\s+\d+|pass\s+\d+|fail\s+0/)
+  assert.match(rendered, /--validate-node-test-summary/)
+  assert.doesNotMatch(call, /tests 54/)
+})
 
 test('derives short SHAs and emits full SHA values independently', () => {
   const rendered = renderTemplate(template, base)
