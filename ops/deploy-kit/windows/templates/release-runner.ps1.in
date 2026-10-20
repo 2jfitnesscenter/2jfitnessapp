@@ -360,7 +360,7 @@ Ensure-NodeDependencies $Api
 $VitestBin = Join-Path $Frontend 'node_modules/vitest/vitest.mjs'
 if (-not (Test-Path -LiteralPath $VitestBin -PathType Leaf)) { throw "VITEST_LOCAL_BINARY_MISSING=$VitestBin" }
 Write-Host 'LOCAL_VITEST=project node_modules'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs ops/deploy-kit/windows/release-deps.test.mjs' @()
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs ops/deploy-kit/windows/release-deps.test.mjs ops/deploy-kit/windows/release-protocol-guards.test.mjs' @()
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend "node `"$VitestBin`" run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx" @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
@@ -1217,8 +1217,13 @@ for rel in api/coach/ai-run.js api/coach/intelligence.js api/coach/adapters/clau
   test -s "$RELEASE_CHECK_DIR/$rel"
 done
 grep -Fq "COPY coach/ ./coach/" "$RELEASE_CHECK_DIR/api/Dockerfile"
-grep -Fq 'invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/jobs.js"
-grep -Fq 'invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/trainer-jobs.js"
+# The shared retry layer (AI Reliability): invokeWithRetry lives in ai-run.js; the member Coach jobs and the trainer jobs reach it through generateWithRepair (ai-generate.js).
+# (Before #38 these two files called invokeWithRetry directly: same invariant, retargeted to where the call is now.)
+test -s "$RELEASE_CHECK_DIR/api/coach/ai-generate.js"
+grep -Fq 'export async function invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/ai-run.js"
+grep -Fq 'invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/ai-generate.js"
+grep -Fq 'generateWithRepair' "$RELEASE_CHECK_DIR/api/coach/jobs.js"
+grep -Fq 'generateWithRepair' "$RELEASE_CHECK_DIR/api/coach/trainer-jobs.js"
 grep -Fq 'is_error' "$RELEASE_CHECK_DIR/api/coach/adapters/claude.js"
 grep -Fq 'api_error_status' "$RELEASE_CHECK_DIR/api/coach/adapters/claude.js"
 grep -Fq "'POST /api/coach/intelligence/explain'" "$RELEASE_CHECK_DIR/api/coach/routes.js"
@@ -2359,6 +2364,7 @@ $protocolBlock = $RemoteForExtract.Substring($protocolStart, $protocolEnd - $pro
 $ProtocolHarness = @'
 #!/usr/bin/env bash
 set -Eeuo pipefail
+trap 'printf "VERIFY_PROTOCOL_FAILED exit=%s line=%s command=%s\n" "$?" "$LINENO" "$BASH_COMMAND" >&2' ERR
 export PATH="/usr/bin:/mingw64/bin"
 docker() { bash '__DOCKER_SHIM_FILE__' "$@"; }
 RELEASE=$1
@@ -2395,7 +2401,8 @@ $ProtocolCheckRunnerUnix = ConvertTo-GitBashPath $ProtocolCheckRunner
 $ReleaseUnix = ConvertTo-GitBashPath $Release
 $RollbackUnix = ConvertTo-GitBashPath $RollbackRelease
 & $Bash --noprofile --norc $ProtocolCheckRunnerUnix $ReleaseUnix $RollbackUnix
-if ($LASTEXITCODE -ne 0) { throw 'LOCAL_VERIFY_RELEASE_PROTOCOL_FAILED; no production connection was made' }
+$ProtocolCode = $LASTEXITCODE
+if ($ProtocolCode -ne 0) { throw "LOCAL_VERIFY_RELEASE_PROTOCOL_FAILED exit=$ProtocolCode (the failing command is printed above as VERIFY_PROTOCOL_FAILED ... command=...); script: $ProtocolCheckRunner; no production connection was made" }
 Write-Host 'LOCAL_VERIFY_RELEASE_PROTOCOL=OK'
 
 
