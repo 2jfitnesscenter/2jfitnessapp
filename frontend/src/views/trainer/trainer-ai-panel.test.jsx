@@ -12,13 +12,14 @@ vi.mock('../../lib/trainer-ai-api.js', async () => {
 vi.mock('../../lib/trainer-api.js', () => ({ fetchMemberPlan: vi.fn(async () => ({ routines: [] })), saveMemberRoutine: vi.fn(), saveMemberProgram: vi.fn() }))
 
 let Page
+let setLang
 beforeEach(async () => {
   vi.resetModules()
   vi.stubGlobal('localStorage', { getItem: () => null, setItem() {}, removeItem() {} })
   vi.stubGlobal('navigator', {})
   vi.stubGlobal('document', { addEventListener: vi.fn(), removeEventListener: vi.fn(), body: { classList: { toggle: vi.fn(), remove: vi.fn() } } })
   vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn(), matchMedia: () => ({ matches: false }) })
-  await import('../../lib/i18n.js')
+  ;({ setLang } = await import('../../lib/i18n.js'))
   Page = (await import('./TrainerAIGenerate.jsx')).default
   Object.assign(status, { job: null, pending: null, errorClass: null })
   delete status.consent
@@ -38,6 +39,12 @@ describe('trainer AI panel', () => {
     status.errorClass = 'unusable'
     const html = render()
     expect(html).toContain('role="alert"'); expect(html).toContain('The AI answered with something the app couldn’t use.')
+  })
+
+  it('a final trainer timeout tells the Spanish user they can retry', async () => {
+    status.errorClass = 'timeout'
+    await setLang('es')
+    expect(render()).toContain('La IA no respondió a tiempo. Puedes reintentar.')
   })
 
   it('the source has no member-consent logic left (screen, API wrapper, Settings, store)', () => {

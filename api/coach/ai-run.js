@@ -35,7 +35,7 @@ export const POLICIES = {
   // routine creation for a member: 1 call normally; ≤8 calls only when the provider is struggling
   member_routine: { maxAttempts: 4, maxCalls: 8, maxMs: 9 * 60000, backoffMs: [1500, 3000, 6000, 12000], maxTimeouts: 2, jitter: 0.25, minCallMs: 20000 },
   // the trainer can wait a little longer
-  trainer_routine: { maxAttempts: 5, maxCalls: 8, maxMs: 12 * 60000, backoffMs: [1500, 3000, 6000, 12000, 20000], maxTimeouts: 2, jitter: 0.25, minCallMs: 20000 },
+  trainer_routine: { maxAttempts: 5, maxCalls: 8, maxMs: 12 * 60000, callTimeoutMs: 5 * 60000, backoffMs: [1500, 3000, 6000, 12000, 20000], maxTimeouts: 2, jitter: 0.25, minCallMs: 20000 },
   coach_review: { maxAttempts: 4, maxCalls: 6, maxMs: 8 * 60000, backoffMs: [1500, 3000, 6000, 12000], maxTimeouts: 2, jitter: 0.25, minCallMs: 20000 },
   // vision reads: short calls, so many fast tries, but never ten reads of one photo
   scan: { maxAttempts: 4, maxCalls: 6, maxMs: 100000, backoffMs: [1500, 3000, 6000, 10000], maxTimeouts: 2, jitter: 0.25, minCallMs: 8000, callTimeoutMs: 40000 },
@@ -135,7 +135,7 @@ export function aiLog(event, fields = {}) {
 export async function invokeWithRetry(adapter, args, ctx = {}, policy = DEFAULT_POLICY) {
   const budget = ctx.budget || makeBudget(policy, ctx.signal);
   const candidates = [{ id: ctx.provider || adapter?.id, adapter, args: {} }, ...(ctx.fallbacks || []).map(f => ({ id: f.id, adapter: f.adapter || adapter, args: f.args || {} }))];
-  let last = null, failure = null, spent = 0, usedFallback = false;
+  let last = null, failure = null, spent = 0, timeoutsSpent = 0, usedFallback = false;
 
   outer: for (let ci = 0; ci < candidates.length; ci++) {
     const cand = candidates[ci];
@@ -143,22 +143,33 @@ export async function invokeWithRetry(adapter, args, ctx = {}, policy = DEFAULT_
     if (ci > 0) { usedFallback = true; ctx.track?.usedFallback(); ctx.onPhase?.('fallback'); aiLog('AI_FALLBACK', { flow: ctx.flow, job: ctx.job, from: candidates[ci - 1].id, to: cand.id }); }
     for (let attempt = 1; attempt <= policy.maxAttempts; attempt++) {
       if (budgetCancelled(budget)) { failure = { ok: false, errorClass: 'cancelled', transient: false, cancelled: true }; ctx.track?.cancelled(); break outer; }
-      if (budgetExhausted(budget)) { failure = { ...(failure || { ok: false, errorClass: 'provider', transient: true }), budget: true }; break outer; }
+      if (budgetExhausted(budget) || (Number.isFinite(policy.minCallMs) && budget.deadline !== Infinity && Date.now() + policy.minCallMs >= budget.deadline)) {
+        failure = { ...(failure || { ok: false, errorClass: 'provider', transient: true }), budget: true };
+        break outer;
+      }
       const t0 = Date.now();
       budget.calls++; spent++;
       aiLog('AI_ATTEMPT', { flow: ctx.flow, job: ctx.job, provider: cand.id, attempt, call: budget.calls, repair: ctx.repair ? 1 : null });
-      try { last = await cand.adapter.invoke({ ...args, ...cand.args }); }
+      const callArgs = { ...args, ...cand.args };
+      if (Number.isFinite(policy.callTimeoutMs) && budget.deadline !== Infinity) {
+        callArgs.timeoutMs = Math.min(Number(callArgs.timeoutMs) || policy.callTimeoutMs, policy.callTimeoutMs, Math.max(0, budget.deadline - Date.now()));
+      }
+      try { last = await cand.adapter.invoke(callArgs); }
       catch (e) { last = { code: -1, text: '', stderr: e?.message || String(e), timedOut: false, spawnError: false }; }
       const c = classify(last);
       ctx.track?.call(c.ok ? null : c);
-      if (c.ok) return { ...last, attempts: spent, usedFallback, ms: Date.now() - t0 };
+      if (c.ok) return { ...last, attempts: spent, timeoutCount: timeoutsSpent, usedFallback, ms: Date.now() - t0 };
       failure = c;
       aiLog(c.errorClass === 'timeout' ? 'AI_TIMEOUT' : 'AI_PROVIDER_ERROR', {
         flow: ctx.flow, job: ctx.job, provider: cand.id, attempt, class: c.errorClass, status: c.status,
+        ...(c.errorClass === 'timeout' ? { cause: last?.timeoutReason || 'provider_reported_timeout', timeoutMs: last?.timeoutMs, childTerminated: last?.childTerminated } : {}),
         transient: c.transient ? 1 : 0, ms: Date.now() - t0
       });
       if (!c.transient) break;                                   // the same candidate cannot fix it
-      if (c.errorClass === 'timeout' && ++timeouts >= (policy.maxTimeouts ?? 2)) break;   // a timeout already cost a whole window
+      if (c.errorClass === 'timeout') {
+        timeoutsSpent++;
+        if (++timeouts >= (policy.maxTimeouts ?? 2)) break;   // a timeout already cost a whole window
+      }
       if (attempt === policy.maxAttempts) break;
       const wait = backoffDelay(policy, attempt, last?.retryAfterMs);
       // Not enough time left for a wait plus a worthwhile call: stop instead of starting one that cannot finish.
@@ -168,5 +179,5 @@ export async function invokeWithRetry(adapter, args, ctx = {}, policy = DEFAULT_
     }
     if (!fallbackable(failure)) break;                           // a permanent request error: no other candidate will like it more
   }
-  return { ...last, failure, attempts: spent, usedFallback };
+  return { ...last, failure, attempts: spent, timeoutCount: timeoutsSpent, usedFallback };
 }

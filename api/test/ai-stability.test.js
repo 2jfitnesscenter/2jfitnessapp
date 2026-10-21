@@ -6,6 +6,8 @@
  * provider; the Claude adapter's stream handling is fed fake SDK streams. No real AI calls. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { spawn } from 'node:child_process';
 import { tempData, writeState, sampleState } from './helpers.mjs';
 
 const DIR = tempData();
@@ -14,9 +16,10 @@ const jobs = await import('../coach/jobs.js');
 const trainerAI = await import('../coach/trainer-ai.js');
 const trainerJobs = await import('../coach/trainer-jobs.js');
 const aiRun = await import('../coach/ai-run.js');
-const { readStream } = await import('../coach/adapters/claude.js');
+const { readStream, readStreamWithTimeout } = await import('../coach/adapters/claude.js');
 const { adapterFor } = await import('../coach/adapters/index.js');
 const { extractJSON } = await import('../coach/validate.js');
+const { POLICIES } = aiRun;
 
 aiRun.setBackoffForTests([0, 0]);
 cfg.save({ enabled: true, provider: 'fixture' });
@@ -54,6 +57,20 @@ test('timeout → retry → success', async () => {
   const t = fake([{ code: -1, timedOut: true }, { code: -1, timedOut: true }, OK]); const r2 = quiet();
   const out = await aiRun.invokeWithRetry(t, {}, {}); r2();
   assert.equal(t.calls, 2); assert.equal(out.failure.errorClass, 'timeout');
+});
+test('trainer per-call timeout is capped by the remaining request budget', async () => {
+  const timeouts = [];
+  const adapter = { id: 'budget-test', async invoke(args) {
+    timeouts.push(args.timeoutMs);
+    await new Promise(resolve => setTimeout(resolve, args.timeoutMs));
+    return { code: -1, text: '', stderr: 'deadline', timedOut: true, timeoutReason: 'call_deadline_exceeded' };
+  } };
+  const policy = { ...POLICIES.trainer_routine, maxMs: 60, callTimeoutMs: 5000, minCallMs: 0, maxAttempts: 5, maxCalls: 8, maxTimeouts: 99, backoffMs: [0], jitter: 0 };
+  const start = Date.now(); const result = await aiRun.invokeWithRetry(adapter, { timeoutMs: 5000 }, { flow: 'trainer-create' }, policy);
+  assert.equal(timeouts.length, 1, 'no second provider call starts after the shared deadline');
+  assert.ok(timeouts[0] <= 60, `attempt timeout ${timeouts[0]}ms fits the total budget`);
+  assert.ok(Date.now() - start < 500, 'the request respects its wall-clock ceiling');
+  assert.equal(result.failure.budget, true);
 });
 test('5xx / 529 overloaded / 429 → retry → success', async () => {
   for (const err of [{ status: 503 }, { stderr: 'API Error: 529 {"type":"overloaded_error"}' }, { stderr: 'HTTP 429 Too Many Requests' }]) {
@@ -117,6 +134,20 @@ test('Claude: a crash before any result is a retryable provider failure; a runti
   // the SDK's own internal retry recovered: the earlier assistant error does not stick
   const recovered = await readStream(stream([{ type: 'assistant', error: 'rate_limit' }, { type: 'result', subtype: 'success', is_error: false, result: '{"a":1}' }]), io);
   assert.equal(recovered.code, 0);
+});
+
+test('Claude: a stalled SDK stream hits the hard deadline and its real child process is terminated', async () => {
+  const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  const abortController = new AbortController();
+  const stalled = (async function* () { await new Promise(() => {}); })();
+  const started = Date.now();
+  const result = await readStreamWithTimeout(stalled, { timeoutMs: 30, abortController, getChild: () => child });
+  assert.ok(Date.now() - started < 2000, 'deadline must return without waiting for the SDK iterator');
+  assert.equal(abortController.signal.aborted, true);
+  assert.equal(result.timedOut, true);
+  assert.equal(result.timeoutReason, 'call_deadline_exceeded');
+  assert.equal(result.childTerminated, true);
+  assert.notEqual(child.signalCode, null, 'the process received a termination signal');
 });
 
 /* ---------------- parsing ---------------- */
@@ -204,6 +235,55 @@ test('trainer generation: transient 529 retried → draft ready; auth → report
     s = await settleTrainer('coach1', 'mem-t');
     assert.equal(s.errorClass, 'auth');
   } finally { restore(); delete process.env.FIXTURE_MODE; trainerJobs.setAdapterForTests(null); }
+});
+
+test('trainer generation: timeout then retry succeeds; exhausted timeouts finish the job with no partial routine', async () => {
+  trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
+  const base = adapterFor('fixture');
+  const brief = { goal: 'hypertrophy', experience: 'intermediate', daysPerWeek: 3 };
+  const restore = quiet();
+  try {
+    writeState(DIR, 'mem-timeout-retry', sampleState());
+    let retryCalls = 0;
+    trainerJobs.setAdapterForTests({ ...base, id: 'claude-test', invoke: async args => {
+      if (++retryCalls === 1) return { code: -1, text: '', stderr: 'deadline exceeded', timedOut: true, timeoutReason: 'call_deadline_exceeded', timeoutMs: 30, childTerminated: true };
+      return base.invoke(args);
+    } });
+    trainerJobs.enqueue('coach-timeout', 'mem-timeout-retry', brief);
+    const recovered = await settleTrainer('coach-timeout', 'mem-timeout-retry');
+    assert.ok(recovered.pending?.bundle?.routines?.length, 'a valid, protocol-checked draft is produced after retry');
+    assert.equal(retryCalls, 2);
+
+    writeState(DIR, 'mem-timeout-fallback', sampleState());
+    trainerAI.save({ fallbackModel: 'claude-fallback-test', model: null });
+    let fallbackCalls = 0;
+    trainerJobs.setAdapterForTests({ ...base, id: 'claude-test', invoke: async args => {
+      fallbackCalls++;
+      if (args.model !== 'claude-fallback-test') return { code: -1, text: '', stderr: 'deadline exceeded', timedOut: true, timeoutReason: 'call_deadline_exceeded' };
+      return base.invoke(args);
+    } });
+    trainerJobs.enqueue('coach-timeout', 'mem-timeout-fallback', brief);
+    const fallback = await settleTrainer('coach-timeout', 'mem-timeout-fallback');
+    assert.ok(fallback.pending?.bundle?.routines?.length, 'configured same-provider model fallback also passes validation');
+    assert.equal(fallbackCalls, 3, 'two primary timeouts then one configured Claude model fallback');
+
+    trainerAI.save({ fallbackModel: null });
+    writeState(DIR, 'mem-timeout-final', sampleState());
+    const before = fs.readFileSync(`${DIR}/state-mem-timeout-final.json`);
+    let finalCalls = 0;
+    trainerJobs.setAdapterForTests({ ...base, id: 'claude-test', invoke: async () => {
+      finalCalls++;
+      return { code: -1, text: '', stderr: 'deadline exceeded', timedOut: true, timeoutReason: 'call_deadline_exceeded', timeoutMs: 30, childTerminated: true };
+    } });
+    trainerJobs.enqueue('coach-timeout', 'mem-timeout-final', brief);
+    const failed = await settleTrainer('coach-timeout', 'mem-timeout-final');
+    assert.equal(finalCalls, 2, 'the flow stops after its configured timeout cap');
+    assert.equal(failed.errorClass, 'timeout');
+    assert.equal(failed.pending, null, 'no partial draft is offered');
+    assert.deepEqual(fs.readFileSync(`${DIR}/state-mem-timeout-final.json`), before, 'the member plan is not written on provider failure');
+    const rows = JSON.parse(fs.readFileSync(`${DIR}/trainer-ai-jobs.json`, 'utf8')).jobs;
+    assert.ok(rows.filter(j => ['mem-timeout-retry', 'mem-timeout-final'].includes(j.memberId)).every(j => !['queued', 'running'].includes(j.state)), 'failed/successful jobs do not remain stuck');
+  } finally { restore(); trainerJobs.setAdapterForTests(null); }
 });
 
 /* Trainer AI uses professional permissions and plan-only data, independent of member Coach consent. */
