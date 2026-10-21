@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { buildPhysicalTree } from './physical-tree.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '../../..')
@@ -136,7 +137,27 @@ export function validateConfig(c) {
     if (matches.length > 1 || (matches.length === 1 && matches[0].status !== expected.status)) fail(`NO_ORIGIN_PUSH_PROBE_MUST_MATCH_CONTRACT_403:${expected.path}`)
   }
   if (new Set(noOriginPushProbeStatuses.map(p => p.status)).size > 1) fail('CONTRADICTORY_NO_ORIGIN_PUSH_EXPECTATIONS')
-  return { targetShort: c.targetCommit.slice(0, 7), expectedShort: c.expectedCurrentCommit.slice(0, 7), deployable, nonDeployable }
+  // What production PHYSICALLY holds after the previous release (see physical-tree.mjs). Empty = production is exactly TREE(expectedCurrentCommit).
+  const preserved = c.expectedCurrentPreserved ?? []
+  if (!Array.isArray(preserved) || preserved.some(e => !e || typeof e.path !== 'string' || !e.path || /[\0\r\n*?[\]\\']/.test(e.path) || e.path.startsWith('/') || e.path.split('/').includes('..') || !SHA40.test(e.from || '')) || new Set(preserved.map(e => e.path)).size !== preserved.length) fail('INVALID_EXPECTED_CURRENT_PRESERVED')
+  if (preserved.length ? !SHA40.test(c.expectedCurrentPhysicalTree || '') : c.expectedCurrentPhysicalTree !== undefined) fail('EXPECTED_CURRENT_PHYSICAL_TREE_REQUIRED_EXACTLY_WITH_PRESERVED_PATHS')
+  return { targetShort: c.targetCommit.slice(0, 7), expectedShort: c.expectedCurrentCommit.slice(0, 7), deployable, nonDeployable, preserved }
+}
+
+// Repository-only paths of THIS release, as the runner applies them: the declared ones, plus every path production still holds from an earlier release that this
+// release does not change in Git (repository-only stays "exactly what production has", it is never silently overwritten by TREE(commit)). A preserved path that this
+// release changes and declares deployable is deployed and stops being preserved.
+export function effectiveNonDeployable(c) {
+  const delta = new Set(c.deltaPaths)
+  const declared = c.nonDeployablePaths ?? []
+  return [...declared, ...(c.expectedCurrentPreserved ?? []).map(e => e.path).filter(p => !delta.has(p))]
+}
+
+// The preserved list for the manifest of the release AFTER this one (its expectedCurrentPreserved). For each path this release leaves as production has it, the
+// source is the commit whose blob production really holds: the original source if it was already preserved, otherwise the commit production is at now.
+export function nextExpectedCurrentPreserved(c) {
+  const known = new Map((c.expectedCurrentPreserved ?? []).map(e => [e.path, e.from]))
+  return effectiveNonDeployable(c).map(p => ({ path: p, from: known.get(p) ?? c.expectedCurrentCommit })).sort((a, b) => (a.path < b.path ? -1 : 1))
 }
 
 function renderSourceProbes(c) {
@@ -165,7 +186,7 @@ function renderPostStartProbes(c) {
 }
 
 export function renderTemplate(template, c) {
-  const { targetShort, expectedShort, deployable, nonDeployable } = validateConfig(c)
+  const { targetShort, expectedShort, deployable, nonDeployable, preserved } = validateConfig(c)
   template = template.replace(/\r\n/g, '\n')
   const values = {
     RELEASE_TITLE: c.metadata.title,
@@ -183,6 +204,8 @@ export function renderTemplate(template, c) {
     EXPECTED_DELTA_PATHS: [...deployable].sort().join('\n'),
     DEPLOYABLE_COUNT: String(deployable.length),
     NON_DEPLOYABLE_PATHS_PS: nonDeployable.map(psQuote).join(', '),
+    PRESERVED_CURRENT_PS: preserved.map(e => `${psQuote(e.from)}, ${psQuote(e.path)}`).join(', '),
+    EXPECTED_CURRENT_PHYSICAL_TREE: c.expectedCurrentPhysicalTree ?? '',
     DELTA_PATHS_PS: c.deltaPaths.map(psQuote).join(', '),
     SYNC_BASE: c.sync.rollbackBase,
     SYNC_JS_SHA256_LF: c.sync.syncJsSha256Lf,
@@ -254,6 +277,11 @@ function main() {
   const actualDelta = git(['diff-tree', '--no-commit-id', '--name-only', '-r', c.expectedCurrentCommit, c.targetCommit]).split(/\r?\n/).filter(Boolean).sort()
   const expectedDelta = [...c.deltaPaths].sort()
   if (JSON.stringify(actualDelta) !== JSON.stringify(expectedDelta)) fail('TARGET_DELTA_MISMATCH')
+  // The physical production tree pinned in the manifest must be exactly what the preserved list reconstructs from this repository.
+  if (c.expectedCurrentPreserved?.length) {
+    const rebuilt = buildPhysicalTree({ cwd: root, current: c.expectedCurrentCommit, preserved: c.expectedCurrentPreserved })
+    if (rebuilt !== c.expectedCurrentPhysicalTree) fail(`EXPECTED_CURRENT_PHYSICAL_TREE_MISMATCH:${rebuilt}`)
+  }
   const count = Number(git(['rev-list', '--count', `${c.expectedCurrentCommit}..${c.targetCommit}`]))
   if (count !== c.expectedCommitCount) fail('TARGET_COMMIT_COUNT_MISMATCH')
   const template = fs.readFileSync(TEMPLATE, 'utf8')

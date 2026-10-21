@@ -19,7 +19,7 @@ test('the runner makes BOTH archives (release and rollback) with release-archive
   const lines = runner.split('\n').map(l => l.trim())
   assert.equal(lines.filter(l => /^git\b.*\barchive\b/.test(l)).length, 0, 'no direct git archive left')
   assert.ok(lines.includes('& node ops/deploy-kit/windows/release-archive.mjs $ReleaseSource $Release'))
-  assert.ok(lines.includes('& node ops/deploy-kit/windows/release-archive.mjs $RollbackCommit $RollbackRelease'))
+  assert.ok(lines.includes('& node ops/deploy-kit/windows/release-archive.mjs $CurrentPhysical $RollbackRelease'))
 })
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'archive-eol-'))
