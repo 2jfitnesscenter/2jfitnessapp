@@ -53,8 +53,8 @@ AI acts only when the member or a member of staff asks for it, and the screen te
 | Function | Who starts it | Provider | What it receives | Consent |
 |---|---|---|---|---|
 | Coach: plan, review, explanations | the member | the configured provider: Anthropic Claude, OpenAI Codex, Google Gemini or OpenAI | a pseudonymous identifier, language and units, gym equipment, the plan, recent logged sets, effort and records (up to 12 weeks), weigh-ins and goal, the intake the member writes (goal, days, limitations, likes, notes), age, sex and height | specific Coach consent, revocable; turning it off discards what the Coach holds |
-| Routine drafts | a trainer | Anthropic Claude | the member's current routines and programs and the trainer's brief (for example goal, experience, days per week); no workout history, profile, name or measurements | the member's separate consent to **Staff AI tools** (Settings → Data), not the Coach consent; checked by the server before anything is built or sent, and again when the job starts |
-| Follow-up analysis | a trainer | Anthropic Claude | compact calculated facts about the follow-up, without names, identifiers or notes; labelled as written by AI | the same Staff AI tools consent; without it only the calculated analysis is shown |
+| Routine drafts | a trainer | Anthropic Claude | the member's current routines and programs and the trainer's brief (for example goal, experience, days per week); no workout history, profile, name or measurements | requested by a trainer or the administrator with access to the member; there is no separate member switch for it; the draft is a proposal that staff review before anything is saved |
+| Follow-up analysis | a trainer | Anthropic Claude | compact calculated facts about the follow-up, without names, identifiers or notes; labelled as written by AI | requested by a trainer or the administrator with access to the member; no separate member switch |
 | Scans: body-composition report, routine sheet, machine photo | the member (or staff for a member) | Google Gemini | the selected file, for that scan only | per-file confirmation (`external-ai-scan-v1`), enforced again by the API; cancelling reads and sends nothing |
 | Import matching | the member importing a CSV | Google Gemini | exercise names from the file and 2J library names | optional feature |
 
@@ -102,7 +102,7 @@ Access, rectification, erasure, restriction, portability and objection; withdraw
 - **Rectification** — edit the profile, measurements and plan in the app; staff can correct measurements and routines for the member; anything else by request.
 - **Erasure** — Settings → Account → *Delete my account*; details in `docs/ACCOUNT_ERASURE.md`. Removed: account, passkeys, push subscriptions, recovery links, synced state, follow-up answers and progress photos, messages, friends, notifications, shares, Bunker PIN, community posts and comments, goals, challenges created, Coach record and uploaded images. Security events keep only anonymous facts (event, time, action). **What can remain:** copies in backups until they expire — restoring an old backup could bring back deleted data. Trainer and admin accounts cannot be deleted from the app; the gym administrator does it.
 - **Connected apps** — deleting the account removes the WHOOP and Strava tokens kept here; the permission granted stays in those apps until revoked there, and activities already created in Strava stay in Strava. AI providers keep nothing that 2J can delete, because 2J stores no copy of what it sent.
-- **Withdrawing consent** — turn the Coach off in the Coach; withdraw Staff AI tools in Settings → Data; do not confirm a scan; disconnect WHOOP or Strava in Settings (and revoke them in those apps); turn notifications off in Settings; withdraw Health Connect or HealthKit in the phone settings; change sharing choices in Social. Withdrawing does not affect what happened before.
+- **Withdrawing consent** — turn the Coach off in the Coach; do not confirm a scan; disconnect WHOOP or Strava in Settings (and revoke them in those apps); turn notifications off in Settings; withdraw Health Connect or HealthKit in the phone settings; change sharing choices in Social. Withdrawing does not affect what happened before.
 
 ## 12. Contact
 
@@ -122,6 +122,6 @@ To exercise any right or ask about the data: 2JFITNESSCENTER@GMAIL.COM. Requests
 | LEGAL_TBD_TRANSFER_SAFEGUARDS | where each current provider processes data and the transfer mechanism, once provider, location and terms are verified |
 | LEGAL_TBD_AI_PROVIDER_TERMS | terms, data-processing agreement and processing location of the real AI provider accounts |
 
-Decisions already taken and applied: trainer-side AI needs the member's separate Staff AI tools consent and sends nothing without it; staff's private professional notes stay out of the automatic export and are available on request to 2JFITNESSCENTER@GMAIL.COM, with the limits stated in section 11.
+Decisions already taken and applied: trainer-side AI is used by a trainer or the administrator with access to the member, with no separate member consent switch (owner decision, 2026-10-21); staff's private professional notes stay out of the automatic export and are available on request to 2JFITNESSCENTER@GMAIL.COM, with the limits stated in section 11.
 
 Open, handled separately: the web app loads its typeface from Google Fonts (an IP address reaches Google). Self-hosting the font is a separate micro-change.
