@@ -54,7 +54,7 @@ export const TRAINER_AI_ERRORS = {
   off: 'The AI isn’t connected — ask an admin to set it up in the admin panel.',
   busy: 'A routine is already being generated for this member.',
   cap: 'Today’s AI generation limit has been reached.',
-  consent: 'This member has not allowed staff AI tools.',
+  consent: 'This member has not allowed staff AI tools. They can turn it on in their own app: Settings → Data → Staff AI tools.',
   nostate: 'This member hasn’t synced yet — there’s nothing to generate from.',
   timeout: 'The AI took too long and gave up.',
   unavailable: 'The AI is very busy right now. We already tried several times — please try again in a few minutes.',

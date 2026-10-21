@@ -40,7 +40,8 @@ export default function TrainerAIGenerate() {
   const { memberId } = useParams()
   const reviewContext = location.state?.routineReview || null
   const toast = useUI(s => s.toast)
-  const { job, pending, errorClass, refresh } = useTrainerAIStatus(memberId)
+  const { job, pending, errorClass, consent, refresh } = useTrainerAIStatus(memberId)
+  const [startError, setStartError] = useState(null)       // why "Generate" did not start a job: shown on the page, not only as a toast that disappears
   const [brief, setBrief] = useState(emptyBrief)
   const [busy, setBusy] = useState(false)
   const [structuralAnalysis, setStructuralAnalysis] = useState([])
@@ -67,12 +68,16 @@ export default function TrainerAIGenerate() {
   }, [memberId])
 
   const generate = async () => {
-    setBusy(true)
+    setBusy(true); setStartError(null)
     try {
       await requestMemberPlan(memberId, { ...brief, structuralAnalysis })
       toast(t('Generating…'))
       await refresh()
-    } catch (e) { toast(e.message || t('Could not start')) }
+    } catch (e) {
+      const code = e.data?.code
+      setStartError(TRAINER_AI_ERRORS[code] ? t(TRAINER_AI_ERRORS[code]) : (e.message || t('Could not start')))
+      toast(e.message || t('Could not start'))
+    }
     setBusy(false)
   }
   const discard = async () => {
@@ -96,8 +101,10 @@ export default function TrainerAIGenerate() {
 
   return <div id="trainer-app">
     <Topbar title={t('Generate with AI')} onBack={back} />
-    {errorClass && <div className="card" style={{ borderColor: 'var(--red)', marginBottom: 14 }}>
-      <div className="small" style={{ color: 'var(--red)' }}>{t(TRAINER_AI_ERRORS[errorClass] || 'Something went wrong.')}</div>
+    {(startError || errorClass || consent === false) && <div className="card" role="alert" style={{ borderColor: 'var(--red)', marginBottom: 14 }}>
+      <div className="small" style={{ color: 'var(--red)' }}>
+        {startError || (errorClass ? t(TRAINER_AI_ERRORS[errorClass] || 'Something went wrong.') : t(TRAINER_AI_ERRORS.consent))}
+      </div>
     </div>}
 
     <div className="card">
@@ -148,7 +155,7 @@ export default function TrainerAIGenerate() {
         placeholder={t('Anything else the AI should know about this member')} />
     </div>
 
-    <Button variant="primary" icon="sparkles" disabled={busy || !brief.goal || !brief.experience} onClick={generate}>
+    <Button variant="primary" icon="sparkles" disabled={busy || consent === false || !brief.goal || !brief.experience} onClick={generate}>
       {t('Generate routines')}
     </Button>
   </div>
