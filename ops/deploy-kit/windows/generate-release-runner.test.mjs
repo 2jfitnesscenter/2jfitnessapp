@@ -381,8 +381,8 @@ test('the rendered runner expects the DEPLOYABLE delta from the archives, the fu
   assert.ok(out.includes('TARGET_DELTA=OK 89 files') && out.includes('deployable=76'))
   assert.ok(out.includes('RELEASE_SCOPE=OK changed=76'))
   assert.ok(out.includes('release-tree.mjs $Commit $RollbackCommit @NonDeployablePaths'))
-  assert.ok(out.includes('git -c core.autocrlf=false archive --format=tar.gz --output=$Release $ReleaseSource'))
-  assert.ok(out.includes('git -c core.autocrlf=false archive --format=tar.gz --output=$RollbackRelease $RollbackCommit'), 'the rollback archive stays the exact baseline')
+  assert.ok(out.includes('node ops/deploy-kit/windows/release-archive.mjs $ReleaseSource $Release'))
+  assert.ok(out.includes('node ops/deploy-kit/windows/release-archive.mjs $RollbackCommit $RollbackRelease'), 'the rollback archive stays the exact baseline')
   for (const p of REPO_ONLY_89) assert.ok(out.includes("'" + p + "'"), 'declared in the runner: ' + p)
 })
 
