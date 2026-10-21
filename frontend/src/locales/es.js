@@ -5862,4 +5862,5 @@ export default {
   'Routine deleted': 'Rutina eliminada',
   'Routine actions': 'Acciones de la rutina',
   'Note': 'Nota',
+  'This member has not allowed staff AI tools. They can turn it on in their own app: Settings → Data → Staff AI tools.': 'Este socio no ha permitido las herramientas de IA del personal. Puede activarlas en su propia app: Ajustes → Datos → Herramientas de IA del personal.',
 }

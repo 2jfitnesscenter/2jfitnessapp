@@ -8,6 +8,8 @@ import path from 'node:path';
 import * as trainerAI from './trainer-ai.js';
 import * as trainerJobs from './trainer-jobs.js';
 import { adapterFor } from './adapters/index.js';
+import { readState } from './jobs.js';
+import { hasStaffAiConsent } from '../lib/staff-ai-consent.js';
 
 const USER_ERROR = {
   off: 'la IA del panel de entrenador no está configurada — pide al administrador que la conecte',
@@ -121,7 +123,9 @@ export function trainerAIRoutes({ json, readBody, requireAdmin, requireTrainer, 
       const trainer = requireTrainer(req, res); if (!trainer) return;
       const memberId = new URL(req.url, 'http://x').searchParams.get('memberId') || '';
       if (!memberFor(res, trainer, memberId, 'ese miembro no existe')) return;
-      json(res, 200, trainerJobs.status(trainer.id, memberId));
+      // `consent`: whether THIS member has allowed staff AI tools (null = never synced). Without it every generate is a 403, so the panel says so up front instead of failing silently.
+      const S = readState(memberId);
+      json(res, 200, { ...trainerJobs.status(trainer.id, memberId), consent: S ? hasStaffAiConsent(S) : null });
     },
 
     'POST /api/trainer/ai/discard': async (req, res) => {
