@@ -2228,7 +2228,7 @@ export default {
   'Today’s AI generation limit has been reached.': 'Se ha alcanzado el límite diario de generaciones con IA.',
   'This member hasn’t agreed to AI features, so nothing is sent to the provider. Ask them to turn it on in their app, or build the routine by hand.': 'Este socio no ha aceptado el uso de IA, así que no se envía nada al proveedor. Pídele que lo active en su app o crea la rutina a mano.',
   'This member hasn’t synced yet — there’s nothing to generate from.': 'Este socio todavía no ha sincronizado — no hay nada sobre lo que generar.',
-  'The AI took too long and gave up.': 'La IA tardó demasiado y se rindió.',
+  'The AI did not respond in time. You can try again.': 'La IA no respondió a tiempo. Puedes reintentar.',
   'The AI couldn’t sign in — check its setup in the admin panel.': 'La IA no pudo iniciar sesión — revisa su configuración en el panel de administrador.',
   'The AI runtime isn’t installed properly on this instance.': 'El entorno de la IA no está instalado correctamente en esta instancia.',
   'The AI couldn’t run — check its setup in the admin panel.': 'La IA no pudo ejecutarse — revisa su configuración en el panel de administrador.',

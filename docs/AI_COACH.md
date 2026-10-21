@@ -60,11 +60,9 @@ Both runtimes are built into the `api` image, so a self-hoster installs nothing.
 needs an API key. 2J Fitness Center never handles a browser OAuth callback and never asks your users for
 credentials.
 
-> **Note.** The design deck describes a provider-agnostic surface including Gemini and an
-> owner-supplied custom command. Those adapters were built and then retired before release; a
-> stored configuration pointing at either resets to an unconfigured Claude. Adding a provider is
-> still one adapter file plus one row in `api/coach/config.js` — nothing else branches on
-> provider identity.
+> **Note.** Gemini remains a supported provider for the member-facing Coach, alongside the
+> providers listed above. The trainer-panel routine generator is a separate feature and continues
+> to use its independent Claude credential. The owner-supplied custom command remains retired.
 
 ---
 
