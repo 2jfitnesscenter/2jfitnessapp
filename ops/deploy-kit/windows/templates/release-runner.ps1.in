@@ -360,7 +360,7 @@ Ensure-NodeDependencies $Api
 $VitestBin = Join-Path $Frontend 'node_modules/vitest/vitest.mjs'
 if (-not (Test-Path -LiteralPath $VitestBin -PathType Leaf)) { throw "VITEST_LOCAL_BINARY_MISSING=$VitestBin" }
 Write-Host 'LOCAL_VITEST=project node_modules'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs ops/deploy-kit/windows/release-deps.test.mjs ops/deploy-kit/windows/release-protocol-guards.test.mjs' @()
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs ops/deploy-kit/windows/release-deps.test.mjs ops/deploy-kit/windows/release-protocol-guards.test.mjs ops/deploy-kit/windows/release-archive-eol.test.mjs' @()
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend "node `"$VitestBin`" run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx" @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
@@ -439,10 +439,11 @@ if ($NonDeployablePaths.Count -gt 0) {
   Write-Host "RELEASE_TREE=$ReleaseSource repository_only_kept_as_production=$($NonDeployablePaths.Count)"
 }
 # <release-tree-end>
-git archive --format=tar.gz --output=$Release $ReleaseSource
+# Both archives are byte-stable: the blobs as committed (LF), whatever core.autocrlf this machine has. With autocrlf=true git archive ships CRLF, which is not what production holds.
+git -c core.autocrlf=false archive --format=tar.gz --output=$Release $ReleaseSource
 if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
 if (Test-Path -LiteralPath $RollbackRelease) { throw "Rollback artifact already exists; preserve it and choose a new temp path: $RollbackRelease" }
-git archive --format=tar.gz --output=$RollbackRelease $RollbackCommit
+git -c core.autocrlf=false archive --format=tar.gz --output=$RollbackRelease $RollbackCommit
 if ($LASTEXITCODE -ne 0) { throw 'git archive for rollback failed' }
 
 $Marker = tar -xOf $Release SYNC_V2_ROLLBACK_BASE
