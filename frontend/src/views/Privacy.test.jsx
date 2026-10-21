@@ -56,9 +56,10 @@ describe('AI disclosure', () => {
   it('covers each AI function with what it receives, and what is never sent', () => {
     for (const s of ['Coach (plan, review and explanations)', 'Routine drafts by staff', 'Follow-up analysis by staff', 'Scans:', 'Import matching', 'Never sent to AI', 'progress photos', 'WHOOP and Strava data']) expect(ai).toContain(s)
   })
-  it('staff AI needs the member’s separate consent and says so', () => {
-    for (const s of ['separate consent to Staff AI tools', 'which is not the Coach consent', 'without it nothing is sent', 'with the same Staff AI tools consent']) expect(ai).toContain(s)
-    expect(ai).not.toContain('This does not use your Coach consent')
+  it('staff AI says who triggers it, what it receives, and that staff review the result — and no longer mentions a member switch', () => {
+    for (const s of ['Routine drafts by staff: when a trainer or the administrator uses', 'What it returns is a proposal that staff review', 'Follow-up analysis by staff: when a trainer asks']) expect(ai).toContain(s)
+    expect(ai).not.toContain('Staff AI tools')
+    expect(ai).not.toContain('without it nothing is sent')
   })
   it('keeps the per-file scan consent and the "nothing is kept" statement', () => {
     expect(ai).toContain('only after you confirm a notice for that file')
@@ -109,7 +110,7 @@ describe('entry points in Settings', () => {
   const settings = doc('frontend/src/views/Settings.jsx')
   it('Settings shows the policy, data, AI and providers entries, plus export and delete', () => {
     for (const topic of Object.keys(TOPICS)) expect(settings).toContain(`<PrivacySheet topic="${topic}" />`)
-    expect(settings).toContain('<StaffAiConsentSheet close={close} />')
+    expect(settings).not.toContain('StaffAiConsentSheet')      // the member-side switch for staff AI no longer exists
     expect(settings).toContain("t('Export my data')")
     expect(settings).toContain("t('Delete my account')")
   })
@@ -124,14 +125,15 @@ describe('docs agree with the screen and the code', () => {
     for (const v of pendingItems()) expect(policy, v).toContain(v)
     for (const s of ['Art. 6(1)(b)', 'Art. 9(2)(a)', 'external-ai-scan-v1', 'AEPD', 'Google Fonts', 'jsDelivr', 'Never sent to AI', 'LEGAL_TBD_']) expect(policy).toContain(s)
   })
-  it('trainer AI is gated by the member’s separate Staff AI consent in the code, the map and the policy', () => {
+  it('trainer AI needs no member consent switch: not in the code, not in the map, not in the policy', () => {
     expect(doc('docs/DATA_MAP.md')).not.toContain('ALSO requires the member')
-    expect(doc('docs/DATA_MAP.md')).toContain('Staff AI tools')
+    expect(doc('docs/DATA_MAP.md')).toContain('no separate member consent switch')
     const jobs = doc('api/coach/trainer-jobs.js')
-    expect(jobs).toContain('hasStaffAiConsent(S)')
-    expect(jobs).not.toMatch(/coach\.consent/)                       // it is not the Coach consent
-    expect(doc('api/lib/coach-followup-routes.js')).toContain('hasStaffAiConsent(S)')
-    expect(policy).toContain('Staff AI tools')
+    expect(jobs).not.toContain('hasStaffAiConsent')
+    expect(jobs).not.toMatch(/coach\.consent/)                       // and it never was the Coach consent
+    expect(doc('api/coach/trainer-routes.js')).not.toContain('hasStaffAiConsent')
+    expect(doc('api/lib/coach-followup-routes.js')).not.toContain('hasStaffAiConsent')
+    expect(policy).not.toContain('Staff AI tools')
     expect(policy).not.toContain('LEGAL_TBD_TRAINER_AI_BASIS')
   })
   it('the repo policy carries the owner’s controller data', () => {

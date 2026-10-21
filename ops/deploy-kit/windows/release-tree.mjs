@@ -29,9 +29,10 @@ export function buildReleaseTree({ cwd, target, baseline, nonDeployable }) {
       // Exact path only: ls-tree with a literal pathspec; a directory, a glob or an unknown name is refused.
       if (/[\0\r\n*?[\]\\]/.test(p) || p.startsWith('/') || p.split('/').includes('..')) throw new Error(`RELEASE_TREE_UNSAFE_PATH:${p}`)
       const inTarget = git(cwd, ['ls-tree', target, '--', p]).trim()
-      if (!inTarget) throw new Error(`RELEASE_TREE_PATH_NOT_IN_TARGET:${p}`)
-      if (!inTarget.startsWith('100644 blob') && !inTarget.startsWith('100755 blob')) throw new Error(`RELEASE_TREE_NOT_A_FILE:${p}`)
       const old = git(cwd, ['ls-tree', baseline, '--', p]).trim()
+      // A path the target no longer has is accepted only when the baseline (the physical production tree) holds it: it stays exactly as production has it.
+      if (!inTarget && !old) throw new Error(`RELEASE_TREE_PATH_NOT_IN_TARGET:${p}`)
+      if (inTarget && !inTarget.startsWith('100644 blob') && !inTarget.startsWith('100755 blob')) throw new Error(`RELEASE_TREE_NOT_A_FILE:${p}`)
       if (old) {
         const m = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(old)
         if (!m || m[3] !== p) throw new Error(`RELEASE_TREE_BASELINE_NOT_A_FILE:${p}`)

@@ -136,9 +136,6 @@ export const DEF = {
   // same app it was before the feature existed, which is what Epic F asks for. Shape and
   // bounds live in lib/coach.js.
   coach: null,
-  // The member's own consent for the AI tools gym staff use with their data (components/StaffAiConsentSheet.jsx).
-  // Separate from `coach`; the server refuses staff AI for this member while it is absent. { consent: { agreedAt, version } } | null.
-  staffAi: null,
   // Badges/achievements (lib/badges.js's evaluateBadges) — keyed by badge id, each
   // { badgeId, unlockedAt: ISO string | null, progress: 0..1 }. An id absent from this map
   // just means "never evaluated as close yet", same as 0 progress — see BADGES in

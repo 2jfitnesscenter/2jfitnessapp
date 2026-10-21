@@ -29,7 +29,6 @@ import * as trainerAI from './trainer-ai.js';
 import { adapterFor } from './adapters/index.js';
 import * as payloadLib from './payload.js';
 import { buildPrompt, readState } from './jobs.js';
-import { hasStaffAiConsent } from '../lib/staff-ai-consent.js';
 import { generateWithRepair } from './ai-generate.js';
 import { aiLog, POLICIES, makeBudget } from './ai-run.js';
 import * as metrics from '../lib/ai-metrics.js';
@@ -117,8 +116,6 @@ export function enqueue(trainerId, memberId, brief) {
 
   const S = readState(memberId);
   if (!S) throw new TrainerAIError('nostate', 'este socio nunca ha sincronizado — todavía no hay nada sobre lo que generar');
-  // Nothing about the member leaves for an external AI provider without THEIR specific consent for staff AI tools.
-  if (!hasStaffAiConsent(S)) throw new TrainerAIError('consent', 'el socio no ha dado su consentimiento para las herramientas de IA del personal');
   const job = { id: crypto.randomBytes(8).toString('hex'), trainerId, memberId, brief, startedAt: Date.now(), resumes: 0 };
   inflight.add(key);
   put({ id: job.id, trainerId, memberId, state: 'queued', phase: 'queued', startedAt: job.startedAt, endedAt: 0, pending: null, errorClass: null, brief, resumes: 0 });
@@ -184,8 +181,6 @@ async function execute(job) {
 
   const S = readState(job.memberId);
   if (!S) return setResult(job, { state: 'failed', errorClass: 'nostate' });
-  // Re-checked when the job actually starts: consent withdrawn while it was queued stops it before anything is built or sent.
-  if (!hasStaffAiConsent(S)) return setResult(job, { state: 'failed', errorClass: 'consent' });
   const adapter = adapterOverride || adapterFor('claude');
   const payload = payloadLib.buildTrainer(S, job.memberId, job.brief);
   const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trainer-ai-'));

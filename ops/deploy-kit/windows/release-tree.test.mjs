@@ -83,7 +83,7 @@ function runSnippet([exe, args], { baseline = PROD } = {}) {
     execFileSync('git', ['clone', '-q', dir, repo])
     fs.mkdirSync(path.join(repo, 'ops/deploy-kit/windows'), { recursive: true }); fs.writeFileSync(path.join(repo, 'ops/deploy-kit/windows/release-tree.mjs'), treeScript)
     const q = s => `'${s.replace(/'/g, "''")}'`
-    const script = `$ErrorActionPreference='Stop'; Set-StrictMode -Version Latest; Set-Location -LiteralPath ${q(repo)}\n$Commit=${q(TARGET)}; $RollbackCommit=${q(baseline)}; $NonDeployablePaths=@(${NON.map(q).join(',')}); $ReleaseSource=$Commit\n` +
+    const script = `$ErrorActionPreference='Stop'; Set-StrictMode -Version Latest; Set-Location -LiteralPath ${q(repo)}\n$Commit=${q(TARGET)}; $CurrentPhysical=${q(baseline)}; $EffectiveNonDeployable=@(${NON.map(q).join(',')}); $ReleaseSource=$Commit\n` +
       `try {\n${snippet}\n'RESULT=' + $ReleaseSource } catch { 'RESULT=THROW:' + $_.Exception.Message }\n`
     const file = path.join(repo, 'case.ps1'); fs.writeFileSync(file, script)
     return spawnSync(exe, [...args, file], { encoding: 'utf8' })
