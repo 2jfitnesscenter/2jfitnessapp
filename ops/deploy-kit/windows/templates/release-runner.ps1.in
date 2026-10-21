@@ -439,12 +439,13 @@ if ($NonDeployablePaths.Count -gt 0) {
   Write-Host "RELEASE_TREE=$ReleaseSource repository_only_kept_as_production=$($NonDeployablePaths.Count)"
 }
 # <release-tree-end>
-# Both archives are byte-stable: the blobs as committed (LF), whatever core.autocrlf this machine has. With autocrlf=true git archive ships CRLF, which is not what production holds.
-git -c core.autocrlf=false archive --format=tar.gz --output=$Release $ReleaseSource
-if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
+# Both archives are byte-stable: every file is the committed blob, whatever this machine's git config says. A plain `git archive` applies the repository's .gitattributes EOL rules (`* text=auto`, `*.ps1 eol=crlf`) with
+# core.eol=CRLF on Windows even if core.autocrlf=false, which is not what production holds. release-archive.mjs neutralises that through a throw-away bare repository; nothing in the real repository is touched.
+& node ops/deploy-kit/windows/release-archive.mjs $ReleaseSource $Release
+if ($LASTEXITCODE -ne 0) { throw 'release archive failed (see RELEASE_ARCHIVE_FAILED above)' }
 if (Test-Path -LiteralPath $RollbackRelease) { throw "Rollback artifact already exists; preserve it and choose a new temp path: $RollbackRelease" }
-git -c core.autocrlf=false archive --format=tar.gz --output=$RollbackRelease $RollbackCommit
-if ($LASTEXITCODE -ne 0) { throw 'git archive for rollback failed' }
+& node ops/deploy-kit/windows/release-archive.mjs $RollbackCommit $RollbackRelease
+if ($LASTEXITCODE -ne 0) { throw 'rollback archive failed (see RELEASE_ARCHIVE_FAILED above)' }
 
 $Marker = tar -xOf $Release SYNC_V2_ROLLBACK_BASE
 if ($LASTEXITCODE -ne 0 -or ($Marker -join "`n") -notmatch [regex]::Escape($SyncBase)) {
