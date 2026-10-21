@@ -34,6 +34,8 @@ const DEFAULTS = {
   enabled: false,
   auth: null,                          // { type:'apikey', connectedAt, data:<encrypted {token}> }
   caps: { instanceDaily: 200 },        // 0 = unlimited — a batch call per import, not per exercise
+  model: null,                         // null = the adapter's default Gemini model
+  fallbackModel: null,                 // optional second Gemini model tried when the first stays overloaded
   log: [],
   usage: null,
 };
@@ -124,6 +126,17 @@ export function reserveDaily(uid = 'unknown') {
   usage.byUser[key] = (Number(usage.byUser[key]) || 0) + 1;
   save({ usage });
   return { allowed: true, used: usage.total, limit };
+}
+/** A scan that ended without a result gives its slot back: the member did not get what the slot is for. */
+export function refundDaily(uid = 'unknown') {
+  const cfg = load();
+  const usage = cfg.usage;
+  if (!usage || usage.date !== todayISO() || !(Number(usage.total) > 0)) return false;
+  const key = String(uid || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || 'unknown';
+  const byUser = { ...(usage.byUser || {}) };
+  if (Number(byUser[key]) > 0) byUser[key] = Number(byUser[key]) - 1;
+  save({ usage: { date: usage.date, total: Number(usage.total) - 1, byUser } });
+  return true;
 }
 export const lastError = () => [...(load().log || [])].reverse().find(e => e.outcome === 'failed') || null;
 export const lastSuccess = () => [...(load().log || [])].reverse().find(e => e.outcome === 'ready') || null;

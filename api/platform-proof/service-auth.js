@@ -2,7 +2,8 @@ import crypto from 'node:crypto';
 
 export const SERVICE_AUTH_PATH = '/api/platform/v1/link-proofs/exchange';
 export const SERVICE_RECONCILIATION_PATH = '/api/platform/v1/link-proofs/reconcile';
-const SERVICE_AUTH_PATHS = new Set([SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH]);
+export const SERVICE_TRAINING_SUMMARY_PATH = '/api/platform/v1/training-summary';
+const SERVICE_AUTH_PATHS = new Set([SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH, SERVICE_TRAINING_SUMMARY_PATH]);
 export const SERVICE_AUTH_FRESHNESS_MS = 60_000;
 export const SERVICE_AUTH_REPLAY_TTL_MS = 2 * SERVICE_AUTH_FRESHNESS_MS;
 const KEY_ID = /^[A-Za-z0-9._-]{1,80}$/;

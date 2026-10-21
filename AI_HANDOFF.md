@@ -31,18 +31,68 @@ Este bloque es la referencia vigente y supersede los checkpoints de producción 
 - No tocar Sync V2, borrado de cuenta, consentimiento de escaneos, Shared Staff, Exercise Media, lógica de Bunker/Social, Guided, Constructor, Seguimiento, Coach, Health, Android/iOS, Platform ni deploy-kit, salvo el guard de carga inicial de los stores indicado en este sprint.
 - `state-<uid>.json` ya devuelve `STATE_CORRUPT` y no lo sobrescribe; el store de Chat ya queda bloqueado en solo lectura si no puede descifrarse. No duplicar esas protecciones ni cambiar esos contratos.
 
+## IA — capa de fiabilidad (candidato en PR, NO desplegado)
+
+- Rama `codex/ai-reliability-on-main` (candidato en PR contra `main`; NO desplegado, falta prueba con fotos reales). Parte de `main` + el cierre de privacidad #33 (aún abierto, ya presente en producción), porque los escaneos exigen `external-ai-scan-v1`. No define la línea de producción vigente: ese dato está en el checkpoint de arriba. Detalle, políticas y presupuestos en `docs/AI_RELIABILITY.md`.
+- `api/coach/ai-run.js` es la única puerta a los proveedores para Coach, IA del entrenador y escaneos; `api/coach/ai-generate.js` unifica generar → validar → puerta de protocolo → reparar; `api/lib/ai-vision.js` es el motor de los escaneos; `api/lib/measurements-consensus.js` y `routine-validate.js` son las comprobaciones deterministas.
+- Escaneos: `POST /api/scan/start|status|cancel` (trabajos en memoria, la foto no toca disco); los endpoints síncronos antiguos siguen para versiones instaladas. El consentimiento `external-ai-scan-v1` se valida en el servidor antes de leer nada.
+- Trabajos del entrenador en `data/trainer-ai-jobs.json`; los del Coach guardan la petición y se reanudan una vez tras un reinicio.
+- Límites: el respaldo es otro modelo del MISMO proveedor (`fallbackModel`, vacío por defecto, sin interfaz de administración todavía); no hay conmutación entre proveedores porque cada flujo guarda una sola credencial.
+
 ## Exercise Library — medios reactivados (cambio local, NO desplegado)
 
 - Se reactivan las referencias históricas de imágenes/GIF del catálogo y las 157 ilustraciones de estiramientos por decisión del propietario del proyecto. Se usa el origen histórico existente, fijado a `7455efae41b330c265e7cd4b78dfa848e7ce5ebd`, y los assets de estiramientos ya versionados.
 - La decisión de mostrarlos no acredita una licencia ni titularidad de 2J. La procedencia y clasificación `UNKNOWN_OR_UNVERIFIED` se conservan en `docs/legal/exercise-media-inventory.csv`, `THIRD_PARTY_NOTICES.md`, pantalla Legal y documentación de Exercise Library.
 - Se restauran rutas estáticas `/img/`, `/gif/`, `/stretch/`, montajes Compose y `scripts/fetch-media.sh`; la descarga se omite si los directorios ya contienen media y no sobrescribe archivos existentes. Placeholders/fallback siguen disponibles para recursos ausentes. IDs, datos, búsqueda, swaps y lógica de entrenamiento no cambian.
 
-## Seguimiento V2 final — release candidate (2026-10-14, NO desplegado)
+## Seguimiento V2 final — candidato local (2026-10-14, NO desplegado)
 
-- PR #29 merged as `7b11fb7`; release branch is based on production `6f1a9e22d6de050bf230488adbef462732cecc02` and carries only PR #29 changes.
-- Includes admin-managed versioned questionnaires, immutable assignment responses, private progress photos, date comparison, derived follow-up timeline, and existing Routine Review history integration.
-- Photos are authenticated, stored under `DATA/followup-photos`, excluded from Social and Coach, and deleted with the member account. Coach intake uses existing consent and admin-curated structured answers only.
-- No schema migration or Sync V2 changes. Release validation is in progress; no deployment has been performed.
+- Extiende Coach/Seguimiento PRO V3 y el consentimiento existente: cuestionarios Básico/Intermedio/Pro configurables por admin, asignación staff→socio, snapshot versionado y una respuesta inmutable por asignación. No requiere migración; socios antiguos siguen usando su ficha actual.
+- Añade fotos privadas en `DATA/followup-photos` con validación del contenido JPEG/PNG/WebP, máximo 4 imágenes y 5 MB por entrada, acceso autenticado por socio/trainer/admin, sin ruta Social y borrado al eliminar la cuenta. Las copias de seguridad existentes incluyen el nuevo directorio bajo `DATA`.
+- La comparación y cronología son proyecciones de medidas/peso, cuestionarios, fotos, check-ins compartidos y el historial existente de revisiones/decisiones/versiones; no se crea otro historial. Los cambios nuevos de objetivos conservan snapshots dentro del registro profesional cifrado; objetivos previos a esta captura no se pueden reconstruir.
+- Coach solo recibe respuestas de opción cerrada/números expresamente seleccionadas por admin, después del consentimiento Coach v1 ya existente. Texto libre, etiquetas sensibles, fotos, Social y datos identificativos quedan fuera.
+- UI en Seguimiento de socio y ficha profesional, y editor admin en `/admin/followup/templates`. Validación local: frontend 1.808/1.808; API 680 aprobados, 0 fallos y 47 pruebas operativas omitidas por necesitar Bash/OpenSSL no disponible en Windows; build OK, español completo y `git diff --check` OK. Producción confirmada: `51bb15e99b0f838ec8aaa439777fbf45169caaf8`. Candidato aún sin merge/deploy.
+
+## Histórico — Platform ↔ Búnker (2J-089, 2026-10-13; supersedido por el checkpoint autoritativo inicial)
+
+Hay una integración de resumen V1 en revisión conjunta, todavía **sin merge ni despliegue**. Platform conserva la identidad humana `personId`, la relación canónica y su revocación; Training conserva `trainingUserId`, cuentas y todos los datos de entrenamiento. El endpoint backend de Training está apagado por defecto y usa el `2J-SERVICE-AUTH-V1` existente. Platform consulta solo enlaces verificados activos, devuelve un resumen agregado y mantiene Profile disponible si Training falla. No hay SSO, transferencia de sesión, matching por PII, sincronización de historial ni matriz de derechos Búnker.
+
+Las dos ramas de 2J-089 comparten el fixture V1 `contracts/2J-089-training-summary-v1.json` y deben revisarse/fusionarse juntas, nunca de forma independiente. PRs Draft con CI verde: Training [#28](https://github.com/2jfitnesscenter/2jfitnessapp/pull/28), Platform [#36](https://github.com/2jfitnesscenter/2j-platform/pull/36). Bases observadas: Platform `b919624f381a5a7c29ca072e40cd942d0ff169f8`; Training `d941f3afd8c2bf660f179640465506eb50d8cee4`. Validación local: Platform 285/285; Training API 675 pasados, 47 omitidos, 0 fallos y frontend 1.808/1.808. Mantener ambas PRs en Draft y ambos switches desactivados salvo pruebas locales expresas. Detalle y validación: [docs/HANDOFF_2J-089.md](docs/HANDOFF_2J-089.md).
+
+Los avisos de `npm audit` de API y frontend Training son deuda preexistente; esta TASK no cambia dependencias ni lockfiles.
+
+## Histórico — checkpoint de producción y prioridades (2026-10-12; supersedido el 2026-10-15)
+
+El texto de esta sección registra lo que se comunicó como vigente el 2026-10-12. **No representa la producción actual ni el roadmap actual**; consultar el checkpoint autoritativo al inicio de este archivo.
+
+### Producción indicada en el checkpoint de 2026-10-12 (histórica)
+
+- En aquella fecha se indicó el release `51bb15e99b0f838ec8aaa439777fbf45169caaf8`, con health 200 y datos/servicios preservados. La producción actual confirmada después es `aff0a694d37d2c8fbef298ffd6abcf4ab358f186`.
+
+### CERRADO Y DESPLEGADO
+
+- **Personalización V2 / Ajustes:** ordenar, mostrar, ocultar y restaurar bloques de Home y Progreso; guía de primer uso y accesos desde ambas superficies. Ajustes usa una fila compacta que abre `/settings/personalisation`.
+- **Premium Training:** catálogo operativo con 12 programas originales publicados, gestión admin, motor reutilizable y programas adicionales ocultos por defecto.
+- **Oposiciones V1.1:** preparación física real mediante el motor Premium; sesiones y fases Base/Desarrollo/Específica/Competitiva con fuerza, fuerza relativa, potencia, velocidad, agilidad, resistencia, trabajo específico, natación cuando corresponde, core/preventivo, progresión y descargas. Las marcas son checkpoints de evaluación. Perfiles: Policía Local Canarias, Policía Nacional, Guardia Civil y Bomberos CEGC; horizontes 6/12/18/24 meses.
+- **Bunker V2.1 y core:** vista Normal/Compacta para aproximadamente 6–10 socios, tarjetas con estado de sesión y acceso al panel completo. Rutina completa, navegación, imágenes, superseries, swap, rutina libre/perfil, persistencia, aislamiento por uid y finish/historial están cerrados. V2.1 no cambió API, modelo de datos ni Sync V2.
+- También cerrados: Exercise Library V2 y taxonomía; búsqueda, swap, import y capa IA de ejercicios; Gym Profiles; Constructor V2 y bloques; Guided/Entrena con 2J; Social/Amigos; Shared Staff; Health V2; export/share; Coach/seguimiento base; progresión cardio; modo Express y reordenación semanal; Training Quality y revisión de programa. No reabrirlos como features nuevas sin una incidencia concreta reproducida.
+
+### Prioridades comunicadas en aquel checkpoint (históricas; supersedidas)
+
+- No hay otro sprint de Training pendiente confirmado. Validar Oposiciones V1.1 y el flujo de entrenamiento con uso real; agrupar incidencias reproducibles antes de cambiar producto.
+- Web Push para descanso sigue sin validación física confirmada ni conexión del aviso real al temporizador. El trabajo preparatorio está en una línea separada y no forma parte de esta base `main`; no asumir que está desplegado.
+- El APK Android firmado y distribuible queda expresamente para el final.
+
+### Orden de trabajo de aquel checkpoint (histórico; supersedido)
+
+- Terminar Training antes de empezar Platform. No iniciar Platform ahora.
+- Siguiente bloque recomendado: validación de uso real de Oposiciones V1.1 y del flujo completo de entrenamiento; corregir solo fallos observados y agruparlos en un bloque pequeño.
+- Después de cerrar Training con evidencia, reconsiderar Platform. Android firmado/distribución se deja para el final.
+
+### Política de trainer registrada en aquel checkpoint (histórico)
+
+- Política operativa de Training: cualquier cuenta `trainer` puede listar, buscar, consultar y editar datos operativos de cualquier socio del centro, sin ACL por `assignedTrainers`. La asignación queda como dato organizativo editable solo por admin. Socios continúan aislados a su propia cuenta; roles, permisos globales, staff, seguridad, secretos, configuración sensible y otras rutas explícitamente admin-only siguen reservadas a admin. Los check-ins conservan el consentimiento ya existente.
+- En aquel checkpoint el cambio estaba en revisión; esa frase no describe el estado actual de GitHub ni producción.
 
 ## Home + Salud V2 + Entrenamientos Premium V1 (candidato; NO desplegado; base `172a89c` = origin/main tras el PR #17)
 
@@ -53,7 +103,7 @@ Este bloque es la referencia vigente y supersede los checkpoints de producción 
 
 ## Gestión del centro V1 (candidato; NO desplegado; producción `8239e350`)
 
-- Detalle en `docs/CENTER_MANAGEMENT_V1.md`. Consola `/center` (Hoy · Miembros · Entrenadores), accesible a admin y trainer desde la tarjeta de Admin y la barra del panel de entrenador. Solo lectura sobre datos existentes: `assignedTrainers`/`canAccessMember`, resumen derivado (`lastWorkoutAt` = actividad de entrenamiento; `lastSync` nunca se llama activo), motor de seguimiento del Coach (`overviewRow`/`bucketRows`, mismos buckets que el tablero) y presencia. Endpoints `GET /api/center/today|members|trainers` (`lib/center-routes.js`). El trainer solo conoce sus miembros asignados (`canAccessMember`): ni lista ni agregados de los demás. Sin stores, roles ni notificaciones nuevos; reservas/clases intactas.
+- Detalle en `docs/CENTER_MANAGEMENT_V1.md`. Consola `/center` (Hoy · Miembros · Entrenadores), accesible a admin y trainer desde la tarjeta de Admin y la barra del panel de entrenador. Solo lectura sobre datos existentes: `assignedTrainers` como dato organizativo, resumen derivado (`lastWorkoutAt` = actividad de entrenamiento; `lastSync` nunca se llama activo), motor de seguimiento del Coach (`overviewRow`/`bucketRows`) y presencia. Admin ve el roster completo; trainer ve a todos los socios y solo sus propias métricas de entrenador. Sin stores, roles ni notificaciones nuevos; reservas/clases intactas.
 
 ## Center Management Foundation V1 (candidato; NO desplegado; producción `30007337`)
 
@@ -61,7 +111,7 @@ Este bloque es la referencia vigente y supersede los checkpoints de producción 
 
 ## Social & Compartir V2 (candidato; NO desplegado; producción `a0f3a94`)
 
-- Rama `codex/social-v2`; detalle en `docs/SOCIAL_V2.md`. **ACL**: el bloqueo corta todo el social en ambos sentidos (valorar, comentarios, temas, tablón, retos, metas, marcas); valorar exige poder ver el post; las metas de peso corporal solo llegan a amigos aceptados; los hilos de soporte solo los ve el miembro, el admin y el entrenador asignado (`assignedTrainers`); los interruptores de admin social/chat/friends/challenges se aplican en el API (403 `feature_off`).
+- Rama `codex/social-v2`; detalle en `docs/SOCIAL_V2.md`. **ACL**: el bloqueo corta todo el social en ambos sentidos (valorar, comentarios, temas, tablón, retos, metas, marcas); valorar exige poder ver el post; las metas de peso corporal solo llegan a amigos aceptados; los hilos de soporte los ven el miembro, el admin y cualquier trainer del centro; los interruptores admin social/chat/friends/challenges se aplican en el API (403 `feature_off`).
 - **Compartir privado**: «Enviar a un amigo» desde la rutina/programa envía un *snapshot* limpio (`api/lib/share-snapshot.js`, guardado con el share en `social-sharing.json`), sin publicar; no depende del original. Pantalla única de recepción `/social/share/:id` (preview, compatibilidad con el Gym Profile, Guardar copia con `fromShare`, Empezar, Ahora no). Notifica con el tipo `share` existente.
 - **Chat**: el estado de lectura solo se escribe si cambia y el polling usa cursor (`?after=&rev=`); medido 6 898 B → 297 B por poll en reposo, 0 escrituras. **Límites** por persona (`lib/social-limits.js`): solicitudes, mensajes, comentarios, shares, reportes; enfriamiento de 24 h tras un rechazo.
 - **Moderación**: retirar contenido ajeno deja evento `content_removed` (sin texto) y aviso al autor (tipo `moderation`, no desactivable); se pueden reportar mensajes de chat y comentarios. **Tarjetas**: programa propia, comunidad 9:16 y 1:1, números opcionales del entreno (duración, volumen, récords, cardio) solo si se marcan. Tests: `social-acl`, `private-shares`, `chat-efficiency`, `social-limits`, `moderation`, `share-privacy`, `social-notifications` (API) y `shared-plans`, `received-plan`, `share-cards-v2`, `moderation-ui` (frontend).
@@ -91,7 +141,7 @@ Este bloque es la referencia vigente y supersede los checkpoints de producción 
 
 - Producción de partida confirmada por el propietario: `bd48dc12c23bc99234defa34fd9481c13a6398e1`. Rama `codex/coach-followup-v3` (worktree `C:\Users\juanj\Dev\2J\worktrees\codex\2jfitnessapp\coach-followup-v3`). Solo cambios aditivos; Sync V2, auth, WebAuthn, Bunker, Health, Constructor y Guided no se tocan.
 - **Qué hay**: tablero de Seguimiento (admin en `/admin/attention`, entrenador en `/trainer/seguimiento`) y ficha por socio (`/admin/attention/:id`, `/trainer/seguimiento/:id`). Todo se calcula en el servidor (`api/lib/coach-followup.js`, puro y determinista) a partir de datos existentes; no se almacenan cálculos. Detalle, mapa de datos y permisos en `docs/COACH_FOLLOWUP_V3.md`; política de evidencia y registro de umbrales (heurísticas internas) en `docs/COACH_FOLLOWUP_EVIDENCE.md`.
-- **Permisos (nuevo, explícito)**: admin ve a todos; entrenador solo a los socios con `user.assignedTrainers` que lo incluya (lo fija un admin con `POST /api/admin/user/trainers`; vacío = solo admin); socio, nada. Un entrenador no asignado recibe el mismo 403 que un socio (no se pueden sondear ids). Quitar el rol de entrenador borra sus asignaciones. El mismo ACL se aplica a TODAS las rutas de staff que apuntan a un socio, también las del panel antiguo (`member-plan`, `member-routine/program`, `assign-*`, `routine-cycle(s)`, `routine-reviewed`, `*-versions`, IA de entrenador y el selector `GET /api/trainer/members`) mediante `memberFor` en `server.js`; `api/test/trainer-acl.test.js` lo prueba y falla si aparece una ruta nueva sin guard. Consecuencia operativa: un entrenador no alcanza a nadie hasta que un admin le asigne socios. Siguen solo por rol, por ser globales del gimnasio y no tocar ningún socio: tablón y retos de Social, alias de máquinas/ejercicios y las bibliotecas de bloques y programas guiados.
+- **Permisos históricos (sustituidos por la política preparada arriba)**: la implementación original limitaba trainers a `user.assignedTrainers`; la política actual de esta rama permite a cada trainer operar sobre todos los socios. La asignación sigue disponible como metadato organizativo y su endpoint continúa admin-only. `memberFor` centraliza la regla en las rutas operativas; las rutas admin-only no se amplían.
 - **Datos nuevos (solo roster, aditivos)**: `user.assignedTrainers`, `user.followUp.goalPlan`, `user.followUp.flag` y, dentro del bloque cifrado ya existente (`privateNotesEncrypted`, versión 1), `entries` (notas con fecha) y `events` (decisiones). Nada en el estado del socio ni en Sync. `sanitizeFollowUp` conserva `goalPlan`/`flag` al editar plantilla/frecuencia. Nunca viajan a socio, IA personal, Social, exportación ni a la IA profesional.
 - **API** (`api/lib/coach-followup-routes.js`): `GET /api/trainer/followup/overview` (una petición, sin N+1), `GET …/member?id=`, `POST …/start|goal|note|note/delete|decision|flag|analyze`, `GET …/analysis?id=`, `POST /api/admin/user/trainers`. Mover una fecha de revisión (`routine-cycle`) deja un evento privado `review_rescheduled`.
 - **IA profesional** (`api/coach/followup-ai.js`, `prompts/followup.md`): mismo credencial/tope diario/log que la IA de entrenador; solo recibe `aiFacts()` (≤6000 caracteres, sin nombre/ids/notas/estado crudo); respuesta validada (`validateAiAnswer`): hecho/inferencia/sugerencia, sin lenguaje médico ni cambios aplicables; caché 30 min por mismos hechos. Sin IA conectada se muestra siempre el análisis determinista.
@@ -166,7 +216,7 @@ Este bloque es la referencia vigente para el trabajo posterior a producción 423
 4. Después, agrupar incidencias de uso normal. Roadmap no comprometido: Bunker evolución, entrenamiento temporizado, UI/UX, Health/progreso visual, Library/análisis, seguridad/passkeys, Sync V3, Social, catálogo y reservas.
 
 ---
-## Estado actual — producción y alerta Android de descanso (2026-10-07)
+## Histórico — producción y alerta Android de descanso (2026-10-07; supersedido por el checkpoint autoritativo inicial)
 
 - **Producción actual reportada por el propietario:** `cca6dc4137afb28e4df823f229e939933efeae78` (release Android Rest Alert). Shared Staff Device permanece desplegado y validado; no reabrirlo.
 - **Alerta Capacitor Android:** se conserva en la APK para la release `cca6dc4`. Reutiliza el temporizador JS y una notificación local genérica, sin datos de ejercicio, Health ni cambios de Sync V2. El hallazgo actual se refiere a la mayoría de usuarios que usan la web/PWA, no a borrar ni reemplazar el mecanismo nativo.
@@ -313,7 +363,7 @@ Este bloque es la referencia vigente para el trabajo posterior a producción 423
 - **NO tocar:** Sync V2, Auth, bridge Health Android/iOS, política de kcal, `doFinishWorkout`, backends Social/Chat/Followup, permisos, contratos de datos.
 - **Hecho para Codex:** traducir el resto de claves nuevas a los 10 packs; test de contraste de `--v2-*` en claro/oscuro; revisión Android del glass.
 
-## 1. Estado actual (checkpoint 2026-10-01)
+## Histórico — estado del checkpoint 2026-10-01 (supersedido por el checkpoint autoritativo inicial)
 
 - **Ajuste UX + Admin IA (rama `feat/ux-ai-admin`, sobre `feat/adaptive-ux`; SIN desplegar):** Perfil: «Prioridades de entrenamiento» es una fila compacta que abre `/profile/priorities` (`views/TrainingPriorities.jsx`, mismos selectores y mismo guardado). Ajustes: Cuenta primero. Admin → «Inteligencia artificial» (`/admin/ai`, `views/AdminAI.jsx`): las 3 IA existentes (Coach, IA del panel de entrenador, IA auxiliar) con estado y «Configurar» que abre sus paneles actuales. Diagnóstico IA: el Coach funciona de extremo a extremo (proveedor fixture) y el runtime de Claude da razones exactas; no hay bug de código — un fallo con proveedor real es de credencial (reconectar desde la nueva pantalla). Tests: API `ai-admin.test.js` (7), frontend `ux-ai.test.jsx` (8).
 - **Adaptive UX + Funciones de la app + personalización (rama `feat/adaptive-ux`, sobre `feat/news-avisos`; SIN desplegar):** admin ∩ socio ∩ datos. Servidor: `api/lib/features-store.js` + `features-routes.js`, `DATA/features.json` (13 módulos; ausente = todo ON; `GET /api/features` autenticado, `POST /api/admin/features` solo admin). Cliente: `lib/features.js` (`uxOn(S,key)` = admin permite ∧ socio no lo ocultó; `S.ux` null = sin personalizar = todo ON; `helps` solo del socio), estado `features` en el store (caché offline `gym_features_v1`). `views/ExperienceSetup.jsx` (onboarding de perfiles nuevos tras el wizard físico vía `S.uxSetup`, y `/settings/experience`), `views/AdminFeatures.jsx` (`/admin/features`), invitación discreta en Home para perfiles existentes. Home simplificado; recuperación/mapa/peso/pasos-meta/Whoop/aviso bioimpedancia pasan a Progreso (`components/ProgressModules.jsx`) con profundidad por datos; Perfil y Ajustes reagrupados. Gates: `effortOf`, `coachAvailable`, `workoutPrefs.progression`, IntelligenceToday, rutas con `<Feat>`, TabBar, watchers. Tests: API `features.test.js` (6), frontend `features.test.js` + `adaptive.test.jsx` (28). Ver CHANGELOG.

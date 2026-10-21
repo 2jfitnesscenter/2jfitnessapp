@@ -56,7 +56,7 @@ async function callGemini({ apiKey, model, prompt, image, timeoutMs }) {
         ? body.error.status.replace(/[^A-Z0-9_]/gi, '').slice(0, 48) : undefined;
       const retryAfter = res.headers?.get?.('retry-after');
       const retryAfterMs = retryAfter && /^\d+(?:\.\d+)?$/.test(retryAfter)
-        ? Math.min(2000, Math.max(0, Number(retryAfter) * 1000)) : 0;
+        ? Math.min(15000, Math.max(0, Number(retryAfter) * 1000)) : 0;
       return { ok: false, error: msg, status: res.status, providerCode, retryAfterMs };
     }
     const candidate = body?.candidates?.[0];

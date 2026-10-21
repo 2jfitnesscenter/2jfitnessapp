@@ -9,29 +9,15 @@
  * see adapters/gemini.js's `inlineData` part), so one vision call covers both input kinds — this
  * only has to own the prompt and the response shape, not two different extraction strategies.
  */
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import * as auxAI from './aux-ai-config.js';
-import { adapterFor } from '../coach/adapters/index.js';
-import { extractJSON } from '../coach/validate.js';
 
-const TIMEOUT_MS = 60000;
-const GEMINI = adapterFor('gemini');
+import { runScan } from './ai-vision.js';
+import { SCAN_KEYS, normalizeReading, assessReading, mergeReadings } from './measurements-consensus.js';
 
-// Keys this feature knows how to place — bodyFat/muscleMass/waterPct/visceralFat/boneMass match
-// lib/measurements.js's `composition` group 1:1, and the 10 seg* keys match its `segments` group
-// 1:1; `weight` is the member's own body weight, not a "measurement" in that schema, but it's on
-// every one of these reports and worth a free reading.
-export const SCAN_KEYS = [
-  'weight', 'bodyFat', 'muscleMass', 'waterPct', 'visceralFat', 'boneMass',
-  'segFatArmL', 'segFatArmR', 'segFatLegL', 'segFatLegR', 'segFatTrunk',
-  'segMuscleArmL', 'segMuscleArmR', 'segMuscleLegL', 'segMuscleLegR', 'segMuscleTrunk'
-];
+export { SCAN_KEYS };
 
 const PROMPT = `This image or PDF is a body-composition ("bioimpedance") scan report from a fitness scale, in any language. Read the values it prints and reply with EXACTLY this JSON object and nothing else — no markdown fences, no explanation:
 
-{"weight": <number|null>, "bodyFat": <number|null>, "muscleMass": <number|null>, "waterPct": <number|null>, "visceralFat": <number|null>, "boneMass": <number|null>, "segFatArmL": <number|null>, "segFatArmR": <number|null>, "segFatLegL": <number|null>, "segFatLegR": <number|null>, "segFatTrunk": <number|null>, "segMuscleArmL": <number|null>, "segMuscleArmR": <number|null>, "segMuscleLegL": <number|null>, "segMuscleLegR": <number|null>, "segMuscleTrunk": <number|null>}
+{"weight": <number|null>, "bodyFat": <number|null>, "muscleMass": <number|null>, "waterPct": <number|null>, "visceralFat": <number|null>, "boneMass": <number|null>, "segFatArmL": <number|null>, "segFatArmR": <number|null>, "segFatLegL": <number|null>, "segFatLegR": <number|null>, "segFatTrunk": <number|null>, "segMuscleArmL": <number|null>, "segMuscleArmR": <number|null>, "segMuscleLegL": <number|null>, "segMuscleLegR": <number|null>, "segMuscleTrunk": <number|null>, "confidence": <"high"|"medium"|"low">}
 
 Field meanings:
 - weight: total body weight in kg.
@@ -52,70 +38,54 @@ Field meanings:
 - For every segmental field: L/left and R/right refer to the report's own left/right, arm covers
   the entire arm (not forearm/upper-arm separately), leg the entire leg, trunk the torso/core row.
 
+- confidence: how clearly you could read the printed numbers — "low" if the photo is blurry, cropped, has glare or hides part of the report, "medium" if some digits are uncertain, otherwise "high".
+
 Use null for any field you cannot find on the report. Never guess or invent a number. Reply with the JSON object only.`;
 
-const isFiniteNum = v => typeof v === 'number' && Number.isFinite(v);
-
-// Keeps only the known keys, coerces to finite numbers (or null), and drops anything wildly out
-// of a human range — a model hallucinating "180" for visceralFat is worse than leaving it blank.
-const SEG_FAT_RANGE = [0, 250];        // a ratio against the segment's own standard range, in %
-const SEG_ARM_RANGE = [0.5, 15];       // segment muscle mass, in kg — see lib/measurements.js
-const SEG_LEG_RANGE = [1, 25];
-const SEG_TRUNK_RANGE = [5, 50];
-const RANGES = {
-  weight: [20, 400], bodyFat: [1, 70], muscleMass: [5, 150], waterPct: [10, 90], visceralFat: [1, 60], boneMass: [0.5, 15],
-  segFatArmL: SEG_FAT_RANGE, segFatArmR: SEG_FAT_RANGE, segFatLegL: SEG_FAT_RANGE, segFatLegR: SEG_FAT_RANGE, segFatTrunk: SEG_FAT_RANGE,
-  segMuscleArmL: SEG_ARM_RANGE, segMuscleArmR: SEG_ARM_RANGE, segMuscleLegL: SEG_LEG_RANGE, segMuscleLegR: SEG_LEG_RANGE, segMuscleTrunk: SEG_TRUNK_RANGE
-};
-function normalize(raw) {
-  const values = {};
-  for (const key of SCAN_KEYS) {
-    const v = raw?.[key];
-    const num = typeof v === 'string' ? Number(v) : v;
-    if (!isFiniteNum(num)) { values[key] = null; continue; }
-    const [lo, hi] = RANGES[key];
-    values[key] = num >= lo && num <= hi ? Math.round(num * 10) / 10 : null;
-  }
-  return values;
-}
-
 /**
+ * One user action, as many internal reads as the photo needs and no more:
+ *   read 1 clean (in range, core fields present, the physical cross-checks hold, the model is
+ *   sure)                                  → accept it, STOP;
+ *   anything doubtful                       → read 2, merge per field;
+ *   the two reads still disagree somewhere  → read 3, per-field majority;
+ *   no majority for a field                 → that field is null and named in `review`.
+ * If the extra reads cannot be had (provider down for good), read 1 is returned with every field
+ * that took part in a failed physical check blanked — never a guess.
+ *
  * @param {{data: string, mimeType: string}} image — base64 payload (no `data:` prefix) + its mime type.
- * @returns {Promise<{ok: true, values: object} | {ok: false, error: string}>}
+ * @returns {Promise<{ok: true, values: object, review: string[]} | {ok: false, code: string, error: string}>}
  */
-export async function scanBioimpedanceImage({ data, mimeType, uid }) {
-  if (!auxAI.isEnabled() || !auxAI.isConnected()) {
-    return { ok: false, error: 'la IA auxiliar no está configurada en este servidor' };
-  }
-  if (!auxAI.reserveDaily(uid).allowed) {
-    return { ok: false, code: 'DAILY_CAP', error: 'se alcanzó el límite diario de IA auxiliar' };
-  }
-  const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aux-ai-scan-'));
-  const started = Date.now();
-  try {
-    const env = auxAI.jobEnv();
-    const check = await GEMINI.check(null, env);
-    if (!check.ok) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'failed', errorClass: 'runtime', ms: Date.now() - started });
-      return { ok: false, error: check.error || 'el proveedor no está disponible' };
+export async function scanBioimpedanceImage({ data, mimeType, uid, signal, onPhase, sync }) {
+  const image = { data, mimeType };
+  return runScan({ flow: 'measurement_scan', kind: 'measurements_scan', uid, signal, onPhase, sync }, async session => {
+    const first = await session.read(PROMPT, image);
+    if (!first.ok) return first;
+    const r1 = normalizeReading(first.value);
+    const a1 = assessReading(r1);
+    if (!a1.suspicious) return { ok: true, values: r1.values, review: [] };
+
+    onPhase?.('verifying');
+    const reads = [r1.values];
+    const second = await session.read(PROMPT, image);
+    if (!second.ok) {
+      if (second.code === 'CANCELLED') return second;
+      // The provider will not give a second opinion: keep only what nothing contradicts.
+      const values = { ...r1.values };
+      const doubtful = new Set(a1.failedKeys);
+      if (r1.confidence === 'low') for (const k of Object.keys(values)) doubtful.add(k);
+      for (const k of doubtful) if (values[k] != null) values[k] = null;
+      const kept = Object.values(values).some(v => v != null);
+      return kept ? { ok: true, values, review: [...doubtful].filter(k => r1.values[k] != null) } : second;
     }
-    const r = await GEMINI.invoke({ jobDir, env, model: null, timeoutMs: TIMEOUT_MS, prompt: PROMPT, image: { data, mimeType } });
-    if (r.timedOut) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'failed', errorClass: 'timeout', ms: Date.now() - started });
-      return { ok: false, error: 'el proveedor no respondió a tiempo' };
+    reads.push(normalizeReading(second.value).values);
+    let merged = mergeReadings(reads);
+    if (merged.conflicts.length) {
+      const third = await session.read(PROMPT, image);
+      if (third.ok) { reads.push(normalizeReading(third.value).values); merged = mergeReadings(reads); }
     }
-    if (r.code !== 0) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'failed', errorClass: 'provider', ms: Date.now() - started });
-      return { ok: false, error: (r.stderr || r.text || 'el proveedor devolvió un error').trim().slice(0, 300) };
-    }
-    const parsed = extractJSON(r.text);
-    if (parsed.error || typeof parsed.value !== 'object' || !parsed.value) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'failed', errorClass: 'badjson', ms: Date.now() - started });
-      return { ok: false, error: 'el proveedor no devolvió el formato esperado' };
-    }
-    auxAI.logJob({ at: new Date().toISOString(), kind: 'measurements_scan', outcome: 'ready', ms: Date.now() - started });
-    return { ok: true, values: normalize(parsed.value) };
-  } finally {
-    fs.rmSync(jobDir, { recursive: true, force: true });
-  }
+    const values = merged.values;
+    const kept = Object.values(values).some(v => v != null);
+    if (!kept) return { ok: false, code: 'UNREADABLE' };
+    return { ok: true, values, review: merged.review };
+  }).then(r => r.ok ? { ok: true, values: r.values, review: r.review || [] } : r);
 }

@@ -20,6 +20,8 @@ fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({
 }, null, 2));
 const state = { routines: [{ id: 'r1', name: 'Push', ex: [{ id: '0025', sets: 3, reps: 8 }] }], programs: [], workouts: [{ id: 'w1', d: '2026-09-01', routineId: 'r1', entries: [] }] };
 for (const id of ['ma', 'mb']) fs.writeFileSync(path.join(dir, `state-${id}.json`), JSON.stringify(state));
+// mb: a plan whose week, planned day and active program all point at r1 (the routine-delete test)
+fs.writeFileSync(path.join(dir, 'state-mb.json'), JSON.stringify({ ...state, routines: [...state.routines, { id: 'r2', name: 'Pull', ex: [{ id: '0025', sets: 3, reps: 8 }] }], week: { 1: 'r1', 3: 'r2' }, dayPlan: { '2030-01-01': 'r1' }, programs: [{ id: 'p1', name: 'Only r1', routineIds: ['r1'], week: { 1: 'r1' } }], activeProgramId: 'p1' }));
 // a routine and a program published by tr1, so "assign" can reach its member check
 fs.writeFileSync(path.join(dir, 'social.json'), JSON.stringify({ routines: [
   { id: 'sr1', authorId: 'tr1', name: 'Pub', emoji: 'dumbbell', ex: [{ id: '0025', sets: 3, reps: 8 }], customExDefs: [] },
@@ -45,6 +47,8 @@ const LEGACY = (id, author = 'tr1') => [
   ['GET', `/api/trainer/member-plan?id=${q(id)}`],
   ['POST', '/api/trainer/member-routine', { memberId: id, name: 'R', emoji: 'dumbbell', ex: [{ id: '0025', sets: 3, reps: 8 }] }],
   ['POST', '/api/trainer/member-program', { memberId: id, name: 'P', routineIds: ['r1'] }],
+  ['POST', '/api/trainer/member-routine-delete', { memberId: id, routineId: 'nope' }],
+  ['POST', '/api/trainer/member-routine-duplicate', { memberId: id, routineId: 'nope' }],
   ['POST', '/api/trainer/assign-routine', { memberId: id, routineId: author === 'tr1' ? 'sr1' : 'sr2' }],
   ['POST', '/api/trainer/assign-program', { memberId: id, programId: author === 'tr1' ? 'sp1' : 'sp2' }],
   ['GET', `/api/trainer/routine-versions?memberId=${q(id)}&routineId=r1`],
@@ -145,6 +149,24 @@ test('every requireTrainer route either scopes its member through the shared gua
   assert.deepEqual(unscoped, [], 'trainer routes without the member guard (scope them, or document them as global): ' + unscoped.join(', '));
   // the route modules the server composes in: blocks / guided are gym-wide content libraries (no member id anywhere)
   for (const f of ['lib/blocks-routes.js', 'lib/guided-routes.js']) assert.ok(!/memberId|db\.users|readState/.test(fs.readFileSync(path.resolve(f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')), f + ' is gym-wide content only');
+});
+
+test('deleting a routine takes it off the plan and the week, keeps history, and clears the active program when it empties; duplicating copies it loose', async () => {
+  const before = (await req('GET', '/api/data', 'mb')).body.state; const s = { workouts: state.workouts };
+  const dup = await req('POST', '/api/trainer/member-routine-duplicate', 'tr2', { memberId: 'mb', routineId: 'r2', operationId: 'op-dup' });
+  assert.equal(dup.status, 200);
+  const del = await req('POST', '/api/trainer/member-routine-delete', 'tr2', { memberId: 'mb', routineId: 'r1', operationId: 'op-del' });
+  assert.equal(del.status, 200);
+  const after = (await req('GET', '/api/data', 'mb')).body.state;
+  assert.ok(!after.routines.some(r => r.id === 'r1'), 'gone from the plan');
+  assert.ok(after.routines.some(r => r.id === dup.body.routineId && r.name === 'Pull (copia)'), 'the copy stays');
+  assert.deepEqual(after.week, { 3: 'r2' }); assert.deepEqual(after.dayPlan, {});
+  assert.equal(after.activeProgramId, null, 'the member is left with no active routine');
+  assert.deepEqual(after.workouts, s.workouts, 'past workouts untouched');
+  assert.equal(after.routineVersions.r1.length, 1, 'the old content is kept as a version');
+  assert.equal((await req('POST', '/api/trainer/member-routine-delete', 'tr2', { memberId: 'mb', routineId: 'r1' })).status, 404);
+  assert.equal((await req('POST', '/api/trainer/member-routine-delete', 'mb', { memberId: 'mb', routineId: 'r2' })).status, 403, 'a member cannot use it');
+  assert.equal((await req('POST', '/api/trainer/member-routine-delete', 'ad', { memberId: 'mb', routineId: 'r2' })).status, 200, 'admin can');
 });
 
 test.after(() => { child.kill(); fs.rmSync(dir, { recursive: true, force: true }); });

@@ -1,5 +1,11 @@
 # Changelog
 
+### IA — fiabilidad (candidato, NO desplegado)
+
+- Capa común de reintentos para Coach, IA del entrenador y los tres escaneos: backoff exponencial con jitter, `Retry-After`, presupuesto de llamadas y tiempo, cancelación, y modelo de respaldo opcional. Los errores 503/429/timeout dejan de verse: solo aparece un mensaje claro cuando se agota el presupuesto.
+- Escaneo de mediciones con segunda/tercera lectura solo si hay dudas, comprobaciones físicas deterministas y consenso por campo; rutinas con relectura únicamente de las filas dudosas; máquinas con comprobación contra la biblioteca. Los escaneos pasan a trabajos cortos con sondeo; la foto solo vive en memoria mientras dura el trabajo.
+- Trabajos de IA del entrenador persistidos y reanudados tras un reinicio; fases visibles (`queued`, `generating`, `retrying`, `validating`, `repairing`); métricas internas solo numéricas (`GET /api/admin/ai-metrics`). Ver `docs/AI_RELIABILITY.md`.
+
 ### Exercise Library — reactivación de media (no desplegado)
 
 - Se vuelven a mostrar imágenes/GIF de ejercicios y dibujos de estiramientos, y se restauran las rutas, montajes y descarga de la fuente histórica fijada. No se sobrescriben medios locales existentes.
@@ -10,23 +16,16 @@
 - Inventario reproducible de procedencia/licencia por registro y archivo. Distingue datos e instrucciones MIT del dataset de las imágenes/GIF de Gym visual, cuyo permiso upstream no prueba derechos de redistribución para 2J; las ilustraciones de estiramientos tampoco tienen una cadena de derechos demostrada.
 - Medios no verificados se ocultan y dejan de descargarse/servirse automáticamente; IDs, catálogo, instrucciones y flujos de entrenamiento permanecen disponibles con placeholders. Sin borrado de caches o datos locales.
 
-### Seguimiento V2 final — release candidate, NO desplegado
+### Seguimiento V2 final — candidato local, no desplegado
 
-- Cuestionarios Basic/Intermedio/Pro administrables y versionados, respuestas inmutables, fotos de progreso privadas, comparación Antes/Después y cronología derivada de datos existentes.
-- Conserva Routine Review, ACL global de trainer, consentimiento de Coach y stores actuales; sin cambios en Sync V2 ni Social.
+- Cuestionarios configurables y versionados, asignación y respuestas inmutables; ficha de socio y entrenador incorpora medidas, comparación por fechas, fotos privadas agrupadas y cronología derivada del seguimiento existente.
+- Las fotos usan almacenamiento privado autenticado y se eliminan con la cuenta. El contexto adicional de Coach queda sujeto al consentimiento vigente y a selección admin por pregunta; solo admite respuestas estructuradas, nunca texto libre ni fotos.
+- Se conserva Coach/Seguimiento PRO V3, Routine Review, consentimiento de check-ins, ACL global de trainer y el estado existente; no se modifica Sync V2 ni se añade un datastore de timeline.
 
-### Oposiciones V1.1 y Búnker compacto — candidato, NO desplegado
+### Acceso operativo de entrenador a todo el centro — cambio local, NO desplegado
 
-- Entrena tus Oposiciones V1.1: preparación física real (fuerza, potencia, velocidad/agilidad, resistencia, natación) con series, repeticiones, RPE, descansos, superseries y descargas por fases; las marcas son checkpoints en «Pruebas y marcas»; la pantalla principal es «Esta semana».
-- Búnker V2.1: selector Normal/Compacto con tarjetas por socio (ejercicio, posición, series/reps, RPE, descanso, superserie A/B, siguiente) para 6–10 personas; al tocar se abre el panel completo y se vuelve a la cuadrícula.
+- Los trainers pueden listar, buscar, abrir y gestionar datos operativos de cualquier socio del centro; `assignedTrainers` queda como metadato organizativo. Roles, permisos, staff, seguridad y funciones admin-only mantienen sus guards. Socios siguen limitados a sus propios datos y los check-ins respetan su consentimiento.
 
-### Personalización V2 + Premium ampliado + Entrena tus Oposiciones V1 — candidato, NO desplegado
-
-- Inicio por defecto limpio (saludo, calendario, Entrenamientos Premium); «Personalizar» discreto en Inicio y Progreso (ordenar, ocultar, mostrar, añadir, restaurar), guía de primer uso mostrada una sola vez y Ajustes → Personalización. Los diseños ya guardados se respetan; «Recuperación muscular» es un bloque propio de Progreso.
-- Pantalla de Acciones renovada con «Entrenamiento Premium» y «Entrena con 2J»; al empezar un Premium sobre una planificación activa se avisa y se aparta sin borrar historial, entrenos, rutinas ni snapshots.
-- 17 programas Premium nuevos **ocultos por defecto** (el administrador los publica), con evidencia, metadata legal, portadas licenciadas y avisos de seguridad (BFR); sin afiliación a ninguna marca.
-- Entrena tus Oposiciones: perfiles oficiales versionados y con fuente (Policía Local Canarias, Policía Nacional, Guardia Civil, Bomberos CEGC; ocultos por defecto), plan por fases a 6/12/18/24 meses, semana de control, propuesta de adaptación que el socio confirma, Coach e IA con la versión fijada del plan y Administración → Oposiciones. Natación y circuito de vallas usan un sustituto temporal claramente marcado.
-- Sin migraciones: `S.ux`, `S.premium` y `S.opposition` son claves opcionales de Sync V2.
 ### Web Push al terminar descansos — candidato local, NO desplegado
 
 - El temporizador de descanso web reutiliza la cola persistente existente y sincroniza/cancela avisos opacos por descanso. Solo usa permisos y suscripciones ya concedidos; el service worker conserva la UX local cuando la PWA está visible y muestra el aviso genérico al quedar en segundo plano. Prueba física en PWA móvil pendiente.

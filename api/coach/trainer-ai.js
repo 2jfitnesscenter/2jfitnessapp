@@ -22,6 +22,8 @@ const DEFAULTS = {
   enabled: false,
   auth: null,                          // { type:'cli-token', connectedAt, data:<encrypted> }
   caps: { instanceDaily: 30 },         // 0 = unlimited
+  model: null,                         // null = the Claude runtime's default
+  fallbackModel: null,                 // optional second Claude model tried when the first stays overloaded
   log: []
 };
 const LOG_MAX = 100;

@@ -44,6 +44,8 @@ export function auxAIRoutes({ json, readBody, requireAdmin }) {
         capabilities: auxAI.CAPABILITIES,
         auth: auxAI.authStatus(),
         caps: cfg.caps,
+        model: cfg.model || null,
+        fallbackModel: cfg.fallbackModel || null,
         jobsToday: auxAI.jobsToday(),
         lastSuccess: auxAI.lastSuccess(),
         lastError: auxAI.lastError(),
@@ -57,6 +59,12 @@ export function auxAIRoutes({ json, readBody, requireAdmin }) {
       const patch = {};
       if (body.enabled !== undefined) patch.enabled = !!body.enabled;
       if (body.caps) patch.caps = { instanceDaily: Math.max(0, Math.min(2000, +body.caps.instanceDaily || 0)) };
+      for (const k of ['model', 'fallbackModel']) {
+        if (body[k] === undefined) continue;
+        const v = String(body[k] || '').trim();
+        if (v && !/^[a-zA-Z0-9._-]{1,64}$/.test(v)) return json(res, 400, { error: 'nombre de modelo no válido' });
+        patch[k] = v || null;
+      }
       auxAI.save(patch);
       json(res, 200, { ok: true });
     },

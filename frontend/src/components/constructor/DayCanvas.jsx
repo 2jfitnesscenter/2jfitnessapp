@@ -22,6 +22,7 @@ import { Stepper } from '../ui.jsx'
 import Icon from '../Icon.jsx'
 import { TypeTag, Prescription, rpeOf, restLabel } from './parts.jsx'
 import { EX_DRAG_TYPE, BLOCK_DRAG_TYPE, dragKindOf } from './drag.js'
+import SharedExerciseNote from '../SharedExerciseNote.jsx'
 
 const KEEP = ['blk', 'rpe', 'rest', 'role', 'note', 'why', 'sg']
 const restOf = (e, goal) => e.rest ?? REST_DEFAULTS[restDemand(classify(e.id, lookup), goal, e.role)]
@@ -151,7 +152,7 @@ function RowMenu({ e, close, onReplace, onNotes, onMore, onRemove, onVideo }) {
   return <div className="cx-menu">
     <h3 className="capitalize">{nameFor(exOr(e.id))}</h3>
     <button onClick={act(onReplace)}><Icon name="shuffle" />{t('Replace exercise')}</button>
-    <button onClick={act(onNotes)}><Icon name="clipboard" />{e.note ? t('Edit note') : t('Add a note')}</button>
+    <button onClick={act(onNotes)}><Icon name="clipboard" />{e.note ? t('Edit routine note') : t('Add a routine note')}</button>
     <button onClick={act(onMore)}><Icon name="gear" />{t('Mode, weight and progression')}</button>
     {onVideo && <button onClick={act(onVideo)}><Icon name="play" />{t('Video and instructions')}</button>}
     <button className="danger" onClick={act(onRemove)}><Icon name="trash" />{t('Remove from the day')}</button>
@@ -223,7 +224,7 @@ function TimingSheet({ seg, entries, onSave, onClear, close }) {
  * @param onDropExternal (kind: 'ex'|'block', id, at: index|null) => void — a drag from the
  *        exercise or block library (components/constructor/drag.js); omitted = no external drops
  */
-export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddExercise, onSaveAsBlock, onDropExternal, flash, issuesAt = {} }) {
+export default function DayCanvas({ day, ctx, unit, sharedNotesFor, onChange, onAddBlock, onAddExercise, onSaveAsBlock, onDropExternal, flash, issuesAt = {} }) {
   const openSheet = useUI(s => s.openSheet)
   const [drag, setDrag] = useState(null)        // { kind:'ex', i } | { kind:'seg', s }
   const [over, setOver] = useState(null)        // drop target key
@@ -338,6 +339,7 @@ export default function DayCanvas({ day, ctx, unit, onChange, onAddBlock, onAddE
                 <div className="cx-ex-name capitalize">{nameFor(ex)}</div>
                 <GymCompatibility ex={ex} />
                 {e.note && <div className="cx-row-note">{e.note}</div>}
+                {sharedNotesFor && <SharedExerciseNote exerciseId={e.id} memberId={sharedNotesFor} />}
               </div>
               <Prescription e={e} onClick={() => editRx(i)} />
               <div className="cx-row-acts">

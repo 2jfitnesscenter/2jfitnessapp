@@ -42,6 +42,7 @@ import GuidedRunner, { GuidedLaunch } from '../components/GuidedRunner.jsx'
 import WorkoutCover from '../components/WorkoutCover.jsx'
 import IntelligenceToday from '../components/IntelligenceToday.jsx'
 import { uxOn } from '../lib/features.js'
+import SharedExerciseNote from '../components/SharedExerciseNote.jsx'
 
 // Today's check-in, next to the exercise it concerns — words only: nothing about the load, the
 // exercise or the routine changes because of it (the member or trainer decides).
@@ -404,6 +405,7 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, prefs, onToggle
       groupName={t(MUSCLE_GROUPS.find(g => g.key === rpGroup)?.name || rpGroup)}
       sets={rpVolume} landmarks={rpLandmarks} />}
     <ExerciseCues entry={entry} ex={ex} prefs={prefs} />
+    <SharedExerciseNote exerciseId={entry.id} />
     {plan && plan.why && plan.kind !== 'off' && <div className={'progline' + (plan.kind === 'deload' ? ' warn' : '')}>
       <Icon name={plan.kind === 'up' ? 'arrowUp' : plan.kind === 'deload' ? 'arrowDown' : 'lightbulb'} />
       <span>{t(...plan.why)}</span>
@@ -504,6 +506,7 @@ function SimpleExercise({ entryIdx, unitEntries, ssInfo, prefs, onToggle, onPad,
       </div>
       {/* the trainer's note sits above the set — it is part of what to do right now */}
       <ExerciseCues entry={entry} ex={ex} prefs={prefs} only="note" />
+      <SharedExerciseNote exerciseId={entry.id} />
     </div>
     <CheckinNote S={S} ex={ex} />
     {rec && <RecommendationCard rec={rec} unit={S.unit} onAccept={() => onRec(true)} onKeep={() => onRec(false)} />}

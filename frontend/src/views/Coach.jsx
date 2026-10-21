@@ -217,7 +217,10 @@ function StatusCard({ job, pending, nav }) {
       <span className="lrow-i" style={{ background: 'var(--orange)' }}><Icon name="sparkles" /></span>
       <div>
         <div style={{ fontWeight: 600 }}>{t('The Coach is thinking…')}</div>
-        <div className="muted small">{t('This takes a minute or two. You can leave this screen — it keeps going.')}</div>
+        <div className="muted small">{job.phase === 'retrying' || job.phase === 'fallback' ? t('Taking a little longer than usual — still working on it.')
+          : job.phase === 'validating' ? t('Checking your plan against the 2J protocol…')
+          : job.phase === 'repairing' ? t('Adjusting a few details…')
+          : t('This takes a minute or two. You can leave this screen — it keeps going.')}</div>
       </div>
     </div>
   </div>

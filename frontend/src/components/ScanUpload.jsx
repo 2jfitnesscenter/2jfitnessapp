@@ -26,6 +26,8 @@ export default function ScanUpload({ onResult, scanFn = scanMeasurements, label,
   const inputRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [pendingFile, setPendingFile] = useState(null)
+  const [phase, setPhase] = useState(null)   // what the server is doing: reading | retrying | verifying
+  const [slow, setSlow] = useState(false)    // it has been a while: say so instead of looking frozen
 
   const onFile = e => {
     const file = e.target.files[0]
@@ -38,19 +40,22 @@ export default function ScanUpload({ onResult, scanFn = scanMeasurements, label,
     const file = pendingFile
     if (!file) return
     setPendingFile(null)
-    setBusy(true)
+    setBusy(true); setPhase('reading'); setSlow(false)
     try {
       const result = await scanAfterExplicitConsent({
         file,
         accepted: true,
         readFile: f => f.type === 'application/pdf' ? readAsDataUrl(f) : resizeImageFile(f),
         scan: scanFn,
+        onPhase: (p, ms) => { setPhase(p); setSlow(ms > 20000) },
       })
       onResult(result)
+      // Values the server could not confirm were left empty on purpose: say where to look.
+      if (result?.review?.length) toast(t('Some values could not be confirmed and were left empty — please check them.'))
     } catch (err) {
       toast(err.message || t('Could not read that file'))
     } finally {
-      setBusy(false)
+      setBusy(false); setPhase(null); setSlow(false)
     }
   }
 
@@ -73,7 +78,7 @@ export default function ScanUpload({ onResult, scanFn = scanMeasurements, label,
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => setPendingFile(null)}>{t('Cancel')}</Button>
       </div>
     </div> : <Button size="sm" variant="tinted" icon="scan" disabled={busy} onClick={() => inputRef.current.click()}>
-      {busy ? (busyLabel || t('Reading…')) : (label || t('Scan report'))}
+      {busy ? (slow ? t('Taking a little longer than usual…') : phase === 'verifying' ? t('Double-checking…') : (busyLabel || t('Reading…'))) : (label || t('Scan report'))}
     </Button>}
   </>
 }

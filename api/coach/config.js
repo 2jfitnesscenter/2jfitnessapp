@@ -47,6 +47,7 @@ const DEFAULTS = {
   enabled: false,
   provider: 'claude',
   model: null,
+  fallbackModel: null,                           // optional second model of the SAME provider, tried when the first stays overloaded
   auth: null,                                    // { type:'cli-token'|'oauth'|'apikey', data:<encrypted> }
   caps: { perProfileDaily: 10, instanceDaily: 0 },   // 0 = unlimited
   log: []

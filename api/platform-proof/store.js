@@ -73,6 +73,21 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
   }
 
   return {
+    /** Persist bounded replay protection for authenticated, read-only Platform summary calls. */
+    acceptSummaryRequest(requestId) {
+      const timestamp = now(), state = read();
+      expireAndPrune(state, timestamp);
+      if (state.serviceRequests.some(request => request.requestId === requestId)) {
+        audit(state, 'platform_service_auth.replay_rejected', { requestId });
+        write(state);
+        return { status: 'service_request_replayed' };
+      }
+      state.serviceRequests.push({ requestId, expiresAtMs: timestamp + SERVICE_REPLAY_TTL_MS });
+      audit(state, 'platform_training_summary.request_accepted', {});
+      write(state);
+      return { status: 'accepted' };
+    },
+
     issue(context, trainingUserId) {
       const timestamp = now(), state = read();
       expireAndPrune(state, timestamp);

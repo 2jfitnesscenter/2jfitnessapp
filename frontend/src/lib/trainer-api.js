@@ -11,6 +11,8 @@ export { fetchTrainerMembers } from './social-api.js'
 export const fetchRoutineCycles = memberId => api('/api/trainer/routine-cycles?id=' + encodeURIComponent(memberId))
 export const fetchMemberPlan = memberId => api('/api/trainer/member-plan?id=' + encodeURIComponent(memberId))
 export const saveMemberRoutine = payload => savePlan('member-routine', payload)
+export const deleteMemberRoutine = (memberId, routineId, sync) => savePlan('member-routine-delete', { memberId, routineId, sync })
+export const duplicateMemberRoutine = (memberId, routineId, sync) => savePlan('member-routine-duplicate', { memberId, routineId, sync })
 export const saveMemberProgram = payload => savePlan('member-program', payload)
 // V3 — traceability only: past versions of a trainer-assigned routine/program, newest first.
 export const fetchRoutineVersions = (memberId, routineId) =>

@@ -1,0 +1,274 @@
+{
+  "metadata": {
+    "title": "Bunker V2 - routine navigation, superset A/B, image fallback"
+  },
+  "targetCommit": "498adaa6b1d88295a5149744b5b48376b8f0dfe9",
+  "expectedCurrentCommit": "69ffafd91160c7aa8a6a4e0814191bc9eff0f6a7",
+  "rollbackCommit": "69ffafd91160c7aa8a6a4e0814191bc9eff0f6a7",
+  "expectedCommitCount": 1,
+  "maxCommits": 1,
+  "expectedFrontendTests": 1659,
+  "expectedApiTests": 663,
+  "expectedApiPassed": 663,
+  "expectedApiSkipped": 0,
+  "deltaPaths": [
+    "api/test/bunker-v2.test.js",
+    "frontend/src/index.css",
+    "frontend/src/lib/bunker-nav.js",
+    "frontend/src/lib/bunker-nav.test.js",
+    "frontend/src/locales/es.js",
+    "frontend/src/views/Bunker.jsx",
+    "frontend/src/views/BunkerRoutine.jsx",
+    "frontend/src/views/bunker-v2.test.jsx"
+  ],
+  "sync": {
+    "rollbackBase": "51a221d8ef524776334d8d67109fb9102407eff2",
+    "syncJsSha256Lf": "8b402562d3a5eccfe7054db5246ca4e9f796b70b24306f9c2f8e0c53470fd586",
+    "syncJsSha256CrLf": "6cd72a0fbf910612efba88fa1a56700664e4b3e322103632ae025c1174085859"
+  },
+  "probes": {
+    "sourceFiles": [
+      "api/lib/security-audit.js",
+      "api/lib/device-link.js",
+      "api/lib/guided-history.js",
+      "api/server.js",
+      "frontend/src/views/SecuritySettings.jsx",
+      "frontend/src/lib/routine-favorites.js",
+      "api/lib/share-snapshot.js",
+      "api/lib/social-limits.js",
+      "frontend/src/components/ReceivedPlan.jsx",
+      "frontend/src/lib/shared-plans.js",
+      "api/lib/admin-audit.js",
+      "api/lib/user-summary.js",
+      "api/lib/center-routes.js",
+      "frontend/src/views/Center.jsx",
+      "frontend/src/views/BunkerRoutine.jsx",
+      "frontend/src/lib/bunker-nav.js"
+    ],
+    "sourceMarkers": [
+      {
+        "marker": "export function appendSecurityEvent",
+        "file": "api/lib/security-audit.js"
+      },
+      {
+        "marker": "export function createLinkStore",
+        "file": "api/lib/device-link.js"
+      },
+      {
+        "marker": "export function record",
+        "file": "api/lib/guided-history.js"
+      },
+      {
+        "marker": "'POST /api/me/passkeys/revoke'",
+        "file": "api/server.js"
+      },
+      {
+        "marker": "export function PasskeysSection",
+        "file": "frontend/src/views/SecuritySettings.jsx"
+      },
+      {
+        "marker": "export function migrateLegacyFavorites",
+        "file": "frontend/src/lib/routine-favorites.js"
+      },
+      {
+        "marker": "export function cleanSnapshot",
+        "file": "api/lib/share-snapshot.js"
+      },
+      {
+        "marker": "export function createLimiter",
+        "file": "api/lib/social-limits.js"
+      },
+      {
+        "marker": "function moderationRemoved",
+        "file": "api/server.js"
+      },
+      {
+        "marker": "function featureOfRoute",
+        "file": "api/server.js"
+      },
+      {
+        "marker": "export default function ReceivedPlan",
+        "file": "frontend/src/components/ReceivedPlan.jsx"
+      },
+      {
+        "marker": "export function saveSharedRoutine",
+        "file": "frontend/src/lib/shared-plans.js"
+      },
+      {
+        "marker": "export const AUDITED",
+        "file": "api/lib/admin-audit.js"
+      },
+      {
+        "marker": "export function summaryFor",
+        "file": "api/lib/user-summary.js"
+      },
+      {
+        "marker": "function changeRole",
+        "file": "api/server.js"
+      },
+      {
+        "marker": "export function centerRoutes",
+        "file": "api/lib/center-routes.js"
+      },
+      {
+        "marker": "export default function Center",
+        "file": "frontend/src/views/Center.jsx"
+      },
+      {
+        "marker": "function changeRole",
+        "file": "api/server.js"
+      },
+      {
+        "marker": "export function BunkerExerciseMedia",
+        "file": "frontend/src/views/BunkerRoutine.jsx"
+      },
+      {
+        "marker": "export function goToExercise",
+        "file": "frontend/src/lib/bunker-nav.js"
+      }
+    ],
+    "unauthenticatedRoutes": [
+      {
+        "method": "GET",
+        "path": "/api/shared-device/status",
+        "status": 200,
+        "expectUnauthenticated": true,
+        "requiredBodyMarker": "\"authorized\":false"
+      },
+      {
+        "method": "POST",
+        "path": "/api/shared-device/pin",
+        "status": 403,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/shared-device/step-up",
+        "status": 403,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/admin/shared-devices",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/admin/shared-device/revoke",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/shared-staff/pin",
+        "status": 403,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/admin/shared-staff/pin",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "status": 200,
+        "path": "/api/push/public-key"
+      },
+      {
+        "method": "POST",
+        "expectUnauthenticated": true,
+        "status": 403,
+        "path": "/api/push/subscribe"
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/passkeys",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/sessions",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/security-events",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/link/info",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/admin/security-events",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/guided/history",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/social/shares/item",
+        "status": 401,
+        "expectUnauthenticated": true,
+        "featureGate": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/chat/messages",
+        "status": 401,
+        "expectUnauthenticated": true,
+        "featureGate": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/social/goals",
+        "status": 401,
+        "expectUnauthenticated": true,
+        "featureGate": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/admin/social-reports",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/admin/users",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/center/today",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/center/members",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/center/trainers",
+        "status": 401,
+        "expectUnauthenticated": true
+      }
+    ]
+  }
+}

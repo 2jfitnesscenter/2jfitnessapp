@@ -19,7 +19,7 @@ stores almost nothing new. Baseline: production `bd48dc1`. Branch `codex/coach-f
 | Private staff notes + events | roster `u.followUp.privateNotesEncrypted` (AES-GCM, info `2j-followup-private-v1`) | admin follow-up card (single note) | extended (still version 1): dated `entries` + richer `events`; legacy note kept |
 | Trainer AI (routine generation) | `trainer-ai.js` (Claude credential, daily cap) | `/trainer/:id/ai` | **same credential and cap** for "Analizar seguimiento" |
 | Member (personal) AI | `coach/` + `payload.js` | member Coach | untouched; never receives staff data |
-| Roles | `u.admin`, `u.trainer`, `ADMIN_UIDS` | every guard | `requireTrainer` + explicit assignment (below) |
+| Roles | `u.admin`, `u.trainer`, `ADMIN_UIDS` | every guard | `requireTrainer` plus centre-wide member-role check |
 
 Gaps found: (a) trainers could not read any follow-up/health data (admin-only) and there was **no trainer↔member relation**; (b) the staff list did one request per
 member (N+1); (c) no adherence definition (planned vs done); (d) no triage with explained signals; (e) no decision trail; (f) notes were one text box.
@@ -29,13 +29,12 @@ member (N+1); (c) no adherence definition (planned vs done); (d) no triage with 
 | Role | V3 surface (`/api/trainer/followup/*`) | Notes |
 |---|---|---|
 | Admin | every active member | also assigns trainers (`POST /api/admin/user/trainers`) |
-| Trainer | **only members assigned to them** (`u.assignedTrainers`) | no assignment = admin only; nothing is exposed by default |
+| Trainer | every ordinary member in the centre, independent of `u.assignedTrainers` | assignment is organizational metadata; staff accounts remain outside member routes |
 | Member | none (403) | their own `/api/followup` still returns the schedule only |
 
-* A trainer asking for an unassigned (or unknown) id gets the same `403` — ids cannot be probed. Staff accounts are not "members".
-* Removing the trainer role or demoting drops their assignments (`dropTrainerAssignments`).
-* **One rule for every staff route that targets a member** (`memberFor` in `server.js`, built on `canAccessMember`): the legacy trainer panel is covered too — `routine-cycles`, `routine-cycle`, `routine-reviewed`, `member-plan`, `member-routine`, `member-program`, `assign-routine`, `assign-program`, `routine-versions`, `program-versions`, the trainer AI (`generate`/`status`/`discard`) and the member picker (`GET /api/trainer/members`, which lists only the members a trainer may act on). `api/test/trainer-acl.test.js` runs all of them against assigned / unassigned / unknown / staff ids, admin, member and anonymous callers, and a completeness test fails if a new `requireTrainer` route targets a member without the guard.
-* **Operational consequence**: a trainer reaches nobody until an admin assigns members to them (Seguimiento sheet → "Manage"). This is the intended policy, not a fallback.
+* Trainers can target any ordinary member; unknown ids and staff accounts remain denied. Members and anonymous callers cannot use trainer routes.
+* `POST /api/admin/user/trainers` is admin-only and edits organizational metadata, not access. Removing the trainer role still immediately removes trainer access.
+* **One rule for every staff route that targets a member** (`memberFor` in `server.js`, built on `canAccessMember`): includes routine cycles/reviews, plans/routines/programs, versions, trainer AI, follow-up and `GET /api/trainer/members`. `api/test/trainer-acl.test.js` covers assigned and unassigned members, unknown ids, staff, admin, member and anonymous callers; its completeness check guards newly added trainer routes.
 * **Role-only routes that remain (all gym-wide, none reads or writes a member)**: `POST /api/social/board` (gym notice), `POST /api/social/challenges/new` (gym challenge), `POST /api/exercises/alias` and `POST /api/exercises/import-alias` (machine / exercise-name aliases), and the block and guided-programme libraries (`blocks-routes`, `guided-routes`: content libraries with no member id). The test lists them with the reason; anything else without the guard fails the suite.
 * Disabled members are left out of the list; their sheet is readable by staff with access but writes answer `409`.
 
@@ -55,7 +54,7 @@ Derived, **never stored**: triage level and signals, adherence, progress, review
 * **Triage**: `normal` · `review` · `priority` — the maximum severity of the signals. No score. Buckets for the board: *need attention* (review/priority) · *upcoming reviews* (normal, a review within 7 days) · *stable*.
 * **Goal lens**: fat loss → body-weight direction against the target (≥ 3 readings over ≥ 21 days); performance goals (hypertrophy, power, plyometrics, toning, padel, basketball, exam prep) → records/progression; health goals → adherence only. Body weight and performance are never merged.
 * **Certainty**: the analysis keeps **fact** / **inference** / **suggestion** apart (`analysisFrom`), always available without AI.
-* Edge cases covered by tests: no program, legacy data, no workouts, new member, future/overdue review, excluded workout, several trainers, unassigned trainer, disabled user, no Health, private check-ins, recently changed program.
+* Edge cases covered by tests: no program, legacy data, no workouts, new member, future/overdue review, excluded workout, several trainers, disabled user, no Health, private check-ins, recently changed program.
 
 ## 5. Professional AI ("Analizar seguimiento")
 
@@ -77,6 +76,6 @@ One request returns the board (`GET /api/trainer/followup/overview`), no per-mem
 ## 8. Verification (local, synthetic data only)
 
 * Frontend `1487/1487` (117 files, sequential), API `498/498` with `skipped 0`, build, `check-locales` (es `4780/4780`) and `git diff --check` clean.
-* Real-browser QA on an isolated API with 22 synthetic accounts (admin, two trainers, 17 assigned members, one disabled, one unassigned, one that never synced): board and sheet at **390 / 768 / 1440 px**, light and dark; no horizontal overflow at 390; goal, note, decision and mark written through the UI and read back; a trainer without assignment gets `403` and the explanatory message; admin sees every member.
+* Historical browser QA used an assignment-scoped fixture. The current permission tests instead verify that both trainers can operate on members regardless of organizational assignment; admin-only controls and member self-isolation remain enforced.
 * Performance: engine for 10 / 25 / 50 / 100 members ≈ tens of ms in total; the HTTP list with 100+ real state files answers in one request (< 4 s asserted, ≈ 1 s observed).
 * Live provider smoke (2026-10-08, local, no production): the real Claude Agent SDK runtime is present (`check` OK) but this environment has no provider credential (the admin's `claude setup-token` lives only in the production instance), so the call ends in the `auth` class. **Result: NOT AVAILABLE — not claimed as passed.** Everything up to the provider boundary is covered with a fake provider (real queue, prompt, validator, cache, cap). To close it: connect the token in Admin → trainer AI on a test instance, open a member sheet and press "Analizar seguimiento" once.

@@ -338,7 +338,7 @@ export default function Constructor() {
         </div>
         {(progV || dayV)?.stats?.exercises > 0 && <Suggestions v={progV || dayV} ctx={ctx} days={p.routineOnly ? 1 : (weekDays.length || p.days.filter(d => d.ex.length).length)}
           blocks={libBlocks} inPlan={inPlan} restrictions={restrictions} onAdd={addBlock} program={!p.routineOnly} />}
-        <DayCanvas day={day} ctx={ctx} unit={S.unit} onChange={patchDay} flash={flash} issuesAt={issuesAt}
+        <DayCanvas day={day} ctx={ctx} unit={S.unit} sharedNotesFor={memberId} onChange={patchDay} flash={flash} issuesAt={issuesAt}
           onAddBlock={openLibrary} onAddExercise={openExercises} onSaveAsBlock={saveAsBlock} onDropExternal={onDropExternal} />
         <p className="cx-foot dim small">{t('2J Protocol v{0} · validated as you build. Blocks are copied into the day: editing here never changes the library.', PROTOCOL_VERSION)}</p>
       </main>

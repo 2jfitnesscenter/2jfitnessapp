@@ -24,3 +24,6 @@ graphify-out/
 
 # Instance secret once separated from ./data (docs/KEY_SEPARATION.md)
 secrets/
+
+# Local AI scan benchmark samples (real photos, anonymised by hand): never committed — see docs/AI_RELIABILITY.md
+benchmarks/

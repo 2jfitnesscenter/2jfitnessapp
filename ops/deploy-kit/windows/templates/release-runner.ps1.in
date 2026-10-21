@@ -65,7 +65,26 @@ function Invoke-2JRun {
 
 # The API suite exercises the backup/restore/secret scripts and needs bash + openssl. Put Git for Windows' on THIS run's PATH (ahead of System32's WSL bash.exe;
 # tar stays the system one). The configured API pass/skip counts below are exact release gates.
-$GitForTests = Split-Path (Split-Path (Get-Command git.exe -ErrorAction Stop).Source -Parent) -Parent
+# git.exe may live in Git\cmd, Git\bin or Git\mingw64\bin, so the Git for Windows root is found by walking up from it until a directory holds a bash.exe
+# (bin, usr\bin or mingw64\bin), never by counting parents. Fails naming every path it tried.
+# ---- begin git-root ----
+function Resolve-GitRoot([string]$GitExePath) {
+  $tried = @()
+  $dir = Split-Path -Parent $GitExePath
+  while ($dir) {
+    foreach ($rel in @('bin\bash.exe', 'usr\bin\bash.exe', 'mingw64\bin\bash.exe')) {
+      $candidate = Join-Path $dir $rel
+      $tried += $candidate
+      if (Test-Path -LiteralPath $candidate -PathType Leaf) { return [pscustomobject]@{ Root = $dir; Bash = $candidate } }
+    }
+    $parent = Split-Path -Parent $dir
+    if (-not $parent -or $parent -eq $dir) { break }
+    $dir = $parent
+  }
+  throw ("GIT_BASH_NOT_FOUND from $GitExePath. Paths tried:" + [Environment]::NewLine + ($tried -join [Environment]::NewLine))
+}
+# ---- end git-root ----
+$GitForTests = (Resolve-GitRoot (Get-Command git.exe -ErrorAction Stop).Source).Root
 foreach ($p in @((Join-Path $GitForTests 'mingw64\bin'), (Join-Path $GitForTests 'bin'))) { if (Test-Path -LiteralPath $p) { $env:PATH = "$p;$env:PATH" } }
 
 $Commit = '@@TARGET_COMMIT@@'
@@ -110,7 +129,7 @@ if ($Head -ne $Commit) {
   if ($LASTEXITCODE -ne 0) { throw "El target $Commit no es HEAD ni ancestro del commit tooling actual $Head" }
   $LaterPaths = @(git diff-tree --no-commit-id --name-only -r $Commit $Head | Sort-Object -Unique)
   if ($LASTEXITCODE -ne 0) { throw 'No se pudo verificar el delta posterior de tooling' }
-  $UnexpectedLaterPaths = @($LaterPaths | Where-Object { $_ -ne 'AI_HANDOFF.md' -and $_ -ne '.gitattributes' -and $_ -ne 'frontend/src/views/adaptive.test.jsx' -and $_ -notlike 'ops/deploy-kit/*' })
+  $UnexpectedLaterPaths = @($LaterPaths | Where-Object { $_ -ne 'AI_HANDOFF.md' -and $_ -ne 'CHANGELOG.md' -and $_ -ne '.gitattributes' -and $_ -ne 'docs/GENERATED_FILES.md' -and $_ -ne 'frontend/src/views/adaptive.test.jsx' -and $_ -notlike 'ops/deploy-kit/*' })
   if ($UnexpectedLaterPaths.Count -gt 0) { throw "El commit posterior incluye cambios ajenos al tooling: $($UnexpectedLaterPaths -join ', ')" }
   Write-Host "TARGET_ANCESTOR_TOOLING_ONLY=OK target=$Commit head=$Head"
 }
@@ -122,7 +141,10 @@ Write-Host "TARGET_COMMITS=$($Commits.Count) over production (delta is checked f
 $DeltaPaths = @(git diff-tree --no-commit-id --name-only -r $ExpectedCurrentCommit $Commit | Sort-Object -Unique)
 $ExpectedDeltaPaths = @(@@DELTA_PATHS_PS@@)
 if ($LASTEXITCODE -ne 0 -or (Compare-Object $ExpectedDeltaPaths $DeltaPaths)) { throw "UNEXPECTED_TARGET_DELTA=$($DeltaPaths -join ',')" }
-Write-Host 'TARGET_DELTA=OK @@DELTA_COUNT@@ files (delta from verified production @@EXPECTED_CURRENT_SHORT@@)'
+# Repository-only paths: exact members of the delta above that are never deployed (generate-release-runner.mjs validates the list against a fixed allowlist).
+$NonDeployablePaths = @(@@NON_DEPLOYABLE_PATHS_PS@@)
+foreach ($NonDeployable in $NonDeployablePaths) { if ($DeltaPaths -notcontains $NonDeployable) { throw "NON_DEPLOYABLE_NOT_IN_DELTA=$NonDeployable" } }
+Write-Host "TARGET_DELTA=OK @@DELTA_COUNT@@ files (delta from verified production @@EXPECTED_CURRENT_SHORT@@) deployable=@@DEPLOYABLE_COUNT@@ repository_only=$($NonDeployablePaths.Count)"
 git diff --quiet --exit-code
 if ($LASTEXITCODE -ne 0) { throw 'Hay cambios tracked sin commit en el working tree' }
 git diff --cached --quiet --exit-code
@@ -172,8 +194,51 @@ function Invoke-Checked([string]$Name, [string]$Dir, [string]$CommandLine, [stri
       throw "LOCAL_$Name FAILED: output does not match '$re'. Log: $log"
     }
   }
+  if ($Name -eq 'DEPLOY_TOOLING_TESTS') {
+    $validator = Join-Path $Root 'ops/deploy-kit/windows/generate-release-runner.mjs'
+    $summaryResult = & node $validator --validate-node-test-summary $log ([string]$code) 2>&1
+    $summaryCode = $LASTEXITCODE
+    if ($summaryCode -ne 0) {
+      Write-Host (($summaryResult | Out-String).Trim())
+      throw "LOCAL_$Name FAILED: invalid test summary. Log: $log"
+    }
+    Write-Host (($summaryResult | Out-String).Trim())
+  }
   Write-Host "LOCAL_$Name=OK"
 }
+# <deps-begin> Dependencies of a clean worktree. The package manager of this repo is npm (api/ and frontend/ each have their own package-lock.json): the lockfile is
+# installed with `npm ci` — never `npm install`, never an npx download. Everything the project declares (dependencies + devDependencies) must be present afterwards,
+# otherwise the preparation fails. When it is all there already, nothing is reinstalled.
+function Ensure-NodeDependencies([string]$Dir) {
+  $pkgFile = Join-Path $Dir 'package.json'
+  $lockFile = Join-Path $Dir 'package-lock.json'
+  if (-not (Test-Path -LiteralPath $pkgFile -PathType Leaf)) { throw "DEPS_PACKAGE_JSON_MISSING=$Dir" }
+  if (-not (Test-Path -LiteralPath $lockFile -PathType Leaf)) { throw "DEPS_LOCKFILE_MISSING=$lockFile (npm ci needs the lockfile)" }
+  $pkg = [System.IO.File]::ReadAllText($pkgFile) | ConvertFrom-Json
+  $names = @()
+  # StrictMode: a section that is absent from package.json must be tested through PSObject.Properties, never read directly.
+  foreach ($section in 'dependencies', 'devDependencies') {
+    $prop = $pkg.PSObject.Properties[$section]
+    if ($null -ne $prop -and $null -ne $prop.Value) { foreach ($declared in $prop.Value.PSObject.Properties) { $names += $declared.Name } }
+  }
+  $missing = @($names | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Dir "node_modules/$_/package.json") -PathType Leaf) })
+  if ($missing.Count -eq 0) { Write-Host "DEPS_REUSED=$Dir declared=$($names.Count)"; return }
+  Write-Host "DEPS_INSTALL=$Dir npm ci --ignore-scripts=false (missing $($missing.Count) of $($names.Count) declared packages)"
+  $log = Join-Path $ValidationDir ("DEPS_" + (Split-Path -Leaf $Dir) + '.log')
+  Push-Location -LiteralPath $Dir
+  try {
+    & cmd.exe /d /c "npm ci --no-audit --no-fund > `"$log`" 2>&1"
+    $code = $LASTEXITCODE
+  } finally { Pop-Location }
+  if ($code -ne 0) {
+    if (Test-Path -LiteralPath $log) { Write-Host (([System.IO.File]::ReadAllText($log) -split "`n" | Select-Object -Last 40) -join "`n") }
+    throw "DEPS_INSTALL_FAILED=$Dir (npm ci exit $code). Log: $log"
+  }
+  $still = @($names | Where-Object { -not (Test-Path -LiteralPath (Join-Path $Dir "node_modules/$_/package.json") -PathType Leaf) })
+  if ($still.Count -gt 0) { throw "DEPS_INSTALL_INCOMPLETE=$Dir missing: $($still -join ', ')" }
+  Write-Host "DEPS_INSTALLED=$Dir declared=$($names.Count)"
+}
+# <deps-end>
 function Invoke-FrontendTests {
   $policy = Join-Path $Root 'ops/deploy-kit/windows/frontend-test-policy.mjs'
   if (-not (Test-Path -LiteralPath $policy -PathType Leaf)) { throw 'FRONTEND_TEST_POLICY_MISSING' }
@@ -182,7 +247,7 @@ function Invoke-FrontendTests {
   $normalDecisionLog = Join-Path $ValidationDir 'FRONTEND_TESTS_POLICY.log'
   Push-Location -LiteralPath $Frontend
   try {
-    & cmd.exe /d /c "npx vitest run --reporter=json --outputFile=`"$normalJson`" > `"$normalLog`" 2>&1"
+    & cmd.exe /d /c "node `"$VitestBin`" run --reporter=json --outputFile=`"$normalJson`" > `"$normalLog`" 2>&1"
     $normalCode = $LASTEXITCODE
   } finally { Pop-Location }
   & cmd.exe /d /c "node `"$policy`" initial `"$normalJson`" $ExpectedFrontendTests $normalCode > `"$normalDecisionLog`" 2>&1"
@@ -200,7 +265,7 @@ function Invoke-FrontendTests {
     $retryDecisionLog = Join-Path $ValidationDir 'FRONTEND_TESTS_RETRY_POLICY.log'
     Push-Location -LiteralPath $Frontend
     try {
-      & cmd.exe /d /c "npx vitest run --maxWorkers=1 --reporter=json --outputFile=`"$retryJson`" > `"$retryLog`" 2>&1"
+      & cmd.exe /d /c "node `"$VitestBin`" run --maxWorkers=1 --reporter=json --outputFile=`"$retryJson`" > `"$retryLog`" 2>&1"
       $retryCode = $LASTEXITCODE
     } finally { Pop-Location }
     & cmd.exe /d /c "node `"$policy`" retry `"$retryJson`" $ExpectedFrontendTests $retryCode > `"$retryDecisionLog`" 2>&1"
@@ -247,7 +312,9 @@ await import('file:///app/lib/news-store.js');
 await import('file:///app/lib/news-routes.js');
 const fe = await import('file:///app/lib/features-store.js');
 await import('file:///app/lib/features-routes.js');
-if (fe.FEATURE_KEYS.length !== 15) throw new Error('features module wrong');
+if (!Array.isArray(fe.FEATURE_KEYS) || fe.FEATURE_KEYS.length === 0 ||
+  fe.FEATURE_KEYS.some(key => typeof key !== 'string' || key.trim().length === 0) ||
+  new Set(fe.FEATURE_KEYS).size !== fe.FEATURE_KEYS.length) throw new Error('features module wrong');
 const wo = await import('file:///app/lib/webauthn-origins.js');
 if (wo.expectedOrigins('https://x.test', '').length !== 3 || !wo.expectedOrigins('https://x.test', '').includes('android:apk-key-hash:Xtnl80w2A-0scA3f4Jtf5D5UvAZ0dgJ7RTpZsbqv3tE')) throw new Error('webauthn origins module wrong');
 const ai = await import('file:///app/coach/ai-run.js');
@@ -288,9 +355,14 @@ try {
   & docker rm --force $ImageSmokeName | Out-Null
 }
 Write-Host 'Validacion local (tests, build, locales, generadores)...'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs' @('tests 24', 'pass 24', 'fail 0', 'skipped 0')
+Ensure-NodeDependencies $Frontend
+Ensure-NodeDependencies $Api
+$VitestBin = Join-Path $Frontend 'node_modules/vitest/vitest.mjs'
+if (-not (Test-Path -LiteralPath $VitestBin -PathType Leaf)) { throw "VITEST_LOCAL_BINARY_MISSING=$VitestBin" }
+Write-Host 'LOCAL_VITEST=project node_modules'
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs ops/deploy-kit/windows/release-deps.test.mjs ops/deploy-kit/windows/release-protocol-guards.test.mjs ops/deploy-kit/windows/release-archive-eol.test.mjs' @()
 Invoke-FrontendTests
-Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend 'npx vitest run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx' @('Tests\s+61 passed \(61\)')
+Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend "node `"$VitestBin`" run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx" @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
 Invoke-Checked 'SHARED_STAFF_AUTH_TESTS' $Api 'node --test test/shared-staff.test.js test/auth-rate-limit.test.js test/roles.test.js test/webauthn-origins.test.js test/bunker-revocation.test.js test/sync.test.js' @('tests 39', 'pass 39', 'fail 0', 'skipped 0')
 Invoke-Checked 'BUILD' $Frontend 'npm run build' @('built in')
@@ -341,11 +413,11 @@ Invoke-Checked 'WORKOUT_ACTIVITY_MODEL' $Root 'node scripts/sync-workout-activit
 Invoke-Checked 'STARTING_LOAD_TESTS' $Frontend 'npm test -- --run src/lib/starting-load.test.js src/lib/workout-activity.test.js' @('26 passed')
 Invoke-Checked 'BUNKER_TESTS' $Frontend 'npm test -- --run src/lib/bunker-workout.test.js src/lib/bunker-persistence.test.js src/lib/bunker-credentials.test.js' @('24 passed')
 Invoke-Checked 'OFFICIAL_BLOCKS' $Root 'node scripts/build-official-blocks.mjs --check' @('in sync: 198 blocks')
-Invoke-Checked 'OFFICIAL_ROUTINES' $Root 'node scripts/build-official-routines.mjs --check' @('in sync: 155 routines, 15 collections')
+Invoke-Checked 'OFFICIAL_ROUTINES' $Root 'node scripts/build-official-routines.mjs --check' @('in sync: 155 routines, 17 collections')
 Invoke-Checked 'COACH_LIBRARY' $Root 'node scripts/build-coach-library.mjs --check' @('in sync \(1324 exercises\)')
 # Exercise Library V2: integrity (ids, taxonomy, deprecations, aliases, Recommended 2J) and the
 # reproducible audit, with the exact metrics of this HEAD.
-Invoke-Checked 'CHECK_EXERCISE_LIBRARY' $Root 'node scripts/check-exercise-library.mjs' @('Exercise library OK: 1324 exercises, 210 recommended, 26 deprecated, 1305 with a canonical movement\.')
+Invoke-Checked 'CHECK_EXERCISE_LIBRARY' $Root 'node scripts/check-exercise-library.mjs' @('Exercise library OK: 1324 exercises, 210 recommended, 26 deprecated, 1310 with a canonical movement\.')
 Invoke-Checked 'AUDIT_EXERCISE_LIBRARY' $Root 'node scripts/audit-exercise-library.mjs --check' @('in sync \(1324 exercises, 0 possible-duplicate groups\)')
 git diff --check
 if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed' }
@@ -355,10 +427,23 @@ if ($LASTEXITCODE -ne 0) { throw 'The local validation changed tracked files' }
 Assert-CleanTree 'despues-de-validar'
 
 if (Test-Path -LiteralPath $Release) { throw "Release artifact already exists; preserve it and choose a new temp path: $Release" }
-git archive --format=tar.gz --output=$Release $Commit
+# The archive is made from the target tree with every repository-only path put back exactly as production has it, so none of them can reach production.
+$ReleaseSource = $Commit
+# <release-tree-begin> release-tree.mjs prints exactly one 40-hex tree id on stdout (errors go to stderr, exit != 0). The whole output is captured and the exit code read
+# right after the command: piping into Select-Object -First 1 closes the pipe early, which in Windows PowerShell 5.1 leaves $LASTEXITCODE = -1 even on success.
+if ($NonDeployablePaths.Count -gt 0) {
+  $ReleaseTreeOutput = @(& node ops/deploy-kit/windows/release-tree.mjs $Commit $RollbackCommit @NonDeployablePaths)
+  $ReleaseTreeCode = $LASTEXITCODE
+  if ($ReleaseTreeCode -ne 0 -or $ReleaseTreeOutput.Count -ne 1 -or ([string]$ReleaseTreeOutput[0]).Trim() -notmatch '^[0-9a-f]{40}$') { throw "RELEASE_TREE_FAILED: exit=$ReleaseTreeCode output=[$($ReleaseTreeOutput -join '|')] (release-tree.mjs must print exactly one 40-hex tree id; its error is above)" }
+  $ReleaseSource = ([string]$ReleaseTreeOutput[0]).Trim()
+  Write-Host "RELEASE_TREE=$ReleaseSource repository_only_kept_as_production=$($NonDeployablePaths.Count)"
+}
+# <release-tree-end>
+# Both archives are byte-stable: the blobs as committed (LF), whatever core.autocrlf this machine has. With autocrlf=true git archive ships CRLF, which is not what production holds.
+git -c core.autocrlf=false archive --format=tar.gz --output=$Release $ReleaseSource
 if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
 if (Test-Path -LiteralPath $RollbackRelease) { throw "Rollback artifact already exists; preserve it and choose a new temp path: $RollbackRelease" }
-git archive --format=tar.gz --output=$RollbackRelease $RollbackCommit
+git -c core.autocrlf=false archive --format=tar.gz --output=$RollbackRelease $RollbackCommit
 if ($LASTEXITCODE -ne 0) { throw 'git archive for rollback failed' }
 
 $Marker = tar -xOf $Release SYNC_V2_ROLLBACK_BASE
@@ -481,7 +566,9 @@ http_probe_for_retry() {
 }
 
 wait_status() {
-  local expected=$1 url=$2 body=$3 headers=$4 timeout=${5:-45} encoding=${6:-} method=${7:-GET} data=${8:-}
+  # gate (9th argument, e.g. feature_off): for a route the admin can switch off, a 403 whose body carries that exact code counts as the expected "closed to
+  # an anonymous caller" answer, same as the 401. Any other 403, or any other status, is still fatal.
+  local expected=$1 url=$2 body=$3 headers=$4 timeout=${5:-45} encoding=${6:-} method=${7:-GET} data=${8:-} gate=${9:-}
   local status=000 transport=0 probe_result deadline=$((SECONDS + timeout)) remaining attempt_time sleep_time attempt=0 transient
   while (( SECONDS < deadline )); do
     attempt=$((attempt + 1))
@@ -494,7 +581,8 @@ wait_status() {
     read -r transport status <<< "$probe_result"
     [[ -n "$status" ]] || status=000
     transient=0
-    if (( transport == 0 )) && [[ "$status" == "$expected" ]]; then
+    if (( transport == 0 )) && [[ "$status" == "$expected" || ( -n "$gate" && "$status" == 403 ) ]] && { [[ "$status" == "$expected" ]] || grep -Eq "\"code\"[[:space:]]*:[[:space:]]*\"$gate\"" "$body"; }; then
+      [[ "$status" == "$expected" ]] || printf 'HTTP_FEATURE_GATE url=%s status=403 code=%s (closed by the admin switch)\n' "$url" "$gate" >&2
       printf 'HTTP_OK attempt=%s url=%s status=%s\n' "$attempt" "$url" "$status" >&2
       printf '%s' "$status"
       return 0
@@ -690,11 +778,11 @@ if (g.ok !== false || !g.errors.join(' ').includes('restriction_unverified')) fa
 const G = await import(B + 'lib/guided-store.js');
 const gseed = JSON.parse(fs.readFileSync(new URL(B + 'lib/guided-official.json'), 'utf8'));
 const gi = G.seedInfo();
-if (gi.protocolVersion !== '1.0' || gi.seedVersion !== 1 || gi.count !== 155 || gi.collections !== 15) fail('guided_seed_info');
-if (gseed.routines.length !== 155 || gseed.collections.length !== 15) fail('guided_seed_count');
+if (gi.protocolVersion !== '1.0' || gi.seedVersion !== 1 || gi.count !== 155 || gi.collections !== 17) fail('guided_seed_info');
+if (gseed.routines.length !== 155 || gseed.collections.length !== 17) fail('guided_seed_count');
 const rids = new Set(gseed.routines.map(r => r.id));
 const cids = new Set(gseed.collections.map(c => c.id));
-if (rids.size !== 155 || cids.size !== 15 || ![...rids].every(id => id.startsWith('r2j-')) || ![...cids].every(id => id.startsWith('c2j-'))) fail('guided_ids');
+if (rids.size !== 155 || cids.size !== 17 || ![...rids].every(id => id.startsWith('r2j-')) || ![...cids].every(id => id.startsWith('c2j-'))) fail('guided_ids');
 const iids = gseed.routines.flatMap(r => r.blocks.map(b => b.iid));
 if (new Set(iids).size !== iids.length) fail('guided_copy_ids');
 const allIds = [...ids, ...rids, ...cids, ...iids];
@@ -757,7 +845,7 @@ if (LIB.length !== 1324 || libById.size !== 1324) fail('lib_ids');
 const recN = LIB.filter(e => e.rec).length, mvN = LIB.filter(e => e.mv).length, depL = LIB.filter(e => e.pref);
 const overlayRev0 = (await import(B + 'lib/library-admin.js')).overlay().rev;
 // The code library is exactly these numbers; once an admin has edited the overlay it may legitimately differ.
-if (overlayRev0 === 0 && (recN !== 210 || mvN !== 1305 || depL.length !== 26)) fail(`lib_counts:${recN}/${mvN}/${depL.length}`);
+if (overlayRev0 === 0 && (recN !== 210 || mvN !== 1310 || depL.length !== 26)) fail(`lib_counts:${recN}/${mvN}/${depL.length}`);
 if (P.MOVEMENTS.length !== 35 || P.EQUIPMENT.length !== 28 || P.EQUIPMENT_KINDS.length !== 6) fail('taxonomy_counts');
 const mvIds = new Set(P.MOVEMENTS.map(m => m.id));
 if (!LIB.every(e => !e.mv || mvIds.has(e.mv))) fail('lib_movement_invalid');
@@ -1130,8 +1218,13 @@ for rel in api/coach/ai-run.js api/coach/intelligence.js api/coach/adapters/clau
   test -s "$RELEASE_CHECK_DIR/$rel"
 done
 grep -Fq "COPY coach/ ./coach/" "$RELEASE_CHECK_DIR/api/Dockerfile"
-grep -Fq 'invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/jobs.js"
-grep -Fq 'invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/trainer-jobs.js"
+# The shared retry layer (AI Reliability): invokeWithRetry lives in ai-run.js; the member Coach jobs and the trainer jobs reach it through generateWithRepair (ai-generate.js).
+# (Before #38 these two files called invokeWithRetry directly: same invariant, retargeted to where the call is now.)
+test -s "$RELEASE_CHECK_DIR/api/coach/ai-generate.js"
+grep -Fq 'export async function invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/ai-run.js"
+grep -Fq 'invokeWithRetry' "$RELEASE_CHECK_DIR/api/coach/ai-generate.js"
+grep -Fq 'generateWithRepair' "$RELEASE_CHECK_DIR/api/coach/jobs.js"
+grep -Fq 'generateWithRepair' "$RELEASE_CHECK_DIR/api/coach/trainer-jobs.js"
 grep -Fq 'is_error' "$RELEASE_CHECK_DIR/api/coach/adapters/claude.js"
 grep -Fq 'api_error_status' "$RELEASE_CHECK_DIR/api/coach/adapters/claude.js"
 grep -Fq "'POST /api/coach/intelligence/explain'" "$RELEASE_CHECK_DIR/api/coach/routes.js"
@@ -1262,7 +1355,7 @@ grep -Fq 'notifyRev' "$RELEASE_CHECK_DIR/frontend/src/lib/guided-api.js"
 printf 'STUDIO_RELEASE=OK admin_routes=requireAdmin library_overlay=config+offline_cache guidedRev=config lazy_studio_chunks=3\n'
 printf 'GYM_PROFILES_V11_RELEASE=OK equipment=19 api_frontend_model=identical config_persistence=global default_fallback=present read=/api/config write=admin_only offline_cache=separate library+swap+constructor+workout+train2j+ai+bunker_context=present\n'
 @@SOURCE_PROBES@@
-printf 'RELEASE_SCOPE=OK changed=@@DELTA_COUNT@@ exact_delta_from_@@EXPECTED_CURRENT_SHORT@@ outside_delta_identical=yes\n'
+printf 'RELEASE_SCOPE=OK changed=@@DEPLOYABLE_COUNT@@ exact_delta_from_@@EXPECTED_CURRENT_SHORT@@ outside_delta_identical=yes\n'
 # Seguimiento V4 (routine review loop): the shared engine is one byte-identical file on both sides, the staff write is admin-only and only touches S.routineReviews,
 # the review never edits a routine, and Sync V2 / auth / the follow-up endpoints keep their guards.
 cmp -s "$RELEASE_CHECK_DIR/api/lib/routine-review.js" "$RELEASE_CHECK_DIR/frontend/src/lib/routine-review.js" || { printf 'ROUTINE_REVIEW_COPY_DIFFERS\n'; false; }
@@ -1278,7 +1371,11 @@ grep -Fq "directReceipt(S, body, 'admin-routine-reviewed')" "$RELEASE_CHECK_DIR/
 grep -Fq "if (!requireAdmin(req, res)) return;" "$RELEASE_CHECK_DIR/api/server.js"
 grep -Fq "'GET /api/admin/user/followup': async (req, res) => {" "$RELEASE_CHECK_DIR/api/server.js"
 grep -Fq "if (!user?.admin) return null" "$RELEASE_CHECK_DIR/frontend/src/views/AdminAttention.jsx"
-grep -Fq "stateAction('/api/admin/user/routine-reviewed'" "$RELEASE_CHECK_DIR/frontend/src/views/AdminAttention.jsx"
+# Coach & Seguimiento PRO V3 moved the staff "Routine reviewed" button from the old attention list into the member sheet, which mounts the same editor: the invariant is
+# unchanged (staff-only button, posts to the admin endpoint with the member's sync), only its location is.
+grep -Fq "path: 'routine-reviewed'" "$RELEASE_CHECK_DIR/frontend/src/views/AdminFollowUp.jsx"
+grep -Fq "stateAction('/api/admin/user/' + done.path" "$RELEASE_CHECK_DIR/frontend/src/views/AdminFollowUp.jsx"
+grep -Fq '<RoutineCycles id={id} cycles={d.routineCycles} sync={d.sync}' "$RELEASE_CHECK_DIR/frontend/src/components/coach/CoachMember.jsx"
 cmp -s "$RELEASE_CHECK_DIR/api/lib/sync.js" "$BASELINE_CHECK_DIR/api/lib/sync.js" || { printf 'SYNC_JS_CHANGED\n'; false; }
 cmp -s "$RELEASE_CHECK_DIR/frontend/src/lib/sync-client.js" "$BASELINE_CHECK_DIR/frontend/src/lib/sync-client.js" || { printf 'SYNC_CLIENT_CHANGED\n'; false; }
 cmp -s "$RELEASE_CHECK_DIR/api/lib/webauthn-origins.js" "$BASELINE_CHECK_DIR/api/lib/webauthn-origins.js" || { printf 'WEBAUTHN_ORIGINS_CHANGED\n'; false; }
@@ -1734,24 +1831,24 @@ if grep -Eq "$HEALTH_KEYS" /tmp/2j-bunker-settings-body; then printf 'PRIVACY_LE
 if grep -q '"uid"' /tmp/2j-bunker-body; then grep -q '"restSec"' /tmp/2j-bunker-body || { printf 'BUNKER_REST_SEC_MISSING\n'; false; }; fi
 
 STEP=social-smoke
-SOCIAL_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/wall /tmp/2j-social-body /tmp/2j-social-headers "$SMOKE_TIMEOUT_SEC")
+SOCIAL_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/wall /tmp/2j-social-body /tmp/2j-social-headers "$SMOKE_TIMEOUT_SEC" '' GET '' feature_off)
 
 STEP=community-v2-smoke
-FRIENDS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends /tmp/2j-friends-body /tmp/2j-friends-headers "$SMOKE_TIMEOUT_SEC")
-FRIENDS_REQUEST_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/request /tmp/2j-friends-request-body /tmp/2j-friends-request-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-FRIENDS_BLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/block /tmp/2j-friends-block-body /tmp/2j-friends-block-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-FRIENDS_UNBLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/unblock /tmp/2j-friends-unblock-body /tmp/2j-friends-unblock-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-CHAT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/threads /tmp/2j-chat-body /tmp/2j-chat-headers "$SMOKE_TIMEOUT_SEC")
-CHAT_DIRECT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/direct /tmp/2j-chat-direct-body /tmp/2j-chat-direct-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+FRIENDS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends /tmp/2j-friends-body /tmp/2j-friends-headers "$SMOKE_TIMEOUT_SEC" '' GET '' feature_off)
+FRIENDS_REQUEST_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/request /tmp/2j-friends-request-body /tmp/2j-friends-request-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
+FRIENDS_BLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/block /tmp/2j-friends-block-body /tmp/2j-friends-block-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
+FRIENDS_UNBLOCK_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/friends/unblock /tmp/2j-friends-unblock-body /tmp/2j-friends-unblock-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
+CHAT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/threads /tmp/2j-chat-body /tmp/2j-chat-headers "$SMOKE_TIMEOUT_SEC" '' GET '' feature_off)
+CHAT_DIRECT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/chat/direct /tmp/2j-chat-direct-body /tmp/2j-chat-direct-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
 NOTIFICATIONS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/notifications /tmp/2j-notifications-body /tmp/2j-notifications-headers "$SMOKE_TIMEOUT_SEC")
 NOTIFICATION_READ_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/notifications/read /tmp/2j-notification-read-body /tmp/2j-notification-read-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
 NOTIFICATION_READ_ALL_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/notifications/read-all /tmp/2j-notification-read-all-body /tmp/2j-notification-read-all-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
 SOCIAL_PREFS_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/preferences /tmp/2j-social-prefs-body /tmp/2j-social-prefs-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-SOCIAL_SHARE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/shares /tmp/2j-social-share-body /tmp/2j-social-share-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-SOCIAL_REPORT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/reports /tmp/2j-social-report-body /tmp/2j-social-report-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
+SOCIAL_SHARE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/shares /tmp/2j-social-share-body /tmp/2j-social-share-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
+SOCIAL_REPORT_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/social/reports /tmp/2j-social-report-body /tmp/2j-social-report-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}' feature_off)
 MODERATION_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/social-reports /tmp/2j-moderation-body /tmp/2j-moderation-headers "$SMOKE_TIMEOUT_SEC")
 MODERATION_RESOLVE_STATUS=$(wait_status 401 https://app.2jfitnesscenter.com/api/admin/social-reports/resolve /tmp/2j-moderation-resolve-body /tmp/2j-moderation-resolve-headers "$SMOKE_TIMEOUT_SEC" '' POST '{}')
-for status in "$FRIENDS_STATUS" "$FRIENDS_REQUEST_STATUS" "$FRIENDS_BLOCK_STATUS" "$FRIENDS_UNBLOCK_STATUS" "$CHAT_STATUS" "$CHAT_DIRECT_STATUS" "$NOTIFICATIONS_STATUS" "$NOTIFICATION_READ_STATUS" "$NOTIFICATION_READ_ALL_STATUS" "$SOCIAL_PREFS_STATUS" "$SOCIAL_SHARE_STATUS" "$SOCIAL_REPORT_STATUS" "$MODERATION_STATUS" "$MODERATION_RESOLVE_STATUS"; do [[ "$status" == 401 ]]; done
+for status in "$FRIENDS_STATUS" "$FRIENDS_REQUEST_STATUS" "$FRIENDS_BLOCK_STATUS" "$FRIENDS_UNBLOCK_STATUS" "$CHAT_STATUS" "$CHAT_DIRECT_STATUS" "$NOTIFICATIONS_STATUS" "$NOTIFICATION_READ_STATUS" "$NOTIFICATION_READ_ALL_STATUS" "$SOCIAL_PREFS_STATUS" "$SOCIAL_SHARE_STATUS" "$SOCIAL_REPORT_STATUS" "$MODERATION_STATUS" "$MODERATION_RESOLVE_STATUS"; do [[ "$status" == 401 || "$status" == 403 ]]; done   # 403 only ever comes back from wait_status for a switched-off feature (code feature_off); any other 403 already failed there
 verify_poststart_data
 printf 'COMMUNITY_V2=OK friends=%s requests=%s blocks=%s direct_chat=%s auth_boundary=401\n' "$FRIENDS_STATUS" "$FRIENDS_REQUEST_STATUS" "$FRIENDS_BLOCK_STATUS" "$CHAT_DIRECT_STATUS"
 printf 'NOTIFICATIONS=OK inbox=%s read=%s read_all=%s dedupe=release_contract push_opt_in=release_contract\n' "$NOTIFICATIONS_STATUS" "$NOTIFICATION_READ_STATUS" "$NOTIFICATION_READ_ALL_STATUS"
@@ -1935,6 +2032,31 @@ printf 'PWA=OK manifest=%s sw=%s icons=%s/%s\n' "$MANIFEST_STATUS" "$SW_STATUS" 
 printf 'ASSET=%s status=%s style=%s style_status=%s\n' "$ASSET" "$ASSET_STATUS" "$STYLE" "$STYLE_STATUS"
 printf 'STUDIO_ADMIN=OK posts=[%s ] library_get=%s library_post=%s member_writes=%s ai_deprecated=%s overlay_rev=%s %s\n' "$STUDIO_POST_STATUSES" "$LIBADMIN_GET_STATUS" "$LIBADMIN_POST_STATUS" "$(PROBE_FIELD member_writes)" "$(PROBE_FIELD ai_deprecated)" "$(PROBE_FIELD overlay_rev)" "$GUIDED_REV"
 printf 'SERVICES=OK api,web,caddy\n'
+# DEPLOY_MARKER_BEGIN - reached ONLY when every check above passed (a failure runs rollback() and never gets here). Best effort: the
+# marker is information for the admin ops view, so a problem writing it is reported but never fails or rolls back a good deploy.
+if [[ -x "$APP/scripts/mark-deploy.sh" ]]; then
+  if OPS_DIR="$APP/data/ops" "$APP/scripts/mark-deploy.sh" "$TARGET_COMMIT" release >/dev/null 2>&1; then
+    chown --reference="$APP/data" "$APP/data/ops" "$APP/data/ops/deploy-marker.json" 2>/dev/null || true
+    printf 'DEPLOY_MARKER=ok:%s\n' "$TARGET_COMMIT"
+  else
+    printf 'DEPLOY_MARKER=SKIPPED:write_failed (non-blocking)\n'
+  fi
+else
+  printf 'DEPLOY_MARKER=SKIPPED:no_mark_deploy_script (non-blocking)\n'
+fi
+# DEPLOY_MARKER_END
+# OPS_CRON_BEGIN - keeps the daily off-site backup, the ops-check and the log rotation installed (idempotent). Best effort and only on the real server
+# layout: never in the local simulation (APP differs there), never fails or rolls back a good deploy.
+if [[ "$APP" == /opt/2jfitness && -x "$APP/scripts/install-ops-cron.sh" && -s /etc/2j-ops.env ]]; then
+  if "$APP/scripts/install-ops-cron.sh" >/tmp/2j-ops-cron.log 2>&1; then
+    printf 'OPS_CRON=ok (%s)\n' "$(tail -n 1 /tmp/2j-ops-cron.log)"
+  else
+    printf 'OPS_CRON=SKIPPED:install_failed (non-blocking; see /tmp/2j-ops-cron.log)\n'
+  fi
+else
+  printf 'OPS_CRON=SKIPPED:not_the_server_layout_or_no_etc_2j-ops.env (non-blocking)\n'
+fi
+# OPS_CRON_END
 printf 'LOG=%s\n' "$LOG"
 '@
 
@@ -2118,7 +2240,8 @@ if run_mutable_probe >/dev/null 2>&1; then printf 'SIM_PLAINTEXT_CHAT_INVALID_NO
 cp -p "$SIM_ROOT/chat-original.json" "$APP/data/chat.json"
 printf 'SIM_ENCRYPTED_CHAT_GUARDS=PASS corrupted+wrong_key+invalid_plaintext_rejected\n'
 run_mutable_probe
-DATA_BEFORE=$(find "$APP/data" -type f -print0 | sort -z | xargs -0 sha256sum)
+# data/ops holds operational metadata (deploy marker, backup status); the simulated success writes the marker, and a rollback leaves it alone, so it is not part of the member-data comparison
+DATA_BEFORE=$(find "$APP/data" -type f ! -path "$APP/data/ops/*" -print0 | sort -z | xargs -0 sha256sum)
 printf 'SIM_COMMUNITY_CORRUPTION=PASS missing+truncated+invalid_json_rejected\n'
 __FINALIZE_SUMMARY__
 
@@ -2152,7 +2275,7 @@ rmdir "$NEG_MARKER/.deployed-commit"
 [[ -f "$APP/.deployed-commit" && "$(cat "$APP/.deployed-commit")" == "$ROLLBACK_COMMIT" ]]
 printf 'SIM_ROLLBACK_MARKER_GUARDS=PASS bad_health_and_unwritable_marker_rejected isolated_dirs\n'
 verify_tree "$RB_TREE" "$ROLLBACK_COMMIT"
-DATA_AFTER=$(find "$APP/data" -type f -print0 | sort -z | xargs -0 sha256sum)
+DATA_AFTER=$(find "$APP/data" -type f ! -path "$APP/data/ops/*" -print0 | sort -z | xargs -0 sha256sum)
 [[ "$DATA_AFTER" == "$DATA_BEFORE" ]]
 printf 'SIM_ROLLBACK=OK commit=%s exact_tree=yes data=unchanged state_files=17 secret=unchanged gym-profile=preserved notifications/chat/friends/social/shares/reports/vapid=preserved\n' "$ROLLBACK_COMMIT"
 '@
@@ -2178,7 +2301,7 @@ GYM_PROFILE_AFTER=present-unchanged
 BACKUP=/simulation/predeploy.tar.gz
 PROBE_OUT='INACTIVITY_MODEL_PROBE=OK deadline=60min passive_no_reset duration_excludes_idle
 PROBE_OK
-PROBE_DATA exlib=1324 recommended=210 with_movement=1305 deprecated=26 movements=35 equipment=28 kinds=6 ai_rec_first=210 hidden_ex=0 gym_profiles=ok gym_config_source=persisted gym_ai_context=hotel gym_compatible_first=bodyweight protocol=1.0 masters=198 pass=198 pass_with_reason=0 fail=0 unverified=0 api_blocks=198 guided_masters=86 routines=155 programs=22 collections=15 featured=3 masters_used=145 copies=363 member_writes=refused ai_deprecated=0 overlay_rev=0 guided_rev=1.2.0'
+PROBE_DATA exlib=1324 recommended=210 with_movement=1310 deprecated=26 movements=35 equipment=28 kinds=6 ai_rec_first=210 hidden_ex=0 gym_profiles=ok gym_config_source=persisted gym_ai_context=hotel gym_compatible_first=bodyweight protocol=1.0 masters=198 pass=198 pass_with_reason=0 fail=0 unverified=0 api_blocks=198 guided_masters=86 routines=155 programs=22 collections=15 featured=3 masters_used=145 copies=363 member_writes=refused ai_deprecated=0 overlay_rev=0 guided_rev=1.2.0'
 GUIDED_GET_STATUS=401
 STUDIO_POST_STATUSES='status=401 reorder=401 program/save=401 program/curate=401 program/duplicate=401 program/delete=401 collection/delete=401'
 LIBADMIN_GET_STATUS=401
@@ -2223,9 +2346,9 @@ if (-not $SimulationScript.Contains('__VERIFY_CURRENT_PRODUCTION__')) { throw 'S
 $SimulationScript = $SimulationScript.Replace('__VERIFY_CURRENT_PRODUCTION__', $currentProductionBlock)
 [System.IO.File]::WriteAllText($SimulationRunner, ($SimulationScript -replace "`r`n", "`n"), $Utf8NoBom)
 $GitExe = (Get-Command git.exe -ErrorAction Stop).Source
-$GitRoot = Split-Path (Split-Path $GitExe -Parent) -Parent
-$Bash = Join-Path $GitRoot 'bin\bash.exe'
-if (-not (Test-Path -LiteralPath $Bash)) { throw "Git Bash no encontrado junto a Git: $Bash" }
+$GitResolved = Resolve-GitRoot $GitExe
+$GitRoot = $GitResolved.Root
+$Bash = $GitResolved.Bash
 function ConvertTo-GitBashPath([string]$Path) {
   $full = [System.IO.Path]::GetFullPath($Path)
   $drive = $full.Substring(0, 1).ToLowerInvariant()
@@ -2242,6 +2365,7 @@ $protocolBlock = $RemoteForExtract.Substring($protocolStart, $protocolEnd - $pro
 $ProtocolHarness = @'
 #!/usr/bin/env bash
 set -Eeuo pipefail
+trap 'printf "VERIFY_PROTOCOL_FAILED exit=%s line=%s command=%s\n" "$?" "$LINENO" "$BASH_COMMAND" >&2' ERR
 export PATH="/usr/bin:/mingw64/bin"
 docker() { bash '__DOCKER_SHIM_FILE__' "$@"; }
 RELEASE=$1
@@ -2278,7 +2402,8 @@ $ProtocolCheckRunnerUnix = ConvertTo-GitBashPath $ProtocolCheckRunner
 $ReleaseUnix = ConvertTo-GitBashPath $Release
 $RollbackUnix = ConvertTo-GitBashPath $RollbackRelease
 & $Bash --noprofile --norc $ProtocolCheckRunnerUnix $ReleaseUnix $RollbackUnix
-if ($LASTEXITCODE -ne 0) { throw 'LOCAL_VERIFY_RELEASE_PROTOCOL_FAILED; no production connection was made' }
+$ProtocolCode = $LASTEXITCODE
+if ($ProtocolCode -ne 0) { throw "LOCAL_VERIFY_RELEASE_PROTOCOL_FAILED exit=$ProtocolCode (the failing command is printed above as VERIFY_PROTOCOL_FAILED ... command=...); script: $ProtocolCheckRunner; no production connection was made" }
 Write-Host 'LOCAL_VERIFY_RELEASE_PROTOCOL=OK'
 
 

@@ -8,6 +8,53 @@ const root = path.resolve(here, '../../..')
 const TEMPLATE = path.join(here, 'templates', 'release-runner.ps1.in')
 const SHA40 = /^[0-9a-f]{40}$/
 const SAFE_PATH = /^(?:AI_HANDOFF\.md|CHANGELOG\.md|(?:api|frontend|scripts|web|docs)\/[A-Za-z0-9._/-]+)$/
+// Repository-only paths: part of the Git delta (and verified there, exactly) but NEVER deployed — the release archive carries them exactly as the
+// production baseline has them (see release-tree.mjs). Fail-closed: an exact list plus one narrow tooling pattern; anything else in the delta must be a
+// SAFE_PATH deployable path. Nothing under api/, frontend/, scripts/, web/ or docs/ can ever be declared repository-only.
+export const REPOSITORY_ONLY_EXACT = new Set([
+  '.env.example', '.env.production.example', '.gitattributes', '.gitignore', '.github/workflows/test.yml',
+  'contracts/2J-089-training-summary-v1.json', // read only by api/test/platform-proof.test.js (checked: no runtime code opens contracts/)
+])
+const REPOSITORY_ONLY_TOOLING = /^ops\/deploy-kit\/(?:releases\/[A-Za-z0-9._-]+\.json|windows\/(?:templates\/)?[A-Za-z0-9._-]+\.(?:mjs|in))$/
+export const isRepositoryOnlyPath = p => typeof p === 'string' && (REPOSITORY_ONLY_EXACT.has(p) || REPOSITORY_ONLY_TOOLING.test(p))
+
+export function validateNodeTestSummary(output, exitCode) {
+  if (exitCode !== 0) return { ok: false, reason: `NONZERO_EXIT:${exitCode}` }
+  if (typeof output !== 'string' || output.trim() === '') return { ok: false, reason: 'EMPTY_OUTPUT' }
+  const readCount = (name, required = true) => {
+    // Node's built-in test runner emits either TAP (# tests N) or spec (ℹ tests N) summaries.
+    const matches = [...output.matchAll(new RegExp(`^(?:#|ℹ)\\s+${name}\\s+(\\d+)\\s*$`, 'gm'))]
+    if (matches.length === 0 && !required) return { value: 0 }
+    if (matches.length !== 1) return { error: `INVALID_${name.toUpperCase()}_COUNT` }
+    const value = Number(matches[0][1])
+    if (!Number.isSafeInteger(value) || value < 0) return { error: `INVALID_${name.toUpperCase()}_COUNT` }
+    return { value }
+  }
+  const tests = readCount('tests')
+  const pass = readCount('pass')
+  const fail = readCount('fail')
+  const cancelled = readCount('cancelled')
+  const skipped = readCount('skipped', false)
+  const todo = readCount('todo', false)
+  for (const result of [tests, pass, fail, cancelled, skipped, todo]) if (result.error) return { ok: false, reason: result.error }
+  const summary = { tests: tests.value, pass: pass.value, fail: fail.value, cancelled: cancelled.value, skipped: skipped.value, todo: todo.value }
+  if (summary.tests < 1) return { ok: false, reason: 'NO_TESTS_EXECUTED', summary }
+  if (summary.fail !== 0) return { ok: false, reason: 'TEST_FAILURES_PRESENT', summary }
+  if (summary.cancelled !== 0) return { ok: false, reason: 'TESTS_CANCELLED', summary }
+  if (summary.pass + summary.skipped + summary.todo !== summary.tests) return { ok: false, reason: 'INCONSISTENT_TEST_COUNTS', summary }
+  return { ok: true, reason: 'OK', summary }
+}
+
+function validateNodeTestSummaryFile(file, exitCode) {
+  const result = validateNodeTestSummary(fs.readFileSync(file, 'utf8'), Number(exitCode))
+  if (!result.ok) {
+    process.stderr.write(`DEPLOY_TOOLING_TEST_SUMMARY=FAIL reason=${result.reason}\n`)
+    process.exitCode = 1
+    return
+  }
+  const s = result.summary
+  process.stdout.write(`DEPLOY_TOOLING_TEST_SUMMARY=PASS tests=${s.tests} pass=${s.pass} skipped=${s.skipped} todo=${s.todo}\n`)
+}
 const NO_CREDENTIAL_PIN_PROBES = [
   { method: 'POST', path: '/api/shared-device/pin', status: 403 },
   { method: 'POST', path: '/api/shared-staff/pin', status: 403 },
@@ -25,7 +72,7 @@ const WEB_PUSH_SUBSCRIPTION_MARKERS = [
   { file: 'api/test/rest-alert-routes.test.js', marker: "call('POST', '/api/push/subscribe'" },
   { file: 'api/test/rest-alert-routes.test.js', marker: 'assert.equal(db.subs.length, 1)' },
 ]
-export const isAllowedPostTargetPath = p => p === 'AI_HANDOFF.md' || p === '.gitattributes' || p === 'frontend/src/views/adaptive.test.jsx' || p.startsWith('ops/deploy-kit/')
+export const isAllowedPostTargetPath = p => p === 'AI_HANDOFF.md' || p === 'CHANGELOG.md' || p === '.gitattributes' || p === 'docs/GENERATED_FILES.md' || p === 'frontend/src/views/adaptive.test.jsx' || p.startsWith('ops/deploy-kit/')
 
 function fail(message) { throw new Error(message) }
 function psQuote(value) { return `'${String(value).replaceAll("'", "''")}'` }
@@ -55,7 +102,17 @@ export function validateConfig(c) {
   if (!Number.isInteger(c.expectedFrontendTests) || c.expectedFrontendTests < 1) fail('INVALID_FRONTEND_TEST_COUNT')
   if (!Number.isInteger(c.expectedApiTests) || c.expectedApiTests < 1) fail('INVALID_API_TEST_COUNT')
   if (!Number.isInteger(c.expectedApiPassed) || !Number.isInteger(c.expectedApiSkipped) || c.expectedApiPassed + c.expectedApiSkipped !== c.expectedApiTests) fail('API_TEST_TOTAL_MISMATCH')
-  if (!Array.isArray(c.deltaPaths) || !c.deltaPaths.length || new Set(c.deltaPaths).size !== c.deltaPaths.length || c.deltaPaths.some(p => !SAFE_PATH.test(p))) fail('INVALID_EXACT_DELTA_PATHS')
+  if (!Array.isArray(c.deltaPaths) || !c.deltaPaths.length || new Set(c.deltaPaths).size !== c.deltaPaths.length || c.deltaPaths.some(p => typeof p !== 'string')) fail('INVALID_EXACT_DELTA_PATHS')
+  // deltaPaths is the COMPLETE Git delta. nonDeployablePaths are exact members of it that are never deployed; deployablePaths is everything else and must
+  // pass SAFE_PATH exactly as before.
+  const nonDeployable = c.nonDeployablePaths ?? []
+  if (!Array.isArray(nonDeployable) || new Set(nonDeployable).size !== nonDeployable.length || nonDeployable.some(p => !isRepositoryOnlyPath(p))) fail('INVALID_NON_DEPLOYABLE_PATHS')
+  if (nonDeployable.some(p => !c.deltaPaths.includes(p))) fail('NON_DEPLOYABLE_NOT_IN_DELTA')
+  const deployable = c.deltaPaths.filter(p => !nonDeployable.includes(p))
+  if (nonDeployable.length || c.deployablePaths !== undefined) {
+    if (!Array.isArray(c.deployablePaths) || JSON.stringify([...c.deployablePaths].sort()) !== JSON.stringify([...deployable].sort())) fail('DEPLOYABLE_PATHS_MISMATCH')
+  }
+  if (!deployable.length || deployable.some(p => !SAFE_PATH.test(p))) fail('INVALID_EXACT_DELTA_PATHS')
   if (c.maxCommits !== c.expectedCommitCount || !Number.isInteger(c.expectedCommitCount) || c.expectedCommitCount < 1) fail('INVALID_COMMIT_COUNT')
   if (!c.sync || !SHA40.test(c.sync.rollbackBase || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256Lf || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256CrLf || '')) fail('INVALID_SYNC_GUARD')
   if (!c.probes || !Array.isArray(c.probes.sourceFiles) || !Array.isArray(c.probes.sourceMarkers) || !Array.isArray(c.probes.unauthenticatedRoutes)) fail('INVALID_RELEASE_PROBES')
@@ -64,6 +121,7 @@ export function validateConfig(c) {
   const pinProbeStatuses = []
   const noOriginPushProbeStatuses = []
   for (const r of c.probes.unauthenticatedRoutes) {
+    if (r.featureGate !== undefined && (r.featureGate !== true || r.status !== 401 || r.expectUnauthenticated !== true)) fail('INVALID_FEATURE_GATE_ROUTE')
     if (!['GET', 'POST'].includes(r.method) || !/^\/api\/[A-Za-z0-9/_-]+$/.test(r.path) || !Number.isInteger(r.status) || r.status < 200 || r.status > 599) fail('INVALID_UNAUTHENTICATED_ROUTE')
     if (NO_CREDENTIAL_PIN_PROBES.some(p => p.method === r.method && p.path === r.path)) pinProbeStatuses.push({ route: r, status: r.status })
     if (NO_ORIGIN_PUSH_PROBES.some(p => p.method === r.method && p.path === r.path)) noOriginPushProbeStatuses.push({ route: r, status: r.status })
@@ -78,7 +136,7 @@ export function validateConfig(c) {
     if (matches.length > 1 || (matches.length === 1 && matches[0].status !== expected.status)) fail(`NO_ORIGIN_PUSH_PROBE_MUST_MATCH_CONTRACT_403:${expected.path}`)
   }
   if (new Set(noOriginPushProbeStatuses.map(p => p.status)).size > 1) fail('CONTRADICTORY_NO_ORIGIN_PUSH_EXPECTATIONS')
-  return { targetShort: c.targetCommit.slice(0, 7), expectedShort: c.expectedCurrentCommit.slice(0, 7) }
+  return { targetShort: c.targetCommit.slice(0, 7), expectedShort: c.expectedCurrentCommit.slice(0, 7), deployable, nonDeployable }
 }
 
 function renderSourceProbes(c) {
@@ -96,7 +154,7 @@ function renderPostStartProbes(c) {
     const headers = `/tmp/2j-release-probe-${i + 1}-headers`
     const url = `https://app.2jfitnesscenter.com${route.path}`
     if (route.path.startsWith('/api/shared-') || route.path.startsWith('/api/admin/shared-')) lines.push(`printf 'SHARED_STAFF_PROBE route=${route.path} method=${route.method} expected=${route.status}\\n'`)
-    lines.push(`${key}_STATUS=$(wait_status ${route.status} ${shQuote(url)} ${body} ${headers} 45${route.method === 'POST' ? ` '' POST '{}'` : ''})`)
+    lines.push(`${key}_STATUS=$(wait_status ${route.status} ${shQuote(url)} ${body} ${headers} 45${route.method === 'POST' ? ` '' POST '{}'` : route.featureGate ? ` '' GET ''` : ''}${route.featureGate ? ' feature_off' : ''})`)
     if (route.expectUnauthenticated === true) lines.push(`if grep -Eqi '"(user|staff|session|deviceToken|pinHash)"[[:space:]]*:' ${body}; then printf 'SHARED_ROUTE_DATA_LEAK=${route.path}\\n'; false; fi`)
     if (route.requiredBodyMarker) lines.push(`grep -Fq ${shQuote(route.requiredBodyMarker)} ${body}`)
   }
@@ -107,7 +165,7 @@ function renderPostStartProbes(c) {
 }
 
 export function renderTemplate(template, c) {
-  const { targetShort, expectedShort } = validateConfig(c)
+  const { targetShort, expectedShort, deployable, nonDeployable } = validateConfig(c)
   template = template.replace(/\r\n/g, '\n')
   const values = {
     RELEASE_TITLE: c.metadata.title,
@@ -122,7 +180,9 @@ export function renderTemplate(template, c) {
     API_SKIPPED: String(c.expectedApiSkipped),
     MAX_COMMITS: String(c.maxCommits),
     DELTA_COUNT: String(c.deltaPaths.length),
-    EXPECTED_DELTA_PATHS: [...c.deltaPaths].sort().join('\n'),
+    EXPECTED_DELTA_PATHS: [...deployable].sort().join('\n'),
+    DEPLOYABLE_COUNT: String(deployable.length),
+    NON_DEPLOYABLE_PATHS_PS: nonDeployable.map(psQuote).join(', '),
     DELTA_PATHS_PS: c.deltaPaths.map(psQuote).join(', '),
     SYNC_BASE: c.sync.rollbackBase,
     SYNC_JS_SHA256_LF: c.sync.syncJsSha256Lf,
@@ -205,5 +265,10 @@ function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { main() } catch (error) { console.error(`RUNNER_GENERATION_FAILED=${error.message}`); process.exitCode = 1 }
+  try {
+    if (process.argv[2] === '--validate-node-test-summary') {
+      if (!process.argv[3] || process.argv[4] === undefined) fail('usage: --validate-node-test-summary <log> <exit-code>')
+      validateNodeTestSummaryFile(process.argv[3], process.argv[4])
+    } else main()
+  } catch (error) { console.error(`RUNNER_GENERATION_FAILED=${error.message}`); process.exitCode = 1 }
 }
