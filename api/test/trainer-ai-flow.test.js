@@ -15,16 +15,17 @@ fs.writeFileSync(path.join(dir, 'secret'), SECRET, { mode: 0o600 });
 fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({
   users: [
     { id: 'tr1', name: 'Trainer', trainer: true }, { id: 'ad', name: 'Admin', admin: true },
-    { id: 'm1', name: 'Member With Consent', created: '2026-01-01T00:00:00.000Z' }, { id: 'm2', name: 'Member Without Consent', created: '2026-01-01T00:00:00.000Z' },
+    { id: 'm1', name: 'Member One', created: '2026-01-01T00:00:00.000Z' }, { id: 'm2', name: 'Member Two', created: '2026-01-01T00:00:00.000Z' },
     { id: 'm3', name: 'Another Member', created: '2026-01-01T00:00:00.000Z' },
   ], creds: [], subs: [], invites: [], recoveries: [],
 }, null, 2));
 const OLD = [{ id: 'old', name: 'Rutina vieja', emoji: 'dumbbell', ex: [{ id: '0025', sets: 3, reps: 8 }] }];
-const consent = { staffAi: { consent: { agreedAt: new Date().toISOString(), version: 1 } } };
+// No member has the old Staff AI flag: staff AI needs no member switch.
+const oldFlag = { staffAi: { consent: { agreedAt: new Date().toISOString(), version: 0 } } };   // a leftover of the removed setting must change nothing
 const st = over => JSON.stringify({ routines: OLD, programs: [], workouts: [{ id: 'w1', d: '2026-09-01', routineId: 'old', entries: [] }], week: {}, ...over });
-fs.writeFileSync(path.join(dir, 'state-m1.json'), st(consent));
-fs.writeFileSync(path.join(dir, 'state-m2.json'), st({}));
-fs.writeFileSync(path.join(dir, 'state-m3.json'), st(consent));
+fs.writeFileSync(path.join(dir, 'state-m1.json'), st({}));
+fs.writeFileSync(path.join(dir, 'state-m2.json'), st(oldFlag));
+fs.writeFileSync(path.join(dir, 'state-m3.json'), st({}));
 const PORT = 34897, base = `http://localhost:${PORT}`;
 const child = spawn(process.execPath, ['--import', './test/trainer-ai-preload.mjs', 'server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base }, stdio: ['ignore', 'ignore', 'ignore'] });
 for (let i = 0; i < 80; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* not up yet */ } await new Promise(r => setTimeout(r, 100)); }
@@ -61,11 +62,11 @@ async function saveDraft(trainer, memberId, bundle) {
   return ids;
 }
 
-test('1-9: an authorised trainer generates a routine for a member who allowed staff AI: job runs, draft is valid, it is saved on THAT member and shows in their plan', async () => {
+test('1-9: an authorised trainer generates a routine for a member with NO staff-AI flag: job runs, draft is valid, it is saved on THAT member and shows in their plan', async () => {
   setMode('');
   const before = calls();
   const status0 = await req('GET', '/api/trainer/ai/status?memberId=m1', 'tr1');
-  assert.equal(status0.body.consent, true, 'the panel is told the member allowed staff AI');
+  assert.equal(status0.status, 200); assert.ok(!('consent' in status0.body), 'no member consent is involved any more');
   const g = await generate('tr1', 'm1');
   assert.equal(g.status, 202); assert.ok(g.body.job.id, 'the job exists');
   const done = await settle('tr1', 'm1');
@@ -111,14 +112,16 @@ test('11: an answer that breaks the 2J protocol even after the repair rounds →
   await req('POST', '/api/trainer/ai/discard', 'tr1', { memberId: 'm3' });
 });
 
-test('12: the member did not allow staff AI → 403 with code consent, the provider is never called, and the status tells the panel up front', async () => {
+test('12: a member who never allowed anything (or has a leftover old flag) is no obstacle: admin and trainer both run, the provider is called, a draft comes out', async () => {
   setMode('');
   const before = calls();
-  const s = await req('GET', '/api/trainer/ai/status?memberId=m2', 'tr1');
-  assert.equal(s.body.consent, false);
-  const g = await generate('tr1', 'm2');
-  assert.equal(g.status, 403); assert.equal(g.body.code, 'consent'); assert.match(g.body.error, /consentimiento/);
-  assert.equal(calls(), before, 'nothing about the member was sent');
+  assert.equal((await generate('tr1', 'm2')).status, 202);
+  const t1 = await settle('tr1', 'm2'); assert.ok(t1.pending?.bundle?.routines?.length); assert.equal(t1.errorClass, null);
+  await req('POST', '/api/trainer/ai/discard', 'tr1', { memberId: 'm2' });
+  assert.equal((await generate('ad', 'm2')).status, 202);
+  const t2 = await settle('ad', 'm2'); assert.ok(t2.pending?.bundle?.routines?.length);
+  await req('POST', '/api/trainer/ai/discard', 'ad', { memberId: 'm2' });
+  assert.ok(calls() - before >= 2, 'the provider was called');
 });
 
 test('13: no access → 403 (a member cannot use the trainer endpoints; anonymous → 401)', async () => {

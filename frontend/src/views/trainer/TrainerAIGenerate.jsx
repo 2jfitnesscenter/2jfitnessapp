@@ -40,7 +40,7 @@ export default function TrainerAIGenerate() {
   const { memberId } = useParams()
   const reviewContext = location.state?.routineReview || null
   const toast = useUI(s => s.toast)
-  const { job, pending, errorClass, consent, refresh } = useTrainerAIStatus(memberId)
+  const { job, pending, errorClass, refresh } = useTrainerAIStatus(memberId)
   const [startError, setStartError] = useState(null)       // why "Generate" did not start a job: shown on the page, not only as a toast that disappears
   const [brief, setBrief] = useState(emptyBrief)
   const [busy, setBusy] = useState(false)
@@ -101,9 +101,9 @@ export default function TrainerAIGenerate() {
 
   return <div id="trainer-app">
     <Topbar title={t('Generate with AI')} onBack={back} />
-    {(startError || errorClass || consent === false) && <div className="card" role="alert" style={{ borderColor: 'var(--red)', marginBottom: 14 }}>
+    {(startError || errorClass) && <div className="card" role="alert" style={{ borderColor: 'var(--red)', marginBottom: 14 }}>
       <div className="small" style={{ color: 'var(--red)' }}>
-        {startError || (errorClass ? t(TRAINER_AI_ERRORS[errorClass] || 'Something went wrong.') : t(TRAINER_AI_ERRORS.consent))}
+        {startError || t(TRAINER_AI_ERRORS[errorClass] || 'Something went wrong.')}
       </div>
     </div>}
 
@@ -155,7 +155,7 @@ export default function TrainerAIGenerate() {
         placeholder={t('Anything else the AI should know about this member')} />
     </div>
 
-    <Button variant="primary" icon="sparkles" disabled={busy || consent === false || !brief.goal || !brief.experience} onClick={generate}>
+    <Button variant="primary" icon="sparkles" disabled={busy || !brief.goal || !brief.experience} onClick={generate}>
       {t('Generate routines')}
     </Button>
   </div>

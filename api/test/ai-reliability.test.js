@@ -68,7 +68,6 @@ const connectAux = () => { auxAI.reset(); auxAI.save({ enabled: true, log: [], u
 
 const KEYS = consensus.SCAN_KEYS;
 const meas = (over = {}) => ({ ...Object.fromEntries(KEYS.map(k => [k, null])), ...over });
-const STAFF_AI = { staffAi: { consent: { agreedAt: new Date().toISOString(), version: 1 } } };   // the member's separate consent for staff AI tools
 const IMG = { data: Buffer.from('SECRETPHOTOBYTES').toString('base64'), mimeType: 'image/png', uid: 'u-scan' };
 
 /* ================= the gateway: ai-run.js ================= */
@@ -228,7 +227,7 @@ const readJobsFile = () => JSON.parse(fs.readFileSync(`${DIR}/trainer-ai-jobs.js
 test('trainer jobs survive a restart (once), keep a finished draft, and drop the request once done', async () => {
   trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
   trainerJobs.setAdapterForTests(adapterFor('fixture'));
-  writeState(DIR, 'rel-mem-1', sampleState(STAFF_AI)); writeState(DIR, 'rel-mem-2', sampleState(STAFF_AI));
+  writeState(DIR, 'rel-mem-1', sampleState()); writeState(DIR, 'rel-mem-2', sampleState());
   const row = (memberId, resumes) => ({ id: 'tj-' + memberId, trainerId: 'coachR', memberId, state: 'running', phase: 'generating', startedAt: Date.now() - 1000, endedAt: 0, pending: null, errorClass: null, brief: BRIEF, resumes });
   const q = quiet();
   try {
@@ -243,25 +242,25 @@ test('trainer jobs survive a restart (once), keep a finished draft, and drop the
   } finally { q.restore(); trainerJobs.setAdapterForTests(null); }
 });
 
-test('a trainer job restarted after a restart re-checks the member’s consent: withdrawn meanwhile → nothing is sent', async () => {
+test('a trainer job interrupted by a restart is resumed once for a member with no staff-AI flag: the provider is called and the draft is produced', async () => {
   trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
   let calls = 0; const base = adapterFor('fixture');
   trainerJobs.setAdapterForTests({ ...base, invoke: async args => { calls++; return base.invoke(args); } });
-  writeState(DIR, 'rel-mem-wd', sampleState());                       // consent was withdrawn while the server was down
+  writeState(DIR, 'rel-mem-wd', sampleState());                       // no staff-AI flag: it is not a condition any more
   const row = { id: 'tj-wd', trainerId: 'coachW', memberId: 'rel-mem-wd', state: 'running', phase: 'generating', startedAt: Date.now() - 1000, endedAt: 0, pending: null, errorClass: null, brief: BRIEF, resumes: 0 };
   const q = quiet();
   try {
     fs.writeFileSync(`${DIR}/trainer-ai-jobs.json`, JSON.stringify({ v: 1, jobs: [row] }));
     assert.equal(trainerJobs.recoverOnBoot(), 1);
     const s = await settleTrainer('coachW', 'rel-mem-wd');
-    assert.equal(s.errorClass, 'consent'); assert.equal(calls, 0, 'the provider was never reached');
-    assert.equal(readJobsFile().jobs.find(j => j.memberId === 'rel-mem-wd').brief, null, 'and the request is not kept');
+    assert.equal(s.errorClass, null); assert.ok(s.pending?.bundle?.routines?.length, 'a draft is ready'); assert.ok(calls >= 1, 'the provider was reached');
+    assert.equal(readJobsFile().jobs.find(j => j.memberId === 'rel-mem-wd').brief, null, 'and the request is not kept once the job ends');
   } finally { q.restore(); trainerJobs.setAdapterForTests(null); }
 });
 
 test('13b) discarding a trainer job stops its retries and frees the member at once', async () => {
   trainerAI.save({ enabled: true }); trainerAI.setSetupToken('fake-token-for-tests');
-  writeState(DIR, 'rel-mem-3', sampleState(STAFF_AI));
+  writeState(DIR, 'rel-mem-3', sampleState());
   aiRun.setBackoffForTests(null);                       // real waits: only cancellation can end this quickly
   const down = scripted(() => http(503));
   trainerJobs.setAdapterForTests(down);

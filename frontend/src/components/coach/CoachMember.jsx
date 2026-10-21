@@ -259,7 +259,6 @@ function Analysis({ d, plan, id, nav, notesRef, setDraft, reload }) {
       if (rs.length) structure = structuralFactsForAI(analyzeRoutineStructure({ days: rs.map(r => ({ ...r, key: r.id })) }, { availableEquipment: plan?.gym?.availableEquipment })).findings
       const r = await cf.analyze(id, structure, lang())
       if (r.source === 'ai') await poll()
-      else if (r.ai?.consent === false) { setState('idle'); toast(t('This member has not allowed staff AI tools, so only the calculated analysis is shown.')) }
       else { setState('failed'); if (r.ai?.error) toast(t(r.ai.error === 'cap' ? 'The daily AI limit has been reached.' : 'The analysis is busy; try again in a moment.')) }
     } catch (e) { toast(e.message); setState('failed') }
   }
