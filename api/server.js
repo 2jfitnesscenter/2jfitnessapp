@@ -81,6 +81,7 @@ import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 import { createPlatformProofStore } from './platform-proof/store.js';
 import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
+import { createPlatformIntegration, parsePlatformIntegrationEnv } from './platform-sso/index.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
 const PORT = +(process.env.PORT || 3000);
@@ -102,6 +103,8 @@ const PLATFORM_PROOF_ISSUANCE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_
 const PLATFORM_PROOF_EXCHANGE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_EXCHANGE_ENABLED || '');
 const PLATFORM_PROOF_RECONCILIATION_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_RECONCILIATION_ENABLED || '');
 const PLATFORM_TRAINING_SUMMARY_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_TRAINING_SUMMARY_ENABLED || '');
+// Platform SSO + capability consumption: off unless explicitly enabled; enforcement is per user (legacy -> shadow -> enforced).
+const PLATFORM_INTEGRATION_CONFIG = parsePlatformIntegrationEnv(process.env);
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
@@ -177,11 +180,12 @@ db.machineAliases = db.machineAliases || [];
 // different things — or at least isn't guaranteed not to — across different exporting apps.
 // { key, exerciseId, source, externalName, updatedAt }.
 db.importExerciseAliases = db.importExerciseAliases || [];
-const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
+// A Platform SSO session is member-level only: it never carries staff powers, whatever the account's flags say.
+const isAdmin = user => !!user && user.authLevel !== 'sso' && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
 // has to grant themselves a separate flag to use the trainer-only endpoints below.
-const isTrainer = user => !!user && (user.trainer === true || isAdmin(user));
+const isTrainer = user => !!user && user.authLevel !== 'sso' && (user.trainer === true || isAdmin(user));
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
 function revokeSharedStaffSessions(userId, actorId, reason) {
   const at = new Date().toISOString(); let revoked = 0;
@@ -552,7 +556,7 @@ function readSession(req) {
   if (!payload) return null;
   const [uid, exp, ver, authLevelRaw, field5, field6, field7, field8] = payload.split(':');
   if (!uid || +exp < Date.now()) return null;
-  if (authLevelRaw !== undefined && !['pin', 'passkey'].includes(authLevelRaw)) return null;
+  if (authLevelRaw !== undefined && !['pin', 'passkey', 'sso'].includes(authLevelRaw)) return null;
   const user = db.users.find(u => u.id === uid) || null;
   if (!user) return null;
   if (user.disabled) return null;           // disabled accounts are locked out everywhere
@@ -560,8 +564,9 @@ function readSession(req) {
   // payload (it still had to pass the HMAC, so this is belt-and-braces) and is refused outright.
   const claimed = ver === undefined ? 0 : Number(ver);
   if (!Number.isInteger(claimed) || claimed !== sessionVersion(user)) return null;
-  const authLevel = authLevelRaw === 'pin' ? 'pin' : 'passkey';
+  const authLevel = authLevelRaw === 'pin' ? 'pin' : authLevelRaw === 'sso' ? 'sso' : 'passkey';
   if (authLevelRaw === 'pin' && payload.split(':').length !== 8) return null;
+  if (authLevelRaw === 'sso' && (payload.split(':').length !== 6 || !Number.isSafeInteger(Number(field5)) || Number(field5) <= 0 || !field6)) return null;
   if (authLevelRaw === 'passkey' && field5 !== undefined && (!Number.isSafeInteger(Number(field5)) || Number(field5) <= 0)) return null;
   let claims = { authLevel, issuedAt: authLevelRaw ? Number(field5) || 0 : 0 };
   if (authLevelRaw === 'passkey' && field6 !== undefined) {
@@ -569,6 +574,13 @@ function readSession(req) {
     const record = db.deviceSessions.find(x => x.id === field6);
     if (!record || record.userId !== uid || record.revokedAt) return null;
     claims.sid = record.id;
+    if (Date.now() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_MS) { record.lastUsedAt = new Date().toISOString(); saveDb(); }
+  }
+  if (authLevel === 'sso') {
+    // Always backed by a revocable session record created by a Platform SSO redemption; never staff.
+    const record = db.deviceSessions.find(x => x.id === field6);
+    if (!record || record.userId !== uid || record.via !== 'sso' || record.revokedAt || record.expiresAt <= Date.now()) return null;
+    claims = { authLevel, issuedAt: Number(field5), sid: record.id, admin: false, trainer: false };
     if (Date.now() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_MS) { record.lastUsedAt = new Date().toISOString(); saveDb(); }
   }
   if (authLevel === 'pin') {
@@ -637,6 +649,19 @@ function newSession(req, user, { via = 'passkey', credId = null } = {}) {
   pruneSessions(user.id);
   saveDb();   // the record must be on disk before the cookie that names it leaves, or a restart would sign everyone out
   return sessionCookie(user, { authLevel: 'passkey', exp: record.expiresAt, issuedAt: now, sid: record.id });
+}
+// A Platform SSO sign-in: a short-lived, revocable session record (via: 'sso'). It is member-level and never satisfies a passkey check.
+const SSO_SESSION_MS = 12 * 3600_000;
+function newSsoSession(req, user) {
+  const now = Date.now();
+  const record = {
+    id: crypto.randomBytes(9).toString('base64url'), userId: user.id, platform: deviceLabel(req.headers['user-agent']), via: 'sso',
+    createdAt: new Date(now).toISOString(), lastUsedAt: new Date(now).toISOString(), expiresAt: now + SSO_SESSION_MS,
+  };
+  db.deviceSessions.push(record);
+  pruneSessions(user.id);
+  saveDb();
+  return `gymsid=${makeSession(user, { authLevel: 'sso', exp: record.expiresAt, issuedAt: now, sid: record.id })}; Path=/; Max-Age=${SSO_SESSION_MS / 1000}; HttpOnly;${SECURE} SameSite=Lax`;
 }
 // Expired records go, long-revoked ones go, and one person never keeps more than SESSIONS_PER_PERSON (the oldest-used are dropped first).
 function pruneSessions(userId) {
@@ -780,7 +805,7 @@ function requireSharedDevice(req, res) {
 function requireStrongAuth(req, res) {
   const user = readSession(req);
   if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
-  if (user.authLevel === 'pin' && !(user.strongUntil > Date.now())) {
+  if (user.authLevel === 'sso' || (user.authLevel === 'pin' && !(user.strongUntil > Date.now()))) {
     json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'passkey_required' }); return null;
   }
   return user;
@@ -1027,7 +1052,13 @@ function memberFor(res, staff, memberId, notFound) {
 }
 // Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, all-member trainer scope, roster-side private data.
 const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
+const platformIntegration = createPlatformIntegration({
+  config: PLATFORM_INTEGRATION_CONFIG, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer,
+  proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession,
+  rateLimit: { gate: (req, res) => authGate(req, res, authLimits.verify), fail: ip => authLimits.verify.fail(ip), success: ip => authLimits.verify.success(ip) },
+});
 const routes = {
+  ...platformIntegration.routes,
   ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
   ...coachFollowUpRoutes(coachDeps),
   ...followUpV2Routes({ db, json, readBody, readSession, requireAdmin, requireTrainer, isAdmin, isTrainer, saveDb, readState, dataDir: DATA, followupPhotosDir,
@@ -3480,6 +3511,7 @@ const routes = {
   ...bunkerRoutes({
     audit: (actorId, kind, userId, meta) => { secEvent('admin_action', { userId: userId || null, actorId, meta: { kind, ...meta } }); saveDb(); },
     json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users,
+    memberGate: (user, names) => platformIntegration.memberGate(user, names),
     registerInactivitySweep: sweep => {
       // Independent deadlines live in each persisted active workout, never in this tick.
       setTimeout(sweep, 0).unref();
@@ -3534,6 +3566,7 @@ http.createServer(async (req, res) => {
   const gate = featureOfRoute(url.pathname);
   if (gate && !featuresStore.isOn(gate)) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
   if (requiresStrongAuth(key) && !requireStrongAuth(req, res)) return;
+  try { if (!(await platformIntegration.gate(req, res, key))) return; } catch (e) { console.error('platform gate', key, e); return json(res, 503, { error: 'servicio no disponible', code: 'platform_gate_unavailable' }); }
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);

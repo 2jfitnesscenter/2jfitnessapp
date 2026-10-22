@@ -178,6 +178,16 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
       };
     },
 
+    /** Read-only Training-side evidence that this user proved control of the Platform person (passkey-backed proof).
+     * `conflict` means the same person or the same Training user is tied to a different counterpart; callers must fail closed. */
+    linkEvidence({ personId, trainingUserId }) {
+      const receipts = read().receipts;
+      const forPerson = receipts.filter(receipt => receipt.personId === personId);
+      const forUser = receipts.filter(receipt => receipt.trainingUserId === trainingUserId);
+      if (forPerson.some(receipt => receipt.trainingUserId !== trainingUserId) || forUser.some(receipt => receipt.personId !== personId)) return { status: 'conflict' };
+      return forPerson.length ? { status: 'linked', receiptId: forPerson[0].receiptId, verifiedAt: forPerson[0].verifiedAt } : { status: 'none' };
+    },
+
     reconcile({ requestId, context }) {
       const timestamp = now(), state = read();
       expireAndPrune(state, timestamp);
