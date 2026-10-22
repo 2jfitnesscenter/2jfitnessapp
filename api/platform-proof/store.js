@@ -31,6 +31,8 @@ function constantTimeHexEqual(left, right) {
  * (read/check/write without yielding), so requests are serialized within this single API process. */
 export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/data', now = Date.now } = {}) {
   const file = path.join(dataDir, STORE_FILE);
+  // Read-only lookups reuse the parsed receipts while the encrypted file is unchanged (mtime+size), instead of decrypting it on every call.
+  let receiptCache = { mtimeMs: -1, size: -1, receipts: [] };
   function read() {
     let blob;
     try { blob = fs.readFileSync(file, 'utf8'); }
@@ -181,7 +183,12 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
     /** Read-only Training-side evidence that this user proved control of the Platform person (passkey-backed proof).
      * `conflict` means the same person or the same Training user is tied to a different counterpart; callers must fail closed. */
     linkEvidence({ personId, trainingUserId }) {
-      const receipts = read().receipts;
+      let receipts;
+      try {
+        const stat = fs.statSync(file);
+        if (stat.mtimeMs !== receiptCache.mtimeMs || stat.size !== receiptCache.size) receiptCache = { mtimeMs: stat.mtimeMs, size: stat.size, receipts: read().receipts };
+        receipts = receiptCache.receipts;
+      } catch (error) { if (error.code !== 'ENOENT') throw error; receipts = []; }
       const forPerson = receipts.filter(receipt => receipt.personId === personId);
       const forUser = receipts.filter(receipt => receipt.trainingUserId === trainingUserId);
       if (forPerson.some(receipt => receipt.trainingUserId !== trainingUserId) || forUser.some(receipt => receipt.personId !== personId)) return { status: 'conflict' };

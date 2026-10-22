@@ -65,6 +65,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
 
   /** Central dispatcher hook. Returns false when it already answered. */
   async function gate(req, res, key) {
+    if (key === 'POST /api/platform/v1/sso/redeem') return true;   // redeeming is how a session is (re)established; it validates everything itself
     if (!req.headers.cookie || !req.headers.cookie.includes('gymsid=')) return true;
     const policy = classifyRoute(key);
     const session = readSession(req);
@@ -149,7 +150,12 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       capabilities.prime(personId, payload);
       secEvent('platform_sso_login', { userId: user.id, meta: { capabilityLevel: payload.capabilityLevel } });
       saveDb();
-      rateLimit.success(ip);
+      // A valid passkey (or other non-sso) session for the SAME account is stronger than an sso one: keep it rather than
+      // replacing the cookie. A session of another account, an invalid cookie, or an older sso session is replaced.
+      const current = readSession(req);
+      if (current && current.id === user.id && current.authLevel !== 'sso') {
+        return json(res, 200, { ok: true, sessionKept: true, capabilityLevel: payload.capabilityLevel, user: { id: user.id, name: user.name, authLevel: current.authLevel } });
+      }
       json(res, 200, {
         ok: true, capabilityLevel: payload.capabilityLevel,
         user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, avatar: user.avatar || null, admin: false, trainer: false, authLevel: 'sso' },

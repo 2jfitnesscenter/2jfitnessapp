@@ -185,11 +185,11 @@ async function freePort() {
   return new Promise(resolve => { const probe = http.createServer().listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolve(port)); }); });
 }
 
-const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
+const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
 const dbFile = path.join(DIR, 'db.json');
 fs.writeFileSync(dbFile, JSON.stringify({
   users: [
-    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
+    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
     { id: people.staff.uid, name: 'Staff member', username: 'staffy', admin: true, trainer: true },
     { id: people.admin.uid, name: 'Admin', username: 'admin1', admin: true, trainer: true },
   ],
@@ -205,7 +205,7 @@ function seedReceipt(personId, uid) {
   const result = store.exchange({ codeHash: sha256(Buffer.from(code, 'utf8')), requestId: randomUUID(), context, isTrainingUserActive: () => true });
   assert.equal(result.status, 'exchanged');
 }
-for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin']) seedReceipt(people[name].personId, people[name].uid);
+for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin', 'kiosk', 'keep']) seedReceipt(people[name].personId, people[name].uid);
 seedReceipt(people.conflict.personId, people.conflict.uid);
 seedReceipt(people.conflict.personId, people.orphan.uid);       // the same person tied to two Training users: a conflict
 
@@ -352,26 +352,26 @@ test('shadow mode logs but never blocks; enforced mode applies the V2 capabiliti
   assert.equal((await call(training, 'GET', '/api/me', { cookie })).status, 200);
 
   // Other membership: guided + premium, still no AI / professional follow-up.
-  await new Promise(resolve => setTimeout(resolve, 1600)); setCaps('b', 'autonomous', { ttlMs: 1500 });
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('b', 'autonomous', { ttlMs: 1500 });
   assert.notEqual((await call(training, 'GET', '/api/guided', { cookie })).json?.code, 'capability_required', 'autonomous: guided');
   assert.notEqual((await call(training, 'GET', '/api/premium', { cookie })).json?.code, 'capability_required', 'autonomous: premium');
   await deny('POST', '/api/coach/plan', ['aiCoach']);
   await deny('GET', '/api/followup', ['professionalFollowUp']);
 
   // Fuerza: everything.
-  await new Promise(resolve => setTimeout(resolve, 1600)); setCaps('b', 'full', { ttlMs: 1500 });
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('b', 'full', { ttlMs: 1500 });
   for (const route of ['/api/guided', '/api/premium', '/api/followup']) assert.notEqual((await call(training, 'GET', route, { cookie })).json?.code, 'capability_required', route);
   assert.notEqual((await call(training, 'POST', '/api/coach/plan', { cookie, body: {} })).json?.code, 'capability_required', 'full: coach');
 
   // Administrative suspension blocks operations but removes nothing.
-  await new Promise(resolve => setTimeout(resolve, 1600)); setCaps('b', 'suspended', { ttlMs: 1500 });
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('b', 'suspended', { ttlMs: 1500 });
   await deny('GET', '/api/data', ['workoutHistory']);
   await deny('POST', '/api/activity', ['workoutRecording']);
   assert.equal(fs.readFileSync(stateFile, 'utf8'), before, 'routines and history are untouched while suspended');
   assert.equal(dbUser(people.b.uid).platformRestriction.reasonCode, 'ADMIN_SUSPENDED');
 
   // Platform goes down while suspended: still blocked. Then it is lifted and the baseline returns with all data.
-  await new Promise(resolve => setTimeout(resolve, 1600)); platform.state.down = true;
+  await new Promise(resolve => setTimeout(resolve, 1900)); platform.state.down = true;
   await deny('GET', '/api/data', ['workoutHistory']);
   platform.state.down = false; setCaps('b', 'baseline', { ttlMs: 1500 });
   const restored = await call(training, 'GET', '/api/data', { cookie });
@@ -381,7 +381,7 @@ test('shadow mode logs but never blocks; enforced mode applies the V2 capabiliti
   assert.ok(state);
 
   // Cache expired + Platform unreachable: free functions survive, paid ones are never granted.
-  await new Promise(resolve => setTimeout(resolve, 1600)); platform.state.down = true;
+  await new Promise(resolve => setTimeout(resolve, 1900)); platform.state.down = true;
   assert.equal((await call(training, 'GET', '/api/data', { cookie })).status, 200, 'an expired cache is not a block of free functions');
   await deny('GET', '/api/guided', ['guidedTraining']);
   await deny('POST', '/api/coach/plan', ['aiCoach']);
@@ -392,7 +392,7 @@ test('enforcement requires a fresh Platform verification, never a degraded guess
   setCaps('e', 'baseline', { ttlMs: 1500 });
   const linked = await redeem('e'); assert.equal(linked.status, 200);
   assert.equal((await adminSetMode(people.e.uid, 'shadow')).status, 200);
-  await new Promise(resolve => setTimeout(resolve, 1700));
+  await new Promise(resolve => setTimeout(resolve, 1900));
   platform.state.down = true;
   try {
     const refused = await adminSetMode(people.e.uid, 'enforced');
@@ -401,7 +401,7 @@ test('enforcement requires a fresh Platform verification, never a degraded guess
   } finally { platform.state.down = false; }
   setCaps('e', 'suspended', { ttlMs: 1500 });
   assert.equal((await adminSetMode(people.e.uid, 'enforced')).json.error, 'platform_verification_required', 'a blocked person cannot be enforced either');
-  await new Promise(resolve => setTimeout(resolve, 1700)); setCaps('e', 'baseline', { ttlMs: 1500 });
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('e', 'baseline', { ttlMs: 1500 });
   assert.equal((await adminSetMode(people.e.uid, 'enforced')).status, 200);
   assert.equal((await adminSetMode(people.e.uid, 'legacy')).json.error, 'transition_not_allowed', 'enforced goes back through shadow');
   assert.equal((await adminSetMode(people.e.uid, 'shadow')).status, 200);
@@ -411,7 +411,7 @@ test('a revoked link closes the sso sessions and blocks the account until Platfo
   setCaps('c', 'baseline', { ttlMs: 1500 });
   const sso = await redeem('c'); assert.equal(sso.status, 200);
   assert.equal((await call(training, 'GET', '/api/data', { cookie: sso.cookie })).status, 200);
-  await new Promise(resolve => setTimeout(resolve, 1600));
+  await new Promise(resolve => setTimeout(resolve, 1900));
   setCaps('c', 'revoked', { ttlMs: 1500 });
   const blocked = await call(training, 'GET', '/api/data', { cookie: sso.cookie });
   assert.equal(blocked.status, 403); assert.equal(blocked.json.code, 'platform_access_blocked');
@@ -429,7 +429,7 @@ test('an sso session is always strict, even for a user left in legacy mode', asy
   const guided = await call(training, 'GET', '/api/guided', { cookie: sso.cookie });
   assert.equal(guided.status, 403); assert.equal(guided.json.code, 'capability_required');
   assert.equal((await call(training, 'GET', '/api/data', { cookie: sso.cookie })).status, 200);
-  await new Promise(resolve => setTimeout(resolve, 1600)); platform.state.down = true;
+  await new Promise(resolve => setTimeout(resolve, 1900)); platform.state.down = true;
   assert.equal((await call(training, 'GET', '/api/data', { cookie: sso.cookie })).status, 200, 'baseline survives an outage');
   assert.equal((await call(training, 'GET', '/api/guided', { cookie: sso.cookie })).status, 403, 'paid rights are not granted without verification');
   platform.state.down = false;
@@ -453,4 +453,76 @@ test('accounts listed in ADMIN_UIDS never get an sso session', async () => {
     assert.equal(response.status, 403); assert.equal(response.json.error, 'platform_access_blocked');
     assert.equal(response.headers.get('set-cookie'), null, 'no session cookie is issued');
   } finally { withEnvAdmin.stop(); }
+});
+
+test('redeeming again with a live sso cookie works and leaves exactly one live sso session', async () => {
+  setCaps('keep', 'baseline');
+  const first = await redeem('keep'); assert.equal(first.status, 200);
+  const live = () => JSON.parse(fs.readFileSync(dbFile, 'utf8')).deviceSessions.filter(item => item.userId === people.keep.uid && item.via === 'sso' && !item.revokedAt).length;
+  assert.equal(live(), 1);
+  const code = 'again'.padEnd(43, 'y');
+  platform.state.codes.set(code, { personId: people.keep.personId, trainingUserId: people.keep.uid });
+  const again = await call(training, 'POST', '/api/platform/v1/sso/redeem', { cookie: first.cookie, body: { v: 1, code }, origin: training.base });
+  assert.equal(again.status, 200, JSON.stringify(again.json));
+  const cookie = (again.headers.get('set-cookie') || '').split(';')[0];
+  assert.ok(cookie && cookie !== first.cookie);
+  assert.equal(live(), 1, 'the previous sso session was retired');
+  assert.equal((await call(training, 'GET', '/api/me', { cookie: first.cookie })).status, 401);
+  assert.equal((await call(training, 'GET', '/api/me', { cookie })).status, 200);
+});
+
+test('redeeming while holding a passkey session of the same account keeps the passkey session', async () => {
+  setCaps('keep', 'baseline');
+  const passkey = cookieFor(people.keep.uid), code = 'keepp'.padEnd(43, 'z');
+  platform.state.codes.set(code, { personId: people.keep.personId, trainingUserId: people.keep.uid });
+  const response = await call(training, 'POST', '/api/platform/v1/sso/redeem', { cookie: passkey, body: { v: 1, code }, origin: training.base });
+  assert.equal(response.status, 200); assert.equal(response.json.sessionKept, true); assert.equal(response.json.user.authLevel, 'passkey');
+  assert.equal(response.headers.get('set-cookie'), null, 'the stronger cookie is not replaced');
+  assert.equal((await call(training, 'GET', '/api/me', { cookie: passkey })).json.user.authLevel, 'passkey');
+  // A session of ANOTHER account is replaced by the new sign-in.
+  const otherCode = 'other'.padEnd(43, 'w');
+  platform.state.codes.set(otherCode, { personId: people.keep.personId, trainingUserId: people.keep.uid });
+  const other = await call(training, 'POST', '/api/platform/v1/sso/redeem', { cookie: cookieFor(people.a.uid), body: { v: 1, code: otherCode }, origin: training.base });
+  assert.equal(other.status, 200); assert.match(other.headers.get('set-cookie') || '', /gymsid=/);
+});
+
+test('SSO sign-ins leave a Búnker-side security event and an sso session cannot revoke passkey sessions', async () => {
+  setCaps('keep', 'baseline');
+  const sso = await redeem('keep'); assert.equal(sso.status, 200);
+  const events = (await call(training, 'GET', '/api/me/security-events', { cookie: cookieFor(people.keep.uid) })).json.events;
+  assert.ok(events.some(item => item.event === 'platform_sso_login'), JSON.stringify(events).slice(0, 300));
+  const revoke = await call(training, 'POST', '/api/me/sessions/revoke', { cookie: sso.cookie, body: { id: 'whatever' } });
+  assert.equal(revoke.status, 403); assert.equal(revoke.json.code, 'passkey_required');
+});
+
+test('SSO failures use their own limiter: they never block passkey login', async () => {
+  const limited = await startTraining({ PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret });
+  try {
+    const statuses = [];
+    for (let index = 0; index < 24; index += 1) statuses.push((await call(limited, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code: randomBytes(32).toString('base64url') }, origin: limited.base })).status);
+    assert.ok(statuses.includes(429), 'repeated failures are limited');
+    const login = await call(limited, 'POST', '/api/login/verify', { body: { cid: 'none', credential: {} } });
+    assert.notEqual(login.status, 429, 'the login limiter is untouched by SSO failures');
+  } finally { limited.stop(); }
+});
+
+test('session-authenticated Búnker routes (pin, pin reset, handoff) and kiosk check-in follow the capability gate', async () => {
+  const uid = people.kiosk.uid, cookie = cookieFor(uid);
+  setCaps('kiosk', 'baseline', { ttlMs: 1500 });
+  assert.equal((await redeem('kiosk')).status, 200);
+  assert.equal((await adminSetMode(uid, 'shadow')).status, 200);
+  assert.equal((await adminSetMode(uid, 'enforced')).status, 200);
+  const pin = await call(training, 'GET', '/api/bunker/pin', { cookie });
+  assert.equal(pin.status, 200, JSON.stringify(pin.json));
+  const checkin = value => call(training, 'POST', '/api/bunker/checkin', { body: { pin: value } });
+  assert.equal((await checkin(pin.json.pin)).status, 200, 'baseline can check in at the kiosk');
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('kiosk', 'suspended', { ttlMs: 1500 });
+  const denied = await checkin(pin.json.pin);
+  assert.equal(denied.status, 403); assert.equal(denied.json.code, 'capability_required'); assert.equal(denied.json.reasonCode, 'ADMIN_SUSPENDED');
+  for (const [method, route] of [['GET', '/api/bunker/pin'], ['POST', '/api/bunker/pin/reset'], ['POST', '/api/bunker/handoff']]) {
+    const r = await call(training, method, route, { cookie, body: method === 'POST' ? {} : undefined });
+    assert.equal(r.status, 403, `${method} ${route}`); assert.equal(r.json.code, 'capability_required');
+  }
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('kiosk', 'baseline', { ttlMs: 1500 });
+  assert.equal((await checkin(pin.json.pin)).status, 200, 'lifting restores kiosk access with the same PIN');
 });

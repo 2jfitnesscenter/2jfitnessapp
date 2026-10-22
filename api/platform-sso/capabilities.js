@@ -45,7 +45,7 @@ export function degradedView({ lastPayload, restriction, mode }) {
  * Creates the service. `callPlatform` is injectable; the default signs a GET with 2J-SERVICE-AUTH-V1 and uses fetch with a hard timeout.
  * `onRestriction(user, restriction|null)` persists the last known restriction on the Training user.
  */
-export function createCapabilitiesService({ config, users, now = Date.now, fetchImpl = globalThis.fetch, onRestriction = () => {}, onLinkLost = () => {}, timeoutMs = 3000 }) {
+export function createCapabilitiesService({ config, now = Date.now, fetchImpl = globalThis.fetch, onRestriction = () => {}, onLinkLost = () => {}, timeoutMs = 3000 }) {
   const cache = new Map();      // personId -> { payload, expiresAtMs, fetchedAtMs }
   const inflight = new Map();   // personId -> Promise
   const enabled = Boolean(config && config.baseUrl && config.keyId && config.secret);
@@ -82,7 +82,7 @@ export function createCapabilitiesService({ config, users, now = Date.now, fetch
     const personId = user.personId, t = now();
     const cached = cache.get(personId);
     if (cached && cached.expiresAtMs > t) return view(cached.payload, 'cache');
-    if (!enabled) return remember(user, degradedView({ lastPayload: cached?.payload, restriction: user.platformRestriction, mode }));
+    if (!enabled) return degraded(user, cached, mode);
     let pending = inflight.get(personId);
     if (!pending) { pending = fetchFromPlatform(personId).finally(() => inflight.delete(personId)); inflight.set(personId, pending); }
     const result = await pending;
@@ -95,10 +95,13 @@ export function createCapabilitiesService({ config, users, now = Date.now, fetch
       return view(result.payload, 'fresh');
     }
     // 404 person_not_found / revoked links reported as errors are treated as unavailable here: Platform answers 200 with a blocked payload for links.
-    return remember(user, degradedView({ lastPayload: cached?.payload, restriction: user.platformRestriction, mode }));
+    return degraded(user, cached, mode);
   }
 
-  function remember(user, degraded) { return degraded ? { source: 'degraded', ...degraded } : null; }
+  function degraded(user, cached, mode) {
+    const view = degradedView({ lastPayload: cached?.payload, restriction: user.platformRestriction, mode });
+    return view ? { source: 'degraded', ...view } : null;
+  }
   function view(payload, source) {
     return { source, level: payload.capabilityLevel, reasonCode: payload.reasonCode, capabilities: payload.capabilities, degraded: false, verified: true, accessState: payload.accessState };
   }

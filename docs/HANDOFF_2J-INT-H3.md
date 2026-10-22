@@ -44,3 +44,13 @@ Platform is the authority; Training only applies it in the API. No fee is **not*
 - Spanish strings added to `locales/es.js`; other locales fall back to English.
 - Environment-listed administrators (`ADMIN_UIDS`) never get an sso session (refused at redeem and by `readSession`); `isAdmin`/`isTrainer` keep their original definitions.
 - Verification: frontend vitest 1865/1865 (7 new in `lib/sso-landing.test.js`), production build OK; API 842 tests / 795 pass / 47 skipped / 0 fail (`platform-sso.test.js` now 15 tests).
+
+## Review fixes (independent code review of this branch)
+
+- `POST /api/platform/v1/sso/redeem` is exempt from the gate: a new code works while the browser holds any session (it used to answer 403 when an sso cookie was live).
+- Redeeming never downgrades: a valid passkey (non-sso) session of the same account is kept (`sessionKept`, no `Set-Cookie`); a new sso sign-in retires the user's previous sso session (one live sso session per person, so repeated sign-ins cannot evict passkey device sessions).
+- `platform_sso_login` and `platform_sso_sessions_revoked` (and their meta keys) are now in the security-event allow-list, so Búnker really keeps its own record; the account's "security activity" shows them.
+- SSO has its own per-IP limiter; it no longer shares or resets the passkey login limiter.
+- `GET /api/bunker/pin`, `POST /api/bunker/pin/reset` and `POST /api/bunker/handoff` (member session) are capability-gated; `launch-link` is staff. `POST /api/me/sessions/revoke` is no longer reachable from an sso session.
+- `linkEvidence` reuses the parsed receipts while the encrypted store file is unchanged; the unused option and helper were removed from the capabilities client.
+- New HTTP tests: redeem with a live sso cookie, passkey session kept, security event written, independent limiter, kiosk check-in and session PIN routes under suspension. A negative control (removing the gate exemption) makes the new test fail.

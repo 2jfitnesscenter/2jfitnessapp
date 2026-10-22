@@ -41,7 +41,7 @@ import { centerRoutes } from './lib/center-routes.js';
 import { AUDITED as ADMIN_AUDIT, describeAction } from './lib/admin-audit.js';
 import { opsStatus, createErrorRing } from './lib/ops-status.js';
 import { bunkerRoutes } from './bunker/routes.js';
-import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
+import { AttemptLimiter, authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
 import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
@@ -655,6 +655,8 @@ function newSession(req, user, { via = 'passkey', credId = null } = {}) {
 const SSO_SESSION_MS = 12 * 3600_000;
 function newSsoSession(req, user) {
   const now = Date.now();
+  // One live sso session per person: a new sign-in retires the previous one, so repeated sign-ins never crowd out passkey sessions.
+  for (const old of db.deviceSessions) if (old.userId === user.id && old.via === 'sso' && !old.revokedAt) old.revokedAt = new Date(now).toISOString();
   const record = {
     id: crypto.randomBytes(9).toString('base64url'), userId: user.id, platform: deviceLabel(req.headers['user-agent']), via: 'sso',
     createdAt: new Date(now).toISOString(), lastUsedAt: new Date(now).toISOString(), expiresAt: now + SSO_SESSION_MS,
@@ -1053,10 +1055,12 @@ function memberFor(res, staff, memberId, notFound) {
 }
 // Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, all-member trainer scope, roster-side private data.
 const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
+const ssoLimiter = new AttemptLimiter({ limit: 20, windowMs: 60000, blockMs: 60000 });
 const platformIntegration = createPlatformIntegration({
   config: PLATFORM_INTEGRATION_CONFIG, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer,
   proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession, isEnvAdmin: id => ADMIN_UIDS.includes(id),
-  rateLimit: { gate: (req, res) => authGate(req, res, authLimits.verify), fail: ip => authLimits.verify.fail(ip), success: ip => authLimits.verify.success(ip) },
+  // Its own limiter: SSO failures must never lock people out of passkey login, nor an SSO success reset the login limiter.
+  rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
 });
 const routes = {
   ...platformIntegration.routes,

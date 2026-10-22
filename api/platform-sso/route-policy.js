@@ -1,5 +1,6 @@
 // Route classification for Platform capability enforcement and SSO sessions.
 //
+// Session-authenticated Bunker routes (pin, pin/reset, handoff) are gated here; only room-token routes are `kiosk`.
 // Verified against the real route table (api/server.js + api/lib/*-routes.js + api/bunker/routes.js):
 //  - guided/premium/opposition WRITE routes are staff-only (requireTrainer/requireAdmin inside the handler);
 //    only a few read/"started" routes are member-facing, so only those carry a member capability.
@@ -64,11 +65,12 @@ const EXACT = new Map([
   // Identity/account routes that are never capability-gated. Sensitive ones are NOT sso-allowed.
   ['GET /api/me', E('identity', { ssoAllowed: true })],
   ['GET /api/me/sessions', E('identity', { ssoAllowed: true })],
-  ['POST /api/me/sessions/revoke', E('identity', { ssoAllowed: true })],
+  ['POST /api/me/sessions/revoke', E('identity')],   // an sso session may end itself (logout) but not the person's passkey sessions
   ['GET /api/me/security-events', E('identity', { ssoAllowed: true })],
   ['POST /api/me/username', E('identity', { ssoAllowed: true })],
   ['POST /api/me/avatar', E('identity', { ssoAllowed: true })],
   ['POST /api/logout', E('identity', { ssoAllowed: true })],
+  ['POST /api/platform/v1/sso/redeem', E('public', { ssoAllowed: true })],   // exempt from the gate: a new code must work whatever session the browser holds
   ['GET /api/health', E('public', { ssoAllowed: true })],
   ['GET /api/config', E('public', { ssoAllowed: true })],
   ['GET /api/features', E('public', { ssoAllowed: true })],
@@ -84,13 +86,14 @@ const EXACT = new Map([
   ['POST /api/bunker/active', E('kiosk')],
   ['POST /api/bunker/rest', E('kiosk')],
   ['POST /api/bunker/finish', E('kiosk')],
-  ['POST /api/bunker/handoff', E('kiosk')],
-  ['GET /api/bunker/pin', E('kiosk')],
-  ['POST /api/bunker/pin/reset', E('kiosk')],
+  // Authenticated with the member's own gymsid session (not the room token): gated like the rest of own training.
+  ['POST /api/bunker/handoff', E('gated', { capabilities: ['autonomousTraining'] })],
+  ['GET /api/bunker/pin', E('gated', { capabilities: ['autonomousTraining'] })],
+  ['POST /api/bunker/pin/reset', E('gated', { capabilities: ['autonomousTraining'] })],
   ['GET /api/bunker/board', E('kiosk')],
   ['GET /api/bunker/settings', E('kiosk')],
   ['POST /api/bunker/verify-launch', E('kiosk')],
-  ['GET /api/bunker/launch-link', E('kiosk')],
+  ['GET /api/bunker/launch-link', E('staff')],   // trainer-only room key
   ['GET /api/bunker/admin-code', E('staff')],
   ['POST /api/bunker/admin-checkin', E('staff')],
 ]);

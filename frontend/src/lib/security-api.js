@@ -39,6 +39,7 @@ export const EVENT_LABEL = {
   recovery_link_created: 'Recovery link created by staff', recovery_completed: 'Account recovered with a new passkey', passkey_added: 'Passkey added',
   passkey_renamed: 'Passkey renamed', passkey_revoked: 'Passkey removed', role_changed: 'Role changed', account_disabled: 'Account disabled',
   account_enabled: 'Account enabled', logout_all: 'Signed out everywhere', session_revoked: 'Session ended', device_linked: 'Device linked', step_up: 'Identity confirmed with a passkey', content_removed: 'Something you posted was removed', admin_action: 'An administrator changed something',
+  platform_sso_login: 'Signed in with your 2J account', platform_sso_sessions_revoked: 'Sign-in with your 2J account ended',
 }
 
 /* ---------- link a device with a QR code ---------- */

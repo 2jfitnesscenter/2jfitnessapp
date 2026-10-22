@@ -15,9 +15,10 @@ export const SECURITY_EVENTS = [
   'account_created', 'login_ok', 'login_failed', 'recovery_requested', 'recovery_link_created', 'recovery_completed',
   'passkey_added', 'passkey_renamed', 'passkey_revoked', 'role_changed', 'account_disabled', 'account_enabled',
   'logout_all', 'session_revoked', 'device_linked', 'step_up', 'content_removed', 'admin_action',
+  'platform_sso_login', 'platform_sso_sessions_revoked',
 ]
 // The only facts an event may carry. Values are scalars, strings are clipped.
-const META_KEYS = ['count', 'platform', 'role', 'from', 'to', 'reason', 'handle', 'uv', 'revokedPasskeys', 'sessionsEnded', 'kept', 'purpose', 'kind', 'target']
+const META_KEYS = ['count', 'platform', 'role', 'from', 'to', 'reason', 'handle', 'uv', 'revokedPasskeys', 'sessionsEnded', 'kept', 'purpose', 'kind', 'target', 'capabilityLevel', 'revoked']
 
 export function cleanMeta(meta) {
   if (!meta || typeof meta !== 'object') return undefined
