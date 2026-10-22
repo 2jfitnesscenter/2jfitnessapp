@@ -13,8 +13,8 @@ import { linkInfo, approveLink } from '../lib/security-api.js'
 export default function LinkApprove() {
   const nav = useNavigate(), { id } = useParams(), user = useStore(s => s.user), toast = useUI(s => s.toast)
   const [info, setInfo] = useState(null), [gone, setGone] = useState(false), [code, setCode] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('')
-  useEffect(() => { if (user && user.authLevel !== 'pin') linkInfo(id).then(setInfo).catch(() => setGone(true)) }, [id, user?.id])
-  if (!user || user.authLevel === 'pin') return <div className="narrow"><div className="card">{t('Sign in with a passkey on this device to approve another device.')}</div></div>
+  useEffect(() => { if (user && user.authLevel !== 'pin' && user.authLevel !== 'sso') linkInfo(id).then(setInfo).catch(() => setGone(true)) }, [id, user?.id])
+  if (!user || user.authLevel === 'pin' || user.authLevel === 'sso') return <div className="narrow"><div className="card">{t('Sign in with a passkey on this device to approve another device.')}</div></div>
   const approve = async () => {
     setBusy(true); setError('')
     try { await approveLink(id, code); toast(t('Device linked')); nav('/settings/security') }

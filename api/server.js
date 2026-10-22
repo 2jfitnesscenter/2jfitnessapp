@@ -180,12 +180,12 @@ db.machineAliases = db.machineAliases || [];
 // different things — or at least isn't guaranteed not to — across different exporting apps.
 // { key, exerciseId, source, externalName, updatedAt }.
 db.importExerciseAliases = db.importExerciseAliases || [];
-// A Platform SSO session is member-level only: it never carries staff powers, whatever the account's flags say.
-const isAdmin = user => !!user && user.authLevel !== 'sso' && (user.admin === true || ADMIN_UIDS.includes(user.id));
+// A Platform SSO session is member-level only: readSession gives it admin:false / trainer:false claims and refuses accounts listed in ADMIN_UIDS.
+const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
 // has to grant themselves a separate flag to use the trainer-only endpoints below.
-const isTrainer = user => !!user && user.authLevel !== 'sso' && (user.trainer === true || isAdmin(user));
+const isTrainer = user => !!user && (user.trainer === true || isAdmin(user));
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
 function revokeSharedStaffSessions(userId, actorId, reason) {
   const at = new Date().toISOString(); let revoked = 0;
@@ -579,6 +579,7 @@ function readSession(req) {
   if (authLevel === 'sso') {
     // Always backed by a revocable session record created by a Platform SSO redemption; never staff.
     const record = db.deviceSessions.find(x => x.id === field6);
+    if (ADMIN_UIDS.includes(uid)) return null;            // environment-listed administrators never get an sso session
     if (!record || record.userId !== uid || record.via !== 'sso' || record.revokedAt || record.expiresAt <= Date.now()) return null;
     claims = { authLevel, issuedAt: Number(field5), sid: record.id, admin: false, trainer: false };
     if (Date.now() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_MS) { record.lastUsedAt = new Date().toISOString(); saveDb(); }
@@ -1054,7 +1055,7 @@ function memberFor(res, staff, memberId, notFound) {
 const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
 const platformIntegration = createPlatformIntegration({
   config: PLATFORM_INTEGRATION_CONFIG, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer,
-  proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession,
+  proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession, isEnvAdmin: id => ADMIN_UIDS.includes(id),
   rateLimit: { gate: (req, res) => authGate(req, res, authLimits.verify), fail: ip => authLimits.verify.fail(ip), success: ip => authLimits.verify.success(ip) },
 });
 const routes = {

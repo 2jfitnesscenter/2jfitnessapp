@@ -35,7 +35,7 @@ export function parsePlatformIntegrationEnv(env) {
   return { ssoEnabled: TRUE.test(env.PLATFORM_SSO_ENABLED || ''), client: configured ? { baseUrl, keyId, secret } : null };
 }
 
-export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, rateLimit, fetchImpl = globalThis.fetch, now = Date.now, log = console }) {
+export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, isEnvAdmin = () => false, rateLimit, fetchImpl = globalThis.fetch, now = Date.now, log = console }) {
   const revokeSsoSessions = (user, reason) => {
     let revoked = 0;
     for (const record of db.deviceSessions) if (record.userId === user.id && record.via === 'sso' && !record.revokedAt) { record.revokedAt = new Date(now()).toISOString(); revoked++; }
@@ -134,6 +134,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       if (payload.personId !== personId || payload.trainingSubject.linkStatus !== 'active' || payload.trainingSubject.trainingUserId !== trainingUserId || payload.capabilityLevel === 'blocked') return fail(403, 'platform_access_blocked');
       const user = db.users.find(candidate => candidate.id === trainingUserId);
       if (!user || user.disabled) return fail(400, 'sso_code_invalid');
+      if (isEnvAdmin(user.id)) return fail(403, 'platform_access_blocked');   // administrators from ADMIN_UIDS sign in with their passkey only
       // Bilateral link: Platform says the person owns this Training user; Training must hold its own evidence.
       if (user.personId && user.personId !== personId) return fail(409, 'link_conflict');
       if (db.users.some(candidate => candidate.id !== user.id && candidate.personId === personId)) return fail(409, 'link_conflict');

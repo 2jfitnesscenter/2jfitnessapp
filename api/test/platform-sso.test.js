@@ -185,11 +185,11 @@ async function freePort() {
   return new Promise(resolve => { const probe = http.createServer().listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolve(port)); }); });
 }
 
-const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
+const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
 const dbFile = path.join(DIR, 'db.json');
 fs.writeFileSync(dbFile, JSON.stringify({
   users: [
-    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
+    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
     { id: people.staff.uid, name: 'Staff member', username: 'staffy', admin: true, trainer: true },
     { id: people.admin.uid, name: 'Admin', username: 'admin1', admin: true, trainer: true },
   ],
@@ -205,7 +205,7 @@ function seedReceipt(personId, uid) {
   const result = store.exchange({ codeHash: sha256(Buffer.from(code, 'utf8')), requestId: randomUUID(), context, isTrainingUserActive: () => true });
   assert.equal(result.status, 'exchanged');
 }
-for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin']) seedReceipt(people[name].personId, people[name].uid);
+for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin']) seedReceipt(people[name].personId, people[name].uid);
 seedReceipt(people.conflict.personId, people.conflict.uid);
 seedReceipt(people.conflict.personId, people.orphan.uid);       // the same person tied to two Training users: a conflict
 
@@ -441,4 +441,16 @@ test('staff keep their role functions regardless of their own capabilities', asy
   assert.equal((await adminSetMode(people.admin.uid, 'shadow')).status, 409, 'link is required first (unlinked staff stay legacy)');
   assert.equal((await call(training, 'GET', '/api/admin/users', { cookie })).status !== 403, true);
   assert.equal((await call(training, 'GET', '/api/me', { cookie })).status, 200);
+});
+
+test('accounts listed in ADMIN_UIDS never get an sso session', async () => {
+  const withEnvAdmin = await startTraining({ ADMIN_UIDS: people.envadmin.uid, PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret });
+  try {
+    setCaps('envadmin', 'baseline');
+    const code = randomBytes(32).toString('base64url');
+    platform.state.codes.set(code, { personId: people.envadmin.personId, trainingUserId: people.envadmin.uid });
+    const response = await call(withEnvAdmin, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code }, origin: withEnvAdmin.base });
+    assert.equal(response.status, 403); assert.equal(response.json.error, 'platform_access_blocked');
+    assert.equal(response.headers.get('set-cookie'), null, 'no session cookie is issued');
+  } finally { withEnvAdmin.stop(); }
 });

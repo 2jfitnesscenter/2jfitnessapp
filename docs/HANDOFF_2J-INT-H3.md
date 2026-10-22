@@ -26,12 +26,21 @@ Platform is the authority; Training only applies it in the API. No fee is **not*
 
 ## Verification (local, isolated)
 
-`api` full suite: **841 tests / 794 pass / 47 skipped / 0 fail** (after registering the new admin route in `lib/admin-audit.js`); the new `test/platform-sso.test.js` has 14 tests (route classification, transitions, degradation, contract validation, redemption incl. replay/expiry/origin, link evidence and conflicts, sso restrictions, enforced gates for baseline/other fee/Fuerza/suspension, preservation of routines and history, revoked link, strict sso in legacy mode, fresh-verification requirement). They run a real Training server against a signing fake Platform. Independent review and QA are **pending**.
+`api` full suite: **842 tests / 795 pass / 47 skipped / 0 fail** (after registering the new admin route in `lib/admin-audit.js`); the new `test/platform-sso.test.js` has 14 tests (route classification, transitions, degradation, contract validation, redemption incl. replay/expiry/origin, link evidence and conflicts, sso restrictions, enforced gates for baseline/other fee/Fuerza/suspension, preservation of routines and history, revoked link, strict sso in legacy mode, fresh-verification requirement). They run a real Training server against a signing fake Platform. Independent review and QA are **pending**.
 
 ## Open items before any activation
 
 1. `routineCreation` (commercial) has no distinct route: Constructor writes through `PUT /api/data`/Sync, so it cannot be told apart from personal routines without payload inspection. Baseline therefore keeps personal routine editing (as intended); the commercial-only distinction is **not enforced** yet.
 2. Kiosk routes after check-in rely on the short-lived PIN token; only check-in is gated.
-3. Frontend: the `/sso` landing page that reads `#code=…` and posts it to `/api/platform/v1/sso/redeem` is **not built** (Home/H4 coordination).
+3. Frontend `/sso` landing: built in H4 (see below). Not exercised in a real browser against real Platform yet (H5).
 4. Provisioning (`platform-training-integration-v1`) and the bilateral ACK/lifecycle messages are not implemented here.
 5. Training-side audit of redemption is a security event only; Platform keeps the full audit.
+
+## H4 addendum — `/sso` landing page (frontend)
+
+- `frontend/src/main.jsx` renders `views/SsoLanding.jsx` instead of the app when the path is exactly `/sso` (web build only). It must run before the app because the app's router uses the URL hash, where the one-time code travels (`/sso#code=…`). nginx already falls back to `index.html`, so no web-server change; the CSP (`script-src 'self'`) is respected (bundled code, no inline script).
+- `lib/sso-landing.js`: reads the code only from `#code=<43–128 url-safe chars>`, **removes it from the address bar and history before the request**, posts `{v:1, code}` once to Training's own origin (single-use even under React StrictMode: repeat calls share the first result), then reloads `/` so the normal `GET /api/me` boot restores the user (`authLevel: 'sso'`) with per-user local-state isolation. Failures show a next step (use passkey / ask the centre / try again) and never Platform's reasons.
+- `SecuritySettings` and `LinkApprove` treat `sso` like a shared-staff session: they explain that passkeys and devices need a passkey sign-in instead of showing actions the API refuses.
+- Spanish strings added to `locales/es.js`; other locales fall back to English.
+- Environment-listed administrators (`ADMIN_UIDS`) never get an sso session (refused at redeem and by `readSession`); `isAdmin`/`isTrainer` keep their original definitions.
+- Verification: frontend vitest 1865/1865 (7 new in `lib/sso-landing.test.js`), production build OK; API 842 tests / 795 pass / 47 skipped / 0 fail (`platform-sso.test.js` now 15 tests).
