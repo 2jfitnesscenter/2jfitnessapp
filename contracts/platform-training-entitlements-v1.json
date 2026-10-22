@@ -1,0 +1,51 @@
+{
+  "contractVersion": 1,
+  "status": "design-only",
+  "enforcementEnabled": false,
+  "capabilities": [
+    "training.access",
+    "training.self_routines",
+    "training.guided_2j",
+    "training.premium",
+    "training.ai",
+    "training.professional_followup"
+  ],
+  "quotaProfiles": {
+    "force_current": {
+      "training.access": true,
+      "training.self_routines": true,
+      "training.guided_2j": true,
+      "training.premium": true,
+      "training.ai": true,
+      "training.professional_followup": true
+    },
+    "other_quota_current": {
+      "training.access": true,
+      "training.self_routines": true,
+      "training.guided_2j": true,
+      "training.premium": true,
+      "training.ai": false,
+      "training.professional_followup": false
+    },
+    "no_current_quota": {
+      "training.access": false,
+      "training.self_routines": false,
+      "training.guided_2j": false,
+      "training.premium": false,
+      "training.ai": false,
+      "training.professional_followup": false
+    }
+  },
+  "billingAuthority": {
+    "owner": "2j-platform",
+    "timezone": "Atlantic/Canary",
+    "day10ValidThrough": "23:59:59.999 local time",
+    "unpaidBlockEffectiveAt": "day 11 00:00 local time",
+    "trainingRecalculatesDueDates": false
+  },
+  "restrictedAccess": {
+    "preserveIdentityAndTrainingData": true,
+    "operationalTrainingAllowedWithoutQuota": false,
+    "minimumBillingOrContactFlow": "Home/Platform only"
+  }
+}
