@@ -185,11 +185,11 @@ async function freePort() {
   return new Promise(resolve => { const probe = http.createServer().listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolve(port)); }); });
 }
 
-const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
+const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
 const dbFile = path.join(DIR, 'db.json');
 fs.writeFileSync(dbFile, JSON.stringify({
   users: [
-    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
+    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
     { id: people.staff.uid, name: 'Staff member', username: 'staffy', admin: true, trainer: true },
     { id: people.admin.uid, name: 'Admin', username: 'admin1', admin: true, trainer: true },
   ],
@@ -205,7 +205,7 @@ function seedReceipt(personId, uid) {
   const result = store.exchange({ codeHash: sha256(Buffer.from(code, 'utf8')), requestId: randomUUID(), context, isTrainingUserActive: () => true });
   assert.equal(result.status, 'exchanged');
 }
-for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin', 'kiosk', 'keep']) seedReceipt(people[name].personId, people[name].uid);
+for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree']) seedReceipt(people[name].personId, people[name].uid);
 seedReceipt(people.conflict.personId, people.conflict.uid);
 seedReceipt(people.conflict.personId, people.orphan.uid);       // the same person tied to two Training users: a conflict
 
@@ -525,4 +525,90 @@ test('session-authenticated Búnker routes (pin, pin reset, handoff) and kiosk c
   }
   await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('kiosk', 'baseline', { ttlMs: 1500 });
   assert.equal((await checkin(pin.json.pin)).status, 200, 'lifting restores kiosk access with the same PIN');
+});
+
+/* ---- content-level authorization of the synced member state (same route, different operations) ---- */
+const consentValue = { agreedAt: '2026-10-01T00:00:00.000Z', version: 1 };
+async function readSync(cookie) { return (await call(training, 'GET', '/api/sync', { cookie })).json; }
+async function syncSave(cookie, change, extra = {}) {
+  const envelope = await readSync(cookie), state = JSON.parse(JSON.stringify(envelope.state || {}));
+  change(state);
+  return call(training, 'POST', '/api/sync', { cookie, body: { operationId: randomUUID(), revision: envelope.meta.revision, generation: envelope.meta.generation, type: 'save', state, ...extra } });
+}
+const guided = (id, extra = {}) => ({ id, name: `Guiada ${id}`, source: 'guided-v2', catalogId: `cat-${id}`, status: 'assigned', routineIds: [], ...extra });
+
+test('free users keep saving personal content through /api/sync while paid subtrees and guided programs are ignored, not erased', async () => {
+  setCaps('sfull', 'full', { ttlMs: 1500 });
+  const fullSession = await redeem('sfull'); assert.equal(fullSession.status, 200);
+  // Fuerza writes everything, including paid subtrees and a guided program.
+  const seeded = await syncSave(fullSession.cookie, state => {
+    state.routines = [{ id: 'r-own', name: 'Mi rutina', ex: [] }];
+    state.programs = [guided('g1')];
+    state.premium = { v: 1, active: { id: 'inst', week: 2 }, history: [] };
+    state.opposition = { v: 1, plan: { id: 'plan-1' }, history: [] };
+    state.coach = { consent: consentValue, profile: { goal: 'muscle' } };
+    state.workouts = [{ id: 'w1', d: '2026-09-01' }];
+  });
+  assert.equal(seeded.status, 200, JSON.stringify(seeded.json));
+  assert.equal(seeded.json.platformStripped, undefined, 'a paid user is not touched');
+  const stored = (await readSync(fullSession.cookie)).state;
+  assert.ok(stored.premium && stored.opposition && stored.coach && stored.programs.some(p => p.id === 'g1'));
+
+  // The same person later has no fee: wait for the cached Fuerza answer to expire and Platform to say baseline.
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('sfull', 'baseline', { ttlMs: 1500 });
+  const result = await syncSave(fullSession.cookie, state => {
+    state.routines.push({ id: 'r-new', name: 'Nueva gratis', ex: [] });          // free: personal creation
+    state.routines[0].name = 'Renombrada';                                         // free: personal edit
+    state.workouts.push({ id: 'w2', d: '2026-10-22' });                            // free: recording
+    state.premium.active = { id: 'forged', week: 9 };                              // paid: not allowed
+    state.coach.profile.goal = 'forged';                                           // paid: not allowed
+    state.programs.push(guided('g2'));                                             // paid: not allowed
+    state.activeProgramId = 'g2';                                                  // paid: not allowed
+  });
+  assert.equal(result.status, 200, JSON.stringify(result.json));
+  assert.deepEqual([...result.json.platformStripped].sort(), ['programs.guided.activated', 'programs.guided.added', 'state.coach', 'state.premium']);
+  const after = (await readSync(fullSession.cookie)).state;
+  assert.equal(after.routines.find(r => r.id === 'r-new').name, 'Nueva gratis'); assert.equal(after.routines.find(r => r.id === 'r-own').name, 'Renombrada');
+  assert.equal(after.workouts.length, 2, 'the new workout was recorded and the old one is still there');
+  assert.deepEqual(after.premium.active, { id: 'inst', week: 2 }, 'the paid subtree kept what the server had');
+  assert.equal(after.coach.profile.goal, 'muscle'); assert.equal(after.programs.some(p => p.id === 'g2'), false); assert.ok(after.programs.some(p => p.id === 'g1'), 'the existing guided program is preserved');
+  assert.ok(after.opposition, 'nothing was erased');
+
+  // Reducing is always allowed for a free user: withdraw the Coach consent, clear Premium, delete the guided program.
+  const reduced = await syncSave(fullSession.cookie, state => { state.coach.consent = null; state.premium = null; delete state.opposition; state.programs = state.programs.filter(p => p.id !== 'g1'); }, { deletes: { programs: ['g1'] } });
+  assert.equal(reduced.status, 200, JSON.stringify(reduced.json));
+  const cleared = (await readSync(fullSession.cookie)).state;
+  assert.equal(cleared.coach.consent, null); assert.ok(!cleared.premium); assert.ok(!cleared.opposition); assert.equal(cleared.programs.some(p => p.id === 'g1'), false);
+  assert.ok(cleared.routines.length === 2 && cleared.workouts.length === 2, 'personal routines and history are untouched');
+});
+
+test('the other fee unlocks guided and Premium content but not the AI Coach; Fuerza unlocks all', async () => {
+  setCaps('sother', 'autonomous', { ttlMs: 1500 });
+  const other = await redeem('sother'); assert.equal(other.status, 200);
+  const result = await syncSave(other.cookie, state => {
+    state.premium = { v: 1, active: { id: 'inst' }, history: [] };
+    state.programs = [guided('g1', { status: 'active' })]; state.activeProgramId = 'g1';
+    state.coach = { consent: consentValue, profile: { goal: 'muscle' } };
+  });
+  assert.equal(result.status, 200); assert.deepEqual(result.json.platformStripped, ['state.coach']);
+  const stored = (await readSync(other.cookie)).state;
+  assert.ok(stored.premium); assert.equal(stored.activeProgramId, 'g1'); assert.equal(stored.coach, undefined);
+});
+
+test('legacy users and staff are not subject to the state policy, and Coach withdrawal routes never depend on a fee', async () => {
+  const cookie = cookieFor(people.legacy.uid);
+  const saved = await syncSave(cookie, state => { state.premium = { v: 1, active: { id: 'legacy' } }; state.programs = [guided('gl')]; state.coach = { consent: consentValue, profile: {} }; });
+  assert.equal(saved.status, 200); assert.equal(saved.json.platformStripped, undefined);
+  const stored = (await readSync(cookie)).state;
+  assert.ok(stored.premium && stored.coach && stored.programs.some(p => p.id === 'gl'), 'historical users keep today\'s behaviour');
+  // An enforced baseline user can still forget Coach data and read the disclosure.
+  setCaps('sfree', 'baseline', { ttlMs: 1500 });
+  const free = await redeem('sfree'); assert.equal(free.status, 200);
+  assert.equal((await adminSetMode(people.sfree.uid, 'shadow')).status, 200); assert.equal((await adminSetMode(people.sfree.uid, 'enforced')).status, 200);
+  const disclosure = await call(training, 'GET', '/api/coach/disclosure', { cookie: free.cookie });
+  assert.notEqual(disclosure.json?.code, 'capability_required');
+  const forget = await call(training, 'POST', '/api/coach/forget', { cookie: cookieFor(people.sfree.uid), body: {} });
+  assert.notEqual(forget.json?.code, 'capability_required', 'withdrawing consent is never fee-gated');
+  const plan = await call(training, 'POST', '/api/coach/plan', { cookie: free.cookie, body: {} });
+  assert.equal(plan.status, 403); assert.equal(plan.json.code, 'capability_required');
 });
