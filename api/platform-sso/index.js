@@ -12,6 +12,8 @@ import { signPlatformServiceRequest } from '../platform-proof/service-auth.js';
 
 export const ENFORCEMENT_MODES = Object.freeze(['legacy', 'shadow', 'enforced']);
 const ALLOWED_TRANSITIONS = new Set(['legacy>shadow', 'shadow>enforced', 'shadow>legacy', 'enforced>shadow']);
+/** The account's link, acknowledged by BOTH sides (Platform activated it only after Training agreed). */
+export const linkActive = user => user?.platformLink?.state === 'active' && typeof user.personId === 'string';
 export const userMode = user => ENFORCEMENT_MODES.includes(user?.platformEnforcement) ? user.platformEnforcement : 'legacy';
 export const transitionAllowed = (from, to) => ALLOWED_TRANSITIONS.has(`${from}>${to}`);
 
@@ -81,6 +83,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     const mode = userMode(session);
     if (mode === 'legacy' || policy.kind !== 'gated') return true;
     if (isTrainer(session)) return true;                        // staff functions never depend on the staff member's own capabilities
+    if (mode === 'enforced' && !linkActive(session)) { deny(res, 'platform_link_inactive', { reasonCode: 'TRAINING_LINK_MISSING' }); return false; }
     const view = await capabilities.evaluate(session, { mode });
     const ok = capabilities.allows(view, policy.capabilities);
     if (mode === 'shadow') { if (!ok) shadowDivergence(session, key, view, policy.capabilities); return true; }
@@ -92,6 +95,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
   async function memberGate(user, names = ['autonomousTraining']) {
     const mode = userMode(user);
     if (mode === 'legacy' || isTrainer(user)) return { allowed: true };
+    if (mode === 'enforced' && !linkActive(user)) return { allowed: false, reasonCode: 'TRAINING_LINK_MISSING' };
     const view = await capabilities.evaluate(user, { mode });
     const ok = capabilities.allows(view, names);
     if (mode === 'shadow') { if (!ok) shadowDivergence(user, 'kiosk', view, names); return { allowed: true }; }
@@ -158,15 +162,16 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       if (!user || user.disabled) return fail(400, 'sso_code_invalid');
       if (isEnvAdmin(user.id)) return fail(403, 'platform_access_blocked');   // administrators from ADMIN_UIDS sign in with their passkey only
       // Bilateral link: Platform says the person owns this Training user; Training must hold its own evidence.
-      if (user.personId && user.personId !== personId) return fail(409, 'link_conflict');
-      if (db.users.some(candidate => candidate.id !== user.id && candidate.personId === personId)) return fail(409, 'link_conflict');
-      let evidence;
-      try { evidence = proofStore.linkEvidence({ personId, trainingUserId }); } catch { return json(res, 503, { error: 'link_store_unavailable' }); }
-      const provisioned = user.platformLink?.origin === 'provisioned' && user.platformLink.personId === personId;
-      if (evidence.status === 'conflict') return fail(409, 'link_conflict');
-      if (evidence.status !== 'linked' && !provisioned) return fail(409, 'link_not_confirmed');
-      user.personId = personId;
-      user.platformLink = provisioned ? user.platformLink : { personId, state: 'active', origin: 'proof', receiptId: evidence.receiptId, verifiedAt: evidence.verifiedAt };
+      // Bilateral link: this side must already hold an ACKNOWLEDGED link for exactly this person (it is created only by Platform's activate call, never here).
+      const link = user.platformLink;
+      if (!link || link.state !== 'active' || link.personId !== personId || user.personId !== personId) return fail(409, 'link_not_confirmed');
+      if (db.users.some(candidate => candidate.id !== user.id && ((candidate.platformLink?.state === 'active' || candidate.platformLink?.state === 'pending') && candidate.platformLink.personId === personId))) return fail(409, 'link_conflict');
+      if (link.origin === 'proof') {
+        let evidence;
+        try { evidence = proofStore.linkEvidence({ personId, trainingUserId }); } catch { return json(res, 503, { error: 'link_store_unavailable' }); }
+        if (evidence.status === 'conflict') return fail(409, 'link_conflict');
+        if (evidence.status !== 'linked') return fail(409, 'link_not_confirmed');
+      }
       delete user.platformRestriction;
       capabilities.prime(personId, payload);
       secEvent('platform_sso_login', { userId: user.id, meta: { capabilityLevel: payload.capabilityLevel } });
@@ -195,7 +200,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       if (from === to) return json(res, 200, { ok: true, mode: to, unchanged: true });
       if (!transitionAllowed(from, to)) return json(res, 409, { error: 'transition_not_allowed', from, to });
       if (to !== 'legacy') {
-        if (!user.personId || user.platformLink?.state !== 'active') return json(res, 409, { error: 'link_required' });
+        if (!linkActive(user)) return json(res, 409, { error: 'link_required' });
         if (to === 'enforced') {
           const view = await capabilities.evaluate(user, { mode: 'shadow' });
           if (!view || view.source === 'degraded' || view.level === 'blocked') return json(res, 409, { error: 'platform_verification_required', reasonCode: view?.reasonCode ?? 'UNVERIFIED' });

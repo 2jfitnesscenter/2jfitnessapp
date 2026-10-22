@@ -82,6 +82,7 @@ import { createPlatformProofStore } from './platform-proof/store.js';
 import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
 import { createPlatformIntegration, parsePlatformIntegrationEnv } from './platform-sso/index.js';
+import { createPlatformLinkRoutes } from './platform-sso/link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
 const PORT = +(process.env.PORT || 3000);
@@ -105,6 +106,9 @@ const PLATFORM_PROOF_RECONCILIATION_ENABLED = /^(1|true)$/i.test(process.env.PLA
 const PLATFORM_TRAINING_SUMMARY_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_TRAINING_SUMMARY_ENABLED || '');
 // Platform SSO + capability consumption: off unless explicitly enabled; enforcement is per user (legacy -> shadow -> enforced).
 const PLATFORM_INTEGRATION_CONFIG = parsePlatformIntegrationEnv(process.env);
+// Bilateral link lifecycle (activate / revoke) and idempotent provisioning from Platform: each is its own opt-in and needs Platform's service key.
+const PLATFORM_LINK_LIFECYCLE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_LINK_LIFECYCLE_ENABLED || '');
+const PLATFORM_PROVISIONING_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROVISIONING_ENABLED || '');
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
@@ -1062,8 +1066,14 @@ const platformIntegration = createPlatformIntegration({
   // Its own limiter: SSO failures must never lock people out of passkey login, nor an SSO success reset the login limiter.
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
 });
+const platformLinkRoutes = createPlatformLinkRoutes({
+  config: { lifecycleEnabled: PLATFORM_LINK_LIFECYCLE_ENABLED, provisioningEnabled: PLATFORM_PROVISIONING_ENABLED },
+  db, saveDb, secEvent, json, store: platformProofStore, serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
+  revokeSsoSessions: platformIntegration.revokeSsoSessions, generateUsername,
+});
 const routes = {
   ...platformIntegration.routes,
+  ...platformLinkRoutes,
   ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
   ...coachFollowUpRoutes(coachDeps),
   ...followUpV2Routes({ db, json, readBody, readSession, requireAdmin, requireTrainer, isAdmin, isTrainer, saveDb, readState, dataDir: DATA, followupPhotosDir,

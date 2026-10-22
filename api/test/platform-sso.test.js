@@ -185,11 +185,11 @@ async function freePort() {
   return new Promise(resolve => { const probe = http.createServer().listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolve(port)); }); });
 }
 
-const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
+const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'lnk'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
 const dbFile = path.join(DIR, 'db.json');
 fs.writeFileSync(dbFile, JSON.stringify({
   users: [
-    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
+    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'lnk'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
     { id: people.staff.uid, name: 'Staff member', username: 'staffy', admin: true, trainer: true },
     { id: people.admin.uid, name: 'Admin', username: 'admin1', admin: true, trainer: true },
   ],
@@ -205,7 +205,7 @@ function seedReceipt(personId, uid) {
   const result = store.exchange({ codeHash: sha256(Buffer.from(code, 'utf8')), requestId: randomUUID(), context, isTrainingUserActive: () => true });
   assert.equal(result.status, 'exchanged');
 }
-for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree']) seedReceipt(people[name].personId, people[name].uid);
+for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'lnk']) seedReceipt(people[name].personId, people[name].uid);
 seedReceipt(people.conflict.personId, people.conflict.uid);
 seedReceipt(people.conflict.personId, people.orphan.uid);       // the same person tied to two Training users: a conflict
 
@@ -219,8 +219,25 @@ async function startTraining(extraEnv = {}) {
   for (let i = 0; i < 80; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* starting */ } await new Promise(resolve => setTimeout(resolve, 100)); }
   return { base, port, stop: () => child.kill() };
 }
-const training = await startTraining({ PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret });
+const linkKey = { id: 'platform-link-fixture', secret: Buffer.alloc(32, 0x55) };
+const training = await startTraining({ PLATFORM_LINK_LIFECYCLE_ENABLED: 'true', PLATFORM_PROVISIONING_ENABLED: 'true', PLATFORM_SERVICE_AUTH_KEYS: JSON.stringify({ [linkKey.id]: linkKey.secret.toString('base64url') }), PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret });
 const plain = await startTraining();            // no Platform configuration at all
+
+/** Signed Platform -> Training lifecycle call (2J-SERVICE-AUTH-V1). */
+async function platformCall(server, route, payload, { key = linkKey, requestId = randomUUID(), timestamp = new Date().toISOString(), tamper } = {}) {
+  const body = Buffer.from(JSON.stringify(payload), 'utf8');
+  const { signature } = signPlatformServiceRequest({ keyId: key.id, secret: key.secret, timestamp, requestId, method: 'POST', path: route, body });
+  const response = await fetch(server.base + route, { method: 'POST', headers: { 'content-type': 'application/json', 'x-2j-key-id': key.id, 'x-2j-timestamp': timestamp, 'x-2j-request-id': requestId, 'x-2j-signature': tamper ? 'A'.repeat(43) : signature }, body });
+  const text = await response.text(); let json = null; try { json = JSON.parse(text); } catch { /* empty */ }
+  return { status: response.status, json };
+}
+const ACTIVATE = '/api/platform/v1/link/activate', REVOKE = '/api/platform/v1/link/revoke', PROVISION = '/api/platform/v1/provision';
+const activateBody = (name, extra = {}) => ({ v: 1, linkId: randomUUID(), linkVersion: 1, personId: people[name].personId, trainingUserId: people[name].uid, origin: 'proof', ...extra });
+// Every seeded person that proved ownership gets its link acknowledged by Training, exactly as Platform's activation does.
+for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree']) {
+  const ack = await platformCall(training, ACTIVATE, activateBody(name));
+  assert.equal(ack.status, 200, `activate ${name}: ${JSON.stringify(ack.json)}`);
+}
 after(() => { training.stop(); plain.stop(); platform.server.close(); });
 
 const cookieFor = uid => { const payload = `${uid}:${Date.now() + 86400000}:0`; return `gymsid=${payload}.${crypto.createHmac('sha256', SECRET).update(payload).digest('base64url')}`; };
@@ -277,7 +294,9 @@ test('Training requires its own link evidence and refuses conflicts instead of t
   assert.equal(noEvidence.status, 409); assert.equal(noEvidence.json.error, 'link_not_confirmed');
   assert.equal(dbUser(people.legacy.uid).personId, undefined, 'nothing is linked or inferred');
   const conflict = await redeem('conflict');
-  assert.equal(conflict.status, 409); assert.equal(conflict.json.error, 'link_conflict');
+  assert.equal(conflict.status, 409); assert.equal(conflict.json.error, 'link_not_confirmed', 'a link that Training never acknowledged cannot sign anyone in');
+  const refused = await platformCall(training, ACTIVATE, activateBody('conflict'));
+  assert.equal(refused.status, 409); assert.equal(refused.json.error, 'link_conflict', 'the same person proven for two Training users is never activated');
   platform.state.codes.set('mismatch'.padEnd(43, 'x'), { personId: people.a.personId, trainingUserId: 'uid-does-not-exist' });
   setCaps('a', 'baseline');
   const missing = await call(training, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code: 'mismatch'.padEnd(43, 'x') }, origin: training.base });
@@ -316,7 +335,7 @@ test('legacy users never call Platform and keep full current access; transitions
   assert.equal((await call(training, 'GET', '/api/guided', { cookie })).json?.code, undefined);
   assert.equal(platform.state.calls.length, callsBefore, 'legacy mode performs no Platform call');
 
-  assert.equal((await adminSetMode(people.b.uid, 'shadow')).status, 409, 'cannot leave legacy without a link');
+  assert.equal((await adminSetMode(people.legacy.uid, 'shadow')).status, 409, 'cannot leave legacy without an acknowledged link');
   assert.equal((await call(training, 'POST', '/api/admin/platform-enforcement', { cookie, body: { userId: people.b.uid, mode: 'shadow' } })).status, 403, 'only an admin can move a user');
   setCaps('b', 'baseline', { ttlMs: 1500 });
   const linked = await redeem('b'); assert.equal(linked.status, 200);
@@ -611,4 +630,114 @@ test('legacy users and staff are not subject to the state policy, and Coach with
   assert.notEqual(forget.json?.code, 'capability_required', 'withdrawing consent is never fee-gated');
   const plan = await call(training, 'POST', '/api/coach/plan', { cookie: free.cookie, body: {} });
   assert.equal(plan.status, 403); assert.equal(plan.json.code, 'capability_required');
+});
+
+/* ---- bilateral link lifecycle: activation needs the owner's own proof, one link per side, safe revocation ---- */
+test('lifecycle calls are off without their flag and need a valid, single-use Platform signature', async () => {
+  const body = activateBody('lnk');
+  assert.equal((await platformCall(plain, ACTIVATE, body)).status, 423, 'flag off');
+  assert.equal((await platformCall(training, ACTIVATE, body, { tamper: true })).status, 401, 'bad signature');
+  assert.equal((await platformCall(training, ACTIVATE, body, { key: { id: 'unknown-key', secret: Buffer.alloc(32, 1) } })).status, 401, 'unknown key');
+  assert.equal((await platformCall(training, ACTIVATE, body, { timestamp: new Date(Date.now() - 120_000).toISOString() })).status, 401, 'stale timestamp');
+  assert.equal((await platformCall(training, ACTIVATE, { ...body, extra: true })).status, 400, 'unknown field');
+  assert.equal((await call(training, 'POST', ACTIVATE, { body })).status, 401, 'no signature at all');
+  const requestId = randomUUID();
+  const first = await platformCall(training, ACTIVATE, body, { requestId });
+  assert.equal(first.status, 200, JSON.stringify(first.json));
+  const replay = await platformCall(training, ACTIVATE, body, { requestId });
+  assert.equal(replay.status, 409); assert.equal(replay.json.error, 'service_request_replayed', 'a captured request cannot be replayed');
+  const again = await platformCall(training, ACTIVATE, body);
+  assert.equal(again.status, 200); assert.equal(again.json.replay, true); assert.equal(again.json.ackId, first.json.ackId, 'a retry of the same link is idempotent');
+});
+
+test('activation needs the account owner\'s own proof, and a person or a Training user can only hold one link', async () => {
+  // A historical account with no receipt cannot be linked by anyone, whatever Platform says.
+  const historical = await platformCall(training, ACTIVATE, activateBody('legacy'));
+  assert.equal(historical.status, 409); assert.equal(historical.json.error, 'proof_required');
+  assert.equal(dbUser(people.legacy.uid).platformLink, undefined); assert.equal(dbUser(people.legacy.uid).personId, undefined);
+  // 'provisioned' origin is only for accounts created by the provisioning call.
+  assert.equal((await platformCall(training, ACTIVATE, activateBody('legacy', { origin: 'provisioned' }))).json.error, 'not_provisioned');
+  // Unknown account, and a wrong receipt id.
+  assert.equal((await platformCall(training, ACTIVATE, activateBody('lnk', { trainingUserId: 'does-not-exist' }))).status, 404);
+  assert.equal((await platformCall(training, ACTIVATE, activateBody('lnk', { receiptId: randomUUID() }))).json.error, 'proof_required');
+  // The same person can not take a second Training user, and a Training user can not take a second person.
+  const secondUser = await platformCall(training, ACTIVATE, activateBody('a', { trainingUserId: people.b.uid }));
+  assert.equal(secondUser.status, 409); assert.equal(secondUser.json.error, 'link_conflict');
+  const secondPerson = await platformCall(training, ACTIVATE, activateBody('a', { personId: people.b.personId }));
+  assert.equal(secondPerson.status, 409); assert.equal(secondPerson.json.error, 'link_conflict');
+  assert.equal(dbUser(people.a.uid).platformLink.personId, people.a.personId, 'the existing links are untouched');
+});
+
+test('revocation closes the sso sessions, frees the person, never relaxes enforcement, and an old receipt cannot silently re-link', async () => {
+  setCaps('lnk', 'baseline', { ttlMs: 1500 });
+  assert.equal((await platformCall(training, ACTIVATE, activateBody('lnk'))).status, 200);
+  const linkId = dbUser(people.lnk.uid).platformLink.linkId;
+  const sso = await redeem('lnk'); assert.equal(sso.status, 200);
+  assert.equal((await adminSetMode(people.lnk.uid, 'shadow')).status, 200);
+  const revoke = await platformCall(training, REVOKE, { v: 1, linkId, linkVersion: 2, personId: people.lnk.personId, trainingUserId: people.lnk.uid, reason: 'member' });
+  assert.equal(revoke.status, 200, JSON.stringify(revoke.json)); assert.equal(revoke.json.status, 'revoked');
+  const stored = dbUser(people.lnk.uid);
+  assert.equal(stored.platformLink.state, 'revoked'); assert.equal(stored.personId, undefined); assert.equal(stored.platformEnforcement, 'shadow', 'enforcement is never relaxed');
+  assert.equal((await call(training, 'GET', '/api/me', { cookie: sso.cookie })).status, 401, 'sso sessions are closed');
+  assert.equal((await call(training, 'GET', '/api/me', { cookie: cookieFor(people.lnk.uid) })).status, 200, 'the account, its passkey login and its data remain');
+  assert.equal((await platformCall(training, REVOKE, { v: 1, linkId, linkVersion: 2, personId: people.lnk.personId, trainingUserId: people.lnk.uid })).json.status, 'revoked', 'revoking twice is harmless');
+  assert.equal((await platformCall(training, REVOKE, { v: 1, linkId: randomUUID(), linkVersion: 2, personId: people.lnk.personId, trainingUserId: people.lnk.uid })).status, 404, 'a different link id is refused');
+  assert.equal((await redeem('lnk')).json.error, 'link_not_confirmed', 'a revoked link cannot sign in');
+  // The OLD receipt cannot silently re-link the account: a new proof, made after the revocation, is required.
+  const old = await platformCall(training, ACTIVATE, activateBody('lnk'));
+  assert.equal(old.status, 409); assert.equal(old.json.error, 'proof_required');
+  await new Promise(resolve => setTimeout(resolve, 20));
+  seedReceipt(people.lnk.personId, people.lnk.uid);
+  const relinked = await platformCall(training, ACTIVATE, activateBody('lnk'));
+  assert.equal(relinked.status, 200, JSON.stringify(relinked.json));
+  assert.equal(dbUser(people.lnk.uid).platformLink.state, 'active');
+});
+
+test('provisioning is idempotent, creates one enforced profile without credentials, and its link needs the acknowledgement', async () => {
+  const personId = randomUUID(), key = randomUUID();
+  const body = { v: 1, idempotencyKey: key, correlationId: randomUUID(), personId, displayName: 'Nuevo Socio' };
+  assert.equal((await platformCall(plain, PROVISION, body)).status, 423, 'flag off');
+  const created = await platformCall(training, PROVISION, body);
+  assert.equal(created.status, 201, JSON.stringify(created.json)); assert.equal(created.json.linkState, 'pending');
+  const uid = created.json.trainingUserId;
+  const user = dbUser(uid);
+  assert.equal(user.name, 'Nuevo Socio'); assert.equal(user.personId, personId); assert.equal(user.platformEnforcement, 'enforced');
+  assert.equal(user.platformLink.origin, 'provisioned'); assert.equal(user.platformLink.state, 'pending');
+  assert.equal(JSON.parse(fs.readFileSync(dbFile, 'utf8')).creds.filter(c => c.userId === uid).length, 0, 'no passkey is invented');
+  const replay = await platformCall(training, PROVISION, { ...body, correlationId: randomUUID() });
+  assert.equal(replay.status, 200); assert.equal(replay.json.replay, true); assert.equal(replay.json.trainingUserId, uid, 'a retry returns the same profile');
+  assert.equal((await platformCall(training, PROVISION, { ...body, displayName: 'Otro Nombre' })).json.error, 'idempotency_conflict');
+  assert.equal((await platformCall(training, PROVISION, { ...body, idempotencyKey: randomUUID() })).json.error, 'link_conflict', 'the same person never gets a second profile');
+  assert.equal((await platformCall(training, PROVISION, { ...body, idempotencyKey: randomUUID(), personId: people.a.personId })).json.error, 'link_conflict', 'a person already linked to a historical account is refused');
+  assert.equal((await platformCall(training, PROVISION, { ...body, idempotencyKey: randomUUID(), personId: randomUUID(), displayName: '<script>' })).status, 400);
+  assert.equal(JSON.parse(fs.readFileSync(dbFile, 'utf8')).users.filter(u => u.personId === personId).length, 1, 'exactly one profile');
+  // Until Platform's activation is acknowledged, nothing can sign in.
+  platform.state.caps.set(personId, () => v2({ personId, trainingUserId: uid, kind: 'baseline' }));
+  platform.state.codes.set('prov0'.padEnd(43, 'p'), { personId, trainingUserId: uid });
+  assert.equal((await call(training, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code: 'prov0'.padEnd(43, 'p') }, origin: training.base })).json.error, 'link_not_confirmed');
+  const activated = await platformCall(training, ACTIVATE, { v: 1, linkId: randomUUID(), linkVersion: 1, personId, trainingUserId: uid, origin: 'provisioned' });
+  assert.equal(activated.status, 200, JSON.stringify(activated.json));
+  platform.state.codes.set('prov1'.padEnd(43, 'p'), { personId, trainingUserId: uid });
+  const session = await call(training, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code: 'prov1'.padEnd(43, 'p') }, origin: training.base });
+  assert.equal(session.status, 200, JSON.stringify(session.json));
+  assert.equal(session.json.user.authLevel, 'sso'); assert.equal(session.json.user.admin, false);
+  // Revoking a provisioned account keeps it enforced: it never falls back to the open legacy behaviour.
+  const revoked = await platformCall(training, REVOKE, { v: 1, linkId: dbUser(uid).platformLink.linkId, linkVersion: 2, personId, trainingUserId: uid });
+  assert.equal(revoked.status, 200);
+  assert.equal(dbUser(uid).platformEnforcement, 'enforced'); assert.equal(dbUser(uid).platformLink.state, 'revoked');
+  const cookie = (session.headers.get('set-cookie') || '').split(';')[0];
+  assert.equal((await call(training, 'GET', '/api/me', { cookie })).status, 401);
+  assert.equal((await platformCall(training, ACTIVATE, { v: 1, linkId: randomUUID(), linkVersion: 3, personId, trainingUserId: uid, origin: 'provisioned' })).json.error, 'not_provisioned', 'a revoked provisioned account is not re-activated without a new provisioning decision');
+});
+
+test('an enforced account whose link is not active is blocked everywhere, never opened', async () => {
+  const uid = people.kiosk.uid, cookie = cookieFor(uid);
+  const stored = JSON.parse(fs.readFileSync(dbFile, 'utf8')).users.find(user => user.id === uid);
+  assert.equal(stored.platformEnforcement, 'enforced');
+  assert.equal((await platformCall(training, REVOKE, { v: 1, linkId: stored.platformLink.linkId, linkVersion: 2, personId: people.kiosk.personId, trainingUserId: uid })).status, 200);
+  const data = await call(training, 'GET', '/api/data', { cookie });
+  assert.equal(data.status, 403); assert.equal(data.json.code, 'platform_link_inactive');
+  const pin = await call(training, 'GET', '/api/bunker/pin', { cookie });
+  assert.equal(pin.status, 403);
+  assert.equal((await call(training, 'GET', '/api/me', { cookie })).status, 200, 'the account itself stays reachable');
 });

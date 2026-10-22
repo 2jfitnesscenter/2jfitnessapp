@@ -75,6 +75,21 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
   }
 
   return {
+    /** Single-use request ids for the authenticated link-lifecycle and provisioning calls (same bounded replay window as the summary calls). */
+    acceptServiceRequest(requestId, kind = 'platform_service') {
+      const timestamp = now(), state = read();
+      expireAndPrune(state, timestamp);
+      if (state.serviceRequests.some(request => request.requestId === requestId)) {
+        audit(state, 'platform_service_auth.replay_rejected', { requestId });
+        write(state);
+        return { status: 'service_request_replayed' };
+      }
+      state.serviceRequests.push({ requestId, expiresAtMs: timestamp + SERVICE_REPLAY_TTL_MS });
+      audit(state, `${kind}.request_accepted`, {});
+      write(state);
+      return { status: 'accepted' };
+    },
+
     /** Persist bounded replay protection for authenticated, read-only Platform summary calls. */
     acceptSummaryRequest(requestId) {
       const timestamp = now(), state = read();
@@ -192,7 +207,9 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
       const forPerson = receipts.filter(receipt => receipt.personId === personId);
       const forUser = receipts.filter(receipt => receipt.trainingUserId === trainingUserId);
       if (forPerson.some(receipt => receipt.trainingUserId !== trainingUserId) || forUser.some(receipt => receipt.personId !== personId)) return { status: 'conflict' };
-      return forPerson.length ? { status: 'linked', receiptId: forPerson[0].receiptId, verifiedAt: forPerson[0].verifiedAt } : { status: 'none' };
+      if (!forPerson.length) return { status: 'none' };
+      const newest = forPerson.reduce((best, receipt) => (Date.parse(receipt.verifiedAt) > Date.parse(best.verifiedAt) ? receipt : best));
+      return { status: 'linked', receiptId: newest.receiptId, verifiedAt: newest.verifiedAt };   // the newest proof counts: a re-link after a revocation needs one made later
     },
 
     reconcile({ requestId, context }) {
