@@ -22,6 +22,7 @@ RUN npm ci --omit=dev --include=optional \
 COPY server.js ./
 COPY lib/ ./lib/
 COPY platform-proof/ ./platform-proof/
+COPY platform-capabilities/ ./platform-capabilities/
 COPY coach/ ./coach/
 COPY friends/ ./friends/
 COPY chat/ ./chat/
