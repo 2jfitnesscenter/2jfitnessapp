@@ -1644,7 +1644,14 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const op = await readBody(req);
     if (op.owner && op.owner !== user.id) return json(res, 403, { error: 'La cuenta cambió', code: 'SYNC_ACCOUNT_CHANGED' });
-    try { json(res, 200, mutate(user.id, op)); }
+    // The same route writes free personal content and paid subtrees: authorize the CONTENT (platform-sso/state-policy.js), not just the route.
+    let platformStripped = [];
+    if (['save', 'replace', 'reset'].includes(op.type) && op.state) {
+      const verdict = await platformIntegration.authorizeStateWrite(user, op.state, readState(user.id));
+      if (verdict.denied.length) return json(res, 403, { error: 'tu cuenta no tiene acceso a esta función', code: 'capability_required', capabilities: verdict.denied.map(item => item.capability), scopes: verdict.denied.map(item => item.scope) });
+      op.state = verdict.state; platformStripped = verdict.stripped;
+    }
+    try { json(res, 200, platformStripped.length ? { ...mutate(user.id, op), platformStripped } : mutate(user.id, op)); }
     catch (e) {
       if (e.status === 409) return json(res, 409, { error: e.message, code: e.code, ...openSync(user.id) });
       throw e;
@@ -1687,6 +1694,11 @@ const routes = {
     const body = await readBody(req);
     if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'se requiere el estado' });
     delete body.state.active;              // the client never has authority over this field
+    {
+      const verdict = await platformIntegration.authorizeStateWrite(user, body.state, readState(user.id));
+      if (verdict.denied.length) return json(res, 403, { error: 'tu cuenta no tiene acceso a esta función', code: 'capability_required', capabilities: verdict.denied.map(item => item.capability), scopes: verdict.denied.map(item => item.scope) });
+      body.state = verdict.state;
+    }
     // A normal push still never lets the client SET `active` — but until now it also wiped
     // whatever the server already had there, because this write replaces the whole state file.
     // That silently erased a session the Bunker (or a V3.1-B handoff) had put there, the moment

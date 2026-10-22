@@ -71,6 +71,8 @@ const EXACT = new Map([
   ['POST /api/me/avatar', E('identity', { ssoAllowed: true })],
   ['POST /api/logout', E('identity', { ssoAllowed: true })],
   ['POST /api/platform/v1/sso/redeem', E('public', { ssoAllowed: true })],   // exempt from the gate: a new code must work whatever session the browser holds
+  ['GET /api/coach/disclosure', E('identity', { ssoAllowed: true })],
+  ['POST /api/coach/forget', E('identity')],   // erasing Coach data / withdrawing consent is a right, never gated by a fee (destructive: passkey-only)
   ['GET /api/health', E('public', { ssoAllowed: true })],
   ['GET /api/config', E('public', { ssoAllowed: true })],
   ['GET /api/features', E('public', { ssoAllowed: true })],
@@ -111,7 +113,7 @@ const PREFIX = [
   ['/api/guided/', E('staff')],
   ['/api/premium/', E('staff')],
   ['/api/opposition/', E('staff')],
-  // Own AI coach.
+  // Own AI coach. Withdrawing consent and reading the disclosure never depend on a fee.
   ['/api/coach/', E('gated', { ssoAllowed: true, capabilities: ['aiCoach'] })],
   // Pre-session / account recovery / device pairing and passkey control stay passkey-only.
   ['/api/login', E('identity')],

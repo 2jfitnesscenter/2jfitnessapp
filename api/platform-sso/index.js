@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { classifyRoute } from './route-policy.js';
+import { applyStatePolicy } from './state-policy.js';
 import { capabilitiesV2Schema, createCapabilitiesService } from './capabilities.js';
 import { signPlatformServiceRequest } from '../platform-proof/service-auth.js';
 
@@ -97,6 +98,26 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     return ok ? { allowed: true } : { allowed: false, reasonCode: view?.reasonCode ?? 'UNVERIFIED' };
   }
 
+  /**
+   * Content-level check for the synced member state (POST /api/sync save/replace/reset, legacy PUT /api/data). Same route, different
+   * operations: free personal content passes, paid subtrees follow their capability. Legacy users and staff are untouched; shadow only logs.
+   * Returns { state, stripped, denied } where `state` is what the server should store.
+   */
+  async function authorizeStateWrite(session, incoming, current) {
+    const pass = { state: incoming, stripped: [], denied: [] };
+    const mode = session.authLevel === 'sso' ? 'enforced' : userMode(session);
+    if (mode === 'legacy' || isTrainer(session) || !incoming || typeof incoming !== 'object') return pass;
+    const view = await capabilities.evaluate(session, { mode });
+    if (!view) return pass;                                    // no verdict (shadow/legacy with nothing known): current behaviour
+    const verdict = applyStatePolicy({ current, incoming, caps: view.capabilities });
+    if (mode === 'shadow') {
+      if (verdict.stripped.length || verdict.denied.length) shadowDivergence(session, 'state-write', view, [...verdict.stripped, ...verdict.denied.map(item => item.capability)]);
+      return pass;
+    }
+    if (verdict.stripped.length) secEvent('platform_state_stripped', { userId: session.id, meta: { count: verdict.stripped.length, kind: verdict.stripped[0] } });
+    return verdict;
+  }
+
   async function redeemWithPlatform(code) {
     if (!config.client) return { status: 503 };
     const path = PLATFORM_REDEEM_PATH, timestamp = new Date(now()).toISOString(), requestId = globalThis.crypto.randomUUID();
@@ -187,5 +208,5 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     },
   };
 
-  return { routes, gate, memberGate, capabilities, revokeSsoSessions, classifyRoute };
+  return { routes, gate, memberGate, authorizeStateWrite, capabilities, revokeSsoSessions, classifyRoute };
 }
