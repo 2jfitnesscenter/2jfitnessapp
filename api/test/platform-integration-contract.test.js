@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 // register routes, read/write DATA, or change current login/entitlement behavior.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const integrationSchema = JSON.parse(fs.readFileSync(path.join(root, 'contracts/platform-training-integration-v1.schema.json'), 'utf8'));
-const entitlementContract = JSON.parse(fs.readFileSync(path.join(root, 'contracts/platform-training-entitlements-v1.json'), 'utf8'));
+const entitlementContract = JSON.parse(fs.readFileSync(path.join(root, 'contracts/platform-training-capabilities-v2.json'), 'utf8'));
+const capabilitySchema = JSON.parse(fs.readFileSync(path.join(root, 'contracts/platform-training-capabilities-v2.schema.json'), 'utf8'));
 const PERSON_A = '22222222-2222-4222-8222-222222222222';
 const PERSON_B = '33333333-3333-4333-8333-333333333333';
 const TRAINING_A = 'training-user-a';
@@ -103,64 +104,155 @@ function createReferenceContract() {
   };
 }
 
-function capabilityAllowed(snapshot, capability, at = now) {
+function capabilityAllowed(snapshot, capability, at = now, expectedPersonId = PERSON_A, expectedTrainingUserId = TRAINING_A) {
   const required = entitlementContract.capabilities;
-  if (!snapshot || snapshot.v !== 1 || !required.every(key => typeof snapshot.capabilities?.[key] === 'boolean')) return false;
-  if (snapshot.linkStatus !== 'active' || snapshot.operationalStatus !== 'allowed') return false;
-  const issued = Date.parse(snapshot.issuedAt), expires = Date.parse(snapshot.expiresAt);
-  if (!Number.isFinite(issued) || !Number.isFinite(expires) || issued > at || expires <= at) return false;
+  if (!snapshot || snapshot.contract !== '2J-CAPABILITIES-V2' || snapshot.version !== 2) return false;
+  if (Object.keys(snapshot).some(key => !(key in capabilitySchema.properties))) return false;
+  if (!snapshot.capabilities || Object.keys(snapshot.capabilities).length !== required.length || !required.every(key => typeof snapshot.capabilities[key] === 'boolean')) return false;
+  if (snapshot.source?.platform !== true || snapshot.personId !== expectedPersonId) return false;
+  if (snapshot.trainingSubject?.linkStatus !== 'active' || snapshot.trainingSubject.trainingUserId !== expectedTrainingUserId) return false;
+  if (snapshot.accessState === 'suspended' || snapshot.suspensionStatus === 'suspended') return false;
+  const generated = Date.parse(snapshot.generatedAt), expires = Date.parse(snapshot.expiresAt);
+  if (!Number.isFinite(generated) || !Number.isFinite(expires) || generated > at || expires <= at) return false;
+  if (expires - generated > 60_000) return false;
   return snapshot.capabilities[capability] === true;
 }
 
 function snapshot(profile, overrides = {}) {
+  const level = profile.includes('fuerza_full') ? 'full' : profile.includes('autonomous_training_access') ? 'autonomous' : profile === 'free_autonomous_baseline' || profile === 'unpaid_or_ended_baseline' ? 'baseline' : 'blocked';
+  const provisional = profile.endsWith('_provisional');
+  const accessState = profile === 'free_autonomous_baseline' || profile === 'unpaid_or_ended_baseline' ? 'baseline' : profile === 'administratively_suspended' ? 'suspended' : provisional ? 'provisional' : 'active';
+  const reasonCode = profile === 'free_autonomous_baseline' || profile === 'unpaid_or_ended_baseline' ? 'FREE_BASELINE' : profile === 'administratively_suspended' ? 'ADMIN_SUSPENDED' : provisional ? (level === 'full' ? 'PROVISIONAL_FULL' : 'PROVISIONAL_AUTONOMOUS') : profile === 'missing_or_revoked_link' ? 'TRAINING_LINK_REVOKED' : (level === 'full' ? 'ACTIVE_FULL' : 'ACTIVE_AUTONOMOUS');
   return {
-    v: 1, personId: PERSON_A, trainingUserId: TRAINING_A, linkStatus: 'active', revision: 1,
-    issuedAt: new Date(now - 1000).toISOString(), expiresAt: new Date(now + 60_000).toISOString(),
-    operationalStatus: 'allowed', reasonCode: null, correlationId: 'corr-snapshot',
-    capabilities: { ...entitlementContract.quotaProfiles[profile] }, ...overrides
+    contract: '2J-CAPABILITIES-V2', version: 2, personId: PERSON_A,
+    trainingSubject: { linkStatus: 'active', trainingUserId: TRAINING_A },
+    capabilityLevel: level,
+    accessState,
+    capabilities: { ...entitlementContract.profiles[profile] },
+    reasonCode,
+    suspensionStatus: profile === 'administratively_suspended' ? 'suspended' : 'none',
+    effectiveFrom: profile === 'free_autonomous_baseline' ? null : '2026-10-21',
+    generatedAt: new Date(now - 1000).toISOString(), expiresAt: new Date(now + 59_000).toISOString(), source: { platform: true },
+    ...overrides
   };
 }
 
-test('contract schema is strict and declares the approved identity, capabilities, and no runtime activation', () => {
-  assert.equal(integrationSchema.$defs.capabilitySnapshot.additionalProperties, false);
+test('integration schema stays design-only while its standalone capability payload matches Platform V2', () => {
+  assert.equal(capabilitySchema.properties.contract.const, '2J-CAPABILITIES-V2');
+  assert.equal(capabilitySchema.properties.version.const, 2);
+  assert.equal(capabilitySchema.additionalProperties, false);
+  assert.deepEqual(capabilitySchema.properties.capabilities.required, entitlementContract.capabilities);
+  assert.equal(integrationSchema.$defs.ssoCodeRedemptionResponse.properties.capabilitySnapshot, undefined);
+  assert.equal(capabilitySchema.properties.revision, undefined, 'V2 has no monotonic revision field');
   assert.equal(integrationSchema.$defs.provisionRequest.additionalProperties, false);
-  assert.deepEqual(integrationSchema.$defs.capabilities.required, entitlementContract.capabilities);
-  assert.equal(entitlementContract.status, 'design-only');
   assert.equal(entitlementContract.enforcementEnabled, false);
+  assert.equal(entitlementContract.identityAndFreshness.maximumTtlSeconds, 60);
+  assert.equal(entitlementContract.identityAndFreshness.revisionField, false);
 });
 
-test('force quota grants all six capabilities', () => {
-  const values = Object.values(entitlementContract.quotaProfiles.force_current);
-  assert.equal(values.length, 6);
+test('active Fuerza grants the V2 baseline and full professional capabilities', () => {
+  const values = Object.values(entitlementContract.profiles.active_fuerza_full);
+  assert.equal(values.length, 10);
   assert.ok(values.every(value => value === true));
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full'), 'aiCoach'), true);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full'), 'professionalFollowUp'), true);
 });
 
-test('other current quota denies AI and professional follow-up only', () => {
-  const caps = entitlementContract.quotaProfiles.other_quota_current;
-  assert.equal(caps['training.access'], true);
-  assert.equal(caps['training.self_routines'], true);
-  assert.equal(caps['training.guided_2j'], true);
-  assert.equal(caps['training.premium'], true);
-  assert.equal(caps['training.ai'], false);
-  assert.equal(caps['training.professional_followup'], false);
+test('provisional full and autonomous rights retain their Platform-defined levels', () => {
+  const full = snapshot('active_fuerza_full_provisional');
+  assert.equal(full.capabilityLevel, 'full');
+  assert.equal(full.accessState, 'provisional');
+  assert.equal(full.reasonCode, 'PROVISIONAL_FULL');
+  assert.equal(capabilityAllowed(full, 'aiCoach'), true);
+
+  const autonomous = snapshot('autonomous_training_access_provisional');
+  assert.equal(autonomous.capabilityLevel, 'autonomous');
+  assert.equal(autonomous.accessState, 'provisional');
+  assert.equal(autonomous.reasonCode, 'PROVISIONAL_AUTONOMOUS');
+  assert.equal(capabilityAllowed(autonomous, 'guidedTraining'), true);
+  assert.equal(capabilityAllowed(autonomous, 'aiCoach'), false);
 });
 
-test('no current quota denies all operational capabilities while preserving account and data policy', () => {
-  assert.ok(Object.values(entitlementContract.quotaProfiles.no_current_quota).every(value => value === false));
-  assert.equal(entitlementContract.restrictedAccess.preserveIdentityAndTrainingData, true);
-  assert.equal(entitlementContract.restrictedAccess.minimumBillingOrContactFlow, 'Home/Platform only');
+test('active autonomous training access adds Guided/Premium without professional AI or follow-up', () => {
+  const caps = entitlementContract.profiles.active_autonomous_training_access;
+  assert.equal(caps.autonomousTraining, true);
+  assert.equal(caps.personalRoutineCreation, true);
+  assert.equal(caps.personalRoutineManagement, true);
+  assert.equal(caps.routineCreation, true);
+  assert.equal(caps.guidedTraining, true);
+  assert.equal(caps.premiumPrograms, true);
+  assert.equal(caps.aiCoach, false);
+  assert.equal(caps.professionalFollowUp, false);
+  assert.equal(capabilityAllowed(snapshot('active_autonomous_training_access'), 'guidedTraining'), true);
+});
+
+test('no membership receives only the free baseline; personal routines are distinct from commercial routineCreation', () => {
+  const caps = entitlementContract.profiles.free_autonomous_baseline;
+  for (const key of ['autonomousTraining','personalRoutineCreation','personalRoutineManagement','workoutRecording','workoutHistory']) assert.equal(caps[key], true, key);
+  for (const key of ['routineCreation','guidedTraining','premiumPrograms','aiCoach','professionalFollowUp']) assert.equal(caps[key], false, key);
+  const baseline = snapshot('free_autonomous_baseline');
+  assert.equal(capabilityAllowed(baseline, 'personalRoutineCreation'), true);
+  assert.equal(capabilityAllowed(baseline, 'personalRoutineManagement'), true);
+  assert.equal(capabilityAllowed(baseline, 'routineCreation'), false);
+  assert.equal(capabilityAllowed(baseline, 'workoutHistory'), true);
+  // Platform does not own routine contents: Búnker must retain and expose previously delivered records.
+  assert.equal(entitlementContract.consumerGuidance.retainedTrainingContentOwner, 'Training');
+  assert.equal(entitlementContract.consumerGuidance.membershipEndDeletesOrHidesHistory, false);
+});
+
+test('free baseline is not represented as administrative suspension', () => {
+  const baseline = snapshot('unpaid_or_ended_baseline');
+  assert.deepEqual(entitlementContract.profiles.unpaid_or_ended_baseline, entitlementContract.profiles.free_autonomous_baseline);
+  assert.equal(baseline.accessState, 'baseline');
+  assert.equal(baseline.reasonCode, 'FREE_BASELINE');
+  assert.equal(baseline.suspensionStatus, 'none');
+  assert.equal(capabilityAllowed(baseline, 'autonomousTraining'), true);
+  assert.equal(capabilityAllowed(baseline, 'professionalFollowUp'), false);
 });
 
 test('backend capability check fails closed even when a frontend says the action is available', () => {
   const uiSaysAllowed = true;
-  const deniedSnapshot = snapshot('other_quota_current');
+  const deniedSnapshot = snapshot('active_autonomous_training_access');
   assert.equal(uiSaysAllowed, true);
-  assert.equal(capabilityAllowed(deniedSnapshot, 'training.ai'), false);
-  assert.equal(capabilityAllowed(deniedSnapshot, 'training.access'), true);
-  assert.equal(capabilityAllowed(snapshot('force_current'), 'training.ai'), true);
-  assert.equal(capabilityAllowed(null, 'training.access'), false);
-  assert.equal(capabilityAllowed(snapshot('force_current', { expiresAt: new Date(now).toISOString() }), 'training.access'), false);
-  assert.equal(capabilityAllowed(snapshot('force_current', { linkStatus: 'revoked' }), 'training.access'), false);
+  assert.equal(capabilityAllowed(deniedSnapshot, 'aiCoach'), false);
+  assert.equal(capabilityAllowed(deniedSnapshot, 'autonomousTraining'), true);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full'), 'aiCoach'), true);
+  assert.equal(capabilityAllowed(null, 'autonomousTraining'), false);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full', { expiresAt: new Date(now).toISOString() }), 'autonomousTraining'), false);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full', { generatedAt: new Date(now + 1).toISOString() }), 'autonomousTraining'), false);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full', { trainingSubject: { linkStatus: 'revoked' } }), 'autonomousTraining'), false);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full', { expiresAt: new Date(now + 61_001).toISOString() }), 'autonomousTraining'), false);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full', { personId: PERSON_B }), 'autonomousTraining'), false);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full', { trainingSubject: { linkStatus: 'active', trainingUserId: TRAINING_B } }), 'autonomousTraining'), false);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full', { revision: 9 }), 'autonomousTraining'), false, 'V2 schema rejects invented root fields');
+});
+
+test('administrative suspension overrides commercial and baseline capabilities without removing identity', () => {
+  const suspended = snapshot('administratively_suspended');
+  assert.equal(capabilityAllowed(suspended, 'autonomousTraining'), false);
+  assert.equal(capabilityAllowed(suspended, 'professionalFollowUp'), false);
+  assert.equal(suspended.trainingSubject.trainingUserId, TRAINING_A);
+  assert.equal(suspended.personId, PERSON_A);
+  assert.ok(Object.values(suspended.capabilities).every(value => value === false));
+});
+
+test('missing and revoked Training links are distinct V2 states and neither grants baseline', () => {
+  const missing = snapshot('missing_or_revoked_link', { trainingSubject: { linkStatus: 'not_linked' }, reasonCode: 'TRAINING_LINK_MISSING' });
+  const revoked = snapshot('missing_or_revoked_link', { trainingSubject: { linkStatus: 'revoked' }, reasonCode: 'TRAINING_LINK_REVOKED' });
+  assert.equal(capabilityAllowed(missing, 'autonomousTraining'), false);
+  assert.equal(capabilityAllowed(revoked, 'autonomousTraining'), false);
+  assert.equal(missing.reasonCode, 'TRAINING_LINK_MISSING');
+  assert.equal(revoked.reasonCode, 'TRAINING_LINK_REVOKED');
+  assert.equal(missing.suspensionStatus, 'none');
+  assert.equal(revoked.suspensionStatus, 'none');
+});
+
+test('an active linked external person without a client facet can receive baseline; invitation proof remains separate', () => {
+  const external = snapshot('free_autonomous_baseline');
+  assert.equal(capabilityAllowed(external, 'autonomousTraining'), true);
+  assert.equal(external.trainingSubject.linkStatus, 'active');
+  assert.equal(external.personId, PERSON_A);
+  assert.equal(capabilitySchema.properties.invitation, undefined, 'capability response does not claim invitation proof');
 });
 
 test('provision creates one Training-owned account and returns its stable id', () => {
@@ -306,12 +398,12 @@ test('SSO requires an active link and an existing enabled Training account', () 
 });
 
 test('staff exemption applies to staff identity, while an acting member is gated by the member snapshot', () => {
-  const staffHasNoQuota = snapshot('no_current_quota');
-  const memberHasAccess = snapshot('other_quota_current');
-  assert.equal(capabilityAllowed(staffHasNoQuota, 'training.access'), false);
+  const staffHasNoCommercialRight = snapshot('free_autonomous_baseline');
+  const memberHasAccess = snapshot('active_autonomous_training_access');
+  assert.equal(capabilityAllowed(staffHasNoCommercialRight, 'routineCreation'), false);
   // Staff route authorization is a separate role check; member capability is evaluated for the target.
   const staffRoleValid = true;
   assert.equal(staffRoleValid, true);
-  assert.equal(capabilityAllowed(memberHasAccess, 'training.professional_followup'), false);
-  assert.equal(capabilityAllowed(snapshot('force_current'), 'training.professional_followup'), true);
+  assert.equal(capabilityAllowed(memberHasAccess, 'professionalFollowUp'), false);
+  assert.equal(capabilityAllowed(snapshot('active_fuerza_full'), 'professionalFollowUp'), true);
 });

@@ -6,48 +6,6 @@
   "$defs": {
     "uuid": { "type": "string", "format": "uuid" },
     "timestamp": { "type": "string", "format": "date-time" },
-    "capabilities": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "training.access",
-        "training.self_routines",
-        "training.guided_2j",
-        "training.premium",
-        "training.ai",
-        "training.professional_followup"
-      ],
-      "properties": {
-        "training.access": { "type": "boolean" },
-        "training.self_routines": { "type": "boolean" },
-        "training.guided_2j": { "type": "boolean" },
-        "training.premium": { "type": "boolean" },
-        "training.ai": { "type": "boolean" },
-        "training.professional_followup": { "type": "boolean" }
-      }
-    },
-    "capabilitySnapshot": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "v", "personId", "trainingUserId", "linkStatus", "revision",
-        "issuedAt", "expiresAt", "operationalStatus", "reasonCode",
-        "capabilities", "correlationId"
-      ],
-      "properties": {
-        "v": { "const": 1 },
-        "personId": { "$ref": "#/$defs/uuid" },
-        "trainingUserId": { "type": "string", "minLength": 1, "maxLength": 200 },
-        "linkStatus": { "enum": ["active", "pending", "revoked", "unlinked"] },
-        "revision": { "type": "integer", "minimum": 1 },
-        "issuedAt": { "$ref": "#/$defs/timestamp" },
-        "expiresAt": { "$ref": "#/$defs/timestamp" },
-        "operationalStatus": { "enum": ["allowed", "blocked", "link_required"] },
-        "reasonCode": { "type": ["string", "null"], "maxLength": 80 },
-        "capabilities": { "$ref": "#/$defs/capabilities" },
-        "correlationId": { "type": "string", "minLength": 1, "maxLength": 100 }
-      }
-    },
     "provisionRequest": {
       "type": "object",
       "additionalProperties": false,
@@ -102,7 +60,7 @@
     "ssoCodeRedemptionResponse": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["v", "issuer", "audience", "personId", "trainingUserId", "linkStatus", "capabilitySnapshot", "correlationId"],
+      "required": ["v", "issuer", "audience", "personId", "trainingUserId", "linkStatus", "correlationId"],
       "properties": {
         "v": { "const": 1 },
         "issuer": { "const": "2j-platform" },
@@ -110,7 +68,6 @@
         "personId": { "$ref": "#/$defs/uuid" },
         "trainingUserId": { "type": "string", "minLength": 1, "maxLength": 200 },
         "linkStatus": { "const": "active" },
-        "capabilitySnapshot": { "$ref": "#/$defs/capabilitySnapshot" },
         "correlationId": { "type": "string", "minLength": 1, "maxLength": 100 }
       }
     }

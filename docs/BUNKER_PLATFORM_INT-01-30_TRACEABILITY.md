@@ -1,6 +1,6 @@
 # Búnker ↔ Platform: controles técnicos INT-01–INT-30
 
-Estado de revisión: `a7678b864ca404cb38c13706d780e659c47f214a`.
+Estado de revisión (2026-10-22): 2jfitnessapp `origin/main`=`a7678b864ca404cb38c13706d780e659c47f214a`; 2j-platform `origin/main`=`e4b6218f02d24f9c78d7670252d68474cfea2232`.
 
 ## Alcance y procedencia
 
@@ -27,8 +27,8 @@ Esta tabla contiene 30 controles técnicos INT, derivados de los contratos, la p
 | INT-17 | Flags de emisión, exchange y reconciliación son independientes y apagados por defecto | `api/platform-proof/routes.js`; prueba “feature flags stay independently off by default…” | Operativo para proofs |
 | INT-18 | Se persiste hash cifrado del proof, no el código en claro | `api/platform-proof/store.js`; prueba “stores only encrypted proof hashes” | Operativo para proofs |
 | INT-19 | Receipt de reconciliación es durable e inmutable bajo consumo concurrente | `api/platform-proof/store.js`; pruebas de persistencia, concurrencia y fallo de escritura | Operativo para proofs |
-| INT-20 | Matriz de seis capabilities queda cerrada y versionada | `contracts/platform-training-entitlements-v1.json`; prueba de esquema | Contrato design-only |
-| INT-21 | Ausencia, expiración o revocación de snapshot debe fallar cerrado | Modelo de referencia en `api/test/platform-integration-contract.test.js`; no hay gate runtime | Diseño/test aislado |
+| INT-20 | Payload V2 de diez capabilities coincide con el esquema Platform | `contracts/platform-training-capabilities-v2.schema.json`, `platform-training-capabilities-v2.json` y pruebas aisladas de contrato | Referencia de contrato; sin gate runtime |
+| INT-21 | Snapshot ausente, inválido, expirado o con link no activo falla cerrado; outage cacheable solo hasta expiresAt | Modelo de referencia en `api/test/platform-integration-contract.test.js`; Platform V2 `generatedAt`/`expiresAt` máximo 60 s; no hay gate runtime | Diseño/test aislado |
 | INT-22 | Entitlement no reemplaza rol/permiso del staff | Preparación en `docs/BUNKER_PLATFORM_SSO_ENTITLEMENTS_PREP.md`; prueba “staff exemption applies…” | Diseño/test aislado |
 | INT-23 | Rutas de datos propios requieren sesión/ownership Training actual | `api/server.js` (`readSession`) y mapa de rutas de la preparación; todavía no aplican capability | Auth operativo; entitlement pendiente |
 | INT-24 | Acceso de socio a Búnker tendría que comprobarse también en API | `api/bunker/routes.js` (`checkin`, `session`, `handoff`, `board`); mapa de rutas en preparación; sin gate de quota | Búnker operativo; gate pendiente |
@@ -41,4 +41,4 @@ Esta tabla contiene 30 controles técnicos INT, derivados de los contratos, la p
 
 ## Resultado
 
-Los proofs actuales son una capacidad preparatoria separada y default-off. Los contratos de provisionamiento, vínculo activo, entitlements y SSO, así como los tests de `platform-integration-contract.test.js`, son especificación/modelo aislado; no son pruebas de rutas reales ni de atomicidad entre procesos. No se activa SSO, no se migran cuentas y no se aplica una nueva restricción de membresía. La matriz funcional D01–D30 queda pendiente del dossier original «2J FITNESS CENTER — AUDITORÍA FUNCIONAL GLOBAL Y COORDINACIÓN ENTRE INGENIEROS». Las dependencias técnicas permanecen en `docs/BUNKER_PLATFORM_SSO_ENTITLEMENTS_PREP.md`.
+Los proofs actuales son una capacidad preparatoria separada y default-off. Los contratos de provisionamiento, vínculo activo, entitlements y SSO, así como los tests de `platform-integration-contract.test.js`, son especificación/modelo aislado; no son pruebas de rutas reales ni de atomicidad entre procesos. No se activa SSO, no se migran cuentas y no se aplica una nueva restricción de membresía. Esta tabla solo contiene controles INT-01–INT-30; no sustituye ni reconstruye las decisiones funcionales D01–D30 originales, que se conservan en el dossier compartido. Las dependencias técnicas permanecen en `docs/BUNKER_PLATFORM_SSO_ENTITLEMENTS_PREP.md`.
