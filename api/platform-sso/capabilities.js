@@ -145,9 +145,11 @@ const ALERT_EVERY_MS = 5 * 60_000;
 export function createCapabilitiesService({ config, now = Date.now, fetchImpl = globalThis.fetch, onRestriction = () => {}, onLinkLost = () => {}, onAlert = () => {}, timeoutMs = 3000, breakerBaseMs = DEFAULT_BREAKER_BASE_MS }) {
   const BREAKER_BACKOFF_MS = backoffSteps(breakerBaseMs);
   const contract = config?.contract === CAPABILITIES_V21 ? CAPABILITIES_V21 : CAPABILITIES_V2;     // V2 unless the operator opted in; `config` is null while Platform is not configured
-  const cache = new Map();      // personId -> { payload, expiresAtMs, fetchedAtMs }
-  const rejections = new Map(); // personId -> { kind, reason, untilMs }
-  const inflight = new Map();   // personId -> Promise
+  const pairKey = (personId, trainingUserId) => `${personId}\n${trainingUserId}`;      // every memory below is partitioned by (person, Training user)
+  const answersFor = (payload, user) => payload.personId === user.personId && (payload.trainingSubject.linkStatus !== 'active' || payload.trainingSubject.trainingUserId === user.id);
+  const cache = new Map();      // pair -> { payload, expiresAtMs, fetchedAtMs }
+  const rejections = new Map(); // pair -> { kind, reason, untilMs }
+  const inflight = new Map();   // pair -> Promise
   const epochs = new Map();     // personId -> how many times a signed signal made us forget what we knew (an answer fetched before that is stale)
   const enabled = Boolean(config && config.baseUrl && config.keyId && config.secret);
   const breaker = { failures: 0, openUntil: 0, downSince: 0 };
@@ -206,24 +208,26 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
   /** Returns `{ source: 'fresh'|'cache'|'degraded'|'rejected', ...view }` or `null` when there is no verdict (legacy/shadow user, nothing known). */
   async function evaluate(user, { mode = 'legacy', again = false } = {}) {
     if (!user?.personId) return null;
-    const personId = user.personId, t = now();
-    const cached = cache.get(personId);
-    if (cached && cached.expiresAtMs > t) return view(cached.payload, 'cache');
-    const rejected = rejections.get(personId);
+    const personId = user.personId, t = now(), key = pairKey(personId, user.id);
+    const cached = cache.get(key);
+    // A cache hit is revalidated against the Training user asking: an answer is about ONE (person, Training user) pair.
+    if (cached && cached.expiresAtMs > t && answersFor(cached.payload, user)) return view(cached.payload, 'cache');
+    if (cached && !answersFor(cached.payload, user)) cache.delete(key);
+    const rejected = rejections.get(key);
     if (rejected && rejected.untilMs > t) return rejectedView(rejected);
     if (!enabled) { alert('platform_not_configured', {}); return degraded(user, cached, mode); }
     if (breaker.openUntil > t) return degraded(user, cached, mode);     // outage: no waiting on a service we already know is down
     const epoch = epochs.get(personId) ?? 0;
-    let pending = inflight.get(personId);
-    if (!pending) { pending = fetchFromPlatform(personId).finally(() => inflight.delete(personId)); inflight.set(personId, pending); }
+    let pending = inflight.get(key);
+    if (!pending) { const own = fetchFromPlatform(personId).finally(() => { if (inflight.get(key) === own) inflight.delete(key); }); pending = own; inflight.set(key, pending); }
     const result = await pending;
     // A signed signal arrived while this answer was on its way: it may describe a state from before the change, so it is not used (asked again, once).
     if ((epochs.get(personId) ?? 0) !== epoch && !again) return evaluate(user, { mode, again: true });
     const received = now();
     const problem = result.ok ? check(user, result.payload) : { kind: result.kind, reason: result.reason };
     if (!problem) {
-      breaker.failures = 0; breaker.openUntil = 0; breaker.downSince = 0; rejections.delete(personId);
-      cache.set(personId, { payload: result.payload, expiresAtMs: Math.min(Date.parse(result.payload.expiresAt), received + MAX_CAPABILITY_CACHE_MS), fetchedAtMs: received });
+      breaker.failures = 0; breaker.openUntil = 0; breaker.downSince = 0; rejections.delete(key);
+      cache.set(key, { payload: result.payload, expiresAtMs: Math.min(Date.parse(result.payload.expiresAt), received + MAX_CAPABILITY_CACHE_MS), fetchedAtMs: received });
       const blocked = result.payload.capabilityLevel === 'blocked' ? { reasonCode: result.payload.reasonCode, at: new Date(received).toISOString() } : null;
       if (blocked && !(user.platformRestriction?.reasonCode === blocked.reasonCode)) onRestriction(user, blocked);
       if (!blocked && user.platformRestriction) onRestriction(user, null);
@@ -239,7 +243,7 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
     }
     // Rejection or inconsistency: the answer is a decision about this identity, not an outage. Fail closed, remember briefly, alert.
     const verdict = { kind: problem.kind, reason: problem.reason, untilMs: received + REJECTION_CACHE_MS };
-    rejections.set(personId, verdict);
+    rejections.set(key, verdict);
     alert(`platform_${problem.kind}`, { reason: problem.reason, personId });
     return rejectedView(verdict);
   }
@@ -256,8 +260,9 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
   }
   const allows = (result, names) => Boolean(result) && names.every(name => result.capabilities[name] === true);
   /** A signed Platform signal says something changed for this person: drop every cached verdict and any answer still in flight, so the next evaluation asks Platform. */
-  const forget = personId => { epochs.set(personId, (epochs.get(personId) ?? 0) + 1); cache.delete(personId); rejections.delete(personId); inflight.delete(personId); };
-  const prime = (personId, payload) => cache.set(personId, { payload, expiresAtMs: Math.min(Date.parse(payload.expiresAt), now() + MAX_CAPABILITY_CACHE_MS), fetchedAtMs: now() });
+  const forget = personId => { epochs.set(personId, (epochs.get(personId) ?? 0) + 1); for (const map of [cache, rejections, inflight]) for (const stored of [...map.keys()]) if (stored.startsWith(`${personId}\n`)) map.delete(stored); };
+  /** Only for the pair the answer names (an answer with no Training user, a person who is not linked, cannot be primed: it is fetched for whoever asks). */
+  const prime = (personId, payload) => payload.trainingSubject?.trainingUserId && cache.set(pairKey(personId, payload.trainingSubject.trainingUserId), { payload, expiresAtMs: Math.min(Date.parse(payload.expiresAt), now() + MAX_CAPABILITY_CACHE_MS), fetchedAtMs: now() });
   /** Operational view for logs/health: how long Platform has been unreachable (0 = reachable). */
   const status = () => ({ enabled, consecutiveFailures: breaker.failures, unreachableSinceMs: breaker.downSince ? now() - breaker.downSince : 0, breakerOpen: breaker.openUntil > now() });
 
