@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { isSsoLanding, redeemSso, resetSsoLandingForTests, runSsoLanding, ssoCodeFromHash, ssoOutcome } from './sso-landing.js'
+import { confirmSsoSwitch, isSsoLanding, redeemSso, resetSsoLandingForTests, runSsoLanding, ssoCodeFromHash, ssoOutcome } from './sso-landing.js'
 
 const CODE = 'Q'.repeat(43)
 const reply = (status, body) => vi.fn(async () => ({ status, json: async () => body }))
@@ -65,5 +65,27 @@ describe('the landing run', () => {
     const fetchImpl = vi.fn()
     const result = await runSsoLanding({ location: { hash: '#/' }, history: { replaceState() {} }, fetchImpl, go: vi.fn() })
     expect(result).toEqual({ ok: false, kind: 'invalid' }); expect(fetchImpl).not.toHaveBeenCalled()
+  })
+})
+
+describe('switching account (H3): never silently', () => {
+  beforeEach(() => resetSsoLandingForTests())
+  it('a 409 session_switch_confirmation_required becomes a confirm step that carries the ticket and the two names, and does NOT navigate', async () => {
+    const body = { error: 'session_switch_confirmation_required', ticket: 'f'.repeat(64), current: { name: 'Ana' }, target: { name: 'Beto' } }
+    expect(ssoOutcome(409, body)).toBe('confirm')
+    const go = vi.fn()
+    const result = await runSsoLanding({ location: { hash: `#code=${CODE}` }, history: { replaceState() {} }, fetchImpl: reply(409, body), go })
+    expect(result).toEqual({ ok: false, kind: 'confirm', ticket: 'f'.repeat(64), current: 'Ana', target: 'Beto' })
+    expect(go).not.toHaveBeenCalled()
+  })
+  it('only an explicit confirmation posts the ticket (and nothing else) to Training itself', async () => {
+    const fetchImpl = reply(200, { ok: true, user: { id: 'u2' } })
+    expect(await confirmSsoSwitch('f'.repeat(64), fetchImpl)).toEqual({ ok: true, user: { id: 'u2' } })
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe('/api/platform/v1/sso/confirm'); expect(init.method).toBe('POST'); expect(init.credentials).toBe('same-origin')
+    expect(JSON.parse(init.body)).toEqual({ ticket: 'f'.repeat(64) })
+    expect(await confirmSsoSwitch('x', reply(400, { error: 'sso_code_invalid' }))).toEqual({ ok: false, kind: 'invalid' })
+    expect(await confirmSsoSwitch('x', reply(409, { error: 'link_not_confirmed' }))).toEqual({ ok: false, kind: 'link' })
+    expect(await confirmSsoSwitch('x', vi.fn(async () => { throw new Error('offline') }))).toEqual({ ok: false, kind: 'unavailable' })
   })
 })

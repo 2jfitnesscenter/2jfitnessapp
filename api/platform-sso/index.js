@@ -167,6 +167,18 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     finally { clearTimeout(timer); }
   }
 
+  // H3: a Platform code must never silently REPLACE a session that belongs to another account (login CSRF: an attacker with a linked account
+  // sends a victim to /sso#code=<attacker's code>). Instead the redemption answers 409 with a short-lived, single-use switch ticket bound to the
+  // browser session that is currently signed in; only that session can confirm, and only after the person has been shown who they would become.
+  const SWITCH_TTL_MS = 60_000, switchTickets = new Map();
+  const hashText = async value => Buffer.from(await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))).toString('hex');
+  const sessionToken = req => { const match = /(?:^|;\s*)gymsid=([^;]+)/.exec(String(req.headers.cookie || '')); return match ? match[1] : null; };
+  const sweepTickets = () => { const t = now(); for (const [key, ticket] of switchTickets) if (ticket.expiresAt <= t) switchTickets.delete(key); if (switchTickets.size > 500) switchTickets.clear(); };
+  const sessionBody = (user, payloadLevel) => ({
+    ok: true, capabilityLevel: payloadLevel,
+    user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, avatar: user.avatar || null, admin: false, trainer: false, authLevel: 'sso' },
+  });
+
   const routes = {
     // Browser -> Training. The code arrives in the URL fragment on Training's own page and is posted here once.
     'POST /api/platform/v1/sso/redeem': async (req, res) => {
@@ -199,20 +211,52 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
         if (evidence.status === 'conflict') return fail(409, 'link_conflict');
         if (evidence.status !== 'linked') return fail(409, 'link_not_confirmed');
       }
+      // A valid session of ANOTHER account is never replaced silently (H3).
+      const current = readSession(req);
+      if (current && current.id !== user.id) {
+        sweepTickets();
+        const token = sessionToken(req);
+        if (!token) return fail(409, 'link_not_confirmed');
+        const ticket = globalThis.crypto.randomUUID().replaceAll('-', '') + globalThis.crypto.randomUUID().replaceAll('-', '');
+        switchTickets.set(await hashText(ticket), { sessionHash: await hashText(token), targetUserId: user.id, personId, capabilityLevel: payload.capabilityLevel, expiresAt: now() + SWITCH_TTL_MS });
+        secEvent('platform_sso_switch_requested', { userId: current.id, meta: { target: 'other-account' } });
+        saveDb();
+        return json(res, 409, { error: 'session_switch_confirmation_required', ticket, current: { name: current.name }, target: { name: user.name }, expiresInSeconds: SWITCH_TTL_MS / 1000 });
+      }
       delete user.platformRestriction;
       capabilities.prime(personId, payload);
       secEvent('platform_sso_login', { userId: user.id, meta: { capabilityLevel: payload.capabilityLevel } });
       saveDb();
-      // A valid passkey (or other non-sso) session for the SAME account is stronger than an sso one: keep it rather than
-      // replacing the cookie. A session of another account, an invalid cookie, or an older sso session is replaced.
-      const current = readSession(req);
+      // A valid passkey (or other non-sso) session for the SAME account is stronger than an sso one: keep it rather than replacing the cookie.
       if (current && current.id === user.id && current.authLevel !== 'sso') {
         return json(res, 200, { ok: true, sessionKept: true, capabilityLevel: payload.capabilityLevel, user: { id: user.id, name: user.name, authLevel: current.authLevel } });
       }
-      json(res, 200, {
-        ok: true, capabilityLevel: payload.capabilityLevel,
-        user: { id: user.id, name: user.name, username: user.username || null, created: user.created || null, avatar: user.avatar || null, admin: false, trainer: false, authLevel: 'sso' },
-      }, { 'Set-Cookie': newSsoSession(req, user) });
+      json(res, 200, sessionBody(user, payload.capabilityLevel), { 'Set-Cookie': newSsoSession(req, user) });
+    },
+
+    // The person has seen "you are signed in as A; continue as B?" and said yes. Only the browser session that was signed in when the code was
+    // redeemed can confirm, once, within a minute. Everything about B is checked again (account enabled, not an environment administrator, link still acknowledged).
+    'POST /api/platform/v1/sso/confirm': async (req, res) => {
+      res.setHeader('Cache-Control', 'no-store');
+      if (!config.ssoEnabled) return json(res, 423, { error: 'platform_sso_disabled' });
+      if (req.headers.origin !== origin) return json(res, 403, { error: 'origin_rejected' });
+      const ip = rateLimit.gate(req, res); if (!ip) return;
+      const body = z.object({ ticket: z.string().regex(/^[0-9a-f]{64}$/) }).strict().safeParse(await readBody(req));
+      if (!body.success) { rateLimit.fail(ip); return json(res, 400, { error: 'invalid_sso_request' }); }
+      const current = readSession(req), token = sessionToken(req);
+      if (!current || !token) { rateLimit.fail(ip); return json(res, 400, { error: 'sso_code_invalid' }); }
+      sweepTickets();
+      const key = await hashText(body.data.ticket), ticket = switchTickets.get(key);
+      switchTickets.delete(key);                                   // single use, whatever happens next
+      if (!ticket || ticket.expiresAt <= now() || ticket.sessionHash !== await hashText(token)) { rateLimit.fail(ip); return json(res, 400, { error: 'sso_code_invalid' }); }
+      const user = db.users.find(candidate => candidate.id === ticket.targetUserId);
+      const link = user?.platformLink;
+      if (!user || user.disabled || isEnvAdmin(user.id) || !link || link.state !== 'active' || link.personId !== ticket.personId || user.personId !== ticket.personId || current.id === user.id) { rateLimit.fail(ip); return json(res, 409, { error: 'link_not_confirmed' }); }
+      delete user.platformRestriction;
+      secEvent('platform_sso_switch_confirmed', { userId: user.id, meta: { target: 'from-other-account', capabilityLevel: ticket.capabilityLevel } });
+      secEvent('platform_sso_login', { userId: user.id, meta: { capabilityLevel: ticket.capabilityLevel } });
+      saveDb();
+      json(res, 200, sessionBody(user, ticket.capabilityLevel), { 'Set-Cookie': newSsoSession(req, user) });
     },
 
     // Administrator moves ONE user along legacy -> shadow -> enforced (and back to shadow). No global switch exists.

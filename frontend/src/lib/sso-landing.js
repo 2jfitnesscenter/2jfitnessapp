@@ -3,6 +3,7 @@
 // history immediately, and posted to Training's own origin, which redeems it server-to-server with Platform.
 export const SSO_PATH = '/sso'
 export const REDEEM_PATH = '/api/platform/v1/sso/redeem'
+export const CONFIRM_PATH = '/api/platform/v1/sso/confirm'
 
 export const isSsoLanding = loc => !!loc && loc.pathname === SSO_PATH
 
@@ -18,6 +19,7 @@ export function ssoOutcome(status, body) {
   if (status === 423) return 'disabled'
   if (status === 403 && code === 'platform_access_blocked') return 'blocked'
   if (status === 403) return 'unavailable'
+  if (status === 409 && code === 'session_switch_confirmation_required') return 'confirm'
   if (status === 409 && (code === 'link_conflict' || code === 'link_not_confirmed')) return 'link'
   if (status === 400 && code === 'sso_code_invalid') return 'invalid'
   if (status === 429) return 'busy'
@@ -33,7 +35,17 @@ export async function redeemSso(code, fetchImpl = globalThis.fetch) {
     })
     const body = await response.json().catch(() => ({}))
     const kind = ssoOutcome(response.status, body)
+    if (kind === 'confirm') return { ok: false, kind, ticket: String(body.ticket || ''), current: String(body.current?.name || ''), target: String(body.target?.name || '') }
     return kind === 'ok' ? { ok: true, user: body.user ?? null } : { ok: false, kind }
+  } catch { return { ok: false, kind: 'unavailable' } }
+}
+
+/** The person said "yes, continue as the other account": only now does the session change. Never throws. */
+export async function confirmSsoSwitch(ticket, fetchImpl = globalThis.fetch) {
+  try {
+    const response = await fetchImpl(CONFIRM_PATH, { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket }) })
+    const body = await response.json().catch(() => ({}))
+    return response.status === 200 ? { ok: true, user: body.user ?? null } : { ok: false, kind: ssoOutcome(response.status, body) === 'link' ? 'link' : 'invalid' }
   } catch { return { ok: false, kind: 'unavailable' } }
 }
 

@@ -1142,3 +1142,63 @@ test('H10: a failure of the integration itself keeps legacy and anonymous caller
   const source = fs.readFileSync(path.join(API_ROOT, 'server.js'), 'utf8');
   assert.match(source, /gateFailureMayProceed\(who\)/); assert.equal((source.match(/platform_gate_unavailable/g) || []).length, 1);
 });
+
+/* ---- H3: a Platform code never silently replaces the session of ANOTHER account (login CSRF) ---- */
+async function redeemWithCookie(who, cookie) {
+  const code = randomBytes(32).toString('base64url');
+  platform.state.codes.set(code, { personId: people[who].personId, trainingUserId: people[who].uid });
+  const response = await call(training, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code }, origin: training.base, cookie });
+  return { ...response, code, setCookie: response.headers.get('set-cookie') || '' };
+}
+const confirmSwitch = (ticket, cookie, origin = training.base) => call(training, 'POST', '/api/platform/v1/sso/confirm', { body: { ticket }, origin, cookie });
+
+test('H3: redeeming while ANOTHER account is signed in asks for confirmation instead of replacing the session; only that browser session can confirm, once', async () => {
+  setCaps('a', 'baseline', { ttlMs: 1500 }); setCaps('b', 'baseline', { ttlMs: 1500 });
+  const victim = cookieFor(people.a.uid);
+  assert.equal((await call(training, 'GET', '/api/me', { cookie: victim })).json.user?.id ?? (await call(training, 'GET', '/api/me', { cookie: victim })).json.id, people.a.uid);
+
+  // The attacker (account b) got a valid code and sent the victim (signed in as a) to /sso#code=...
+  const attempt = await redeemWithCookie('b', victim);
+  assert.equal(attempt.status, 409, JSON.stringify(attempt.json)); assert.equal(attempt.json.error, 'session_switch_confirmation_required');
+  assert.equal(attempt.setCookie, '', 'no cookie is issued: the victim\'s session was not replaced');
+  assert.equal(attempt.json.current.name, 'Member a'); assert.equal(attempt.json.target.name, 'Member b');
+  assert.match(attempt.json.ticket, /^[0-9a-f]{64}$/);
+  assert.equal((await call(training, 'GET', '/api/me', { cookie: victim })).status, 200, 'the victim is still signed in as themselves');
+  assert.ok(!JSON.stringify(attempt.json).includes(attempt.code), 'the one-time code is not echoed');
+
+  // Nobody else can use the ticket: another browser, no session, wrong origin, malformed.
+  const other = await confirmSwitch(attempt.json.ticket, cookieFor(people.c.uid)); assert.equal(other.status, 400);
+  const second = await redeemWithCookie('b', victim); assert.equal(second.status, 409);       // the first ticket was burned by the failed attempt; ask for another
+  assert.equal((await confirmSwitch(second.json.ticket, undefined)).status, 400, 'no session');
+  assert.equal((await confirmSwitch(second.json.ticket, victim, 'https://evil.example')).status, 403, 'foreign origin');
+  assert.equal((await call(training, 'POST', '/api/platform/v1/sso/confirm', { body: { ticket: 'x' }, origin: training.base, cookie: victim })).status, 400);
+  const third = await redeemWithCookie('b', victim);
+
+  // The person confirms explicitly: now (and only now) the session becomes b's, once.
+  const done = await confirmSwitch(third.json.ticket, victim);
+  assert.equal(done.status, 200, JSON.stringify(done.json)); assert.equal(done.json.user.id, people.b.uid); assert.equal(done.json.user.authLevel, 'sso');
+  assert.match(done.headers.get('set-cookie') || '', /gymsid=/);
+  assert.equal((await confirmSwitch(third.json.ticket, victim)).status, 400, 'a ticket is single use');
+  const events = JSON.stringify(dbUser(people.a.uid) && JSON.parse(fs.readFileSync(dbFile, 'utf8')).securityEvents || []);
+  assert.match(events, /platform_sso_switch_requested/); assert.match(events, /platform_sso_switch_confirmed/);
+});
+
+test('H3: the confirmation re-checks the target account, and the normal flows are unchanged (no session, same account, older sso session)', async () => {
+  setCaps('d', 'baseline', { ttlMs: 1500 }); setCaps('e', 'baseline', { ttlMs: 1500 });
+  // No session: direct sign-in, as before.
+  const fresh = await redeemWithCookie('d', undefined); assert.equal(fresh.status, 200); assert.match(fresh.setCookie, /gymsid=/);
+  // Same account with its passkey session: kept, no replacement and no prompt.
+  const kept = await redeemWithCookie('d', cookieFor(people.d.uid)); assert.equal(kept.status, 200); assert.equal(kept.json.sessionKept, true); assert.equal(kept.setCookie, '');
+  // An older sso session of the SAME account is replaced (that is just a refresh)...
+  const refreshed = await redeemWithCookie('d', fresh.setCookie.split(';')[0]); assert.equal(refreshed.status, 200); assert.match(refreshed.setCookie, /gymsid=/);
+  // ... but an sso session of ANOTHER account also needs the confirmation.
+  const crossed = await redeemWithCookie('e', refreshed.setCookie.split(';')[0]); assert.equal(crossed.status, 409);
+  // Between the prompt and the confirmation the target link is revoked by Platform: the confirmation fails closed.
+  const ticket = crossed.json.ticket, session = refreshed.setCookie.split(';')[0];
+  const revoke = await platformCall(training, REVOKE, { v: 1, linkId: dbUser(people.e.uid).platformLink.linkId, linkVersion: 9, personId: people.e.personId, trainingUserId: people.e.uid });
+  assert.equal(revoke.status, 200, JSON.stringify(revoke.json));
+  const late = await confirmSwitch(ticket, session); assert.equal(late.status, 409); assert.equal(late.json.error, 'link_not_confirmed');
+  // Restore the acknowledged link for later tests.
+  const again = await platformCall(training, ACTIVATE, activateBody('e', { linkId: randomUUID(), linkVersion: 12 }));
+  assert.ok([200, 409].includes(again.status));
+});

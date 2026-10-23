@@ -4,7 +4,7 @@
 // uses the URL hash) so the one-time code in the fragment is consumed and cleared first. See lib/sso-landing.js.
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n.js'
-import { runSsoLanding } from '../lib/sso-landing.js'
+import { confirmSsoSwitch, runSsoLanding } from '../lib/sso-landing.js'
 
 const MESSAGES = {
   invalid: 'This sign-in link has expired or was already used. Open Búnker again from your 2J space.',
@@ -20,9 +20,26 @@ export default function SsoLanding() {
   useEffect(() => {
     let alive = true
     runSsoLanding({ location: window.location, history: window.history, fetchImpl: window.fetch.bind(window), go: path => window.location.replace(path) })
-      .then(result => { if (alive && result && !result.ok) setState({ phase: 'failed', kind: result.kind }) })
+      .then(result => { if (alive && result && !result.ok) setState(result.kind === 'confirm' ? { phase: 'confirm', kind: 'confirm', ticket: result.ticket, current: result.current, target: result.target } : { phase: 'failed', kind: result.kind }) })
     return () => { alive = false }
   }, [])
+  if (state.phase === 'confirm') {
+    // Someone else is signed in on this browser: never switch without an explicit yes.
+    const confirm = async () => {
+      setState(prev => ({ ...prev, phase: 'working' }))
+      const result = await confirmSsoSwitch(state.ticket)
+      if (result.ok) window.location.replace('/'); else setState({ phase: 'failed', kind: result.kind === 'link' ? 'link' : 'invalid' })
+    }
+    return (
+      <div className="narrow"><div className="card" role="alertdialog" aria-labelledby="sso-switch-title">
+        <h1 id="sso-switch-title">{t('Switch account?')}</h1>
+        <p>{t('This browser is signed in as {0}. The link you opened would sign you in as {1} instead.', state.current, state.target)}</p>
+        <p>{t('Only continue if you asked to open Búnker with that 2J account.')}</p>
+        <button className="btn" onClick={confirm}>{t('Continue as {0}', state.target)}</button>
+        <a className="btn ghost" href="/">{t('Stay signed in as {0}', state.current)}</a>
+      </div></div>
+    )
+  }
   if (state.phase === 'working') return <div className="narrow"><div className="card" role="status">{t('Opening Búnker with your 2J account…')}</div></div>
   return (
     <div className="narrow"><div className="card" role="alert">
