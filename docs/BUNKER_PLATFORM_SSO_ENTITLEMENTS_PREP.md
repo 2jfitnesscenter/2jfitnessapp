@@ -50,23 +50,25 @@ El contrato V2 NO incluye `revision`, `issuedAt`, `operationalStatus`, `issuer` 
 
 Platform conserva la autoridad de derechos comerciales y cálculo 098E; Training no recalcula pagos ni vencimientos. Una membresía ausente, terminada o impagada no es suspensión: el vínculo activo no suspendido vuelve al baseline libre. El día 10 completo sigue vigente hasta 23:59:59.999 `Atlantic/Canary`; el bloqueo comercial derivado por Platform empieza el día 11 a las 00:00 local.
 
-### Decisiones funcionales aprobadas D276–D282
+### Decisiones funcionales aprobadas INT-V2-01–INT-V2-07
+
+> Renumeración (2026-10-23): estas siete decisiones se llamaban «D276–D282» en este documento. Esa numeración **colisiona** con el registro del propietario (que termina en D274), así que se llaman **INT-V2-01…INT-V2-07** (INT-V2-01 = antes D276 … INT-V2-07 = antes D282). Solo cambia el nombre, no el contenido.
 
 El dossier aprobado para PR #59 contiene estas decisiones en su idioma original. Se preserva aquí su texto literal; debajo se separa el estado verificable de Platform y del consumidor Búnker.
 
-**D276** — “Búnker can be used for autonomous training even without an active membership.” Un usuario autorizado, registrado y no suspendido conserva entrenamiento autónomo, creación/gestión de rutinas personales, registro de workouts, consulta del historial y sus datos. Platform lo representa con `capabilityLevel=baseline`; la persona debe tener Training link activo.
+**INT-V2-01** — “Búnker can be used for autonomous training even without an active membership.” Un usuario autorizado, registrado y no suspendido conserva entrenamiento autónomo, creación/gestión de rutinas personales, registro de workouts, consulta del historial y sus datos. Platform lo representa con `capabilityLevel=baseline`; la persona debe tener Training link activo.
 
-**D277** — “Previously delivered professional routines remain usable after leaving the gym.” Al terminar derechos profesionales/comerciales, las rutinas ya entregadas siguen disponibles y utilizables, pueden copiarse/modificarse como personales y el historial permanece; solo cesan servicios profesionales nuevos que requieran derechos activos. Platform no almacena rutinas: la retención y copia corresponden al consumidor Búnker y siguen pendientes de prueba E2E.
+**INT-V2-02** — “Previously delivered professional routines remain usable after leaving the gym.” Al terminar derechos profesionales/comerciales, las rutinas ya entregadas siguen disponibles y utilizables, pueden copiarse/modificarse como personales y el historial permanece; solo cesan servicios profesionales nuevos que requieran derechos activos. Platform no almacena rutinas: la retención y copia corresponden al consumidor Búnker y siguen pendientes de prueba E2E.
 
-**D278** — “External users who have never been 2J clients may register only through a valid invitation.” La invitación no está representada como prueba en el payload de capabilities V2 y el flujo de alta sigue pendiente.
+**INT-V2-03** — “External users who have never been 2J clients may register only through a valid invitation.” La invitación no está representada como prueba en el payload de capabilities V2 y el flujo de alta sigue pendiente.
 
-**D279** — “Invitations may be generated only by: Administrators; Trainers explicitly granted the specific permission. Do not grant invitation capability to all Trainers by default.” La generación de invitaciones no se implementa aquí; el permiso explícito por Trainer depende de 2J-098C.
+**INT-V2-04** — “Invitations may be generated only by: Administrators; Trainers explicitly granted the specific permission. Do not grant invitation capability to all Trainers by default.” La generación de invitaciones no se implementa aquí; el permiso explícito por Trainer depende de 2J-098C.
 
-**D280** — “Invited-user registration happens through Home using unified identity.” El registro unificado desde Home sigue pendiente E2E; estos contratos no habilitan registro público.
+**INT-V2-05** — “Invited-user registration happens through Home using unified identity.” El registro unificado desde Home sigue pendiente E2E; estos contratos no habilitan registro público.
 
-**D281** — “If an external Training user later becomes a 2J client, authorized staff performs the client enrollment while preserving: canonical person identity; Training identity/link; routines; workout history; other retained data.” Platform mantiene persona y facetas separadas; falta verificar el flujo de inscripción extremo a extremo y la conservación de datos Training.
+**INT-V2-06** — “If an external Training user later becomes a 2J client, authorized staff performs the client enrollment while preserving: canonical person identity; Training identity/link; routines; workout history; other retained data.” Platform mantiene persona y facetas separadas; falta verificar el flujo de inscripción extremo a extremo y la conservación de datos Training.
 
-**D282** — “Administrators and Trainers explicitly granted the appropriate permission may suspend Búnker access for misuse.” La suspensión es independiente de membresía, pagos, vínculo y fin de contrato; exige motivo, autorización de servidor y auditoría, conserva identidad/rutinas/medidas/historial, se puede levantar y recalcula capabilities actuales. Platform implementa el ciclo Admin-only con `training.suspension.manage`; la concesión granular a Trainers espera 2J-098C.
+**INT-V2-07** — “Administrators and Trainers explicitly granted the appropriate permission may suspend Búnker access for misuse.” La suspensión es independiente de membresía, pagos, vínculo y fin de contrato; exige motivo, autorización de servidor y auditoría, conserva identidad/rutinas/medidas/historial, se puede levantar y recalcula capabilities actuales. Platform implementa el ciclo Admin-only con `training.suspension.manage`; la concesión granular a Trainers espera 2J-098C.
 
 ## Aprovisionamiento servidor-servidor
 
@@ -109,10 +111,10 @@ Para rutas nuevas se requiere allowlist exacta + switch default-off + esquema es
 
 - Consumidor backend Training del endpoint V2: servicio de salida, configuración segura de clave, binding de persona/link, política de caché hasta `expiresAt`, y gates por endpoint; hoy solo existe referencia de test, sin runtime.
 - Provisionamiento y vínculo activo con unicidad/revocación en ambos lados; no auto-link por PII.
-- Invitaciones D278/D279 y registro unificado de Home D280, incluida autorización explícita para invitadores.
+- Invitaciones INT-V2-03/INT-V2-04 y registro unificado de Home INT-V2-05, incluida autorización explícita para invitadores.
 - Redención SSO, sesión Training propia y decisión de assurance/strong-reauth; nunca equiparar `platform_sso` a passkey.
-- Inscripción posterior a cliente D281 conservando `personId`, Training link y todos los datos.
-- Consumer Búnker de D277 que mantenga rutinas profesionales ya entregadas y permita continuarlas/copiar/editar como personales; requiere E2E porque Platform no aloja rutinas.
+- Inscripción posterior a cliente INT-V2-06 conservando `personId`, Training link y todos los datos.
+- Consumer Búnker de INT-V2-02 que mantenga rutinas profesionales ya entregadas y permita continuarlas/copiar/editar como personales; requiere E2E porque Platform no aloja rutinas.
 - Concesión granular de `training.suspension.manage` / permiso de invitación a Trainers solo con 2J-098C; el rol Trainer actual no los obtiene por defecto.
 
 Los nombres/campos V2, el endpoint, auth de servicio, TTL de 60 s, recorte a transición y autoridad comercial 098E ya están implementados en Platform y no son dependencias pendientes.
@@ -128,7 +130,7 @@ Antes de activar una sola ruta, portar esos casos al store/rutas reales, añadir
 - **Hecho en este snapshot:** campo `personId` opcional no autoritativo; proofs Platform existentes default-off y autenticación `2J-SERVICE-AUTH-V1`; sesiones/passkeys Training actuales.
 - **Preparado aquí:** mapa por capability, referencia del JSON Schema V2 real y matriz V2; contrato de provisionamiento/link/SSO de diseño; límites de auth; trazabilidad INT; modelo de test aislado. `api/test/platform-integration-contract.test.js` sigue siendo modelo de referencia y no consumidor runtime.
 - **Implementado en Platform, no conectado aquí:** endpoint interno de lectura V2 y lifecycle de suspensión. El endpoint acepta persona activa y facet de cliente opcional, exige vínculo activo para baseline, usa auth de servicio, `no-store` y TTL hasta 60 s.
-- **Pendiente de integración E2E:** invitación/Home (D278–D280), conservación de rutinas entregadas en consumidor Búnker (D277), enrolamiento que preserve persona/link/datos (D281), consumidor Training/Búnker real de capabilities y comprobación server-side, SSO y assurance de sesión. La autorización explícita de suspensión/invitación a Trainer depende de 2J-098C.
+- **Pendiente de integración E2E:** invitación/Home (INT-V2-03–INT-V2-05), conservación de rutinas entregadas en consumidor Búnker (INT-V2-02), enrolamiento que preserve persona/link/datos (INT-V2-06), consumidor Training/Búnker real de capabilities y comprobación server-side, SSO y assurance de sesión. La autorización explícita de suspensión/invitación a Trainer depende de 2J-098C.
 - **No pendiente de decisión:** nombres/campos/TTL del contrato de capabilities V2, free baseline, separación de derechos comerciales y suspensión administrativa; están definidos por Platform.
 
 Nada en esta preparación cambia RP ID, usuarios, rutas existentes, login, producción, ni el enforcement de entitlements.
