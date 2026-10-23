@@ -19,19 +19,11 @@ const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
 const API_ROOT = path.resolve('.');
 
 /* ------------------------------------------------------------------ route policy: every real route is classified */
-test('every real API route is classified and sso sessions are limited to member routes', () => {
-  const found = new Set();
-  const walk = dir => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (['node_modules', 'test', 'scripts'].includes(entry.name)) continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith('.js')) {
-        for (const match of fs.readFileSync(full, 'utf8').matchAll(/['"`](GET|POST|PUT|PATCH|DELETE) (\/api\/[A-Za-z0-9_/:.\-]*)['"`]/g)) found.add(`${match[1]} ${match[2]}`);
-      }
-    }
-  };
-  walk(API_ROOT);
+test('every route of the EFFECTIVE router (and every literal found in the sources) is classified, and sso sessions are limited to member routes', async () => {
+  const { effectiveRoutes, scannedRoutes } = await import('../scripts/route-matrix.mjs');
+  const effective = effectiveRoutes();                                   // the keys of the `routes` table server.js really builds
+  const found = new Set([...effective, ...scannedRoutes()]);
+  for (const computed of ['POST /api/platform/v1/link/activate', 'POST /api/platform/v1/link/revoke', 'POST /api/platform/v1/provision', 'POST /api/platform/v1/sso/confirm']) assert.ok(effective.includes(computed), `${computed} is in the effective router (a source scan cannot see computed keys)`);
   assert.ok(found.size > 250, `route scan looks wrong (${found.size})`);
   const unclassified = [...found].filter(key => classifyRoute(key).kind === 'unclassified');
   assert.deepEqual(unclassified, [], 'new routes must be added to platform-sso/route-policy.js');

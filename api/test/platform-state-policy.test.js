@@ -102,3 +102,25 @@ test('the policy never mutates its inputs and ignores malformed payloads safely'
   assert.equal(JSON.stringify([cur, inc]), snapshot);
   for (const bad of [null, undefined, 'x', 7, [], { routines: 'nope', programs: 5, workouts: {} }]) assert.doesNotThrow(() => applyStatePolicy({ current: current(), incoming: bad, caps: baseline }));
 });
+
+test('H15: every top-level member-state key used by the sources is classified; the paid ones are exactly the commercial subtrees', async () => {
+  const fs = await import('node:fs'), path = await import('node:path')
+  const { STATE_KEY_CLASSES, COMMERCIAL_SUBTREES } = await import('../platform-sso/state-policy.js')
+  assert.deepEqual([...STATE_KEY_CLASSES.paid].sort(), COMMERCIAL_SUBTREES.map(entry => entry.key).sort(), 'paid keys and COMMERCIAL_SUBTREES must agree')
+  const all = Object.values(STATE_KEY_CLASSES).flat()
+  assert.equal(new Set(all).size, all.length, 'a key belongs to one class only')
+  const apiRoot = path.resolve('.'), roots = [apiRoot, path.resolve(apiRoot, '..', 'frontend', 'src')].filter(dir => fs.existsSync(dir))
+  const seen = new Map()
+  const walk = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (['node_modules', 'dist', 'test', 'tests', 'locales', 'assets', 'scripts'].includes(entry.name)) continue
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(full)
+      else if (/\.(js|jsx)$/.test(entry.name) && !/\.test\./.test(entry.name)) for (const match of fs.readFileSync(full, 'utf8').matchAll(/\bS\??\.([A-Za-z_][A-Za-z0-9_]*)/g)) seen.set(match[1], full)
+    }
+  }
+  roots.forEach(walk)
+  assert.ok(seen.size > 60, `the scan looks wrong (${seen.size} keys)`)
+  const unclassified = [...seen].filter(([key]) => !all.includes(key)).map(([key, file]) => `${key} (first seen in ${path.relative(apiRoot, file)})`)
+  assert.deepEqual(unclassified, [], 'classify new state keys in STATE_KEY_CLASSES (personal | paid | system) and, if paid, add them to COMMERCIAL_SUBTREES')
+})

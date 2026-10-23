@@ -3569,6 +3569,10 @@ const routes = {
   ...newsRoutes({ json, readBody, readSession, requireAdmin, saveImage: saveUploadedImage, deleteImage: deleteUploadedImage })
 };
 
+// Route-table dump for the security review (scripts/route-matrix.mjs and the route-classification test): print the keys of the EFFECTIVE router and exit
+// before anything listens or runs. Run it against an empty temporary DATA_DIR.
+if (process.env.DUMP_ROUTES === '1') { process.stdout.write(JSON.stringify(Object.keys(routes)) + String.fromCharCode(10)); process.exit(0); }
+
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */
 // A job that was running when the process died is not coming back; say so rather than leaving
 // a spinner that never resolves.

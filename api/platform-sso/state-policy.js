@@ -99,3 +99,25 @@ export function applyStatePolicy({ current, incoming, caps }) {
   }
   return { state: next, stripped: [...stripped], denied };
 }
+
+/**
+ * H15: the classification of EVERY top-level key of the member state. Only `paid` subtrees (and guided programs inside `programs`) are protected by
+ * the capability contract; everything else is free personal content or system bookkeeping. A key that is not listed here fails
+ * test/platform-state-policy.test.js (which scans the sources for `S.<key>`), so a new feature that stores commercial content cannot ship without
+ * someone deciding which class it belongs to — and adding it to COMMERCIAL_SUBTREES when it is paid.
+ */
+export const STATE_KEY_CLASSES = Object.freeze({
+  paid: ['coach', 'premium', 'opposition'],                                           // = COMMERCIAL_SUBTREES keys
+  mixed: ['programs', 'activeProgramId', 'programVersions'],                          // personal programs are free; source:'guided-v2' ones need guidedTraining
+  system: ['_sync', '_ts', 'active', 'exWeights', 'routineVersions', 'lang', 'unit', 'theme', 'accent', 'textScale', 'onboarded', 'ux', 'uxInviteDismissed', 'uxSetup'],
+  personal: [
+    'autoCompleteSets', 'autoreg', 'availablePlates', 'badgeFlags', 'badges', 'barByExercise', 'bioimpedanceReminderDays', 'birthDate', 'bodyweight', 'checkinMode',
+    'checkinSkipped', 'checkins', 'compGoals', 'countSecondaryMuscles', 'customEx', 'customIncrements', 'dayPlan', 'defaultLibraryTab', 'deload', 'deloadDismissed',
+    'effort', 'enableBioimpedanceReminder', 'enablePlateCalculator', 'enableProgressiveOverloadCoach', 'enableRpVolumeZones', 'enableTrainingZones', 'exGoals',
+    'excludedEx', 'favEx', 'favRoutines', 'gifSize', 'gymProfiles', 'height', 'hrMax', 'keepAwake', 'measurementUnitMode', 'measurements', 'priorityMuscles',
+    'programReviews', 'reminder', 'restAlert', 'restSec', 'restVibrate', 'restingHR', 'routineReviews', 'routines', 'rpVolumeOverrides', 'secondaryMuscleFactor',
+    'secondaryMuscles', 'shareCheckins', 'showExerciseImages', 'showExerciseTips', 'showPreviousResults', 'showRir', 'sleep', 'sound', 'steps', 'targetW',
+    'trainingLevel', 'use2JRoomEquipment', 'warmupEnabled', 'week', 'workoutGuidePending', 'workoutView', 'workouts',
+  ],
+  incidental: ['body', 'tests'],                                                      // property names that only look like state keys (other objects called S)
+})
