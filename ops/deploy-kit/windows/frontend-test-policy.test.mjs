@@ -50,6 +50,18 @@ test('Vitest JSON synthetic task stack is timeout-only only at or beyond the 5s 
   assert.equal(decideFrontendRetry(1, initial, EXPECTED).kind, 'fail')
 })
 
+test('Vitest JSON hook timeout stack is retryable only at or beyond the 5s timeout', () => {
+  const synthetic = 'Error: STACK_TRACE_ERROR\n    at beforeEach (file:///repo/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:719:26)\n    at /repo/frontend/src/views/Workout.test.jsx:77:1\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at VitestModuleEvaluator._runInlinedModule (file:///repo/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:206:4)\n    at startTests (file:///repo/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:3278:17)'
+  const initial = report({ passed: EXPECTED - 1, failures: [synthetic] })
+  initial.testResults[0].assertionResults[0].duration = 10036
+  assert.equal(decideFrontendRetry(1, initial, EXPECTED).kind, 'timeout-only')
+  initial.testResults[0].assertionResults[0].duration = 4999
+  assert.equal(decideFrontendRetry(1, initial, EXPECTED).kind, 'fail')
+  initial.testResults[0].assertionResults[0].failureMessages[0] = synthetic.replace('at beforeEach', 'at runTest')
+  initial.testResults[0].assertionResults[0].duration = 6000
+  assert.equal(decideFrontendRetry(1, initial, EXPECTED).kind, 'fail')
+})
+
 test('C: a full sequential retry passes only at 1411/1411', () => {
   assert.equal(decideSequentialRetry(0, report(), EXPECTED).kind, 'pass')
 })

@@ -87,6 +87,17 @@ test('rejects missing/duplicate delta paths and malformed probes', () => {
   assert.throws(() => validateConfig({ ...base, probes: { ...base.probes, unauthenticatedRoutes: [{ method: 'DELETE', path: '/api/x', status: 401 }] } }), /INVALID_UNAUTHENTICATED_ROUTE/)
 })
 
+test('allows only exact reconciled production proxy files as runtime delta paths', () => {
+  const runtimePaths = ['Caddyfile', 'docker-compose.prod.yml', 'caddy-config/Caddyfile']
+  assert.equal(validateConfig({ ...base, deltaPaths: runtimePaths, deployablePaths: runtimePaths }).deployable.length, 3)
+  for (const pathName of ['Caddyfile.local', 'docker-compose.yml', 'caddy-config/other.conf']) {
+    assert.throws(
+      () => validateConfig({ ...base, deltaPaths: [pathName], deployablePaths: [pathName] }),
+      /INVALID_EXACT_DELTA_PATHS/,
+    )
+  }
+})
+
 test('all no-credential PIN probes require the exact contract status 403', () => {
   for (const routePath of ['/api/shared-device/pin', '/api/shared-staff/pin']) {
     const pinRoute = base.probes.unauthenticatedRoutes.find(r => r.path === routePath)
@@ -372,12 +383,16 @@ test('the real 89-path delta validates with SAFE_PATH untouched: 76 deployable +
   assert.throws(() => validateConfig({ ...withRepoOnly(), nonDeployablePaths: undefined, deployablePaths: undefined }), /INVALID_EXACT_DELTA_PATHS/)
 })
 
-test('the rendered runner expects the DEPLOYABLE delta from the archives, the full delta from Git, and builds the release from the production-preserving tree', () => {
+test('the rendered runner declares the DEPLOYABLE Git delta, filters only exact deployed-baseline no-ops, and builds from the production-preserving tree', () => {
   const out = renderTemplate(template, withRepoOnly())
-  const start = out.indexOf('cat > "$EXPECTED_DELTA" <<')
-  const expected = out.slice(start, out.indexOf('\nDELTA\n', start)).split('\n').slice(1)
-  assert.deepEqual([...expected].sort(), [...DEPLOYABLE_89].sort(), 'the archive delta is exactly the deployable paths')
-  for (const p of REPO_ONLY_89) assert.ok(!expected.includes(p), 'never in the archive delta: ' + p)
+  const start = out.indexOf('cat > "$DECLARED_DELTA" <<')
+  const declared = out.slice(start, out.indexOf('\nDELTA\n', start)).split('\n').slice(1)
+  assert.deepEqual([...declared].sort(), [...DEPLOYABLE_89].sort(), 'the configured list remains the exact deployable Git delta')
+  for (const p of REPO_ONLY_89) assert.ok(!declared.includes(p), 'never deployable: ' + p)
+  assert.ok(out.includes('cmp -s "$RELEASE_CHECK_DIR/$rel" "$BASELINE_CHECK_DIR/$rel"'))
+  assert.ok(out.includes("stat -c '%a' \"$RELEASE_CHECK_DIR/$rel\""))
+  assert.ok(out.includes('RELEASE_DELTA_NOOP_PATHS='))
+  assert.ok(out.includes('cmp -s "$EXPECTED_DELTA" "$DELTA_PATHS"'), 'after filtering proven no-ops the remaining delta stays exact')
   assert.ok(out.includes('TARGET_DELTA=OK 89 files') && out.includes('deployable=76'))
   assert.ok(out.includes('RELEASE_SCOPE=OK changed=76'))
   assert.ok(out.includes('release-tree.mjs $Commit $CurrentPhysical @EffectiveNonDeployable'))
