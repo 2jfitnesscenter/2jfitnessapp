@@ -41,7 +41,7 @@ import { centerRoutes } from './lib/center-routes.js';
 import { AUDITED as ADMIN_AUDIT, describeAction } from './lib/admin-audit.js';
 import { opsStatus, createErrorRing } from './lib/ops-status.js';
 import { bunkerRoutes } from './bunker/routes.js';
-import { AttemptLimiter, authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
+import { AttemptLimiter, authLimiters, bunkerClientIp, parseTrustedProxies, setTrustedProxies } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
 import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
@@ -1059,6 +1059,8 @@ function memberFor(res, staff, memberId, notFound) {
 }
 // Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, all-member trainer scope, roster-side private data.
 const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
+// Optional explicit list of the reverse proxies in front of the API (see bunker/rate-limit.js). Unset keeps the legacy "private peer" rule; an invalid value stops the start-up.
+setTrustedProxies(parseTrustedProxies(process.env.TRUSTED_PROXIES));
 const ssoLimiter = new AttemptLimiter({ limit: 20, windowMs: 60000, blockMs: 60000 });
 const platformIntegration = createPlatformIntegration({
   config: PLATFORM_INTEGRATION_CONFIG, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer,

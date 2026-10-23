@@ -103,3 +103,25 @@ test('contract: a private peer is believed about the first forwarded hop, so the
   assert.equal(bunkerClientIp({ headers: { 'x-forwarded-for': '6.6.6.6', 'x-real-ip': '7.7.7.7' }, socket: { remoteAddress: '198.51.100.9' } }), '198.51.100.9')
   assert.equal(bunkerClientIp({ headers: {}, socket: { remoteAddress: '::ffff:172.18.0.3' } }), '172.18.0.3')
 })
+
+test('TRUSTED_PROXIES: only listed proxies are believed, the client is the rightmost untrusted hop, and a private address proves nothing', async () => {
+  const { parseTrustedProxies } = await import('../bunker/rate-limit.js')
+  const list = parseTrustedProxies('172.18.0.0/16, 10.1.2.3, ::1')
+  const req = (peer, forwarded, extra = {}) => ({ headers: { ...(forwarded ? { 'x-forwarded-for': forwarded } : {}), ...extra }, socket: { remoteAddress: peer } })
+  // nginx (172.18.0.3) behind Caddy (172.18.0.1): a forged leftmost entry is ignored even if the edge forwarded it.
+  assert.equal(bunkerClientIp(req('172.18.0.3', '6.6.6.6, 203.0.113.8, 172.18.0.1'), list), '203.0.113.8')
+  assert.equal(bunkerClientIp(req('::ffff:172.18.0.3', '203.0.113.8, 172.18.0.1'), list), '203.0.113.8')
+  // A private peer that is NOT in the list (another container, a LAN host) is keyed by its own address; its header is not believed.
+  assert.equal(bunkerClientIp(req('192.168.1.50', '6.6.6.6'), list), '192.168.1.50')
+  assert.equal(bunkerClientIp(req('172.19.0.9', '6.6.6.6'), list), '172.19.0.9')
+  // A public peer is never believed.
+  assert.equal(bunkerClientIp(req('198.51.100.9', '6.6.6.6'), list), '198.51.100.9')
+  // Only trusted hops (internal request): fall back to the first hop / real-ip / peer.
+  assert.equal(bunkerClientIp(req('172.18.0.3', '172.18.0.1'), list), '172.18.0.1')
+  assert.equal(bunkerClientIp(req('172.18.0.3', undefined), list), '172.18.0.3')
+  // Without a list the legacy rule is unchanged.
+  assert.equal(bunkerClientIp(req('172.18.0.3', '6.6.6.6, 203.0.113.8'), null), '6.6.6.6')
+  // Parsing is strict and narrow.
+  assert.equal(parseTrustedProxies(''), null)
+  for (const bad of ['0.0.0.0/0', '10.0.0.0/7', '172.18.0.0/33', 'nginx', '10.0.0.1/8/1', '300.1.1.1', 'fe80::/10', '10.0.0.1,,x']) assert.throws(() => parseTrustedProxies(bad), /TRUSTED_PROXIES/, bad)
+})
