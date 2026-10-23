@@ -8,6 +8,9 @@ import { fileURLToPath } from 'node:url';
 
 const API_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SECRET = 'a'.repeat(64);
+// Each case starts a fresh Node process and imports the complete server dependency graph.
+// Keep a bounded deadline, but allow loaded Windows/CI hosts more than the former 5 seconds.
+const SERVER_STARTUP_TIMEOUT_MS = 15_000;
 const cases = [
   ['db.json', '{"users":'],
   ['db.json', '{"users":[{"id":"u1","personId":42}]}'],
@@ -36,7 +39,7 @@ for (const [filename, contents] of cases) {
       cwd: API_DIR,
       env: { ...process.env, PORT: String(39000 + Math.floor(Math.random() * 10000)), DATA_DIR: dir, SECRET_FILE: path.join(dir, 'secret'), RP_ID: 'localhost', ORIGIN: 'http://localhost:8080' },
       encoding: 'utf8',
-      timeout: 5000,
+      timeout: SERVER_STARTUP_TIMEOUT_MS,
       windowsHide: true
     });
 
