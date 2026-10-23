@@ -16,3 +16,18 @@ app.2jfitnesscenter.com {
 		reverse_proxy web:80
 	}
 }
+
+home.2jfitnesscenter.com {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Robots-Tag "noindex, nofollow"
+	}
+	@blocked path /api /api/* /pilot /pilot/*
+	handle @blocked {
+		respond 404
+	}
+	handle {
+		reverse_proxy client-demo:8080
+	}
+}
