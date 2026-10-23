@@ -56,7 +56,7 @@ export function degradedView({ lastPayload, restriction, mode }) {
  */
 export const MAX_CAPABILITY_CACHE_MS = 60_000;
 const REJECTION_CACHE_MS = 5_000;
-export const DEFAULT_BREAKER_BASE_MS = 5_000;
+export const DEFAULT_BREAKER_BASE_MS = 2_000;
 const backoffSteps = base => [base, base * 2, base * 4, base * 6];
 const ALERT_EVERY_MS = 5 * 60_000;
 
