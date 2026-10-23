@@ -65,6 +65,7 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
   const cache = new Map();      // personId -> { payload, expiresAtMs, fetchedAtMs }
   const rejections = new Map(); // personId -> { kind, reason, untilMs }
   const inflight = new Map();   // personId -> Promise
+  const epochs = new Map();     // personId -> how many times a signed signal made us forget what we knew (an answer fetched before that is stale)
   const enabled = Boolean(config && config.baseUrl && config.keyId && config.secret);
   const breaker = { failures: 0, openUntil: 0, downSince: 0 };
   const lastAlert = new Map();
@@ -110,7 +111,7 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
   }
 
   /** Returns `{ source: 'fresh'|'cache'|'degraded'|'rejected', ...view }` or `null` when there is no verdict (legacy/shadow user, nothing known). */
-  async function evaluate(user, { mode = 'legacy' } = {}) {
+  async function evaluate(user, { mode = 'legacy', again = false } = {}) {
     if (!user?.personId) return null;
     const personId = user.personId, t = now();
     const cached = cache.get(personId);
@@ -119,9 +120,12 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
     if (rejected && rejected.untilMs > t) return rejectedView(rejected);
     if (!enabled) { alert('platform_not_configured', {}); return degraded(user, cached, mode); }
     if (breaker.openUntil > t) return degraded(user, cached, mode);     // outage: no waiting on a service we already know is down
+    const epoch = epochs.get(personId) ?? 0;
     let pending = inflight.get(personId);
     if (!pending) { pending = fetchFromPlatform(personId).finally(() => inflight.delete(personId)); inflight.set(personId, pending); }
     const result = await pending;
+    // A signed signal arrived while this answer was on its way: it may describe a state from before the change, so it is not used (asked again, once).
+    if ((epochs.get(personId) ?? 0) !== epoch && !again) return evaluate(user, { mode, again: true });
     const received = now();
     const problem = result.ok ? check(user, result.payload) : { kind: result.kind, reason: result.reason };
     if (!problem) {
@@ -158,9 +162,11 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
     return { source, level: payload.capabilityLevel, reasonCode: payload.reasonCode, capabilities: payload.capabilities, degraded: false, verified: true, accessState: payload.accessState };
   }
   const allows = (result, names) => Boolean(result) && names.every(name => result.capabilities[name] === true);
+  /** A signed Platform signal says something changed for this person: drop every cached verdict and any answer still in flight, so the next evaluation asks Platform. */
+  const forget = personId => { epochs.set(personId, (epochs.get(personId) ?? 0) + 1); cache.delete(personId); rejections.delete(personId); inflight.delete(personId); };
   const prime = (personId, payload) => cache.set(personId, { payload, expiresAtMs: Math.min(Date.parse(payload.expiresAt), now() + MAX_CAPABILITY_CACHE_MS), fetchedAtMs: now() });
   /** Operational view for logs/health: how long Platform has been unreachable (0 = reachable). */
   const status = () => ({ enabled, consecutiveFailures: breaker.failures, unreachableSinceMs: breaker.downSince ? now() - breaker.downSince : 0, breakerOpen: breaker.openUntil > now() });
 
-  return { evaluate, allows, enabled, prime, status, _cache: cache };
+  return { evaluate, allows, enabled, prime, forget, status, _cache: cache };
 }

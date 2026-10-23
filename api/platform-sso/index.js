@@ -318,5 +318,23 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     },
   };
 
-  return { routes, gate, memberGate, authorizeStateWrite, capabilities, revokeSsoSessions, classifyRoute, platformStatus: () => capabilities.status() };
+  /**
+   * A signed Platform signal (suspension imposed / lifted). It only ever restricts or forces a fresh verification:
+   *  suspended  the account is blocked from now on (for enforced users) and the restriction is remembered, so it also holds if Platform becomes unreachable;
+   *  lifted     nothing is granted here: the cached verdict is dropped, and access returns when Platform's own answer says the account is not blocked.
+   * Signals are ordered per person by their sequence; an older or repeated one is ignored.
+   */
+  function applySignal(user, signal) {
+    const last = Number(user.platformSignal?.sequence ?? 0);
+    if (signal.sequence <= last) return { applied: false, reason: signal.sequence === last ? 'duplicate' : 'stale' };
+    const at = new Date(now()).toISOString();
+    user.platformSignal = { sequence: signal.sequence, signalId: signal.signalId, kind: signal.kind, at };
+    capabilities.forget(user.personId);
+    if (signal.kind === 'suspended') user.platformRestriction = { reasonCode: 'ADMIN_SUSPENDED', at, source: 'signal' };
+    secEvent('platform_signal_applied', { userId: user.id, meta: { kind: signal.kind } });
+    saveDb();
+    return { applied: true };
+  }
+
+  return { routes, gate, memberGate, authorizeStateWrite, applySignal, capabilities, revokeSsoSessions, classifyRoute, platformStatus: () => capabilities.status() };
 }

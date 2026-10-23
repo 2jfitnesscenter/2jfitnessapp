@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { readRawBody } from '../platform-proof/routes.js';
-import { SERVICE_LINK_ACTIVATE_PATH, SERVICE_LINK_REVOKE_PATH, SERVICE_PROVISION_PATH, verifyPlatformServiceRequest } from '../platform-proof/service-auth.js';
+import { SERVICE_LINK_ACTIVATE_PATH, SERVICE_LINK_REVOKE_PATH, SERVICE_PROVISION_PATH, SERVICE_SIGNAL_PATH, verifyPlatformServiceRequest } from '../platform-proof/service-auth.js';
 
 // Training side of the bilateral account link (the other half lives in Platform's training-link-flow.ts).
 //
@@ -30,10 +30,16 @@ const provisionSchema = z.object({
   displayName: z.string().min(1).max(60).refine(value => value.trim() === value && !/[\u0000-\u001f\u007f<>]/.test(value)),
 }).strict();
 
+// Signed Platform -> Training signal (2J-CAPABILITY-SIGNAL-V1). It can only RESTRICT or force a fresh verification; it never grants anything.
+const signalSchema = z.object({
+  v: z.literal(1), signalId: UUID, kind: z.enum(['suspended', 'lifted']), personId: UUID, trainingUserId: userIdSchema,
+  sequence: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER), occurredAt: z.string().regex(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/),
+}).strict();
+
 const occupies = link => link && ['pending', 'active'].includes(link.state);
 const error = (json, res, status, code) => json(res, status, { error: code });
 
-export function createPlatformLinkRoutes({ config, db, saveDb, secEvent, json, store, serviceKeys, revokeSsoSessions, generateUsername, newUserId = () => crypto.randomBytes(12).toString('base64url'), now = Date.now }) {
+export function createPlatformLinkRoutes({ config, db, saveDb, secEvent, json, store, serviceKeys, revokeSsoSessions, applySignal = () => ({ applied: false }), generateUsername, newUserId = () => crypto.randomBytes(12).toString('base64url'), now = Date.now }) {
   const hashOf = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
   db.platformProvisioning = db.platformProvisioning && typeof db.platformProvisioning === 'object' && !Array.isArray(db.platformProvisioning) ? db.platformProvisioning : {};
 
@@ -101,6 +107,19 @@ export function createPlatformLinkRoutes({ config, db, saveDb, secEvent, json, s
         saveDb();
       }
       return json(res, 200, { v: 1, status: 'revoked', ackId: user.platformLink.ackId || crypto.randomUUID(), linkId: body.linkId, trainingUserId: user.id });
+    },
+
+    // Platform tells Training, at once, that a suspension was imposed or lifted for a person. This is an accelerator for the 60 s capability cache and a way to
+    // keep a suspension in force if Platform becomes unreachable right after; it is never the authority. `suspended` blocks now (and is remembered); `lifted` only
+    // makes Training ask Platform again, and access returns when Platform's own answer says so. Signals older than the last one applied are ignored.
+    [`POST ${SERVICE_SIGNAL_PATH}`]: async (req, res) => {
+      const body = await authenticated(req, res, SERVICE_SIGNAL_PATH, signalSchema, config.signalsEnabled);
+      if (!body) return;
+      const user = db.users.find(candidate => candidate.id === body.trainingUserId);
+      const link = user?.platformLink;
+      if (!user || !link || link.state !== 'active' || link.personId !== body.personId || user.personId !== body.personId) return error(json, res, 404, 'link_not_found');
+      const outcome = applySignal(user, body);
+      return json(res, 200, { v: 1, status: outcome.applied ? 'applied' : 'ignored', signalId: body.signalId, ...(outcome.applied ? {} : { reason: outcome.reason ?? 'stale' }) });
     },
 
     [`POST ${SERVICE_PROVISION_PATH}`]: async (req, res) => {

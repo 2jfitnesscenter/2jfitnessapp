@@ -182,11 +182,11 @@ async function freePort() {
   return new Promise(resolve => { const probe = http.createServer().listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolve(port)); }); });
 }
 
-const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'lnk'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
+const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'lnk', 'sige', 'sigl'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
 const dbFile = path.join(DIR, 'db.json');
 fs.writeFileSync(dbFile, JSON.stringify({
   users: [
-    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'lnk'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
+    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'lnk', 'sige', 'sigl'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
     { id: people.staff.uid, name: 'Staff member', username: 'staffy', admin: true, trainer: true },
     { id: people.admin.uid, name: 'Admin', username: 'admin1', admin: true, trainer: true },
   ],
@@ -202,7 +202,7 @@ function seedReceipt(personId, uid) {
   const result = store.exchange({ codeHash: sha256(Buffer.from(code, 'utf8')), requestId: randomUUID(), context, isTrainingUserActive: () => true });
   assert.equal(result.status, 'exchanged');
 }
-for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'lnk']) seedReceipt(people[name].personId, people[name].uid);
+for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'lnk', 'sige', 'sigl']) seedReceipt(people[name].personId, people[name].uid);
 seedReceipt(people.conflict.personId, people.conflict.uid);
 seedReceipt(people.conflict.personId, people.orphan.uid);       // the same person tied to two Training users: a conflict
 
@@ -217,7 +217,7 @@ async function startTraining(extraEnv = {}) {
   return { base, port, stop: () => child.kill() };
 }
 const linkKey = { id: 'platform-link-fixture', secret: Buffer.alloc(32, 0x55) };
-const training = await startTraining({ PLATFORM_LINK_LIFECYCLE_ENABLED: 'true', PLATFORM_PROVISIONING_ENABLED: 'true', PLATFORM_SERVICE_AUTH_KEYS: JSON.stringify({ [linkKey.id]: linkKey.secret.toString('base64url') }), PLATFORM_SSO_ENABLED: 'true', PLATFORM_HOME_URL: 'http://127.0.0.1:5173', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret, PLATFORM_BREAKER_BASE_MS: '200' });
+const training = await startTraining({ PLATFORM_LINK_LIFECYCLE_ENABLED: 'true', PLATFORM_PROVISIONING_ENABLED: 'true', PLATFORM_SIGNALS_ENABLED: 'true', PLATFORM_SERVICE_AUTH_KEYS: JSON.stringify({ [linkKey.id]: linkKey.secret.toString('base64url') }), PLATFORM_SSO_ENABLED: 'true', PLATFORM_HOME_URL: 'http://127.0.0.1:5173', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret, PLATFORM_BREAKER_BASE_MS: '200' });
 const plain = await startTraining();            // no Platform configuration at all
 
 /** Signed Platform -> Training lifecycle call (2J-SERVICE-AUTH-V1). */
@@ -231,7 +231,7 @@ async function platformCall(server, route, payload, { key = linkKey, requestId =
 const ACTIVATE = '/api/platform/v1/link/activate', REVOKE = '/api/platform/v1/link/revoke', PROVISION = '/api/platform/v1/provision';
 const activateBody = (name, extra = {}) => ({ v: 1, linkId: randomUUID(), linkVersion: 1, personId: people[name].personId, trainingUserId: people[name].uid, origin: 'proof', ...extra });
 // Every seeded person that proved ownership gets its link acknowledged by Training, exactly as Platform's activation does.
-for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite']) {
+for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'sige', 'sigl']) {
   const ack = await platformCall(training, ACTIVATE, activateBody(name));
   assert.equal(ack.status, 200, `activate ${name}: ${JSON.stringify(ack.json)}`);
 }
@@ -1322,4 +1322,111 @@ test('binding: PLATFORM_HOME_URL is an origin only — https, or http on loopbac
   assert.equal(parse('http://127.0.0.1:5173'), 'http://127.0.0.1:5173');
   assert.equal(parse('http://localhost:5173/'), 'http://localhost:5173');
   for (const bad of ['', undefined, 'http://home.example', 'https://u:p@home.example', 'https://home.example/path', 'https://home.example/?q=1', 'https://home.example/#x', 'javascript:alert(1)', 'not a url', '//home.example']) assert.equal(parse(bad), null, String(bad));
+});
+
+/* ------------------------------------------------------------------ signed Platform -> Training signals (2J-CAPABILITY-SIGNAL-V1) */
+const SIGNAL = '/api/platform/v1/signals';
+let signalSequence = 100;
+const signalBody = (name, kind, extra = {}) => ({ v: 1, signalId: randomUUID(), kind, personId: people[name].personId, trainingUserId: people[name].uid, sequence: ++signalSequence, occurredAt: new Date().toISOString(), ...extra });
+const sendSignal = (name, kind, extra, options, server = training) => platformCall(server, SIGNAL, signalBody(name, kind, extra), options);
+const memberData = name => call(training, 'GET', '/api/data', { cookie: cookieFor(people[name].uid) });
+const enforceWithCaps = async name => { setCaps(name, 'baseline', { ttlMs: 50_000 }); assert.equal((await adminSetMode(people[name].uid, 'shadow')).status, 200); assert.equal((await adminSetMode(people[name].uid, 'enforced')).status, 200); };
+
+test('signals: a suspension reaches Búnker at once, without waiting for the cached answer to lapse; a lift only makes Búnker ask Platform again', async () => {
+  await enforceWithCaps('sige');
+  assert.equal((await memberData('sige')).status, 200, 'baseline answer is now cached for ~50 s');
+  setCaps('sige', 'suspended', { ttlMs: 50_000 });                 // Platform decided; Búnker does not know yet
+  assert.equal((await memberData('sige')).status, 200, 'the cached answer still allows: this is exactly the window the signal closes');
+  const sent = await sendSignal('sige', 'suspended');
+  assert.equal(sent.status, 200, JSON.stringify(sent.json)); assert.equal(sent.json.status, 'applied');
+  const blocked = await memberData('sige');
+  assert.equal(blocked.status, 403, JSON.stringify(blocked.json)); assert.equal(blocked.json.reasonCode, 'ADMIN_SUSPENDED');
+  assert.equal(dbUser(people.sige.uid).platformRestriction.source, 'signal');
+  assert.equal(dbUser(people.sige.uid).platformSignal.kind, 'suspended');
+
+  setCaps('sige', 'baseline', { ttlMs: 50_000 });                  // Platform lifted it
+  const lifted = await sendSignal('sige', 'lifted');
+  assert.equal(lifted.json.status, 'applied');
+  assert.equal((await memberData('sige')).status, 200, 'access returns because Platform\'s own fresh answer says so');
+  assert.equal(dbUser(people.sige.uid).platformRestriction, undefined, 'and the remembered restriction is cleared by that answer');
+});
+
+test('signals: a suspension stays in force when Platform becomes unreachable right after it, and a lift never grants anything unverified', async () => {
+  await enforceWithCaps('sige');
+  assert.equal((await memberData('sige')).status, 200);
+  platform.state.down = true;
+  try {
+    const sent = await sendSignal('sige', 'suspended');
+    assert.equal(sent.json.status, 'applied');
+    const blocked = await memberData('sige');
+    assert.equal(blocked.status, 403); assert.equal(blocked.json.reasonCode, 'ADMIN_SUSPENDED', 'known suspension holds with Platform down');
+    const lifted = await sendSignal('sige', 'lifted');
+    assert.equal(lifted.json.status, 'applied');
+    assert.equal((await memberData('sige')).status, 403, 'a lift alone is not enough: Platform cannot confirm it');
+  } finally { platform.state.down = false; }
+  await new Promise(resolve => setTimeout(resolve, 450));          // the circuit breaker probes again
+  setCaps('sige', 'baseline', { ttlMs: 50_000 });
+  assert.equal((await memberData('sige')).status, 200, 'verified again: access is back');
+});
+
+test('signals: a legacy user is never blocked by a signal, and Platform is not asked on their behalf', async () => {
+  const before = platform.state.calls.filter(item => item.path.includes(people.sigl.personId)).length;
+  const sent = await sendSignal('sigl', 'suspended');
+  assert.equal(sent.status, 200); assert.equal(sent.json.status, 'applied', 'the fact is recorded');
+  assert.equal((await memberData('sigl')).status, 200, 'but a legacy account keeps its access exactly as before');
+  assert.equal(platform.state.calls.filter(item => item.path.includes(people.sigl.personId)).length, before, 'no Platform call');
+});
+
+test('signals: ordering, replay and validation — older or repeated signals are ignored, unsigned or malformed ones refused', async () => {
+  const first = signalBody('sigl', 'lifted');
+  assert.equal((await platformCall(training, SIGNAL, first)).json.status, 'applied');
+  const again = await platformCall(training, SIGNAL, { ...first });                      // a new request carrying the same signal
+  assert.equal(again.status, 200); assert.equal(again.json.status, 'ignored'); assert.equal(again.json.reason, 'duplicate');
+  const older = await platformCall(training, SIGNAL, signalBody('sigl', 'suspended', { sequence: first.sequence - 1 }));
+  assert.equal(older.json.status, 'ignored'); assert.equal(older.json.reason, 'stale');
+  assert.equal(dbUser(people.sigl.uid).platformSignal.kind, 'lifted', 'the older suspension did not overwrite the newer lift');
+  const requestId = randomUUID();
+  assert.equal((await sendSignal('sigl', 'lifted', {}, { requestId })).status, 200);
+  assert.equal((await sendSignal('sigl', 'lifted', {}, { requestId })).json.error, 'service_request_replayed', 'a signed request is accepted once');
+  assert.equal((await sendSignal('sigl', 'lifted', {}, { tamper: true })).status, 401);
+  assert.equal((await sendSignal('sigl', 'lifted', {}, { timestamp: new Date(Date.now() - 120_000).toISOString() })).status, 401, 'stale timestamp');
+  for (const extra of [{ kind: 'granted' }, { kind: 'full' }, { sequence: 0 }, { sequence: 1.5 }, { signalId: 'nope' }, { occurredAt: 'yesterday' }, { reason: 'because I said so' }, { personId: randomUUID() }]) {
+    const result = await sendSignal('sigl', 'lifted', extra);
+    assert.ok([400, 404].includes(result.status), JSON.stringify(extra));
+  }
+  assert.equal((await sendSignal('sigl', 'lifted', { trainingUserId: 'uid-nobody' })).status, 404);
+  assert.equal((await sendSignal('legacy', 'suspended')).status, 404, 'no signal for an account that has no acknowledged link');
+  const off = await sendSignal('sigl', 'lifted', {}, undefined, plain);
+  assert.equal(off.status, 423, 'off unless PLATFORM_SIGNALS_ENABLED=true');
+});
+
+test('signals: no signal can grant — there is no kind that does, and the contract rejects any extra field', () => {
+  // The only kinds are `suspended` and `lifted`; `lifted` merely clears what Búnker remembers and asks Platform again. This is covered above; this test pins the surface.
+  const source = fs.readFileSync(path.join(API_ROOT, 'platform-sso', 'link.js'), 'utf8');
+  assert.match(source, /kind: z\.enum\(\['suspended', 'lifted'\]\)/);
+});
+
+test('signals: an answer fetched before a signal arrived is discarded and asked again (no stale "active" can survive a suspension)', async () => {
+  const personId = randomUUID(), user = { id: 'u-race', personId };
+  let kind = 'baseline', calls = 0, release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const fetchImpl = async () => {
+    calls++; const mine = kind, first = calls === 1;
+    if (first) await gate;                                          // the first answer is "on its way" while the signal arrives
+    return { ok: true, status: 200, json: async () => v2({ personId, trainingUserId: user.id, kind: mine, ttlMs: 5000, now: Date.now() }) };
+  };
+  const service = createCapabilitiesService({
+    config: { baseUrl: 'http://127.0.0.1:9', keyId: 'k', secret: Buffer.alloc(32, 3) }, fetchImpl,
+    onRestriction: (u, r) => { if (r) u.platformRestriction = r; else delete u.platformRestriction; },
+  });
+  const pending = service.evaluate(user, { mode: 'enforced' });     // fetch #1 started: it will return the state from BEFORE the suspension
+  await new Promise(resolve => setImmediate(resolve));
+  kind = 'suspended';
+  user.platformRestriction = { reasonCode: 'ADMIN_SUSPENDED', at: new Date().toISOString(), source: 'signal' };
+  service.forget(personId);                                          // what applySignal does
+  release();
+  const view = await pending;
+  assert.equal(view.level, 'blocked'); assert.equal(view.reasonCode, 'ADMIN_SUSPENDED'); assert.equal(calls, 2, 'the stale answer was dropped and Platform was asked again');
+  assert.equal(user.platformRestriction.reasonCode, 'ADMIN_SUSPENDED', 'and it did not clear the restriction the signal had set');
+  assert.equal((await service.evaluate(user, { mode: 'enforced' })).level, 'blocked'); assert.equal(calls, 2, 'the fresh answer is cached');
 });
