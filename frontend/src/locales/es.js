@@ -1,5 +1,6 @@
 // Spanish UI strings. Keys are the English source strings (see lib/i18n.js).
 export default {
+  'Búnker': 'Búnker',
   '2J routine analysis': 'Análisis de rutina 2J',
   '2J analysis': 'Análisis 2J',
   'A practical review of the selected exercises and their distribution. It does not diagnose or change the plan.': 'Una revisión práctica de los ejercicios y su distribución. No diagnostica ni modifica el plan.',
