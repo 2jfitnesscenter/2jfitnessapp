@@ -5883,4 +5883,6 @@ export default {
   'Too many attempts. Wait a minute and try again.': 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.',
   'Signing in with your 2J account is not available yet. Use your passkey.': 'Entrar con tu cuenta de 2J aún no está disponible. Usa tu passkey.',
   'We could not open Búnker with your 2J account. Use your passkey instead.': 'No hemos podido abrir Búnker con tu cuenta de 2J. Usa tu passkey.',
+  'This link was not started in this browser, so it cannot sign you in. Start from here and your 2J space will bring you back.': 'Este enlace no se inició en este navegador, así que no puede iniciar tu sesión. Empieza desde aquí y tu espacio de 2J te traerá de vuelta.',
+  'Continue with your 2J account': 'Continuar con tu cuenta de 2J',
 }

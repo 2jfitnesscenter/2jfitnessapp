@@ -161,9 +161,13 @@ function startPlatform() {
       if (caps) { const make = state.caps.get(caps[1]); return make ? reply(200, make()) : reply(404, { error: 'person_not_found' }); }
       if (req.method === 'POST' && req.url === '/api/internal/platform/v2/sso/redeem') {
         const request = JSON.parse(body.toString('utf8'));
+        if (request.v !== 2 || !/^[A-Za-z0-9_-]{43,128}$/.test(request.verifier || '')) return reply(400, { error: 'invalid_sso_request' });
+        state.lastRedeem = request;
         const entry = state.codes.get(request.code);
         if (!entry) return reply(404, { error: 'sso_code_not_found' });
         if (entry.used) return reply(409, { error: 'sso_code_already_used' });
+        // The real Platform compares the PKCE S256 challenge it stored at issuance; a mismatch neither consumes nor reveals anything.
+        if (!entry.challenge || challengeOf(request.verifier) !== entry.challenge) return reply(403, { error: 'sso_binding_mismatch' });
         if (entry.status && entry.status !== 200) { entry.used = true; return reply(entry.status, entry.body ?? { error: 'x' }); }
         entry.used = true;
         return reply(200, { v: 1, personId: entry.personId, trainingUserId: entry.trainingUserId, capabilities: state.caps.get(entry.personId)() });
@@ -213,7 +217,7 @@ async function startTraining(extraEnv = {}) {
   return { base, port, stop: () => child.kill() };
 }
 const linkKey = { id: 'platform-link-fixture', secret: Buffer.alloc(32, 0x55) };
-const training = await startTraining({ PLATFORM_LINK_LIFECYCLE_ENABLED: 'true', PLATFORM_PROVISIONING_ENABLED: 'true', PLATFORM_SERVICE_AUTH_KEYS: JSON.stringify({ [linkKey.id]: linkKey.secret.toString('base64url') }), PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret, PLATFORM_BREAKER_BASE_MS: '200' });
+const training = await startTraining({ PLATFORM_LINK_LIFECYCLE_ENABLED: 'true', PLATFORM_PROVISIONING_ENABLED: 'true', PLATFORM_SERVICE_AUTH_KEYS: JSON.stringify({ [linkKey.id]: linkKey.secret.toString('base64url') }), PLATFORM_SSO_ENABLED: 'true', PLATFORM_HOME_URL: 'http://127.0.0.1:5173', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret, PLATFORM_BREAKER_BASE_MS: '200' });
 const plain = await startTraining();            // no Platform configuration at all
 
 /** Signed Platform -> Training lifecycle call (2J-SERVICE-AUTH-V1). */
@@ -234,16 +238,40 @@ for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'envadmin', 'kiosk', 'keep
 after(() => { training.stop(); plain.stop(); platform.server.close(); });
 
 const cookieFor = uid => { const payload = `${uid}:${Date.now() + 86400000}:0`; return `gymsid=${payload}.${crypto.createHmac('sha256', SECRET).update(payload).digest('base64url')}`; };
-async function call(server, method, route, { cookie, body, origin } = {}) {
-  const response = await fetch(server.base + route, { method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/json' } : {}), ...(origin ? { origin } : {}) }, body: body ? JSON.stringify(body) : undefined });
+const sessionCookies = headers => (headers.getSetCookie?.() ?? []).filter(item => item.startsWith('gymsid='));
+const challengeOf = verifier => crypto.createHash('sha256').update(verifier, 'utf8').digest('base64url');
+/** The start of the flow in ONE browser: GET /sso/start without following the redirect. Returns what that browser now holds. */
+async function startBrowser(server, headers = {}) {
+  const response = await fetch(server.base + '/api/platform/v1/sso/start', { redirect: 'manual', headers });
+  const setCookie = response.headers.getSetCookie?.() ?? [];
+  const bind = setCookie.find(item => item.startsWith('j2ssob='));
+  const location = response.headers.get('location') || '';
+  return { status: response.status, location, setCookie, cookie: bind ? bind.split(';')[0] : null, verifier: bind ? bind.split(';')[0].slice('j2ssob='.length) : null, challenge: /#sso_challenge=([A-Za-z0-9_-]{43})$/.exec(location)?.[1] ?? null, response };
+}
+/**
+ * `binding` decides which browser redeems: 'own' (default) — the browser that started the flow, whose challenge Home would have used for the code;
+ * 'none' — a browser that never started it (no binding cookie); 'foreign' — a browser that started its own flow, unrelated to the code.
+ */
+async function call(server, method, route, { cookie, body, origin, binding = 'own', headers = {} } = {}) {
+  const redeeming = method === 'POST' && route === '/api/platform/v1/sso/redeem';
+  let cookies = cookie ? [cookie] : [];
+  if (redeeming && binding !== 'none') {
+    const browser = await startBrowser(server, headers);
+    if (browser.cookie) {
+      cookies.push(browser.cookie);
+      const entry = body?.code ? platform.state.codes.get(body.code) : null;
+      if (entry && !entry.challenge) entry.challenge = binding === 'foreign' ? challengeOf(randomBytes(32).toString('base64url')) : browser.challenge;
+    }
+  }
+  const response = await fetch(server.base + route, { method, headers: { ...headers, ...(cookies.length ? { cookie: cookies.join('; ') } : {}), ...(body ? { 'content-type': 'application/json' } : {}), ...(origin ? { origin } : {}) }, body: body ? JSON.stringify(body) : undefined });
   const text = await response.text(); let json = null; try { json = JSON.parse(text); } catch { /* not json */ }
   return { status: response.status, json, headers: response.headers };
 }
 const setCaps = (who, kind, extra = {}) => platform.state.caps.set(people[who].personId, () => v2({ personId: people[who].personId, trainingUserId: people[who].uid, kind, ...extra }));
 const dbUser = uid => JSON.parse(fs.readFileSync(dbFile, 'utf8')).users.find(user => user.id === uid);
-async function redeem(who, { code = randomBytes(32).toString('base64url'), origin = training.base, entry } = {}) {
+async function redeem(who, { code = randomBytes(32).toString('base64url'), origin = training.base, entry, headers } = {}) {
   platform.state.codes.set(code, { personId: people[who].personId, trainingUserId: people[who].uid, ...entry });
-  const response = await call(training, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code }, origin });
+  const response = await call(training, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code }, origin, headers });
   return { ...response, code, cookie: (response.headers.get('set-cookie') || '').split(';')[0] };
 }
 
@@ -476,14 +504,14 @@ test('staff keep their role functions regardless of their own capabilities', asy
 });
 
 test('accounts listed in ADMIN_UIDS never get an sso session', async () => {
-  const withEnvAdmin = await startTraining({ ADMIN_UIDS: people.envadmin.uid, PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret, PLATFORM_BREAKER_BASE_MS: '200' });
+  const withEnvAdmin = await startTraining({ ADMIN_UIDS: people.envadmin.uid, PLATFORM_SSO_ENABLED: 'true', PLATFORM_HOME_URL: 'http://127.0.0.1:5173', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret, PLATFORM_BREAKER_BASE_MS: '200' });
   try {
     setCaps('envadmin', 'baseline');
     const code = randomBytes(32).toString('base64url');
     platform.state.codes.set(code, { personId: people.envadmin.personId, trainingUserId: people.envadmin.uid });
     const response = await call(withEnvAdmin, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code }, origin: withEnvAdmin.base });
     assert.equal(response.status, 403); assert.equal(response.json.error, 'platform_access_blocked');
-    assert.equal(response.headers.get('set-cookie'), null, 'no session cookie is issued');
+    assert.equal(sessionCookies(response.headers).length, 0, 'no session cookie is issued');
   } finally { withEnvAdmin.stop(); }
 });
 
@@ -509,13 +537,13 @@ test('redeeming while holding a passkey session of the same account keeps the pa
   platform.state.codes.set(code, { personId: people.keep.personId, trainingUserId: people.keep.uid });
   const response = await call(training, 'POST', '/api/platform/v1/sso/redeem', { cookie: passkey, body: { v: 1, code }, origin: training.base });
   assert.equal(response.status, 200); assert.equal(response.json.sessionKept, true); assert.equal(response.json.user.authLevel, 'passkey');
-  assert.equal(response.headers.get('set-cookie'), null, 'the stronger cookie is not replaced');
+  assert.equal(sessionCookies(response.headers).length, 0, 'the stronger cookie is not replaced');
   assert.equal((await call(training, 'GET', '/api/me', { cookie: passkey })).json.user.authLevel, 'passkey');
   // A session of ANOTHER account is NOT replaced silently any more (H3): it needs an explicit confirmation.
   const otherCode = 'other'.padEnd(43, 'w');
   platform.state.codes.set(otherCode, { personId: people.keep.personId, trainingUserId: people.keep.uid });
   const other = await call(training, 'POST', '/api/platform/v1/sso/redeem', { cookie: cookieFor(people.a.uid), body: { v: 1, code: otherCode }, origin: training.base });
-  assert.equal(other.status, 409); assert.equal(other.json.error, 'session_switch_confirmation_required'); assert.equal(other.headers.get('set-cookie'), null);
+  assert.equal(other.status, 409); assert.equal(other.json.error, 'session_switch_confirmation_required'); assert.equal(sessionCookies(other.headers).length, 0);
 });
 
 test('SSO sign-ins leave a Búnker-side security event and an sso session cannot revoke passkey sessions', async () => {
@@ -1140,7 +1168,7 @@ async function redeemWithCookie(who, cookie) {
   const code = randomBytes(32).toString('base64url');
   platform.state.codes.set(code, { personId: people[who].personId, trainingUserId: people[who].uid });
   const response = await call(training, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code }, origin: training.base, cookie });
-  return { ...response, code, setCookie: response.headers.get('set-cookie') || '' };
+  return { ...response, code, setCookie: sessionCookies(response.headers)[0] || '' };
 }
 const confirmSwitch = (ticket, cookie, origin = training.base) => call(training, 'POST', '/api/platform/v1/sso/confirm', { body: { ticket }, origin, cookie });
 
@@ -1193,4 +1221,105 @@ test('H3: the confirmation re-checks the target account, and the normal flows ar
   // Restore the acknowledged link for later tests.
   const again = await platformCall(training, ACTIVATE, activateBody('e', { linkId: randomUUID(), linkVersion: 12 }));
   assert.ok([200, 409].includes(again.status));
+});
+
+/* ------------------------------------------------------------------ browser-bound SSO (PKCE S256): login CSRF and forwarded links */
+// Each of these tests is its own client IP (a private peer's first X-Forwarded-For hop, the legacy rule), so the SSO failures other tests leave behind never rate-limit them.
+const clientIp = n => ({ 'x-forwarded-for': `198.51.100.${n}` });
+test('binding: /sso/start puts a random verifier in an HttpOnly cookie of this origin and sends the browser to Home with only the challenge', async () => {
+  const first = await startBrowser(training, clientIp(10)), second = await startBrowser(training, clientIp(10));
+  assert.equal(first.status, 302);
+  assert.match(first.location, /^http:\/\/127\.0\.0\.1:5173\/#sso_challenge=[A-Za-z0-9_-]{43}$/, 'Home gets nothing but the fragment challenge');
+  assert.match(first.cookie, /^j2ssob=[A-Za-z0-9_-]{43}$/);
+  const attributes = first.setCookie.find(item => item.startsWith('j2ssob=')).split(';').map(item => item.trim().toLowerCase());
+  for (const required of ['httponly', 'samesite=lax', 'path=/api/platform/v1/sso', 'max-age=600']) assert.ok(attributes.includes(required), `cookie attribute ${required}: ${attributes}`);
+  assert.ok(!attributes.includes('secure'), 'plain-http loopback: Secure is added only when the public origin is https');
+  assert.equal(first.challenge, challengeOf(first.verifier), 'the challenge Home receives is the S256 of the verifier that stays in the cookie');
+  assert.ok(!first.location.includes(first.verifier), 'the verifier never travels in the URL');
+  assert.notEqual(first.verifier, second.verifier, 'every start is a fresh secret');
+  assert.equal(first.response.headers.get('cache-control'), 'no-store'); assert.equal(first.response.headers.get('referrer-policy'), 'no-referrer');
+});
+
+test('binding: /sso/start sets no cookie and explains itself when SSO is off or Home is not configured', async () => {
+  const off = await startBrowser(plain);
+  assert.equal(off.status, 302); assert.equal(off.location, '/sso#error=disabled'); assert.deepEqual(off.setCookie, []);
+  const noHome = await startTraining({ PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret });
+  try {
+    const unavailable = await startBrowser(noHome);
+    assert.equal(unavailable.status, 302); assert.equal(unavailable.location, '/sso#error=unavailable'); assert.deepEqual(unavailable.setCookie, []);
+  } finally { noHome.stop(); }
+});
+
+test('binding: a redemption from a browser that never started the flow is refused and Platform is not even asked (a forwarded link cannot burn or use the code)', async () => {
+  setCaps('a', 'baseline');
+  const code = randomBytes(32).toString('base64url');
+  platform.state.codes.set(code, { personId: people.a.personId, trainingUserId: people.a.uid, challenge: challengeOf(randomBytes(32).toString('base64url')) });
+  const before = platform.state.calls.filter(item => item.method === 'POST').length;
+  const refused = await call(training, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code }, origin: training.base, binding: 'none', headers: clientIp(11) });
+  assert.equal(refused.status, 400); assert.equal(refused.json.error, 'sso_binding_missing');
+  assert.equal(refused.headers.get('set-cookie')?.includes('gymsid='), false, 'no session was opened');
+  assert.equal(platform.state.calls.filter(item => item.method === 'POST').length, before, 'Platform was not contacted');
+  assert.equal(platform.state.codes.get(code).used, undefined, 'the code is untouched');
+  for (const malformed of ['j2ssob=short', `j2ssob=${'!'.repeat(43)}`, `j2ssob=${'A'.repeat(44)}`, 'j2ssob=']) {
+    const response = await fetch(training.base + '/api/platform/v1/sso/redeem', { method: 'POST', headers: { 'content-type': 'application/json', origin: training.base, cookie: malformed, ...clientIp(11) }, body: JSON.stringify({ v: 1, code }) });
+    assert.equal(response.status, 400, malformed); assert.equal((await response.json()).error, 'sso_binding_missing');
+  }
+  assert.equal(platform.state.calls.filter(item => item.method === 'POST').length, before);
+});
+
+test('binding: login CSRF — a victim\'s browser cannot be signed in to the attacker\'s account with the attacker\'s code, with or without a prior session', async () => {
+  setCaps('a', 'baseline'); setCaps('b', 'baseline');
+  const attackerBrowser = await startBrowser(training, clientIp(12));                       // the attacker starts the flow in their OWN browser and keeps the code Home returns
+  const code = randomBytes(32).toString('base64url');
+  platform.state.codes.set(code, { personId: people.a.personId, trainingUserId: people.a.uid, challenge: attackerBrowser.challenge });
+  const send = async cookie => { const response = await fetch(training.base + '/api/platform/v1/sso/redeem', { method: 'POST', headers: { 'content-type': 'application/json', origin: training.base, ...clientIp(12), ...(cookie ? { cookie } : {}) }, body: JSON.stringify({ v: 1, code }) }); return { status: response.status, json: await response.json().catch(() => null), setCookie: response.headers.getSetCookie?.() ?? [] }; };
+  // The attacker sends the victim to /sso#code=<code>. The victim has no session and no binding cookie.
+  const cold = await send(null);
+  assert.equal(cold.status, 400); assert.equal(cold.json.error, 'sso_binding_missing'); assert.ok(!cold.setCookie.some(item => item.startsWith('gymsid=')));
+  // The victim did start their own flow earlier (so they hold a valid-looking cookie), but for THEIR OWN challenge.
+  const victimBrowser = await startBrowser(training, clientIp(12));
+  const warm = await send(victimBrowser.cookie);
+  assert.equal(warm.status, 400); assert.equal(warm.json.error, 'sso_binding_mismatch'); assert.ok(!warm.setCookie.some(item => item.startsWith('gymsid=')), 'no session for the victim');
+  // …even with a session of their own, nothing changes for them and no switch is offered (the ticket exists only after a valid redemption).
+  const withSession = await send(`${cookieFor(people.b.uid)}; ${victimBrowser.cookie}`);
+  assert.equal(withSession.status, 400); assert.equal(withSession.json.error, 'sso_binding_mismatch'); assert.equal(withSession.json.ticket, undefined);
+  assert.equal(platform.state.codes.get(code).used, undefined, 'Platform did not consume the code for the wrong browser');
+  // The attacker\'s own browser still works: the binding protects the victim, it does not break the legitimate flow.
+  const own = await send(attackerBrowser.cookie);
+  assert.equal(own.status, 200); assert.ok(own.setCookie.some(item => item.startsWith('gymsid=')));
+  assert.equal(platform.state.lastRedeem.v, 2); assert.equal(platform.state.lastRedeem.verifier, attackerBrowser.verifier);
+});
+
+test('binding: the cookie is cleared once a code has been used for it, whatever the outcome, but survives a Platform outage so the person can retry', async () => {
+  setCaps('a', 'baseline');
+  const cleared = headers => (headers.getSetCookie?.() ?? []).some(item => /^j2ssob=;/.test(item) && /Max-Age=0/i.test(item) && /Path=\/api\/platform\/v1\/sso/.test(item));
+  const ok = await redeem('a', { headers: clientIp(13) });
+  assert.equal(ok.status, 200); assert.ok(cleared(ok.headers), 'success clears the binding cookie next to the new session');
+  assert.ok((ok.headers.getSetCookie?.() ?? []).some(item => item.startsWith('gymsid=')));
+  const spent = await redeem('a', { entry: { status: 410 }, headers: clientIp(13) });
+  assert.equal(spent.status, 400); assert.ok(cleared(spent.headers), 'a dead code clears it too');
+  platform.state.down = true;
+  try {
+    const down = await redeem('a', { headers: clientIp(13) });
+    assert.equal(down.status, 503); assert.equal(cleared(down.headers), false, 'an outage keeps the cookie: the same page can try again');
+  } finally { platform.state.down = false; }
+});
+
+test('binding: a valid redemption while ANOTHER account is signed in still needs the confirmation, and the binding cookie is spent', async () => {
+  setCaps('a', 'baseline'); setCaps('b', 'baseline');
+  const code = randomBytes(32).toString('base64url');
+  platform.state.codes.set(code, { personId: people.b.personId, trainingUserId: people.b.uid });
+  const response = await call(training, 'POST', '/api/platform/v1/sso/redeem', { cookie: cookieFor(people.a.uid), body: { v: 1, code }, origin: training.base, headers: clientIp(14) });
+  assert.equal(response.status, 409); assert.equal(response.json.error, 'session_switch_confirmation_required');
+  assert.ok((response.headers.getSetCookie?.() ?? []).some(item => /^j2ssob=;/.test(item)), 'the code is consumed, so the binding is too');
+  assert.ok(!(response.headers.getSetCookie?.() ?? []).some(item => item.startsWith('gymsid=')), 'the session was not replaced');
+});
+
+test('binding: PLATFORM_HOME_URL is an origin only — https, or http on loopback — and nothing else', () => {
+  const parse = value => parsePlatformIntegrationEnv({ PLATFORM_HOME_URL: value }).homeUrl;
+  assert.equal(parse('https://home.2jfitnesscenter.com'), 'https://home.2jfitnesscenter.com');
+  assert.equal(parse('https://home.2jfitnesscenter.com/'), 'https://home.2jfitnesscenter.com');
+  assert.equal(parse('http://127.0.0.1:5173'), 'http://127.0.0.1:5173');
+  assert.equal(parse('http://localhost:5173/'), 'http://localhost:5173');
+  for (const bad of ['', undefined, 'http://home.example', 'https://u:p@home.example', 'https://home.example/path', 'https://home.example/?q=1', 'https://home.example/#x', 'javascript:alert(1)', 'not a url', '//home.example']) assert.equal(parse(bad), null, String(bad));
 });

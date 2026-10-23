@@ -22,6 +22,15 @@ export const transitionAllowed = (from, to) => ALLOWED_TRANSITIONS.has(`${from}>
 export const SSO_AUDIENCE = '2j-training-sso';
 export const SSO_PURPOSE = 'training-session';
 export const PLATFORM_REDEEM_PATH = '/api/internal/platform/v2/sso/redeem';
+// Browser binding (PKCE S256). The flow starts HERE: /sso/start puts a random verifier in an HttpOnly cookie of this origin and sends the
+// browser to Home with only its SHA-256 challenge. Platform issues the code for that challenge; redemption presents the verifier from the cookie,
+// server-to-server. A code that reaches any other browser (login CSRF, a forwarded link) has no matching cookie and cannot be redeemed.
+export const SSO_BIND_COOKIE = 'j2ssob';
+export const SSO_BIND_PATH = '/api/platform/v1/sso';
+export const SSO_BIND_MAX_AGE_S = 600;
+const BIND_VERIFIER = /^[A-Za-z0-9_-]{43}$/;
+const bindCookieValue = req => { const match = new RegExp(`(?:^|;\\s*)${SSO_BIND_COOKIE}=([^;]+)`).exec(String(req.headers.cookie || '')); return match && BIND_VERIFIER.test(match[1]) ? match[1] : null; };
+export const bindingChallengeFor = verifier => globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(buffer => Buffer.from(buffer).toString('base64url'));
 const TRUE = /^(1|true)$/i;
 const redeemRequestSchema = z.object({ v: z.literal(1), code: z.string().min(43).max(128).regex(/^[A-Za-z0-9_-]+$/) }).strict();
 const redeemResponseSchema = z.object({ v: z.literal(1), personId: z.string(), trainingUserId: z.string().min(1).max(200), capabilities: capabilitiesV2Schema }).strict();
@@ -37,12 +46,18 @@ export function parsePlatformIntegrationEnv(env) {
   } catch { /* not configured */ }
   const keyId = /^[A-Za-z0-9._-]{1,80}$/.test(String(env.PLATFORM_API_KEY_ID || '')) ? String(env.PLATFORM_API_KEY_ID) : null;
   const configured = Boolean(baseUrl && keyId && secret.length >= 32 && secret.toString('base64url') === env.PLATFORM_API_KEY_SECRET);
+  let homeUrl = null;                                  // origin of the Home member app, where the browser-bound flow goes to ask Platform for a code
+  try {
+    const url = new URL(String(env.PLATFORM_HOME_URL || ''));
+    const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+    if (!url.username && !url.password && !url.search && !url.hash && url.pathname === '/' && (url.protocol === 'https:' || (url.protocol === 'http:' && loopback))) homeUrl = url.origin;
+  } catch { /* not configured */ }
   const breakerBase = Number(env.PLATFORM_BREAKER_BASE_MS);
   const breakerBaseMs = Number.isInteger(breakerBase) && breakerBase >= 100 && breakerBase <= 30_000 ? breakerBase : undefined;   // test knob; the default is 5 s
-  return { ssoEnabled: TRUE.test(env.PLATFORM_SSO_ENABLED || ''), client: configured ? { baseUrl, keyId, secret } : null, ...(breakerBaseMs ? { breakerBaseMs } : {}) };
+  return { ssoEnabled: TRUE.test(env.PLATFORM_SSO_ENABLED || ''), client: configured ? { baseUrl, keyId, secret } : null, homeUrl, ...(breakerBaseMs ? { breakerBaseMs } : {}) };
 }
 
-export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, isEnvAdmin = () => false, rateLimit, fetchImpl = globalThis.fetch, now = Date.now, log = console }) {
+export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, isEnvAdmin = () => false, rateLimit, secureCookie = false, fetchImpl = globalThis.fetch, now = Date.now, log = console }) {
   const revokeSsoSessions = (user, reason) => {
     let revoked = 0;
     for (const record of db.deviceSessions) if (record.userId === user.id && record.via === 'sso' && !record.revokedAt) { record.revokedAt = new Date(now()).toISOString(); revoked++; }
@@ -83,7 +98,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
    * and staff routes (recovery, export, deletion, logout, administration) are never closed by the capability contract.
    */
   async function gate(req, res, key) {
-    if (key === 'POST /api/platform/v1/sso/redeem' || key === 'POST /api/platform/v1/sso/confirm') return true;   // how a session is (re)established; each validates everything itself
+    if (key === 'GET /api/platform/v1/sso/start' || key === 'POST /api/platform/v1/sso/redeem' || key === 'POST /api/platform/v1/sso/confirm') return true;   // how a session is (re)established; each validates everything itself
     if (!req.headers.cookie || !req.headers.cookie.includes('gymsid=')) return true;
     const policy = classifyRoute(key);
     const session = readSession(req);
@@ -149,10 +164,10 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     return verdict;
   }
 
-  async function redeemWithPlatform(code) {
+  async function redeemWithPlatform(code, verifier) {
     if (!config.client) return { status: 503 };
     const path = PLATFORM_REDEEM_PATH, timestamp = new Date(now()).toISOString(), requestId = globalThis.crypto.randomUUID();
-    const body = Buffer.from(JSON.stringify({ v: 1, code, audience: SSO_AUDIENCE, purpose: SSO_PURPOSE }), 'utf8');
+    const body = Buffer.from(JSON.stringify({ v: 2, code, verifier, audience: SSO_AUDIENCE, purpose: SSO_PURPOSE }), 'utf8');
     const { signature } = signPlatformServiceRequest({ keyId: config.client.keyId, secret: config.client.secret, timestamp, requestId, method: 'POST', path, body });
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 5000);
     try {
@@ -162,7 +177,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       });
       const payload = await response.json().catch(() => null);
       if (response.status === 200) { const parsed = redeemResponseSchema.safeParse(payload); return parsed.success ? { status: 200, data: parsed.data } : { status: 502 }; }
-      return { status: response.status, reasonCode: typeof payload?.reasonCode === 'string' ? payload.reasonCode : null };
+      return { status: response.status, error: typeof payload?.error === 'string' ? payload.error : null, reasonCode: typeof payload?.reasonCode === 'string' ? payload.reasonCode : null };
     } catch { return { status: 503 }; }
     finally { clearTimeout(timer); }
   }
@@ -188,14 +203,21 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       const ip = rateLimit.gate(req, res); if (!ip) return;
       const body = redeemRequestSchema.safeParse(await readBody(req));
       if (!body.success) { rateLimit.fail(ip); return json(res, 400, { error: 'invalid_sso_request' }); }
-      const result = await redeemWithPlatform(body.data.code);
-      if (result.status === 403) { rateLimit.fail(ip); return json(res, 403, { error: 'platform_access_blocked', reasonCode: result.reasonCode }); }
+      // The flow must have started in THIS browser (/sso/start). Without its verifier the code is not even sent to Platform, so a code that arrived
+      // through a link someone else crafted is neither redeemed nor burned.
+      const verifier = bindCookieValue(req);
+      const clearBind = `${SSO_BIND_COOKIE}=; Path=${SSO_BIND_PATH}; Max-Age=0; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax`;
+      const stop = (status, obj) => json(res, status, obj, { 'Set-Cookie': clearBind });
+      if (!verifier) { rateLimit.fail(ip); log.warn?.('platform sso redeem refused: no binding cookie (a link opened in a browser that did not start the flow)'); return stop(400, { error: 'sso_binding_missing' }); }
+      const result = await redeemWithPlatform(body.data.code, verifier);
+      if (result.status === 403 && result.error === 'sso_binding_mismatch') { rateLimit.fail(ip); log.warn?.('platform sso redeem refused: Platform says the verifier does not match the code'); return stop(400, { error: 'sso_binding_mismatch' }); }
+      if (result.status === 403) { rateLimit.fail(ip); return stop(403, { error: 'platform_access_blocked', reasonCode: result.reasonCode }); }
       if (result.status !== 200) {
-        if ([404, 409, 410].includes(result.status)) { rateLimit.fail(ip); return json(res, 400, { error: 'sso_code_invalid' }); }
-        return json(res, 503, { error: 'platform_unavailable' });
+        if ([404, 409, 410].includes(result.status)) { rateLimit.fail(ip); return stop(400, { error: 'sso_code_invalid' }); }
+        return json(res, 503, { error: 'platform_unavailable' });   // retryable: the binding cookie stays
       }
       const { personId, trainingUserId, capabilities: payload } = result.data;
-      const fail = (status, error) => { rateLimit.fail(ip); return json(res, status, { error }); };
+      const fail = (status, error) => { rateLimit.fail(ip); return stop(status, { error }); };
       if (payload.personId !== personId || payload.trainingSubject.linkStatus !== 'active' || payload.trainingSubject.trainingUserId !== trainingUserId || payload.capabilityLevel === 'blocked') return fail(403, 'platform_access_blocked');
       const user = db.users.find(candidate => candidate.id === trainingUserId);
       if (!user || user.disabled) return fail(400, 'sso_code_invalid');
@@ -207,7 +229,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       if (db.users.some(candidate => candidate.id !== user.id && ((candidate.platformLink?.state === 'active' || candidate.platformLink?.state === 'pending') && candidate.platformLink.personId === personId))) return fail(409, 'link_conflict');
       if (link.origin === 'proof') {
         let evidence;
-        try { evidence = proofStore.linkEvidence({ personId, trainingUserId }); } catch { return json(res, 503, { error: 'link_store_unavailable' }); }
+        try { evidence = proofStore.linkEvidence({ personId, trainingUserId }); } catch { return stop(503, { error: 'link_store_unavailable' }); }
         if (evidence.status === 'conflict') return fail(409, 'link_conflict');
         if (evidence.status !== 'linked') return fail(409, 'link_not_confirmed');
       }
@@ -221,7 +243,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
         switchTickets.set(await hashText(ticket), { sessionHash: await hashText(token), targetUserId: user.id, personId, capabilityLevel: payload.capabilityLevel, expiresAt: now() + SWITCH_TTL_MS });
         secEvent('platform_sso_switch_requested', { userId: current.id, meta: { target: 'other-account' } });
         saveDb();
-        return json(res, 409, { error: 'session_switch_confirmation_required', ticket, current: { name: current.name }, target: { name: user.name }, expiresInSeconds: SWITCH_TTL_MS / 1000 });
+        return stop(409, { error: 'session_switch_confirmation_required', ticket, current: { name: current.name }, target: { name: user.name }, expiresInSeconds: SWITCH_TTL_MS / 1000 });
       }
       delete user.platformRestriction;
       capabilities.prime(personId, payload);
@@ -229,9 +251,21 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       saveDb();
       // A valid passkey (or other non-sso) session for the SAME account is stronger than an sso one: keep it rather than replacing the cookie.
       if (current && current.id === user.id && current.authLevel !== 'sso') {
-        return json(res, 200, { ok: true, sessionKept: true, capabilityLevel: payload.capabilityLevel, user: { id: user.id, name: user.name, authLevel: current.authLevel } });
+        return stop(200, { ok: true, sessionKept: true, capabilityLevel: payload.capabilityLevel, user: { id: user.id, name: user.name, authLevel: current.authLevel } });
       }
-      json(res, 200, sessionBody(user, payload.capabilityLevel), { 'Set-Cookie': newSsoSession(req, user) });
+      json(res, 200, sessionBody(user, payload.capabilityLevel), { 'Set-Cookie': [newSsoSession(req, user), clearBind] });
+    },
+
+    // Begins the browser-bound flow. A top-level navigation (Home's "Abrir Búnker", or Búnker's own "Sign in with your 2J account"): remember a random
+    // verifier in THIS browser, then send it to Home carrying only the challenge. Nothing is stored on the server and nothing here proves who the person is.
+    'GET /api/platform/v1/sso/start': async (req, res) => {
+      const leave = (location, headers = {}) => { res.writeHead(302, { Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', ...headers }); res.end(); };
+      if (!config.ssoEnabled) return leave('/sso#error=disabled');
+      if (!rateLimit.gate(req, res)) return;
+      if (!config.homeUrl) return leave('/sso#error=unavailable');
+      const verifier = globalThis.crypto.getRandomValues(new Uint8Array(32)), text = Buffer.from(verifier).toString('base64url');
+      const challenge = await bindingChallengeFor(text);
+      leave(`${config.homeUrl}/#sso_challenge=${challenge}`, { 'Set-Cookie': `${SSO_BIND_COOKIE}=${text}; Path=${SSO_BIND_PATH}; Max-Age=${SSO_BIND_MAX_AGE_S}; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax` });
     },
 
     // The person has seen "you are signed in as A; continue as B?" and said yes. Only the browser session that was signed in when the code was

@@ -70,6 +70,7 @@ const EXACT = new Map([
   ['POST /api/me/username', E('identity', { ssoAllowed: true })],
   ['POST /api/me/avatar', E('identity', { ssoAllowed: true })],
   ['POST /api/logout', E('identity', { ssoAllowed: true })],
+  ['GET /api/platform/v1/sso/start', E('public', { ssoAllowed: true })],      // begins the browser-bound flow: sets the binding cookie and sends the browser to Home
   ['POST /api/platform/v1/sso/redeem', E('public', { ssoAllowed: true })],
   ['POST /api/platform/v1/sso/confirm', E('public', { ssoAllowed: true })],   // explicit confirmation of an account switch (H3); exempt like redeem   // exempt from the gate: a new code must work whatever session the browser holds
   ['GET /api/coach/disclosure', E('identity', { ssoAllowed: true })],

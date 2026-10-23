@@ -1064,7 +1064,7 @@ setTrustedProxies(parseTrustedProxies(process.env.TRUSTED_PROXIES));
 const ssoLimiter = new AttemptLimiter({ limit: 20, windowMs: 60000, blockMs: 60000 });
 const platformIntegration = createPlatformIntegration({
   config: PLATFORM_INTEGRATION_CONFIG, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer,
-  proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession, isEnvAdmin: id => ADMIN_UIDS.includes(id),
+  proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession, secureCookie: SECURE !== '', isEnvAdmin: id => ADMIN_UIDS.includes(id),
   // Its own limiter: SSO failures must never lock people out of passkey login, nor an SSO success reset the login limiter.
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
 });

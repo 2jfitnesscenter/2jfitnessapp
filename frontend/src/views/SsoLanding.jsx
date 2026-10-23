@@ -4,9 +4,10 @@
 // uses the URL hash) so the one-time code in the fragment is consumed and cleared first. See lib/sso-landing.js.
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n.js'
-import { confirmSsoSwitch, runSsoLanding } from '../lib/sso-landing.js'
+import { START_PATH, confirmSsoSwitch, runSsoLanding } from '../lib/sso-landing.js'
 
 const MESSAGES = {
+  binding: 'This link was not started in this browser, so it cannot sign you in. Start from here and your 2J space will bring you back.',
   invalid: 'This sign-in link has expired or was already used. Open Búnker again from your 2J space.',
   blocked: 'Your Búnker access is not available right now. Talk to the centre if you think this is a mistake.',
   link: 'Your 2J account is not confirmed with this Búnker account yet. Sign in with your passkey and ask the centre to link them.',
@@ -41,11 +42,18 @@ export default function SsoLanding() {
     )
   }
   if (state.phase === 'working') return <div className="narrow"><div className="card" role="status">{t('Opening Búnker with your 2J account…')}</div></div>
+  return <SsoFailure kind={state.kind} />
+}
+
+/** What the person sees when the sign-in could not complete. A link that was not started in this browser, or one that expired, can start again from here. */
+export function SsoFailure({ kind }) {
+  const restartable = kind === 'binding' || kind === 'invalid'
   return (
     <div className="narrow"><div className="card" role="alert">
       <h1>{t('Búnker')}</h1>
-      <p>{t(MESSAGES[state.kind] || MESSAGES.unavailable)}</p>
-      <a className="btn" href="/">{t('Sign in with passkey')}</a>
+      <p>{t(MESSAGES[kind] || MESSAGES.unavailable)}</p>
+      {restartable && <a className="btn" href={START_PATH}>{t('Continue with your 2J account')}</a>}
+      <a className={restartable ? 'btn ghost' : 'btn'} href="/">{t('Sign in with passkey')}</a>
     </div></div>
   )
 }
