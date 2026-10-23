@@ -15,9 +15,9 @@ export const capabilitiesV2Schema = z.object({
   capabilities: z.object(flags).strict(),
   reasonCode: z.enum(['ACTIVE_FULL', 'ACTIVE_AUTONOMOUS', 'PROVISIONAL_FULL', 'PROVISIONAL_AUTONOMOUS', 'TRAINING_LINK_REVOKED', 'TRAINING_LINK_MISSING', 'FREE_BASELINE', 'ADMIN_SUSPENDED']),
   suspensionStatus: z.enum(['none', 'suspended', 'lifted']),
-  effectiveFrom: z.string().nullable(),
-  expiresAt: z.string().regex(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/),
-  generatedAt: z.string().regex(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/),
+  effectiveFrom: z.union([z.iso.date(), z.null()]),
+  expiresAt: z.iso.datetime({ offset: false }),
+  generatedAt: z.iso.datetime({ offset: false }),
   source: z.object({ platform: z.literal(true) }).strict(),
 }).strict();
 
@@ -25,6 +25,58 @@ const BASELINE_FLAGS = new Set(['autonomousTraining', 'personalRoutineCreation',
 export const baselineCapabilities = () => Object.fromEntries(CAPABILITY_NAMES.map(name => [name, BASELINE_FLAGS.has(name)]));
 export const blockedCapabilities = () => Object.fromEntries(CAPABILITY_NAMES.map(name => [name, false]));
 const MAX_CLOCK_SKEW_MS = 60_000;
+/** A snapshot is bounded: a real one is under 2 KB; anything near this size is not a capability answer. */
+export const MAX_RESPONSE_BYTES = 64 * 1024;
+
+/**
+ * Cross-field invariants (ported from the other consumer, 2J-INT-CLOSURE decision 2): the answer must not contradict itself.
+ * A Platform bug or a tampered answer saying "suspended" with open flags, or "free baseline" with paid flags, is refused instead of being believed in the
+ * direction that happens to widen access. Returns the reason, or null.
+ */
+export function inconsistency(payload) {
+  const { linkStatus, trainingUserId } = payload.trainingSubject, reason = payload.reasonCode, flagsOn = Object.values(payload.capabilities).some(Boolean);
+  if (linkStatus !== 'active') {
+    if (trainingUserId !== undefined || reason !== (linkStatus === 'revoked' ? 'TRAINING_LINK_REVOKED' : 'TRAINING_LINK_MISSING')) return 'link_state_inconsistent';
+    if (payload.capabilityLevel !== 'blocked' || flagsOn) return 'link_capability_state_inconsistent';
+    return null;
+  }
+  if (!trainingUserId || reason === 'TRAINING_LINK_MISSING' || reason === 'TRAINING_LINK_REVOKED') return 'link_state_inconsistent';
+  const suspended = reason === 'ADMIN_SUSPENDED' || payload.accessState === 'suspended';
+  if (suspended) {
+    return payload.accessState !== 'suspended' || payload.suspensionStatus !== 'suspended' || reason !== 'ADMIN_SUSPENDED' || payload.capabilityLevel !== 'blocked' || flagsOn ? 'suspension_state_inconsistent' : null;
+  }
+  if (payload.suspensionStatus === 'suspended') return 'suspension_state_inconsistent';
+  if (reason === 'FREE_BASELINE') {
+    if (payload.capabilityLevel !== 'baseline' || payload.accessState !== 'baseline' || CAPABILITY_NAMES.some(name => payload.capabilities[name] !== BASELINE_FLAGS.has(name))) return 'baseline_state_inconsistent';
+  } else if (payload.accessState === 'baseline') return 'baseline_state_inconsistent';
+  if (payload.capabilityLevel === 'blocked') return 'blocked_level_without_restriction';
+  return null;
+}
+
+/** Reads at most `maxBytes` of the body (declared length and bytes actually received), so a hostile or broken answer cannot exhaust memory. */
+async function readBounded(response, maxBytes) {
+  const declared = response.headers?.get?.('content-length');
+  if (declared && Number(declared) > maxBytes) throw new Error('response_too_large');
+  if (typeof response.arrayBuffer !== 'function' && !response.body?.getReader) return JSON.stringify(await response.json());    // not a fetch Response (test doubles): nothing to bound
+  if (!response.body?.getReader) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > maxBytes) throw new Error('response_too_large');
+    return new TextDecoder().decode(bytes);
+  }
+  const reader = response.body.getReader(), chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) { await reader.cancel().catch(() => {}); throw new Error('response_too_large'); }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { all.set(chunk, offset); offset += chunk.byteLength; }
+  return new TextDecoder().decode(all);
+}
 const RESTRICTION_REASONS = new Set(['ADMIN_SUSPENDED', 'TRAINING_LINK_REVOKED', 'TRAINING_LINK_MISSING']);
 
 /**
@@ -82,7 +134,8 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
     const { signature } = signPlatformServiceRequest({ keyId: config.keyId, secret: config.secret, timestamp, requestId, method: 'GET', path, body: Buffer.alloc(0) });
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetchImpl(new URL(path, config.baseUrl), {
+      const expected = new URL(path, config.baseUrl);
+      const response = await fetchImpl(expected, {
         method: 'GET', redirect: 'error', signal: controller.signal,
         headers: { 'x-2j-key-id': config.keyId, 'x-2j-timestamp': timestamp, 'x-2j-request-id': requestId, 'x-2j-signature': signature },
       });
@@ -91,8 +144,16 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
         if (status >= 500 || status === 408 || status === 429) return { ok: false, kind: 'unavailable', reason: `http_${status}` };
         return { ok: false, kind: 'rejected', reason: `http_${status}` };
       }
+      // A snapshot that did not come from the origin and path we asked is not trusted, whatever it says.
+      if (response.redirected) return { ok: false, kind: 'inconsistent', reason: 'response_origin_mismatch' };
+      if (response.url) {
+        try {
+          const final = new URL(response.url);
+          if (final.origin !== expected.origin || final.pathname !== expected.pathname || final.search || final.hash) return { ok: false, kind: 'inconsistent', reason: 'response_origin_mismatch' };
+        } catch { return { ok: false, kind: 'inconsistent', reason: 'response_origin_mismatch' }; }
+      }
       let body;
-      try { body = await response.json(); } catch { return { ok: false, kind: 'inconsistent', reason: 'invalid_json' }; }
+      try { body = JSON.parse(await readBounded(response, MAX_RESPONSE_BYTES)); } catch (error) { return { ok: false, kind: 'inconsistent', reason: error?.message === 'response_too_large' ? 'response_too_large' : 'invalid_json' }; }
       const parsed = capabilitiesV2Schema.safeParse(body);
       return parsed.success ? { ok: true, payload: parsed.data } : { ok: false, kind: 'inconsistent', reason: 'invalid_contract' };
     } catch { return { ok: false, kind: 'unavailable', reason: 'network' }; }
@@ -107,7 +168,8 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
     const generated = Date.parse(payload.generatedAt), expires = Date.parse(payload.expiresAt);
     if (!Number.isFinite(generated) || !Number.isFinite(expires) || expires <= generated || expires - generated > MAX_CAPABILITY_CACHE_MS) return { kind: 'inconsistent', reason: 'invalid_window' };
     if (generated > t + MAX_CLOCK_SKEW_MS || expires <= t) return { kind: 'unavailable', reason: 'clock_skew' };
-    return null;
+    const contradiction = inconsistency(payload);
+    return contradiction ? { kind: 'inconsistent', reason: contradiction } : null;
   }
 
   /** Returns `{ source: 'fresh'|'cache'|'degraded'|'rejected', ...view }` or `null` when there is no verdict (legacy/shadow user, nothing known). */

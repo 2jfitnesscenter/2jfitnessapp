@@ -72,7 +72,7 @@ export const scenarios = [
   { id: 'unknown-reason-code', group: 'contract', respond: () => http(200, snapshot('full', { reasonCode: 'SOMETHING_NEW' })), expect: both('rejected') },
   { id: 'capability-not-boolean', group: 'contract', respond: () => http(200, snapshot('full', { capabilities: { ...snapshot('full').capabilities, aiCoach: 'yes' } })), expect: both('rejected') },
   { id: 'ttl-above-60s', group: 'window', respond: () => http(200, snapshot('full', { expiresAt: iso(NOW + 120_000) })), expect: both('rejected') },
-  { id: 'expires-before-generated', group: 'window', respond: () => http(200, snapshot('full', { expiresAt: iso(NOW - 1) })), expect: differ('rejected', 'unavailable', 'unusable window: Búnker fails closed on an impossible window; the other class it as a clock problem (see the next rows)') },
+  { id: 'expires-before-generated', group: 'window', respond: () => http(200, snapshot('full', { expiresAt: iso(NOW - 1) })), expect: both('rejected', 'an impossible window (expires before it was generated) fails closed in both') },
   { id: 'already-expired', group: 'window', respond: () => http(200, snapshot('full', { generatedAt: iso(NOW - 30_000), expiresAt: iso(NOW - 1) })), expect: differ('unavailable', 'rejected', 'decision H4: an answer our clock cannot use is an outage (degrade), not a refusal') },
   { id: 'issued-10-minutes-in-the-future', group: 'window', respond: () => http(200, snapshot('full', { generatedAt: iso(NOW + 600_000), expiresAt: iso(NOW + 640_000) })), expect: differ('unavailable', 'rejected', 'decision H4: a skewed clock is unavailability') },
   { id: 'issued-30-seconds-in-the-future', group: 'window', respond: () => http(200, snapshot('full', { generatedAt: iso(NOW + 30_000), expiresAt: iso(NOW + 60_000) })), expect: differ('allow', 'rejected', 'Búnker tolerates up to 60 s of clock skew between the two hosts; the cache is bounded by OUR clock anyway (H4)') },
@@ -89,7 +89,7 @@ export const scenarios = [
   { id: 'baseline-state-with-paid-reason', group: 'consistency', respond: () => http(200, snapshot('full', { accessState: 'baseline' })), expect: both('rejected') },
   { id: 'free-baseline-reason-with-active-state', group: 'consistency', respond: () => http(200, snapshot('baseline', { accessState: 'active' })), expect: both('rejected') },
   { id: 'blocked-level-with-flags-granted', group: 'consistency', respond: () => http(200, snapshot('suspended', { capabilities: snapshot('full').capabilities })), expect: both('rejected') },
-  { id: 'paid-reason-with-blocked-level', group: 'consistency', respond: () => http(200, snapshot('full', { capabilityLevel: 'blocked', capabilities: snapshot('suspended').capabilities })), expect: both('rejected') },
+  { id: 'paid-reason-with-blocked-level', group: 'consistency', respond: () => http(200, snapshot('full', { capabilityLevel: 'blocked', capabilities: snapshot('suspended').capabilities })), expect: differ('rejected', 'allow', 'level "blocked" with no restriction reason is a contradiction; the other consumer accepts it (harmless today: every flag is false, but it would trust a malformed answer)') },
 
   // ---- transport and status
   { id: 'network-error', group: 'transport', respond: () => { throw new Error('ECONNREFUSED'); }, expect: both('unavailable') },
