@@ -888,3 +888,82 @@ test('the staff-only writers of a member state (admin/trainer assignment and edi
   }
   assert.equal(JSON.stringify(await stateOf(sso.cookie)), before, 'nothing was written');
 });
+
+/* ---- kiosk tokens follow the account: an administrative suspension reaches an already-open kiosk without waiting for the token to expire ---- */
+const kioskCall = (token, method, route, body) => fetch(training.base + route, { method, headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined }).then(async r => ({ status: r.status, json: await r.json().catch(() => null) }));
+
+test('kiosk tokens are re-checked on every use: suspension and link loss end the kiosk session at once, legacy users are untouched, and lifting restores access', async () => {
+  const uid = people.swrite.uid, passkey = cookieFor(uid);
+  writeState(DIR, uid, paidSeed());
+  setCaps('swrite', 'baseline', { ttlMs: 1500 });
+  await new Promise(resolve => setTimeout(resolve, 1900));
+  await adminSetMode(uid, 'shadow'); assert.equal((await adminSetMode(uid, 'enforced')).status, 200);
+  const pin = await call(training, 'GET', '/api/bunker/pin', { cookie: passkey }); assert.equal(pin.status, 200, JSON.stringify(pin.json));
+  const checkin = await call(training, 'POST', '/api/bunker/checkin', { body: { pin: pin.json.pin } }); assert.equal(checkin.status, 200);
+  const token = checkin.json.token;
+  assert.equal((await kioskCall(token, 'GET', '/api/bunker/session')).status, 200, 'baseline keeps the kiosk');
+  const active = { id: 'k-act-1', d: '2026-10-23', name: 'Kiosco', start: Date.now() - 60_000, entries: [] };
+  assert.equal((await kioskCall(token, 'POST', '/api/bunker/active', { active, exName: 'x', setIdx: 0, setsTotal: 1 })).status, 200, 'baseline can log');
+
+  // Platform now says ADMIN_SUSPENDED. The same token (valid for hours) stops working on every kiosk route as soon as the cached answer lapses.
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('swrite', 'suspended', { ttlMs: 1500 });
+  for (const [method, route, body] of [['GET', '/api/bunker/session'], ['POST', '/api/bunker/active', { active, exName: 'x', setIdx: 0, setsTotal: 1 }], ['POST', '/api/bunker/rest', { sec: 30 }], ['POST', '/api/bunker/finish', { workout: { id: 'k-act-1', d: '2026-10-23', entries: [] } }]]) {
+    const r = await kioskCall(token, method, route, body);
+    assert.equal(r.status, 403, `${method} ${route}`); assert.equal(r.json.code, 'capability_required'); assert.equal(r.json.reasonCode, 'ADMIN_SUSPENDED');
+  }
+  assert.equal((await kioskCall(token, 'GET', '/api/bunker/board')).json?.sessions?.some?.(s => s.uid === uid) ?? false, false, 'the room presence ended');
+  const { readState: readStoredState } = await import('../lib/state-store.js');
+  assert.equal(readStoredState(uid)?.active?.id, 'k-act-1', 'the in-progress workout is kept, never discarded by the suspension');
+  assert.equal((await call(training, 'POST', '/api/bunker/checkin', { body: { pin: pin.json.pin } })).status, 403, 'no new check-in while suspended');
+
+  // Lifting the suspension restores access (same token, because nothing was destroyed).
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('swrite', 'baseline', { ttlMs: 1500 });
+  assert.equal((await kioskCall(token, 'GET', '/api/bunker/session')).status, 200);
+  assert.equal((await call(training, 'POST', '/api/bunker/checkin', { body: { pin: pin.json.pin } })).status, 200);
+});
+
+test('legacy members never call Platform from the kiosk and keep every route', async () => {
+  const legacyPin = await call(training, 'GET', '/api/bunker/pin', { cookie: cookieFor(people.legacy.uid) }); assert.equal(legacyPin.status, 200, JSON.stringify(legacyPin.json));
+  const before = platform.state.calls.length;
+  const checkin = await call(training, 'POST', '/api/bunker/checkin', { body: { pin: legacyPin.json.pin } }); assert.equal(checkin.status, 200);
+  for (const [method, route, body] of [['GET', '/api/bunker/session'], ['POST', '/api/bunker/rest', { sec: 20 }]]) assert.equal((await kioskCall(checkin.json.token, method, route, body)).status, 200, route);
+  assert.equal(platform.state.calls.length, before, 'no Platform call for a legacy account');
+});
+
+/* ---- guided programs: keeping them and their history is free; continuing them is a paid function ---- */
+test('finishing a workout of a guided program records it for everyone, but only advances/closes the program with the guided right; legacy is unchanged', async () => {
+  const { readState: readStoredState } = await import('../lib/state-store.js');
+  const program = () => ({ ...guided('gk'), status: 'active', weeks: [{ sessions: [{ day: 1 }] }] });
+  const seed = uid => writeState(DIR, uid, { ...paidSeed(), programs: [program()], activeProgramId: 'gk', workouts: [{ id: 'old-1', d: '2026-09-01', entries: [], src2j: { program: { programId: 'gk', sessionId: 'earlier' } } }] });
+  const workout = id => ({ id, d: '2026-10-23', entries: [], src2j: { program: { programId: 'gk', sessionId: '1:1:0' } } });
+  const kioskToken = async uid => { const pin = await call(training, 'GET', '/api/bunker/pin', { cookie: cookieFor(uid) }); assert.equal(pin.status, 200); const c = await call(training, 'POST', '/api/bunker/checkin', { body: { pin: pin.json.pin } }); assert.equal(c.status, 200, JSON.stringify(c.json)); return c.json.token; };
+  const uid = people.swrite.uid;
+
+  // Enforced, no guided right (free baseline): the workout and history are kept, the program is frozen exactly as it was.
+  setCaps('swrite', 'baseline', { ttlMs: 1500 }); await new Promise(resolve => setTimeout(resolve, 1900));
+  await adminSetMode(uid, 'shadow'); assert.equal((await adminSetMode(uid, 'enforced')).status, 200);
+  seed(uid);
+  let token = await kioskToken(uid);
+  const frozen = await kioskCall(token, 'POST', '/api/bunker/finish', { workout: workout('fin-free') });
+  assert.equal(frozen.status, 200, JSON.stringify(frozen.json)); assert.equal(frozen.json.guidedProgress, 'frozen');
+  let state = readStoredState(uid);
+  assert.ok(state.workouts.some(w => w.id === 'fin-free') && state.workouts.some(w => w.id === 'old-1'), 'the new workout is recorded and the history is intact');
+  assert.equal(state.programs.find(p => p.id === 'gk').status, 'active', 'the program is preserved, not advanced');
+  assert.equal(state.activeProgramId, 'gk');
+
+  // Same account with the guided right (the other fee): the program closes as before.
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('swrite', 'autonomous', { ttlMs: 1500 });
+  seed(uid); token = await kioskToken(uid);
+  const advanced = await kioskCall(token, 'POST', '/api/bunker/finish', { workout: workout('fin-paid') });
+  assert.equal(advanced.status, 200, JSON.stringify(advanced.json)); assert.equal(advanced.json.guidedProgress, undefined);
+  state = readStoredState(uid);
+  assert.equal(state.programs.find(p => p.id === 'gk').status, 'completed'); assert.equal(state.activeProgramId, null);
+
+  // Legacy member: untouched behaviour and no Platform call.
+  const legacy = people.legacy.uid; seed(legacy);
+  const before = platform.state.calls.length;
+  const legacyFinish = await kioskCall(await kioskToken(legacy), 'POST', '/api/bunker/finish', { workout: workout('fin-legacy') });
+  assert.equal(legacyFinish.status, 200); assert.equal(legacyFinish.json.guidedProgress, undefined);
+  assert.equal(readStoredState(legacy).programs.find(p => p.id === 'gk').status, 'completed');
+  assert.equal(platform.state.calls.length, before);
+});
