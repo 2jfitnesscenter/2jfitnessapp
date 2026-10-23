@@ -35,3 +35,15 @@ A private source address is not proof that the peer is our nginx or Caddy. Defau
 ## Passkeys of Búnker
 
 Not touched: `git diff` of both closure branches contains no change to `RP_ID`, `ORIGIN`, the WebAuthn routes or credential storage (checked in the closure report).
+
+## Architect's review follow-up (H1–H16) — what changed in Búnker
+
+- **H1** sessions follow the mode of the user. `gate()` and `authorizeStateWrite()` no longer treat every `sso` session as enforced; a legacy user keeps exactly their passkey rights through Platform SSO (no Platform call). The route limits of an `sso` session (no passkey-only, staff, destructive routes) are independent of the mode.
+- **H2** under enforcement, `member` routes (social, chat, friends, media upload, push, notifications, news) are closed for a blocked account for both session types; reads of news/media/notifications and withdrawal actions (delete/leave/block/unsubscribe/read/preferences) stay open; identity/export/deletion/logout/staff routes are never closed by the capability contract.
+- **H3** an SSO code never silently replaces the session of another account: `409 session_switch_confirmation_required` + single-use ticket bound to the browser session, explicit confirmation page (`/sso`), audit events `platform_sso_switch_requested/confirmed`. Residual: a visitor with no session can still be signed in by a link carrying someone else's code.
+- **H4/H5/H6** capability cache bounded by our clock; circuit breaker; unavailable → degrade, rejected/inconsistent → fail closed (see the Platform `CONTRACTS.md` §2).
+- **H7** the route matrix is generated from the effective router (`DUMP_ROUTES=1`, `api/scripts/route-matrix.mjs`); the classification test uses it.
+- **H10** a failure of the integration gate never takes access away from legacy or anonymous callers.
+- **H11** `api/scripts/legacy-differential.mjs`: 63 requests (old-app formats, Sync V2, kiosk flow, shared-IP limiter, route-shape tricks) replayed against `main` and the branch on identical data: identical except one intentional difference (an array as the whole state in `PUT /api/data`, now 400).
+- **H15** `STATE_KEY_CLASSES` + a test that fails when a source uses an unclassified top-level state key.
+- **New finding (not in the review):** the API `Dockerfile` did not `COPY platform-sso/`, so the image would not have started once #56 was merged. Fixed; `dockerfile-covers-imports.test.js` guards it.
