@@ -15,6 +15,8 @@ const ALLOWED_TRANSITIONS = new Set(['legacy>shadow', 'shadow>enforced', 'shadow
 /** The account's link, acknowledged by BOTH sides (Platform activated it only after Training agreed). */
 export const linkActive = user => user?.platformLink?.state === 'active' && typeof user.personId === 'string';
 export const userMode = user => ENFORCEMENT_MODES.includes(user?.platformEnforcement) ? user.platformEnforcement : 'legacy';
+/** H10: when the integration itself fails (a bug, not a Platform refusal), only users who opted in to enforcement/shadow lose access; legacy and anonymous callers always proceed. */
+export const gateFailureMayProceed = session => !session || userMode(session) === 'legacy';
 export const transitionAllowed = (from, to) => ALLOWED_TRANSITIONS.has(`${from}>${to}`);
 
 export const SSO_AUDIENCE = '2j-training-sso';
@@ -35,7 +37,9 @@ export function parsePlatformIntegrationEnv(env) {
   } catch { /* not configured */ }
   const keyId = /^[A-Za-z0-9._-]{1,80}$/.test(String(env.PLATFORM_API_KEY_ID || '')) ? String(env.PLATFORM_API_KEY_ID) : null;
   const configured = Boolean(baseUrl && keyId && secret.length >= 32 && secret.toString('base64url') === env.PLATFORM_API_KEY_SECRET);
-  return { ssoEnabled: TRUE.test(env.PLATFORM_SSO_ENABLED || ''), client: configured ? { baseUrl, keyId, secret } : null };
+  const breakerBase = Number(env.PLATFORM_BREAKER_BASE_MS);
+  const breakerBaseMs = Number.isInteger(breakerBase) && breakerBase >= 100 && breakerBase <= 30_000 ? breakerBase : undefined;   // test knob; the default is 5 s
+  return { ssoEnabled: TRUE.test(env.PLATFORM_SSO_ENABLED || ''), client: configured ? { baseUrl, keyId, secret } : null, ...(breakerBaseMs ? { breakerBaseMs } : {}) };
 }
 
 export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, isEnvAdmin = () => false, rateLimit, fetchImpl = globalThis.fetch, now = Date.now, log = console }) {
@@ -45,7 +49,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     if (revoked) { secEvent('platform_sso_sessions_revoked', { userId: user.id, meta: { reason, revoked } }); saveDb(); }
   };
   const capabilities = createCapabilitiesService({
-    config: config.client, now, fetchImpl,
+    config: config.client, now, fetchImpl, ...(config.breakerBaseMs ? { breakerBaseMs: config.breakerBaseMs } : {}),
     onRestriction: (user, restriction) => {
       const target = db.users.find(candidate => candidate.id === user.id);
       if (!target) return;
@@ -53,6 +57,8 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       saveDb();
     },
     onLinkLost: (user, reason) => revokeSsoSessions(user, reason),
+    // Operational alerts (rate-limited inside the service): Platform unreachable, refusing our service calls, contradicting an identity, or not configured.
+    onAlert: (kind, detail) => log.error?.(`platform integration alert: ${kind} ${JSON.stringify(detail)}`),
   });
 
   const shadowSeen = new Map();
@@ -66,28 +72,46 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
 
   const deny = (res, code, extra = {}) => json(res, 403, { error: code === 'passkey_required' ? 'esta acción requiere iniciar sesión con passkey' : 'tu cuenta no tiene acceso a esta función', code, ...extra });
 
-  /** Central dispatcher hook. Returns false when it already answered. */
+  /**
+   * Central dispatcher hook. Returns false when it already answered.
+   *
+   * The ENFORCEMENT MODE belongs to the user, not to the kind of session (decision H1): a legacy user keeps exactly what Búnker gave them whether they
+   * sign in with a passkey or arrive through Platform SSO; shadow only logs; enforced applies Platform's capabilities. What an `sso` session can never
+   * do is independent of the mode: it only reaches routes marked `ssoAllowed` (never passkey-only, staff or destructive ones).
+   * Route kinds under enforcement: `gated` needs its capabilities; `member` (social, chat, friends, media, push, news) needs the account not to be
+   * blocked (administrative suspension, revoked/missing link) so a suspension is coherent for every session type (decision H2); identity, public
+   * and staff routes (recovery, export, deletion, logout, administration) are never closed by the capability contract.
+   */
   async function gate(req, res, key) {
-    if (key === 'POST /api/platform/v1/sso/redeem') return true;   // redeeming is how a session is (re)established; it validates everything itself
+    if (key === 'POST /api/platform/v1/sso/redeem' || key === 'POST /api/platform/v1/sso/confirm') return true;   // how a session is (re)established; each validates everything itself
     if (!req.headers.cookie || !req.headers.cookie.includes('gymsid=')) return true;
     const policy = classifyRoute(key);
     const session = readSession(req);
     if (!session) return true;                                  // the handler answers 401 / public
-    if (session.authLevel === 'sso') {
-      if (!policy.ssoAllowed) { deny(res, 'passkey_required'); return false; }
-      const view = await capabilities.evaluate(session, { mode: 'enforced' });
-      if ((!view || view.level === 'blocked') && key !== 'POST /api/logout') { deny(res, 'platform_access_blocked', { reasonCode: view?.reasonCode ?? 'UNVERIFIED' }); return false; }
-      if (policy.kind === 'gated' && !capabilities.allows(view, policy.capabilities)) { deny(res, 'capability_required', { capabilities: policy.capabilities, reasonCode: view.reasonCode }); return false; }
+    const isSso = session.authLevel === 'sso';
+    if (isSso && !policy.ssoAllowed) { deny(res, 'passkey_required'); return false; }
+    const mode = userMode(session);
+    if (mode === 'legacy') return true;                         // no Platform check, no change of behaviour
+    const interactive = policy.kind === 'gated' || (policy.kind === 'member' && !policy.blockedOk && !(policy.blockedReadOk && ['GET', 'HEAD'].includes(req.method)));
+    if (!interactive) return true;
+    if (!isSso && isTrainer(session)) return true;              // staff functions never depend on the staff member's own capabilities
+    if (mode === 'enforced' && !linkActive(session)) { deny(res, 'platform_link_inactive', { reasonCode: 'TRAINING_LINK_MISSING' }); return false; }
+    if (mode === 'shadow') {
+      // Shadow never waits for Platform and never blocks: the comparison runs in the background.
+      capabilities.evaluate(session, { mode }).then(view => {
+        const ok = policy.kind === 'gated' ? capabilities.allows(view, policy.capabilities) : view?.level !== 'blocked';
+        if (!ok) shadowDivergence(session, key, view, policy.kind === 'gated' ? policy.capabilities : ['not_blocked']);
+      }).catch(() => {});
       return true;
     }
-    const mode = userMode(session);
-    if (mode === 'legacy' || policy.kind !== 'gated') return true;
-    if (isTrainer(session)) return true;                        // staff functions never depend on the staff member's own capabilities
-    if (mode === 'enforced' && !linkActive(session)) { deny(res, 'platform_link_inactive', { reasonCode: 'TRAINING_LINK_MISSING' }); return false; }
     const view = await capabilities.evaluate(session, { mode });
-    const ok = capabilities.allows(view, policy.capabilities);
-    if (mode === 'shadow') { if (!ok) shadowDivergence(session, key, view, policy.capabilities); return true; }
-    if (!ok) { deny(res, 'capability_required', { capabilities: policy.capabilities, reasonCode: view?.reasonCode ?? 'UNVERIFIED' }); return false; }
+    const ok = policy.kind === 'gated' ? capabilities.allows(view, policy.capabilities) : Boolean(view) && view.level !== 'blocked';
+    if (!ok) {
+      const blocked = !view || view.level === 'blocked';
+      if (blocked && (isSso || policy.kind === 'member')) deny(res, 'platform_access_blocked', { reasonCode: view?.reasonCode ?? 'UNVERIFIED' });
+      else deny(res, 'capability_required', { capabilities: policy.capabilities, reasonCode: view?.reasonCode ?? 'UNVERIFIED' });
+      return false;
+    }
     return true;
   }
 
@@ -96,9 +120,12 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     const mode = userMode(user);
     if (mode === 'legacy' || isTrainer(user)) return { allowed: true };
     if (mode === 'enforced' && !linkActive(user)) return { allowed: false, reasonCode: 'TRAINING_LINK_MISSING' };
+    if (mode === 'shadow') {                                     // never waits for Platform, never blocks
+      capabilities.evaluate(user, { mode }).then(view => { if (!capabilities.allows(view, names)) shadowDivergence(user, 'kiosk', view, names); }).catch(() => {});
+      return { allowed: true };
+    }
     const view = await capabilities.evaluate(user, { mode });
     const ok = capabilities.allows(view, names);
-    if (mode === 'shadow') { if (!ok) shadowDivergence(user, 'kiosk', view, names); return { allowed: true }; }
     return ok ? { allowed: true } : { allowed: false, reasonCode: view?.reasonCode ?? 'UNVERIFIED' };
   }
 
@@ -109,7 +136,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
    */
   async function authorizeStateWrite(session, incoming, current) {
     const pass = { state: incoming, stripped: [], denied: [] };
-    const mode = session.authLevel === 'sso' ? 'enforced' : userMode(session);
+    const mode = userMode(session);
     if (mode === 'legacy' || isTrainer(session) || !incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return pass;
     const view = await capabilities.evaluate(session, { mode });
     if (!view) return pass;                                    // no verdict (shadow/legacy with nothing known): current behaviour
@@ -213,5 +240,5 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     },
   };
 
-  return { routes, gate, memberGate, authorizeStateWrite, capabilities, revokeSsoSessions, classifyRoute };
+  return { routes, gate, memberGate, authorizeStateWrite, capabilities, revokeSsoSessions, classifyRoute, platformStatus: () => capabilities.status() };
 }

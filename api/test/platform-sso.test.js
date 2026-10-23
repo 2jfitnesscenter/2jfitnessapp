@@ -103,7 +103,7 @@ test('safe degradation never grants paid rights, keeps baseline and respects kno
   assert.equal(service.allows(view, ['workoutRecording', 'workoutHistory', 'personalRoutineManagement']), true, 'free baseline is preserved');
   for (const name of ['aiCoach', 'professionalFollowUp', 'guidedTraining', 'premiumPrograms', 'routineCreation']) assert.equal(view.capabilities[name], false, `${name} is never granted without verification`);
 
-  down = false; kind = 'suspended'; clock += 100;
+  down = false; kind = 'suspended'; clock += 6000;
   view = await service.evaluate(user, { mode: 'enforced' });
   assert.equal(view.level, 'blocked'); assert.equal(view.reasonCode, 'ADMIN_SUSPENDED'); assert.equal(user.platformRestriction.reasonCode, 'ADMIN_SUSPENDED');
   clock += 6000; down = true;
@@ -114,7 +114,7 @@ test('safe degradation never grants paid rights, keeps baseline and respects kno
   const afterRestart = createCapabilitiesService({ config, now: () => clock, fetchImpl });          // empty memory, restriction persisted on the user
   assert.equal((await afterRestart.evaluate(user, { mode: 'enforced' })).level, 'blocked', 'the restriction survives a restart');
 
-  down = false; kind = 'baseline'; clock += 100;
+  down = false; kind = 'baseline'; clock += 6000;
   view = await service.evaluate(user, { mode: 'enforced' });
   assert.equal(view.level, 'baseline'); assert.equal(user.platformRestriction, undefined, 'lifting the suspension clears the persisted restriction');
   assert.equal(persisted.at(-1), null);
@@ -151,7 +151,7 @@ test('capability answers that do not match the contract, the person or the clock
 
 /* ------------------------------------------------------------------ fake Platform + real Training server */
 function startPlatform() {
-  const state = { caps: new Map(), codes: new Map(), calls: [], down: false, keyId: 'qa-bunker-v1', secret: Buffer.alloc(32, 9) };
+  const state = { caps: new Map(), forced: new Map(), codes: new Map(), calls: [], down: false, keyId: 'qa-bunker-v1', secret: Buffer.alloc(32, 9) };
   const server = http.createServer((req, res) => {
     const chunks = [];
     req.on('data', chunk => chunks.push(chunk));
@@ -165,6 +165,7 @@ function startPlatform() {
       if (state.down) return req.socket.destroy();
       if (!authentic) return reply(401, { error: 'service_auth_rejected' });
       const caps = req.method === 'GET' && /^\/api\/internal\/platform\/v2\/persons\/([0-9a-f-]{36})\/training-capabilities$/.exec(req.url);
+      if (caps && state.forced.has(caps[1])) { const f = state.forced.get(caps[1]); return reply(f.status, f.body); }
       if (caps) { const make = state.caps.get(caps[1]); return make ? reply(200, make()) : reply(404, { error: 'person_not_found' }); }
       if (req.method === 'POST' && req.url === '/api/internal/platform/v2/sso/redeem') {
         const request = JSON.parse(body.toString('utf8'));
@@ -220,7 +221,7 @@ async function startTraining(extraEnv = {}) {
   return { base, port, stop: () => child.kill() };
 }
 const linkKey = { id: 'platform-link-fixture', secret: Buffer.alloc(32, 0x55) };
-const training = await startTraining({ PLATFORM_LINK_LIFECYCLE_ENABLED: 'true', PLATFORM_PROVISIONING_ENABLED: 'true', PLATFORM_SERVICE_AUTH_KEYS: JSON.stringify({ [linkKey.id]: linkKey.secret.toString('base64url') }), PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret });
+const training = await startTraining({ PLATFORM_LINK_LIFECYCLE_ENABLED: 'true', PLATFORM_PROVISIONING_ENABLED: 'true', PLATFORM_SERVICE_AUTH_KEYS: JSON.stringify({ [linkKey.id]: linkKey.secret.toString('base64url') }), PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret, PLATFORM_BREAKER_BASE_MS: '200' });
 const plain = await startTraining();            // no Platform configuration at all
 
 /** Signed Platform -> Training lifecycle call (2J-SERVICE-AUTH-V1). */
@@ -327,6 +328,13 @@ async function adminSetMode(uid, mode) {
   return call(training, 'POST', '/api/admin/platform-enforcement', { cookie: cookieFor(people.admin.uid), body: { userId: uid, mode } });
 }
 
+/** Moves ONE user to enforced the way an administrator does (legacy > shadow > enforced). Sessions follow the user's mode, so capability tests need it. */
+async function enforce(who) {
+  const uid = people[who].uid;
+  const shadow = await adminSetMode(uid, 'shadow'); assert.equal(shadow.status, 200, JSON.stringify(shadow.json));
+  const enforced = await adminSetMode(uid, 'enforced'); assert.equal(enforced.status, 200, JSON.stringify(enforced.json));
+}
+
 test('legacy users never call Platform and keep full current access; transitions are per user and verified', async () => {
   writeState(DIR, people.b.uid, sampleState());
   const callsBefore = platform.state.calls.length;
@@ -393,6 +401,7 @@ test('shadow mode logs but never blocks; enforced mode applies the V2 capabiliti
   await new Promise(resolve => setTimeout(resolve, 1900)); platform.state.down = true;
   await deny('GET', '/api/data', ['workoutHistory']);
   platform.state.down = false; setCaps('b', 'baseline', { ttlMs: 1500 });
+  await new Promise(resolve => setTimeout(resolve, 400));          // the circuit breaker (200 ms in tests) lets one probe through again
   const restored = await call(training, 'GET', '/api/data', { cookie });
   assert.equal(restored.status, 200);
   assert.equal(JSON.stringify(restored.json).includes('Full body A'), true, 'existing routines are still there after the suspension is lifted');
@@ -429,6 +438,7 @@ test('enforcement requires a fresh Platform verification, never a degraded guess
 test('a revoked link closes the sso sessions and blocks the account until Platform says otherwise', async () => {
   setCaps('c', 'baseline', { ttlMs: 1500 });
   const sso = await redeem('c'); assert.equal(sso.status, 200);
+  await enforce('c');
   assert.equal((await call(training, 'GET', '/api/data', { cookie: sso.cookie })).status, 200);
   await new Promise(resolve => setTimeout(resolve, 1900));
   setCaps('c', 'revoked', { ttlMs: 1500 });
@@ -441,10 +451,21 @@ test('a revoked link closes the sso sessions and blocks the account until Platfo
   assert.equal(again.status, 403);
 });
 
-test('an sso session is always strict, even for a user left in legacy mode', async () => {
+test('an sso session follows the mode of the user (H1): legacy keeps its current access, shadow only logs, enforced applies the contract; the route limits of sso never depend on the mode', async () => {
   setCaps('d', 'baseline', { ttlMs: 1500 });
   const sso = await redeem('d'); assert.equal(sso.status, 200);
   assert.equal(userMode(dbUser(people.d.uid)), 'legacy');
+  const before = platform.state.calls.length;
+  // Legacy: what Búnker gave this user with a passkey is exactly what the Platform sign-in gives; no Platform call at all.
+  for (const route of ['/api/guided', '/api/premium', '/api/data']) assert.notEqual((await call(training, 'GET', route, { cookie: sso.cookie })).json?.code, 'capability_required', route);
+  assert.equal(platform.state.calls.length, before, 'legacy never calls Platform');
+  // The route limits of an sso session hold in every mode: no passkey-only, staff or destructive route.
+  for (const route of ['/api/me/passkeys', '/api/me/export', '/api/admin/users']) { const r = await call(training, 'GET', route, { cookie: sso.cookie }); assert.equal(r.status, 403, route); assert.equal(r.json.code, 'passkey_required'); }
+  // Shadow: nothing is blocked either.
+  assert.equal((await adminSetMode(people.d.uid, 'shadow')).status, 200);
+  assert.notEqual((await call(training, 'GET', '/api/guided', { cookie: sso.cookie })).json?.code, 'capability_required');
+  // Enforced: the same session becomes strict, and safely degrades during an outage.
+  assert.equal((await adminSetMode(people.d.uid, 'enforced')).status, 200);
   const guided = await call(training, 'GET', '/api/guided', { cookie: sso.cookie });
   assert.equal(guided.status, 403); assert.equal(guided.json.code, 'capability_required');
   assert.equal((await call(training, 'GET', '/api/data', { cookie: sso.cookie })).status, 200);
@@ -463,7 +484,7 @@ test('staff keep their role functions regardless of their own capabilities', asy
 });
 
 test('accounts listed in ADMIN_UIDS never get an sso session', async () => {
-  const withEnvAdmin = await startTraining({ ADMIN_UIDS: people.envadmin.uid, PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret });
+  const withEnvAdmin = await startTraining({ ADMIN_UIDS: people.envadmin.uid, PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret, PLATFORM_BREAKER_BASE_MS: '200' });
   try {
     setCaps('envadmin', 'baseline');
     const code = randomBytes(32).toString('base64url');
@@ -515,7 +536,7 @@ test('SSO sign-ins leave a Búnker-side security event and an sso session cannot
 });
 
 test('SSO failures use their own limiter: they never block passkey login', async () => {
-  const limited = await startTraining({ PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret });
+  const limited = await startTraining({ PLATFORM_SSO_ENABLED: 'true', PLATFORM_API_BASE_URL: `http://127.0.0.1:${platform.port}`, PLATFORM_API_KEY_ID: platform.state.keyId, PLATFORM_API_KEY_SECRET: platformSecret, PLATFORM_BREAKER_BASE_MS: '200' });
   try {
     const statuses = [];
     for (let index = 0; index < 24; index += 1) statuses.push((await call(limited, 'POST', '/api/platform/v1/sso/redeem', { body: { v: 1, code: randomBytes(32).toString('base64url') }, origin: limited.base })).status);
@@ -559,6 +580,7 @@ const guided = (id, extra = {}) => ({ id, name: `Guiada ${id}`, source: 'guided-
 test('free users keep saving personal content through /api/sync while paid subtrees and guided programs are ignored, not erased', async () => {
   setCaps('sfull', 'full', { ttlMs: 1500 });
   const fullSession = await redeem('sfull'); assert.equal(fullSession.status, 200);
+  await enforce('sfull');
   // Fuerza writes everything, including paid subtrees and a guided program.
   const seeded = await syncSave(fullSession.cookie, state => {
     state.routines = [{ id: 'r-own', name: 'Mi rutina', ex: [] }];
@@ -604,6 +626,7 @@ test('free users keep saving personal content through /api/sync while paid subtr
 test('the other fee unlocks guided and Premium content but not the AI Coach; Fuerza unlocks all', async () => {
   setCaps('sother', 'autonomous', { ttlMs: 1500 });
   const other = await redeem('sother'); assert.equal(other.status, 200);
+  await enforce('sother');
   const result = await syncSave(other.cookie, state => {
     state.premium = { v: 1, active: { id: 'inst' }, history: [] };
     state.programs = [guided('g1', { status: 'active' })]; state.activeProgramId = 'g1';
@@ -769,7 +792,7 @@ test('PUT /api/data, /api/workouts/delete and the active-session routes cannot a
   const uid = people.swrite.uid;
   writeState(DIR, uid, paidSeed());
   setCaps('swrite', 'baseline', { ttlMs: 1500 });
-  const session = await redeem('swrite'); assert.equal(session.status, 200);
+  const session = await redeem('swrite'); assert.equal(session.status, 200); await enforce('swrite');
   const before = paidView(await stateOf(session.cookie));
   const attacked = async (label, run) => { const r = await run(); assert.equal(paidView(await stateOf(session.cookie)), before, `${label} left paid content untouched (${r.status})`); return r; };
 
@@ -812,7 +835,7 @@ test('every sync operation type (save, replace, reset, delete) is authorized by 
   const uid = people.swrite.uid;
   writeState(DIR, uid, paidSeed());                                         // fresh server state with paid content a past fee created
   setCaps('swrite', 'baseline', { ttlMs: 1500 });
-  const session = await redeem('swrite'); assert.equal(session.status, 200);
+  const session = await redeem('swrite'); assert.equal(session.status, 200); await enforce('swrite');
   const view = async () => paidView((await readSync(session.cookie)).state);
   const before = await view();
   for (const type of ['save', 'replace', 'reset']) {
@@ -842,7 +865,7 @@ test('every sync operation type (save, replace, reset, delete) is authorized by 
 
 test('commercial feature routes refuse an enforced no-fee account (Coach, Premium, Opposition, follow-up)', async () => {
   setCaps('swrite', 'baseline', { ttlMs: 1500 });
-  const session = await redeem('swrite'); assert.equal(session.status, 200);
+  const session = await redeem('swrite'); assert.equal(session.status, 200); await enforce('swrite');
   for (const [method, route] of [['POST', '/api/coach/plan'], ['POST', '/api/coach/review'], ['POST', '/api/coach/pending/resolve'], ['POST', '/api/premium/started'], ['POST', '/api/opposition/started'], ['POST', '/api/followup/questionnaire/submit'], ['POST', '/api/followup/photo'], ['GET', '/api/guided'], ['GET', '/api/premium'], ['GET', '/api/opposition']]) {
     const r = await call(training, method, route, { cookie: session.cookie, body: method === 'POST' ? { forged: true } : undefined });
     assert.equal(r.status, 403, `${method} ${route} -> ${r.status}`); assert.equal(r.json.code, 'capability_required', `${method} ${route}`);
@@ -862,7 +885,7 @@ test('a suspended (blocked) account cannot write state through any route', async
 test('a non-object state is rejected before it can replace or wipe the stored state', async () => {
   setCaps('swrite', 'baseline', { ttlMs: 1500 });
   await new Promise(resolve => setTimeout(resolve, 1900));
-  const session = await redeem('swrite'); assert.equal(session.status, 200);
+  const session = await redeem('swrite'); assert.equal(session.status, 200); await enforce('swrite');
   const before = JSON.stringify((await readSync(session.cookie)).state);
   const envelope = await readSync(session.cookie);
   for (const bad of [[], 'x', 5]) {
@@ -966,4 +989,156 @@ test('finishing a workout of a guided program records it for everyone, but only 
   assert.equal(legacyFinish.status, 200); assert.equal(legacyFinish.json.guidedProgress, undefined);
   assert.equal(readStoredState(legacy).programs.find(p => p.id === 'gk').status, 'completed');
   assert.equal(platform.state.calls.length, before);
+});
+
+/* ---- H2: an administrative suspension closes interactive routes the same way for passkey and sso sessions, and keeps the safe paths open ---- */
+test('a suspended enforced account is blocked on gated AND interactive member routes with both session types, while recovery, export, withdrawal and reading the gym news stay open; legacy is untouched', async () => {
+  setCaps('swrite', 'baseline', { ttlMs: 1500 });
+  const sso = await redeem('swrite'); assert.equal(sso.status, 200); await enforce('swrite');
+  const passkey = cookieFor(people.swrite.uid);
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('swrite', 'suspended', { ttlMs: 1500 });
+  const closed = [['GET', '/api/data'], ['POST', '/api/sync'], ['POST', '/api/social/wall'], ['GET', '/api/social/wall'], ['POST', '/api/chat/messages'], ['GET', '/api/chat/threads'], ['POST', '/api/friends/request'], ['POST', '/api/media/upload'], ['POST', '/api/push/subscribe'], ['POST', '/api/social/reports']];
+  const open = [['GET', '/api/news'], ['GET', '/api/notifications'], ['POST', '/api/notifications/read-all'], ['POST', '/api/social/wall/delete'], ['POST', '/api/social/wall/comment/delete'], ['POST', '/api/friends/block'], ['POST', '/api/push/unsubscribe'], ['POST', '/api/social/preferences'], ['GET', '/api/me'], ['GET', '/api/me/security-events'], ['POST', '/api/coach/forget']];
+  for (const [label, cookie] of [['sso', sso.cookie], ['passkey', passkey]]) {
+    for (const [method, route] of closed) {
+      const r = await call(training, method, route, { cookie, body: method === 'POST' ? {} : undefined });
+      assert.equal(r.status, 403, `${label} ${method} ${route} -> ${r.status} ${JSON.stringify(r.json)}`);
+      assert.ok(['platform_access_blocked', 'capability_required'].includes(r.json.code), `${label} ${method} ${route}`);
+    }
+    for (const [method, route] of open) {
+      if (label === 'sso' && route === '/api/coach/forget') continue;     // passkey-only (destructive), unrelated to the suspension
+      const r = await call(training, method, route, { cookie, body: method === 'POST' ? {} : undefined });
+      assert.ok(!['platform_access_blocked', 'capability_required', 'platform_link_inactive'].includes(r.json?.code), `${label} ${method} ${route} must not be closed by the suspension (${r.status} ${JSON.stringify(r.json)})`);
+    }
+  }
+  // Passkey-only recovery/export/deletion routes are never closed by the capability contract.
+  for (const [method, route] of [['GET', '/api/me/export'], ['GET', '/api/me/passkeys'], ['POST', '/api/me/delete/options'], ['POST', '/api/logout']]) {
+    const r = await call(training, method, route, { cookie: passkey, body: method === 'POST' ? {} : undefined });
+    assert.ok(!['platform_access_blocked', 'capability_required', 'platform_link_inactive'].includes(r.json?.code), `${method} ${route} ${r.status}`);
+  }
+  // A legacy member is not affected by anything above (no Platform call, no new closure).
+  const legacy = cookieFor(people.legacy.uid), before = platform.state.calls.length;
+  for (const [method, route] of closed) { const r = await call(training, method, route, { cookie: legacy, body: method === 'POST' ? {} : undefined }); assert.ok(!['platform_access_blocked', 'capability_required', 'platform_link_inactive'].includes(r.json?.code), `legacy ${method} ${route}`); }
+  assert.equal(platform.state.calls.length, before);
+});
+
+/* ---- H4 / H5 / H6: unavailability degrades, refusal and inconsistency fail closed, outages do not make every request wait, cache lifetime follows OUR clock ---- */
+test('H6: an unavailable Platform degrades safely, a refusing or contradicting Platform fails closed; neither is persisted as a restriction', async () => {
+  const personId = randomUUID(), user = { id: 'u-h6', personId };
+  const config = { baseUrl: 'http://127.0.0.1:9', keyId: 'k', secret: Buffer.alloc(32, 3) };
+  const t0 = 1_800_000_000_000;
+  const run = async (answer, { clock = t0 } = {}) => {
+    const alerts = [], persisted = [];
+    const service = createCapabilitiesService({ config, now: () => clock, fetchImpl: async () => answer(), onRestriction: (u, r) => persisted.push(r), onAlert: (kind, detail) => alerts.push([kind, detail]) });
+    return { view: await service.evaluate(user, { mode: 'enforced' }), alerts, persisted, service };
+  };
+  const ok = (over = {}) => ({ ok: true, status: 200, json: async () => ({ ...v2({ personId, trainingUserId: user.id, kind: 'full', now: t0 }), ...over }) });
+  const http_ = status => ({ ok: false, status, json: async () => ({}) });
+
+  // Unavailable: baseline, never paid rights, and an alert that Platform is unreachable.
+  for (const answer of [() => { throw new Error('network'); }, () => http_(503), () => http_(500), () => http_(429), () => http_(408)]) {
+    const { view, alerts, persisted } = await run(answer);
+    assert.equal(view.source, 'degraded'); assert.equal(view.level, 'baseline'); assert.equal(view.capabilities.aiCoach, false); assert.equal(view.capabilities.workoutRecording, true);
+    assert.equal(alerts[0][0], 'platform_unreachable'); assert.deepEqual(persisted, []);
+  }
+  // Clock we cannot trust: unavailability (baseline), not a verdict about the person.
+  const skewed = await run(() => ok({ generatedAt: new Date(t0 + 10 * 60_000).toISOString(), expiresAt: new Date(t0 + 10 * 60_000 + 30_000).toISOString() }));
+  assert.equal(skewed.view.source, 'degraded');
+
+  // Refused (401/403/404/400) or contradicting (bad contract, another person, another Training user, absurd window): blocked, alert, nothing persisted.
+  const refusals = [
+    ['http 401', () => http_(401), 'platform_rejected', 'PLATFORM_REJECTED'], ['http 403', () => http_(403), 'platform_rejected', 'PLATFORM_REJECTED'],
+    ['http 404', () => http_(404), 'platform_rejected', 'PLATFORM_REJECTED'], ['http 400', () => http_(400), 'platform_rejected', 'PLATFORM_REJECTED'],
+    ['invalid contract', () => ok({ contract: 'something-else' }), 'platform_inconsistent', 'IDENTITY_INCONSISTENT'],
+    ['another person', () => ok({ personId: randomUUID() }), 'platform_inconsistent', 'IDENTITY_INCONSISTENT'],
+    ['another training user', () => ok({ trainingSubject: { linkStatus: 'active', trainingUserId: 'someone-else' } }), 'platform_inconsistent', 'IDENTITY_INCONSISTENT'],
+    ['window longer than 60 s', () => ok({ expiresAt: new Date(t0 + 300_000).toISOString() }), 'platform_inconsistent', 'IDENTITY_INCONSISTENT'],
+    ['not json', () => ({ ok: true, status: 200, json: async () => { throw new Error('bad json'); } }), 'platform_inconsistent', 'IDENTITY_INCONSISTENT'],
+  ];
+  for (const [label, answer, alertKind, reasonCode] of refusals) {
+    const { view, alerts, persisted, service } = await run(answer);
+    assert.equal(view.source, 'rejected', label); assert.equal(view.level, 'blocked', label); assert.equal(view.reasonCode, reasonCode, label);
+    assert.equal(service.allows(view, ['workoutHistory']), false, `${label}: nothing is allowed`);
+    assert.equal(alerts[0][0], alertKind, label); assert.deepEqual(persisted, [], `${label}: a refusal is not stored as a restriction`);
+  }
+  // The refusal is remembered for a few seconds only (no hammering), then Platform is asked again and a healthy answer restores access.
+  let clock = t0, answer = () => http_(403), calls = 0;
+  const service = createCapabilitiesService({ config, now: () => clock, fetchImpl: async () => { calls++; return answer(); } });
+  assert.equal((await service.evaluate(user, { mode: 'enforced' })).level, 'blocked'); await service.evaluate(user, { mode: 'enforced' }); assert.equal(calls, 1, 'short negative cache');
+  clock += 6_000; answer = () => ok({ generatedAt: new Date(clock).toISOString(), expiresAt: new Date(clock + 30_000).toISOString() });
+  const healed = await service.evaluate(user, { mode: 'enforced' }); assert.equal(calls, 2); assert.equal(healed.level, 'full');
+  // Alerts are rate limited: a flood of failures raises one alert per kind per 5 minutes.
+  const flood = [], noisy = createCapabilitiesService({ config, now: () => clock, fetchImpl: async () => http_(401), onAlert: kind => flood.push(kind) });
+  for (let i = 0; i < 5; i++) { clock += 6_000; await noisy.evaluate({ id: `u-${i}`, personId: randomUUID() }, { mode: 'enforced' }); }
+  assert.equal(flood.length, 1);
+  // Not configured is loud too, and never grants paid rights.
+  const unconfigured = []; const none = createCapabilitiesService({ config: null, now: () => t0, onAlert: kind => unconfigured.push(kind) });
+  assert.equal((await none.evaluate({ ...user, platformRestriction: undefined }, { mode: 'enforced' })).level, 'baseline'); assert.deepEqual(unconfigured, ['platform_not_configured']);
+});
+
+test('H5: during an outage only one request pays the timeout; the circuit breaker answers the rest at once and probes again after the backoff', async () => {
+  const config = { baseUrl: 'http://127.0.0.1:9', keyId: 'k', secret: Buffer.alloc(32, 3) };
+  let clock = 1_800_000_000_000, calls = 0, down = true;
+  const people_ = Array.from({ length: 6 }, (_, i) => ({ id: `u-b${i}`, personId: randomUUID() }));
+  const service = createCapabilitiesService({ config, now: () => clock, breakerBaseMs: 5_000, fetchImpl: async url => {
+    calls++;
+    if (down) throw new Error('timeout');
+    const personId = String(url).match(/persons\/([0-9a-f-]{36})\//)[1], who = people_.find(p => p.personId === personId);
+    return { ok: true, status: 200, json: async () => v2({ personId, trainingUserId: who.id, kind: 'baseline', now: clock }) };
+  } });
+  for (const who of people_) assert.equal((await service.evaluate(who, { mode: 'enforced' })).source, 'degraded');
+  assert.equal(calls, 1, 'five of the six requests never touched the network');
+  assert.equal(service.status().breakerOpen, true); assert.ok(service.status().consecutiveFailures >= 1);
+  clock += 5_001; await service.evaluate(people_[0], { mode: 'enforced' }); assert.equal(calls, 2, 'one probe after the backoff');
+  clock += 10_001; down = false; assert.equal((await service.evaluate(people_[1], { mode: 'enforced' })).source, 'fresh', 'recovery closes the breaker');
+  assert.equal(service.status().breakerOpen, false); assert.equal(service.status().unreachableSinceMs, 0);
+});
+
+test('H4: the cache lifetime is bounded by OUR clock, not by the clock inside the answer', async () => {
+  const config = { baseUrl: 'http://127.0.0.1:9', keyId: 'k', secret: Buffer.alloc(32, 3) };
+  const personId = randomUUID(), user = { id: 'u-h4', personId }, now0 = 1_800_000_000_000;
+  let clock = now0, calls = 0;
+  // Platform's clock runs 50 s AHEAD: its answer says it is valid for 60 s from its own "now" (110 s from ours).
+  const service = createCapabilitiesService({ config, now: () => clock, fetchImpl: async () => { calls++; return { ok: true, status: 200, json: async () => v2({ personId, trainingUserId: user.id, kind: 'full', ttlMs: 60_000, now: clock + 50_000 }) }; } });
+  assert.equal((await service.evaluate(user, { mode: 'enforced' })).source, 'fresh');
+  clock += 59_000; assert.equal((await service.evaluate(user, { mode: 'enforced' })).source, 'cache'); assert.equal(calls, 1);
+  clock += 2_000; assert.equal((await service.evaluate(user, { mode: 'enforced' })).source, 'fresh'); assert.equal(calls, 2, 'asked again after 60 s of OUR time, never later');
+  // Platform's clock runs 20 s BEHIND: the answer expires earlier than 60 s of our time, and we honour the earlier bound.
+  calls = 0; clock = now0 + 500_000;
+  const behind = createCapabilitiesService({ config, now: () => clock, fetchImpl: async () => { calls++; return { ok: true, status: 200, json: async () => v2({ personId, trainingUserId: user.id, kind: 'full', ttlMs: 60_000, now: clock - 20_000 }) }; } });
+  await behind.evaluate(user, { mode: 'enforced' }); clock += 41_000; await behind.evaluate(user, { mode: 'enforced' }); assert.equal(calls, 2);
+});
+
+test('H6/H10 over HTTP: a Platform that refuses an enforced user blocks them, never a legacy user; a gate failure never takes access from a legacy user', async () => {
+  // Enforced user refused by Platform -> blocked on gated and interactive routes, free data untouched.
+  setCaps('sfree', 'baseline', { ttlMs: 1500 });
+  await new Promise(resolve => setTimeout(resolve, 1900));
+  assert.equal((await adminSetMode(people.sfree.uid, 'shadow')).status, 200); assert.equal((await adminSetMode(people.sfree.uid, 'enforced')).status, 200);
+  const cookie = cookieFor(people.sfree.uid);
+  assert.equal((await call(training, 'GET', '/api/data', { cookie })).status, 200);
+  await new Promise(resolve => setTimeout(resolve, 1900)); platform.state.forced.set(people.sfree.personId, { status: 403, body: { error: 'service_auth_rejected' } });
+  const refused = await call(training, 'GET', '/api/data', { cookie });
+  assert.equal(refused.status, 403); assert.equal(refused.json.reasonCode, 'PLATFORM_REJECTED');
+  assert.equal((await call(training, 'POST', '/api/social/wall', { cookie, body: {} })).status, 403);
+  assert.equal((await call(training, 'GET', '/api/me', { cookie })).status, 200, 'the account and its recovery paths stay reachable');
+  assert.equal(dbUser(people.sfree.uid).platformRestriction, undefined, 'a refusal is not stored as a persistent restriction');
+  // The same refusal does not touch a legacy user, who is never evaluated.
+  platform.state.forced.set(people.legacy.personId ?? 'none', { status: 403, body: {} });
+  assert.notEqual((await call(training, 'GET', '/api/data', { cookie: cookieFor(people.legacy.uid) })).status, 403);
+  // Once Platform answers normally again the enforced user recovers by itself.
+  platform.state.forced.delete(people.sfree.personId); await new Promise(resolve => setTimeout(resolve, 5_200));
+  assert.equal((await call(training, 'GET', '/api/data', { cookie })).status, 200);
+});
+
+test('H10: a failure of the integration itself keeps legacy and anonymous callers working and fails closed only for users who opted in', async () => {
+  const { gateFailureMayProceed } = await import('../platform-sso/index.js');
+  assert.equal(gateFailureMayProceed(null), true, 'anonymous / public routes');
+  assert.equal(gateFailureMayProceed({ id: 'x' }), true, 'no mode = legacy');
+  assert.equal(gateFailureMayProceed({ id: 'x', platformEnforcement: 'legacy' }), true);
+  assert.equal(gateFailureMayProceed({ id: 'x', platformEnforcement: 'bogus' }), true);
+  assert.equal(gateFailureMayProceed({ id: 'x', platformEnforcement: 'shadow' }), false);
+  assert.equal(gateFailureMayProceed({ id: 'x', platformEnforcement: 'enforced' }), false);
+  // And the dispatcher really uses it: no other 503 path remains for the gate.
+  const source = fs.readFileSync(path.join(API_ROOT, 'server.js'), 'utf8');
+  assert.match(source, /gateFailureMayProceed\(who\)/); assert.equal((source.match(/platform_gate_unavailable/g) || []).length, 1);
 });

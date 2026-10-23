@@ -81,7 +81,7 @@ import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 import { createPlatformProofStore } from './platform-proof/store.js';
 import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
-import { createPlatformIntegration, parsePlatformIntegrationEnv } from './platform-sso/index.js';
+import { createPlatformIntegration, parsePlatformIntegrationEnv, gateFailureMayProceed } from './platform-sso/index.js';
 import { createPlatformLinkRoutes } from './platform-sso/link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
@@ -3595,7 +3595,16 @@ http.createServer(async (req, res) => {
   const gate = featureOfRoute(url.pathname);
   if (gate && !featuresStore.isOn(gate)) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
   if (requiresStrongAuth(key) && !requireStrongAuth(req, res)) return;
-  try { if (!(await platformIntegration.gate(req, res, key))) return; } catch (e) { console.error('platform gate', key, e); return json(res, 503, { error: 'servicio no disponible', code: 'platform_gate_unavailable' }); }
+  try { if (!(await platformIntegration.gate(req, res, key))) return; }
+  catch (e) {
+    console.error('platform gate', key, e);
+    if (res.headersSent) return;
+    // A failure of the integration must never take access away from a historical (legacy) user or an anonymous caller: only users who opted in to
+    // Platform enforcement fail closed.
+    let legacyOrAnonymous = true;
+    try { const who = readSession(req); legacyOrAnonymous = gateFailureMayProceed(who); } catch { legacyOrAnonymous = true; }
+    if (!legacyOrAnonymous) return json(res, 503, { error: 'servicio no disponible', code: 'platform_gate_unavailable' });
+  }
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);
