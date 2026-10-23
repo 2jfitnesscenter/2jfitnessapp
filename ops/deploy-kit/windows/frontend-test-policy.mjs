@@ -3,7 +3,6 @@ import { pathToFileURL } from 'node:url'
 
 const TIMEOUT_LINE = /^(?:Error:\s*)?Test timed out in \d+ms$/
 const VITEST_TEST_TIMEOUT_STACK = /^Error: STACK_TRACE_ERROR\n\s+at task \(file:\/\/.*@vitest\/runner\/dist\/chunk-artifact\.js:1784:\d+\)[\s\S]*?\n\s+at .+\.test\.[cm]?[jt]sx?:\d+:\d+[\s\S]*?\n\s+at Object\.collect \(file:\/\//
-const VITEST_HOOK_TIMEOUT_STACK = /^Error: STACK_TRACE_ERROR\n\s+at (?:beforeEach|afterEach|beforeAll|afterAll) \(file:\/\/.*@vitest\/runner\/dist\/chunk-artifact\.js:\d+:\d+\)\n\s+at .+\.test\.[cm]?[jt]sx?:\d+:\d+\n\s+at processTicksAndRejections \(node:internal\/process\/task_queues:\d+:\d+\)[\s\S]*?\n\s+at startTests \(file:\/\/.*@vitest\/runner\/dist\/chunk-artifact\.js:\d+:\d+\)$/
 
 function isStackLine(line) {
   const value = line.trim()
@@ -23,7 +22,7 @@ function isTimeoutOnlyFailure(assertion) {
   // remain failures.
   return Number.isFinite(assertion.duration)
     && assertion.duration >= 5000
-    && (VITEST_TEST_TIMEOUT_STACK.test(messages[0]) || VITEST_HOOK_TIMEOUT_STACK.test(messages[0]))
+    && VITEST_TEST_TIMEOUT_STACK.test(messages[0])
 }
 
 export function classifyVitestReport(report, expectedTests) {
