@@ -105,7 +105,8 @@ test('the policy never mutates its inputs and ignores malformed payloads safely'
 
 test('H15: every top-level member-state key used by the sources is classified; the paid ones are exactly the commercial subtrees', async () => {
   const fs = await import('node:fs'), path = await import('node:path')
-  const { STATE_KEY_CLASSES, COMMERCIAL_SUBTREES } = await import('../platform-sso/state-policy.js')
+  const { COMMERCIAL_SUBTREES } = await import('../platform-sso/state-policy.js')
+  const { STATE_KEY_CLASSES } = await import('./state-key-classes.mjs')
   assert.deepEqual([...STATE_KEY_CLASSES.paid].sort(), COMMERCIAL_SUBTREES.map(entry => entry.key).sort(), 'paid keys and COMMERCIAL_SUBTREES must agree')
   const all = Object.values(STATE_KEY_CLASSES).flat()
   assert.equal(new Set(all).size, all.length, 'a key belongs to one class only')
@@ -122,5 +123,5 @@ test('H15: every top-level member-state key used by the sources is classified; t
   roots.forEach(walk)
   assert.ok(seen.size > 60, `the scan looks wrong (${seen.size} keys)`)
   const unclassified = [...seen].filter(([key]) => !all.includes(key)).map(([key, file]) => `${key} (first seen in ${path.relative(apiRoot, file)})`)
-  assert.deepEqual(unclassified, [], 'classify new state keys in STATE_KEY_CLASSES (personal | paid | system) and, if paid, add them to COMMERCIAL_SUBTREES')
+  assert.deepEqual(unclassified, [], 'classify new state keys in test/state-key-classes.mjs (personal | paid | system) and, if paid, add them to COMMERCIAL_SUBTREES')
 })
