@@ -45,5 +45,5 @@ Not touched: `git diff` of both closure branches contains no change to `RP_ID`, 
 - **H7** the route matrix is generated from the effective router (`DUMP_ROUTES=1`, `api/scripts/route-matrix.mjs`); the classification test uses it.
 - **H10** a failure of the integration gate never takes access away from legacy or anonymous callers.
 - **H11** `api/scripts/legacy-differential.mjs`: 63 requests (old-app formats, Sync V2, kiosk flow, shared-IP limiter, route-shape tricks) replayed against `main` and the branch on identical data: identical except one intentional difference (an array as the whole state in `PUT /api/data`, now 400).
-- **H15** `STATE_KEY_CLASSES` + a test that fails when a source uses an unclassified top-level state key.
+- **H15** `api/test/state-key-classes.mjs` (kept with the tests because the server must not enumerate member health keys) + a test that fails when a source uses an unclassified top-level state key.
 - **New finding (not in the review):** the API `Dockerfile` did not `COPY platform-sso/`, so the image would not have started once #56 was merged. Fixed; `dockerfile-covers-imports.test.js` guards it.
