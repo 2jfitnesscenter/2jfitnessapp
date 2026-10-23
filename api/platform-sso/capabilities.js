@@ -21,8 +21,13 @@ export const capabilitiesV2Schema = z.object({
   source: z.object({ platform: z.literal(true) }).strict(),
 }).strict();
 
+export const CAPABILITIES_V2 = '2J-CAPABILITIES-V2', CAPABILITIES_V21 = '2J-CAPABILITIES-V2.1';
+/** V2.1 (owner decisions D40, D41, A23): same shape plus `revision: 1`; a separate contract id, so V2 keeps validating exactly as before. */
+export const capabilitiesV21Schema = capabilitiesV2Schema.omit({ contract: true }).extend({ contract: z.literal(CAPABILITIES_V21), revision: z.literal(1) }).strict();
+export const capabilitiesSchemaFor = contract => (contract === CAPABILITIES_V21 ? capabilitiesV21Schema : capabilitiesV2Schema);
+const BASELINE_FLAGS_V21 = new Set(['autonomousTraining', 'personalRoutineCreation', 'personalRoutineManagement', 'workoutRecording', 'workoutHistory', 'guidedTraining', 'premiumPrograms']);
 const BASELINE_FLAGS = new Set(['autonomousTraining', 'personalRoutineCreation', 'personalRoutineManagement', 'workoutRecording', 'workoutHistory']);
-export const baselineCapabilities = () => Object.fromEntries(CAPABILITY_NAMES.map(name => [name, BASELINE_FLAGS.has(name)]));
+export const baselineCapabilities = (contract = CAPABILITIES_V2) => Object.fromEntries(CAPABILITY_NAMES.map(name => [name, (contract === CAPABILITIES_V21 ? BASELINE_FLAGS_V21 : BASELINE_FLAGS).has(name)]));
 export const blockedCapabilities = () => Object.fromEntries(CAPABILITY_NAMES.map(name => [name, false]));
 const MAX_CLOCK_SKEW_MS = 60_000;
 /** A snapshot is bounded: a real one is under 2 KB; anything near this size is not a capability answer. */
@@ -35,6 +40,7 @@ export const MAX_RESPONSE_BYTES = 64 * 1024;
  */
 export function inconsistency(payload) {
   const { linkStatus, trainingUserId } = payload.trainingSubject, reason = payload.reasonCode, flagsOn = Object.values(payload.capabilities).some(Boolean);
+  if (payload.contract === CAPABILITIES_V21) return inconsistencyV21(payload, { linkStatus, trainingUserId, reason, flagsOn });
   if (linkStatus !== 'active') {
     if (trainingUserId !== undefined || reason !== (linkStatus === 'revoked' ? 'TRAINING_LINK_REVOKED' : 'TRAINING_LINK_MISSING')) return 'link_state_inconsistent';
     if (payload.capabilityLevel !== 'blocked' || flagsOn) return 'link_capability_state_inconsistent';
@@ -49,6 +55,30 @@ export function inconsistency(payload) {
   if (reason === 'FREE_BASELINE') {
     if (payload.capabilityLevel !== 'baseline' || payload.accessState !== 'baseline' || CAPABILITY_NAMES.some(name => payload.capabilities[name] !== BASELINE_FLAGS.has(name))) return 'baseline_state_inconsistent';
   } else if (payload.accessState === 'baseline') return 'baseline_state_inconsistent';
+  if (payload.capabilityLevel === 'blocked') return 'blocked_level_without_restriction';
+  return null;
+}
+
+/**
+ * V2.1 differences from V2 (the rest of the checks are the same): a person with no link is a registered person, so `not_linked` is valid with the
+ * (V2.1) free baseline or with a suspension; a revoked link is blocked; TRAINING_LINK_MISSING is never produced; the baseline includes guidedTraining and premiumPrograms.
+ */
+function inconsistencyV21(payload, { linkStatus, trainingUserId, reason, flagsOn }) {
+  const baselineOk = () => payload.capabilityLevel === 'baseline' && payload.accessState === 'baseline' && CAPABILITY_NAMES.every(name => payload.capabilities[name] === BASELINE_FLAGS_V21.has(name));
+  const suspendedOk = () => payload.accessState === 'suspended' && payload.suspensionStatus === 'suspended' && payload.capabilityLevel === 'blocked' && !flagsOn;
+  if (reason === 'TRAINING_LINK_MISSING') return 'link_state_inconsistent';
+  if (linkStatus === 'revoked') {
+    if (trainingUserId !== undefined || reason !== 'TRAINING_LINK_REVOKED') return 'link_state_inconsistent';
+    return payload.capabilityLevel !== 'blocked' || flagsOn ? 'link_capability_state_inconsistent' : null;
+  }
+  if (linkStatus === 'not_linked' && trainingUserId !== undefined) return 'link_state_inconsistent';
+  if (linkStatus === 'active' && !trainingUserId) return 'link_state_inconsistent';
+  if (reason === 'TRAINING_LINK_REVOKED') return 'link_state_inconsistent';
+  if (reason === 'ADMIN_SUSPENDED' || payload.accessState === 'suspended') return reason === 'ADMIN_SUSPENDED' && suspendedOk() ? null : 'suspension_state_inconsistent';
+  if (payload.suspensionStatus === 'suspended') return 'suspension_state_inconsistent';
+  if (linkStatus === 'not_linked') return reason === 'FREE_BASELINE' && baselineOk() ? null : 'link_state_inconsistent';       // a person with no link is only ever baseline (or suspended)
+  if (reason === 'FREE_BASELINE') return baselineOk() ? null : 'baseline_state_inconsistent';
+  if (payload.accessState === 'baseline') return 'baseline_state_inconsistent';
   if (payload.capabilityLevel === 'blocked') return 'blocked_level_without_restriction';
   return null;
 }
@@ -86,10 +116,10 @@ const RESTRICTION_REASONS = new Set(['ADMIN_SUSPENDED', 'TRAINING_LINK_REVOKED',
  *  - A user with no history at all and no known restriction is left to the caller (`null`): legacy/shadow users
  *    keep their current access; enforced users fall back to the baseline.
  */
-export function degradedView({ lastPayload, restriction, mode }) {
+export function degradedView({ lastPayload, restriction, mode, contract = CAPABILITIES_V2 }) {
   const reason = restriction?.reasonCode ?? (lastPayload && lastPayload.capabilityLevel === 'blocked' ? lastPayload.reasonCode : null);
   if (reason && RESTRICTION_REASONS.has(reason)) return { level: 'blocked', reasonCode: reason, capabilities: blockedCapabilities(), degraded: true, verified: false };
-  if (lastPayload || mode === 'enforced') return { level: 'baseline', reasonCode: 'FREE_BASELINE', capabilities: baselineCapabilities(), degraded: true, verified: false };
+  if (lastPayload || mode === 'enforced') return { level: 'baseline', reasonCode: 'FREE_BASELINE', capabilities: baselineCapabilities(contract), degraded: true, verified: false };
   return null;
 }
 
@@ -114,6 +144,7 @@ const ALERT_EVERY_MS = 5 * 60_000;
 
 export function createCapabilitiesService({ config, now = Date.now, fetchImpl = globalThis.fetch, onRestriction = () => {}, onLinkLost = () => {}, onAlert = () => {}, timeoutMs = 3000, breakerBaseMs = DEFAULT_BREAKER_BASE_MS }) {
   const BREAKER_BACKOFF_MS = backoffSteps(breakerBaseMs);
+  const contract = config?.contract === CAPABILITIES_V21 ? CAPABILITIES_V21 : CAPABILITIES_V2;     // V2 unless the operator opted in; `config` is null while Platform is not configured
   const cache = new Map();      // personId -> { payload, expiresAtMs, fetchedAtMs }
   const rejections = new Map(); // personId -> { kind, reason, untilMs }
   const inflight = new Map();   // personId -> Promise
@@ -129,7 +160,7 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
   };
 
   async function fetchFromPlatform(personId) {
-    const path = `/api/internal/platform/v2/persons/${personId}/training-capabilities`;
+    const path = `/api/internal/platform/${contract === CAPABILITIES_V21 ? 'v2.1' : 'v2'}/persons/${personId}/training-capabilities`;
     const timestamp = new Date(now()).toISOString(), requestId = globalThis.crypto.randomUUID();
     const { signature } = signPlatformServiceRequest({ keyId: config.keyId, secret: config.secret, timestamp, requestId, method: 'GET', path, body: Buffer.alloc(0) });
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -154,7 +185,7 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
       }
       let body;
       try { body = JSON.parse(await readBounded(response, MAX_RESPONSE_BYTES)); } catch (error) { return { ok: false, kind: 'inconsistent', reason: error?.message === 'response_too_large' ? 'response_too_large' : 'invalid_json' }; }
-      const parsed = capabilitiesV2Schema.safeParse(body);
+      const parsed = capabilitiesSchemaFor(contract).safeParse(body);
       return parsed.success ? { ok: true, payload: parsed.data } : { ok: false, kind: 'inconsistent', reason: 'invalid_contract' };
     } catch { return { ok: false, kind: 'unavailable', reason: 'network' }; }
     finally { clearTimeout(timer); }
@@ -214,7 +245,7 @@ export function createCapabilitiesService({ config, now = Date.now, fetchImpl = 
   }
 
   function degraded(user, cached, mode) {
-    const view = degradedView({ lastPayload: cached?.payload, restriction: user.platformRestriction, mode });
+    const view = degradedView({ lastPayload: cached?.payload, restriction: user.platformRestriction, mode, contract: contract });
     return view ? { source: 'degraded', ...view } : null;
   }
   function rejectedView(verdict) {
