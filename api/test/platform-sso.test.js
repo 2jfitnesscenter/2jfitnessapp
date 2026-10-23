@@ -519,11 +519,11 @@ test('redeeming while holding a passkey session of the same account keeps the pa
   assert.equal(response.status, 200); assert.equal(response.json.sessionKept, true); assert.equal(response.json.user.authLevel, 'passkey');
   assert.equal(response.headers.get('set-cookie'), null, 'the stronger cookie is not replaced');
   assert.equal((await call(training, 'GET', '/api/me', { cookie: passkey })).json.user.authLevel, 'passkey');
-  // A session of ANOTHER account is replaced by the new sign-in.
+  // A session of ANOTHER account is NOT replaced silently any more (H3): it needs an explicit confirmation.
   const otherCode = 'other'.padEnd(43, 'w');
   platform.state.codes.set(otherCode, { personId: people.keep.personId, trainingUserId: people.keep.uid });
   const other = await call(training, 'POST', '/api/platform/v1/sso/redeem', { cookie: cookieFor(people.a.uid), body: { v: 1, code: otherCode }, origin: training.base });
-  assert.equal(other.status, 200); assert.match(other.headers.get('set-cookie') || '', /gymsid=/);
+  assert.equal(other.status, 409); assert.equal(other.json.error, 'session_switch_confirmation_required'); assert.equal(other.headers.get('set-cookie'), null);
 });
 
 test('SSO sign-ins leave a Búnker-side security event and an sso session cannot revoke passkey sessions', async () => {
