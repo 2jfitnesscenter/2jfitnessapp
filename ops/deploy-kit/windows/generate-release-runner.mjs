@@ -22,7 +22,9 @@ export const isRepositoryOnlyPath = p => typeof p === 'string' && (REPOSITORY_ON
 // Runtime configuration can only be preserved when its exact bytes are pinned in the release
 // manifest. Application/runtime paths are never eligible for the non-runtime allowlist above.
 export const RUNTIME_CONFIG_PRESERVE_EXACT = new Set(['Caddyfile', 'docker-compose.prod.yml', 'caddy-config/Caddyfile'])
+const RUNTIME_CONFIG_DEPLOY_EXACT = RUNTIME_CONFIG_PRESERVE_EXACT
 const isPreservablePath = p => isRepositoryOnlyPath(p) || RUNTIME_CONFIG_PRESERVE_EXACT.has(p)
+const isDeployablePath = p => SAFE_PATH.test(p) || RUNTIME_CONFIG_DEPLOY_EXACT.has(p)
 
 function gitPathSha256(cwd, commit, filePath) {
   const entry = execFileSync('git', ['ls-tree', commit, '--', filePath], { cwd, encoding: 'utf8' }).trim()
@@ -144,7 +146,7 @@ export function validateConfig(c, cwd = root) {
   if (nonDeployable.length || c.deployablePaths !== undefined) {
     if (!Array.isArray(c.deployablePaths) || JSON.stringify([...c.deployablePaths].sort()) !== JSON.stringify([...deployable].sort())) fail('DEPLOYABLE_PATHS_MISMATCH')
   }
-  if (!deployable.length || deployable.some(p => !SAFE_PATH.test(p))) fail('INVALID_EXACT_DELTA_PATHS')
+  if (!deployable.length || deployable.some(p => !isDeployablePath(p))) fail('INVALID_EXACT_DELTA_PATHS')
   if (c.maxCommits !== c.expectedCommitCount || !Number.isInteger(c.expectedCommitCount) || c.expectedCommitCount < 1) fail('INVALID_COMMIT_COUNT')
   if (!c.sync || !SHA40.test(c.sync.rollbackBase || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256Lf || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256CrLf || '')) fail('INVALID_SYNC_GUARD')
   if (!c.probes || !Array.isArray(c.probes.sourceFiles) || !Array.isArray(c.probes.sourceMarkers) || !Array.isArray(c.probes.unauthenticatedRoutes)) fail('INVALID_RELEASE_PROBES')

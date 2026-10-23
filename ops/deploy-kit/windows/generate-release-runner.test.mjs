@@ -87,6 +87,17 @@ test('rejects missing/duplicate delta paths and malformed probes', () => {
   assert.throws(() => validateConfig({ ...base, probes: { ...base.probes, unauthenticatedRoutes: [{ method: 'DELETE', path: '/api/x', status: 401 }] } }), /INVALID_UNAUTHENTICATED_ROUTE/)
 })
 
+test('allows only exact reconciled production proxy files as runtime delta paths', () => {
+  const runtimePaths = ['Caddyfile', 'docker-compose.prod.yml', 'caddy-config/Caddyfile']
+  assert.equal(validateConfig({ ...base, deltaPaths: runtimePaths, deployablePaths: runtimePaths }).deployable.length, 3)
+  for (const pathName of ['Caddyfile.local', 'docker-compose.yml', 'caddy-config/other.conf']) {
+    assert.throws(
+      () => validateConfig({ ...base, deltaPaths: [pathName], deployablePaths: [pathName] }),
+      /INVALID_EXACT_DELTA_PATHS/,
+    )
+  }
+})
+
 test('all no-credential PIN probes require the exact contract status 403', () => {
   for (const routePath of ['/api/shared-device/pin', '/api/shared-staff/pin']) {
     const pinRoute = base.probes.unauthenticatedRoutes.find(r => r.path === routePath)
