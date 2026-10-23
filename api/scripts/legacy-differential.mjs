@@ -106,7 +106,7 @@ const corpus = [
   { name: 'social wall post', method: 'POST', path: '/api/social/wall', cookie: ana, body: { text: 'hola' } },
   { name: 'friends request', method: 'POST', path: '/api/friends/request', cookie: ana, body: { code: 'ZZZZZZ' } },
   { name: 'chat message', method: 'POST', path: '/api/chat/messages', cookie: ana, body: { threadId: 'x', text: 'hola' } },
-  { name: 'push subscribe', method: 'POST', path: '/api/push/subscribe', cookie: ana, body: { endpoint: 'https://example.invalid/x', keys: { p256dh: 'a', auth: 'b' } } },
+  { name: 'push subscribe', method: 'POST', path: '/api/push/subscribe', cookie: ana, body: { endpoint: 'https://example.com/x', keys: { p256dh: 'a', auth: 'b' } } },
   { name: 'coach plan', method: 'POST', path: '/api/coach/plan', cookie: ana, body: {} }, { name: 'premium started', method: 'POST', path: '/api/premium/started', cookie: ana, body: {} },
   // Staff and admin
   { name: 'admin users', method: 'GET', path: '/api/admin/users', cookie: admin }, { name: 'trainer members', method: 'GET', path: '/api/trainer/members', cookie: tina },
