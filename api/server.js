@@ -1702,7 +1702,7 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
-    if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'se requiere el estado' });
+    if (!body.state || typeof body.state !== 'object' || Array.isArray(body.state)) return json(res, 400, { error: 'se requiere el estado' });
     delete body.state.active;              // the client never has authority over this field
     {
       const verdict = await platformIntegration.authorizeStateWrite(user, body.state, readState(user.id));

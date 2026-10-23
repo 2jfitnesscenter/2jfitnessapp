@@ -110,7 +110,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
   async function authorizeStateWrite(session, incoming, current) {
     const pass = { state: incoming, stripped: [], denied: [] };
     const mode = session.authLevel === 'sso' ? 'enforced' : userMode(session);
-    if (mode === 'legacy' || isTrainer(session) || !incoming || typeof incoming !== 'object') return pass;
+    if (mode === 'legacy' || isTrainer(session) || !incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return pass;
     const view = await capabilities.evaluate(session, { mode });
     if (!view) return pass;                                    // no verdict (shadow/legacy with nothing known): current behaviour
     const verdict = applyStatePolicy({ current, incoming, caps: view.capabilities });

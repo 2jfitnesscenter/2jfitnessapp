@@ -185,11 +185,11 @@ async function freePort() {
   return new Promise(resolve => { const probe = http.createServer().listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolve(port)); }); });
 }
 
-const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'lnk'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
+const people = Object.fromEntries(['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'lnk'].map(name => [name, { uid: `uid-${name}`, personId: randomUUID() }]));
 const dbFile = path.join(DIR, 'db.json');
 fs.writeFileSync(dbFile, JSON.stringify({
   users: [
-    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'lnk'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
+    ...['a', 'b', 'c', 'd', 'e', 'legacy', 'orphan', 'conflict', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'lnk'].map(name => ({ id: people[name].uid, name: `Member ${name}`, username: name })),
     { id: people.staff.uid, name: 'Staff member', username: 'staffy', admin: true, trainer: true },
     { id: people.admin.uid, name: 'Admin', username: 'admin1', admin: true, trainer: true },
   ],
@@ -205,7 +205,7 @@ function seedReceipt(personId, uid) {
   const result = store.exchange({ codeHash: sha256(Buffer.from(code, 'utf8')), requestId: randomUUID(), context, isTrainingUserActive: () => true });
   assert.equal(result.status, 'exchanged');
 }
-for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'lnk']) seedReceipt(people[name].personId, people[name].uid);
+for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'admin', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite', 'lnk']) seedReceipt(people[name].personId, people[name].uid);
 seedReceipt(people.conflict.personId, people.conflict.uid);
 seedReceipt(people.conflict.personId, people.orphan.uid);       // the same person tied to two Training users: a conflict
 
@@ -234,7 +234,7 @@ async function platformCall(server, route, payload, { key = linkKey, requestId =
 const ACTIVATE = '/api/platform/v1/link/activate', REVOKE = '/api/platform/v1/link/revoke', PROVISION = '/api/platform/v1/provision';
 const activateBody = (name, extra = {}) => ({ v: 1, linkId: randomUUID(), linkVersion: 1, personId: people[name].personId, trainingUserId: people[name].uid, origin: 'proof', ...extra });
 // Every seeded person that proved ownership gets its link acknowledged by Training, exactly as Platform's activation does.
-for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree']) {
+for (const name of ['a', 'b', 'c', 'd', 'e', 'staff', 'envadmin', 'kiosk', 'keep', 'sfull', 'sother', 'sfree', 'swrite']) {
   const ack = await platformCall(training, ACTIVATE, activateBody(name));
   assert.equal(ack.status, 200, `activate ${name}: ${JSON.stringify(ack.json)}`);
 }
@@ -740,4 +740,134 @@ test('an enforced account whose link is not active is blocked everywhere, never 
   const pin = await call(training, 'GET', '/api/bunker/pin', { cookie });
   assert.equal(pin.status, 403);
   assert.equal((await call(training, 'GET', '/api/me', { cookie })).status, 200, 'the account itself stays reachable');
+});
+
+/* ---- security closure: EVERY route that writes member state, attacked by an enforced no-fee session ---- */
+// Inventory of writers (grep of writeState / mutate, see docs/security/2J-INT-CLOSURE-state-write-routes.md):
+//   POST /api/sync (save|replace|reset|delete)   PUT /api/data   POST /api/workouts/delete   POST /api/active/activity   POST /api/active/clear
+//   POST /api/active/finish-inactive   POST /api/bunker/finish (kiosk token)   POST /api/bunker/handoff   plus Coach / Premium / follow-up routes (route gate)
+const paidSeed = () => ({
+  ...sampleState(),
+  routines: [{ id: 'r-own', name: 'Mi rutina', ex: [] }],
+  programs: [guided('g1'), { id: 'p-own', name: 'Mi programa', routineIds: [] }],
+  premium: { v: 1, active: { id: 'inst', week: 2 }, history: [] },
+  opposition: { v: 1, plan: { id: 'plan-1' }, history: [] },
+  coach: { consent: consentValue, profile: { goal: 'muscle' } },
+  workouts: [{ id: 'w1', d: '2026-09-01', entries: [] }],
+});
+const paidView = state => JSON.stringify({ premium: state.premium, opposition: state.opposition, coach: state.coach, guided: (state.programs || []).filter(p => p.source === 'guided-v2'), activeProgramId: state.activeProgramId ?? null });
+const forgedPaid = state => {
+  state.premium = { v: 1, active: { id: 'forged', week: 9 }, history: [] };
+  state.opposition = { v: 1, plan: { id: 'forged' }, history: [] };
+  state.coach = { consent: consentValue, profile: { goal: 'forged' } };
+  state.programs = [...(state.programs || []).map(p => (p.source === 'guided-v2' ? { ...p, name: 'forged' } : p)), guided('g-forged')];
+  state.activeProgramId = 'g-forged';
+};
+const stateOf = async cookie => (await call(training, 'GET', '/api/data', { cookie })).json.state;
+
+test('PUT /api/data, /api/workouts/delete and the active-session routes cannot add or alter paid content for a no-fee enforced account', async () => {
+  const uid = people.swrite.uid;
+  writeState(DIR, uid, paidSeed());
+  setCaps('swrite', 'baseline', { ttlMs: 1500 });
+  const session = await redeem('swrite'); assert.equal(session.status, 200);
+  const before = paidView(await stateOf(session.cookie));
+  const attacked = async (label, run) => { const r = await run(); assert.equal(paidView(await stateOf(session.cookie)), before, `${label} left paid content untouched (${r.status})`); return r; };
+
+  // PUT: forged paid content plus a legitimate personal change in the same request.
+  const put = await attacked('PUT /api/data', async () => {
+    const state = JSON.parse(JSON.stringify(await stateOf(session.cookie))); forgedPaid(state); state.routines.push({ id: 'r-new', name: 'Nueva gratis', ex: [] });
+    return call(training, 'PUT', '/api/data', { cookie: session.cookie, body: { state } });
+  });
+  assert.equal(put.status, 200); assert.ok((await stateOf(session.cookie)).routines.some(r => r.id === 'r-new'), 'the free part of the same request was saved');
+  assert.ok(!(await stateOf(session.cookie)).programs.some(p => p.id === 'g-forged'));
+  // Route-shape tricks do not reach the writer: trailing slash, duplicate slash, encoded dots, query, lowercase method.
+  for (const [method, route] of [['PUT', '/api/data/'], ['PUT', '//api/data'], ['PUT', '/api/data/..%2fdata'], ['put', '/api/data?x=1']]) {
+    const r = await attacked(`${method} ${route}`, async () => {
+      const state = JSON.parse(JSON.stringify(await stateOf(session.cookie))); forgedPaid(state);
+      const response = await fetch(training.base + route, { method, headers: { cookie: session.cookie, 'content-type': 'application/json' }, body: JSON.stringify({ state }) });
+      return { status: response.status };
+    });
+    assert.ok(r.status !== 500, `${method} ${route}`);
+  }
+  // Extra fields riding on routes that only take a workout or an id are never merged into the state.
+  await attacked('POST /api/workouts/delete', () => call(training, 'POST', '/api/workouts/delete', { cookie: session.cookie, body: { id: 'w1', premium: { forged: true }, coach: { forged: true }, state: { premium: { forged: true } } } }));
+  assert.ok(!(await stateOf(session.cookie)).workouts.some(w => w.id === 'w1'), 'the personal workout delete itself works');
+  const active = { id: 'act-1', d: '2026-10-23', name: 'Sesión', start: Date.now() - 60_000, entries: [], premium: { forged: true }, coach: { forged: true } };
+  await attacked('POST /api/active/clear', () => call(training, 'POST', '/api/active/clear', { cookie: session.cookie, body: { id: 'none', premium: { forged: true } } }));
+  await attacked('POST /api/active/activity', () => call(training, 'POST', '/api/active/activity', { cookie: session.cookie, body: { id: 'act-1', at: Date.now(), premium: { forged: true } } }));
+  await attacked('POST /api/active/finish-inactive', () => call(training, 'POST', '/api/active/finish-inactive', { cookie: session.cookie, body: { workout: { id: 'wf-1', d: '2026-10-23', entries: [], premium: { forged: true }, coach: { forged: true } }, candidate: active, state: { premium: { forged: true } } } }));
+  // Hand-off (passkey session in enforced mode) and kiosk finish (bunker token) with extra commercial fields.
+  assert.equal((await adminSetMode(uid, 'shadow')).status, 200); assert.equal((await adminSetMode(uid, 'enforced')).status, 200);
+  const passkey = cookieFor(uid);
+  await attacked('POST /api/bunker/handoff', () => call(training, 'POST', '/api/bunker/handoff', { cookie: passkey, body: { active, state: { premium: { forged: true } }, coach: { forged: true } } }));
+  const pin = await call(training, 'GET', '/api/bunker/pin', { cookie: passkey }); assert.equal(pin.status, 200, JSON.stringify(pin.json));
+  const checkin = await call(training, 'POST', '/api/bunker/checkin', { body: { pin: pin.json.pin } }); assert.equal(checkin.status, 200);
+  await attacked('POST /api/bunker/finish', async () => {
+    const response = await fetch(training.base + '/api/bunker/finish', { method: 'POST', headers: { authorization: `Bearer ${checkin.json.token}`, 'content-type': 'application/json' }, body: JSON.stringify({ workout: { id: 'act-1', d: '2026-10-23', entries: [], premium: { forged: true }, coach: { forged: true }, programId: 'g-forged' }, state: { premium: { forged: true } } }) });
+    return { status: response.status };
+  });
+});
+
+test('every sync operation type (save, replace, reset, delete) is authorized by content; unknown types and malformed bodies write nothing', async () => {
+  const uid = people.swrite.uid;
+  writeState(DIR, uid, paidSeed());                                         // fresh server state with paid content a past fee created
+  setCaps('swrite', 'baseline', { ttlMs: 1500 });
+  const session = await redeem('swrite'); assert.equal(session.status, 200);
+  const view = async () => paidView((await readSync(session.cookie)).state);
+  const before = await view();
+  for (const type of ['save', 'replace', 'reset']) {
+    const envelope = await readSync(session.cookie), state = JSON.parse(JSON.stringify(envelope.state)); forgedPaid(state);
+    const r = await call(training, 'POST', '/api/sync', { cookie: session.cookie, body: { operationId: randomUUID(), revision: envelope.meta.revision, generation: envelope.meta.generation, type, state } });
+    assert.equal(r.status, 200, `${type}: ${JSON.stringify(r.json)}`);
+    assert.ok(r.json.platformStripped.includes('state.premium') && r.json.platformStripped.includes('state.coach'), `${type} strips paid subtrees`);
+    assert.equal(await view(), before, `${type} left paid content untouched`);
+  }
+  const clean = await readSync(session.cookie);
+  const unknown = await call(training, 'POST', '/api/sync', { cookie: session.cookie, body: { operationId: randomUUID(), revision: clean.meta.revision, generation: clean.meta.generation, type: 'merge', state: { premium: { forged: true } } } });
+  assert.equal(unknown.status, 400);
+  const malformed = await call(training, 'POST', '/api/sync', { cookie: session.cookie, body: { operationId: randomUUID(), revision: clean.meta.revision, generation: clean.meta.generation, type: 'save', state: [] } });
+  assert.ok([400, 403].includes(malformed.status));
+  assert.equal(await view(), before);
+  // Once Sync V2 is on, the legacy full-file PUT cannot be used as a side door.
+  const state = JSON.parse(JSON.stringify((await readSync(session.cookie)).state)); forgedPaid(state);
+  const put = await call(training, 'PUT', '/api/data', { cookie: session.cookie, body: { state } });
+  assert.equal(put.status, 409); assert.equal(await view(), before);
+  // A delete operation only ever removes; deleting the guided program is a reduction and is allowed, nothing else changes.
+  const envelope = await readSync(session.cookie);
+  const del = await call(training, 'POST', '/api/sync', { cookie: session.cookie, body: { operationId: randomUUID(), revision: envelope.meta.revision, generation: envelope.meta.generation, type: 'delete', kind: 'programs', id: 'g1' } });
+  assert.equal(del.status, 200);
+  const after = (await readSync(session.cookie)).state;
+  assert.ok(!after.programs.some(p => p.id === 'g1') && after.premium && after.coach, 'only the requested entity was removed');
+});
+
+test('commercial feature routes refuse an enforced no-fee account (Coach, Premium, Opposition, follow-up)', async () => {
+  setCaps('swrite', 'baseline', { ttlMs: 1500 });
+  const session = await redeem('swrite'); assert.equal(session.status, 200);
+  for (const [method, route] of [['POST', '/api/coach/plan'], ['POST', '/api/coach/review'], ['POST', '/api/coach/pending/resolve'], ['POST', '/api/premium/started'], ['POST', '/api/opposition/started'], ['POST', '/api/followup/questionnaire/submit'], ['POST', '/api/followup/photo'], ['GET', '/api/guided'], ['GET', '/api/premium'], ['GET', '/api/opposition']]) {
+    const r = await call(training, method, route, { cookie: session.cookie, body: method === 'POST' ? { forged: true } : undefined });
+    assert.equal(r.status, 403, `${method} ${route} -> ${r.status}`); assert.equal(r.json.code, 'capability_required', `${method} ${route}`);
+  }
+});
+
+test('a suspended (blocked) account cannot write state through any route', async () => {
+  await new Promise(resolve => setTimeout(resolve, 1900)); setCaps('swrite', 'suspended', { ttlMs: 1500 });
+  const session = await redeem('swrite');
+  const cookie = session.status === 200 ? session.cookie : cookieFor(people.swrite.uid);
+  for (const [method, route, body] of [['PUT', '/api/data', { state: { routines: [] } }], ['POST', '/api/sync', { operationId: randomUUID(), revision: 0, generation: 0, type: 'save', state: {} }], ['POST', '/api/workouts/delete', { id: 'w1' }], ['POST', '/api/active/clear', { id: 'x' }]]) {
+    const r = await call(training, method, route, { cookie, body });
+    assert.equal(r.status, 403, `${method} ${route} -> ${r.status}`);
+  }
+});
+
+test('a non-object state is rejected before it can replace or wipe the stored state', async () => {
+  setCaps('swrite', 'baseline', { ttlMs: 1500 });
+  await new Promise(resolve => setTimeout(resolve, 1900));
+  const session = await redeem('swrite'); assert.equal(session.status, 200);
+  const before = JSON.stringify((await readSync(session.cookie)).state);
+  const envelope = await readSync(session.cookie);
+  for (const bad of [[], 'x', 5]) {
+    const r = await call(training, 'POST', '/api/sync', { cookie: session.cookie, body: { operationId: randomUUID(), revision: envelope.meta.revision, generation: envelope.meta.generation, type: 'save', state: bad } });
+    assert.equal(r.status, 400, JSON.stringify(bad));
+  }
+  assert.equal(JSON.stringify((await readSync(session.cookie)).state), before);
 });
