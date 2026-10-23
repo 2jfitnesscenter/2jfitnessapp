@@ -367,7 +367,7 @@ Ensure-NodeDependencies $Api
 $VitestBin = Join-Path $Frontend 'node_modules/vitest/vitest.mjs'
 if (-not (Test-Path -LiteralPath $VitestBin -PathType Leaf)) { throw "VITEST_LOCAL_BINARY_MISSING=$VitestBin" }
 Write-Host 'LOCAL_VITEST=project node_modules'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs ops/deploy-kit/windows/release-deps.test.mjs ops/deploy-kit/windows/release-protocol-guards.test.mjs ops/deploy-kit/windows/release-archive-eol.test.mjs ops/deploy-kit/windows/physical-baseline.test.mjs' @()
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs ops/deploy-kit/windows/release-deps.test.mjs ops/deploy-kit/windows/release-protocol-guards.test.mjs ops/deploy-kit/windows/release-archive-eol.test.mjs ops/deploy-kit/windows/physical-baseline.test.mjs ops/deploy-kit/windows/production-config.test.mjs' @()
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend "node `"$VitestBin`" run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx" @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")

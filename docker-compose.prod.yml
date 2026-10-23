@@ -3,8 +3,9 @@
 #
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
-# Caddy terminates TLS for the domain in ./Caddyfile and reverse-proxies to `web` over the
-# compose network — nothing else changes about how the app itself runs. `web` stops publishing
+# Caddy terminates TLS for the domains in ./caddy-config/Caddyfile and reverse-proxies to `web`
+# over the default Compose network. Its two external networks keep the existing Home and
+# synthetic PWA edge upstreams reachable when this service is recreated. `web` stops publishing
 # itself on the public interface (only Caddy is internet-facing on 80/443); it still listens on
 # 127.0.0.1 so `curl http://localhost:8080` on the server itself keeps working for debugging.
 services:
@@ -28,6 +29,18 @@ services:
       - ./caddy-config:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - default
+      - home-staging-proxy
+      - demo-edge
+
+networks:
+  home-staging-proxy:
+    external: true
+    name: 2j-home-staging-proxy
+  demo-edge:
+    external: true
+    name: 2j-pwa-demo-edge
 
 volumes:
   caddy_data:
