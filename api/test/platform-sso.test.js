@@ -871,3 +871,20 @@ test('a non-object state is rejected before it can replace or wipe the stored st
   }
   assert.equal(JSON.stringify((await readSync(session.cookie)).state), before);
 });
+
+test('the staff-only writers of a member state (admin/trainer assignment and editing) refuse a member, with an sso session and with a passkey session', async () => {
+  const uid = people.swrite.uid;
+  writeState(DIR, uid, paidSeed());
+  setCaps('swrite', 'baseline', { ttlMs: 1500 });
+  const sso = await redeem('swrite'); assert.equal(sso.status, 200);
+  const before = JSON.stringify(await stateOf(sso.cookie));
+  const routes = ['/api/admin/user/profile', '/api/admin/user/features', '/api/admin/user/measurements', '/api/admin/user/routine-cycle', '/api/admin/user/routine-reviewed', '/api/admin/user/apply-starter-plan',
+    '/api/trainer/assign-routine', '/api/trainer/assign-program', '/api/trainer/member-routine', '/api/trainer/member-routine-duplicate', '/api/trainer/member-routine-delete', '/api/trainer/member-program'];
+  for (const cookie of [sso.cookie, cookieFor(uid)]) {
+    for (const route of routes) {
+      const r = await call(training, 'POST', route, { cookie, body: { userId: uid, memberId: uid, uid, routine: { id: 'x' }, program: guided('g-staff'), premium: { forged: true } } });
+      assert.ok([401, 403].includes(r.status), `${route} -> ${r.status} ${JSON.stringify(r.json)}`);
+    }
+  }
+  assert.equal(JSON.stringify(await stateOf(sso.cookie)), before, 'nothing was written');
+});

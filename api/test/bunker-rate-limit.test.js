@@ -95,3 +95,11 @@ test('proxy address uses the first forwarded hop only from a private direct peer
   assert.equal(bunkerClientIp({ headers: { 'x-forwarded-for': '203.0.113.8, 172.18.0.4' }, socket: { remoteAddress: '172.18.0.3' } }), '203.0.113.8')
   assert.equal(bunkerClientIp({ headers: { 'x-forwarded-for': '203.0.113.8' }, socket: { remoteAddress: '198.51.100.9' } }), '198.51.100.9')
 })
+
+test('contract: a private peer is believed about the first forwarded hop, so the public edge MUST overwrite X-Forwarded-For (docs/security/2J-INT-CLOSURE-security-closure.md)', () => {
+  // If the edge forwarded a client-supplied header, a forged leftmost entry would pick the limiter key. Caddy must set it with header_up.
+  assert.equal(bunkerClientIp({ headers: { 'x-forwarded-for': '6.6.6.6, 203.0.113.8, 172.18.0.4' }, socket: { remoteAddress: '172.18.0.3' } }), '6.6.6.6')
+  // A directly reachable (public) peer can never pick its own key.
+  assert.equal(bunkerClientIp({ headers: { 'x-forwarded-for': '6.6.6.6', 'x-real-ip': '7.7.7.7' }, socket: { remoteAddress: '198.51.100.9' } }), '198.51.100.9')
+  assert.equal(bunkerClientIp({ headers: {}, socket: { remoteAddress: '::ffff:172.18.0.3' } }), '172.18.0.3')
+})
