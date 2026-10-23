@@ -1202,6 +1202,7 @@ fi
 TARGET_PATHS="$DELTA_CHECK_DIR/target-paths.txt"
 BASELINE_PATHS="$DELTA_CHECK_DIR/baseline-paths.txt"
 DELTA_PATHS="$DELTA_CHECK_DIR/delta-paths.txt"
+DECLARED_DELTA="$DELTA_CHECK_DIR/declared-delta.txt"
 EXPECTED_DELTA="$DELTA_CHECK_DIR/expected-delta.txt"
 (cd "$RELEASE_CHECK_DIR" && find . -mindepth 1 ! -type d -printf '%P\n' | sort) > "$TARGET_PATHS"
 (cd "$BASELINE_CHECK_DIR" && find . -mindepth 1 ! -type d -printf '%P\n' | sort) > "$BASELINE_PATHS"
@@ -1219,9 +1220,28 @@ while IFS= read -r rel; do
   fi
 done < <(comm -12 "$TARGET_PATHS" "$BASELINE_PATHS")
 LC_ALL=C sort -u -o "$DELTA_PATHS" "$DELTA_PATHS"
-cat > "$EXPECTED_DELTA" <<'DELTA'
+cat > "$DECLARED_DELTA" <<'DELTA'
 @@EXPECTED_DELTA_PATHS@@
 DELTA
+: > "$EXPECTED_DELTA"
+NOOP_DELTA="$DELTA_CHECK_DIR/noop-delta.txt"
+: > "$NOOP_DELTA"
+while IFS= read -r rel; do
+  # A Git target path may already exist byte-for-byte in the deployed artifact
+  # (for example a production-only tracked config). Keep the Git scope exact,
+  # but omit only proven no-op entries from the payload-vs-baseline delta.
+  if [[ -f "$RELEASE_CHECK_DIR/$rel" && ! -L "$RELEASE_CHECK_DIR/$rel" \
+    && -f "$BASELINE_CHECK_DIR/$rel" && ! -L "$BASELINE_CHECK_DIR/$rel" ]] \
+    && cmp -s "$RELEASE_CHECK_DIR/$rel" "$BASELINE_CHECK_DIR/$rel" \
+    && [[ "$(stat -c '%a' "$RELEASE_CHECK_DIR/$rel")" == "$(stat -c '%a' "$BASELINE_CHECK_DIR/$rel")" ]]; then
+    printf '%s\n' "$rel" >> "$NOOP_DELTA"
+    continue
+  fi
+  printf '%s\n' "$rel" >> "$EXPECTED_DELTA"
+done < "$DECLARED_DELTA"
+if [[ -s "$NOOP_DELTA" ]]; then
+  printf 'RELEASE_DELTA_NOOP_PATHS=%s\n' "$(paste -sd, "$NOOP_DELTA")"
+fi
 if ! cmp -s "$EXPECTED_DELTA" "$DELTA_PATHS"; then
   printf 'RELEASE_DELTA_MISMATCH\n'
   diff -u "$EXPECTED_DELTA" "$DELTA_PATHS" || true
