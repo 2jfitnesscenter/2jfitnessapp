@@ -47,3 +47,10 @@ Not touched: `git diff` of both closure branches contains no change to `RP_ID`, 
 - **H11** `api/scripts/legacy-differential.mjs`: 63 requests (old-app formats, Sync V2, kiosk flow, shared-IP limiter, route-shape tricks) replayed against `main` and the branch on identical data: identical except one intentional difference (an array as the whole state in `PUT /api/data`, now 400).
 - **H15** `api/test/state-key-classes.mjs` (kept with the tests because the server must not enumerate member health keys) + a test that fails when a source uses an unclassified top-level state key.
 - **New finding (not in the review):** the API `Dockerfile` did not `COPY platform-sso/`, so the image would not have started once #56 was merged. Fixed; `dockerfile-covers-imports.test.js` guards it.
+
+## Second pass (final pre-audit decisions, 2026-10-23) — implementer only, not an independent review
+
+- **Browser-bound SSO**: the flow starts at `GET /api/platform/v1/sso/start` (HttpOnly `j2ssob` verifier cookie, only the SHA-256 challenge leaves); redemption to Platform is **v2** with the verifier; no cookie → refused before Platform is called; mismatch → audited, the code is not consumed. Needs `PLATFORM_HOME_URL`. The H3 login-CSRF residual for visitors without a session is closed. Details and evidence in the Platform repo, `docs/review/2J-INT-CLOSURE/BROWSER-BINDING.md`.
+- **Signals** (`POST /api/platform/v1/signals`, `PLATFORM_SIGNALS_ENABLED`, off): restrict-only; `suspended` blocks and persists a restriction, `lifted` only forgets the cache; per-person sequence ordering; epoch guard for in-flight answers; legacy users untouched.
+- **Capabilities consumer**: validations ported from the other consumer (cross-field invariants, 64 KB bounded body, redirect/final-URL check, RFC 3339 timestamps) and a shared 59-scenario corpus (`api/test/capabilities-corpus.mjs`, `scripts/compare-capabilities-consumers.mjs`, `test/platform-capabilities-conformance.test.js`).
+- Tests: API 902/902, frontend 1875/1875, legacy differential 63 requests (62 identical, 1 intentional: array body in `PUT /api/data` → 400, 0 unexpected).
