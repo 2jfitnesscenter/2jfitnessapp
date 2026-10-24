@@ -145,7 +145,7 @@ export function ActivitySection() {
 export default function SecuritySettings() {
   const nav = useNavigate(), user = useStore(s => s.user)
   if (!user) return <div className="narrow"><div className="card">{t('Sign in to manage your security.')}</div></div>
-  if (user.authLevel === 'pin') return <div className="narrow"><div className="card">{t('Passkeys and devices are managed after signing in with a passkey.')}</div></div>
+  if (user.authLevel === 'pin' || user.authLevel === 'sso') return <div className="narrow"><div className="card">{t('Passkeys and devices are managed after signing in with a passkey.')}</div></div>
   return <div className="narrow">
     <div className="hdr"><button className="back" onClick={() => nav('/settings')} aria-label={t('Back')}><Icon name="chevronLeft" /></button><h1>{t('Security')}</h1></div>
     <PasskeysSection />

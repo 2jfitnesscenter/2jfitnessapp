@@ -70,6 +70,7 @@ export const AUDITED_ELSEWHERE = Object.freeze([
   'POST /api/admin/user/role', 'POST /api/admin/user/disable', 'POST /api/admin/user/recovery-link', 'POST /api/admin/user/trainer',   // the last one delegates to role
   'POST /api/admin/social-reports/resolve',                                                                                         // content_removed
   'POST /api/admin/shared-device/revoke', 'POST /api/admin/shared-staff/pin',
+  'POST /api/admin/platform-enforcement',                                                                                          // admin_action with {kind, from, to}, written by the handler
 ]);
 
 /** Deliberately not audited: they change nothing (connection tests, WebAuthn challenges) or belong to the Coach follow-up area, which has its own history. */

@@ -29,7 +29,7 @@ import { completeGuidedProgramSession } from '../lib/guided-program-model.js';
 const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits in 4 hours
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
 
-export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], registerInactivitySweep = () => {}, rateLimiters = bunkerLimiters() }) {
+export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], registerInactivitySweep = () => {}, rateLimiters = bunkerLimiters(), memberGate = async () => ({ allowed: true }) }) {
   const credentialKey = (kind, value) => createHash('sha256').update(kind + ':' + String(value)).digest('hex');
   const limitAttempt = (kind, ip, value) => {
     const ipLimiter = rateLimiters[kind];
@@ -440,6 +440,9 @@ export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, si
       const account = users().find(u => u.id === uid);
       if (!account || account.disabled) { attempt.fail(); return json(res, 400, { error: 'PIN incorrecto' }); }
       attempt.success();
+      // Platform capability gate for members opted in to `enforced` (no-op for legacy/shadow users and staff).
+      const gate = await memberGate(account, ['autonomousTraining']);
+      if (!gate.allowed) return json(res, 403, { error: 'tu cuenta no tiene acceso a esta función', code: 'capability_required', reasonCode: gate.reasonCode });
       const name = publicName(uid);
       store.startSession(uid, name);
       const exp = Date.now() + PIN_TOKEN_TTL;
