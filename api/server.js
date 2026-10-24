@@ -116,7 +116,8 @@ const PLATFORM_SIGNALS_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_SIGNALS
 const PLATFORM_ASSISTED_LINK_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_ASSISTED_LINK_ENABLED || '');
 const PLATFORM_LINK_ISSUERS = parseIssuers(process.env.PLATFORM_LINK_ISSUERS);
 // Promoting anybody to administrator needs a fresh passkey step-up of the person doing it (opt-in so existing deployments keep working until they enable it).
-const ADMIN_PROMOTION_STEP_UP = /^(1|true)$/i.test(process.env.ADMIN_PROMOTION_STEP_UP || '');
+// It is ALWAYS on whenever assisted link activation (H13) is enabled (A29): whoever can promote an administrator could otherwise widen who asks for links.
+const ADMIN_PROMOTION_STEP_UP = PLATFORM_ASSISTED_LINK_ENABLED || /^(1|true)$/i.test(process.env.ADMIN_PROMOTION_STEP_UP || '');
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open

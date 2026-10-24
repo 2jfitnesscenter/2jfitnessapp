@@ -91,7 +91,7 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
     try { record({ type: 'assist_approved', actorId: issuer.id, personId: receipt.personId, trainingUserId: receipt.trainingUserId, receiptId: receipt.receiptId, requestId: request?.requestId, reasonCode: receipt.reasonCode }); }
     catch { return json(res, 503, { error: 'assist_unavailable' }); }
     state.receipts.push(receipt);
-    if (request) { request.status = 'approved'; request.receiptId = receipt.receiptId; request.decidedBy = issuer.id; request.decidedAt = receipt.issuedAt; }
+    if (request) { delete request.note; request.status = 'approved'; request.receiptId = receipt.receiptId; request.decidedBy = issuer.id; request.decidedAt = receipt.issuedAt; }
     saveDb();
     return json(res, 201, { receiptId: receipt.receiptId, expiresAt: receipt.expiresAt });
   }
@@ -114,12 +114,12 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
       return json(res, 201, { requestId: request.requestId });
     },
 
-    // Only the permission holders see the open requests.
+    // Only the permission holders see the open requests: identifiers and the reason code only. The free-text note is NEVER returned (and is dropped once the request is decided).
     'GET /api/admin/platform-link/assist-requests': async (req, res) => {
       if (!gate(res)) return;
       const user = requirePasskeySession(req, res); if (!user) return;
       if (!isIssuer(user)) return json(res, 403, { error: 'not_issuer' });
-      return json(res, 200, { requests: state.requests.filter(item => item.status === 'open').map(({ requestId, personId, trainingUserId, reasonCode, note, requestedBy, createdAt }) => ({ requestId, personId, trainingUserId, reasonCode, note: note ?? null, requestedBy, createdAt })) });
+      return json(res, 200, { requests: state.requests.filter(item => item.status === 'open').map(({ requestId, personId, trainingUserId, reasonCode, requestedBy, createdAt }) => ({ requestId, personId, trainingUserId, reasonCode, requestedBy, createdAt })) });
     },
 
     'POST /api/admin/platform-link/assist-requests/approve': async (req, res) => {
@@ -141,7 +141,7 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
       if (!request) return json(res, 404, { error: 'request_not_found' });
       try { record({ type: 'assist_rejected', actorId: issuer.id, personId: request.personId, trainingUserId: request.trainingUserId, requestId: request.requestId }); }
       catch { return json(res, 503, { error: 'assist_unavailable' }); }
-      request.status = 'rejected'; request.decidedBy = issuer.id; request.decidedAt = new Date(now()).toISOString();
+      delete request.note; request.status = 'rejected'; request.decidedBy = issuer.id; request.decidedAt = new Date(now()).toISOString();
       saveDb();
       return json(res, 200, { ok: true });
     },

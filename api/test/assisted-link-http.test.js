@@ -71,11 +71,14 @@ test('who can issue: only the configured holders; an admin is not enough; a trai
     assert.ok([403].includes(r.status), `${who}: ${r.status}`);
   }
   assert.equal((await api(on, 'POST', P, { as: 'otheradmin', body: pair('m0'), step: stepUp('otheradmin', 'platform-link-issue') })).json.error, 'not_issuer');
-  assert.equal((await api(on, 'POST', `${P}-requests`, { as: 'coach', body: pair('m1') })).status, 201);
+  assert.equal((await api(on, 'POST', `${P}-requests`, { as: 'coach', body: { ...pair('m1'), note: 'llamar al 600123456' } })).status, 201);
   assert.equal((await api(on, 'POST', `${P}-requests`, { as: 'otheradmin', body: pair('m2') })).status, 201);
   assert.equal((await api(on, 'POST', `${P}-requests`, { as: 'm3', body: pair('m0') })).status, 403, 'a member cannot ask');
   assert.equal((await api(on, 'GET', `${P}-requests`, { as: 'coach' })).status, 403, 'only holders list the requests');
-  assert.equal((await api(on, 'GET', `${P}-requests`, { as: 'pedro' })).json.requests.length, 2);
+  const listed = (await api(on, 'GET', `${P}-requests`, { as: 'pedro' })).json.requests;
+  assert.equal(listed.length, 2);
+  for (const item of listed) assert.deepEqual(Object.keys(item).sort(), ['createdAt', 'personId', 'reasonCode', 'requestId', 'requestedBy', 'trainingUserId'], 'identifiers and reason code only');
+  assert.ok(!JSON.stringify(listed).includes('600123456'), 'the free-text note is never returned to the issuer');
   assert.equal((await api(on, 'POST', P, { body: pair('m0') })).status, 401, 'no session');
 });
 
@@ -121,5 +124,6 @@ test('promoting to administrator needs the admin\'s own spent step-up (when enab
   assert.equal((await api(promo, 'POST', route, { as: 'owner', body: { id: 'u-m1', role: 'admin' }, step: token })).status, 403, 'spent by the first promotion');
   assert.equal((await api(promo, 'POST', route, { as: 'owner', body: { id: 'u-m0', role: 'member' } })).status, 200, 'demotion needs no step-up');
   assert.equal((await api(promo, 'POST', route, { as: 'owner', body: { id: 'u-coach', role: 'trainer' } })).status, 200, 'other role changes are untouched');
-  assert.equal((await api(on, 'POST', route, { as: 'owner', body: { id: 'u-m2', role: 'admin' } })).status, 200, 'default (flag off): unchanged behaviour');
+  assert.equal((await api(on, 'POST', route, { as: 'owner', body: { id: 'u-m2', role: 'admin' } })).json.code, 'step_up_required', 'A29: enabling H13 turns the promotion step-up on by itself');
+  assert.equal((await api(off, 'POST', route, { as: 'owner', body: { id: 'u-m2', role: 'admin' } })).status, 200, 'everything off: unchanged behaviour');
 });
