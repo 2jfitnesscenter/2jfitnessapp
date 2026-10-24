@@ -31,6 +31,8 @@ function constantTimeHexEqual(left, right) {
  * (read/check/write without yielding), so requests are serialized within this single API process. */
 export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/data', now = Date.now } = {}) {
   const file = path.join(dataDir, STORE_FILE);
+  // Read-only lookups reuse the parsed receipts while the encrypted file is unchanged (mtime+size), instead of decrypting it on every call.
+  let receiptCache = { mtimeMs: -1, size: -1, receipts: [] };
   function read() {
     let blob;
     try { blob = fs.readFileSync(file, 'utf8'); }
@@ -73,6 +75,21 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
   }
 
   return {
+    /** Single-use request ids for the authenticated link-lifecycle and provisioning calls (same bounded replay window as the summary calls). */
+    acceptServiceRequest(requestId, kind = 'platform_service') {
+      const timestamp = now(), state = read();
+      expireAndPrune(state, timestamp);
+      if (state.serviceRequests.some(request => request.requestId === requestId)) {
+        audit(state, 'platform_service_auth.replay_rejected', { requestId });
+        write(state);
+        return { status: 'service_request_replayed' };
+      }
+      state.serviceRequests.push({ requestId, expiresAtMs: timestamp + SERVICE_REPLAY_TTL_MS });
+      audit(state, `${kind}.request_accepted`, {});
+      write(state);
+      return { status: 'accepted' };
+    },
+
     /** Persist bounded replay protection for authenticated, read-only Platform summary calls. */
     acceptSummaryRequest(requestId) {
       const timestamp = now(), state = read();
@@ -176,6 +193,23 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
           verifiedAt: receipt.verifiedAt,
         },
       };
+    },
+
+    /** Read-only Training-side evidence that this user proved control of the Platform person (passkey-backed proof).
+     * `conflict` means the same person or the same Training user is tied to a different counterpart; callers must fail closed. */
+    linkEvidence({ personId, trainingUserId }) {
+      let receipts;
+      try {
+        const stat = fs.statSync(file);
+        if (stat.mtimeMs !== receiptCache.mtimeMs || stat.size !== receiptCache.size) receiptCache = { mtimeMs: stat.mtimeMs, size: stat.size, receipts: read().receipts };
+        receipts = receiptCache.receipts;
+      } catch (error) { if (error.code !== 'ENOENT') throw error; receipts = []; }
+      const forPerson = receipts.filter(receipt => receipt.personId === personId);
+      const forUser = receipts.filter(receipt => receipt.trainingUserId === trainingUserId);
+      if (forPerson.some(receipt => receipt.trainingUserId !== trainingUserId) || forUser.some(receipt => receipt.personId !== personId)) return { status: 'conflict' };
+      if (!forPerson.length) return { status: 'none' };
+      const newest = forPerson.reduce((best, receipt) => (Date.parse(receipt.verifiedAt) > Date.parse(best.verifiedAt) ? receipt : best));
+      return { status: 'linked', receiptId: newest.receiptId, verifiedAt: newest.verifiedAt };   // the newest proof counts: a re-link after a revocation needs one made later
     },
 
     reconcile({ requestId, context }) {

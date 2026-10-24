@@ -1,0 +1,126 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { START_PATH, confirmSsoSwitch, isSsoLanding, redeemSso, resetSsoLandingForTests, runSsoLanding, ssoCodeFromHash, ssoErrorFromHash, ssoOutcome } from './sso-landing.js'
+
+const CODE = 'Q'.repeat(43)
+const reply = (status, body) => vi.fn(async () => ({ status, json: async () => body }))
+
+describe('reading the one-time code', () => {
+  it('accepts only #code=<43-128 url-safe chars> and nothing else in the fragment', () => {
+    expect(ssoCodeFromHash(`#code=${CODE}`)).toBe(CODE)
+    for (const bad of ['', '#', '#code=', '#code=short', `#code=${CODE}&x=1`, `#/code=${CODE}`, `code=${CODE}`, `#CODE=${CODE}`, `#code=${CODE}!`, null, undefined]) expect(ssoCodeFromHash(bad)).toBe(null)
+  })
+  it('only the exact /sso path is the landing (never the hash router)', () => {
+    expect(isSsoLanding({ pathname: '/sso' })).toBe(true)
+    for (const path of ['/', '/sso/', '/sso/x', '/api/sso', '/#/sso']) expect(isSsoLanding({ pathname: path })).toBe(false)
+  })
+})
+
+describe('redeeming the code', () => {
+  it('posts only {v:1, code} to Training itself, same origin, no storage of the code', async () => {
+    const fetchImpl = reply(200, { ok: true, user: { id: 'u1', authLevel: 'sso' } })
+    const result = await redeemSso(CODE, fetchImpl)
+    expect(result).toEqual({ ok: true, user: { id: 'u1', authLevel: 'sso' } })
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe('/api/platform/v1/sso/redeem')
+    expect(init.method).toBe('POST'); expect(init.credentials).toBe('same-origin')
+    expect(JSON.parse(init.body)).toEqual({ v: 1, code: CODE })
+    expect(JSON.stringify(result)).not.toContain(CODE)
+  })
+  it('maps every failure to a next step without exposing Platform reasons', async () => {
+    expect(ssoOutcome(423, { error: 'platform_sso_disabled' })).toBe('disabled')
+    expect(ssoOutcome(403, { error: 'platform_access_blocked', reasonCode: 'ADMIN_SUSPENDED' })).toBe('blocked')
+    expect(ssoOutcome(403, { error: 'origin_rejected' })).toBe('unavailable')
+    expect(ssoOutcome(409, { error: 'link_not_confirmed' })).toBe('link')
+    expect(ssoOutcome(409, { error: 'link_conflict' })).toBe('link')
+    expect(ssoOutcome(400, { error: 'sso_code_invalid' })).toBe('invalid')
+    expect(ssoOutcome(400, { error: 'sso_binding_missing' })).toBe('binding')
+    expect(ssoOutcome(400, { error: 'sso_binding_mismatch' })).toBe('binding')
+    expect(ssoOutcome(429, {})).toBe('busy')
+    expect(ssoOutcome(503, { error: 'platform_unavailable' })).toBe('unavailable')
+    expect(await redeemSso(CODE, reply(400, { error: 'sso_code_invalid' }))).toEqual({ ok: false, kind: 'invalid' })
+    expect(await redeemSso(CODE, vi.fn(async () => { throw new Error('offline') }))).toEqual({ ok: false, kind: 'unavailable' })
+    expect(await redeemSso(CODE, vi.fn(async () => ({ status: 500, json: async () => { throw new Error('not json') } })))).toEqual({ ok: false, kind: 'unavailable' })
+  })
+})
+
+describe('the landing run', () => {
+  beforeEach(() => resetSsoLandingForTests())
+  it('clears the code from the address bar BEFORE the request, then goes to the app on success', async () => {
+    const order = []
+    const history = { replaceState: vi.fn(() => order.push('scrub')) }
+    const fetchImpl = vi.fn(async () => { order.push('request'); return { status: 200, json: async () => ({ ok: true }) } })
+    const go = vi.fn(path => order.push(`go:${path}`))
+    const result = await runSsoLanding({ location: { hash: `#code=${CODE}` }, history, fetchImpl, go })
+    expect(result.ok).toBe(true)
+    expect(order).toEqual(['scrub', 'request', 'go:/'])
+    expect(history.replaceState).toHaveBeenCalledWith(null, '', '/sso')
+  })
+  it('is single-use even if the page mounts twice (StrictMode): one request, same result', async () => {
+    const fetchImpl = reply(400, { error: 'sso_code_invalid' })
+    const args = { location: { hash: `#code=${CODE}` }, history: { replaceState() {} }, fetchImpl, go: vi.fn() }
+    const [first, second] = await Promise.all([runSsoLanding(args), runSsoLanding(args)])
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(first).toBe(second); expect(first).toEqual({ ok: false, kind: 'invalid' })
+    expect(args.go).not.toHaveBeenCalled()
+  })
+  it('a missing or malformed code never triggers a request', async () => {
+    const fetchImpl = vi.fn()
+    const result = await runSsoLanding({ location: { hash: '#/' }, history: { replaceState() {} }, fetchImpl, go: vi.fn() })
+    expect(result).toEqual({ ok: false, kind: 'invalid' }); expect(fetchImpl).not.toHaveBeenCalled()
+  })
+})
+
+describe('switching account (H3): never silently', () => {
+  beforeEach(() => resetSsoLandingForTests())
+  it('a 409 session_switch_confirmation_required becomes a confirm step that carries the ticket and the two names, and does NOT navigate', async () => {
+    const body = { error: 'session_switch_confirmation_required', ticket: 'f'.repeat(64), current: { name: 'Ana' }, target: { name: 'Beto' } }
+    expect(ssoOutcome(409, body)).toBe('confirm')
+    const go = vi.fn()
+    const result = await runSsoLanding({ location: { hash: `#code=${CODE}` }, history: { replaceState() {} }, fetchImpl: reply(409, body), go })
+    expect(result).toEqual({ ok: false, kind: 'confirm', ticket: 'f'.repeat(64), current: 'Ana', target: 'Beto' })
+    expect(go).not.toHaveBeenCalled()
+  })
+  it('only an explicit confirmation posts the ticket (and nothing else) to Training itself', async () => {
+    const fetchImpl = reply(200, { ok: true, user: { id: 'u2' } })
+    expect(await confirmSsoSwitch('f'.repeat(64), fetchImpl)).toEqual({ ok: true, user: { id: 'u2' } })
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe('/api/platform/v1/sso/confirm'); expect(init.method).toBe('POST'); expect(init.credentials).toBe('same-origin')
+    expect(JSON.parse(init.body)).toEqual({ ticket: 'f'.repeat(64) })
+    expect(await confirmSsoSwitch('x', reply(400, { error: 'sso_code_invalid' }))).toEqual({ ok: false, kind: 'invalid' })
+    expect(await confirmSsoSwitch('x', reply(409, { error: 'link_not_confirmed' }))).toEqual({ ok: false, kind: 'link' })
+    expect(await confirmSsoSwitch('x', vi.fn(async () => { throw new Error('offline') }))).toEqual({ ok: false, kind: 'unavailable' })
+  })
+})
+
+describe('browser binding: the flow starts in THIS browser', () => {
+  beforeEach(() => resetSsoLandingForTests())
+  it('starts with a plain navigation to Training itself — never a URL that carries a code or a secret', () => {
+    expect(START_PATH).toBe('/api/platform/v1/sso/start')
+    expect(START_PATH).not.toMatch(/[?#=]/)
+  })
+  it('understands only the three start errors in the fragment', () => {
+    for (const kind of ['disabled', 'unavailable', 'busy']) expect(ssoErrorFromHash('#error=' + kind)).toBe(kind)
+    for (const bad of ['', '#', '#error=', '#error=other', '#error=disabled&x=1', '#code=' + CODE, 'error=disabled', null, undefined]) expect(ssoErrorFromHash(bad)).toBe(null)
+  })
+  it('a start error is shown without any request and the fragment is scrubbed', async () => {
+    const fetchImpl = vi.fn(), history = { replaceState: vi.fn() }
+    const result = await runSsoLanding({ location: { hash: '#error=disabled' }, history, fetchImpl, go: vi.fn() })
+    expect(result).toEqual({ ok: false, kind: 'disabled' }); expect(fetchImpl).not.toHaveBeenCalled()
+    expect(history.replaceState).toHaveBeenCalledWith(null, '', '/sso')
+  })
+  it('a code opened in a browser that did not start the flow ends in the binding outcome, with no navigation and no code echoed', async () => {
+    const go = vi.fn()
+    for (const error of ['sso_binding_missing', 'sso_binding_mismatch']) {
+      resetSsoLandingForTests()
+      const result = await runSsoLanding({ location: { hash: '#code=' + CODE }, history: { replaceState() {} }, fetchImpl: reply(400, { error }), go })
+      expect(result).toEqual({ ok: false, kind: 'binding' }); expect(JSON.stringify(result)).not.toContain(CODE)
+    }
+    expect(go).not.toHaveBeenCalled()
+  })
+  it('the redeem body still carries only the code: the verifier lives in an HttpOnly cookie the page cannot read', async () => {
+    const fetchImpl = reply(200, { ok: true, user: { id: 'u1' } })
+    await redeemSso(CODE, fetchImpl)
+    const [, init] = fetchImpl.mock.calls[0]
+    expect(JSON.parse(init.body)).toEqual({ v: 1, code: CODE }); expect(init.credentials).toBe('same-origin')
+  })
+})
