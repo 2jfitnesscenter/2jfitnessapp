@@ -1,6 +1,6 @@
 # H13 — Activación asistida de vínculos Búnker↔Platform (DISEÑO + CONTRATO, sin implementar)
 
-Estado: **propuesta para decisión del propietario. No fusionar. Sin código.** Rama `agent/claude/2J-H13-ASSISTED-LINK` sobre #57.
+Estado: **decisiones del propietario adoptadas (sección 10). Diseño cerrado; sin código. No fusionar.** Rama `agent/claude/2J-H13-ASSISTED-LINK` sobre #57.
 
 ## 1. Problema
 Hoy Búnker solo acepta activar un vínculo (`POST /api/internal/platform/v1/link/activate`) si tiene **evidencia propia**: `origin:'proof'` (un *recibo* de que el dueño de la cuenta Búnker demostró control con su passkey) u `origin:'provisioned'` (cuenta creada por Platform). Una cuenta histórica cuyo dueño no puede hacer la prueba (perdió el dispositivo, no usa Home) queda sin vincular. Platform ya tiene la cola de revisión manual (#81) que decide *quién es la persona*, pero **Búnker no puede aceptar esa decisión como evidencia**: es el hueco que cubre H13.
@@ -68,9 +68,9 @@ Rol por rol (owner, admin, entrenador, recepción, socio, PIN/kiosco, SSO) · se
 ## 9. Parte de Platform (resumen; aparte)
 La cola #81 ya guarda la decisión; faltaría: exponer `reviewId` estable al aprobar y enviarlo en `link/activate`; no activar sin recibo del lado Búnker (reintento con espera si Búnker responde `proof_required`); el rol de Platform «administrador» (hoy sin login de personal real, ver staging) es requisito previo para producción.
 
-## 10. Decisiones que necesito del propietario
-1. ¿Doble control (Platform + Búnker) o basta con el administrador de Búnker? (recomendado: doble)
-2. ¿Caducidad del recibo: 24 h (propuesto) o menos?
-3. ¿Límite diario de activaciones asistidas por administrador (propuesto: 20)?
-4. ¿Lista cerrada de motivos (§5) correcta?
-5. ¿Quién cuenta como «administrador» en Búnker: solo `ADMIN_UIDS` (owner) o también `admin:true`? (recomendado: ambos, con step-up)
+## 10. Decisiones del propietario (adoptadas)
+1. **Doble control** Platform + Búnker: sí.
+2. **Caducidad del recibo:** 24 h.
+3. **Límite:** 20 activaciones asistidas por administrador y día.
+4. **Motivos:** lista cerrada de §5 (`lost_device`, `no_home_access`, `support_request`, `other`).
+5. **Administrador de Búnker:** `ADMIN_UIDS` (owner) y `admin:true`, ambos con step-up de passkey.
