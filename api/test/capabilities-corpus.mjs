@@ -123,3 +123,55 @@ export const sequences = [
   { id: 'suspension-is-classified-and-then-lifted', steps: [{ answer: () => http(200, snapshot('suspended', {}, { ttlMs: 5_000 })), expect: 'suspended' }, { advance: 6_000, answer: () => http(200, snapshot('baseline', {}, { now: NOW + 6_000 })), expect: 'baseline' }], fetches: 2 },
   { id: 'concurrent-callers-share-one-request', concurrent: 5, steps: [{ answer: () => http(200, snapshot('full')), expect: 'allow' }], fetches: 1 },
 ];
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// 2J-CAPABILITIES-V2.1 (owner decisions D40, D41, A23). Only the Búnker consumer in this repository speaks V2.1 (the other candidate was written for V2), so
+// these scenarios carry a single expected verdict. `asks` is the contract the consumer was configured to request.
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+const BASE21 = new Set([...BASE, 'guidedTraining', 'premiumPrograms']);
+export function snapshot21(kind = 'baseline', patch = {}, { now = NOW, ttlMs = 60_000 } = {}) {
+  const table = {
+    baseline: { level: 'baseline', state: 'baseline', reason: 'FREE_BASELINE', caps: flags(name => BASE21.has(name)) },
+    'baseline-unlinked': { level: 'baseline', state: 'baseline', reason: 'FREE_BASELINE', caps: flags(name => BASE21.has(name)), link: 'not_linked' },
+    full: { level: 'full', state: 'active', reason: 'ACTIVE_FULL', caps: flags(() => true) },
+    suspended: { level: 'blocked', state: 'suspended', reason: 'ADMIN_SUSPENDED', caps: flags(() => false), suspension: 'suspended' },
+    'suspended-unlinked': { level: 'blocked', state: 'suspended', reason: 'ADMIN_SUSPENDED', caps: flags(() => false), suspension: 'suspended', link: 'not_linked' },
+    revoked: { level: 'blocked', state: 'ended', reason: 'TRAINING_LINK_REVOKED', caps: flags(() => false), link: 'revoked' },
+  }[kind];
+  return {
+    contract: '2J-CAPABILITIES-V2.1', revision: 1, version: 2, personId: PERSON,
+    trainingSubject: table.link ? { linkStatus: table.link } : { linkStatus: 'active', trainingUserId: USER },
+    capabilityLevel: table.level, accessState: table.state, capabilities: table.caps, reasonCode: table.reason,
+    suspensionStatus: table.suspension ?? 'none', effectiveFrom: null, expiresAt: iso(now + ttlMs), generatedAt: iso(now), source: { platform: true }, ...patch,
+  };
+}
+const only = verdict => ({ claude: verdict });
+export const scenarios21 = [
+  { id: 'v21-baseline-linked-includes-guided-and-premium', asks: 'V2.1', respond: () => http(200, snapshot21('baseline')), expect: only('baseline') },
+  { id: 'v21-baseline-unlinked-person-is-registered', asks: 'V2.1', respond: () => http(200, snapshot21('baseline-unlinked')), expect: only('baseline') },
+  { id: 'v21-paid-level', asks: 'V2.1', respond: () => http(200, snapshot21('full')), expect: only('allow') },
+  { id: 'v21-suspended-linked', asks: 'V2.1', respond: () => http(200, snapshot21('suspended')), expect: only('suspended') },
+  { id: 'v21-suspended-unlinked', asks: 'V2.1', respond: () => http(200, snapshot21('suspended-unlinked')), expect: only('suspended') },
+  { id: 'v21-revoked-link-stays-blocked', asks: 'V2.1', respond: () => http(200, snapshot21('revoked')), expect: only('revoked') },
+  { id: 'v21-baseline-without-guided-and-premium', asks: 'V2.1', respond: () => http(200, snapshot21('baseline', { capabilities: flags(name => BASE.has(name)) })), expect: only('rejected') },
+  { id: 'v21-baseline-with-ai-coach', asks: 'V2.1', respond: () => http(200, snapshot21('baseline', { capabilities: { ...snapshot21('baseline').capabilities, aiCoach: true } })), expect: only('rejected') },
+  { id: 'v21-baseline-with-professional-follow-up', asks: 'V2.1', respond: () => http(200, snapshot21('baseline', { capabilities: { ...snapshot21('baseline').capabilities, professionalFollowUp: true } })), expect: only('rejected') },
+  { id: 'v21-baseline-with-routine-creation', asks: 'V2.1', respond: () => http(200, snapshot21('baseline', { capabilities: { ...snapshot21('baseline').capabilities, routineCreation: true } })), expect: only('rejected') },
+  { id: 'v21-unlinked-with-link-missing-reason', asks: 'V2.1', respond: () => http(200, snapshot21('baseline-unlinked', { reasonCode: 'TRAINING_LINK_MISSING', capabilityLevel: 'blocked', accessState: 'ended', capabilities: flags(() => false) })), expect: only('rejected') },
+  { id: 'v21-unlinked-with-paid-level', asks: 'V2.1', respond: () => http(200, snapshot21('full', { trainingSubject: { linkStatus: 'not_linked' } })), expect: only('rejected') },
+  { id: 'v21-unlinked-carrying-a-training-user', asks: 'V2.1', respond: () => http(200, snapshot21('baseline-unlinked', { trainingSubject: { linkStatus: 'not_linked', trainingUserId: USER } })), expect: only('rejected') },
+  { id: 'v21-suspended-with-open-flags', asks: 'V2.1', respond: () => http(200, snapshot21('suspended', { capabilities: snapshot21('baseline').capabilities })), expect: only('rejected') },
+  { id: 'v21-suspension-flag-with-baseline-reason', asks: 'V2.1', respond: () => http(200, snapshot21('baseline', { suspensionStatus: 'suspended' })), expect: only('rejected') },
+  { id: 'v21-revoked-with-flags', asks: 'V2.1', respond: () => http(200, snapshot21('revoked', { capabilityLevel: 'baseline', capabilities: snapshot21('baseline').capabilities })), expect: only('rejected') },
+  { id: 'v21-revision-missing', asks: 'V2.1', respond: () => { const { revision, ...rest } = snapshot21('baseline'); return http(200, rest); }, expect: only('rejected') },
+  { id: 'v21-revision-2', asks: 'V2.1', respond: () => http(200, snapshot21('baseline', { revision: 2 })), expect: only('rejected') },
+  { id: 'v21-asked-v21-got-v2', asks: 'V2.1', respond: () => http(200, snapshot('baseline')), expect: only('rejected') },
+  { id: 'v21-asked-v2-got-v21', asks: 'V2', respond: () => http(200, snapshot21('baseline')), expect: only('rejected') },
+  { id: 'v21-other-person', asks: 'V2.1', respond: () => http(200, snapshot21('baseline', { personId: OTHER_PERSON })), expect: only('rejected') },
+  { id: 'v21-outage-is-unavailable', asks: 'V2.1', respond: () => { throw new Error('ECONNREFUSED'); }, expect: only('unavailable') },
+  { id: 'v21-404-person-not-known', asks: 'V2.1', respond: () => http(404, { error: 'person_not_found' }), expect: only('rejected') },
+];
+export const sequences21 = [
+  { id: 'v21-unlinked-baseline-is-cached-within-ttl', asks: 'V2.1', steps: [{ answer: () => http(200, snapshot21('baseline-unlinked')), expect: 'baseline' }, { advance: 10_000, answer: () => { throw new Error('must not be asked'); }, expect: 'baseline' }], fetches: 1 },
+  { id: 'v21-suspension-then-lift', asks: 'V2.1', steps: [{ answer: () => http(200, snapshot21('suspended-unlinked', {}, { ttlMs: 5_000 })), expect: 'suspended' }, { advance: 6_000, answer: () => http(200, snapshot21('baseline-unlinked', {}, { now: NOW + 6_000 })), expect: 'baseline' }], fetches: 2 },
+];
