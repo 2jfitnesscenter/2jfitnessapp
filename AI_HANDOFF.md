@@ -1,5 +1,12 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Preparación de integración Búnker — 2026-10-24 (sin runtime)
+
+- Se preparó en la rama `codex/bunker-evolution-export-staging` un contrato **propuesto, de solo lectura y no implementado** para la vista Home «Mi evolución», basado en D10 y D43 del registro: `docs/BUNKER_HOME_MIEVOLUCION_EXPORT_CONTRACT.md`. Búnker conserva `data/state-<uid>.json` y los originales; no hay ruta nueva, migración ni borrado. El contrato excluye PII/notas/fotos y deja transporte/auth y consentimiento sujetos a alineación con Platform.
+- Se documentó el perfil de Búnker para Platform staging PR #89 en `docs/BUNKER_STAGING_PROFILE.md` y `ops/staging/bunker.env.example`. El perfil solo contiene ajustes no secretos y exige usuarios sintéticos; el script Platform revisado está en Draft y su `BUNKER_REF` está marcado ASSUMED. No se ejecutó ni se preparó ningún servidor.
+- H13 PR #63 se volvió a consultar el 2026-10-24: su contenido actual ya incluye implementación en `agent/claude/2J-H13-ASSISTED-LINK` (HEAD `2a426789188679b86205ccfa12b1865f8df4e3c8`), no solo diseño documental. La revisión independiente está pendiente. El registro local de decisiones disponible declara D01–D274 y A01–A25; no contiene A29. La restricción «solo propietario y Pedro Guerra pueden emitir» sí consta en la solicitud del propietario y en §3/§10 del documento H13, pero la fuente formal/fecha/firmantes de A29 no se ha podido verificar en el registro disponible.
+- Estos documentos no validan comportamiento desplegado ni cambian autenticación, datos, Sync V2 o producción.
+
 ## Checkpoint autoritativo — Training seguro para integración futura con Platform (2026-10-15)
 
 Este bloque es la referencia vigente y supersede los checkpoints de producción anteriores que permanecen abajo como historial.
