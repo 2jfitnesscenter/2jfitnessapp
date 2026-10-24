@@ -22,8 +22,8 @@ const UUID = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][
 const userIdSchema = z.string().min(1).max(200).refine(value => value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value));
 const activateSchema = z.object({
   v: z.literal(1), linkId: UUID, linkVersion: z.number().int().min(1).max(1_000_000), personId: UUID, trainingUserId: userIdSchema,
-  origin: z.enum(['proof', 'provisioned']), receiptId: UUID.optional(),
-}).strict();
+  origin: z.enum(['proof', 'provisioned', 'admin_assisted']), receiptId: UUID.optional(), reviewId: UUID.optional(),
+}).strict().refine(body => body.origin === 'admin_assisted' ? !!(body.receiptId && body.reviewId) : !body.reviewId, { message: 'admin_assisted needs receiptId and reviewId; reviewId is only for admin_assisted' });
 const revokeSchema = z.object({ v: z.literal(1), linkId: UUID, linkVersion: z.number().int().min(1).max(1_000_000), personId: UUID, trainingUserId: userIdSchema, reason: z.string().max(80).optional() }).strict();
 const provisionSchema = z.object({
   v: z.literal(1), idempotencyKey: UUID, correlationId: UUID, personId: UUID,
@@ -39,7 +39,7 @@ const signalSchema = z.object({
 const occupies = link => link && ['pending', 'active'].includes(link.state);
 const error = (json, res, status, code) => json(res, status, { error: code });
 
-export function createPlatformLinkRoutes({ config, db, saveDb, secEvent, json, store, serviceKeys, revokeSsoSessions, applySignal = () => ({ applied: false }), generateUsername, newUserId = () => crypto.randomBytes(12).toString('base64url'), now = Date.now }) {
+export function createPlatformLinkRoutes({ assisted = null, config, db, saveDb, secEvent, json, store, serviceKeys, revokeSsoSessions, applySignal = () => ({ applied: false }), generateUsername, newUserId = () => crypto.randomBytes(12).toString('base64url'), now = Date.now }) {
   const hashOf = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
   db.platformProvisioning = db.platformProvisioning && typeof db.platformProvisioning === 'object' && !Array.isArray(db.platformProvisioning) ? db.platformProvisioning : {};
 
@@ -81,6 +81,12 @@ export function createPlatformLinkRoutes({ config, db, saveDb, secEvent, json, s
         if (evidence.status !== 'linked' || (body.receiptId && body.receiptId !== evidence.receiptId)) return error(json, res, 409, 'proof_required');
         if (current?.state === 'revoked' && !(Date.parse(evidence.verifiedAt) > Date.parse(current.revokedAt))) return error(json, res, 409, 'proof_required');   // after a revocation only a NEW proof counts
         user.platformLink = { personId: body.personId, state: 'active', origin: 'proof', linkId: body.linkId, linkVersion: body.linkVersion, ackId: crypto.randomUUID(), receiptId: evidence.receiptId, activatedAt: new Date(now()).toISOString() };
+      } else if (body.origin === 'admin_assisted') {
+        if (!assisted || !assisted.enabled) return error(json, res, 423, 'assisted_link_disabled');
+        const outcome = assisted.consume({ receiptId: body.receiptId, reviewId: body.reviewId, personId: body.personId, trainingUserId: user.id, revokedAt: current?.state === 'revoked' ? current.revokedAt : null });
+        if (outcome.status === 'unavailable') return error(json, res, 503, 'assist_unavailable');
+        if (outcome.status !== 'ok') return error(json, res, 409, 'proof_required');
+        user.platformLink = { personId: body.personId, state: 'active', origin: 'admin_assisted', linkId: body.linkId, linkVersion: body.linkVersion, ackId: crypto.randomUUID(), receiptId: body.receiptId, reviewId: body.reviewId, issuedBy: outcome.receipt.issuedBy, activatedAt: new Date(now()).toISOString() };
       } else {
         if (!(current && current.origin === 'provisioned' && current.state === 'pending' && current.personId === body.personId)) return error(json, res, 409, 'not_provisioned');
         user.platformLink = { ...current, state: 'active', linkId: body.linkId, linkVersion: body.linkVersion, ackId: crypto.randomUUID(), activatedAt: new Date(now()).toISOString() };
