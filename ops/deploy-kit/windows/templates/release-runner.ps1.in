@@ -367,7 +367,7 @@ Ensure-NodeDependencies $Api
 $VitestBin = Join-Path $Frontend 'node_modules/vitest/vitest.mjs'
 if (-not (Test-Path -LiteralPath $VitestBin -PathType Leaf)) { throw "VITEST_LOCAL_BINARY_MISSING=$VitestBin" }
 Write-Host 'LOCAL_VITEST=project node_modules'
-Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs ops/deploy-kit/windows/release-deps.test.mjs ops/deploy-kit/windows/release-protocol-guards.test.mjs ops/deploy-kit/windows/release-archive-eol.test.mjs ops/deploy-kit/windows/physical-baseline.test.mjs ops/deploy-kit/windows/production-config.test.mjs' @()
+Invoke-Checked 'DEPLOY_TOOLING_TESTS' $Root 'node --test ops/deploy-kit/windows/generate-release-runner.test.mjs ops/deploy-kit/windows/frontend-test-policy.test.mjs ops/deploy-kit/windows/git-root.test.mjs ops/deploy-kit/windows/feature-gate-probe.test.mjs ops/deploy-kit/windows/release-tree.test.mjs ops/deploy-kit/windows/release-deps.test.mjs ops/deploy-kit/windows/release-protocol-guards.test.mjs ops/deploy-kit/windows/release-archive-eol.test.mjs ops/deploy-kit/windows/physical-baseline.test.mjs ops/deploy-kit/windows/production-config.test.mjs ops/deploy-kit/windows/external-networks.test.mjs' @()
 Invoke-FrontendTests
 Invoke-Checked 'EXPERIENCE_V2_TESTS' $Frontend "node `"$VitestBin`" run src/views/v2.test.jsx src/views/health-v2.test.jsx src/views/social-v2.test.jsx" @('Tests\s+61 passed \(61\)')
 Invoke-Checked 'API_TESTS' $Api 'npm test' @("\btests $ExpectedApiTests\b", "\bpass $ExpectedApiPassed\b", '\bfail 0\b', '\bcancelled 0\b', "\bskipped $ExpectedApiSkipped\b")
@@ -519,6 +519,17 @@ TARGET_COMMIT=__TARGET_COMMIT__
 ROLLBACK_COMMIT=__ROLLBACK_COMMIT__
 SYNC_BASE=@@SYNC_BASE@@
 COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+required_external_networks=(2j-home-staging-proxy 2j-pwa-demo-edge)
+assert_external_docker_networks() {
+  local network
+  for network in "${required_external_networks[@]}"; do
+    if ! docker network inspect "$network" >/dev/null 2>&1; then
+      printf 'EXTERNAL_DOCKER_NETWORK_MISSING name=%s; create the required external network before deploying\n' "$network" >&2
+      return 1
+    fi
+  done
+  printf 'EXTERNAL_DOCKER_NETWORKS=OK names=%s\n' "${required_external_networks[*]}"
+}
 STEP=bootstrap
 DEPLOY_STARTED=0
 STAMP=$(date +%F_%H%M%S)
@@ -1143,8 +1154,13 @@ rollback() {
     [[ -z "$residue_dirs" ]] || printf 'ROLLBACK_DIR_RESIDUE=%s\n' "$residue_dirs"
   fi
   printf '%s\n' "$ROLLBACK_COMMIT" > "$APP/.deployed-commit"
-  "${COMPOSE[@]}" up -d --build
-  local compose_status=$?
+  local compose_status=0
+  if assert_external_docker_networks; then
+    "${COMPOSE[@]}" up -d --build
+    compose_status=$?
+  else
+    compose_status=$?
+  fi
   local rollback_health=000
   if [[ $extract_status -eq 0 && $compose_status -eq 0 ]]; then
     rollback_health=$(wait_status 200 "http://127.0.0.1:$WEB_PORT/api/health" /tmp/2j-rollback-body /tmp/2j-rollback-headers "$READINESS_TIMEOUT_SEC" || true)
@@ -1553,6 +1569,7 @@ FREE_KB=$(df -Pk "$APP" | awk 'END {print $4}')
 (( FREE_KB > DATA_KB * 2 + 100000 )) || { printf 'INSUFFICIENT_SPACE free_kb=%s data_kb=%s\n' "$FREE_KB" "$DATA_KB"; false; }
 
 STEP=backup-data
+assert_external_docker_networks
 # Compose uses relative file names, so every `docker compose` below (the features.json check needs it) must run inside $APP.
 cd "$APP"
 BACKUP=/root/backups/2jfitness-predeploy-@@TARGET_SHORT@@-$STAMP.tar.gz
@@ -1676,6 +1693,7 @@ verify_archive_tree "$RELEASE"
 printf 'INSTALL_TREE=exact\n'
 
 STEP=docker-build-up
+assert_external_docker_networks
 "${COMPOSE[@]}" up -d --build
 
 STEP=health-internal
@@ -2156,6 +2174,9 @@ EXPECTED_ROLLBACK_HASH=$5
 EXPECTED_RELEASE_HASH=$6
 RUNTIME_PROBE=$7
 MUTABLE_PROBE=$8
+docker() {
+  [[ "$1" == network && "$2" == inspect && "$3" != "${SIM_MISSING_EXTERNAL_NETWORK:-}" ]]
+}
 test -s "$ROLLBACK" && test -s "$RELEASE"
 gzip -t "$ROLLBACK" && gzip -t "$RELEASE"
 [[ "$(sha256sum "$ROLLBACK" | awk '{print $1}')" == "$EXPECTED_ROLLBACK_HASH" ]]
@@ -2182,6 +2203,7 @@ printf '{"routines":[],"programs":[],"wall":[],"challenges":[],"goals":[],"topic
 printf '{"shares":[{"id":"share-synthetic"}],"reports":[{"id":"report-synthetic"}]}\n' > "$APP/data/social-sharing.json"
 printf '{"publicKey":"synthetic","privateKey":"synthetic"}\n' > "$APP/data/vapid.json"
 DATA_BEFORE=$(find "$APP/data" -type f -print0 | sort -z | xargs -0 sha256sum)
+__EXTERNAL_NETWORK_GUARD__
 __VERIFY_CURRENT_PRODUCTION__
 
 run_api_runtime_probe() {
@@ -2378,6 +2400,12 @@ LOG=/tmp/simulation.log
 PROBE_FIELD() { printf '%s' "$PROBE_OUT" | tr ' ' '\n' | awk -F= -v k="$1" '$1 == k {print $2; exit}'; }
 '@
 $SimulationScript = $SimulationScript.Replace('__FINALIZE_SUMMARY__', $archiveTreeFunction + "`n" + $finalizePrefix + "`n" + $finalizeBlock)
+$networkGuardStart = $RemoteForExtract.IndexOf('required_external_networks=(')
+$networkGuardEnd = $RemoteForExtract.IndexOf("`n}", $networkGuardStart)
+if ($networkGuardStart -lt 0 -or $networkGuardEnd -lt 0) { throw 'Could not extract external-network guard for local simulation' }
+$networkGuard = $RemoteForExtract.Substring($networkGuardStart, $networkGuardEnd - $networkGuardStart + 2)
+if (-not $SimulationScript.Contains('__EXTERNAL_NETWORK_GUARD__')) { throw 'Simulation external-network guard placeholder missing' }
+$SimulationScript = $SimulationScript.Replace('__EXTERNAL_NETWORK_GUARD__', $networkGuard)
 $currentStart = $RemoteForExtract.IndexOf('STEP=verify-current-production' + "`n")
 $currentEnd = $RemoteForExtract.IndexOf('STEP=backup-data' + "`n", $currentStart)
 if ($currentStart -lt 0 -or $currentEnd -lt 0) { throw 'Could not extract verify-current-production for local simulation' }
