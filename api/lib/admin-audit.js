@@ -70,6 +70,7 @@ export const AUDITED_ELSEWHERE = Object.freeze([
   'POST /api/admin/user/role', 'POST /api/admin/user/disable', 'POST /api/admin/user/recovery-link', 'POST /api/admin/user/trainer',   // the last one delegates to role
   'POST /api/admin/social-reports/resolve',                                                                                         // content_removed
   'POST /api/admin/shared-device/revoke', 'POST /api/admin/shared-staff/pin',
+  'POST /api/admin/platform-link/assist', 'POST /api/admin/platform-link/assist-requests', 'POST /api/admin/platform-link/assist-requests/approve', 'POST /api/admin/platform-link/assist-requests/reject',   // H13: the append-only link ledger
   'POST /api/admin/platform-enforcement',                                                                                          // admin_action with {kind, from, to}, written by the handler
 ]);
 
