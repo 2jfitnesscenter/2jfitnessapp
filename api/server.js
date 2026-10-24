@@ -41,7 +41,7 @@ import { centerRoutes } from './lib/center-routes.js';
 import { AUDITED as ADMIN_AUDIT, describeAction } from './lib/admin-audit.js';
 import { opsStatus, createErrorRing } from './lib/ops-status.js';
 import { bunkerRoutes } from './bunker/routes.js';
-import { AttemptLimiter, authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
+import { AttemptLimiter, authLimiters, bunkerClientIp, parseTrustedProxies, setTrustedProxies } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
 import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
@@ -81,7 +81,8 @@ import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 import { createPlatformProofStore } from './platform-proof/store.js';
 import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
-import { createPlatformIntegration, parsePlatformIntegrationEnv } from './platform-sso/index.js';
+import { createPlatformIntegration, parsePlatformIntegrationEnv, gateFailureMayProceed } from './platform-sso/index.js';
+import { createPlatformLinkRoutes } from './platform-sso/link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
 const PORT = +(process.env.PORT || 3000);
@@ -105,6 +106,10 @@ const PLATFORM_PROOF_RECONCILIATION_ENABLED = /^(1|true)$/i.test(process.env.PLA
 const PLATFORM_TRAINING_SUMMARY_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_TRAINING_SUMMARY_ENABLED || '');
 // Platform SSO + capability consumption: off unless explicitly enabled; enforcement is per user (legacy -> shadow -> enforced).
 const PLATFORM_INTEGRATION_CONFIG = parsePlatformIntegrationEnv(process.env);
+// Bilateral link lifecycle (activate / revoke) and idempotent provisioning from Platform: each is its own opt-in and needs Platform's service key.
+const PLATFORM_LINK_LIFECYCLE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_LINK_LIFECYCLE_ENABLED || '');
+const PLATFORM_PROVISIONING_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROVISIONING_ENABLED || '');
+const PLATFORM_SIGNALS_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_SIGNALS_ENABLED || '');
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
@@ -1055,15 +1060,23 @@ function memberFor(res, staff, memberId, notFound) {
 }
 // Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, all-member trainer scope, roster-side private data.
 const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
+// Optional explicit list of the reverse proxies in front of the API (see bunker/rate-limit.js). Unset keeps the legacy "private peer" rule; an invalid value stops the start-up.
+setTrustedProxies(parseTrustedProxies(process.env.TRUSTED_PROXIES));
 const ssoLimiter = new AttemptLimiter({ limit: 20, windowMs: 60000, blockMs: 60000 });
 const platformIntegration = createPlatformIntegration({
   config: PLATFORM_INTEGRATION_CONFIG, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer,
-  proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession, isEnvAdmin: id => ADMIN_UIDS.includes(id),
+  proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession, secureCookie: SECURE !== '', isEnvAdmin: id => ADMIN_UIDS.includes(id),
   // Its own limiter: SSO failures must never lock people out of passkey login, nor an SSO success reset the login limiter.
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
 });
+const platformLinkRoutes = createPlatformLinkRoutes({
+  config: { lifecycleEnabled: PLATFORM_LINK_LIFECYCLE_ENABLED, provisioningEnabled: PLATFORM_PROVISIONING_ENABLED, signalsEnabled: PLATFORM_SIGNALS_ENABLED },
+  db, saveDb, secEvent, json, store: platformProofStore, serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
+  revokeSsoSessions: platformIntegration.revokeSsoSessions, applySignal: platformIntegration.applySignal, generateUsername,
+});
 const routes = {
   ...platformIntegration.routes,
+  ...platformLinkRoutes,
   ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
   ...coachFollowUpRoutes(coachDeps),
   ...followUpV2Routes({ db, json, readBody, readSession, requireAdmin, requireTrainer, isAdmin, isTrainer, saveDb, readState, dataDir: DATA, followupPhotosDir,
@@ -1644,7 +1657,14 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const op = await readBody(req);
     if (op.owner && op.owner !== user.id) return json(res, 403, { error: 'La cuenta cambió', code: 'SYNC_ACCOUNT_CHANGED' });
-    try { json(res, 200, mutate(user.id, op)); }
+    // The same route writes free personal content and paid subtrees: authorize the CONTENT (platform-sso/state-policy.js), not just the route.
+    let platformStripped = [];
+    if (['save', 'replace', 'reset'].includes(op.type) && op.state) {
+      const verdict = await platformIntegration.authorizeStateWrite(user, op.state, readState(user.id));
+      if (verdict.denied.length) return json(res, 403, { error: 'tu cuenta no tiene acceso a esta función', code: 'capability_required', capabilities: verdict.denied.map(item => item.capability), scopes: verdict.denied.map(item => item.scope) });
+      op.state = verdict.state; platformStripped = verdict.stripped;
+    }
+    try { json(res, 200, platformStripped.length ? { ...mutate(user.id, op), platformStripped } : mutate(user.id, op)); }
     catch (e) {
       if (e.status === 409) return json(res, 409, { error: e.message, code: e.code, ...openSync(user.id) });
       throw e;
@@ -1685,8 +1705,13 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
-    if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'se requiere el estado' });
+    if (!body.state || typeof body.state !== 'object' || Array.isArray(body.state)) return json(res, 400, { error: 'se requiere el estado' });
     delete body.state.active;              // the client never has authority over this field
+    {
+      const verdict = await platformIntegration.authorizeStateWrite(user, body.state, readState(user.id));
+      if (verdict.denied.length) return json(res, 403, { error: 'tu cuenta no tiene acceso a esta función', code: 'capability_required', capabilities: verdict.denied.map(item => item.capability), scopes: verdict.denied.map(item => item.scope) });
+      body.state = verdict.state;
+    }
     // A normal push still never lets the client SET `active` — but until now it also wiped
     // whatever the server already had there, because this write replaces the whole state file.
     // That silently erased a session the Bunker (or a V3.1-B handoff) had put there, the moment
@@ -3545,6 +3570,10 @@ const routes = {
   ...newsRoutes({ json, readBody, readSession, requireAdmin, saveImage: saveUploadedImage, deleteImage: deleteUploadedImage })
 };
 
+// Route-table dump for the security review (scripts/route-matrix.mjs and the route-classification test): print the keys of the EFFECTIVE router and exit
+// before anything listens or runs. Run it against an empty temporary DATA_DIR.
+if (process.env.DUMP_ROUTES === '1') { process.stdout.write(JSON.stringify(Object.keys(routes)) + String.fromCharCode(10)); process.exit(0); }
+
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */
 // A job that was running when the process died is not coming back; say so rather than leaving
 // a spinner that never resolves.
@@ -3571,7 +3600,16 @@ http.createServer(async (req, res) => {
   const gate = featureOfRoute(url.pathname);
   if (gate && !featuresStore.isOn(gate)) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
   if (requiresStrongAuth(key) && !requireStrongAuth(req, res)) return;
-  try { if (!(await platformIntegration.gate(req, res, key))) return; } catch (e) { console.error('platform gate', key, e); return json(res, 503, { error: 'servicio no disponible', code: 'platform_gate_unavailable' }); }
+  try { if (!(await platformIntegration.gate(req, res, key))) return; }
+  catch (e) {
+    console.error('platform gate', key, e);
+    if (res.headersSent) return;
+    // A failure of the integration must never take access away from a historical (legacy) user or an anonymous caller: only users who opted in to
+    // Platform enforcement fail closed.
+    let legacyOrAnonymous = true;
+    try { const who = readSession(req); legacyOrAnonymous = gateFailureMayProceed(who); } catch { legacyOrAnonymous = true; }
+    if (!legacyOrAnonymous) return json(res, 503, { error: 'servicio no disponible', code: 'platform_gate_unavailable' });
+  }
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);

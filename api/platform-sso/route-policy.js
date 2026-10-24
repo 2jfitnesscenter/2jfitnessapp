@@ -70,7 +70,11 @@ const EXACT = new Map([
   ['POST /api/me/username', E('identity', { ssoAllowed: true })],
   ['POST /api/me/avatar', E('identity', { ssoAllowed: true })],
   ['POST /api/logout', E('identity', { ssoAllowed: true })],
-  ['POST /api/platform/v1/sso/redeem', E('public', { ssoAllowed: true })],   // exempt from the gate: a new code must work whatever session the browser holds
+  ['GET /api/platform/v1/sso/start', E('public', { ssoAllowed: true })],      // begins the browser-bound flow: sets the binding cookie and sends the browser to Home
+  ['POST /api/platform/v1/sso/redeem', E('public', { ssoAllowed: true })],
+  ['POST /api/platform/v1/sso/confirm', E('public', { ssoAllowed: true })],   // explicit confirmation of an account switch (H3); exempt like redeem   // exempt from the gate: a new code must work whatever session the browser holds
+  ['GET /api/coach/disclosure', E('identity', { ssoAllowed: true })],
+  ['POST /api/coach/forget', E('identity')],   // erasing Coach data / withdrawing consent is a right, never gated by a fee (destructive: passkey-only)
   ['GET /api/health', E('public', { ssoAllowed: true })],
   ['GET /api/config', E('public', { ssoAllowed: true })],
   ['GET /api/features', E('public', { ssoAllowed: true })],
@@ -111,7 +115,7 @@ const PREFIX = [
   ['/api/guided/', E('staff')],
   ['/api/premium/', E('staff')],
   ['/api/opposition/', E('staff')],
-  // Own AI coach.
+  // Own AI coach. Withdrawing consent and reading the disclosure never depend on a fee.
   ['/api/coach/', E('gated', { ssoAllowed: true, capabilities: ['aiCoach'] })],
   // Pre-session / account recovery / device pairing and passkey control stay passkey-only.
   ['/api/login', E('identity')],
@@ -125,20 +129,34 @@ const PREFIX = [
   ['/api/social/', E('member', { ssoAllowed: true })],
   ['/api/friends', E('member', { ssoAllowed: true })],
   ['/api/chat/', E('member', { ssoAllowed: true })],
-  ['/api/notifications', E('member', { ssoAllowed: true })],
+  // Reads of the gym's own information stay open to a suspended account (it must still see why); everything else interactive closes with a suspension.
+  ['/api/notifications', E('member', { ssoAllowed: true, blockedReadOk: true })],
+  ['/api/push/public-key', E('member', { ssoAllowed: true, blockedReadOk: true })],
   ['/api/push/', E('member', { ssoAllowed: true })],
-  ['/api/news', E('member', { ssoAllowed: true })],
-  ['/api/media', E('member', { ssoAllowed: true })],
+  ['/api/news', E('member', { ssoAllowed: true, blockedReadOk: true })],
+  ['/api/media', E('member', { ssoAllowed: true, blockedReadOk: true })],
   // Third-party account connections stay passkey-only.
   ['/api/whoop/', E('identity')],
   ['/api/strava/', E('identity')],
+];
+
+/**
+ * Things a person may always do about their own content and contacts, even when the account is suspended: delete or withdraw what they posted,
+ * leave, block, decline, unsubscribe, read notifications, change visibility preferences. A suspension closes creating and sending, not withdrawing.
+ */
+const WITHDRAWAL = [
+  /^POST \/api\/social\/[a-z/]*delete$/, /^POST \/api\/social\/shares\/discard$/, /^POST \/api\/social\/(challenges\/leave|goals\/unpublish|preferences)$/,
+  /^POST \/api\/friends\/(block|unblock|remove|cancel|decline)$/, /^POST \/api\/push\/unsubscribe$/, /^POST \/api\/notifications\/read(-all)?$/,
 ];
 
 export function classifyRoute(key) {
   const exact = EXACT.get(key);
   if (exact) return exact;
   const path = key.slice(key.indexOf(' ') + 1);
-  for (const [prefix, policy] of PREFIX) if (path.startsWith(prefix)) return policy;
+  for (const [prefix, policy] of PREFIX) {
+    if (!path.startsWith(prefix)) continue;
+    return policy.kind === 'member' && WITHDRAWAL.some(rule => rule.test(key)) ? { ...policy, blockedOk: true } : policy;
+  }
   return { kind: 'unclassified', ssoAllowed: false };
 }
 
