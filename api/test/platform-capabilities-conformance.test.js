@@ -8,7 +8,7 @@ const failures = rows => rows.filter(row => !row.ok).map(row => `${row.id}: expe
 
 test('the consumer Búnker ships (platform-sso/capabilities.js) gives the expected verdict for every scenario of the shared 2J-CAPABILITIES-V2 corpus', async () => {
   const rows = await runCorpus(await claudeAdapter());
-  assert.ok(rows.length >= 55, `corpus looks truncated (${rows.length})`);
+  assert.ok(rows.length >= 80, `corpus looks truncated (${rows.length})`);
   assert.deepEqual(failures(rows), []);
 });
 
@@ -30,7 +30,8 @@ test('the other candidate (Codex, platform-capabilities @ 9377e517) behaves as t
   const claude = await runCorpus(await claudeAdapter());
   const codex = await runCorpus(await codexAdapter());
   assert.deepEqual(failures(codex), []);
-  const differing = claude.filter((row, i) => row.actual !== codex[i].actual).map(row => row.id).sort();
+  const codexById = new Map(codex.map(row => [row.id, row]));
+  const differing = claude.filter(row => codexById.has(row.id) && row.actual !== codexById.get(row.id).actual).map(row => row.id).sort();
   const documented = scenarios.filter(scenario => scenario.expect.claude !== scenario.expect.codex).map(scenario => scenario.id).sort();
   assert.deepEqual(differing, documented, 'every difference between the two consumers is intended and explained in the corpus');
   for (const scenario of scenarios) if (scenario.expect.claude !== scenario.expect.codex) assert.ok(scenario.expect.why, `${scenario.id} needs a stated reason`);

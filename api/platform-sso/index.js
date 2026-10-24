@@ -52,9 +52,10 @@ export function parsePlatformIntegrationEnv(env) {
     const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
     if (!url.username && !url.password && !url.search && !url.hash && url.pathname === '/' && (url.protocol === 'https:' || (url.protocol === 'http:' && loopback))) homeUrl = url.origin;
   } catch { /* not configured */ }
+  const contract = env.PLATFORM_CAPABILITIES_CONTRACT === '2J-CAPABILITIES-V2.1' ? '2J-CAPABILITIES-V2.1' : '2J-CAPABILITIES-V2';          // V2 unless the operator opts in
   const breakerBase = Number(env.PLATFORM_BREAKER_BASE_MS);
   const breakerBaseMs = Number.isInteger(breakerBase) && breakerBase >= 100 && breakerBase <= 30_000 ? breakerBase : undefined;   // test knob; the default is 5 s
-  return { ssoEnabled: TRUE.test(env.PLATFORM_SSO_ENABLED || ''), client: configured ? { baseUrl, keyId, secret } : null, homeUrl, ...(breakerBaseMs ? { breakerBaseMs } : {}) };
+  return { ssoEnabled: TRUE.test(env.PLATFORM_SSO_ENABLED || ''), client: configured ? { baseUrl, keyId, secret, contract } : null, homeUrl, ...(breakerBaseMs ? { breakerBaseMs } : {}) };
 }
 
 export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, isEnvAdmin = () => false, rateLimit, secureCookie = false, fetchImpl = globalThis.fetch, now = Date.now, log = console }) {
@@ -246,7 +247,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
         return stop(409, { error: 'session_switch_confirmation_required', ticket, current: { name: current.name }, target: { name: user.name }, expiresInSeconds: SWITCH_TTL_MS / 1000 });
       }
       delete user.platformRestriction;
-      capabilities.prime(personId, payload);
+      if (!config.client || config.client.contract !== '2J-CAPABILITIES-V2.1') capabilities.prime(personId, payload);     // a V2.1 service asks V2.1 itself on the next evaluation
       secEvent('platform_sso_login', { userId: user.id, meta: { capabilityLevel: payload.capabilityLevel } });
       saveDb();
       // A valid passkey (or other non-sso) session for the SAME account is stronger than an sso one: keep it rather than replacing the cookie.
