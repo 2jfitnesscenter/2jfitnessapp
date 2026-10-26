@@ -12,23 +12,26 @@ const KEY = crypto.randomBytes(32).toString('hex');
 const uuid = () => crypto.randomUUID();
 const OWNER = { id: 'owner' }, PEDRO = { id: 'pedro' }, ADMIN = { id: 'admin', admin: true, trainer: true }, TRAINER = { id: 'coach', trainer: true };
 
-function setup({ enabled = true, key = KEY, members = 30 } = {}) {
+function setup({ enabled = true, key = KEY, members = 30, legacyAssist = null } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'assist-'));
   let clock = Date.parse('2026-10-24T10:00:00Z');
-  const db = { users: [OWNER, PEDRO, ADMIN, TRAINER, ...Array.from({ length: members }, (_, i) => ({ id: `m${i}` }))] };
+  const db = { users: [OWNER, PEDRO, ADMIN, TRAINER, ...Array.from({ length: members }, (_, i) => ({ id: `m${i}` }))], ...(legacyAssist ? { platformAssist: structuredClone(legacyAssist) } : {}) };
   const spent = new Set();
   const stepUp = { valid: req => !!req.step && !spent.has(req.step), consume: req => { if (!req.step || spent.has(req.step)) return false; spent.add(req.step); return true; } };
   const sent = [];
+  let encryptedState = { requests: [], receipts: [] };
+  const store = { readAssistedLinkState: () => structuredClone(encryptedState), saveAssistedLinkState: value => { encryptedState = structuredClone(value); } };
   const json = (res, status, body) => { res.out = { status, body }; return res.out; };
   const assisted = createAssistedLink({
     config: { enabled, issuers: ['owner', 'pedro'], ledgerFile: path.join(dir, 'ledger.jsonl'), ledgerKey: key },
     db, saveDb: () => { sent.push('save'); }, json, readBody: async req => req.body,
+    store,
     requireStaff: (req, res) => { if (req.user && (req.user.trainer || req.user.admin)) return req.user; json(res, 403, { error: 'prohibido' }); return null; },
     requirePasskeySession: (req, res) => { if (req.user) return req.user; json(res, 401, {}); return null; },
     stepUp, now: () => clock,
   });
   const call = async (route, user, body, step) => { const res = {}; await assisted.routes[route]({ user, body, step }, res); return res.out; };
-  return { assisted, db, dir, call, advance: ms => { clock += ms; }, ledgerFile: path.join(dir, 'ledger.jsonl'), people: i => ({ personId: uuid(), trainingUserId: `m${i}`, reasonCode: 'lost_device' }) };
+  return { assisted, db, dir, call, store, advance: ms => { clock += ms; }, ledgerFile: path.join(dir, 'ledger.jsonl'), people: i => ({ personId: uuid(), trainingUserId: `m${i}`, reasonCode: 'lost_device' }) };
 }
 const ISSUE = 'POST /api/admin/platform-link/assist', REQUEST = 'POST /api/admin/platform-link/assist-requests', APPROVE = 'POST /api/admin/platform-link/assist-requests/approve', REJECT = 'POST /api/admin/platform-link/assist-requests/reject';
 let stepCounter = 0; const step = () => `step-${++stepCounter}`;
@@ -73,13 +76,32 @@ test('request -> approve by a holder; reject; an own account is refused and reco
   assert.equal((await s.call(REQUEST, ADMIN, { ...s.people(0), personId: uuid() })).status, 409, 'the same Training account cannot have two open requests');
   const approved = await s.call(APPROVE, OWNER, { requestId: requested.body.requestId }, step());
   assert.equal(approved.status, 201);
-  assert.equal(s.db.platformAssist.requests[0].status, 'approved');
+  assert.equal(s.store.readAssistedLinkState().requests[0].status, 'approved');
   const second = await s.call(REQUEST, TRAINER, s.people(1));
   assert.equal((await s.call(REJECT, PEDRO, { requestId: second.body.requestId })).status, 200);
   assert.equal((await s.call(APPROVE, PEDRO, { requestId: second.body.requestId }, step())).status, 404, 'a rejected request cannot be approved');
   const own = await s.call(ISSUE, OWNER, { personId: uuid(), trainingUserId: 'owner', reasonCode: 'other' }, step());
   assert.deepEqual([own.status, own.body.error], [403, 'own_account']);
   assert.ok(createLedger({ file: s.ledgerFile, key: KEY }).verify().ok);
+});
+
+test('legacy plaintext requests migrate losslessly into the encrypted store and are removed from db.json state', () => {
+  const legacy = {
+    head: null,
+    requests: [{ requestId: uuid(), personId: uuid(), trainingUserId: 'm0', reasonCode: 'other', note: 'legacy note', requestedBy: 'coach', createdAt: '2026-10-24T10:00:00.000Z', status: 'open' }],
+    receipts: [],
+  };
+  const s = setup({ legacyAssist: legacy });
+  assert.deepEqual(s.store.readAssistedLinkState().requests, legacy.requests);
+  assert.equal(Object.hasOwn(s.db.platformAssist, 'requests'), false);
+  assert.equal(Object.hasOwn(s.db.platformAssist, 'receipts'), false);
+  assert.equal(s.db.platformAssist.head, null);
+
+  const disabled = setup({ enabled: false, legacyAssist: legacy });
+  assert.deepEqual(disabled.store.readAssistedLinkState().requests, legacy.requests, 'migration protects retained notes even while H13 routes stay disabled');
+  assert.equal(Object.hasOwn(disabled.db.platformAssist, 'requests'), false);
+  assert.equal(Object.keys(disabled.assisted.routes).length > 0, true);
+  assert.equal(disabled.assisted.enabled, false);
 });
 
 test('daily limit: 20 per issuer; the 21st is refused and the other holder is unaffected', async () => {
@@ -103,14 +125,14 @@ test('receipts are single use, bound to (person, Training user), and expire in 2
   assert.equal(s.assisted.consume(base).status, 'missing', 'used once');
   const late = (await s.call(ISSUE, OWNER, s.people(1), step())).body;
   s.advance(RECEIPT_TTL_MS + 1);
-  assert.equal(s.assisted.consume({ receiptId: late.receiptId, reviewId: uuid(), personId: s.db.platformAssist.receipts[1].personId, trainingUserId: 'm1' }).status, 'missing', 'expired');
+  assert.equal(s.assisted.consume({ receiptId: late.receiptId, reviewId: uuid(), personId: s.store.readAssistedLinkState().receipts[1].personId, trainingUserId: 'm1' }).status, 'missing', 'expired');
 });
 
 test('a receipt issued before a revocation does not count after it', async () => {
   const s = setup();
   const pair = s.people(0);
   const issued = (await s.call(ISSUE, OWNER, pair, step())).body;
-  const revokedAt = new Date(Date.parse(s.db.platformAssist.receipts[0].issuedAt) + 1000).toISOString();
+  const revokedAt = new Date(Date.parse(s.store.readAssistedLinkState().receipts[0].issuedAt) + 1000).toISOString();
   assert.equal(s.assisted.consume({ receiptId: issued.receiptId, reviewId: uuid(), personId: pair.personId, trainingUserId: pair.trainingUserId, revokedAt }).status, 'missing');
 });
 

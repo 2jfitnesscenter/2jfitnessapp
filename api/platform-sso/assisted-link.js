@@ -28,12 +28,32 @@ const occupies = link => link && ['pending', 'active'].includes(link.state);
  * @param config {{enabled: boolean, issuers: string[], ledgerFile: string, ledgerKey: string}}
  * @param stepUp {{valid: (req, user) => boolean, consume: (req, user) => boolean}} step-up of THIS purpose
  */
-export function createAssistedLink({ config, db, saveDb, json, readBody, requireStaff, requirePasskeySession, stepUp, now = Date.now }) {
+export function createAssistedLink({ config, db, saveDb, json, readBody, requireStaff, requirePasskeySession, stepUp, store, now = Date.now }) {
   db.platformAssist = db.platformAssist && typeof db.platformAssist === 'object' && !Array.isArray(db.platformAssist) ? db.platformAssist : {};
-  const state = db.platformAssist;
-  state.requests = Array.isArray(state.requests) ? state.requests : [];
-  state.receipts = Array.isArray(state.receipts) ? state.receipts : [];
-  state.head = state.head && typeof state.head === 'object' ? state.head : null;
+  const legacy = db.platformAssist;
+  const hasLegacyState = Array.isArray(legacy.requests) || Array.isArray(legacy.receipts);
+  const state = {
+    ...(config.enabled || hasLegacyState ? store.readAssistedLinkState() : { requests: [], receipts: [] }),
+    head: legacy.head && typeof legacy.head === 'object' ? legacy.head : null,
+  };
+  // Lossless migration from the earlier db.json implementation. Conflicting IDs fail closed.
+  if (hasLegacyState) {
+    const mergeBy = (current, old, key) => {
+      const merged = new Map(current.map(item => [item[key], item]));
+      for (const item of Array.isArray(old) ? old : []) {
+        const existing = merged.get(item?.[key]);
+        if (existing && JSON.stringify(existing) !== JSON.stringify(item)) throw Object.assign(new Error('Conflicting legacy assisted-link state'), { code: 'ASSISTED_LINK_STATE_CONFLICT' });
+        if (!existing) merged.set(item?.[key], item);
+      }
+      return [...merged.values()];
+    };
+    state.requests = mergeBy(state.requests, legacy.requests, 'requestId');
+    state.receipts = mergeBy(state.receipts, legacy.receipts, 'receiptId');
+    store.saveAssistedLinkState({ requests: state.requests, receipts: state.receipts });
+    delete legacy.requests;
+    delete legacy.receipts;
+    saveDb();
+  }
 
   let ledger = null;
   if (config.enabled && validLedgerKey(config.ledgerKey)) ledger = createLedger({ file: config.ledgerFile, key: config.ledgerKey, now });
@@ -41,7 +61,11 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
 
   /** Enabled, key present and the chain intact. Anything else stops issuance AND consumption (fail closed). */
   const healthy = () => !!ledger && ledger.verify(state.head).ok;
-  const record = event => { state.head = ledger.append(event, state.head); };
+  const record = event => { state.head = ledger.append(event, state.head); legacy.head = state.head; };
+  const persist = () => {
+    store.saveAssistedLinkState({ requests: state.requests, receipts: state.receipts });
+    saveDb();
+  };
   const isIssuer = user => !!user && issuers.includes(user.id);
 
   const gate = res => {
@@ -92,7 +116,7 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
     catch { return json(res, 503, { error: 'assist_unavailable' }); }
     state.receipts.push(receipt);
     if (request) { delete request.note; request.status = 'approved'; request.receiptId = receipt.receiptId; request.decidedBy = issuer.id; request.decidedAt = receipt.issuedAt; }
-    saveDb();
+    try { persist(); } catch { return json(res, 503, { error: 'assist_unavailable' }); }
     return json(res, 201, { receiptId: receipt.receiptId, expiresAt: receipt.expiresAt });
   }
 
@@ -110,7 +134,7 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
       try { record({ type: 'assist_requested', actorId: staff.id, personId: request.personId, trainingUserId: request.trainingUserId, requestId: request.requestId, reasonCode: request.reasonCode }); }
       catch { return json(res, 503, { error: 'assist_unavailable' }); }
       state.requests.push(request);
-      saveDb();
+      try { persist(); } catch { return json(res, 503, { error: 'assist_unavailable' }); }
       return json(res, 201, { requestId: request.requestId });
     },
 
@@ -119,7 +143,7 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
       if (!gate(res)) return;
       const user = requirePasskeySession(req, res); if (!user) return;
       if (!isIssuer(user)) return json(res, 403, { error: 'not_issuer' });
-      return json(res, 200, { requests: state.requests.filter(item => item.status === 'open').map(({ requestId, personId, trainingUserId, reasonCode, requestedBy, createdAt }) => ({ requestId, personId, trainingUserId, reasonCode, requestedBy, createdAt })) });
+      return json(res, 200, { requests: state.requests.filter(item => item.status === 'open').map(({ requestId, personId, trainingUserId }) => ({ requestId, personId, trainingUserId })) });
     },
 
     'POST /api/admin/platform-link/assist-requests/approve': async (req, res) => {
@@ -142,7 +166,7 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
       try { record({ type: 'assist_rejected', actorId: issuer.id, personId: request.personId, trainingUserId: request.trainingUserId, requestId: request.requestId }); }
       catch { return json(res, 503, { error: 'assist_unavailable' }); }
       delete request.note; request.status = 'rejected'; request.decidedBy = issuer.id; request.decidedAt = new Date(now()).toISOString();
-      saveDb();
+      try { persist(); } catch { return json(res, 503, { error: 'assist_unavailable' }); }
       return json(res, 200, { ok: true });
     },
 
@@ -170,6 +194,11 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
     catch { return { status: 'unavailable' }; }
     receipt.consumedAt = new Date(now()).toISOString();
     receipt.reviewId = reviewId;
+    try { persist(); } catch {
+      receipt.consumedAt = null;
+      delete receipt.reviewId;
+      return { status: 'unavailable' };
+    }
     return { status: 'ok', receipt };
   }
 

@@ -171,14 +171,31 @@ test('ops-alert.sh: always logs; sends to the webhook and mail the owner configu
   fs.copyFileSync(path.join(repo, 'scripts/ops-alert.sh'), path.join(s.root, 'scripts/ops-alert.sh'));
   const conf = path.join(s.root, '2j-alert.conf'); fs.writeFileSync(conf, 'ALERT_WEBHOOK_URL=https://hooks.example.invalid/x\nALERT_MAIL_TO=owner@example.invalid\n', { mode: 0o600 });
   const shim = (name, rc = 0) => ({ [`BASH_FUNC_${name}%%`]: `() { echo "${name} $*" >> ${posix(calls)}; return ${rc}; }` });
-  const run = (extra = {}, msg = 'ALARM: backup: never ran') => spawnSync('bash', [posix(path.join(s.root, 'scripts/ops-alert.sh')), msg], { encoding: 'utf8', env: { ...process.env, OPS_ALERT_CONF: posix(conf), OPS_ALERT_LOG: posix(log), OPS_ALERT_STATUS: 'alarm', OPS_ALERT_SUBJECT: '2J ops ALARM', ...shim('curl'), ...shim('mail'), ...extra } });
+  const run = (extra = {}, msg = 'ALARM: backup: never ran') => {
+    // This contract test controls delivery only through OPS_ALERT_CONF. CI runner
+    // environment variables must not accidentally turn an empty config into a
+    // configured provider and make this result depend on the host.
+    const env = { ...process.env }
+    delete env.ALERT_WEBHOOK_URL
+    delete env.ALERT_MAIL_TO
+    return spawnSync('bash', [posix(path.join(s.root, 'scripts/ops-alert.sh')), msg], { encoding: 'utf8', env: { ...env, OPS_ALERT_CONF: posix(conf), OPS_ALERT_LOG: posix(log), OPS_ALERT_STATUS: 'alarm', OPS_ALERT_SUBJECT: '2J ops ALARM', ...shim('curl'), ...shim('mail'), ...extra } })
+  }
   const ok = run(); assert.equal(ok.status, 0, ok.stderr);
   const c = fs.readFileSync(calls, 'utf8');
   assert.match(c, /curl .*status=alarm .*message=ALARM: backup: never ran .*https:\/\/hooks\.example\.invalid\/x/); assert.match(c, /mail -s 2J ops ALARM owner@example\.invalid/);
   assert.match(fs.readFileSync(log, 'utf8'), /\[alarm\] 2J ops ALARM: ALARM: backup: never ran/);
   assert.equal(run(shim('curl', 22)).status, 1, 'a failed webhook is reported so ops-check retries');
   fs.writeFileSync(conf, ''); fs.rmSync(calls);
-  assert.equal(run().status, 0); assert.equal(fs.existsSync(calls), false, 'nothing configured: only the local log');
+  const previousWebhook = process.env.ALERT_WEBHOOK_URL
+  const previousMail = process.env.ALERT_MAIL_TO
+  try {
+    process.env.ALERT_WEBHOOK_URL = 'https://ambient.example.invalid/should-not-be-used'
+    process.env.ALERT_MAIL_TO = 'ambient@example.invalid'
+    assert.equal(run().status, 0); assert.equal(fs.existsSync(calls), false, 'nothing configured: only the local log, regardless of ambient CI variables')
+  } finally {
+    if (previousWebhook === undefined) delete process.env.ALERT_WEBHOOK_URL; else process.env.ALERT_WEBHOOK_URL = previousWebhook
+    if (previousMail === undefined) delete process.env.ALERT_MAIL_TO; else process.env.ALERT_MAIL_TO = previousMail
+  }
   rm(s.root);
 });
 

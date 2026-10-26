@@ -11,6 +11,7 @@ import { tempData } from './helpers.mjs';
 const DIR = tempData();
 const SECRET = 'a'.repeat(64);
 const { signPlatformServiceRequest } = await import('../platform-proof/service-auth.js');
+const { createPlatformProofStore, platformProofStoreConstants } = await import('../platform-proof/store.js');
 const API_ROOT = path.resolve('.');
 const LEDGER_KEY = crypto.randomBytes(32).toString('hex');
 const linkKey = { id: 'platform-link-fixture', secret: Buffer.alloc(32, 0x66) };
@@ -35,8 +36,9 @@ async function start(extraEnv, dir = DIR) {
 const keys = JSON.stringify({ [linkKey.id]: linkKey.secret.toString('base64url') });
 const on = await start({ PLATFORM_ASSISTED_LINK_ENABLED: 'true', PLATFORM_LINK_ISSUERS: 'u-owner,u-pedro', PLATFORM_LINK_LEDGER_KEY: LEDGER_KEY, PLATFORM_LINK_LIFECYCLE_ENABLED: 'true', PLATFORM_SERVICE_AUTH_KEYS: keys });
 const off = await start({ PLATFORM_LINK_LIFECYCLE_ENABLED: 'true', PLATFORM_SERVICE_AUTH_KEYS: keys }, DIR + '-off');
-const promo = await start({ ADMIN_PROMOTION_STEP_UP: 'true' }, DIR + '-promo');
-after(() => { on.stop(); off.stop(); promo.stop(); });
+const promo = await start({ NODE_ENV: 'production', ADMIN_PROMOTION_STEP_UP: 'false' }, DIR + '-promo');
+const promoStagingTest = await start({ NODE_ENV: 'test', STAGING_TEST_MODE: 'true', ADMIN_PROMOTION_STEP_UP: 'false' }, DIR + '-promo-staging-test');
+after(() => { on.stop(); off.stop(); promo.stop(); promoStagingTest.stop(); });
 
 const sign = payload => `${payload}.${crypto.createHmac('sha256', SECRET).update(payload).digest('base64url')}`;
 const cookie = name => `gymsid=${sign(`u-${name}:${Date.now() + 86_400_000}:0`)}`;
@@ -77,7 +79,7 @@ test('who can issue: only the configured holders; an admin is not enough; a trai
   assert.equal((await api(on, 'GET', `${P}-requests`, { as: 'coach' })).status, 403, 'only holders list the requests');
   const listed = (await api(on, 'GET', `${P}-requests`, { as: 'pedro' })).json.requests;
   assert.equal(listed.length, 2);
-  for (const item of listed) assert.deepEqual(Object.keys(item).sort(), ['createdAt', 'personId', 'reasonCode', 'requestId', 'requestedBy', 'trainingUserId'], 'identifiers and reason code only');
+  for (const item of listed) assert.deepEqual(Object.keys(item).sort(), ['personId', 'requestId', 'trainingUserId'], 'only P/U and request identifiers are exposed');
   assert.ok(!JSON.stringify(listed).includes('600123456'), 'the free-text note is never returned to the issuer');
   assert.equal((await api(on, 'POST', P, { body: pair('m0') })).status, 401, 'no session');
 });
@@ -114,7 +116,7 @@ test('end to end: a holder approves a request, Platform activates with the recei
   assert.ok(ledger.every(entry => entry.mac && entry.prev), 'every line is chained');
 });
 
-test('promoting to administrator needs the admin\'s own spent step-up (when enabled); demoting does not', async () => {
+test('promoting to administrator always needs the admin\'s passkey step-up; only a staging-test fixture may bypass it', async () => {
   const route = '/api/admin/user/role';
   const none = await api(promo, 'POST', route, { as: 'owner', body: { id: 'u-m0', role: 'admin' } });
   assert.deepEqual([none.status, none.json.code], [403, 'step_up_required']);
@@ -122,8 +124,41 @@ test('promoting to administrator needs the admin\'s own spent step-up (when enab
   const token = stepUp('owner', 'admin-promote');
   assert.equal((await api(promo, 'POST', route, { as: 'owner', body: { id: 'u-m0', role: 'admin' }, step: token })).status, 200);
   assert.equal((await api(promo, 'POST', route, { as: 'owner', body: { id: 'u-m1', role: 'admin' }, step: token })).status, 403, 'spent by the first promotion');
+  assert.equal((await api(promo, 'POST', route, { as: 'owner', body: { id: 'u-m2', role: 'admin' } })).json.code, 'step_up_required', 'NODE_ENV=production ignores the false override');
   assert.equal((await api(promo, 'POST', route, { as: 'owner', body: { id: 'u-m0', role: 'member' } })).status, 200, 'demotion needs no step-up');
   assert.equal((await api(promo, 'POST', route, { as: 'owner', body: { id: 'u-coach', role: 'trainer' } })).status, 200, 'other role changes are untouched');
-  assert.equal((await api(on, 'POST', route, { as: 'owner', body: { id: 'u-m2', role: 'admin' } })).json.code, 'step_up_required', 'A29: enabling H13 turns the promotion step-up on by itself');
-  assert.equal((await api(off, 'POST', route, { as: 'owner', body: { id: 'u-m2', role: 'admin' } })).status, 200, 'everything off: unchanged behaviour');
+  assert.equal((await api(on, 'POST', route, { as: 'owner', body: { id: 'u-m2', role: 'admin' } })).json.code, 'step_up_required', 'step-up remains required with H13 enabled');
+  assert.equal((await api(off, 'POST', route, { as: 'owner', body: { id: 'u-m2', role: 'admin' } })).json.code, 'step_up_required', 'step-up also applies with H13 disabled');
+  assert.equal((await api(promoStagingTest, 'POST', route, { as: 'owner', body: { id: 'u-m0', role: 'admin' } })).status, 200, 'explicit staging-test fixture can bypass; not a deployable environment');
+});
+
+test('H13 requests and receipts persist encrypted; free note never reaches issuer or db.json', async () => {
+  const note = `H13-NOTE-CANARY-${crypto.randomUUID()}`;
+  const body = { ...pair('target'), note };
+  const created = await api(on, 'POST', `${P}-requests`, { as: 'coach', body });
+  assert.equal(created.status, 201);
+
+  const listed = await api(on, 'GET', `${P}-requests`, { as: 'owner' });
+  const visible = listed.json.requests.find(item => item.requestId === created.json.requestId);
+  assert.ok(visible, 'issuer can see the request identifiers');
+  assert.equal(Object.hasOwn(visible, 'note'), false);
+  assert.equal(JSON.stringify(visible).includes(note), false);
+
+  const db = JSON.parse(fs.readFileSync(path.join(on.dir, 'db.json'), 'utf8'));
+  assert.equal(Object.hasOwn(db.platformAssist || {}, 'requests'), false, 'H13 requests are not persisted in plaintext db.json');
+  assert.equal(Object.hasOwn(db.platformAssist || {}, 'receipts'), false, 'H13 receipts are not persisted in plaintext db.json');
+  const encryptedPath = path.join(on.dir, platformProofStoreConstants.STORE_FILE);
+  const encryptedBytes = fs.readFileSync(encryptedPath, 'utf8');
+  assert.equal(encryptedBytes.includes(note), false, 'ciphertext does not expose the free note');
+  const proofStore = createPlatformProofStore({ dataDir: on.dir });
+  const persistedRequest = proofStore.readAssistedLinkState().requests.find(item => item.requestId === created.json.requestId);
+  assert.equal(persistedRequest.note, note, 'the note remains recoverable only through the encrypted store');
+
+  const approved = await api(on, 'POST', `${P}-requests/approve`, { as: 'owner', body: { requestId: created.json.requestId }, step: stepUp('owner', 'platform-link-issue') });
+  assert.equal(approved.status, 201);
+  const afterApproval = fs.readFileSync(encryptedPath, 'utf8');
+  assert.equal(afterApproval.includes(note), false);
+  const stored = proofStore.readAssistedLinkState();
+  assert.ok(stored.receipts.some(item => item.receiptId === approved.json.receiptId), 'receipt is persisted in the encrypted store');
+  assert.equal(stored.requests.find(item => item.requestId === created.json.requestId).note, undefined, 'decided request note is removed');
 });

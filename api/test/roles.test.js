@@ -21,25 +21,30 @@ async function boot(users, adminUids = '') {
   servers.push(child);
   for (let i = 0; i < 50; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* not up yet */ } await new Promise(r => setTimeout(r, 100)); }
   const cookieFor = uid => { const p = `${uid}:${Date.now() + 86400000}:0`; return `gymsid=${p}.${crypto.createHmac('sha256', SECRET).update(p).digest('base64url')}`; };
-  const req = async (method, p, { body, uid = 'admin1' } = {}) => {
-    const r = await fetch(base + p, { method, headers: { 'content-type': 'application/json', cookie: cookieFor(uid) }, body: body !== undefined ? JSON.stringify(body) : undefined });
+  const req = async (method, p, { body, uid = 'admin1', stepUp } = {}) => {
+    const r = await fetch(base + p, { method, headers: { 'content-type': 'application/json', cookie: cookieFor(uid), ...(stepUp ? { 'x-step-up': stepUp } : {}) }, body: body !== undefined ? JSON.stringify(body) : undefined });
     let j = null; try { j = await r.json(); } catch { /* empty */ }
     return { status: r.status, body: j };
   };
   return {
     dir, req,
-    setRole: (id, role, uid = 'admin1') => req('POST', '/api/admin/user/role', { uid, body: { id, role } }),
+    setRole: (id, role, uid = 'admin1', stepUp) => req('POST', '/api/admin/user/role', { uid, stepUp, body: { id, role } }),
     me: async uid => (await req('GET', '/api/me', { uid })).body.user,
     enabledAdmins: async uid => (await req('GET', '/api/admin/users', { uid })).body.users.filter(u => u.admin && !u.disabled),
   };
 }
+const stepUpToken = uid => {
+  const payload = `stepup.${uid}:${Date.now() + 300_000}:admin-promote`;
+  return `${payload}.${crypto.createHmac('sha256', SECRET).update(payload).digest('base64url')}`;
+};
 const roster = () => [{ id: 'admin1', name: 'Admin One', admin: true }, { id: 'trainer1', name: 'Trainer', trainer: true }, { id: 'member1', name: 'Member One' }, { id: 'member2', name: 'Member Two' }];
 
 test('admin → trainer, trainer → admin, admin → member: the next request already sees the new role', async () => {
   const s = await boot(roster());
   let r = await s.setRole('member1', 'trainer'); assert.equal(r.status, 200); assert.deepEqual([r.body.role, r.body.admin, r.body.trainer], ['trainer', false, true]);
   assert.deepEqual([(await s.me('member1')).admin, (await s.me('member1')).trainer], [false, true]);
-  r = await s.setRole('member1', 'admin'); assert.equal(r.status, 200); assert.equal(r.body.role, 'admin');
+  assert.equal((await s.setRole('member1', 'admin')).body.code, 'step_up_required');
+  r = await s.setRole('member1', 'admin', 'admin1', stepUpToken('admin1')); assert.equal(r.status, 200); assert.equal(r.body.role, 'admin');
   assert.deepEqual([(await s.me('member1')).admin, (await s.me('member1')).trainer], [true, true], 'admin implies trainer');
   assert.equal((await s.req('GET', '/api/admin/users', { uid: 'member1' })).status, 200, 'the new admin really has admin access');
   r = await s.setRole('member1', 'member'); assert.equal(r.status, 200); assert.equal(r.body.role, 'member');
@@ -50,7 +55,7 @@ test('admin → trainer, trainer → admin, admin → member: the next request a
   assert.equal('admin' in stored, false); assert.equal('trainer' in stored, false);
   // a trainer can be demoted straight to member, an admin straight to trainer (another admin exists)
   assert.equal((await s.setRole('trainer1', 'member')).status, 200); assert.equal((await s.me('trainer1')).trainer, false);
-  assert.equal((await s.setRole('member1', 'admin')).status, 200);
+  assert.equal((await s.setRole('member1', 'admin', 'admin1', stepUpToken('admin1'))).status, 200);
   assert.equal((await s.setRole('member1', 'trainer')).status, 200); assert.deepEqual([(await s.me('member1')).admin, (await s.me('member1')).trainer], [false, true]);
 });
 
@@ -80,7 +85,7 @@ test('the last enabled admin can neither be demoted nor demote themselves; a dis
   assert.equal((await s.me('admin1')).admin, true);
   assert.equal((await s.enabledAdmins('admin1')).length, 1);
   // a second admin makes it possible; then the remaining one is protected again
-  assert.equal((await s.setRole('member1', 'admin')).status, 200);
+  assert.equal((await s.setRole('member1', 'admin', 'admin1', stepUpToken('admin1'))).status, 200);
   assert.equal((await s.setRole('admin1', 'trainer')).status, 200);
   const last = await s.setRole('member1', 'member', 'member1');
   assert.equal(last.status, 409); assert.equal(last.body.code, 'last_admin');
@@ -90,7 +95,7 @@ test('the last enabled admin can neither be demoted nor demote themselves; a dis
 test('an administrator defined by ADMIN_UIDS (configuration) cannot be demoted from the UI', async () => {
   const s = await boot([...roster(), { id: 'cfg', name: 'Config Admin' }], 'cfg');
   assert.equal((await s.me('cfg')).admin, true);
-  assert.equal((await s.setRole('member1', 'admin')).status, 200);        // plenty of other admins
+  assert.equal((await s.setRole('member1', 'admin', 'admin1', stepUpToken('admin1'))).status, 200);        // plenty of other admins
   for (const role of ['member', 'trainer']) {
     const r = await s.setRole('cfg', role); assert.equal(r.status, 409, role); assert.equal(r.body.code, 'admin_by_config');
   }
