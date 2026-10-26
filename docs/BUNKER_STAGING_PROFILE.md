@@ -2,9 +2,13 @@
 
 **Solo preparación.** No se ha ejecutado el script de servidor, creado infraestructura ni conectado a producción.
 
+## Dominio y compatibilidad con Platform PR #89
+
+Según A52, el dominio de staging aprobado es `2jfit.com`; Búnker debe usar `app.2jfit.com` (`RP_ID=app.2jfit.com`, `ORIGIN=https://app.2jfit.com`). El dominio anterior `2jfit.es` queda obsoleto. Antes de ejecutar el script de Platform PR #89, su configuración `DOMAIN` debe ser `2jfit.com` para que genere hosts y certificados coherentes. Este cambio solo prepara la referencia; no altera DNS ni ejecuta el script.
+
 ## Compatibilidad verificada con Platform PR #89
 
-La revisión del `tooling/staging/setup-staging.sh` de `2j-platform` PR #89, HEAD `bacbf43bf5c09cbeb530cfdb952be08cf5c4765e` (borrador), confirma que clona Búnker en `/opt/2j/src/bunker`, escribe el `bunker.env` generado como `/opt/2j/src/bunker/.env` y ejecuta `docker compose up -d --build` desde ese checkout. El perfil de referencia [bunker.env.example](../ops/staging/bunker.env.example) coincide con las variables que genera actualmente el script: host de staging, puerto publicado solo en loopback, invitaciones obligatorias, Coach desactivado y las tres pruebas de vínculo Platform apagadas.
+La revisión del `tooling/staging/setup-staging.sh` de `2j-platform` PR #89, HEAD `bacbf43bf5c09cbeb530cfdb952be08cf5c4765e` (borrador), confirma que clona Búnker en `/opt/2j/src/bunker`, escribe el `bunker.env` generado como `/opt/2j/src/bunker/.env` y ejecuta `docker compose up -d --build` desde ese checkout. El perfil de referencia [bunker.env.example](../ops/staging/bunker.env.example) coincide con las variables del script si se configura `DOMAIN=2jfit.com`: host de staging, puerto publicado solo en loopback, invitaciones obligatorias, Coach desactivado y las tres pruebas de vínculo Platform apagadas.
 
 El script de PR #89 usa por defecto `BUNKER_REF=agent/claude/2J-V21-BUNKER-CONSUMER` marcado en el propio archivo como **ASSUMED**. Antes de cualquier futura preparación se debe fijar una rama/commit revisado y autorizado; no se debe asumir que esa referencia existe o es apta para staging. El script también tiene una barrera separada `ACCEPT_ADMIN_WITHOUT_STAFF_AUTH=no`; este perfil no la cambia ni autoriza exponer el back-office.
 
