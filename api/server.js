@@ -83,6 +83,7 @@ import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
 import { createPlatformIntegration, parsePlatformIntegrationEnv, gateFailureMayProceed } from './platform-sso/index.js';
 import { createPlatformLinkRoutes } from './platform-sso/link.js';
+import { createAssistedLink, parseIssuers, STEP_UP_PURPOSE as ASSIST_STEP_UP } from './platform-sso/assisted-link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
 const PORT = +(process.env.PORT || 3000);
@@ -110,6 +111,17 @@ const PLATFORM_INTEGRATION_CONFIG = parsePlatformIntegrationEnv(process.env);
 const PLATFORM_LINK_LIFECYCLE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_LINK_LIFECYCLE_ENABLED || '');
 const PLATFORM_PROVISIONING_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROVISIONING_ENABLED || '');
 const PLATFORM_SIGNALS_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_SIGNALS_ENABLED || '');
+// H13 assisted link activation (docs/H13_ASSISTED_LINK_ACTIVATION.md). OFF by default. The permission `platform_link_issue` is NOT the admin flag: only the ids listed
+// here hold it, and no route can change that list. The ledger key (>= 32 bytes of hex) is a service secret kept apart from every other key.
+const PLATFORM_ASSISTED_LINK_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_ASSISTED_LINK_ENABLED || '');
+const PLATFORM_LINK_ISSUERS = parseIssuers(process.env.PLATFORM_LINK_ISSUERS);
+  // A29: administrator promotion always requires a fresh passkey step-up. The only bypass is
+  // an explicit test-only staging fixture; NODE_ENV=production can never disable this guard.
+  const ADMIN_PROMOTION_STEP_UP = !(
+    process.env.NODE_ENV === 'test' &&
+    /^(1|true)$/i.test(process.env.STAGING_TEST_MODE || '') &&
+    /^(0|false)$/i.test(process.env.ADMIN_PROMOTION_STEP_UP || '')
+  );
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
@@ -726,7 +738,7 @@ function challengeGate(req, res) {
 // A fresh passkey assertion (user verification required) proves a person is still there. The token it earns is signed, bound to the person and
 // to one purpose, and lives five minutes: it gates the actions that would let a stolen session dig in (adding or removing a passkey).
 const STEP_UP_MS = 5 * 60_000;
-const STEP_UP_PURPOSES = ['passkeys', 'device-link'];
+const STEP_UP_PURPOSES = ['passkeys', 'device-link', 'platform-link-issue', 'admin-promote'];
 function stepUpToken(user, purpose) {
   const expiresAt = Date.now() + STEP_UP_MS;
   return { token: sign(`stepup.${user.id}:${expiresAt}:${purpose}`), expiresAt };
@@ -737,6 +749,17 @@ function stepUpValid(req, user, purpose) {
   if (!payload) return false;
   const [who, exp, p] = payload.split(':');
   return who === `stepup.${user.id}` && Number(exp) > Date.now() && p === purpose;
+}
+// A step-up for a high-impact action is spent by using it: the same token cannot authorise a second issuance.
+const spentStepUps = new Map();
+function consumeStepUp(req, user, purpose) {
+  if (!stepUpValid(req, user, purpose)) return false;
+  const token = String(req.headers['x-step-up']);
+  const now = Date.now();
+  for (const [spent, until] of spentStepUps) if (until <= now) spentStepUps.delete(spent);
+  if (spentStepUps.has(token)) return false;
+  spentStepUps.set(token, now + STEP_UP_MS + 1000);
+  return true;
 }
 function requireStepUp(req, res, user, purpose) {
   if (stepUpValid(req, user, purpose)) return true;
@@ -1069,7 +1092,15 @@ const platformIntegration = createPlatformIntegration({
   // Its own limiter: SSO failures must never lock people out of passkey login, nor an SSO success reset the login limiter.
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
 });
+const assistedLink = createAssistedLink({
+  config: { enabled: PLATFORM_ASSISTED_LINK_ENABLED, issuers: PLATFORM_LINK_ISSUERS, ledgerFile: path.join(DATA, 'platform-link-ledger.jsonl'), ledgerKey: process.env.PLATFORM_LINK_LEDGER_KEY || '' },
+  db, saveDb, json, readBody, requireStaff: requireTrainer, requirePasskeySession,
+    store: platformProofStore,
+  stepUp: { valid: (req, user) => stepUpValid(req, user, ASSIST_STEP_UP), consume: (req, user) => consumeStepUp(req, user, ASSIST_STEP_UP) },
+});
+if (PLATFORM_ASSISTED_LINK_ENABLED && !PLATFORM_LINK_ISSUERS.length) console.warn('[platform-link] assisted activation is enabled but PLATFORM_LINK_ISSUERS is empty: nobody can issue');
 const platformLinkRoutes = createPlatformLinkRoutes({
+  assisted: assistedLink,
   config: { lifecycleEnabled: PLATFORM_LINK_LIFECYCLE_ENABLED, provisioningEnabled: PLATFORM_PROVISIONING_ENABLED, signalsEnabled: PLATFORM_SIGNALS_ENABLED },
   db, saveDb, secEvent, json, store: platformProofStore, serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
   revokeSsoSessions: platformIntegration.revokeSsoSessions, applySignal: platformIntegration.applySignal, generateUsername,
@@ -1077,6 +1108,7 @@ const platformLinkRoutes = createPlatformLinkRoutes({
 const routes = {
   ...platformIntegration.routes,
   ...platformLinkRoutes,
+  ...assistedLink.routes,
   ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
   ...coachFollowUpRoutes(coachDeps),
   ...followUpV2Routes({ db, json, readBody, readSession, requireAdmin, requireTrainer, isAdmin, isTrainer, saveDb, readState, dataDir: DATA, followupPhotosDir,
@@ -2171,7 +2203,15 @@ const routes = {
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
-    const r = changeRole(admin, u, String(body.role || ''));
+    const role = String(body.role || '');
+    // Promoting somebody to administrator is the step that would let a stolen admin session dig in: it needs the admin's own fresh passkey, spent by this very use.
+    const promoting = role === 'admin' && !isAdmin(u);
+    if (promoting && ADMIN_PROMOTION_STEP_UP) {
+      if (!stepUpValid(req, admin, 'admin-promote')) return json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
+      if (!consumeStepUp(req, admin, 'admin-promote')) return json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
+    }
+    const r = changeRole(admin, u, role);
+    if (r.status === 200 && promoting) { assistedLink.noteAdminPromotion(admin.id, u.id); saveDb(); }
     json(res, r.status, r.body);
   },
 
