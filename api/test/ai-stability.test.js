@@ -60,16 +60,19 @@ test('timeout → retry → success', async () => {
 });
 test('trainer per-call timeout is capped by the remaining request budget', async () => {
   const timeouts = [];
+  const start = 1000;
+  let now = start;
   const adapter = { id: 'budget-test', async invoke(args) {
     timeouts.push(args.timeoutMs);
-    await new Promise(resolve => setTimeout(resolve, args.timeoutMs));
+    now += args.timeoutMs;
     return { code: -1, text: '', stderr: 'deadline', timedOut: true, timeoutReason: 'call_deadline_exceeded' };
   } };
   const policy = { ...POLICIES.trainer_routine, maxMs: 60, callTimeoutMs: 5000, minCallMs: 0, maxAttempts: 5, maxCalls: 8, maxTimeouts: 99, backoffMs: [0], jitter: 0 };
-  const start = Date.now(); const result = await aiRun.invokeWithRetry(adapter, { timeoutMs: 5000 }, { flow: 'trainer-create' }, policy);
+  const budget = aiRun.makeBudget(policy, null, start, () => now);
+  const result = await aiRun.invokeWithRetry(adapter, { timeoutMs: 5000 }, { flow: 'trainer-create', budget }, policy);
   assert.equal(timeouts.length, 1, 'no second provider call starts after the shared deadline');
   assert.ok(timeouts[0] <= 60, `attempt timeout ${timeouts[0]}ms fits the total budget`);
-  assert.ok(Date.now() - start < 500, 'the request respects its wall-clock ceiling');
+  assert.equal(now - start, 60, 'the fake provider consumes exactly the shared budget');
   assert.equal(result.failure.budget, true);
 });
 test('5xx / 529 overloaded / 429 → retry → success', async () => {
