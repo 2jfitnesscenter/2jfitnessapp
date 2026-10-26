@@ -115,9 +115,13 @@ const PLATFORM_SIGNALS_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_SIGNALS
 // here hold it, and no route can change that list. The ledger key (>= 32 bytes of hex) is a service secret kept apart from every other key.
 const PLATFORM_ASSISTED_LINK_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_ASSISTED_LINK_ENABLED || '');
 const PLATFORM_LINK_ISSUERS = parseIssuers(process.env.PLATFORM_LINK_ISSUERS);
-// Promoting anybody to administrator needs a fresh passkey step-up of the person doing it (opt-in so existing deployments keep working until they enable it).
-// It is ALWAYS on whenever assisted link activation (H13) is enabled (A29): whoever can promote an administrator could otherwise widen who asks for links.
-const ADMIN_PROMOTION_STEP_UP = PLATFORM_ASSISTED_LINK_ENABLED || /^(1|true)$/i.test(process.env.ADMIN_PROMOTION_STEP_UP || '');
+  // A29: administrator promotion always requires a fresh passkey step-up. The only bypass is
+  // an explicit test-only staging fixture; NODE_ENV=production can never disable this guard.
+  const ADMIN_PROMOTION_STEP_UP = !(
+    process.env.NODE_ENV === 'test' &&
+    /^(1|true)$/i.test(process.env.STAGING_TEST_MODE || '') &&
+    /^(0|false)$/i.test(process.env.ADMIN_PROMOTION_STEP_UP || '')
+  );
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
@@ -1091,6 +1095,7 @@ const platformIntegration = createPlatformIntegration({
 const assistedLink = createAssistedLink({
   config: { enabled: PLATFORM_ASSISTED_LINK_ENABLED, issuers: PLATFORM_LINK_ISSUERS, ledgerFile: path.join(DATA, 'platform-link-ledger.jsonl'), ledgerKey: process.env.PLATFORM_LINK_LEDGER_KEY || '' },
   db, saveDb, json, readBody, requireStaff: requireTrainer, requirePasskeySession,
+    store: platformProofStore,
   stepUp: { valid: (req, user) => stepUpValid(req, user, ASSIST_STEP_UP), consume: (req, user) => consumeStepUp(req, user, ASSIST_STEP_UP) },
 });
 if (PLATFORM_ASSISTED_LINK_ENABLED && !PLATFORM_LINK_ISSUERS.length) console.warn('[platform-link] assisted activation is enabled but PLATFORM_LINK_ISSUERS is empty: nobody can issue');
