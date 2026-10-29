@@ -46,7 +46,7 @@ describe('Home Premium card', () => {
     const premiumState = premium.activate(S, seed531, { tm: { squat: 100, bench: 70, deadlift: 120, press: 50 }, now: Date.parse('2026-10-11T10:00:00Z'), id: 'x' })
     await seed({ premium: premiumState })
     const h = html(<Card />)
-    expect(h).toContain('Your program'); expect(h).toContain('5/3/1'); expect(h).toContain('Cycle 1 · Week 1/4'); expect(h).toContain('aria-valuenow="0"'); expect(h).toContain('Next: Press day')
+    expect(h).toContain('Your program'); expect(h).toContain('Fuerza 5/3/1'); expect(h).toContain('Cycle 1 · Week 1/4'); expect(h).toContain('aria-valuenow="0"'); expect(h).toContain('Next: Día de press militar'); expect(h).not.toContain('Next: Press day')
   })
   it('the gym switching the catalogue off removes the invitation but never a running program', async () => {
     await seed(); F.setAdminFeatures({ premium: false })

@@ -8,7 +8,7 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { usePremium } from '../lib/premium-api.js'
 import { allowedByAdmin } from '../lib/features.js'
-import { STATUS_LABEL, SCOPE_LABEL, BADGE_LABEL, LEVEL_KEY, copyOf } from '../lib/premium-text.js'
+import { STATUS_LABEL, SCOPE_LABEL, BADGE_LABEL, LEVEL_KEY, METHOD_LABEL, SOURCE_TYPE_LABEL, PROGRESSION_LABEL, copyOf, premiumProgramName } from '../lib/premium-text.js'
 import { t } from '../lib/i18n.js'
 import { confirmSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -68,7 +68,7 @@ export function PremiumManage() {
       const canEdit = admin || mine(p)
       return <article key={p.id} className="pm-mgr-row" style={{ flexWrap: 'wrap' }}>
         <div className="pm-mgr-thumb"><PremiumCover p={p} ratio="4 / 3" /></div>
-        <div className="grow"><b>{x.name}</b>
+        <div className="grow"><b>{premiumProgramName(p, 'es')}</b>
           <small>{t(SCOPE_LABEL[p.scope] || p.scope)} · {t(STATUS_LABEL[p.status])} · v{p.version} · {t(LEVEL_KEY[p.level])} · {t('{0} days/week', p.daysPerWeek)}
             {p.featured ? ' · ' + t(BADGE_LABEL.featured) : ''}{p.badge && p.badge !== 'featured' ? ' · ' + t(BADGE_LABEL[p.badge]) : ''}{p.usage ? ' · ' + t('{0} started', p.usage.started) : ''}
             {p.legal?.status === 'review' ? ' · ' + t('Legal review pending') : ''}</small></div>
@@ -152,6 +152,15 @@ export function PremiumEditor() {
   if (!p) return <main className="pm-page"><div className="pm-empty"><b>{t('Loading…')}</b></div></main>
   const set = patch => setP(v => ({ ...v, ...patch }))
   const setCopy = (k, text) => set({ copy: { ...p.copy, [k]: lines(text) } })
+  const official = p.sourceKind === 'official'
+  const spanishField = key => official ? (p.locales?.es?.[key] ?? p[key] ?? '') : (p[key] ?? '')
+  const setSpanishField = (key, value) => official
+    ? set({ locales: { ...(p.locales || {}), es: { ...(p.locales?.es || {}), [key]: value } } })
+    : set({ [key]: value })
+  const spanishList = key => official ? (p.locales?.es?.[key] || p.copy?.[key] || []) : (p.copy?.[key] || [])
+  const setSpanishList = (key, text) => official
+    ? set({ locales: { ...(p.locales || {}), es: { ...(p.locales?.es || {}), [key]: lines(text) } } })
+    : setCopy(key, text)
   const build = () => {
     let def
     try { def = JSON.parse(json) } catch { return { error: t('The program definition is not valid JSON.') } }
@@ -173,31 +182,32 @@ export function PremiumEditor() {
   const tag = k => set({ goalTags: p.goalTags.includes(k) ? p.goalTags.filter(x => x !== k) : [...p.goalTags, k] })
   const F = ({ label, children }) => <label className="pm-field"><span>{label}</span>{children}</label>
   return <main className="pm-page pm-editor">
-    <header className="pm-head"><button className="pm-back" aria-label={t('Back')} onClick={() => nav('/premium/manage')}><Icon name="chevronLeft" /></button><div className="grow"><h1>{id === 'new' ? t('New program') : p.name}</h1></div></header>
-    <F label={t('Name')}><input className="input" maxLength={80} value={p.name} onChange={e => set({ name: e.target.value })} /></F>
+    <header className="pm-head"><button className="pm-back" aria-label={t('Back')} onClick={() => nav('/premium/manage')}><Icon name="chevronLeft" /></button><div className="grow"><h1>{id === 'new' ? t('New program') : premiumProgramName(p, 'es')}</h1></div></header>
+    <F label={t('Name')}><input className="input" maxLength={80} value={official ? (p.locales?.es?.name || premiumProgramName(p, 'es')) : p.name} onChange={e => official ? set({ locales: { ...(p.locales || {}), es: { ...(p.locales?.es || {}), name: e.target.value } } }) : set({ name: e.target.value })} /></F>
     <F label={t('Slug (address)')}><input className="input" maxLength={48} value={p.slug} onChange={e => set({ slug: e.target.value })} placeholder={t('generated from the name')} /></F>
-    <F label={t('Short description')}><textarea className="input" maxLength={280} value={p.shortDescription} onChange={e => set({ shortDescription: e.target.value })} /></F>
-    <F label={t('Long description')}><textarea className="input" maxLength={2400} value={p.longDescription} onChange={e => set({ longDescription: e.target.value })} /></F>
+    <F label={t('Short description')}><textarea className="input" maxLength={280} value={spanishField('shortDescription')} onChange={e => setSpanishField('shortDescription', e.target.value)} /></F>
+    <F label={t('Long description')}><textarea className="input" maxLength={2400} value={spanishField('longDescription')} onChange={e => setSpanishField('longDescription', e.target.value)} /></F>
     <div className="pm-sub">{t('Goals')}</div>
-    <div className="pm-filters" style={{ flexWrap: 'wrap' }}>{GOALS.map(g => <button key={g} type="button" className={'pm-filter' + (p.goalTags.includes(g) ? ' on' : '')} aria-pressed={p.goalTags.includes(g)} onClick={() => tag(g)}>{g}</button>)}</div>
+    <div className="pm-filters" style={{ flexWrap: 'wrap' }}>{GOALS.map(g => <button key={g} type="button" className={'pm-filter' + (p.goalTags.includes(g) ? ' on' : '')} aria-pressed={p.goalTags.includes(g)} onClick={() => tag(g)}>{t(({ hypertrophy: 'Hypertrophy', strength: 'Strength', 'strength-muscle': 'Strength + muscle', recomposition: 'Recomposition', conditioning: 'Conditioning', health: 'Health' })[g])}</button>)}</div>
     <div className="pm-selects">
       <F label={t('Level')}><select className="input" value={p.level} onChange={e => set({ level: e.target.value })}>{LEVELS.map(l => <option key={l} value={l}>{t(LEVEL_KEY[l])}</option>)}</select></F>
       <F label={t('Days per week')}><input className="input" type="number" min="1" max="7" value={p.daysPerWeek} onChange={e => set({ daysPerWeek: Number(e.target.value) })} /></F>
-      <F label={t('Method type')}><select className="input" value={p.methodType} onChange={e => set({ methodType: e.target.value })}>{METHODS.map(m => <option key={m} value={m}>{m}</option>)}</select></F>
-      <F label={t('Source')}><select className="input" value={p.sourceType} onChange={e => set({ sourceType: e.target.value })}>{SOURCES.map(m => <option key={m} value={m}>{m}</option>)}</select></F>
-      <F label={t('Progression')}><select className="input" value={p.progressionModel} onChange={e => set({ progressionModel: e.target.value })}>{PROGRESSIONS.map(m => <option key={m} value={m}>{m}</option>)}</select></F>
-      <F label={t('Duration / cycle')}><input className="input" maxLength={80} value={p.durationDescription} onChange={e => set({ durationDescription: e.target.value })} /></F>
+      <F label={t('Method type')}><select className="input" value={p.methodType} onChange={e => set({ methodType: e.target.value })}>{METHODS.map(m => <option key={m} value={m}>{t(METHOD_LABEL[m] || m)}</option>)}</select></F>
+      <F label={t('Source')}><select className="input" value={p.sourceType} onChange={e => set({ sourceType: e.target.value })}>{SOURCES.map(m => <option key={m} value={m}>{t(SOURCE_TYPE_LABEL[m] || m)}</option>)}</select></F>
+      <F label={t('Progression')}><select className="input" value={p.progressionModel} onChange={e => set({ progressionModel: e.target.value })}>{PROGRESSIONS.map(m => <option key={m} value={m}>{t(PROGRESSION_LABEL[m] || m)}</option>)}</select></F>
+      <F label={t('Duration / cycle')}><input className="input" maxLength={80} value={spanishField('durationDescription')} onChange={e => setSpanishField('durationDescription', e.target.value)} /></F>
     </div>
     <F label={t('Equipment (one per line)')}><textarea className="input" value={(p.equipmentRequirements || []).join('\n')} onChange={e => set({ equipmentRequirements: lines(e.target.value) })} /></F>
     <CoverEditor p={p} set={set} />
-    <F label={t('Evidence and origin')}><textarea className="input" maxLength={900} value={p.evidenceSummary} onChange={e => set({ evidenceSummary: e.target.value })} /></F>
+    <F label={t('Evidence and origin')}><textarea className="input" maxLength={900} value={spanishField('evidenceSummary')} onChange={e => setSpanishField('evidenceSummary', e.target.value)} /></F>
     <div className="pm-selects">
       <F label={t('Author / origin')}><input className="input" maxLength={120} value={p.author?.name || ''} onChange={e => set({ author: { ...(p.author || {}), name: e.target.value } })} /></F>
       <F label={t('Work / reference')}><input className="input" maxLength={120} value={p.author?.work || ''} onChange={e => set({ author: { ...(p.author || {}), work: e.target.value } })} /></F>
     </div>
     {admin && <F label={t('Legal review')}><select className="input" value={p.legal?.status || 'none'} onChange={e => set({ legal: { ...(p.legal || {}), status: e.target.value } })}><option value="none">{t('Not needed')}</option><option value="review">{t('Review pending')}</option><option value="cleared">{t('Cleared')}</option></select></F>}
     {[['howItWorks', 'How it works (one per line)'], ['forWhom', 'Who it is for (one per line)'], ['notIdealIf', 'Not ideal if… (one per line)'], ['tracking', 'What 2J tracks (one per line)']].map(([k, label]) =>
-      <F key={k} label={t(label)}><textarea className="input" value={(p.copy?.[k] || []).join('\n')} onChange={e => setCopy(k, e.target.value)} /></F>)}
+      <F key={k} label={t(label)}><textarea className="input" value={spanishList(k).join('\n')} onChange={e => setSpanishList(k, e.target.value)} /></F>)}
+    {official && <p className="dim small">{t('Changes here update the Spanish member copy; the original method data and identifiers stay unchanged.')}</p>}
     <F label={t('Program definition (JSON)')}><textarea className="input code" spellCheck={false} value={json} onChange={e => setJson(e.target.value)} /></F>
     {issues.length > 0 && <div className="pm-issues" role="alert"><b>{t('Please fix:')}</b><ul>{issues.map(i => <li key={i}>{i}</li>)}</ul></div>}
     <div className="pm-actions wide"><button className="btn plain" disabled={busy} onClick={() => submit(true)}>{t('Validate')}</button><button className="btn primary" disabled={busy} onClick={() => submit(false)}>{t('Save')}</button></div>

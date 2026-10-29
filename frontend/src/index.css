@@ -3467,6 +3467,11 @@ body:has(.sync-pill) #app{padding-top:8px}
 /* Gym Profiles — a visual place picker, shared by Settings and training entry points. */
 .gym-profile-row-wrap{display:flex;align-items:center;min-width:0;position:relative}
 .gym-profile-row{flex:1;min-width:0;border:0}
+.gym-profile-row-wrap-compact{margin:4px 0 10px}
+.gym-profile-row-compact{min-height:44px;padding:6px 10px;border:1px solid color-mix(in srgb,var(--line) 72%,transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 82%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.gym-profile-row-compact .gym-row-icon{width:30px;height:30px}
+.gym-profile-row-compact .lrow-t{font-size:11px;line-height:1.15}
+.gym-profile-row-compact .lrow-s{font-size:13px;line-height:1.25}
 .gym-row-icon{color:var(--acc)}
 .gym-row-info{flex:none;width:42px;height:42px;display:grid;place-items:center;border-radius:50%;color:var(--label-2);font-size:18px;background:transparent}
 .gym-row-info:active{background:var(--surface-2);color:var(--acc)}

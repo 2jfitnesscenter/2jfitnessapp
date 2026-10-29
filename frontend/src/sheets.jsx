@@ -48,6 +48,7 @@ import { searchExercises, prioritize, scopeList, facets, movementLabel, equipmen
 import { runningView, premiumState } from './lib/premium.js'
 import './components/actions-sheet.css'
 import { premiumEntries } from './lib/premium-session.js'
+import { premiumProgramName, premiumScheduleText } from './lib/premium-text.js'
 import { originOf } from './lib/premium-model.js'
 import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
 import { guidedBlocksOf, buildSteps, summarize } from './lib/guided.js'
@@ -1994,7 +1995,7 @@ export function beginPremiumWorkout(bw) {
   if (!view?.plan) return
   const entries = premiumEntries(st, view.plan, { unit: view.inst.methodState.unit, warmups: st.warmupEnabled !== false })
   update(s => {
-    s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId: null, name: view.inst.name + ' · ' + view.plan.title, bw: bw || null, cur: 0, entries,
+    s.active = { id: uid(), d: todayISO(), start: Date.now(), routineId: null, name: premiumProgramName(view.inst) + ' · ' + premiumScheduleText(view.plan.title), bw: bw || null, cur: 0, entries,
       premium: originOf(view.inst, view.plan) }
   })
   useUI.getState().stopRest()
