@@ -1,5 +1,13 @@
 // Spanish UI strings. Keys are the English source strings (see lib/i18n.js).
 export default {
+  'Advanced: session structure': 'Avanzado: estructura de las sesiones',
+  'Build a program members can understand': 'Crea un programa que los socios entiendan',
+  'Member guide': 'Guía para el socio',
+  'One clear point per line. Avoid promises of results.': 'Escribe una idea clara por línea. Evita prometer resultados.',
+  'Program overview': 'Resumen del programa',
+  'These explanations appear on the program page. Describe what a typical week looks like and who should choose this plan.': 'Estas explicaciones aparecen en la ficha del programa. Describe cómo es una semana habitual y a quién le conviene este plan.',
+  'This structured definition controls weeks, sessions and exercises. Most edits should use the fields above; change this only when you need to adjust the underlying session plan.': 'Esta definición estructurada determina las semanas, sesiones y ejercicios. Para la mayoría de cambios, usa los campos anteriores; modifica esto solo si necesitas ajustar el plan de sesiones.',
+  'Use the overview fields to explain the goal, weekly commitment and progression. The member-facing preview uses this information before they start.': 'Usa el resumen para explicar el objetivo, el compromiso semanal y la progresión. El socio verá esta información antes de empezar.',
   'Búnker': 'Búnker',
   '2J routine analysis': 'Análisis de rutina 2J',
   '2J analysis': 'Análisis 2J',
