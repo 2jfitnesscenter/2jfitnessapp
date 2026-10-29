@@ -372,10 +372,24 @@ export function sanitizeDefinition(def) {
 }
 
 const list = (v, n, len) => (Array.isArray(v) ? v.slice(0, n).map(x => str(x, len)).filter(Boolean) : [])
+/** Editable Spanish presentation copy only; source method data and stable identifiers remain canonical. */
+export function sanitizeLocales(input) {
+  if (!isObj(input) || !isObj(input.es)) return null
+  const es = input.es
+  const copy = {}
+  for (const [key, max] of Object.entries({ name: 80, shortDescription: 280, longDescription: 2400, durationDescription: 80, evidenceSummary: 900 })) {
+    if (es[key] != null) copy[key] = str(es[key], max)
+  }
+  for (const key of ['howItWorks', 'forWhom', 'notIdealIf', 'tracking']) {
+    if (es[key] != null) copy[key] = list(es[key], 6, 240)
+  }
+  return Object.keys(copy).length ? { es: copy } : null
+}
 /** The editorial part of a program from untrusted input (system fields — id, version, status, authorship — are never read from here). */
 export function sanitizeEditorial(input) {
   const i = isObj(input) ? input : {}
   const copy = isObj(i.copy) ? i.copy : {}
+  const locales = sanitizeLocales(i.locales)
   return {
     slug: str(i.slug, 48).toLowerCase(), name: str(i.name, 80), shortDescription: str(i.shortDescription, 280), longDescription: str(i.longDescription, 2400),
     goalTags: list(i.goalTags, 6, 24), level: str(i.level, 16), daysPerWeek: fin(i.daysPerWeek), durationDescription: str(i.durationDescription, 80),
@@ -385,6 +399,7 @@ export function sanitizeEditorial(input) {
     copy: { howItWorks: list(copy.howItWorks, 6, 240), forWhom: list(copy.forWhom, 6, 240), notIdealIf: list(copy.notIdealIf, 6, 240), tracking: list(copy.tracking, 6, 240) },
     legal: isObj(i.legal) ? { status: LEGAL_STATES.includes(i.legal.status) ? i.legal.status : 'none', note: str(i.legal.note, 400) } : { status: 'none', note: '' },
     programDefinition: sanitizeDefinition(i.programDefinition),
+    ...(locales ? { locales } : {}),
     ...sanitizeCover(i),
   }
 }

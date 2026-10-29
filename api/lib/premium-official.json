@@ -1027,6 +1027,7 @@
    },
    "locales": {
     "es": {
+     "name": "Fuerza 5/3/1",
      "shortDescription": "Cuatro días por semana, un levantamiento principal cada día, con cargas calculadas sobre un Training Max en una onda de cuatro semanas.",
      "longDescription": "Cada ciclo dura cuatro semanas. Cada levantamiento principal (sentadilla, press banca, peso muerto y press militar) se entrena una vez por semana con tres series de trabajo cuyo peso es un porcentaje de tu Training Max; la última serie de cada semana se lleva a tantas repeticiones buenas como puedas (marcada con +). La cuarta semana es una descarga más ligera. Al terminar el ciclo, 2J te propone una pequeña subida del Training Max para que la confirmes. El trabajo accesorio completa cada sesión.",
      "durationDescription": "Ciclos de 4 semanas, repetidos",
@@ -1858,6 +1859,7 @@
    },
    "locales": {
     "es": {
+     "name": "Método Texas",
      "shortDescription": "Tres días por semana: un día de volumen, un día ligero de recuperación y un día de intensidad en el que intentas superar la semana anterior.",
      "longDescription": "La semana tiene su ritmo. El lunes es el día de volumen (cinco series de cinco a cerca del 90 % de tu carga actual para cinco repeticiones). El miércoles es una sesión corta y ligera de recuperación. El viernes es el día de intensidad: una serie de cinco con un peso algo mayor que la semana anterior. Las cargas suben un poco cada semana y, tras cuatro semanas, 2J te propone actualizar tus cargas de cinco repeticiones para que lo confirmes.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -5187,6 +5189,7 @@
    },
    "locales": {
     "es": {
+     "name": "Método Juggernaut 10/8/5/3",
      "shortDescription": "Dieciséis semanas en cuatro ondas (10s, 8s, 5s y 3s): construir volumen, subir intensidad, probar y descargar.",
      "longDescription": "El programa es un bloque largo de cuatro ondas. Cada onda trabaja un rango de repeticiones distinto (10, 8, 5 y 3) y pasa por cuatro semanas: acumulación (más series, menos peso), intensificación (más pesado), realización (una serie final a tantas repeticiones como puedas) y descarga. Los pesos son porcentajes de tu Training Max. Esta versión sigue la idea de ondas descrita públicamente con porcentajes propios de 2J: no reproduce ninguna tabla de un libro. Al final de las dieciséis semanas, 2J te propone actualizar el Training Max para que lo confirmes.",
      "durationDescription": "16 semanas (cuatro ondas)",
@@ -5944,6 +5947,7 @@
    },
    "locales": {
     "es": {
+     "name": "Método GZCL",
      "shortDescription": "Niveles de trabajo: un levantamiento principal pesado (T1), uno de volumen moderado (T2) y accesorios de muchas repeticiones (T3) en cada sesión.",
      "longDescription": "Cada sesión se construye con tres niveles. T1 es un compuesto pesado a pocas repeticiones, T2 es un levantamiento relacionado a repeticiones moderadas y más series, y T3 es un accesorio de muchas repeticiones. Las cargas progresan de sesión a sesión con la progresión propia de la app: si completas todas las repeticiones, el peso sube. Es la idea de niveles en una forma sencilla de cuatro días, no una copia de ninguna plantilla publicada.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -7142,6 +7146,7 @@
    },
    "locales": {
     "es": {
+     "name": "Fuerza e hipertrofia torso/pierna (PHUL)",
      "shortDescription": "Torso/pierna con dos días de potencia y dos de hipertrofia: pocas repeticiones pesadas y luego trabajo de tamaño con más repeticiones.",
      "longDescription": "Cuatro días por semana: Torso potencia, Pierna potencia, Torso hipertrofia y Pierna hipertrofia. Los días de potencia usan compuestos pesados a 3–5 repeticiones; los de hipertrofia, cargas moderadas a 8–12. Cada músculo se entrena dos veces por semana. Los pesos progresan con doble progresión: llega al máximo del rango en todas las series y el peso sube.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -8584,6 +8589,7 @@
    },
    "locales": {
     "es": {
+     "name": "Potencia e hipertrofia adaptativas (PHAT)",
      "shortDescription": "Cinco días: dos de potencia (torso y pierna) y tres de hipertrofia centrados en espalda y hombros, piernas, y pecho y brazos.",
      "longDescription": "Un reparto de mayor frecuencia y volumen. Los dos días de potencia usan compuestos pesados a pocas repeticiones; los tres de hipertrofia dividen el cuerpo en espalda y hombros, tren inferior, y pecho y brazos, con repeticiones moderadas o altas. Los pesos progresan con doble progresión. Exige cinco días de entrenamiento y buena recuperación.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -9625,6 +9631,7 @@
    },
    "locales": {
     "es": {
+     "name": "Periodización ondulante diaria (DUP)",
      "shortDescription": "Tres días de cuerpo completo por semana donde la carga y el rango de repeticiones cambian cada sesión: pesado, moderado y ligero, y rotan.",
      "longDescription": "En lugar de un solo rango de repeticiones durante semanas, cada sesión tiene el suyo: un día pesado (pocas repeticiones), uno moderado y uno ligero de más repeticiones. El orden rota de semana en semana para que cada levantamiento pase por todas las intensidades. Todos los pesos son porcentajes de tu Training Max y, tras cuatro semanas, 2J te propone una actualización para que la confirmes. La periodización ondulante es un término científico general, no una marca.",
      "durationDescription": "Ciclos de 4 semanas, repetidos",
@@ -10884,6 +10891,7 @@
    },
    "locales": {
     "es": {
+     "name": "Torso/pierna: fuerza e hipertrofia",
      "shortDescription": "Cuatro días (torso/pierna dos veces): compuestos pesados sobre un Training Max y luego accesorios de hipertrofia.",
      "longDescription": "Cada sesión empieza con un compuesto pesado con cargas calculadas sobre tu Training Max (unas pocas series pesadas de cinco y luego series más ligeras de ocho) y continúa con accesorios de hipertrofia de 8–15 repeticiones. Los días de torso y de pierna se alternan, así que cada músculo se entrena dos veces por semana. Tras un ciclo de cuatro semanas, 2J te propone actualizar el Training Max para que lo confirmes.",
      "durationDescription": "Ciclos de 4 semanas, repetidos",
@@ -11877,6 +11885,7 @@
    },
    "locales": {
     "es": {
+     "name": "Hipertrofia de cuerpo completo",
      "shortDescription": "Tres días de cuerpo completo por semana centrados en el tamaño muscular, con una doble progresión sencilla.",
      "longDescription": "Tres sesiones alternas de cuerpo completo (A, B y C), cada una con todos los grupos musculares principales y repeticiones moderadas (6–15). Cada músculo se entrena tres veces por semana con un volumen asumible. Los pesos progresan con doble progresión: llega al máximo del rango en todas las series y el peso sube. No hacen falta porcentajes ni pruebas de máximos.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -12815,6 +12824,7 @@
    },
    "locales": {
     "es": {
+     "name": "Recomposición corporal 2J",
      "shortDescription": "Un diseño de 2J para perder grasa manteniendo o ganando músculo: cuatro sesiones que combinan fuerza y acondicionamiento.",
      "longDescription": "A menudo llamado «tonificar», el objetivo práctico es reducir la grasa corporal manteniendo o ganando músculo. Cuatro sesiones por semana: dos sesiones de cuerpo completo centradas en la fuerza para proteger el músculo y dos sesiones de hipertrofia más cortas que terminan con acondicionamiento. Las cargas de fuerza progresan con la progresión de la app; el acondicionamiento aumenta la duración poco a poco. El entrenamiento es solo una parte del resultado: el balance de energía y la proteína también cuentan, y este programa no prescribe una dieta.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -13591,6 +13601,7 @@
    },
    "locales": {
     "es": {
+     "name": "Fuerza y cardio concurrentes",
      "shortDescription": "Tres días de fuerza y dos de cardio por semana: más fuerza y mejor forma física a la vez.",
      "longDescription": "Fuerza y resistencia en la misma semana. Tres sesiones de cuerpo completo usan la progresión lineal de la app en los levantamientos principales; dos sesiones de cardio construyen trabajo aeróbico constante con un poco de intervalos. Mantener el cardio intenso lejos de los días pesados de pierna y un volumen semanal moderado de cardio ayuda a que ambas cualidades progresen. El entrenamiento concurrente es un término general, no una marca.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -14418,6 +14429,7 @@
    },
    "locales": {
     "es": {
+     "name": "Acondicionamiento de cuerpo completo",
      "shortDescription": "Tres sesiones accesibles de cuerpo completo con descansos cortos y un final de acondicionamiento, para forma física general.",
      "longDescription": "Un programa centrado en la forma física: tres sesiones de cuerpo completo con movimientos sencillos, cargas moderadas, descansos cortos y un final de acondicionamiento. Construye capacidad de trabajo, resistencia a la fuerza y el hábito de entrenar con regularidad. Sin pruebas de máximos ni porcentajes complejos. Un buen punto de partida si tu objetivo es sentirte más en forma y más sano.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -14978,6 +14990,7 @@
    },
    "locales": {
     "es": {
+     "name": "Progresión lineal 5×5",
      "shortDescription": "Tres sesiones de cuerpo completo por semana, alternando dos entrenamientos, cinco series de cinco y un poco más de peso cuando las completas.",
      "longDescription": "El Entrenamiento A y el B se alternan en días no consecutivos. La sentadilla se entrena en todas las sesiones; el press banca y el press militar, y el remo y el peso muerto, se turnan. Cada ejercicio se hace con cinco series de cinco (el peso muerto, una serie de cinco). Cuando completas todas las repeticiones, la app propone una pequeña subida para la próxima vez; si no, repites el peso. Es una forma deliberadamente sencilla de aprender los levantamientos básicos y ganar fuerza rápido mientras eres nuevo en ellos.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -15923,6 +15936,7 @@
    },
    "locales": {
     "es": {
+     "name": "Días pesado, ligero y medio",
      "shortDescription": "Tres días de cuerpo completo con una sesión pesada, una ligera y una media, para entrenar a menudo sin machacarte cada día.",
      "longDescription": "Cada semana tiene un día pesado, uno ligero y uno medio. El día pesado, los ejercicios principales se cargan como porcentaje de tu Training Max y suben un poco cada semana; el día ligero usa pesos menores para practicar y recuperar; el medio queda en el punto intermedio. La semana 4 es una descarga. Tras el bloque, 2J propone una pequeña subida del Training Max para que la confirmes.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -17268,6 +17282,7 @@
    },
    "locales": {
     "es": {
+     "name": "Fuerza conjugada",
      "shortDescription": "Cuatro días: cada semana un día de esfuerzo máximo y uno de esfuerzo dinámico para el tren inferior y otro par para el superior.",
      "longDescription": "Cada semana tiene un día de esfuerzo máximo de tren inferior, otro de tren superior y dos días de esfuerzo dinámico (velocidad). En los días de esfuerzo máximo subes hasta una serie pesada de una a tres repeticiones y paras mientras la técnica sigue siendo buena; la app muestra la rampa como porcentajes de tu Training Max. En los días dinámicos mueves la barra ligera con rapidez en muchas series de pocas repeticiones. En el método original el ejercicio de esfuerzo máximo cambia cada una a tres semanas; aquí el ejercicio principal es fijo y las notas sugieren variantes que puedes cambiar con tu entrenador. La semana 4 es una descarga.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -19721,6 +19736,7 @@
    },
    "locales": {
     "es": {
+     "name": "Periodización por bloques de fuerza",
      "shortDescription": "Doce semanas en tres bloques —construir volumen, subir la intensidad y expresar la fuerza— seguidas de una descarga.",
      "longDescription": "Cuatro sesiones por semana, una por ejercicio principal. Las cuatro primeras semanas acumulan trabajo (más series, pesos moderados). Las cuatro siguientes intensifican (pesos más altos, menos repeticiones). Las tres siguientes realizan: trabajo de bajo volumen y alta intensidad que deja caer la fatiga para que puedas expresar tu fuerza. La semana 12 es una descarga. Después puedes probar tus levantamientos, actualizar tu Training Max y empezar otra vez.",
      "durationDescription": "12 semanas y un nuevo ciclo",
@@ -21008,6 +21024,7 @@
    },
    "locales": {
     "es": {
+     "name": "Fuerza e hipertrofia con periodización ondulante",
      "shortDescription": "Tren superior/inferior cuatro días por semana: cada patrón tiene un día de fuerza (pesado, pocas repeticiones) y un día de músculo (moderado, más repeticiones).",
      "longDescription": "Cada semana tiene dos sesiones de tren superior y dos de inferior. La primera de cada pareja es un día de fuerza: un ejercicio principal desde tu Training Max con cuatro series de cuatro. La segunda es un día de músculo: el ejercicio con pesos más ligeros en cuatro series de diez, seguido de más volumen accesorio. Los pesos suben un poco en las semanas 1–3 y la semana 4 es una descarga. La carga y el rango de repeticiones ondulan de sesión en sesión; la app propone una actualización del Training Max tras el bloque.",
      "durationDescription": "Ciclos de 4 semanas, repetidos",
@@ -22519,6 +22536,7 @@
    },
    "locales": {
     "es": {
+     "name": "Empuje, tirón y pierna: fuerza e hipertrofia",
      "shortDescription": "Seis días de empuje, tirón y pierna, repetidos dos veces por semana: primero un ejercicio compuesto pesado y después trabajo de hipertrofia.",
      "longDescription": "Cada grupo muscular se entrena dos veces por semana. El primer ejercicio de cada sesión (banca, peso muerto, sentadilla y luego press, dominadas y sentadilla frontal) se carga desde tu Training Max; el resto usa repeticiones moderadas (8–15) con doble progresión. El día A se inclina a la fuerza y el B al volumen. Los pesos suben un poco en las semanas 1–3 y la semana 4 es una descarga. Es un plan de alta frecuencia: solo funciona si puedes dormir, comer y recuperarte durante seis días de entrenamiento.",
      "durationDescription": "Ciclos de 4 semanas, repetidos",
@@ -23875,6 +23893,7 @@
    },
    "locales": {
     "es": {
+     "name": "Fuerza de alta frecuencia",
      "shortDescription": "Cinco días por semana en los que haces sentadilla, banca y press casi en cada sesión con pesos moderados, practicando los levantamientos con frecuencia.",
      "longDescription": "La idea es practicar con frecuencia los levantamientos de competición sin entrenar nunca al fallo: cada ejercicio aparece de dos a cuatro veces por semana al 75–85 % de tu Training Max, en series cortas de dos a cinco repeticiones. El volumen semanal sube un poco durante tres semanas y baja en la semana 4. Exige buena técnica, buen sueño y autorregulación honesta: si un día te sientes mal, el plan espera que hagas menos, no que fuerces.",
      "durationDescription": "Ciclos de 4 semanas, repetidos",
@@ -25060,6 +25079,7 @@
    },
    "locales": {
     "es": {
+     "name": "Hipertrofia con carga progresiva",
      "shortDescription": "Tres días de cuerpo completo donde el peso sube un poco en cada sesión, pasando de 15 a 10 y a 5 repeticiones durante seis semanas.",
      "longDescription": "Seis semanas en tres mesociclos de dos semanas. En cada uno las repeticiones son fijas (15, luego 10 y luego 5) y el peso sube un pequeño paso en cada sesión, de modo que el músculo siempre se enfrenta a una carga algo nueva. Cada músculo se entrena tres veces por semana con dos series por ejercicio. Tras el bloque de 5 repeticiones, 2J propone actualizar tu Training Max para que lo confirmes. Es un diseño inspirado en las ideas del método, descrito con nuestras palabras; no es el método oficial.",
      "durationDescription": "Ciclos de 6 semanas, repetidos",
@@ -25986,6 +26006,7 @@
    },
    "locales": {
     "es": {
+     "name": "Hipertrofia con restricción del flujo sanguíneo",
      "shortDescription": "Cuatro días de tren superior e inferior que añaden series con carga ligera y manguitos de restricción del flujo sanguíneo en brazos y piernas. Requiere material adecuado y supervisión.",
      "longDescription": "Cada sesión empieza con un ejercicio compuesto normal y sigue con trabajo de aislamiento con manguitos: cargas muy ligeras (alrededor del 20–30 % de tu máximo) en un esquema de 30-15-15-15 repeticiones con descansos cortos. El método puede construir músculo con cargas ligeras, útil cuando no se puede entrenar pesado, y solo es adecuado con manguitos fabricados para ello y presión moderada. No sustituye al entrenamiento pesado. Quien tenga una condición de salud debe consultar a un profesional antes de usarlo.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -26525,6 +26546,7 @@
    },
    "locales": {
     "es": {
+     "name": "Resistencia polarizada",
      "shortDescription": "Cinco días de resistencia: la mayor parte del trabajo fácil y un poco muy duro, aproximadamente 80 % fácil y 20 % duro.",
      "longDescription": "Una semana polarizada combina sesiones largas y realmente fáciles (puedes mantener una conversación) con dos sesiones de intervalos duros (unos 4 minutos duros y 3–4 fáciles). Hay muy poco tiempo en esfuerzo moderado o «zona gris». Las duraciones suben poco a poco durante cuatro semanas. Usa lo que prefieras en los días fáciles: correr, bici o máquina. Fácil significa fácil: si no puedes hablar, baja el ritmo.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -27004,6 +27026,7 @@
    },
    "locales": {
     "es": {
+     "name": "Desarrollo del umbral",
      "shortDescription": "Cuatro días construidos en torno a un trabajo sostenido «cómodamente duro» cerca de tu umbral, con días fáciles para recuperar.",
      "longDescription": "Dos sesiones por semana son trabajo de umbral: intervalos «crucero» (repeticiones de 6–10 minutos a un esfuerzo fuerte y estable con un minuto de descanso) y un tempo continuo. Otras dos son carrera o bici fáciles. El tiempo en umbral crece durante cuatro semanas. El esfuerzo de umbral es «cómodamente duro»: puedes decir frases cortas pero no mantener una conversación. No conviertas los días fáciles en duros.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -27654,6 +27677,7 @@
    },
    "locales": {
     "es": {
+     "name": "Base aeróbica e intervalos",
      "shortDescription": "Ocho semanas: primero construye una base aeróbica fácil y después añade una sesión semanal de intervalos cuando la base ya está.",
      "longDescription": "Las semanas 1–6 son sobre todo trabajo aeróbico fácil, aumentando poco a poco la duración con una sesión corta y ligera de progresiones o cuestas una vez por semana. En las semanas 7–8 una de las sesiones pasa a ser un entrenamiento de intervalos propiamente dicho (4 × 4 minutos duros). La sesión larga crece cerca de un 10 % por semana. Elige correr, bici o máquina en cada sesión. Es un buen punto de partida para quien empieza en resistencia o la retoma.",
      "durationDescription": "8 semanas y después repetir o progresar",
@@ -28346,6 +28370,7 @@
    },
    "locales": {
     "es": {
+     "name": "Acondicionamiento funcional",
      "shortDescription": "Cuatro días que mezclan ejercicios de fuerza con acondicionamiento mixto: correr, máquinas, saltos, acarreos y trabajo con el propio peso.",
      "longDescription": "Dos días de fuerza más un acondicionamiento corto, un día de motor (trabajo aeróbico constante) y un día mixto. El acondicionamiento se escribe como bloques de tiempo con movimientos sencillos que puedes escalar; los ejercicios de fuerza usan la progresión lineal de la app. La calidad importa más que la velocidad: elige cargas que te permitan mantener buena forma cuando estés cansado. Es un diseño de forma física general, no un programa de competición.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -29769,6 +29794,7 @@
    },
    "locales": {
     "es": {
+     "name": "Preparación para carreras de fitness",
      "shortDescription": "Una base de 8 semanas para eventos que mezclan carrera con estaciones funcionales: acarreos, zancadas, ergómetro de esquí y trabajo con el propio peso.",
      "longDescription": "Cinco días: dos sesiones de carrera (una fácil y otra con intervalos), un día de resistencia a la fuerza con zancadas, step-ups y acarreos, un día de «estaciones» con máquinas y peso corporal y una sesión larga que enlaza carrera con estaciones (carrera «comprometida»). La carga sube durante seis semanas y luego se reduce un poco. Prepara para formatos que combinan carrera y estaciones funcionales; no simula ningún evento concreto y no debe usarse como plan para un evento cuyas reglas no hayas leído.",
      "durationDescription": "8 semanas y después repetir o avanzar",
@@ -32729,6 +32755,7 @@
    },
    "locales": {
     "es": {
+     "name": "Preparación avanzada para carreras de fitness",
      "shortDescription": "Un plan de 12 semanas y seis días para deportistas con experiencia que se preparan para formatos de competición funcional o híbrida: más volumen y más especificidad.",
      "longDescription": "Se apoya en la base de Fitness Race Prep con un tercer día de fuerza y sesiones más largas que combinan carrera y estaciones. Las semanas 1–4 construyen volumen, las semanas 5–9 elevan la especificidad y las semanas 10–11 afinan, con una descarga en la semana 12. Necesitas una base consolidada de carrera y fuerza; si las sesiones se vuelven inmanejables, el plan espera que hagas un día más fácil en lugar de forzar. No reproduce las reglas de ningún evento concreto.",
      "durationDescription": "12 semanas y después descansar y reevaluar",
@@ -33592,6 +33619,7 @@
    },
    "locales": {
     "es": {
+     "name": "Fuerza y zona 2 para recomposición",
      "shortDescription": "Tres días de fuerza para proteger el músculo y tres días de cardio fácil «zona 2» para aumentar el gasto energético mientras pierdes grasa.",
      "longDescription": "Una fase de pérdida de grasa funciona mejor si sigues levantando. Tres sesiones de cuerpo completo mantienen el peso en movimiento; tres sesiones de cardio constante a esfuerzo conversacional (zona 2) suman gasto energético sin competir mucho con el levantamiento. El tiempo de cardio crece despacio. Este programa no fija una dieta: la pérdida de grasa depende de un déficit energético moderado y de suficiente proteína, y un déficit grande perjudica el entrenamiento y la recuperación.",
      "durationDescription": "Bloques de 4 semanas, repetidos",
@@ -35134,6 +35162,7 @@
    },
    "locales": {
     "es": {
+     "name": "Progresión de resistencia metabólica",
      "shortDescription": "Cuatro sesiones en circuito con descansos cortos y movimientos compuestos sencillos, añadiendo repeticiones y luego peso durante seis semanas.",
      "longDescription": "Cada sesión es un circuito de movimientos compuestos sencillos (zancadas, presses, remos, bisagras de cadera, acarreos) con descansos cortos para mantener alto el pulso. La doble progresión de la app añade repeticiones primero y después peso, de modo que la progresión es gradual y segura. Un final corto de acondicionamiento crece de 6 a 10 minutos. Es una buena opción cuando hay poco tiempo y quieres resistencia a la fuerza y forma física a la vez; no apunta a la fuerza máxima.",
      "durationDescription": "Bloques de 6 semanas, repetidos",
@@ -35287,6 +35316,7 @@
    },
    "locales": {
     "es": {
+     "name": "Entrena tus oposiciones",
      "shortDescription": "Un plan a largo plazo para las pruebas físicas de tu oposición, construido sobre las pruebas y marcas mínimas oficiales de tu convocatoria.",
      "longDescription": "Elige tu oposición, cuéntanos tus marcas, tu tiempo y tu material, y 2J construye un plan por fases (Base, Desarrollo, Especificidad y Competitiva) a 6, 12, 18 o 24 meses, entrenando todas las capacidades de las pruebas reales. Cada pocas semanas una semana de control mide tus marcas frente al mínimo oficial y a tu objetivo, y propone el siguiente bloque: tú lo confirmas; nada cambia solo. Si falta un dato o tu convocatoria no está en el catálogo, la app lo dice en lugar de inventarlo.",
      "durationDescription": "6, 12, 18 o 24 meses",

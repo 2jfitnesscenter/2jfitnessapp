@@ -20,6 +20,14 @@ test('training place opens a visual selector row instead of a native dropdown', 
   expect(html).toContain('Training place'); expect(html).toContain('Home gym')
   expect(html).toContain('lrow-c'); expect(html).not.toContain('<select')
 })
+test('Home compact training-place control keeps the selected place visible in a small row', () => {
+  mockStore.current.S = { gymProfiles: {} }
+  const html = renderToStaticMarkup(<GymProfile compact />)
+  expect(html).toContain('gym-profile-row-compact')
+  expect(html).toContain('2J Fitness Center')
+  expect(html).toContain('Training place')
+  expect(html).not.toContain('<select')
+})
 test('visual place sheet shows five profile cards, active state, equipment chips and contextual help', () => {
   const html = renderToStaticMarkup(<GymProfileSheet close={() => {}} editable />)
   expect(html).toContain('Where are you training today?')
