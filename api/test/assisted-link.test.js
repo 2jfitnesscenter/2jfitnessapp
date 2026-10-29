@@ -14,7 +14,7 @@ const OWNER = { id: 'owner' }, PEDRO = { id: 'pedro' }, ADMIN = { id: 'admin', a
 
 function setup({ enabled = true, key = KEY, members = 30, legacyAssist = null } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'assist-'));
-  let clock = Date.parse('2026-10-24T10:00:00Z');
+  let clock = Date.parse('2026-10-29T23:59:00Z'); // 23:59 Atlantic/Canary (winter time)
   const db = { users: [OWNER, PEDRO, ADMIN, TRAINER, ...Array.from({ length: members }, (_, i) => ({ id: `m${i}` }))], ...(legacyAssist ? { platformAssist: structuredClone(legacyAssist) } : {}) };
   const spent = new Set();
   const stepUp = { valid: req => !!req.step && !spent.has(req.step), consume: req => { if (!req.step || spent.has(req.step)) return false; spent.add(req.step); return true; } };
@@ -31,7 +31,7 @@ function setup({ enabled = true, key = KEY, members = 30, legacyAssist = null } 
     stepUp, now: () => clock,
   });
   const call = async (route, user, body, step) => { const res = {}; await assisted.routes[route]({ user, body, step }, res); return res.out; };
-  return { assisted, db, dir, call, store, advance: ms => { clock += ms; }, ledgerFile: path.join(dir, 'ledger.jsonl'), people: i => ({ personId: uuid(), trainingUserId: `m${i}`, reasonCode: 'lost_device' }) };
+  return { assisted, db, dir, call, store, advance: ms => { clock += ms; }, setTime: value => { clock = Date.parse(value); }, ledgerFile: path.join(dir, 'ledger.jsonl'), people: i => ({ personId: uuid(), trainingUserId: `m${i}`, reasonCode: 'lost_device' }) };
 }
 const ISSUE = 'POST /api/admin/platform-link/assist', REQUEST = 'POST /api/admin/platform-link/assist-requests', APPROVE = 'POST /api/admin/platform-link/assist-requests/approve', REJECT = 'POST /api/admin/platform-link/assist-requests/reject';
 let stepCounter = 0; const step = () => `step-${++stepCounter}`;
@@ -104,13 +104,26 @@ test('legacy plaintext requests migrate losslessly into the encrypted store and 
   assert.equal(disabled.assisted.enabled, false);
 });
 
-test('daily limit: 20 per issuer; the 21st is refused and the other holder is unaffected', async () => {
-  const s = setup();
+test('daily limit resets at Canary calendar midnight, not after a rolling 24 hours', async () => {
+  const s = setup({ members: 50 });
   for (let i = 0; i < DAILY_ISSUE_LIMIT; i++) assert.equal((await s.call(ISSUE, OWNER, s.people(i), step())).status, 201, `issue ${i}`);
   assert.equal((await s.call(ISSUE, OWNER, s.people(DAILY_ISSUE_LIMIT), step())).status, 429);
   assert.equal((await s.call(ISSUE, PEDRO, s.people(DAILY_ISSUE_LIMIT), step())).status, 201);
-  s.advance(24 * 3_600_000 + 1000);
-  assert.equal((await s.call(ISSUE, OWNER, s.people(DAILY_ISSUE_LIMIT + 1), step())).status, 201, 'the window rolls');
+  s.setTime('2026-10-30T00:01:00Z'); // 00:01 Atlantic/Canary, only two minutes later
+  assert.equal((await s.call(ISSUE, OWNER, s.people(DAILY_ISSUE_LIMIT + 1), step())).status, 201, 'the next local calendar day starts a fresh allowance');
+  for (let i = 0; i < DAILY_ISSUE_LIMIT - 1; i++) assert.equal((await s.call(ISSUE, OWNER, s.people(DAILY_ISSUE_LIMIT + 2 + i), step())).status, 201);
+  assert.equal((await s.call(ISSUE, OWNER, s.people(DAILY_ISSUE_LIMIT * 2 + 1), step())).status, 429, 'the 21st issue on the new local date is refused');
+});
+
+test('daily limit uses Atlantic/Canary dates across the spring DST boundary', async () => {
+  const s = setup();
+  s.setTime('2026-03-29T00:59:00Z'); // 00:59 local, immediately before the spring-forward gap
+  for (let i = 0; i < DAILY_ISSUE_LIMIT; i++) assert.equal((await s.call(ISSUE, OWNER, s.people(i), step())).status, 201);
+  assert.equal((await s.call(ISSUE, OWNER, s.people(DAILY_ISSUE_LIMIT), step())).status, 429);
+  s.setTime('2026-03-29T01:01:00Z'); // 02:01 local after the spring-forward gap, same calendar date
+  assert.equal((await s.call(ISSUE, OWNER, s.people(DAILY_ISSUE_LIMIT + 1), step())).status, 429);
+  s.setTime('2026-03-29T23:01:00Z'); // next local date; no assumption that a local day is 24 hours
+  assert.equal((await s.call(ISSUE, OWNER, s.people(DAILY_ISSUE_LIMIT + 1), step())).status, 201);
 });
 
 test('receipts are single use, bound to (person, Training user), and expire in 24 h', async () => {
@@ -155,7 +168,7 @@ test('ledger: append-only chain; editing, cutting or truncating it stops issuanc
   const lines = original.trim().split('\n');
   assert.equal(lines.length, 2);
   const ledger = createLedger({ file: s.ledgerFile, key: KEY });
-  assert.deepEqual(Object.keys(ledger).sort(), ['append', 'countSince', 'verify'], 'the ledger API has no edit or delete');
+  assert.deepEqual(Object.keys(ledger).sort(), ['append', 'countOnCanaryDay', 'verify'], 'the ledger API has no edit or delete');
 
   fs.writeFileSync(s.ledgerFile, lines[0].replace('"lost_device"', '"other"') + '\n' + lines[1] + '\n');           // edited line
   assert.equal((await s.call(ISSUE, OWNER, s.people(2), step())).status, 503);
