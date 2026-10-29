@@ -16,7 +16,7 @@ import { segmentsOf, pruneBlocks, estimateSeconds, roundMinutes, classify, presc
   isGuided, sanitizeTiming, defaultTiming, applyTiming, guidedSeconds, TIMING_PRESETS, TYPE_LABEL, PROTOCOL_VERSION } from '../../lib/protocol/index.js'
 import { timingLine } from '../../lib/guided.js'
 import { lookup } from '../../lib/blocks-api.js'
-import { alternativesSheet, exConfigSheet, exerciseNotesSheet } from '../../sheets.jsx'
+import { alternativesSheet, confirmSheet, exConfigSheet, exerciseNotesSheet } from '../../sheets.jsx'
 import { Thumb } from '../Media.jsx'
 import { Stepper } from '../ui.jsx'
 import Icon from '../Icon.jsx'
@@ -257,7 +257,15 @@ export default function DayCanvas({ day, ctx, unit, sharedNotesFor, onChange, on
     <button disabled={si === 0} onClick={() => { close(); set(moveSegment(day, si, si - 1)) }}><Icon name="arrowUp" />{t('Move block up')}</button>
     <button disabled={si === segs.length - 1} onClick={() => { close(); set(moveSegment(day, si, si + 1)) }}><Icon name="arrowDown" />{t('Move block down')}</button>
     {seg.blk && <button onClick={() => { close(); set(ungroupSegment(day, seg)) }}><Icon name="list" />{t('Keep exercises, drop the block label')}</button>}
-    <button className="danger" onClick={() => { close(); set(removeSegment(day, seg)) }}><Icon name="trash" />{t('Remove these exercises')}</button>
+    <button className="danger" onClick={() => {
+      close()
+      confirmSheet({
+        title: seg.blk ? t('Delete this entire block?') : t('Remove these exercises?'),
+        message: t('This changes the routine being edited only after you save it. The source block in the library and other assigned routines remain unchanged.'),
+        confirmText: seg.blk ? t('Delete block from this routine') : t('Remove exercises'), danger: true,
+        onConfirm: () => set(removeSegment(day, seg))
+      })
+    }}><Icon name="trash" />{seg.blk ? t('Delete entire block') : t('Remove these exercises')}</button>
   </div>)
 
   // native drag & drop — no dependency; buttons remain the accessible path

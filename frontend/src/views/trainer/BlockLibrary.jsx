@@ -9,6 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useUI } from '../../store/useUI.js'
 import { t } from '../../lib/i18n.js'
 import { useBlocks, validate } from '../../lib/blocks-api.js'
+import { removeBlocksSequentially } from '../../lib/trainer-block-actions.js'
 import { GOALS, LEVELS, GOAL_LABEL, LEVEL_LABEL, FOCUS, FOCUS_LABEL, BLOCK_TYPES, TYPE_LABEL, BLOCK_TYPES_READY, STYLE_LABEL, blockTitle } from '../../lib/protocol/index.js'
 import { confirmSheet, exercisePicker } from '../../sheets.jsx'
 import Library from '../../components/constructor/Library.jsx'
@@ -19,8 +20,27 @@ import Icon from '../../components/Icon.jsx'
 export default function BlockLibrary() {
   const nav = useNavigate()
   const toast = useUI(s => s.toast)
-  const { canEditOfficial, uid, duplicate, setActive, remove } = useBlocks()
+  const { blocks, canEditOfficial, uid, duplicate, setActive, remove, load } = useBlocks()
   const canEdit = b => b.official ? canEditOfficial : b.createdBy === uid
+  const deletable = b => canEdit(b) && !(b.official && b.seedVersion)
+  const [selected, setSelected] = useState([])
+  const [selectionMode, setSelectionMode] = useState(false)
+  useEffect(() => { load() }, [])
+  const deletableBlocks = blocks.filter(deletable)
+  const toggleSelected = id => setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
+  const toggleAll = () => setSelected(current => current.length === deletableBlocks.length ? [] : deletableBlocks.map(b => b.id))
+  const removeSelected = () => confirmSheet({
+    title: t('Delete {0} blocks?', selected.length),
+    message: t('This removes the selected templates from your library. Routines and programs that already copied them keep their own exercises and history.'),
+    confirmText: t('Delete selected blocks'), danger: true,
+    onConfirm: async () => {
+      const result = await removeBlocksSequentially(selected, remove)
+      setSelected([])
+      setSelectionMode(false)
+      if (result.failed.length) toast(t('Deleted {0} blocks; {1} could not be deleted.', result.deleted.length, result.failed.length))
+      else toast(t('Deleted {0} blocks.', result.deleted.length))
+    }
+  })
   // Visibility is a switch on the card, saved at once (the "…" actions are for edit / duplicate / delete).
   const [busy, setBusy] = useState(() => new Set())
   const visibility = { can: canEdit, busy, toggle: async (b, on) => {
@@ -32,7 +52,7 @@ export default function BlockLibrary() {
   const extra = (b, close) => <>
     <button className="btn plain" onClick={async () => { try { const c = await duplicate(b.id); close(); toast(t('Copied to your blocks')); nav('/trainer/blocks/edit/' + c.id) } catch (e) { toast(e.message) } }}><Icon name="clipboard" />{t('Duplicate')}</button>
     {canEdit(b) && <button className="btn plain" onClick={() => { close(); nav('/trainer/blocks/edit/' + b.id) }}><Icon name="pencil" />{t('Edit')}</button>}
-    {canEdit(b) && !(b.official && b.seedVersion) && <button className="btn plain danger" onClick={() => { close(); confirmSheet({
+    {deletable(b) && <button className="btn plain danger" onClick={() => { close(); confirmSheet({
       title: t('Delete this block?'), message: t('Routines that already used it keep their own copy — nothing that was assigned changes.'), confirmText: t('Delete'), danger: true,
       onConfirm: () => remove(b.id).then(() => toast(t('Block deleted'))).catch(e => toast(e.message)) }) }}><Icon name="trash" />{t('Delete')}</button>}
   </>
@@ -44,6 +64,21 @@ export default function BlockLibrary() {
       <button className="btn primary" onClick={() => nav('/trainer/blocks/edit/new')}><Icon name="plus" />{t('New block')}</button>
     </header>
     <p className="dim small cx-lead">{t('Official 2J blocks follow the 2J Training Protocol v1.0. Duplicate one to make it yours; your blocks are only visible to you.')}</p>
+    {deletableBlocks.length > 0 && <div className="row" style={{ gap: 10, margin: '0 0 14px', flexWrap: 'wrap' }}>
+      {!selectionMode
+        ? <button className="btn plain" onClick={() => setSelectionMode(true)}><Icon name="check" />{t('Select blocks')}</button>
+        : <>
+          <label className="cx-check"><input type="checkbox" checked={selected.length === deletableBlocks.length && deletableBlocks.length > 0} onChange={toggleAll} />{t('Select all deletable blocks')}</label>
+          <button className="btn plain" onClick={() => { setSelectionMode(false); setSelected([]) }}>{t('Cancel selection')}</button>
+          {selected.length > 0 && <button className="btn plain danger" onClick={removeSelected}><Icon name="trash" />{t('Delete selected ({0})', selected.length)}</button>}
+        </>}
+    </div>}
+    {selectionMode && <div className="list" style={{ marginBottom: 14 }} aria-label={t('Select blocks to delete')}>
+      {deletableBlocks.map(b => <label key={b.id} className="item" style={{ cursor: 'pointer' }}>
+        <input type="checkbox" checked={selected.includes(b.id)} onChange={() => toggleSelected(b.id)} aria-label={t('Select block {0}', b.name)} />
+        <span className="grow"><span className="tt">{b.name || blockTitle(b, t)}</span><span className="ss">{t('{0} exercises', b.ex?.length || 0)}</span></span>
+      </label>)}
+    </div>}
     <Library full extraActions={extra} visibility={visibility} />
   </div>
 }

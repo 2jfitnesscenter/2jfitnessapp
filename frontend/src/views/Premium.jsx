@@ -191,6 +191,7 @@ export function PremiumDetail() {
       </span>
     </PremiumCover>
     <div className="pm-detail-body">
+      <div className="pm-note"><Icon name="info" /><span><b>{t('Before you start')}</b><br />{t('Check the weekly commitment, level, equipment and schedule below. Starting activates this plan for your next sessions; it does not change routines or workouts you already completed.')}</span></div>
       {rec.reasons.includes('too-advanced') && <p className="pm-note warn"><Icon name="info" />{t('This program is above the level you told us. Talk to your trainer before starting it.')}</p>}
       {rec.reasons.includes('more-days') && <p className="pm-note warn"><Icon name="info" />{t('It asks for more days per week than you planned.')}</p>}
       {rec.reasons.includes('restrictions') && <p className="pm-note warn"><Icon name="info" />{t('You have declared restrictions: check this method with your trainer first.')}</p>}

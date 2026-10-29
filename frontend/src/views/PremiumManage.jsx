@@ -174,6 +174,8 @@ export function PremiumEditor() {
   const F = ({ label, children }) => <label className="pm-field"><span>{label}</span>{children}</label>
   return <main className="pm-page pm-editor">
     <header className="pm-head"><button className="pm-back" aria-label={t('Back')} onClick={() => nav('/premium/manage')}><Icon name="chevronLeft" /></button><div className="grow"><h1>{id === 'new' ? t('New program') : p.name}</h1></div></header>
+    <div className="pm-note"><Icon name="info" /><span><b>{t('Build a program members can understand')}</b><br />{t('Use the overview fields to explain the goal, weekly commitment and progression. The member-facing preview uses this information before they start.')}</span></div>
+    <div className="pm-sub">{t('Program overview')}</div>
     <F label={t('Name')}><input className="input" maxLength={80} value={p.name} onChange={e => set({ name: e.target.value })} /></F>
     <F label={t('Slug (address)')}><input className="input" maxLength={48} value={p.slug} onChange={e => set({ slug: e.target.value })} placeholder={t('generated from the name')} /></F>
     <F label={t('Short description')}><textarea className="input" maxLength={280} value={p.shortDescription} onChange={e => set({ shortDescription: e.target.value })} /></F>
@@ -189,6 +191,8 @@ export function PremiumEditor() {
       <F label={t('Duration / cycle')}><input className="input" maxLength={80} value={p.durationDescription} onChange={e => set({ durationDescription: e.target.value })} /></F>
     </div>
     <F label={t('Equipment (one per line)')}><textarea className="input" value={(p.equipmentRequirements || []).join('\n')} onChange={e => set({ equipmentRequirements: lines(e.target.value) })} /></F>
+    <div className="pm-sub">{t('Member guide')}</div>
+    <p className="dim small">{t('These explanations appear on the program page. Describe what a typical week looks like and who should choose this plan.')}</p>
     <CoverEditor p={p} set={set} />
     <F label={t('Evidence and origin')}><textarea className="input" maxLength={900} value={p.evidenceSummary} onChange={e => set({ evidenceSummary: e.target.value })} /></F>
     <div className="pm-selects">
@@ -197,8 +201,14 @@ export function PremiumEditor() {
     </div>
     {admin && <F label={t('Legal review')}><select className="input" value={p.legal?.status || 'none'} onChange={e => set({ legal: { ...(p.legal || {}), status: e.target.value } })}><option value="none">{t('Not needed')}</option><option value="review">{t('Review pending')}</option><option value="cleared">{t('Cleared')}</option></select></F>}
     {[['howItWorks', 'How it works (one per line)'], ['forWhom', 'Who it is for (one per line)'], ['notIdealIf', 'Not ideal if… (one per line)'], ['tracking', 'What 2J tracks (one per line)']].map(([k, label]) =>
-      <F key={k} label={t(label)}><textarea className="input" value={(p.copy?.[k] || []).join('\n')} onChange={e => setCopy(k, e.target.value)} /></F>)}
-    <F label={t('Program definition (JSON)')}><textarea className="input code" spellCheck={false} value={json} onChange={e => setJson(e.target.value)} /></F>
+      <F key={k} label={t(label)}><textarea className="input" value={(p.copy?.[k] || []).join('\n')} onChange={e => setCopy(k, e.target.value)} placeholder={t('One clear point per line. Avoid promises of results.')} /></F>)}
+    <details className="pm-sec acc">
+      <summary><span>{t('Advanced: session structure')}</span><Icon name="chevronDown" /></summary>
+      <div className="pm-sec-body">
+        <p className="dim small">{t('This structured definition controls weeks, sessions and exercises. Most edits should use the fields above; change this only when you need to adjust the underlying session plan.')}</p>
+        <F label={t('Program definition (JSON)')}><textarea className="input code" spellCheck={false} value={json} onChange={e => setJson(e.target.value)} /></F>
+      </div>
+    </details>
     {issues.length > 0 && <div className="pm-issues" role="alert"><b>{t('Please fix:')}</b><ul>{issues.map(i => <li key={i}>{i}</li>)}</ul></div>}
     <div className="pm-actions wide"><button className="btn plain" disabled={busy} onClick={() => submit(true)}>{t('Validate')}</button><button className="btn primary" disabled={busy} onClick={() => submit(false)}>{t('Save')}</button></div>
   </main>

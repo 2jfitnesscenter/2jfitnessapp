@@ -7,6 +7,7 @@ import { t } from '../../lib/i18n.js'
 import { exCount, DAYN } from '../../lib/format.js'
 import { glyphOf, DEFAULT_GLYPH } from '../../lib/glyphs.js'
 import { fetchMemberPlan, saveMemberProgram } from '../../lib/trainer-api.js'
+import { mergeRoutineIds } from '../../lib/trainer-program.js'
 import { programVersionsSheet } from '../../sheets.jsx'
 import { coverSheet } from '../../components/CoverSheet.jsx'
 import { mediaUrl } from '../../lib/media.js'
@@ -18,17 +19,28 @@ const emptyProgram = () => ({ id: null, name: t('New program'), emoji: DEFAULT_G
 // Local (non-global-store) equivalents of sheets.jsx's routinePickerSheet/dayAssignSheet —
 // those two are hardwired to the trainer's OWN useStore program/routines, which doesn't exist
 // here (the program being built lives on the member's plan, fetched via member-plan).
+function RoutineMultiSelectSheet({ options, close, onPick }) {
+  const [selected, setSelected] = useState([])
+  const toggle = id => setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id])
+  return <>
+    <h3>{t('Add routines to this program')}</h3>
+    <p className="dim small">{t('Select several routines from this member. They remain unchanged; this only groups them in the program.')}</p>
+    <div className="list">
+      {options.map(r => <label key={r.id} className="item" style={{ cursor: 'pointer' }}>
+        <input type="checkbox" checked={selected.includes(r.id)} onChange={() => toggle(r.id)} aria-label={t('Select routine {0}', r.name)} />
+        <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
+        <span className="grow"><span className="tt">{r.name}</span><span className="ss">{exCount((r.ex || []).length)}</span></span>
+      </label>)}
+    </div>
+    <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
+      <Button variant="plain" onClick={close}>{t('Cancel')}</Button>
+      <Button variant="primary" disabled={!selected.length} onClick={() => { close(); onPick(selected) }}>{t('Add {0} routines', selected.length)}</Button>
+    </div>
+  </>
+}
 function pickRoutineSheet(options, onPick) {
   useUI.getState().openSheet(close => (
-    <>
-      <h3>{t('Add a routine')}</h3>
-      <div className="list">
-        {options.map(r => <div key={r.id} className="item" onClick={() => { close(); onPick(r.id) }}>
-          <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
-          <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount((r.ex || []).length)}</div></div>
-        </div>)}
-      </div>
-    </>
+    <RoutineMultiSelectSheet options={options} close={close} onPick={onPick} />
   ))
 }
 function dayPickerSheet(day, routines, current, onPick) {
@@ -81,7 +93,7 @@ export default function TrainerProgramBuilder() {
   const routines = p.routineIds.map(rid => allRoutines.find(r => r.id === rid)).filter(Boolean)
   const loose = allRoutines.filter(r => !p.routineIds.includes(r.id))
 
-  const addExisting = () => pickRoutineSheet(loose, rid => setP(cur => ({ ...cur, routineIds: [...cur.routineIds, rid] })))
+  const addExisting = () => pickRoutineSheet(loose, ids => setP(cur => ({ ...cur, routineIds: mergeRoutineIds(cur.routineIds, ids) })))
   const removeRoutine = rid => setP(cur => ({
     ...cur, routineIds: cur.routineIds.filter(x => x !== rid),
     week: Object.fromEntries(Object.entries(cur.week).filter(([, v]) => v !== rid))
@@ -148,7 +160,7 @@ export default function TrainerProgramBuilder() {
     </>}
 
     <div className="row" style={{ gap: 8, maxWidth: 560 }}>
-      {loose.length > 0 && <Button icon="folder" onClick={addExisting}>{t('Add existing routine')}</Button>}
+      {loose.length > 0 && <Button icon="folder" onClick={addExisting}>{t('Add existing routines')}</Button>}
       {p.id && <Button icon="clock" onClick={() => programVersionsSheet(memberId, p.id)}>{t('Version history')}</Button>}
       <Button variant="primary" disabled={busy} onClick={save} icon="check">{t('Save')}</Button>
     </div>
