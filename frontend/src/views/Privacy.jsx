@@ -102,6 +102,7 @@ const SECTIONS = {
       t('Push services of your browser or phone vendor — if you enable notifications: the notification text and your device’s push address pass through them. Optional; needs your browser or phone permission.'),
       t('Google Fonts — the web app loads its typeface from Google when it opens, so your IP address and browser details reach Google. It is not optional in the web version and may involve processing outside the EEA.'),
       t('jsDelivr (content network) — only the standalone mobile build: exercise images and animations are loaded from it, so your IP address reaches that network.'),
+      t('Program photos — the images are bundled with the app. Their attribution links open Wikimedia Commons and Creative Commons pages; no workout or account data is sent to those sites by viewing a program.'),
       t('Hosting and infrastructure — the server where your data is stored is provided by {0} ({1}; the country and data centre are not specified), and the certificate authority that issues the HTTPS certificate handles the domain name. Backups use the Auto Backup service contracted with {0}; no independent external backup provider is known.', CONTROLLER.hosting, CONTROLLER.serverRegion)
     ]} />
     <P>{t('Health Connect and HealthKit are read on your device with the operating system’s permission; 2J does not pass that data to anyone else.')}</P>
