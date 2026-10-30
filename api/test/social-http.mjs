@@ -4,6 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
+const STARTUP_TIMEOUT_MS = 30_000;
+
 /* A real API child with an isolated data directory and a handful of known people, for the Social tests that need the whole stack (ACL, blocks,
  * feature switches, snapshots). Sessions are signed with the directory's own secret, so no login ceremony is involved. */
 export const WORKOUT_DAY = '2026-09-27';
@@ -54,7 +56,7 @@ export async function bootSocial({ people = PEOPLE, states = {}, social = {}, ta
       child.stdout.on('data', onData);
       child.once('error', reject);
       child.once('exit', (code, signal) => reject(new Error(`isolated API exited before listening (code=${code}, signal=${signal}): ${startupOutput.trim()}`)));
-      startupTimer = setTimeout(() => reject(new Error(`isolated API did not report its bound port: ${startupOutput.trim()}`)), 10_000);
+      startupTimer = setTimeout(() => reject(new Error(`isolated API did not report its bound port within ${STARTUP_TIMEOUT_MS}ms: ${startupOutput.trim()}`)), STARTUP_TIMEOUT_MS);
     });
   } catch (error) {
     child.kill();

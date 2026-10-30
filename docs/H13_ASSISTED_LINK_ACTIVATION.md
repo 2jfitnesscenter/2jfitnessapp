@@ -36,7 +36,7 @@ Sin los dos lados (Platform y Búnker) no hay vínculo.
 
 **Solicitud** `POST /api/admin/platform-link/assist-requests` (personal autenticado, no socios): `{ "v":1, "personId":"<uuid>", "trainingUserId":"<id>", "reasonCode":"lost_device|no_home_access|support_request|other", "note":"<=80" }` → `201 {requestId}`; `409` si P o U ya tienen vínculo `pending|active` o hay una solicitud abierta.
 
-**Aprobación/emisión** `POST /api/admin/platform-link/assist-requests/:id/approve` (o `/issue` directo con el mismo cuerpo): solo `PLATFORM_LINK_ISSUERS` + step-up. `201 {receiptId, expiresAt}`; `403 {code}`: `not_issuer`, `step_up_required`, `passkey_required`, `own_account`; `429` límite diario; `409` conflictos; `404` desactivado. Rechazo: `.../reject`.
+**Aprobación/emisión** `POST /api/admin/platform-link/assist-requests/:id/approve` (o `/issue` directo con el mismo cuerpo): solo `PLATFORM_LINK_ISSUERS` + step-up. `201 {receiptId, expiresAt}`; `403 {code}`: `not_issuer`, `step_up_required`, `passkey_required`, `own_account`; `429` límite diario (20 emisiones por fecha natural `Atlantic/Canary`; se reinicia a medianoche local, no en una ventana móvil de 24 h); `409` conflictos; `404` desactivado. Rechazo: `.../reject`.
 
 **Ascender a administrador** (`POST /api/admin/user/role` con `role:'admin'`, y la ruta obsoleta `/trainer` cuando devuelva admin): exige **step-up de passkey del administrador que lo hace** (nuevo `403 step_up_required`). Degradar no lo exige. Queda en el log de seguridad.
 
@@ -57,7 +57,7 @@ Sin los dos lados (Platform y Búnker) no hay vínculo.
 | Riesgo | Control |
 |---|---|
 | Un admin general o entrenador/recepción abusa | No tienen el permiso; solo solicitan |
-| Cuenta de un titular robada | Step-up de passkey en cada emisión, 20/día, doble control con Platform, un solo uso, 24 h, ledger |
+| Cuenta de un titular robada | Step-up de passkey en cada emisión, máximo 20 por fecha natural Atlantic/Canary, doble control con Platform, un solo uso, 24 h, ledger |
 | Alguien se concede el permiso | Solo por configuración del servidor; ninguna ruta lo modifica |
 | Un admin se ascendió a sí mismo o a un cómplice | Ascender a admin exige step-up y queda en el ledger |
 | Vincular a la persona equivocada | Platform decide P (cola #81), Búnker decide U; deben coincidir en (P, U) y en `reviewId` |
@@ -66,7 +66,7 @@ Sin los dos lados (Platform y Búnker) no hay vínculo.
 | Ledger manipulado | Cadena de hash + HMAC, verificación al arrancar |
 
 ## 8. Pruebas exigidas antes de dar por buena la implementación
-Por rol: propietario, Pedro, admin general (solicita, no emite), entrenador, recepción, socio, PIN/kiosco, SSO · permiso inexistente aunque `admin:true` · sin passkey · sin step-up / step-up reutilizado · emisión sobre cuenta propia o del otro titular · tope 20/día (el 21º → 429) · recibo caducado/usado/de otra pareja · `reviewId` ausente · doble solicitud · cuenta deshabilitada · ascender a admin sin step-up (403) y con step-up (200, en el ledger) · ledger: cadena rota, truncado, intento de edición → emisión desactivada · flag apagado (404 y `origin` rechazado) · corpus 2J-SERVICE-AUTH-V1 con `origin:'admin_assisted'`.
+Por rol: propietario, Pedro, admin general (solicita, no emite), entrenador, recepción, socio, PIN/kiosco, SSO · permiso inexistente aunque `admin:true` · sin passkey · sin step-up / step-up reutilizado · emisión sobre cuenta propia o del otro titular · tope 20 por día natural Atlantic/Canary (el 21º en la misma fecha → 429) · recibo caducado/usado/de otra pareja · `reviewId` ausente · doble solicitud · cuenta deshabilitada · ascender a admin sin step-up (403) y con step-up (200, en el ledger) · ledger: cadena rota, truncado, intento de edición → emisión desactivada · flag apagado (404 y `origin` rechazado) · corpus 2J-SERVICE-AUTH-V1 con `origin:'admin_assisted'`.
 
 ## 9. Parte de Platform (tarea pequeña aparte)
 Exponer `reviewId` estable al aprobar en #81 y enviarlo en `link/activate`; reintentar con espera si Búnker responde `proof_required`; no activar sin recibo de Búnker. Requisito previo para producción: autenticación real de personal en Platform.
@@ -83,6 +83,7 @@ Exponer `reviewId` estable al aprobar en #81 y enviarlo en `link/activate`; rein
 - **Flags y variables:** `PLATFORM_ASSISTED_LINK_ENABLED` sigue apagado por defecto; `PLATFORM_LINK_ISSUERS` contiene los UID autorizados; `PLATFORM_LINK_LEDGER_KEY` es una clave separada de al menos 32 bytes hex. Conforme a A29, ascender a administrador exige siempre step-up de passkey. El único bypass de prueba requiere conjuntamente `NODE_ENV=test`, `STAGING_TEST_MODE=true` y `ADMIN_PROMOTION_STEP_UP=false`; el override se ignora en producción. Sin clave de ledger válida, H13 falla cerrado.
 - **Código:** `api/platform-sso/assisted-link.js` (permiso, solicitudes, recibos, límites), `api/lib/append-ledger.js` (ledger encadenado con HMAC; sin API para editar ni borrar), `link.js` (`origin:'admin_assisted'` + `reviewId`), `server.js` (step-up de un solo uso para `platform-link-issue` y `admin-promote`).
 - **Almacenamiento y privacidad:** solicitudes y recibos H13 se guardan en `platform-link-proofs.dat`, dentro del store cifrado de `platform-proof`. La nota libre, si existe, solo se conserva cifrada mientras la solicitud está abierta; la respuesta para emisores no la incluye y se elimina al aprobar o rechazar. El ledger append-only conserva únicamente campos de lista permitida y nunca recibe la nota. Si quedan registros del esquema previo en `db.platformAssist`, la nueva versión los migra sin pérdida al store cifrado incluso con las rutas H13 apagadas; cualquier colisión de identificadores detiene el inicio en lugar de elegir una versión.
+- **Límite de emisión (A28):** máximo 20 aprobaciones/emisiones por emisor y fecha natural `Atlantic/Canary`; la cuota se reinicia al cambiar la fecha local, no tras 24 horas móviles. Las denegaciones no consumen cuota. Pruebas fijan medianoche invernal y el salto de primavera sin depender del reloj real.
 - **Paso de ascenso a admin (A29):** el step-up de passkey es obligatorio independientemente de que H13 esté encendido. Solo la fixture explícita de pruebas de staging puede omitirlo; ninguna variable de producción puede desactivarlo.
 - **Verificación de esta corrección:** 19/19 pruebas H13 (unidad + HTTP) y 105/105 pruebas focalizadas H13, platform-proof, platform-sso y roles. Se añadieron comprobaciones de almacenamiento cifrado, nota ausente de la respuesta del emisor, migración del estado legacy y bypass solo en fixture de staging tests. No se ejecutó la suite completa de API.
 - **Pendiente:** parte de Platform (enviar `reviewId` al activar), UI de Búnker, pruebas con la clave real de producción, y revisión independiente antes de proponer el merge.
