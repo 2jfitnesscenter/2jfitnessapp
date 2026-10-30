@@ -35,12 +35,40 @@ export async function bootSocial({ people = PEOPLE, states = {}, social = {}, ta
   fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify({ users: people, creds: [], subs: [], invites: [], recoveries: [] }));
   for (const p of people) fs.writeFileSync(path.join(dir, `state-${p.id}.json`), JSON.stringify(states[p.id] || baseState()));
   fs.writeFileSync(path.join(dir, 'social.json'), JSON.stringify({ routines: [], programs: [], wall: [], challenges: [], goals: [], topics: [], board: [], ...social }));
-  const port = 39000 + Math.floor(Math.random() * 10000), base = `http://127.0.0.1:${port}`;
-  const child = spawn(process.execPath, ['server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(port), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base }, stdio: ['ignore', 'ignore', 'inherit'] });
-  for (let i = 0; i < 100; i++) {
-    try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* not yet */ }
-    await new Promise(r => setTimeout(r, 100));
-    if (i === 99) throw new Error('isolated API did not become ready');
+  const child = spawn(process.execPath, ['server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: '0', DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: 'http://localhost' }, stdio: ['ignore', 'pipe', 'inherit'] });
+  let startupOutput = '';
+  let startupTimer;
+  let port;
+  try {
+    port = await new Promise((resolve, reject) => {
+      child.stdout.setEncoding('utf8');
+      const onData = chunk => {
+        startupOutput += chunk;
+        const match = startupOutput.match(/gym-api on :(\d+)/);
+        if (match) {
+          child.stdout.off('data', onData);
+          child.stdout.resume();
+          resolve(Number(match[1]));
+        }
+      };
+      child.stdout.on('data', onData);
+      child.once('error', reject);
+      child.once('exit', (code, signal) => reject(new Error(`isolated API exited before listening (code=${code}, signal=${signal}): ${startupOutput.trim()}`)));
+      startupTimer = setTimeout(() => reject(new Error(`isolated API did not report its bound port: ${startupOutput.trim()}`)), 10_000);
+    });
+  } catch (error) {
+    child.kill();
+    throw error;
+  } finally {
+    clearTimeout(startupTimer);
+  }
+  const base = `http://localhost:${port}`;
+  try {
+    const health = await fetch(base + '/api/health');
+    if (!health.ok) throw new Error(`isolated API health failed with ${health.status}`);
+  } catch (error) {
+    child.kill();
+    throw error;
   }
   const cookie = uid => { const payload = `${uid}:${Date.now() + 86400000}:0`; return `gymsid=${payload}.${crypto.createHmac('sha256', SECRET).update(payload).digest('base64url')}`; };
   async function call(uid, method, p, body) {

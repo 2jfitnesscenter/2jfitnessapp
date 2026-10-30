@@ -86,7 +86,7 @@ import { createPlatformLinkRoutes } from './platform-sso/link.js';
 import { createAssistedLink, parseIssuers, STEP_UP_PURPOSE as ASSIST_STEP_UP } from './platform-sso/assisted-link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
-const PORT = +(process.env.PORT || 3000);
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const DATA = process.env.DATA_DIR || '/data';
 const followupPhotosDir = path.join(DATA, 'followup-photos');
 const STARTED_AT = Date.now();
@@ -3632,7 +3632,7 @@ coachJobs.setProposalHook((uid, pending) => {
 });
 startCadence({ users: () => db.users, userNow });
 
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const key = req.method + ' ' + url.pathname;
   const handler = routes[key];
@@ -3664,4 +3664,5 @@ http.createServer(async (req, res) => {
       if (actor && isAdmin(actor)) { const d = describeAction(rule, req._body); secEvent('admin_action', { userId: d.userId, actorId: actor.id, meta: d.meta }); saveDb(); }
     } catch (e) { console.error('admin audit', key, e); }
   }
-}).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));
+});
+server.listen(PORT, () => console.log(`gym-api on :${server.address().port} (rpID=${RP_ID}, origin=${ORIGIN})`));
