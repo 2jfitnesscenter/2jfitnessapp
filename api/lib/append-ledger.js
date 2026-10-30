@@ -66,10 +66,20 @@ export function createLedger({ file, key, now = Date.now }) {
     return { seq: record.seq, mac: JSON.parse(line).mac };
   }
 
-  /** How many events of this type this actor produced since `sinceMs` (for the daily limit). */
-  function countSince(type, actorId, sinceMs) {
-    return readAll().filter(entry => entry.type === type && entry.actorId === actorId && Date.parse(entry.at) >= sinceMs).length;
+  /** How many events of this type this actor produced on a Canary calendar day. */
+  function countOnCanaryDay(type, actorId, day) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new TypeError('day must be YYYY-MM-DD');
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Atlantic/Canary', year: 'numeric', month: '2-digit', day: '2-digit',
+    });
+    return readAll().filter(entry => {
+      if (entry.type !== type || entry.actorId !== actorId) return false;
+      const instant = Date.parse(entry.at);
+      if (!Number.isFinite(instant)) return false;
+      const parts = Object.fromEntries(formatter.formatToParts(new Date(instant)).map(part => [part.type, part.value]));
+      return `${parts.year}-${parts.month}-${parts.day}` === day;
+    }).length;
   }
 
-  return Object.freeze({ append, verify, countSince });
+  return Object.freeze({ append, verify, countOnCanaryDay });
 }

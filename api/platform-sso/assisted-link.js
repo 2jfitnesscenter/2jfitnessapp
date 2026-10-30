@@ -16,7 +16,14 @@ export const RECEIPT_TTL_MS = 24 * 3_600_000;
 export const DAILY_ISSUE_LIMIT = 20;
 export const MAX_OPEN_REQUESTS_PER_STAFF = 10;
 export const STEP_UP_PURPOSE = 'platform-link-issue';
+const CANARY_DAY_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Atlantic/Canary', year: 'numeric', month: '2-digit', day: '2-digit',
+});
 
+function canaryDay(instant) {
+  const parts = Object.fromEntries(CANARY_DAY_FORMATTER.formatToParts(new Date(instant)).map(part => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
 const UUID = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 const userId = z.string().min(1).max(200).refine(value => value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value));
 const pairSchema = z.object({ personId: UUID, trainingUserId: userId, reasonCode: z.enum(ASSIST_REASONS), note: z.string().max(80).refine(value => !/[\u0000-\u001f\u007f<>]/.test(value)).optional() }).strict();
@@ -102,7 +109,7 @@ export function createAssistedLink({ config, db, saveDb, json, readBody, require
     if (found) return json(res, found.status, { error: found.code });
     if (target.id === issuer.id) { try { record({ type: 'assist_denied', actorId: issuer.id, personId: data.personId, trainingUserId: data.trainingUserId, result: 'own_account' }); saveDb(); } catch { /* the denial stands regardless */ } return json(res, 403, { error: 'own_account' }); }
     if (!stepUp.valid(req, issuer)) return json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
-    if (ledger.countSince('assist_approved', issuer.id, now() - 24 * 3_600_000) >= DAILY_ISSUE_LIMIT) {
+    if (ledger.countOnCanaryDay('assist_approved', issuer.id, canaryDay(now())) >= DAILY_ISSUE_LIMIT) {
       try { record({ type: 'assist_denied', actorId: issuer.id, personId: data.personId, trainingUserId: data.trainingUserId, result: 'daily_limit' }); saveDb(); } catch { /* the denial stands regardless */ }
       return json(res, 429, { error: 'daily_limit' });
     }
