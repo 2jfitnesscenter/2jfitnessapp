@@ -140,7 +140,7 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
     },
 
     /** Single-use request ids for the authenticated link-lifecycle and provisioning calls (same bounded replay window as the summary calls). */
-    acceptServiceRequest(requestId, kind = 'platform_service') {
+    acceptServiceRequest(requestId, kind = 'platform_service', auditValues = {}) {
       const timestamp = now(), state = read();
       expireAndPrune(state, timestamp);
       if (state.serviceRequests.some(request => request.requestId === requestId)) {
@@ -149,7 +149,7 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
         return { status: 'service_request_replayed' };
       }
       state.serviceRequests.push({ requestId, expiresAtMs: timestamp + SERVICE_REPLAY_TTL_MS });
-      audit(state, `${kind}.request_accepted`, {});
+      audit(state, `${kind}.request_accepted`, auditValues);
       write(state);
       return { status: 'accepted' };
     },

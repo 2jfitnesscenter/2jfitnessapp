@@ -106,7 +106,7 @@ export function createPlatformProofRoutes({ json, readSession, store, users, rea
       const consentCheckedAt = Date.parse(parsed.data.authorization.consent.checkedAt);
       if (Math.abs(now() - checkedAt) > 60_000 || Math.abs(now() - consentCheckedAt) > 60_000) return error(json, res, 403, 'evolution_authorization_stale');
       try {
-        const replay = store.acceptServiceRequest(authorization.requestId, 'platform_training_evolution');
+        const replay = store.acceptServiceRequest(authorization.requestId, 'platform_training_evolution', { purpose: parsed.data.authorization.consent.purpose });
         if (replay.status === 'service_request_replayed') return error(json, res, 409, 'service_request_replayed');
         const allUsers = users();
         const user = allUsers.find(candidate => candidate.id === parsed.data.trainingUserId && !candidate.disabled);

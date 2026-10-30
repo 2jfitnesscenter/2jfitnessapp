@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { EVOLUTION_MEASUREMENT_UNITS } from './measurement-catalog.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const ISO_UTC = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
@@ -16,16 +15,13 @@ const consentSchema = z.object({
 const authorizationSchema = z.object({
   permission: z.literal('training.read'), permissionGranted: z.literal(true),
   capability: z.literal('workoutHistory'), capabilityGranted: z.literal(true),
-  accessState: z.enum(['baseline', 'entitled']), checkedAt: z.string().refine(strictUtc),
-  consent: consentSchema,
+  accessState: z.literal('entitled'), checkedAt: z.string().refine(strictUtc), consent: consentSchema,
 }).strict();
 const cursorSchema = z.object({ snapshotId: z.string().regex(/^[a-f0-9]{64}$/), offset: z.number().int().min(0).max(10_000_000) }).strict();
 export const trainingEvolutionRequestSchema = z.object({
   v: z.literal(1), personId: z.string().regex(UUID), trainingUserId: z.string().min(1).max(200).refine(SAFE_ID),
-  authorization: authorizationSchema, cursor: cursorSchema.nullable().optional(), limit: z.number().int().min(1).max(100).default(100),
+  authorization: authorizationSchema, cursor: cursorSchema.nullable(), limit: z.number().int().min(1).max(100),
 }).strict();
-
-const catalog = new Map(Object.entries(EVOLUTION_MEASUREMENT_UNITS).map(([key, unit]) => [key, { key, unit }]));
 
 function validNumber(value) { return typeof value === 'number' && Number.isFinite(value); }
 function safeWorkoutSet(set, unit) {
@@ -48,79 +44,46 @@ function safeWorkoutSet(set, unit) {
   return result;
 }
 
-/** Strict allowlisted projection: no names, notes, PII, program metadata, photo refs or source objects. */
+/** Project only finalized S.workouts into the canonical Home evolution workout allowlist. */
 export function projectTrainingEvolution(state) {
   if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('invalid_training_state');
   if (!['kg', 'lb'].includes(state.unit)) throw new Error('invalid_training_unit');
-  const records = [];
-  const bodyweight = state.bodyweight ?? [];
-  if (!Array.isArray(bodyweight)) throw new Error('invalid_bodyweight');
-  bodyweight.forEach((item, index) => {
-    if (!item || !strictDay(item.d) || !validNumber(item.w) || item.w <= 0) throw new Error('invalid_bodyweight');
-    records.push({ kind: 'bodyweight', date: item.d, value: item.w, unit: state.unit, _index: index });
-  });
-
-  const measurements = state.measurements ?? {};
-  if (!measurements || typeof measurements !== 'object' || Array.isArray(measurements)) throw new Error('invalid_measurements');
-  for (const [key, entries] of Object.entries(measurements)) {
-    const definition = catalog.get(key);
-    if (!definition || !Array.isArray(entries)) throw new Error('invalid_measurements');
-    entries.forEach((item, index) => {
-      if (!item || !strictDay(item.d) || !validNumber(item.v)) throw new Error('invalid_measurements');
-      records.push({ kind: 'measurement', key, date: item.d, value: item.v, unit: definition.unit, _index: index });
-    });
-  }
-
-  const workouts = state.workouts ?? [];
-  if (!Array.isArray(workouts)) throw new Error('invalid_workouts');
-  workouts.forEach((workout, index) => {
+  const source = state.workouts ?? [];
+  if (!Array.isArray(source)) throw new Error('invalid_workouts');
+  return source.map(workout => {
     if (!workout || !strictDay(workout.d) || !Array.isArray(workout.entries)) throw new Error('invalid_workouts');
+    if (workout.entries.length > 300) throw new Error('invalid_workouts');
     const dto = { date: workout.d, exercises: workout.entries.map(entry => {
-      if (!entry || !SAFE_EXERCISE_ID(entry.id) || !Array.isArray(entry.sets)) throw new Error('invalid_workouts');
-      return { exerciseId: entry.id, sets: entry.sets.map(set => safeWorkoutSet(set, state.unit === 'lb' ? 'lb' : 'kg')) };
+      if (!entry || !SAFE_EXERCISE_ID(entry.id) || !Array.isArray(entry.sets) || entry.sets.length > 100) throw new Error('invalid_workouts');
+      return { exerciseId: entry.id, sets: entry.sets.map(set => safeWorkoutSet(set, state.unit)) };
     }) };
-    const start = workout.start, end = workout.end;
-    if (start !== undefined || end !== undefined) {
-      if (!validNumber(start) || !validNumber(end) || end < start || end - start > 24 * 60 * 60_000) throw new Error('invalid_workouts');
-      dto.durationSeconds = Math.round((end - start) / 1000);
+    if (workout.start !== undefined || workout.end !== undefined) {
+      if (!validNumber(workout.start) || !validNumber(workout.end) || workout.end < workout.start || workout.end - workout.start > 24 * 60 * 60_000) throw new Error('invalid_workouts');
+      dto.durationSeconds = Math.round((workout.end - workout.start) / 1000);
     }
-    records.push({ kind: 'workout', date: workout.d, value: dto, _index: index });
-  });
-
-  const kindOrder = { bodyweight: 0, measurement: 1, workout: 2 };
-  records.sort((a, b) => a.date.localeCompare(b.date) || kindOrder[a.kind] - kindOrder[b.kind] || String(a.key || '').localeCompare(String(b.key || '')) || a._index - b._index);
-  return records.map(({ _index, ...record }) => record);
+    return dto;
+  }).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function snapshotDigest(records, secret) {
-  return crypto.createHmac('sha256', secret).update(JSON.stringify(records)).digest('hex');
-}
-
-function groupPage(records) {
-  const measurements = { bodyweight: [], series: {} }, workouts = [];
-  for (const record of records) {
-    if (record.kind === 'bodyweight') measurements.bodyweight.push({ date: record.date, value: record.value, unit: record.unit });
-    else if (record.kind === 'measurement') (measurements.series[record.key] ||= []).push({ date: record.date, value: record.value, unit: record.unit });
-    else workouts.push(record.value);
-  }
-  return { measurements, workouts };
+function snapshotDigest(workouts, secret) {
+  return crypto.createHmac('sha256', secret).update(JSON.stringify(workouts)).digest('hex');
 }
 
 export function readOnlyTrainingEvolution({ user, state, request, secret, now = Date.now }) {
-  const records = projectTrainingEvolution(state);
-  const snapshotId = snapshotDigest(records, secret);
+  const workouts = projectTrainingEvolution(state);
+  const snapshotId = snapshotDigest(workouts, secret);
   const cursor = request.cursor;
   if (cursor && cursor.snapshotId !== snapshotId) return { status: 'snapshot_changed' };
   const offset = cursor?.offset ?? 0;
-  if (offset > records.length) return { status: 'invalid_cursor' };
-  const page = records.slice(offset, offset + request.limit);
+  if (offset > workouts.length) return { status: 'invalid_cursor' };
+  const page = workouts.slice(offset, offset + request.limit);
   const nextOffset = offset + page.length;
-  const nextCursor = nextOffset < records.length ? { snapshotId, offset: nextOffset } : null;
+  const nextCursor = nextOffset < workouts.length ? { snapshotId, offset: nextOffset } : null;
   return {
     status: 'ok', body: {
       schema: '2j-home-evolution-export/v1', source: 'bunker', personId: user.personId,
       trainingUserId: user.id, exportedAt: new Date(now()).toISOString(), snapshotId, nextCursor,
-      ...groupPage(page),
+      workouts: page,
     },
   };
 }

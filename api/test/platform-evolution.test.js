@@ -8,8 +8,6 @@ const DATA = tempData();
 const { createPlatformProofRoutes } = await import('../platform-proof/routes.js');
 const { createPlatformProofStore } = await import('../platform-proof/store.js');
 const { parseServiceAuthKeys, signPlatformServiceRequest, SERVICE_TRAINING_EVOLUTION_PATH } = await import('../platform-proof/service-auth.js');
-const { EVOLUTION_MEASUREMENT_UNITS } = await import('../platform-proof/measurement-catalog.js');
-const { MEASUREMENTS } = await import('../../frontend/src/lib/measurements.js');
 const KEY_ID = 'synthetic-platform';
 const SECRET = Buffer.alloc(32, 0x51);
 const keys = parseServiceAuthKeys(JSON.stringify({ [KEY_ID]: SECRET.toString('base64url') }));
@@ -17,18 +15,14 @@ const PERSON = '12345678-1234-4234-8234-123456789012';
 const UID = 'synthetic-training-user';
 const now = () => Date.parse('2026-10-30T10:00:00.000Z');
 
-test('API evolution measurement allowlist stays identical to the canonical UI catalog', () => {
-  assert.deepEqual(EVOLUTION_MEASUREMENT_UNITS, Object.fromEntries(MEASUREMENTS.map(({ key, unit }) => [key, unit])));
-});
-
 const authorization = (overrides = {}) => ({
   permission: 'training.read', permissionGranted: true,
-  capability: 'workoutHistory', capabilityGranted: true, accessState: 'baseline',
+  capability: 'workoutHistory', capabilityGranted: true, accessState: 'entitled',
   checkedAt: new Date(now()).toISOString(),
   consent: { purpose: 'home_evolution', status: 'granted', version: 1, checkedAt: new Date(now()).toISOString() },
   ...overrides,
 });
-const requestBody = (overrides = {}) => ({ v: 1, personId: PERSON, trainingUserId: UID, authorization: authorization(), limit: 2, ...overrides });
+const requestBody = (overrides = {}) => ({ v: 1, personId: PERSON, trainingUserId: UID, authorization: authorization(), cursor: null, limit: 2, ...overrides });
 const user = (overrides = {}) => ({ id: UID, personId: PERSON, disabled: false, platformLink: { state: 'active', personId: PERSON }, ...overrides });
 const state = () => ({
   unit: 'kg',
@@ -77,7 +71,7 @@ test('an enabled evolution route rejects browser cookies and unsigned callers', 
   assert.equal(result.statusCode, 401);
 });
 
-test('signed Platform request exports only the allowlisted, read-only synthetic projection', async () => {
+test('signed Platform request exports only finalized workout history in the canonical response envelope', async () => {
   const f = fixture();
   const result = await call(f, requestBody({ limit: 100 }));
   assert.equal(result.statusCode, 200);
@@ -85,25 +79,28 @@ test('signed Platform request exports only the allowlisted, read-only synthetic 
   assert.equal(result.body.source, 'bunker');
   assert.equal(result.body.personId, PERSON);
   assert.equal(result.body.trainingUserId, UID);
-  assert.deepEqual(result.body.measurements.bodyweight, [{ date: '2026-10-01', value: 80, unit: 'kg' }]);
-  assert.deepEqual(result.body.measurements.series.waist, [{ date: '2026-10-02', value: 90, unit: 'cm' }]);
   assert.deepEqual(result.body.workouts, [{ date: '2026-10-03', exercises: [{ exerciseId: 'squat-id', sets: [{ reps: 8, rpe: 7, weight: { value: 70, unit: 'kg' }, completed: true }] }] }]);
+  assert.deepEqual(Object.keys(result.body).sort(), ['exportedAt', 'nextCursor', 'personId', 'schema', 'snapshotId', 'source', 'trainingUserId', 'workouts'].sort());
   const output = JSON.stringify(result.body);
-  for (const privateValue of ['PRIVATE_WORKOUT_NAME', 'PRIVATE_NOTE', 'PRIVATE_EXERCISE_NAME', 'PRIVATE_SET_NOTE', 'PRIVATE_HEALTH', 'PRIVATE_COACH_NOTE', 'synthetic-workout-id']) assert.equal(output.includes(privateValue), false);
+  for (const privateValue of ['PRIVATE_WORKOUT_NAME', 'PRIVATE_NOTE', 'PRIVATE_EXERCISE_NAME', 'PRIVATE_SET_NOTE', 'PRIVATE_HEALTH', 'PRIVATE_COACH_NOTE', 'synthetic-workout-id', 'bodyweight', 'measurements', 'waist']) assert.equal(output.includes(privateValue), false);
   assert.equal(result.headers['cache-control'], 'no-store');
-  assert.deepEqual(f.store.auditEvents().map(event => event.event), ['platform_training_evolution.request_accepted']);
+  assert.deepEqual(f.store.auditEvents().map(event => [event.event, event.purpose]), [['platform_training_evolution.request_accepted', 'home_evolution']]);
   assert.equal(JSON.stringify(f.store.auditEvents()).includes(PERSON), false);
 });
 
-test('bodyweight preserves its stored unit without conversion', async () => {
+test('bodyweight and measurements remain in source state but are never exported', async () => {
   const lb = state(); lb.unit = 'lb'; lb.bodyweight = [{ d: '2026-10-01', w: 176 }];
   const result = await call(fixture({ initialState: lb }), requestBody({ limit: 100 }));
   assert.equal(result.statusCode, 200);
-  assert.deepEqual(result.body.measurements.bodyweight, [{ date: '2026-10-01', value: 176, unit: 'lb' }]);
+  assert.equal(Object.hasOwn(result.body, 'measurements'), false);
+  assert.equal(Object.hasOwn(result.body, 'bodyweight'), false);
+  assert.deepEqual(lb.bodyweight, [{ d: '2026-10-01', w: 176 }]);
+  assert.deepEqual(lb.measurements, { waist: [{ d: '2026-10-02', v: 90 }] });
 });
 
 test('permission, workout-history capability and current purpose consent are mandatory in the signed decision', async () => {
   const bad = [
+    authorization({ accessState: 'baseline' }),
     authorization({ permissionGranted: false }),
     authorization({ permission: 'admin' }),
     authorization({ capabilityGranted: false }),
@@ -138,14 +135,16 @@ test('link identity must be active, unique, and unsuspended; account data stays 
 });
 
 test('pagination uses one stable snapshot and rejects a cursor after source changes', async () => {
-  const f = fixture();
+  const source = state();
+  source.workouts.push({ id: 'synthetic-workout-2', d: '2026-10-04', entries: [{ id: 'press-id', sets: [{ w: 40, r: 5 }] }] }, { id: 'synthetic-workout-3', d: '2026-10-05', entries: [] });
+  const f = fixture({ initialState: source });
   const first = await call(f);
   assert.equal(first.statusCode, 200);
   assert.ok(first.body.nextCursor);
   const second = await call(f, requestBody({ cursor: first.body.nextCursor }));
   assert.equal(second.statusCode, 200);
   assert.equal(second.body.snapshotId, first.body.snapshotId);
-  const changed = state(); changed.bodyweight.push({ d: '2026-10-04', w: 79 });
+  const changed = state(); changed.workouts.push({ id: 'new-workout', d: '2026-10-06', entries: [] });
   f.setState(changed);
   const stale = await call(f, requestBody({ cursor: first.body.nextCursor }));
   assert.equal(stale.statusCode, 409);
@@ -153,7 +152,7 @@ test('pagination uses one stable snapshot and rejects a cursor after source chan
 });
 
 test('malformed source records fail closed and replayed signed requests are rejected', async () => {
-  const malformed = state(); malformed.bodyweight.push({ d: '2026-02-31', w: 80 });
+  const malformed = state(); malformed.workouts[0].d = '2026-02-31';
   assert.equal((await call(fixture({ initialState: malformed }))).statusCode, 503);
   const f = fixture();
   const id = randomUUID();
