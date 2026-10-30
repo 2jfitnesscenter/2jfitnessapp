@@ -105,6 +105,7 @@ const PLATFORM_PROOF_ISSUANCE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_
 const PLATFORM_PROOF_EXCHANGE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_EXCHANGE_ENABLED || '');
 const PLATFORM_PROOF_RECONCILIATION_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_RECONCILIATION_ENABLED || '');
 const PLATFORM_TRAINING_SUMMARY_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_TRAINING_SUMMARY_ENABLED || '');
+const PLATFORM_TRAINING_EVOLUTION_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_TRAINING_EVOLUTION_ENABLED || '');
 // Platform SSO + capability consumption: off unless explicitly enabled; enforcement is per user (legacy -> shadow -> enforced).
 const PLATFORM_INTEGRATION_CONFIG = parsePlatformIntegrationEnv(process.env);
 // Bilateral link lifecycle (activate / revoke) and idempotent provisioning from Platform: each is its own opt-in and needs Platform's service key.
@@ -1128,11 +1129,12 @@ const routes = {
     dummyPin: DUMMY_STAFF_PIN, saveDb
   }),
   ...createPlatformProofRoutes({
-    json, readSession, store: platformProofStore, users: () => db.users, readState,
+    json, readSession, store: platformProofStore, users: () => db.users, readState, stateFingerprint,
     issuanceEnabled: PLATFORM_PROOF_ISSUANCE_ENABLED,
     exchangeEnabled: PLATFORM_PROOF_EXCHANGE_ENABLED,
     reconciliationEnabled: PLATFORM_PROOF_RECONCILIATION_ENABLED,
     trainingSummaryEnabled: PLATFORM_TRAINING_SUMMARY_ENABLED,
+    trainingEvolutionEnabled: PLATFORM_TRAINING_EVOLUTION_ENABLED,
     serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
   }),
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH, SERVICE_TRAINING_SUMMARY_PATH, verifyPlatformServiceRequest } from './service-auth.js';
+import { SERVICE_AUTH_PATH, SERVICE_RECONCILIATION_PATH, SERVICE_TRAINING_SUMMARY_PATH, SERVICE_TRAINING_EVOLUTION_PATH, verifyPlatformServiceRequest } from './service-auth.js';
+import { readOnlyTrainingEvolution, trainingEvolutionRequestSchema } from './evolution.js';
 
 export const PLATFORM_LINK_AUDIENCE = '2j-training-account-link';
 export const PLATFORM_LINK_PURPOSE = 'training-account-link';
@@ -88,8 +89,48 @@ function canonicalPlatformExpiry(value, timestamp) {
 
 const error = (json, res, status, code) => json(res, status, { error: code });
 
-export function createPlatformProofRoutes({ json, readSession, store, users, readState = () => null, issuanceEnabled = false, exchangeEnabled = false, reconciliationEnabled = false, trainingSummaryEnabled = false, serviceKeys = new Map(), now = Date.now }) {
+export function createPlatformProofRoutes({ json, readSession, store, users, readState = () => null, stateFingerprint = () => null, issuanceEnabled = false, exchangeEnabled = false, reconciliationEnabled = false, trainingSummaryEnabled = false, trainingEvolutionEnabled = false, serviceKeys = new Map(), now = Date.now }) {
   return {
+    [`POST ${SERVICE_TRAINING_EVOLUTION_PATH}`]: async (req, res) => {
+      res.setHeader?.('Cache-Control', 'no-store');
+      if (!trainingEvolutionEnabled) return error(json, res, 423, 'training_evolution_disabled');
+      let raw;
+      try { raw = await readRawBody(req); }
+      catch (cause) { return error(json, res, cause?.code === 'BODY_TOO_LARGE' ? 413 : 400, 'invalid_evolution_request'); }
+      const authorization = verifyPlatformServiceRequest({ method: req.method, requestTarget: req.url, headers: req.headers, body: raw, keys: serviceKeys, now: now() });
+      if (authorization.status !== 'ok') return error(json, res, 401, authorization.status);
+      if (req.headers?.['content-type']?.split(';', 1)[0]?.trim().toLowerCase() !== 'application/json') return error(json, res, 400, 'invalid_evolution_request');
+      const parsed = trainingEvolutionRequestSchema.safeParse(parseJson(raw));
+      if (!parsed.success) return error(json, res, 400, 'invalid_evolution_request');
+      const checkedAt = Date.parse(parsed.data.authorization.checkedAt);
+      const consentCheckedAt = Date.parse(parsed.data.authorization.consent.checkedAt);
+      if (Math.abs(now() - checkedAt) > 60_000 || Math.abs(now() - consentCheckedAt) > 60_000) return error(json, res, 403, 'evolution_authorization_stale');
+      try {
+        const replay = store.acceptServiceRequest(authorization.requestId, 'platform_training_evolution', { purpose: parsed.data.authorization.consent.purpose });
+        if (replay.status === 'service_request_replayed') return error(json, res, 409, 'service_request_replayed');
+        const allUsers = users();
+        const user = allUsers.find(candidate => candidate.id === parsed.data.trainingUserId && !candidate.disabled);
+        if (!user) return error(json, res, 404, 'training_evolution_not_found');
+        const link = user.platformLink;
+        const activeMatches = allUsers.filter(candidate => !candidate.disabled && candidate.platformLink?.state === 'active' && candidate.platformLink?.personId === parsed.data.personId);
+        if (user.personId !== parsed.data.personId || link?.state !== 'active' || link.personId !== parsed.data.personId || activeMatches.length !== 1 || activeMatches[0].id !== user.id) {
+          return error(json, res, 403, link?.state === 'revoked' ? 'training_link_revoked' : 'training_link_not_active');
+        }
+        if (user.platformRestriction?.reasonCode === 'ADMIN_SUSPENDED') return error(json, res, 403, 'training_administratively_suspended');
+        const secret = serviceKeys.get(authorization.keyId);
+        if (!secret) return error(json, res, 401, 'service_auth_invalid');
+        const before = stateFingerprint(user.id);
+        const state = readState(user.id);
+        const after = stateFingerprint(user.id);
+        if (before !== after) return error(json, res, 409, 'training_evolution_snapshot_changed');
+        const result = readOnlyTrainingEvolution({ user, state, request: parsed.data, secret, now });
+        if (result.status === 'snapshot_changed') return error(json, res, 409, 'training_evolution_snapshot_changed');
+        if (result.status === 'invalid_cursor') return error(json, res, 400, 'invalid_evolution_cursor');
+        return json(res, 200, result.body);
+      } catch {
+        return error(json, res, 503, 'training_evolution_unavailable');
+      }
+    },
     [`POST ${SERVICE_TRAINING_SUMMARY_PATH}`]: async (req, res) => {
       res.setHeader?.('Cache-Control', 'no-store');
       if (!trainingSummaryEnabled) return error(json, res, 423, 'training_summary_disabled');
