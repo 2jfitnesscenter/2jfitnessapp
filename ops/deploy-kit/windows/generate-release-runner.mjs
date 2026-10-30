@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { buildPhysicalTree } from './physical-tree.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -18,6 +19,38 @@ export const REPOSITORY_ONLY_EXACT = new Set([
 ])
 const REPOSITORY_ONLY_TOOLING = /^ops\/deploy-kit\/(?:releases\/[A-Za-z0-9._-]+\.json|windows\/(?:templates\/)?[A-Za-z0-9._-]+\.(?:mjs|in))$/
 export const isRepositoryOnlyPath = p => typeof p === 'string' && (REPOSITORY_ONLY_EXACT.has(p) || REPOSITORY_ONLY_TOOLING.test(p))
+// Runtime configuration can only be preserved when its exact bytes are pinned in the release
+// manifest. Application/runtime paths are never eligible for the non-runtime allowlist above.
+export const RUNTIME_CONFIG_PRESERVE_EXACT = new Set(['Caddyfile', 'docker-compose.prod.yml', 'caddy-config/Caddyfile'])
+const RUNTIME_CONFIG_DEPLOY_EXACT = RUNTIME_CONFIG_PRESERVE_EXACT
+const isPreservablePath = p => isRepositoryOnlyPath(p) || RUNTIME_CONFIG_PRESERVE_EXACT.has(p)
+const isDeployablePath = p => SAFE_PATH.test(p) || RUNTIME_CONFIG_DEPLOY_EXACT.has(p)
+
+function gitPathSha256(cwd, commit, filePath) {
+  const entry = execFileSync('git', ['ls-tree', commit, '--', filePath], { cwd, encoding: 'utf8' }).trim()
+  if (!entry) return null
+  const match = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(entry)
+  if (!match || match[3] !== filePath) fail(`PRESERVED_SOURCE_NOT_REGULAR_FILE:${filePath}`)
+  const bytes = execFileSync('git', ['cat-file', 'blob', match[2]], { cwd, encoding: null })
+  return createHash('sha256').update(bytes).digest('hex')
+}
+
+function validatePreservedEntries(c, cwd) {
+  const preserved = c.expectedCurrentPreserved ?? []
+  if (!Array.isArray(preserved) || preserved.some(e =>
+    !e || typeof e.path !== 'string' || !e.path || /[\0\r\n*?[\]\\']/.test(e.path) || e.path.startsWith('/') || e.path.split('/').includes('..') ||
+    !SHA40.test(e.from || '') || !isPreservablePath(e.path) ||
+    !['runtime', 'non_runtime'].includes(e.kind) ||
+    (e.kind === 'runtime') !== RUNTIME_CONFIG_PRESERVE_EXACT.has(e.path) ||
+    (e.kind === 'non_runtime') !== isRepositoryOnlyPath(e.path) ||
+    !(e.sha256 === null || /^[0-9a-f]{64}$/.test(e.sha256))
+  ) || new Set(preserved.map(e => e.path)).size !== preserved.length) fail('INVALID_EXPECTED_CURRENT_PRESERVED')
+  for (const entry of preserved) {
+    const actualSha = gitPathSha256(cwd, entry.from, entry.path)
+    if (actualSha !== entry.sha256) fail(`PRESERVED_SOURCE_HASH_MISMATCH:${entry.path}`)
+  }
+  return preserved
+}
 
 export function validateNodeTestSummary(output, exitCode) {
   if (exitCode !== 0) return { ok: false, reason: `NONZERO_EXIT:${exitCode}` }
@@ -92,7 +125,7 @@ function rejectLegacyWebPushProbe(template) {
   if (/grep\s+-Fq\s+["']db\.subs\.push["']/.test(template)) fail('STALE_WEB_PUSH_SUBSCRIPTION_PROBE')
 }
 
-export function validateConfig(c) {
+export function validateConfig(c, cwd = root) {
   if (!c || typeof c !== 'object') fail('CONFIG_OBJECT_REQUIRED')
   for (const key of ['targetCommit', 'expectedCurrentCommit', 'rollbackCommit']) {
     if (!SHA40.test(c[key] || '')) fail(`INVALID_FULL_SHA40:${key}`)
@@ -113,7 +146,7 @@ export function validateConfig(c) {
   if (nonDeployable.length || c.deployablePaths !== undefined) {
     if (!Array.isArray(c.deployablePaths) || JSON.stringify([...c.deployablePaths].sort()) !== JSON.stringify([...deployable].sort())) fail('DEPLOYABLE_PATHS_MISMATCH')
   }
-  if (!deployable.length || deployable.some(p => !SAFE_PATH.test(p))) fail('INVALID_EXACT_DELTA_PATHS')
+  if (!deployable.length || deployable.some(p => !isDeployablePath(p))) fail('INVALID_EXACT_DELTA_PATHS')
   if (c.maxCommits !== c.expectedCommitCount || !Number.isInteger(c.expectedCommitCount) || c.expectedCommitCount < 1) fail('INVALID_COMMIT_COUNT')
   if (!c.sync || !SHA40.test(c.sync.rollbackBase || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256Lf || '') || !/^[0-9a-f]{64}$/.test(c.sync.syncJsSha256CrLf || '')) fail('INVALID_SYNC_GUARD')
   if (!c.probes || !Array.isArray(c.probes.sourceFiles) || !Array.isArray(c.probes.sourceMarkers) || !Array.isArray(c.probes.unauthenticatedRoutes)) fail('INVALID_RELEASE_PROBES')
@@ -138,8 +171,7 @@ export function validateConfig(c) {
   }
   if (new Set(noOriginPushProbeStatuses.map(p => p.status)).size > 1) fail('CONTRADICTORY_NO_ORIGIN_PUSH_EXPECTATIONS')
   // What production PHYSICALLY holds after the previous release (see physical-tree.mjs). Empty = production is exactly TREE(expectedCurrentCommit).
-  const preserved = c.expectedCurrentPreserved ?? []
-  if (!Array.isArray(preserved) || preserved.some(e => !e || typeof e.path !== 'string' || !e.path || /[\0\r\n*?[\]\\']/.test(e.path) || e.path.startsWith('/') || e.path.split('/').includes('..') || !SHA40.test(e.from || '')) || new Set(preserved.map(e => e.path)).size !== preserved.length) fail('INVALID_EXPECTED_CURRENT_PRESERVED')
+  const preserved = validatePreservedEntries(c, cwd)
   if (preserved.length ? !SHA40.test(c.expectedCurrentPhysicalTree || '') : c.expectedCurrentPhysicalTree !== undefined) fail('EXPECTED_CURRENT_PHYSICAL_TREE_REQUIRED_EXACTLY_WITH_PRESERVED_PATHS')
   return { targetShort: c.targetCommit.slice(0, 7), expectedShort: c.expectedCurrentCommit.slice(0, 7), deployable, nonDeployable, preserved }
 }
@@ -155,9 +187,14 @@ export function effectiveNonDeployable(c) {
 
 // The preserved list for the manifest of the release AFTER this one (its expectedCurrentPreserved). For each path this release leaves as production has it, the
 // source is the commit whose blob production really holds: the original source if it was already preserved, otherwise the commit production is at now.
-export function nextExpectedCurrentPreserved(c) {
-  const known = new Map((c.expectedCurrentPreserved ?? []).map(e => [e.path, e.from]))
-  return effectiveNonDeployable(c).map(p => ({ path: p, from: known.get(p) ?? c.expectedCurrentCommit })).sort((a, b) => (a.path < b.path ? -1 : 1))
+export function nextExpectedCurrentPreserved(c, cwd = root) {
+  const known = new Map((c.expectedCurrentPreserved ?? []).map(e => [e.path, e]))
+  return effectiveNonDeployable(c).map(p => {
+    const existing = known.get(p)
+    if (existing) return { ...existing }
+    const from = c.expectedCurrentCommit
+    return { path: p, from, kind: 'non_runtime', sha256: gitPathSha256(cwd, from, p) }
+  }).sort((a, b) => (a.path < b.path ? -1 : 1))
 }
 
 function renderSourceProbes(c) {
@@ -185,8 +222,8 @@ function renderPostStartProbes(c) {
   return lines.join('\n')
 }
 
-export function renderTemplate(template, c) {
-  const { targetShort, expectedShort, deployable, nonDeployable, preserved } = validateConfig(c)
+export function renderTemplate(template, c, cwd = root) {
+  const { targetShort, expectedShort, deployable, nonDeployable, preserved } = validateConfig(c, cwd)
   template = template.replace(/\r\n/g, '\n')
   const values = {
     RELEASE_TITLE: c.metadata.title,
