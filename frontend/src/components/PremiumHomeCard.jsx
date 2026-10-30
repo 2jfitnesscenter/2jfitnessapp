@@ -9,6 +9,7 @@ import { usePremium } from '../lib/premium-api.js'
 import { runningView } from '../lib/premium.js'
 import { allowedByAdmin } from '../lib/features.js'
 import { t } from '../lib/i18n.js'
+import { premiumProgramName, premiumScheduleText } from '../lib/premium-text.js'
 import Icon from './Icon.jsx'
 import PremiumCover from './PremiumCover.jsx'
 import '../views/premium.css'
@@ -39,11 +40,11 @@ export default function PremiumHomeCard() {
   return <button className="pm-active pm-home" onClick={() => nav('/premium/active')}>
     <PremiumCover p={cover} ratio="21 / 9" className="pm-home-cover"><span className="pm-active-cap">
       <span className="pm-kicker">{t('Your program')}</span>
-      <b>{v.inst.name}</b>
+      <b>{premiumProgramName(v.inst)}</b>
       <span className="pm-card-sub">{t('Cycle {0} · Week {1}/{2}', v.pos.cycle, v.pos.week, v.pos.weeks)}</span></span></PremiumCover>
     <span className="pm-active-foot">
       <span className="pm-bar" role="progressbar" aria-label={t('Program progress')} aria-valuemin="0" aria-valuemax="100" aria-valuenow={v.progress.percent}><i style={{ width: v.progress.percent + '%' }} /></span>
-      <small>{paused ? t('Paused') : v.plan ? t('Next: {0}', v.plan.title) : t('Cycle complete')}</small>
+      <small>{paused ? t('Paused') : v.plan ? t('Next: {0}', premiumScheduleText(v.plan.title)) : t('Cycle complete')}</small>
       <span className="pm-open">{t('Continue')} <Icon name="chevronRight" /></span>
     </span>
   </button>

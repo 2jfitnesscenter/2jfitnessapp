@@ -126,6 +126,21 @@ test('editing bumps the version and keeps the old one; restoring goes through th
   assert.equal(seedHash(), SEED_HASH, 'the shipped seed is read-only');
 });
 
+test('an administrator can update only the bounded Spanish presentation copy without changing canonical program data', async () => {
+  const before = (await call('admin', 'GET', '/api/premium/program?id=premium-full-body-conditioning')).data.program;
+  const updated = {
+    ...before,
+    locales: { ...before.locales, es: { ...before.locales.es, name: 'A'.repeat(100), shortDescription: 'Plan breve en español.', longDescription: 'x'.repeat(2500) }, fr: { name: 'ignored' } },
+  };
+  const result = await call('admin', 'POST', '/api/premium/save', { program: updated });
+  assert.equal(result.status, 200, JSON.stringify(result.data));
+  assert.equal(result.data.program.name, before.name, 'canonical name stays unchanged');
+  assert.equal(result.data.program.locales.es.name, 'A'.repeat(80));
+  assert.equal(result.data.program.locales.es.shortDescription, 'Plan breve en español.');
+  assert.equal(result.data.program.locales.es.longDescription.length, 2400);
+  assert.equal(result.data.program.locales.fr, undefined, 'unapproved locale payload is ignored');
+});
+
 test('an invalid program is refused with the reasons; a dry run validates without saving', async () => {
   const bad = mini(); bad.programDefinition.weeks[0].sessions[0].blocks[0].exercise = '9999';
   const r = await call('trainer-a', 'POST', '/api/premium/save', { program: bad });

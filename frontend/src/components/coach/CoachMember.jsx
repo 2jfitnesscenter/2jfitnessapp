@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
-import { t, getLang } from '../../lib/i18n.js'
+import { t, getLang, nameFor } from '../../lib/i18n.js'
 import { fmtDate, fmtNum } from '../../lib/format.js'
 import { mediaUrl } from '../../lib/media.js'
 import { PAIN_ZONE } from '../../lib/checkin.js'
@@ -16,7 +16,7 @@ import * as cf from '../../lib/coach-followup.js'
 import { RoutineCycles } from '../../views/AdminFollowUp.jsx'
 import Icon from '../Icon.jsx'
 import { EXIDX } from '../../lib/exercises.js'
-import { runLabel, INCIDENT_LABEL } from '../../lib/premium-text.js'
+import { runLabel, premiumProgramName, premiumScheduleText, premiumLiftLabel, INCIDENT_LABEL } from '../../lib/premium-text.js'
 import { CAP_LABEL, PHASE_LABEL, STATUS_LABEL, LEVEL_LABEL } from '../../lib/opposition-text.js'
 import { formatMark } from '../../lib/opposition.js'
 import { TrainerFollowUpRecords } from '../FollowUpV2.jsx'
@@ -118,12 +118,12 @@ export function PremiumRun({ p }) {
   const tms = Object.entries(p.methodState?.trainingMax || {}).filter(([, v]) => v != null)
   return <>
     <ul className="cf-list">
-      <li><span>{t('Program')}</span><b>{p.name} · {t('version {0}', p.version)}</b></li>
-      <li><span>{t('Position')}</span><b>{runLabel(p)}{p.phase ? ' · ' + p.phase : ''}</b></li>
+      <li><span>{t('Program')}</span><b>{premiumProgramName(p)} · {t('version {0}', p.version)}</b></li>
+      <li><span>{t('Position')}</span><b>{runLabel(p)}{p.phase ? ' · ' + premiumScheduleText(p.phase) : ''}</b></li>
       <li><span>{t('Sessions this cycle')}</span><b>{t('{0} of {1}', p.completedInCycle, p.totalInCycle)}</b></li>
       <li><span>{t('Adherence')}</span><b>{p.adherence?.pct != null ? p.adherence.pct + '% · ' + t('{0} of {1} sessions', p.adherence.done, p.adherence.expected) : '—'}</b></li>
-      {(p.lastAmrap || []).length > 0 && <li><span>{t('Latest AMRAP sets')}</span><b>{p.lastAmrap.map(a => `${t(EXIDX[a.exercise]?.n || a.exercise)} ${a.w}×${a.reps}`).join(' · ')}</b></li>}
-      {tms.length > 0 && <li><span>{t('Training Max')}</span><b>{tms.map(([k, v]) => `${k} ${v} ${unit}`).join(' · ')}</b></li>}
+      {(p.lastAmrap || []).length > 0 && <li><span>{t('Latest AMRAP sets')}</span><b>{p.lastAmrap.map(a => `${nameFor(EXIDX[a.exercise]) || t(EXIDX[a.exercise]?.n || a.exercise)} ${a.w}×${a.reps}`).join(' · ')}</b></li>}
+      {tms.length > 0 && <li><span>{t('Training Max')}</span><b>{tms.map(([k, v]) => `${premiumLiftLabel(k)} ${v} ${unit}`).join(' · ')}</b></li>}
       {(p.incidents || []).length > 0 && <li className="note"><span>{t('Incidents')}</span><b>{p.incidents.map(i => t(INCIDENT_LABEL[i] || i)).join(' · ')}</b></li>}
     </ul>
     <p className="small dim">{t('Changing sets, percentages or loads in the program workouts may affect the method. Supplementary work, cardio and scheduling stay open to you.')}</p>

@@ -178,15 +178,15 @@ export function GymCompatibility({ ex, context }) {
   return <span className="small dim">{compatibleWithGym(context || S, ex) ? t('Compatible with this place') : t('Equipment not confirmed here')}</span>
 }
 
-export default function GymProfile({ editable = false }) {
+export default function GymProfile({ editable = false, compact = false }) {
   const S = useStore(s => s.S)
   useStore(s => s.gymProfileRevision)
   const active = activeGymProfile(S)
   const openSheet = useUI(s => s.openSheet)
   const title = active.type === 'official' ? t(active.name) : active.name
   const open = () => openSheet(close => <GymProfileSheet close={close} editable={editable} />, { kind: 'full' })
-  return <div className="gym-profile-row-wrap">
-    <button className="lrow tap gym-profile-row" type="button" onClick={open} aria-label={`${t('Training place')}: ${title}`}>
+  return <div className={'gym-profile-row-wrap' + (compact ? ' gym-profile-row-wrap-compact' : '')}>
+    <button className={'lrow tap gym-profile-row' + (compact ? ' gym-profile-row-compact' : '')} type="button" onClick={open} aria-label={`${t('Training place')}: ${title}`}>
       <span className="lrow-i soft gym-row-icon"><Icon name="mapPin" /></span>
       <span className="lrow-m"><span className="lrow-t">{t('Training place')}</span><span className="lrow-s">{title}</span></span>
       <Icon name="chevronRight" className="lrow-c" />
