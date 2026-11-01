@@ -1,5 +1,11 @@
 # Changelog
 
+### IA — fiabilidad (candidato, NO desplegado)
+
+- Capa común de reintentos para Coach, IA del entrenador y los tres escaneos: backoff exponencial con jitter, `Retry-After`, presupuesto de llamadas y tiempo, cancelación, y modelo de respaldo opcional. Los errores 503/429/timeout dejan de verse: solo aparece un mensaje claro cuando se agota el presupuesto.
+- Escaneo de mediciones con segunda/tercera lectura solo si hay dudas, comprobaciones físicas deterministas y consenso por campo; rutinas con relectura únicamente de las filas dudosas; máquinas con comprobación contra la biblioteca. Los escaneos pasan a trabajos cortos con sondeo; la foto solo vive en memoria mientras dura el trabajo.
+- Trabajos de IA del entrenador persistidos y reanudados tras un reinicio; fases visibles (`queued`, `generating`, `retrying`, `validating`, `repairing`); métricas internas solo numéricas (`GET /api/admin/ai-metrics`). Ver `docs/AI_RELIABILITY.md`.
+
 ### Exercise Library — reactivación de media (no desplegado)
 
 - Se vuelven a mostrar imágenes/GIF de ejercicios y dibujos de estiramientos, y se restauran las rutas, montajes y descarga de la fuente histórica fijada. No se sobrescriben medios locales existentes.

@@ -19,10 +19,11 @@ import { fileURLToPath } from 'node:url';
 import * as cfgStore from './config.js';
 import { adapterFor } from './adapters/index.js';
 import * as payloadLib from './payload.js';
-import { extractJSON, validatePlan, validateReview, contractOK } from './validate.js';
-import { expandBlocks, gatePlan, gateReview, ctxFromPayload } from './protocol-gate.js';
+import { extractJSON } from './validate.js';
+import { generateWithRepair } from './ai-generate.js';
+import * as metrics from '../lib/ai-metrics.js';
 import { readState } from '../lib/state-store.js';
-import { invokeWithRetry, aiLog } from './ai-run.js';
+import { aiLog, POLICIES, makeBudget } from './ai-run.js';
 export { readState };   // re-exported: trainer-jobs.js and cadence.js import it from here
 
 const DATA = process.env.DATA_DIR || '/data';
@@ -96,7 +97,7 @@ export function status(uid) {
   const last = !rec.current && lastRun && ['failed', 'nochange'].includes(lastRun.outcome) && Date.now() - (lastRun.at || 0) < 86400000
     ? { id: lastRun.id, kind: lastRun.kind, outcome: lastRun.outcome, errorClass: lastRun.errorClass || null, at: lastRun.at } : null;
   return {
-    job: rec.current ? { id: rec.current.id, kind: rec.current.kind, state: rec.current.state, startedAt: rec.current.startedAt } : null,
+    job: rec.current ? publicJob(rec.current) : null,
     pending: rec.pending || null,
     last,
     cap: capState(uid)
@@ -155,7 +156,8 @@ export function enqueue(uid, opts) {
     startedAt: Date.now()
   };
   inflight.add(uid);
-  patchUser(uid, { current: { id: job.id, kind: job.kind, state: 'queued', startedAt: job.startedAt } });
+  job.resume = { kind: job.kind, trigger: job.trigger, intake: job.intake, note: job.note, refine: job.refine };
+  patchUser(uid, { current: currentOf(job, 'queued', 'queued') });
   queue.push(job);
   pump();
   return { id: job.id };
@@ -176,6 +178,12 @@ export function claimExplanation(uid) {
   cfgStore.logJob({ at: new Date().toISOString(), uid, kind: 'intelligence-explanation', trigger: 'manual', outcome: 'requested' });
   return () => inflight.delete(uid);
 }
+
+/** The job record the client polls (id/kind/state/phase/startedAt) plus what a restart needs to run it again. */
+function currentOf(job, state, phase) {
+  return { id: job.id, kind: job.kind, state, phase, startedAt: job.startedAt, resume: job.resume || null, resumes: job.resumes || 0 };
+}
+const publicJob = c => ({ id: c.id, kind: c.kind, state: c.state, phase: c.phase || c.state, startedAt: c.startedAt });
 
 function pump() {
   while (running < MAX_CONCURRENT && queue.length) {
@@ -235,8 +243,15 @@ export function buildPrompt(kind, payload, repair) {
 
 /* ---------- execution ---------- */
 
+/** Phase shown to the member while the job runs: queued → generating → retrying/fallback → validating → repairing. */
+function setPhase(job, phase) {
+  const rec = readUser(job.uid);
+  if (rec.current?.id !== job.id) return;
+  patchUser(job.uid, { current: { ...rec.current, state: 'running', phase } });
+}
+
 async function execute(job) {
-  patchUser(job.uid, { current: { id: job.id, kind: job.kind, state: 'running', startedAt: job.startedAt } });
+  patchUser(job.uid, { current: currentOf(job, 'running', 'generating') });
 
   const S = readState(job.uid);
   if (!S) return finish(job, { outcome: 'failed', errorClass: 'nostate' });
@@ -256,28 +271,32 @@ async function execute(job) {
 
   const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'coach-'));
   const env = cfgStore.jobEnv(jobDir);
+  const flow = 'member-' + job.kind;
+  const policy = job.kind === 'review' ? POLICIES.coach_review : POLICIES.member_routine;
+  const track = metrics.begin(job.kind === 'review' ? 'coach_review' : 'member_routine');
+  const fb = cfg.fallbackModel && cfg.fallbackModel !== cfg.model ? [{ id: cfg.provider + ':' + cfg.fallbackModel, args: { model: cfg.fallbackModel } }] : [];
   try {
     const ids = (await import('./adapters/spawn.js')).unprivilegedIds();
     if (ids) fs.chownSync(jobDir, ids.uid, ids.gid);
 
-    aiLog('AI_REQUEST_START', { flow: 'member-' + job.kind, job: job.id, provider: cfg.provider, trigger: job.trigger });
-    let attempt = await invoke(adapter, cfg, payload, jobDir, env, job, null);
-    if (!attempt.ok && attempt.repairable) {
-      // One repair round, then done (FR-48). Two failures is a provider problem, not a
-      // prompting problem, and a retry loop against a paid API is a bad way to find out.
-      aiLog('AI_REPAIR', { flow: 'member-' + job.kind, job: job.id, errors: attempt.errors?.length || 0 });
-      attempt = await invoke(adapter, cfg, payload, jobDir, env, job, {
-        previous: attempt.raw, errors: attempt.errors
-      });
-    }
+    aiLog('AI_REQUEST_START', { flow, job: job.id, provider: cfg.provider, trigger: job.trigger });
+    // Retry/backoff/fallback happen inside; the member sees "preparing" until the budget is truly spent.
+    const attempt = await generateWithRepair({
+      flow, job: job.id, provider: cfg.provider, adapter, kind: job.kind, payload, buildPrompt,
+      args: { cfg, jobDir, env, model: cfg.model || null, timeoutMs: TIMEOUT_MS },
+      policy, budget: makeBudget(policy), track, onPhase: p => setPhase(job, p), fallbacks: fb
+    });
     if (!attempt.ok) {
-      aiLog('AI_FINAL_FAILURE', { flow: 'member-' + job.kind, job: job.id, class: attempt.errorClass, ms: Date.now() - job.startedAt });
+      track.finish(false);
+      aiLog('AI_FINAL_FAILURE', { flow, job: job.id, class: attempt.errorClass, ms: Date.now() - job.startedAt });
       return finish(job, { outcome: 'failed', errorClass: attempt.errorClass, detail: attempt.detail });
     }
-    aiLog('AI_SUCCESS', { flow: 'member-' + job.kind, job: job.id, nochange: attempt.nochange ? 1 : null, ms: Date.now() - job.startedAt });
+    track.finish(true);
+    aiLog('AI_SUCCESS', { flow, job: job.id, nochange: attempt.nochange ? 1 : null, ms: Date.now() - job.startedAt });
     if (attempt.nochange) {
       return finish(job, { outcome: 'nochange', pending: null, detail: null });
     }
+    const result = attempt.proposal ? attempt.proposal : { bundle: attempt.bundle, summary: attempt.bundle.summary };
     const pending = {
       id: job.id,
       kind: job.kind,
@@ -285,51 +304,12 @@ async function execute(job) {
       expiresAt: Date.now() + PENDING_DAYS * 86400000,
       planHash: hashPlan(payloadLib.canonicalPlan(S)),
       iteration: job.refine ? (pendingCreate?.iteration || 1) + 1 : 1,
-      ...attempt.result
+      ...result
     };
     return finish(job, { outcome: 'ready', pending });
   } finally {
     fs.rmSync(jobDir, { recursive: true, force: true });
   }
-}
-
-async function invoke(adapter, cfg, payload, jobDir, env, job, repair) {
-  const prompt = buildPrompt(job.kind, payload, repair);
-  // Transient provider failures (timeout, 429/5xx/overloaded, crashed runtime, empty answer) are
-  // retried here, inside one job, before anything is reported (coach/ai-run.js).
-  const r = await invokeWithRetry(adapter, { cfg, prompt, jobDir, env, model: cfg.model || null, timeoutMs: TIMEOUT_MS },
-    { flow: 'member-' + job.kind, job: job.id, provider: cfg.provider, repair: !!repair });
-  if (r.failure) {
-    const errorClass = r.failure.errorClass === 'empty' ? 'provider' : r.failure.errorClass;
-    return { ok: false, errorClass, detail: [r.failure.status, (r.stderr || '').slice(0, 280)].filter(Boolean).join(' ') || null };
-  }
-
-  const parsed = extractJSON(r.text);
-  if (parsed.error) {
-    aiLog('AI_PARSE_ERROR', { flow: 'member-' + job.kind, job: job.id, chars: String(r.text || '').length });
-    return { ok: false, repairable: !repair, errors: [parsed.error], raw: r.text, errorClass: 'unusable' };
-  }
-  if (!contractOK(parsed.value)) {
-    return { ok: false, repairable: !repair, errors: [`coach_contract must be ${payloadLib.CONTRACT}`], raw: r.text, errorClass: 'unusable' };
-  }
-
-  const ctx = ctxFromPayload(payload);
-  let v;
-  if (job.kind === 'review') {
-    v = validateReview(parsed.value, payload.plan);
-    // A review may not introduce a 2J protocol FAIL the plan did not already have.
-    if (v.ok && v.proposal) { const g = gateReview(v.proposal, payload.plan, ctx); v = g.ok ? { ok: true, proposal: g.proposal } : { ok: false, errors: g.errors }; }
-  } else {
-    // Official blocks first (reuse 2J curation), then shape/ids, then the protocol.
-    const expanded = expandBlocks(parsed.value);
-    v = expanded.errors.length ? { ok: false, errors: expanded.errors }
-      : validatePlan(expanded.data, { workingWeights: payload.history?.workingWeights, daysPerWeek: payload.coachProfile?.daysPerWeek });
-    if (v.ok) { const g = gatePlan(v.bundle, ctx); v = g.ok ? { ok: true, bundle: g.bundle } : { ok: false, errors: g.errors }; }
-  }
-
-  if (!v.ok) return { ok: false, repairable: !repair, errors: v.errors, raw: r.text, errorClass: 'unusable' };
-  if (v.nochange) return { ok: true, nochange: true, reading: v.reading };
-  return { ok: true, result: v.proposal ? v.proposal : { bundle: v.bundle, summary: v.bundle.summary } };
 }
 
 /**
@@ -403,25 +383,35 @@ export async function testRun() {
 }
 
 /**
- * A job that was running when the process died is not coming back. Say so plainly and let the
- * user retry, rather than leaving a spinner that never resolves or silently re-running work
- * that may already have cost them a provider call.
+ * A job that was running when the process died: run it again, ONCE, from what enqueue() kept in
+ * its record (the request, not the answer). A job that already had its second chance, or one with
+ * nothing to restart from (a record from an older version), is closed honestly as 'restart'.
  */
 export function recoverOnBoot() {
-  let n = 0;
+  let resumed = 0, closed = 0;
   try {
     for (const f of fs.readdirSync(COACH_DIR)) {
       if (!f.endsWith('.json')) continue;
       const uid = f.replace(/\.json$/, '');
       const rec = readUser(uid);
       if (!rec.current) continue;
+      const cur = rec.current;
+      if (cur.resume && !(cur.resumes >= 1) && cfgStore.isEnabled() && cfgStore.isConnected()) {
+        const job = { id: cur.id, uid, kind: cur.resume.kind, trigger: cur.resume.trigger || 'manual', intake: cur.resume.intake || null, note: cur.resume.note || null, refine: cur.resume.refine || null, state: 'queued', startedAt: cur.startedAt, resume: cur.resume, resumes: 1 };
+        inflight.add(uid);
+        patchUser(uid, { current: currentOf(job, 'queued', 'queued') });
+        queue.push(job);
+        resumed++;
+        continue;
+      }
       writeUser(uid, {
         ...rec, current: null,
-        history: [...(rec.history || []), { id: rec.current.id, kind: rec.current.kind, outcome: 'failed', errorClass: 'restart', at: Date.now() }].slice(-HISTORY_MAX)
+        history: [...(rec.history || []), { id: cur.id, kind: cur.kind, outcome: 'failed', errorClass: 'restart', at: Date.now() }].slice(-HISTORY_MAX)
       });
-      n++;
+      closed++;
     }
   } catch { /* no coach dir yet */ }
-  if (n) console.log(`coach: cleared ${n} job(s) interrupted by restart`);
-  return n;
+  if (resumed) pump();
+  if (resumed || closed) console.log(`coach: restarted ${resumed} interrupted job(s), closed ${closed}`);
+  return closed;
 }

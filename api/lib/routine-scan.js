@@ -10,16 +10,13 @@
  * matchScannedRoutine(), the same job frontend/src/lib/import-csv.js's matchExercise() already
  * does for a CSV import from another app. This file only ever returns free text; nothing here
  * writes to anyone's plan.
+ *
+ * Reliability (lib/ai-vision.js + lib/routine-validate.js): one transcription of the whole page; a
+ * deterministic check names the doubtful rows (garbled or missing name, impossible figures, one
+ * name that resembles nothing in our library); only THOSE rows are read again, in one extra call.
  */
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import * as auxAI from './aux-ai-config.js';
-import { adapterFor } from '../coach/adapters/index.js';
-import { extractJSON } from '../coach/validate.js';
-
-const TIMEOUT_MS = 60000;
-const GEMINI = adapterFor('gemini');
+import { runScan } from './ai-vision.js';
+import { sanitizeRoutine, mergeReread } from './routine-validate.js';
 
 const PROMPT = `This image or PDF is a workout routine or training program, printed, handwritten or photographed, in any language. It may cover one training day or several. Read it and reply with EXACTLY this JSON object and nothing else — no markdown fences, no explanation:
 
@@ -40,43 +37,50 @@ Field meanings:
 
 Use null for anything not found or not legible (nameEn is the one exception — always fill it in, your best standard-English equivalent). Never invent a number or an exercise that is not on the page. Reply with the JSON object only.`;
 
+/** The second look: only the listed rows, located by position, never the whole routine again. */
+function refinePrompt(doubtful) {
+  const where = doubtful.map(x => `day ${x.d + 1}, exercise ${x.e + 1}`).join('; ');
+  return `This image or PDF is a workout routine or training program. An earlier reading of it was unsure about a few exercise rows. Look at the page again and re-read ONLY these rows (a "day" is the position of the training day on the page, counted from 1 in the order they appear; an "exercise" is its position inside that day, counted from 1): ${where}.
+
+Reply with EXACTLY this JSON object and nothing else — no markdown fences, no explanation:
+
+{"rows": [{"day": <integer>, "exercise": <integer>, "name": <string|null>, "nameEn": <string|null>, "sets": <integer|null>, "reps": <integer|null>, "weight": <number|null>, "unit": "reps"|"sec"}]}
+
+- name: the exercise name exactly as written, in its original language. null if it is not legible.
+- nameEn: the SHORT canonical English gym name of that exercise (2 to 4 words, equipment then movement, e.g. "pendulum squat", "cable front raise"). null if you cannot tell.
+- sets / reps / weight: the figures printed for that row, null if absent or illegible. A timed exercise is unit "sec" with the seconds in "reps".
+Never guess a name or a number you cannot read. Reply with the JSON object only.`;
+}
+
 /**
  * @param {{data: string, mimeType: string}} image — base64 payload (no `data:` prefix) + its mime type.
- * @returns {Promise<{ok: true, value: object} | {ok: false, error: string}>}
+ * @returns {Promise<{ok: true, value: object} | {ok: false, code: string, error: string}>}
  */
-export async function scanRoutineDocument({ data, mimeType, uid }) {
-  if (!auxAI.isEnabled() || !auxAI.isConnected()) {
-    return { ok: false, error: 'la IA auxiliar no está configurada en este servidor' };
-  }
-  if (!auxAI.reserveDaily(uid).allowed) {
-    return { ok: false, code: 'DAILY_CAP', error: 'se alcanzó el límite diario de IA auxiliar' };
-  }
-  const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aux-ai-scan-'));
-  const started = Date.now();
-  try {
-    const env = auxAI.jobEnv();
-    const check = await GEMINI.check(null, env);
-    if (!check.ok) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'routine_scan', outcome: 'failed', errorClass: 'runtime', ms: Date.now() - started });
-      return { ok: false, error: check.error || 'el proveedor no está disponible' };
+export async function scanRoutineDocument({ data, mimeType, uid, signal, onPhase, sync }) {
+  const image = { data, mimeType };
+  return runScan({ flow: 'routine_scan', kind: 'routine_scan', uid, signal, onPhase, sync }, async session => {
+    const first = await session.read(PROMPT, image, v => v && typeof v === 'object' && Array.isArray(v.days));
+    if (!first.ok) return first;
+    const { routine, doubtful } = sanitizeRoutine(first.value);
+    if (!doubtful.length) return { ok: true, value: routine };
+
+    onPhase?.('verifying');
+    const rows = doubtful.slice(0, 12);
+    const second = await session.read(refinePrompt(rows), image, v => v && typeof v === 'object' && Array.isArray(v.rows));
+    if (!second.ok) {
+      if (second.code === 'CANCELLED') return second;
+      return { ok: true, value: routine };                    // keep the first transcription: doubtful rows stay as read, the member reviews them
     }
-    const r = await GEMINI.invoke({ jobDir, env, model: null, timeoutMs: TIMEOUT_MS, prompt: PROMPT, image: { data, mimeType } });
-    if (r.timedOut) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'routine_scan', outcome: 'failed', errorClass: 'timeout', ms: Date.now() - started });
-      return { ok: false, error: 'el proveedor no respondió a tiempo' };
+    for (const r of second.value.rows) {
+      const d = Number(r?.day) - 1, e = Number(r?.exercise) - 1;
+      const item = rows.find(x => x.d === d && x.e === e);
+      const original = routine.days[d]?.exercises?.[e];
+      if (!item || !original) continue;
+      const reread = sanitizeRoutine({ days: [{ exercises: [r] }] }).routine.days[0].exercises[0];
+      if (reread) routine.days[d].exercises[e] = mergeReread(original, reread, item.reasons);
     }
-    if (r.code !== 0) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'routine_scan', outcome: 'failed', errorClass: 'provider', ms: Date.now() - started });
-      return { ok: false, error: (r.stderr || r.text || 'el proveedor devolvió un error').trim().slice(0, 300) };
-    }
-    const parsed = extractJSON(r.text);
-    if (parsed.error || typeof parsed.value !== 'object' || !parsed.value || !Array.isArray(parsed.value.days)) {
-      auxAI.logJob({ at: new Date().toISOString(), kind: 'routine_scan', outcome: 'failed', errorClass: 'badjson', ms: Date.now() - started });
-      return { ok: false, error: 'el proveedor no devolvió el formato esperado' };
-    }
-    auxAI.logJob({ at: new Date().toISOString(), kind: 'routine_scan', outcome: 'ready', ms: Date.now() - started });
-    return { ok: true, value: parsed.value };
-  } finally {
-    fs.rmSync(jobDir, { recursive: true, force: true });
-  }
+    // a row that is still nameless after the second look is not an exercise
+    routine.days.forEach(day => { day.exercises = day.exercises.filter(x => x.name || x.nameEn); });
+    return { ok: true, value: routine };
+  });
 }

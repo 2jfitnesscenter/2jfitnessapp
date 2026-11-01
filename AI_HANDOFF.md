@@ -1,5 +1,12 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## IA — capa de fiabilidad (candidato en PR, NO desplegado)
+
+- Rama `codex/ai-reliability`, basada en producción `aff0a69`. Detalle, políticas y presupuestos en `docs/AI_RELIABILITY.md`.
+- `api/coach/ai-run.js` es la única puerta a los proveedores para Coach, IA del entrenador y escaneos; `api/coach/ai-generate.js` unifica generar → validar → puerta de protocolo → reparar; `api/lib/ai-vision.js` es el motor de los escaneos; `api/lib/measurements-consensus.js` y `routine-validate.js` son las comprobaciones deterministas.
+- Escaneos: `POST /api/scan/start|status|cancel` (trabajos en memoria, la foto no toca disco); los endpoints síncronos antiguos siguen para versiones instaladas. El consentimiento `external-ai-scan-v1` se valida en el servidor antes de leer nada.
+- Trabajos del entrenador en `data/trainer-ai-jobs.json`; los del Coach guardan la petición y se reanudan una vez tras un reinicio.
+- Límites: el respaldo es otro modelo del MISMO proveedor (`fallbackModel`, vacío por defecto, sin interfaz de administración todavía); no hay conmutación entre proveedores porque cada flujo guarda una sola credencial.
 ## Checkpoint autoritativo — Training seguro para integración futura con Platform (2026-10-15)
 
 Este bloque es la referencia vigente y supersede los checkpoints de producción anteriores que permanecen abajo como historial.

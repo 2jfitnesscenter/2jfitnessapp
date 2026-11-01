@@ -128,6 +128,7 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
         provider: cfg.provider,
         providers: Object.entries(cfgStore.PROVIDERS).map(([id, p]) => ({ id, label: p.label, runtime: p.runtime, setupToken: !!p.setupToken, deviceLogin: !!p.deviceLogin, apiKey: !!p.apiKeyEnv })),
         model: cfg.model,
+        fallbackModel: cfg.fallbackModel || null,
         caps: cfg.caps,
         runtime: { ok: !!check.ok, version: check.version || null, error: check.error || null },
         auth: await oauth.liveAuthStatus(),
@@ -151,6 +152,7 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
         patch.provider = body.provider;
       }
       if (body.model !== undefined) patch.model = body.model ? String(body.model).slice(0, 80) : null;
+      if (body.fallbackModel !== undefined) patch.fallbackModel = body.fallbackModel ? String(body.fallbackModel).replace(/[^a-zA-Z0-9._:-]/g, '').slice(0, 80) || null : null;
       if (body.caps) {
         patch.caps = {
           perProfileDaily: Math.max(0, Math.min(200, +body.caps.perProfileDaily || 0)),
