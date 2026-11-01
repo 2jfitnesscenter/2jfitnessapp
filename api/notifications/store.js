@@ -2,16 +2,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { isJsonRecord, readJsonStore } from '../lib/json-store.js';
 
 const DATA = process.env.DATA_DIR || '/data';
 const FILE = path.join(DATA, 'notifications.json');
-const state = { items: [], privacy: {}, preferences: {} };
-try {
-  const disk = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-  state.items = Array.isArray(disk.items) ? disk.items : [];
-  state.privacy = disk.privacy && typeof disk.privacy === 'object' ? disk.privacy : {};
-  state.preferences = disk.preferences && typeof disk.preferences === 'object' ? disk.preferences : {};
-} catch { /* first boot */ }
+const disk = readJsonStore(FILE, {
+  initial: { items: [], privacy: {}, preferences: {} },
+  validate: value => isJsonRecord(value) &&
+    (value.items === undefined || Array.isArray(value.items)) &&
+    (value.privacy === undefined || isJsonRecord(value.privacy)) &&
+    (value.preferences === undefined || isJsonRecord(value.preferences))
+});
+const state = { items: disk.items || [], privacy: disk.privacy || {}, preferences: disk.preferences || {} };
 
 function save() {
   fs.mkdirSync(DATA, { recursive: true });
