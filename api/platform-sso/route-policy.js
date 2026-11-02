@@ -149,15 +149,31 @@ const WITHDRAWAL = [
   /^POST \/api\/friends\/(block|unblock|remove|cancel|decline)$/, /^POST \/api\/push\/unsubscribe$/, /^POST \/api\/notifications\/read(-all)?$/,
 ];
 
+/**
+ * A Home session (2j_member) is member-level and narrower than sso: it reaches only member/gated/public routes that sso may reach, plus these two
+ * read-only identity routes (who am I, the Coach disclosure). Every other identity, passkey, staff, destructive or kiosk route stays closed to it.
+ */
+const HOME_IDENTITY_READS = new Set(['GET /api/me', 'GET /api/coach/disclosure']);
+
+/** Routes where a browser holding only a Home cookie must be treated as ANONYMOUS (sign in with a passkey, kiosk): see gate(). */
+const HOME_ANONYMOUS_PREFIXES = ['/api/login', '/api/register', '/api/recover', '/api/link/', '/api/me/step-up', '/api/shared-staff/'];
+
+function withHome(key, policy) {
+  const path = key.slice(key.indexOf(' ') + 1);
+  const homeAnonymous = policy.kind === 'kiosk' || HOME_ANONYMOUS_PREFIXES.some(prefix => path.startsWith(prefix));
+  const homeAllowed = !homeAnonymous && policy.ssoAllowed === true && (['member', 'gated', 'public'].includes(policy.kind) || HOME_IDENTITY_READS.has(key));
+  return { ...policy, homeAllowed, ...(homeAnonymous ? { homeAnonymous: true } : {}) };
+}
+
 export function classifyRoute(key) {
   const exact = EXACT.get(key);
-  if (exact) return exact;
+  if (exact) return withHome(key, exact);
   const path = key.slice(key.indexOf(' ') + 1);
   for (const [prefix, policy] of PREFIX) {
     if (!path.startsWith(prefix)) continue;
-    return policy.kind === 'member' && WITHDRAWAL.some(rule => rule.test(key)) ? { ...policy, blockedOk: true } : policy;
+    return withHome(key, policy.kind === 'member' && WITHDRAWAL.some(rule => rule.test(key)) ? { ...policy, blockedOk: true } : policy);
   }
-  return { kind: 'unclassified', ssoAllowed: false };
+  return { kind: 'unclassified', ssoAllowed: false, homeAllowed: false };
 }
 
 export const routePolicyForTests = Object.freeze({ exactKeys: [...EXACT.keys()], prefixes: PREFIX.map(([prefix]) => prefix) });

@@ -132,3 +132,28 @@ test('refusesStrongAuth refuses home and sso, and pin without recent strong conf
   assert.equal(refusesStrongAuth({ authLevel: 'pin', strongUntil: Date.now() + 60_000 }), false);
   assert.equal(refusesStrongAuth({ authLevel: 'passkey' }), false);
 });
+
+test('R1: pre-session routes treat a home session as anonymous (never passkey_required)', async () => {
+  const c = `2j_member=${cookieFor('plain', users.plain)}`;
+  const options = await fetch(server.base + '/api/login/options', { method: 'POST', headers: { cookie: c, 'content-type': 'application/json' }, body: '{}' });
+  assert.notEqual(options.status, 403);
+  const body = await options.json().catch(() => ({}));
+  assert.notEqual(body.code, 'passkey_required');
+  for (const route of ['/api/bunker/session', '/api/bunker/board', '/api/shared-staff/x']) {
+    const r = await get(server, route, c);
+    assert.notEqual(r.json?.code, 'passkey_required', route);
+  }
+});
+
+test('R1: a home session on a passkey-only route is still refused', async () => {
+  const c = `2j_member=${cookieFor('plain', users.plain)}`;
+  const r = await get(server, '/api/me/passkeys', c);
+  assert.equal(r.status, 403);
+  assert.equal(r.json.code, 'passkey_required');
+});
+
+test('R3: a gymsid-less home session reaches member routes; invalid gymsid stays anonymous', async () => {
+  const c = cookieFor('plain', users.plain);
+  assert.equal((await get(server, '/api/me', `2j_member=${c}`)).status, 200);
+  assert.equal((await get(server, '/api/me', `gymsid=bogus.sig; 2j_member=${c}`)).status, 401);
+});

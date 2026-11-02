@@ -102,11 +102,14 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     if (key === 'GET /api/platform/v1/sso/start' || key === 'POST /api/platform/v1/sso/redeem' || key === 'POST /api/platform/v1/sso/confirm') return true;   // how a session is (re)established; each validates everything itself
     if (!req.headers.cookie || !(req.headers.cookie.includes('gymsid=') || req.homeSession)) return true;
     const policy = classifyRoute(key);
+    // Pre-session (login, register, recover, link, step-up) and kiosk routes treat a Home-only browser as anonymous, so it can still sign in with a passkey.
+    if (policy.homeAnonymous && req.homeSession) { delete req.homeSession; if (!req.headers.cookie.includes('gymsid=')) return true; }   // a gymsid session (if any) is gated as before
     const session = readSession(req);
     if (!session) return true;                                  // the handler answers 401 / public
     const isSso = session.authLevel === 'sso';
-    // A Home session (2j_member) is member-level like sso: it only reaches routes that allow it.
-    if ((isSso || session.authLevel === 'home') && !policy.ssoAllowed) { deny(res, 'passkey_required'); return false; }
+    const isHome = session.authLevel === 'home';
+    // A Home session (2j_member) only reaches routes marked homeAllowed (narrower than sso); sso keeps ssoAllowed.
+    if ((isSso && !policy.ssoAllowed) || (isHome && !policy.homeAllowed)) { deny(res, 'passkey_required'); return false; }
     const mode = userMode(session);
     if (mode === 'legacy') return true;                         // no Platform check, no change of behaviour
     const interactive = policy.kind === 'gated' || (policy.kind === 'member' && !policy.blockedOk && !(policy.blockedReadOk && ['GET', 'HEAD'].includes(req.method)));
