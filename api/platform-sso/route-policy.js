@@ -73,6 +73,9 @@ const EXACT = new Map([
   ['GET /api/platform/v1/sso/start', E('public', { ssoAllowed: true })],      // begins the browser-bound flow: sets the binding cookie and sends the browser to Home
   ['POST /api/platform/v1/sso/redeem', E('public', { ssoAllowed: true })],
   ['POST /api/platform/v1/sso/confirm', E('public', { ssoAllowed: true })],   // explicit confirmation of an account switch (H3); exempt like redeem   // exempt from the gate: a new code must work whatever session the browser holds
+  // Server-to-server (Platform -> Bunker), 2J-SERVICE-AUTH-V1 with the `platform` caller; no session of any kind reaches them.
+  ['POST /api/internal/platform/v2/bunker-account/email', E('public')],
+  ['POST /api/internal/platform/v2/bunker-account/by-email', E('public')],
   ['GET /api/coach/disclosure', E('identity', { ssoAllowed: true })],
   ['POST /api/coach/forget', E('identity')],   // erasing Coach data / withdrawing consent is a right, never gated by a fee (destructive: passkey-only)
   ['GET /api/health', E('public', { ssoAllowed: true })],

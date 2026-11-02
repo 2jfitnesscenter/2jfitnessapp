@@ -81,6 +81,7 @@ import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 import { createPlatformProofStore } from './platform-proof/store.js';
 import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
+import { createBunkerAccountRoutes, parseInternalServiceKeys, emailFields, normalizeEmail, setProfileEmail } from './platform-sso/bunker-account.js';
 import { createPlatformIntegration, parsePlatformIntegrationEnv, gateFailureMayProceed } from './platform-sso/index.js';
 import { createPlatformLinkRoutes } from './platform-sso/link.js';
 import { resolveHomeSession } from './platform-sso/home-session.js';
@@ -126,6 +127,8 @@ const PLATFORM_LINK_ISSUERS = parseIssuers(process.env.PLATFORM_LINK_ISSUERS);
     /^(0|false)$/i.test(process.env.ADMIN_PROMOTION_STEP_UP || '')
   );
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
+// Caller-labelled keys for the internal Platform -> Bunker account lookups (caller `platform` passes; `home` and `bunker` are parsed but refused).
+const PLATFORM_INTERNAL_SERVICE_KEYS = parseInternalServiceKeys(process.env.PLATFORM_INTERNAL_SERVICE_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
 // internet don't want the same number. Only affects cookies minted from now on — the expiry is
@@ -249,6 +252,11 @@ function generateUsername(name) {
 // One-time backfill for accounts created before usernames existed.
 if (db.users.some(u => !u.username)) {
   db.users.forEach(u => { if (!u.username) u.username = generateUsername(u.name); });
+  saveDb();
+}
+// One-time backfill: every account carries an e-mail (null when none) and a verification flag (only Platform's signed sync ever sets it true).
+if (db.users.some(u => !('email' in u) || typeof u.emailVerified !== 'boolean')) {
+  db.users.forEach(u => { if (!('email' in u)) u.email = null; if (typeof u.emailVerified !== 'boolean') u.emailVerified = false; });
   saveDb();
 }
 // Gym-wide exercise blacklist — ids the owner has hidden from every member's search/picker
@@ -1121,9 +1129,11 @@ const platformLinkRoutes = createPlatformLinkRoutes({
   db, saveDb, secEvent, json, store: platformProofStore, serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
   revokeSsoSessions: platformIntegration.revokeSsoSessions, applySignal: platformIntegration.applySignal, generateUsername,
 });
+const bunkerAccountRoutes = createBunkerAccountRoutes({ json, db, saveDb, store: platformProofStore, keys: PLATFORM_INTERNAL_SERVICE_KEYS, secEvent });
 const routes = {
   ...platformIntegration.routes,
   ...platformLinkRoutes,
+  ...bunkerAccountRoutes,
   ...assistedLink.routes,
   ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
   ...coachFollowUpRoutes(coachDeps),
@@ -1206,10 +1216,20 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
+    // The profile e-mail rides on this existing profile route: a changed address is stored unverified (only Platform's signed sync verifies; the client can never send the flag).
+    const clearsEmail = body.email === null || body.email === '';
+    if (body.email !== undefined && !clearsEmail && normalizeEmail(body.email) === null) return json(res, 400, { error: 'correo no válido' });
+    const applyEmail = () => { if (clearsEmail) { user.email = null; user.emailVerified = false; } else setProfileEmail(user, body.email); };
+    if (body.email !== undefined && body.username === undefined) {
+      applyEmail();
+      saveDb();
+      return json(res, 200, { email: user.email, emailVerified: user.emailVerified === true });
+    }
     const username = String(body.username || '').trim().toLowerCase();
     if (!/^[a-z0-9_]{3,20}$/.test(username)) return json(res, 400, { error: 'usa 3–20 letras minúsculas, números o guiones bajos' });
     if (db.users.some(u => u.id !== user.id && u.username === username)) return json(res, 409, { error: 'ese nombre de usuario ya está en uso' });
     user.username = username;
+    if (body.email !== undefined) applyEmail();
     saveDb();
     json(res, 200, { username });
   },
@@ -1245,6 +1265,9 @@ const routes = {
     const name = String(body.name || '').trim().slice(0, 60);
     if (!name) return json(res, 400, { error: 'se requiere un nombre' });
     const code = String(body.code || '').trim().toUpperCase();
+    // Optional e-mail: validated now, stored (unverified) when the account is created.
+    const hasEmail = body.email !== undefined && body.email !== null && body.email !== '';
+    if (hasEmail && normalizeEmail(body.email) === null) return json(res, 400, { error: 'correo no válido' });
     if (INVITE_ONLY && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked))
       return json(res, 403, { error: 'se necesita un código de invitación válido' });
     const uid = crypto.randomBytes(12).toString('base64url');
@@ -1255,7 +1278,7 @@ const routes = {
       authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' },
       excludeCredentials: []
     });
-    const cid = putChallenge({ challenge: options.challenge, name, uid, code });
+    const cid = putChallenge({ challenge: options.challenge, name, uid, code, ...(hasEmail ? { email: normalizeEmail(body.email) } : {}) });
     json(res, 200, { cid, options });
   },
 
@@ -1282,7 +1305,7 @@ const routes = {
       invite = db.invites.find(i => i.code === c.code && !i.usedBy && !i.revoked);
       if (!invite) return json(res, 403, { error: 'el código de invitación ya no es válido — pide uno nuevo' });
     }
-    const user = { id: c.uid, name: c.name, created: new Date().toISOString(), username: generateUsername(c.name) };
+    const user = { id: c.uid, name: c.name, created: new Date().toISOString(), username: generateUsername(c.name), ...emailFields(c.email) };
     if (invite) { user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created; }
     db.users.push(user);
     db.creds.push({
