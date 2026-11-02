@@ -45,11 +45,12 @@ const enforcementRequestSchema = z.object({ userId: z.string().min(1).max(200), 
 
 export function parsePlatformIntegrationEnv(env) {
   const secret = Buffer.from(String(env.PLATFORM_API_KEY_SECRET || ''), 'base64url');
+  const allowInternalHttp = env.PLATFORM_ALLOW_INTERNAL_HTTP === 'true';   // explicit opt-in for a private network hop (compose service names); never implied
   let baseUrl = null;
   try {
     const url = new URL(String(env.PLATFORM_API_BASE_URL || ''));
     const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
-    if (!url.username && !url.password && (url.protocol === 'https:' || (url.protocol === 'http:' && loopback))) baseUrl = url.origin;
+    if (!url.username && !url.password && (url.protocol === 'https:' || (url.protocol === 'http:' && (loopback || allowInternalHttp)))) baseUrl = url.origin;
   } catch { /* not configured */ }
   const keyId = /^[A-Za-z0-9._-]{1,80}$/.test(String(env.PLATFORM_API_KEY_ID || '')) ? String(env.PLATFORM_API_KEY_ID) : null;
   const configured = Boolean(baseUrl && keyId && secret.length >= 32 && secret.toString('base64url') === env.PLATFORM_API_KEY_SECRET);
@@ -57,7 +58,7 @@ export function parsePlatformIntegrationEnv(env) {
   try {
     const url = new URL(String(env.PLATFORM_HOME_URL || ''));
     const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
-    if (!url.username && !url.password && !url.search && !url.hash && url.pathname === '/' && (url.protocol === 'https:' || (url.protocol === 'http:' && loopback))) homeUrl = url.origin;
+    if (!url.username && !url.password && !url.search && !url.hash && url.pathname === '/' && (url.protocol === 'https:' || (url.protocol === 'http:' && (loopback || allowInternalHttp)))) homeUrl = url.origin;
   } catch { /* not configured */ }
   const contract = env.PLATFORM_CAPABILITIES_CONTRACT === '2J-CAPABILITIES-V2.1' ? '2J-CAPABILITIES-V2.1' : '2J-CAPABILITIES-V2';          // V2 unless the operator opts in
   const breakerBase = Number(env.PLATFORM_BREAKER_BASE_MS);
