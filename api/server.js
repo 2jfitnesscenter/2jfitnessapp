@@ -84,6 +84,7 @@ import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
 import { createPlatformIntegration, parsePlatformIntegrationEnv, gateFailureMayProceed } from './platform-sso/index.js';
 import { createPlatformLinkRoutes } from './platform-sso/link.js';
 import { resolveHomeSession } from './platform-sso/home-session.js';
+import { isAdminUser, refusesStrongAuth } from './lib/session-level.js';
 import { createAssistedLink, parseIssuers, STEP_UP_PURPOSE as ASSIST_STEP_UP } from './platform-sso/assisted-link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
@@ -200,7 +201,7 @@ db.machineAliases = db.machineAliases || [];
 // { key, exerciseId, source, externalName, updatedAt }.
 db.importExerciseAliases = db.importExerciseAliases || [];
 // A Platform SSO session is member-level only: readSession gives it admin:false / trainer:false claims and refuses accounts listed in ADMIN_UIDS.
-const isAdmin = user => !!user && user.authLevel !== 'home' && (user.admin === true || ADMIN_UIDS.includes(user.id));   // a Home session never grants staff, even for ADMIN_UIDS accounts
+const isAdmin = user => isAdminUser(user, ADMIN_UIDS);   // a Home session never grants staff, even for ADMIN_UIDS accounts
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
 // has to grant themselves a separate flag to use the trainer-only endpoints below.
@@ -582,8 +583,8 @@ function homeSessionUser(req) {
 }
 function readSession(req) {
   const tok = requestCookies(req).gymsid;
-  if (!tok) return homeSessionUser(req);        // gymsid always wins; a present-but-invalid gymsid is never rescued by Home
-
+  // Home rescues only a request with no gymsid cookie at all: a present gymsid (even empty or invalid) is never rescued.
+  if (!tok) return 'gymsid' in requestCookies(req) ? null : homeSessionUser(req);
   const payload = verifySig(tok);
   if (!payload) return null;
   const [uid, exp, ver, authLevelRaw, field5, field6, field7, field8] = payload.split(':');
@@ -851,7 +852,7 @@ function requireSharedDevice(req, res) {
 function requireStrongAuth(req, res) {
   const user = readSession(req);
   if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
-  if (user.authLevel === 'sso' || user.authLevel === 'home' || (user.authLevel === 'pin' && !(user.strongUntil > Date.now()))) {
+  if (refusesStrongAuth(user)) {
     json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'passkey_required' }); return null;
   }
   return user;
@@ -3651,7 +3652,7 @@ startCadence({ users: () => db.users, userNow });
 const homeSessionCache = new Map();
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  // Home session (cookie 2j_member), resolved asynchronously before the dispatcher; readSession stays synchronous and does not use it yet. Never throws.
+  // Home session (cookie 2j_member), resolved asynchronously before the dispatcher; readSession stays synchronous and reads it (homeSessionUser) only when the request has no gymsid cookie. Never throws.
   if (PLATFORM_INTEGRATION_CONFIG.client && req.headers.cookie) req.homeSession = await resolveHomeSession(req.headers.cookie, { config: PLATFORM_INTEGRATION_CONFIG.client, cache: homeSessionCache });
   const key = req.method + ' ' + url.pathname;
   const handler = routes[key];

@@ -109,3 +109,26 @@ test('a present but invalid gymsid is never rescued by 2j_member', async () => {
   const c = cookieFor('plain', users.plain);
   assert.equal((await get(server, '/api/me', `gymsid=bogus.sig; 2j_member=${c}`)).status, 401);
 });
+
+test('a present but empty gymsid is not rescued by 2j_member either', async () => {
+  const c = cookieFor('plain', users.plain);
+  assert.equal((await get(server, '/api/me', `gymsid=; 2j_member=${c}`)).status, 401);
+});
+
+test('isAdminUser is false for a home session even for ADMIN_UIDS or flagged accounts', async () => {
+  const { isAdminUser } = await import('../lib/session-level.js');
+  assert.equal(isAdminUser({ id: 'a', authLevel: 'home', admin: false }, ['a']), false);
+  assert.equal(isAdminUser({ id: 'a', authLevel: 'home', admin: true }, []), false);
+  assert.equal(isAdminUser({ id: 'a', authLevel: 'passkey' }, ['a']), true);
+  assert.equal(isAdminUser({ id: 'b', authLevel: 'passkey', admin: true }, []), true);
+  assert.equal(isAdminUser(null, ['a']), false);
+});
+
+test('refusesStrongAuth refuses home and sso, and pin without recent strong confirmation', async () => {
+  const { refusesStrongAuth } = await import('../lib/session-level.js');
+  assert.equal(refusesStrongAuth({ authLevel: 'home' }), true);
+  assert.equal(refusesStrongAuth({ authLevel: 'sso' }), true);
+  assert.equal(refusesStrongAuth({ authLevel: 'pin', strongUntil: 0 }), true);
+  assert.equal(refusesStrongAuth({ authLevel: 'pin', strongUntil: Date.now() + 60_000 }), false);
+  assert.equal(refusesStrongAuth({ authLevel: 'passkey' }), false);
+});
