@@ -244,7 +244,9 @@ fs.writeFileSync(path.join(DIR, 'db.json'), JSON.stringify({
   users: [
     { id: 'old-user', name: 'Old', username: 'olduser' },   // an account from before this task: no e-mail fields at all
     { id: 'mailer', name: 'Mailer', username: 'mailer', email: 'mailer@example.com', emailVerified: true },
+    { id: 'ssoer', name: 'Ssoer', username: 'ssoer' },
   ], creds: [], subs: [], invites: [], recoveries: [],
+  deviceSessions: [{ id: 'sso-1', userId: 'ssoer', via: 'sso', expiresAt: Date.now() + 86_400_000, lastUsedAt: new Date().toISOString() }],
 }, null, 2));
 // Started lazily by the first HTTP test (a top-level await here would let the runner finish the earlier tests and kill the server first).
 let child = null;
@@ -256,11 +258,13 @@ const started = (async () => {
 started.catch(() => {});
 after(() => child?.kill());
 const cookie = uid => { const payload = `${uid}:${Date.now() + 86_400_000}:0`; return `gymsid=${payload}.${crypto.createHmac('sha256', SECRET).update(payload).digest('base64url')}`; };
-const post = async (route, { uid, body, caller } = {}) => {
+const ssoCookie = () => { const payload = `ssoer:${Date.now() + 86_400_000}:0:sso:${Date.now()}:sso-1`; return `gymsid=${payload}.${crypto.createHmac('sha256', SECRET).update(payload).digest('base64url')}`; };
+const post = async (route, { uid, body, caller, rawCookie } = {}) => {
   await started;
   const raw = Buffer.from(JSON.stringify(body ?? {}));
   const headers = { 'content-type': 'application/json' };
   if (uid) headers.cookie = cookie(uid);
+  if (rawCookie) headers.cookie = rawCookie;
   if (caller) {
     const timestamp = new Date().toISOString(), requestId = randomUUID();
     const { signature } = signPlatformServiceRequest({ keyId: KEY_IDS[caller], secret: SECRETS[caller], timestamp, requestId, method: 'POST', path: route, body: raw });
@@ -298,6 +302,20 @@ test('profile edit: the client can never mark the e-mail verified, bad e-mails a
   assert.equal((await post('/api/me/username', { uid: 'old-user', body: { email: 'garbage' } })).status, 400);
   assert.equal(dbUser('old-user').email, 'old@example.com', 'a rejected e-mail leaves the stored one untouched');
   assert.equal((await post('/api/me/username', { body: { email: 'a@b.co' } })).status, 401);
+});
+
+test('C1: changing the e-mail needs a strong (passkey) session: an sso session gets 403 passkey_required, username-only stays allowed, a passkey session can', async () => {
+  const denied = await post('/api/me/username', { rawCookie: ssoCookie(), body: { email: 'attacker@example.com' } });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.json.code, 'passkey_required');
+  assert.equal(dbUser('ssoer').email ?? null, null, 'nothing was stored');
+  const both = await post('/api/me/username', { rawCookie: ssoCookie(), body: { username: 'ssoer2', email: 'attacker@example.com' } });
+  assert.equal(both.status, 403);
+  assert.equal(dbUser('ssoer').username, 'ssoer', 'a refused change stores nothing, not even the username');
+  const nameOnly = await post('/api/me/username', { rawCookie: ssoCookie(), body: { username: 'ssoer3' } });
+  assert.equal(nameOnly.status, 200);
+  const ok = await post('/api/me/username', { uid: 'old-user', body: { email: 'strong@example.com' } });
+  assert.equal(ok.status, 200);
 });
 
 test('profile edit: username-only calls behave exactly as before', async () => {

@@ -1216,6 +1216,8 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
+    // Changing the account e-mail needs a strong (passkey) session: under the e-mail link a briefly held sso/pin/home session must not be able to set an address and get linked to its owner. Username-only edits keep their level.
+    if (body.email !== undefined && refusesStrongAuth(user)) return json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'passkey_required' });
     // The profile e-mail rides on this existing profile route: a changed address is stored unverified (only Platform's signed sync verifies; the client can never send the flag).
     const clearsEmail = body.email === null || body.email === '';
     if (body.email !== undefined && !clearsEmail && normalizeEmail(body.email) === null) return json(res, 400, { error: 'correo no válido' });
