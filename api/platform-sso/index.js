@@ -128,6 +128,8 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     const ok = policy.kind === 'gated' ? capabilities.allows(view, policy.capabilities) : Boolean(view) && view.level !== 'blocked';
     if (!ok) {
       const blocked = !view || view.level === 'blocked';
+      // Home session, enforced, and Platform could not be asked (outage, no verdict): say so instead of claiming the capability is missing. A known suspension still reads as blocked.
+      if (isHome && (!view || (view.degraded && view.level !== 'blocked'))) { deny(res, 'platform_unavailable', { reasonCode: view?.reasonCode ?? 'UNVERIFIED' }); return false; }
       if (blocked && (isSso || policy.kind === 'member')) deny(res, 'platform_access_blocked', { reasonCode: view?.reasonCode ?? 'UNVERIFIED' });
       else deny(res, 'capability_required', { capabilities: policy.capabilities, reasonCode: view?.reasonCode ?? 'UNVERIFIED' });
       return false;
