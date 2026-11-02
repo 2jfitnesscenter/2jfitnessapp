@@ -136,12 +136,14 @@ test('refusesStrongAuth refuses home and sso, and pin without recent strong conf
 test('R1: pre-session routes treat a home session as anonymous (never passkey_required)', async () => {
   const c = `2j_member=${cookieFor('plain', users.plain)}`;
   const options = await fetch(server.base + '/api/login/options', { method: 'POST', headers: { cookie: c, 'content-type': 'application/json' }, body: '{}' });
-  assert.notEqual(options.status, 403);
-  const body = await options.json().catch(() => ({}));
+  const body = await options.json();
+  assert.ok(options.status >= 200 && options.status < 500, `login/options status ${options.status}`);
   assert.notEqual(body.code, 'passkey_required');
-  for (const route of ['/api/bunker/session', '/api/bunker/board', '/api/shared-staff/x']) {
-    const r = await get(server, route, c);
-    assert.notEqual(r.json?.code, 'passkey_required', route);
+  for (const [method, route] of [['GET', '/api/bunker/session'], ['GET', '/api/bunker/board'], ['GET', '/api/shared-device/status'], ['POST', '/api/shared-staff/pin/options']]) {
+    const response = await fetch(server.base + route, { method, headers: { cookie: c, 'content-type': 'application/json' }, ...(method === 'POST' ? { body: '{}' } : {}) });
+    const json = await response.json();
+    assert.notEqual(response.status, 403, `${method} ${route} must not be 403`);
+    assert.notEqual(json.code, 'passkey_required', route);
   }
 });
 

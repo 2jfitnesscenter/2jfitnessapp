@@ -156,7 +156,7 @@ const WITHDRAWAL = [
 const HOME_IDENTITY_READS = new Set(['GET /api/me', 'GET /api/coach/disclosure']);
 
 /** Routes where a browser holding only a Home cookie must be treated as ANONYMOUS (sign in with a passkey, kiosk): see gate(). */
-const HOME_ANONYMOUS_PREFIXES = ['/api/login', '/api/register', '/api/recover', '/api/link/', '/api/me/step-up', '/api/shared-staff/'];
+const HOME_ANONYMOUS_PREFIXES = ['/api/login', '/api/register', '/api/recover', '/api/link/', '/api/me/step-up', '/api/shared-staff/', '/api/shared-device/'];
 
 function withHome(key, policy) {
   const path = key.slice(key.indexOf(' ') + 1);

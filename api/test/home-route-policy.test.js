@@ -47,7 +47,7 @@ test('ssoAllowed is unchanged for the known routes', () => {
 
 test('pre-session and kiosk routes are marked homeAnonymous; member routes are not', () => {
   for (const key of ['POST /api/login/options', 'POST /api/login/verify', 'POST /api/register/options', 'POST /api/recover/x', 'GET /api/link/x', 'POST /api/me/step-up/options',
-    'POST /api/bunker/checkin', 'GET /api/bunker/session', 'GET /api/bunker/board', 'POST /api/bunker/active', 'GET /api/shared-staff/x']) {
+    'POST /api/bunker/checkin', 'GET /api/bunker/session', 'GET /api/bunker/board', 'POST /api/bunker/active', 'GET /api/shared-staff/x', 'GET /api/shared-device/status', 'POST /api/shared-staff/pin/options']) {
     assert.equal(classifyRoute(key).homeAnonymous, true, key);
   }
   for (const key of ['GET /api/data', 'GET /api/me', 'GET /api/social/feed', 'GET /api/me/passkeys', 'GET /api/admin/users', 'GET /api/bunker/pin']) {
