@@ -200,7 +200,7 @@ db.machineAliases = db.machineAliases || [];
 // { key, exerciseId, source, externalName, updatedAt }.
 db.importExerciseAliases = db.importExerciseAliases || [];
 // A Platform SSO session is member-level only: readSession gives it admin:false / trainer:false claims and refuses accounts listed in ADMIN_UIDS.
-const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
+const isAdmin = user => !!user && user.authLevel !== 'home' && (user.admin === true || ADMIN_UIDS.includes(user.id));   // a Home session never grants staff, even for ADMIN_UIDS accounts
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
 // has to grant themselves a separate flag to use the trainer-only endpoints below.
@@ -568,9 +568,22 @@ function deviceForRequest(req) {
   return db.sharedDevices.find(d => d.active && !d.revokedAt && d.tokenHash === hash) || null;
 }
 const pinLimiter = createPinLimiter();
+// Home session level: the Home cookie (2j_member), already resolved by Platform before the dispatcher (req.homeSession). Member-level only.
+function homeSessionUser(req) {
+  const home = req.homeSession;
+  if (!home || !home.uid || !(home.expiresAt > Date.now())) return null;
+  const user = db.users.find(u => u.id === home.uid) || null;
+  if (!user || user.disabled) return null;
+  const claims = { authLevel: 'home', issuedAt: 0, admin: false, trainer: false, personId: home.personId };
+  return new Proxy(user, {
+    get(target, key, receiver) { if (Object.prototype.hasOwnProperty.call(claims, key)) return claims[key]; return Reflect.get(target, key, receiver); },
+    set(target, key, value, receiver) { return Reflect.set(target, key, value, receiver); }
+  });
+}
 function readSession(req) {
   const tok = requestCookies(req).gymsid;
-  if (!tok) return null;
+  if (!tok) return homeSessionUser(req);        // gymsid always wins; a present-but-invalid gymsid is never rescued by Home
+
   const payload = verifySig(tok);
   if (!payload) return null;
   const [uid, exp, ver, authLevelRaw, field5, field6, field7, field8] = payload.split(':');
@@ -838,7 +851,7 @@ function requireSharedDevice(req, res) {
 function requireStrongAuth(req, res) {
   const user = readSession(req);
   if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
-  if (user.authLevel === 'sso' || (user.authLevel === 'pin' && !(user.strongUntil > Date.now()))) {
+  if (user.authLevel === 'sso' || user.authLevel === 'home' || (user.authLevel === 'pin' && !(user.strongUntil > Date.now()))) {
     json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'passkey_required' }); return null;
   }
   return user;

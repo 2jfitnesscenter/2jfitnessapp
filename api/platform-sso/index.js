@@ -100,12 +100,13 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
    */
   async function gate(req, res, key) {
     if (key === 'GET /api/platform/v1/sso/start' || key === 'POST /api/platform/v1/sso/redeem' || key === 'POST /api/platform/v1/sso/confirm') return true;   // how a session is (re)established; each validates everything itself
-    if (!req.headers.cookie || !req.headers.cookie.includes('gymsid=')) return true;
+    if (!req.headers.cookie || !(req.headers.cookie.includes('gymsid=') || req.homeSession)) return true;
     const policy = classifyRoute(key);
     const session = readSession(req);
     if (!session) return true;                                  // the handler answers 401 / public
     const isSso = session.authLevel === 'sso';
-    if (isSso && !policy.ssoAllowed) { deny(res, 'passkey_required'); return false; }
+    // A Home session (2j_member) is member-level like sso: it only reaches routes that allow it.
+    if ((isSso || session.authLevel === 'home') && !policy.ssoAllowed) { deny(res, 'passkey_required'); return false; }
     const mode = userMode(session);
     if (mode === 'legacy') return true;                         // no Platform check, no change of behaviour
     const interactive = policy.kind === 'gated' || (policy.kind === 'member' && !policy.blockedOk && !(policy.blockedReadOk && ['GET', 'HEAD'].includes(req.method)));
