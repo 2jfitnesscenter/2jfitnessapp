@@ -22,6 +22,10 @@ RUN npm run build
 RUN find dist -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.svg' -o -name '*.html' \) -exec gzip -9 -k {} \;
 
 FROM nginx:alpine
-COPY web/nginx.conf /etc/nginx/conf.d/default.conf
+# Rendered at container start by the official nginx entrypoint (envsubst over /etc/nginx/templates/*.template ->
+# /etc/nginx/conf.d/default.conf). Only ${NAME} references to defined env vars are substituted; nginx's own $vars are untouched.
+# BUNKER_API_UPSTREAM is host:port of the backend for /api/. Default api:3000 = standalone compose; the 2J hub overrides it.
+ENV BUNKER_API_UPSTREAM=api:3000
+COPY web/nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 # exercise media (img/gif) is mounted at runtime from the media volume
