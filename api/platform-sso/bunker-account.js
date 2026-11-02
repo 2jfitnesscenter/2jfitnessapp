@@ -92,14 +92,14 @@ export function createBunkerAccountRoutes({ json, db, saveDb, store, keys, secEv
       try {
         const email = normalizeEmail(body.email);
         const user = db.users.find(candidate => candidate.id === body.uid && !candidate.disabled);
-        if (!user) { secEvent('platform_email_sync', { userId: body.uid, meta: { result: 'account_not_found' } }); return error(json, res, 404, 'account_not_found'); }
+        if (!user) { secEvent('platform_email_sync', { userId: body.uid, meta: { reason: 'account_not_found' } }); return error(json, res, 404, 'account_not_found'); }
         if (db.users.some(candidate => candidate.id !== user.id && !candidate.disabled && candidate.emailVerified === true && candidate.email === email)) {
-          secEvent('platform_email_sync', { userId: user.id, meta: { result: 'email_already_verified' } });
+          secEvent('platform_email_sync', { userId: user.id, meta: { reason: 'email_already_verified' } });
           return error(json, res, 409, 'email_already_verified');
         }
         user.email = email;
         user.emailVerified = true;
-        secEvent('platform_email_sync', { userId: user.id, meta: { result: 'ok' } });
+        secEvent('platform_email_sync', { userId: user.id, meta: { reason: 'ok' } });
         saveDb();
         return json(res, 200, { uid: user.id, emailVerified: true });
       } catch {

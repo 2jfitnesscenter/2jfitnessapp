@@ -318,3 +318,23 @@ test('editing the e-mail after Platform verified it drops the verified flag, so 
   assert.equal((await post(BUNKER_ACCOUNT_BY_EMAIL_PATH, { caller: 'platform', body: { email: 'verified@example.com' } })).status, 404);
   assert.equal((await post(BUNKER_ACCOUNT_BY_EMAIL_PATH, { caller: 'platform', body: { email: 'moved@example.com' } })).status, 404);
 });
+
+test('the REAL audit trail keeps the sync (uid + result code) and never the e-mail', async () => {
+  const { appendSecurityEvent } = await import('../lib/security-audit.js');
+  const f = fixture();
+  const real = { securityEvents: [] };
+  const routes = createBunkerAccountRoutes({
+    json: (res, status, body) => { res.statusCode = status; res.body = body; return res; },
+    db: f.db, saveDb() {}, store: createPlatformProofStore({ dataDir: fs.mkdtempSync(path.join(DIR, 'fx-')), now: Date.now }), keys: parseInternalServiceKeys(KEYS_ENV),
+    secEvent: (event, { userId = null, actorId = null, meta = null } = {}) => appendSecurityEvent(real, { event, userId, actorId, meta }),
+  });
+  const g = { routes };
+  await sync(g, { uid: 'u-a', email: 'audited@example.com' });
+  await sync(g, { uid: 'u-b', email: 'audited@example.com' });
+  assert.equal(real.securityEvents.length, 2);
+  assert.equal(real.securityEvents[0].event, 'platform_email_sync');
+  assert.equal(real.securityEvents[0].userId, 'u-a');
+  assert.equal(real.securityEvents[0].meta.reason, 'ok');
+  assert.equal(real.securityEvents[1].meta.reason, 'email_already_verified');
+  assert.ok(!JSON.stringify(real.securityEvents).includes('audited'), 'no e-mail in the trail');
+});
