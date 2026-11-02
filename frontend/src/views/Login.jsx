@@ -1,6 +1,7 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import LinkLoginSheet from '../components/LinkDevice.jsx'
+import RegisterEmailField, { registerMailInvalid } from '../components/RegisterEmailField.jsx'
 import { webauthnOK, passkeyLogin, passkeyRegister, passkeyRecover, api, BIO, sharedDeviceStatus, sharedStaffLogin } from '../lib/api.js'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
@@ -46,6 +47,7 @@ function RegisterSheet({ close }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [code, setCode] = useState('')
+  const [mailText, setMailText] = useState('')
   const [inviteOnly, setInviteOnly] = useState(false)
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
@@ -54,9 +56,10 @@ function RegisterSheet({ close }) {
     const fn = firstName.trim(), ln = lastName.trim()
     if (!fn || !ln) { useUI.getState().toast(t('Enter your first and last name')); return }
     if (inviteOnly && !code.trim()) { useUI.getState().toast(t('An invite code is required')); return }
+    if (registerMailInvalid(mailText)) { useUI.getState().toast(t('Enter a valid e-mail')); return }
     const n = fn + ' ' + ln
     try {
-      const u = await passkeyRegister(n, code.trim())
+      const u = await passkeyRegister(n, code.trim(), mailText)
       setUser(u)
       close()
       // Basic profile (sex/age/height/starting weight/priorities) is asked right after this, in
@@ -77,6 +80,7 @@ function RegisterSheet({ close }) {
       <input ref={ref} className="input" style={{ flex: 1 }} placeholder={t('First name')} maxLength={28} value={firstName} onChange={e => setFirstName(e.target.value)} />
       <input className="input" style={{ flex: 1 }} placeholder={t('Last name')} maxLength={28} value={lastName} onChange={e => setLastName(e.target.value)} />
     </div>
+    <RegisterEmailField value={mailText} onChange={setMailText} />
     {inviteOnly && <>
       <div style={{ height: 10 }} />
       <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}

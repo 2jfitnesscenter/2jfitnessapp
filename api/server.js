@@ -1187,7 +1187,7 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     json(res, 200, { user: {
       id: user.id, name: user.name, username: user.username || null, created: user.created || null,
-      avatar: user.avatar || null,
+      avatar: user.avatar || null, email: user.email || null, emailVerified: user.emailVerified === true,
       admin: isAdmin(user), trainer: isTrainer(user),
       strava: !!user.stravaAuth, whoop: !!user.whoopAuth, authLevel: user.authLevel
     } });

@@ -350,6 +350,17 @@ test('C1: changing the e-mail needs a strong (passkey) session: an sso session g
   assert.equal(ok.status, 200);
 });
 
+test('C3: GET /api/me shows the account its own e-mail and verification state (nothing else changes)', async () => {
+  await started;
+  const r = await fetch(base + '/api/me', { headers: { cookie: cookie('mailer') } });
+  const me = (await r.json()).user;
+  assert.equal(me.email, 'mailer2@example.com');
+  assert.equal(me.emailVerified, false);
+  const none = (await (await fetch(base + '/api/me', { headers: { cookie: cookie('ssoer') } })).json()).user;
+  assert.equal(none.email, null);
+  assert.equal(none.emailVerified, false);
+});
+
 test('profile edit: username-only calls behave exactly as before', async () => {
   const ok = await post('/api/me/username', { uid: 'old-user', body: { username: 'oldie' } });
   assert.equal(ok.status, 200);
