@@ -96,6 +96,38 @@ test('sync with a platform signature: 200 { uid, emailVerified: true }, stored n
   noEmailIn(res, 'ana@example.com');
 });
 
+test('C2: sync with personId activates the platform link (legacy mode kept); without personId the link is untouched; conflicts are 409 and write nothing', async () => {
+  const { linkActive, userMode } = await import('../platform-sso/index.js');
+  const person = randomUUID();
+  const f = fixture();
+  const ok = await sync(f, { uid: 'u-a', email: 'link@example.com', personId: person });
+  assert.equal(ok.res.statusCode, 200);
+  const user = f.db.users[0];
+  assert.equal(user.personId, person);
+  assert.equal(user.platformLink.state, 'active');
+  assert.equal(user.platformLink.personId, person);
+  assert.equal(user.platformLink.origin, 'email_verified');
+  assert.ok(user.platformLink.linkId && user.platformLink.ackId && user.platformLink.activatedAt);
+  assert.equal(linkActive(user), true);
+  assert.equal(userMode(user), 'legacy', 'the mode only changes through an explicit mode change');
+  // idempotent for the same person
+  const ackId = user.platformLink.ackId;
+  assert.equal((await sync(f, { uid: 'u-a', email: 'link@example.com', personId: person })).res.statusCode, 200);
+  assert.equal(user.platformLink.ackId, ackId);
+  // another person for the same account, or the same person on another account: 409, nothing written
+  assert.equal((await sync(f, { uid: 'u-a', email: 'other@example.com', personId: randomUUID() })).res.statusCode, 409);
+  assert.equal(user.email, 'link@example.com');
+  assert.equal((await sync(f, { uid: 'u-b', email: 'b@example.com', personId: person })).res.statusCode, 409);
+  assert.equal(f.db.users[1].email, null);
+  assert.equal(f.db.users[1].platformLink, undefined);
+  // no personId: behaves as before
+  const g = fixture();
+  assert.equal((await sync(g, { uid: 'u-a', email: 'plain@example.com' })).res.statusCode, 200);
+  assert.equal(g.db.users[0].platformLink, undefined);
+  assert.equal(g.db.users[0].personId, undefined);
+  assert.equal((await sync(g, { uid: 'u-a', email: 'plain@example.com', personId: 'not-a-uuid' })).res.statusCode, 400);
+});
+
 test('sync signed by a bunker or home key: 401 service_auth_rejected and nothing is written', async () => {
   for (const caller of ['bunker', 'home']) {
     const f = fixture();

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { z } from 'zod';
 import { readRawBody } from '../platform-proof/routes.js';
 import { verifyPlatformServiceRequest, SERVICE_BUNKER_ACCOUNT_EMAIL_PATH, SERVICE_BUNKER_ACCOUNT_BY_EMAIL_PATH } from '../platform-proof/service-auth.js';
@@ -60,7 +61,10 @@ export function parseInternalServiceKeys(raw) {
   return keys;
 }
 
-const syncSchema = z.object({ uid: z.string().min(1).max(200).refine(v => v.trim() === v && !/[\u0000-\u001f\u007f]/.test(v)), email: z.string().max(400).refine(v => normalizeEmail(v) !== null) }).strict();
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const occupies = link => !!link && (link.state === 'active' || link.state === 'pending');
+// personId is optional: when Platform sends it, the verified e-mail also activates the Platform link of the account (origin 'email_verified'); the enforcement mode is NOT touched.
+const syncSchema = z.object({ uid: z.string().min(1).max(200).refine(v => v.trim() === v && !/[\u0000-\u001f\u007f]/.test(v)), email: z.string().max(400).refine(v => normalizeEmail(v) !== null), personId: z.string().regex(UUID).optional() }).strict();
 const lookupSchema = z.object({ email: z.string().max(400).refine(v => normalizeEmail(v) !== null) }).strict();
 const error = (json, res, status, code) => json(res, status, { error: code });
 
@@ -97,8 +101,17 @@ export function createBunkerAccountRoutes({ json, db, saveDb, store, keys, secEv
           secEvent('platform_email_sync', { userId: user.id, meta: { reason: 'email_already_verified' } });
           return error(json, res, 409, 'email_already_verified');
         }
+        const sameLink = body.personId && user.platformLink?.state === 'active' && user.platformLink.personId === body.personId;
+        if (body.personId && !sameLink && (occupies(user.platformLink) || db.users.some(other => other.id !== user.id && occupies(other.platformLink) && other.platformLink.personId === body.personId))) {
+          secEvent('platform_email_sync', { userId: user.id, meta: { reason: 'link_conflict' } });
+          return error(json, res, 409, 'link_conflict');
+        }
         user.email = email;
         user.emailVerified = true;
+        if (body.personId && !sameLink) {
+          user.personId = body.personId;
+          user.platformLink = { personId: body.personId, state: 'active', origin: 'email_verified', linkId: crypto.randomUUID(), linkVersion: 1, ackId: crypto.randomUUID(), activatedAt: new Date(now()).toISOString() };
+        }
         secEvent('platform_email_sync', { userId: user.id, meta: { reason: 'ok' } });
         saveDb();
         return json(res, 200, { uid: user.id, emailVerified: true });
