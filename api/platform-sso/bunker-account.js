@@ -9,7 +9,7 @@ import { verifyPlatformServiceRequest, SERVICE_BUNKER_ACCOUNT_EMAIL_PATH, SERVIC
 //                       a new or changed e-mail is stored with emailVerified false.
 //
 //   POST /api/internal/platform/v2/bunker-account/email     { uid, email }  sets the e-mail and emailVerified true   -> 200 { uid, emailVerified: true } | 404 account_not_found | 409 email_already_verified
-//   POST /api/internal/platform/v2/bunker-account/by-email  { email }       finds the account by VERIFIED e-mail     -> 200 { uid } | 404 { error: 'no_account' } | 409 { error: 'ambiguous' }
+//   POST /api/internal/platform/v2/bunker-account/by-email  { email }       finds the account by STORED e-mail (verified or not) -> 200 { uid } | 404 { error: 'no_account' } | 409 { error: 'ambiguous' }
 //
 // Both are 2J-SERVICE-AUTH-V1 requests and only the `platform` caller passes (a `bunker` or `home` key gets 401 service_auth_rejected).
 // Keys come from PLATFORM_INTERNAL_SERVICE_KEYS: JSON { keyId: { caller: 'platform'|'home'|'bunker', secret: <base64url, >= 32 bytes> } }.
@@ -111,7 +111,7 @@ export function createBunkerAccountRoutes({ json, db, saveDb, store, keys, secEv
       const body = await authenticated(req, res, BUNKER_ACCOUNT_BY_EMAIL_PATH, lookupSchema);
       if (!body) return;
       const email = normalizeEmail(body.email);
-      const matches = db.users.filter(candidate => !candidate.disabled && candidate.emailVerified === true && candidate.email === email);
+      const matches = db.users.filter(candidate => !candidate.disabled && candidate.email === email);   // the STORED e-mail, verified or not (decision A)
       if (matches.length === 0) return error(json, res, 404, 'no_account');
       if (matches.length > 1) return error(json, res, 409, 'ambiguous');
       return json(res, 200, { uid: matches[0].id });

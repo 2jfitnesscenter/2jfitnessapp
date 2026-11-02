@@ -157,7 +157,7 @@ test('sync when the e-mail is already verified on ANOTHER account: 409 email_alr
   assert.equal((await sync(f, { uid: 'u-a', email: 'shared@example.com' })).res.statusCode, 200, 'idempotent for the owner');
 });
 
-test('sync: an UNVERIFIED copy of the same e-mail on another account does not block it', async () => {
+test('sync (unchanged by 6c): an UNVERIFIED copy of the same e-mail on another account does not block it', async () => {
   const f = fixture();
   f.db.users[1].email = 'dup@example.com';
   assert.equal((await sync(f, { uid: 'u-a', email: 'dup@example.com' })).res.statusCode, 200);
@@ -183,27 +183,47 @@ test('lookup: 200 { uid } for exactly one verified account; the e-mail is not re
   noEmailIn(res, 'bea@example.com');
 });
 
-test('lookup: 404 no_account when nobody has it, and an UNVERIFIED account never appears', async () => {
+test('lookup (task 6c): an UNVERIFIED stored e-mail matches too, 200 { uid }; the e-mail is not returned', async () => {
   const f = fixture();
   f.db.users[0].email = 'only-unverified@example.com';
-  for (const email of ['only-unverified@example.com', 'nobody@example.com']) {
-    const { res } = await lookup(f, { email });
-    assert.equal(res.statusCode, 404, email);
+  const { res } = await lookup(f, { email: ' Only-Unverified@Example.com ' });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, { uid: 'u-a' });
+  noEmailIn(res, 'only-unverified@example.com');
+});
+
+test('lookup: 404 no_account when nobody has it (no accounts with that e-mail at all)', async () => {
+  const f = fixture();
+  f.db.users[0].email = 'someone@example.com';
+  const { res } = await lookup(f, { email: 'nobody@example.com' });
+  assert.equal(res.statusCode, 404);
+  assert.deepEqual(res.body, { error: 'no_account' });
+  noEmailIn(res, 'nobody@example.com');
+});
+
+test('lookup: a DISABLED account never matches, verified or not', async () => {
+  const f = fixture();
+  for (const emailVerified of [false, true]) {
+    Object.assign(f.db.users[2], { email: 'gone@example.com', emailVerified });
+    const { res } = await lookup(f, { email: 'gone@example.com' });
+    assert.equal(res.statusCode, 404, String(emailVerified));
     assert.deepEqual(res.body, { error: 'no_account' });
-    noEmailIn(res, email);
   }
 });
 
-test('lookup: 409 ambiguous when two verified accounts carry the e-mail; disabled accounts do not count', async () => {
+test('lookup: 409 ambiguous when two accounts carry the e-mail (verified or not); disabled accounts do not count', async () => {
   const f = fixture();
-  Object.assign(f.db.users[0], { email: 'twin@example.com', emailVerified: true });
-  Object.assign(f.db.users[1], { email: 'twin@example.com', emailVerified: true });
-  const { res } = await lookup(f, { email: 'twin@example.com' });
-  assert.equal(res.statusCode, 409);
-  assert.deepEqual(res.body, { error: 'ambiguous' });
-  noEmailIn(res, 'twin@example.com');
-  f.db.users[1].disabled = true;
-  assert.deepEqual((await lookup(f, { email: 'twin@example.com' })).res.body, { uid: 'u-a' });
+  for (const [first, second] of [[true, true], [true, false], [false, false]]) {
+    Object.assign(f.db.users[0], { email: 'twin@example.com', emailVerified: first });
+    Object.assign(f.db.users[1], { email: 'twin@example.com', emailVerified: second });
+    f.db.users[1].disabled = false;
+    const { res } = await lookup(f, { email: 'twin@example.com' });
+    assert.equal(res.statusCode, 409, `${first}/${second}`);
+    assert.deepEqual(res.body, { error: 'ambiguous' });
+    noEmailIn(res, 'twin@example.com');
+    f.db.users[1].disabled = true;
+    assert.deepEqual((await lookup(f, { email: 'twin@example.com' })).res.body, { uid: 'u-a' });
+  }
 });
 
 test('R3: nothing the routes log or record contains the e-mail or the request body', async () => {
@@ -312,11 +332,13 @@ test('end to end over HTTP: platform syncs, platform looks up; bunker and home c
   assert.equal((await post(BUNKER_ACCOUNT_BY_EMAIL_PATH, { body: { email: 'verified@example.com' } })).status, 401, 'no signature at all');
 });
 
-test('editing the e-mail after Platform verified it drops the verified flag, so the lookup stops finding the account', async () => {
+test('editing the e-mail after Platform verified it drops the verified flag; the lookup follows the STORED e-mail (new one found, old one not)', async () => {
   await post('/api/me/username', { uid: 'old-user', body: { email: 'moved@example.com' } });
   assert.equal(dbUser('old-user').emailVerified, false);
   assert.equal((await post(BUNKER_ACCOUNT_BY_EMAIL_PATH, { caller: 'platform', body: { email: 'verified@example.com' } })).status, 404);
-  assert.equal((await post(BUNKER_ACCOUNT_BY_EMAIL_PATH, { caller: 'platform', body: { email: 'moved@example.com' } })).status, 404);
+  const moved = await post(BUNKER_ACCOUNT_BY_EMAIL_PATH, { caller: 'platform', body: { email: 'moved@example.com' } });
+  assert.equal(moved.status, 200);
+  assert.deepEqual(moved.json, { uid: 'old-user' });
 });
 
 test('the REAL audit trail keeps the sync (uid + result code) and never the e-mail', async () => {
