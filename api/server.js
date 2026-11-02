@@ -83,6 +83,7 @@ import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
 import { createPlatformIntegration, parsePlatformIntegrationEnv, gateFailureMayProceed } from './platform-sso/index.js';
 import { createPlatformLinkRoutes } from './platform-sso/link.js';
+import { resolveHomeSession } from './platform-sso/home-session.js';
 import { createAssistedLink, parseIssuers, STEP_UP_PURPOSE as ASSIST_STEP_UP } from './platform-sso/assisted-link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
@@ -3634,8 +3635,11 @@ coachJobs.setProposalHook((uid, pending) => {
 });
 startCadence({ users: () => db.users, userNow });
 
+const homeSessionCache = new Map();
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
+  // Home session (cookie 2j_member), resolved asynchronously before the dispatcher; readSession stays synchronous and does not use it yet. Never throws.
+  if (PLATFORM_INTEGRATION_CONFIG.client && req.headers.cookie) req.homeSession = await resolveHomeSession(req.headers.cookie, { config: PLATFORM_INTEGRATION_CONFIG.client, cache: homeSessionCache });
   const key = req.method + ' ' + url.pathname;
   const handler = routes[key];
   if (!handler) return json(res, 404, { error: 'no encontrado' });
