@@ -1,6 +1,6 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { rankSnapshot } from '../lib/mi2j.js'
 import { Carnet } from './Mi2J.jsx'
 import { useNavigate } from 'react-router-dom'
@@ -10,6 +10,7 @@ import { streakWeeks } from '../lib/history.js'
 import { fmtDate, todayISO } from '../lib/format.js'
 import { webauthnOK, passkeyLogin, passkeyRegister } from '../lib/api.js'
 import { updateUsername, updateAvatar } from '../lib/friends-api.js'
+import { fetchAccountEmail, updateAccountEmail, emailStatusKey } from '../lib/account-email.js'
 import { resizeImageFile, mediaUrl } from '../lib/media.js'
 import { globalRank, TIER_COLOR, rankLabel, rankEmblemUrl } from '../lib/rank.js'
 import { DEMO } from '../lib/demo.js'
@@ -48,6 +49,8 @@ export default function Profile() {
   const friendUnread = useUI(s => s.friendUnread)
   const avatarInput = useRef(null)
   const [avatarBusy, setAvatarBusy] = useState(false)
+  const [acctEmail, setAcctEmail] = useState(null)   // { email, emailVerified } of the signed-in account
+  useEffect(() => { if (user) fetchAccountEmail().then(setAcctEmail).catch(() => {}) }, [user?.id])
   useStore(s => s.features)   // the admin's switches arrive after the first render
   const snap = useMemo(() => rankSnapshot(S), [S.workouts, S.bodyweight, S.tests, S.body])
 
@@ -59,6 +62,7 @@ export default function Profile() {
   const editUsername = () => useUI.getState().openSheet(close => (
     <EditUsername close={close} current={user?.username} onSaved={u => setUser({ ...user, username: u })} />
   ))
+  const editEmail = () => useUI.getState().openSheet(close => <EditEmail close={close} current={acctEmail} onSaved={setAcctEmail} />)
   // Guest mode has no account for a photo to attach to — the avatar lives on the server
   // user record (POST /api/me/avatar), same as the username, not in the per-device S state.
   const pickAvatar = () => { if (user && !avatarBusy) avatarInput.current?.click() }
@@ -98,6 +102,13 @@ export default function Profile() {
         {user?.username && <button className="dim small" style={{ marginTop: 2, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={editUsername}>@{user.username}</button>}
       </div>
     </div>
+
+    {user && !MOBILE && !DEMO && (
+      <Section title={t('E-mail')}>
+        <Row icon="message" iconTint="var(--blue)" title={acctEmail?.email || t('No e-mail')}
+          subtitle={t(emailStatusKey(acctEmail || {}))} accessory="chevron" onClick={editEmail} />
+      </Section>
+    )}
 
     {/* ---------- create/sign in — nothing to show once there's an account, or on the
          demo/mobile builds, which don't have passkey accounts at all ---------- */}
@@ -201,6 +212,26 @@ function RegisterInline({ close, setUser, pushState, pullState, toast }) {
     <div className="muted small" style={{ marginBottom: 14 }}>{t('Pick a name, then confirm with your device.')}</div>
     <TextField ref={nameRef} placeholder={t('Your name')} maxLength={40} />
     <div style={{ height: 12 }} /><Button variant="primary" onClick={go}>{t('Create passkey')}</Button>
+  </>
+}
+
+// Optional account e-mail. A changed address is always stored unverified; the change needs a passkey session (sso/pin/Home sessions get 403 passkey_required).
+function EditEmail({ close, current, onSaved }) {
+  const toast = useUI(s => s.toast)
+  const [value, setValue] = useState(current?.email || '')
+  const [busy, setBusy] = useState(false)
+  const save = () => {
+    setBusy(true)
+    updateAccountEmail(value).then(r => { onSaved(r); close(); toast(t('E-mail updated')) })
+      .catch(e => toast(e.data?.code === 'passkey_required' ? t('Sign in with your passkey to change the e-mail') : (e.message === 'Enter a valid e-mail' ? t(e.message) : e.message)))
+      .finally(() => setBusy(false))
+  }
+  return <>
+    <h3>{t('E-mail')}</h3>
+    <div className="muted small" style={{ marginBottom: 6 }}>{current?.email ? `${current.email} · ${t(emailStatusKey(current))}` : t('No e-mail')}</div>
+    <div className="muted small" style={{ marginBottom: 14 }}>{t('Changing the e-mail marks it as not verified. Leave it empty to remove it.')}</div>
+    <TextField value={value} onChange={e => setValue(e.target.value)} maxLength={254} type="email" inputMode="email" autoCapitalize="none" placeholder={t('E-mail')} />
+    <div style={{ height: 12 }} /><Button variant="primary" disabled={busy} onClick={save}>{t('Save')}</Button>
   </>
 }
 

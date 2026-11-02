@@ -5,6 +5,7 @@
 // /api/social/media: DATA is a private volume nginx never sees, so uploads are served back
 // through the api itself rather than through the static img/gif dirs exercise media uses.
 import { api } from './api.js'
+import { apiUrl } from './base-path.js'
 import { t } from './i18n.js'
 
 // Downsizes a chosen photo onto an offscreen canvas (long edge capped at 960px) and hands back
@@ -36,7 +37,7 @@ export function resizeImageFile(file) {
 // Social.jsx's PublishDetailsSheet) -> the stored filename.
 export const uploadImage = dataUrl => api('/api/media/upload', { method: 'POST', body: JSON.stringify({ image: dataUrl }) }).then(r => r.id)
 
-export const mediaUrl = id => id ? '/api/social/media?id=' + encodeURIComponent(id) : null
+export const mediaUrl = id => id ? apiUrl('/api/social/media?id=') + encodeURIComponent(id) : null
 
 // The three AI scans are one tap for the person: the server retries, double-checks and, when the
 // provider is busy, waits — all behind this one call. We start a short job and ask for it every

@@ -147,6 +147,7 @@ export function createPlatformLinkRoutes({ assisted = null, config, db, saveDb, 
       db.users.push({
         id, name: body.displayName, created, username: generateUsername(body.displayName),
         personId: body.personId,
+        email: null, emailVerified: false,
         // New accounts exist only through Platform and start enforced: they never fall back to the open legacy behaviour, even if later unlinked.
         platformEnforcement: 'enforced',
         platformLink: { personId: body.personId, state: 'pending', origin: 'provisioned', provisioningKey: body.idempotencyKey, createdAt: created },

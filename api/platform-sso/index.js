@@ -28,6 +28,13 @@ export const PLATFORM_REDEEM_PATH = '/api/internal/platform/v2/sso/redeem';
 export const SSO_BIND_COOKIE = 'j2ssob';
 export const SSO_BIND_PATH = '/api/platform/v1/sso';
 export const SSO_BIND_MAX_AGE_S = 600;
+// Behind the 2J Home proxy Búnker lives under a path prefix (X-Forwarded-Prefix: /bunker) that the proxy strips before forwarding. Anything this
+// server writes as an absolute path (local redirects, cookie Path) must carry it. Only a plain same-origin path is honoured, so the header can
+// never turn a redirect into an open redirect; anything else is ignored.
+export const forwardedPrefix = req => {
+  const raw = String(req.headers?.['x-forwarded-prefix'] ?? '').trim().replace(/\/+$/, '');
+  return /^\/[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/.test(raw) && !raw.split('/').some(part => part === '.' || part === '..') ? raw : '';
+};
 const BIND_VERIFIER = /^[A-Za-z0-9_-]{43}$/;
 const bindCookieValue = req => { const match = new RegExp(`(?:^|;\\s*)${SSO_BIND_COOKIE}=([^;]+)`).exec(String(req.headers.cookie || '')); return match && BIND_VERIFIER.test(match[1]) ? match[1] : null; };
 export const bindingChallengeFor = verifier => globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(buffer => Buffer.from(buffer).toString('base64url'));
@@ -38,11 +45,12 @@ const enforcementRequestSchema = z.object({ userId: z.string().min(1).max(200), 
 
 export function parsePlatformIntegrationEnv(env) {
   const secret = Buffer.from(String(env.PLATFORM_API_KEY_SECRET || ''), 'base64url');
+  const allowInternalHttp = env.PLATFORM_ALLOW_INTERNAL_HTTP === 'true';   // explicit opt-in for a private network hop (compose service names); never implied
   let baseUrl = null;
   try {
     const url = new URL(String(env.PLATFORM_API_BASE_URL || ''));
     const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
-    if (!url.username && !url.password && (url.protocol === 'https:' || (url.protocol === 'http:' && loopback))) baseUrl = url.origin;
+    if (!url.username && !url.password && (url.protocol === 'https:' || (url.protocol === 'http:' && (loopback || allowInternalHttp)))) baseUrl = url.origin;
   } catch { /* not configured */ }
   const keyId = /^[A-Za-z0-9._-]{1,80}$/.test(String(env.PLATFORM_API_KEY_ID || '')) ? String(env.PLATFORM_API_KEY_ID) : null;
   const configured = Boolean(baseUrl && keyId && secret.length >= 32 && secret.toString('base64url') === env.PLATFORM_API_KEY_SECRET);
@@ -50,7 +58,7 @@ export function parsePlatformIntegrationEnv(env) {
   try {
     const url = new URL(String(env.PLATFORM_HOME_URL || ''));
     const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
-    if (!url.username && !url.password && !url.search && !url.hash && url.pathname === '/' && (url.protocol === 'https:' || (url.protocol === 'http:' && loopback))) homeUrl = url.origin;
+    if (!url.username && !url.password && !url.search && !url.hash && url.pathname === '/' && (url.protocol === 'https:' || (url.protocol === 'http:' && (loopback || allowInternalHttp)))) homeUrl = url.origin;
   } catch { /* not configured */ }
   const contract = env.PLATFORM_CAPABILITIES_CONTRACT === '2J-CAPABILITIES-V2.1' ? '2J-CAPABILITIES-V2.1' : '2J-CAPABILITIES-V2';          // V2 unless the operator opts in
   const breakerBase = Number(env.PLATFORM_BREAKER_BASE_MS);
@@ -100,12 +108,16 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
    */
   async function gate(req, res, key) {
     if (key === 'GET /api/platform/v1/sso/start' || key === 'POST /api/platform/v1/sso/redeem' || key === 'POST /api/platform/v1/sso/confirm') return true;   // how a session is (re)established; each validates everything itself
-    if (!req.headers.cookie || !req.headers.cookie.includes('gymsid=')) return true;
+    if (!req.headers.cookie || !(req.headers.cookie.includes('gymsid=') || req.homeSession)) return true;
     const policy = classifyRoute(key);
+    // Pre-session (login, register, recover, link, step-up) and kiosk routes treat a Home-only browser as anonymous, so it can still sign in with a passkey.
+    if (policy.homeAnonymous && req.homeSession) { delete req.homeSession; if (!req.headers.cookie.includes('gymsid=')) return true; }   // a gymsid session (if any) is gated as before
     const session = readSession(req);
     if (!session) return true;                                  // the handler answers 401 / public
     const isSso = session.authLevel === 'sso';
-    if (isSso && !policy.ssoAllowed) { deny(res, 'passkey_required'); return false; }
+    const isHome = session.authLevel === 'home';
+    // A Home session (2j_member) only reaches routes marked homeAllowed (narrower than sso); sso keeps ssoAllowed.
+    if ((isSso && !policy.ssoAllowed) || (isHome && !policy.homeAllowed)) { deny(res, 'passkey_required'); return false; }
     const mode = userMode(session);
     if (mode === 'legacy') return true;                         // no Platform check, no change of behaviour
     const interactive = policy.kind === 'gated' || (policy.kind === 'member' && !policy.blockedOk && !(policy.blockedReadOk && ['GET', 'HEAD'].includes(req.method)));
@@ -124,6 +136,8 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     const ok = policy.kind === 'gated' ? capabilities.allows(view, policy.capabilities) : Boolean(view) && view.level !== 'blocked';
     if (!ok) {
       const blocked = !view || view.level === 'blocked';
+      // Home session, enforced, and Platform could not be asked (outage, no verdict): say so instead of claiming the capability is missing. A known suspension still reads as blocked.
+      if (isHome && (!view || (view.degraded && view.level !== 'blocked'))) { deny(res, 'platform_unavailable', { reasonCode: view?.reasonCode ?? 'UNVERIFIED' }); return false; }
       if (blocked && (isSso || policy.kind === 'member')) deny(res, 'platform_access_blocked', { reasonCode: view?.reasonCode ?? 'UNVERIFIED' });
       else deny(res, 'capability_required', { capabilities: policy.capabilities, reasonCode: view?.reasonCode ?? 'UNVERIFIED' });
       return false;
@@ -207,7 +221,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       // The flow must have started in THIS browser (/sso/start). Without its verifier the code is not even sent to Platform, so a code that arrived
       // through a link someone else crafted is neither redeemed nor burned.
       const verifier = bindCookieValue(req);
-      const clearBind = `${SSO_BIND_COOKIE}=; Path=${SSO_BIND_PATH}; Max-Age=0; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax`;
+      const clearBind = `${SSO_BIND_COOKIE}=; Path=${forwardedPrefix(req)}${SSO_BIND_PATH}; Max-Age=0; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax`;
       const stop = (status, obj) => json(res, status, obj, { 'Set-Cookie': clearBind });
       if (!verifier) { rateLimit.fail(ip); log.warn?.('platform sso redeem refused: no binding cookie (a link opened in a browser that did not start the flow)'); return stop(400, { error: 'sso_binding_missing' }); }
       const result = await redeemWithPlatform(body.data.code, verifier);
@@ -261,12 +275,12 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     // verifier in THIS browser, then send it to Home carrying only the challenge. Nothing is stored on the server and nothing here proves who the person is.
     'GET /api/platform/v1/sso/start': async (req, res) => {
       const leave = (location, headers = {}) => { res.writeHead(302, { Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', ...headers }); res.end(); };
-      if (!config.ssoEnabled) return leave('/sso#error=disabled');
+      if (!config.ssoEnabled) return leave(`${forwardedPrefix(req)}/sso#error=disabled`);
       if (!rateLimit.gate(req, res)) return;
-      if (!config.homeUrl) return leave('/sso#error=unavailable');
+      if (!config.homeUrl) return leave(`${forwardedPrefix(req)}/sso#error=unavailable`);
       const verifier = globalThis.crypto.getRandomValues(new Uint8Array(32)), text = Buffer.from(verifier).toString('base64url');
       const challenge = await bindingChallengeFor(text);
-      leave(`${config.homeUrl}/#sso_challenge=${challenge}`, { 'Set-Cookie': `${SSO_BIND_COOKIE}=${text}; Path=${SSO_BIND_PATH}; Max-Age=${SSO_BIND_MAX_AGE_S}; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax` });
+      leave(`${config.homeUrl}/#sso_challenge=${challenge}`, { 'Set-Cookie': `${SSO_BIND_COOKIE}=${text}; Path=${forwardedPrefix(req)}${SSO_BIND_PATH}; Max-Age=${SSO_BIND_MAX_AGE_S}; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax` });
     },
 
     // The person has seen "you are signed in as A; continue as B?" and said yes. Only the browser session that was signed in when the code was

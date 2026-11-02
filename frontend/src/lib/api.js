@@ -1,4 +1,6 @@
 // Backend + WebAuthn helpers (ported from the vanilla app).
+import { apiUrl } from './base-path.js'
+import { registerOptionsBody } from './account-email.js'
 export const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)
 export const IS_ANDROID = /Android/.test(navigator.userAgent)
 export const BIO = IS_APPLE ? 'Face ID / Touch ID' : IS_ANDROID ? 'fingerprint or face unlock' : 'your fingerprint, face or PIN'
@@ -11,7 +13,7 @@ const STRONG_STEPUP_PATHS = new Set([
   'POST /api/admin/user/recovery-link', 'POST /api/admin/invites/new', 'POST /api/admin/invites/revoke'
 ])
 export async function api(path, opts = {}, strongRetried = false) {
-  const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts))
+  const r = await fetch(path.startsWith('/api/') ? apiUrl(path) : path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts))
   const data = await r.json().catch(() => ({}))
   if (!r.ok) {
     const method = String(opts.method || 'GET').toUpperCase()
@@ -62,8 +64,8 @@ export function credToJSON(cred) {
   }
   return out
 }
-export async function passkeyRegister(name, code) {
-  const { cid, options } = await api('/api/register/options', { method: 'POST', body: JSON.stringify({ name, code: code || '' }) })
+export async function passkeyRegister(name, code, email) {
+  const { cid, options } = await api('/api/register/options', { method: 'POST', body: JSON.stringify(registerOptionsBody(name, code, email)) })
   const cred = await navigator.credentials.create({ publicKey: toCreationOptions(options) })
   const res = await api('/api/register/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
   return res.user

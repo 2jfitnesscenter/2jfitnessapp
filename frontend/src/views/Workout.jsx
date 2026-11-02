@@ -42,6 +42,7 @@ import GuidedRunner, { GuidedLaunch } from '../components/GuidedRunner.jsx'
 import WorkoutCover from '../components/WorkoutCover.jsx'
 import IntelligenceToday from '../components/IntelligenceToday.jsx'
 import { uxOn } from '../lib/features.js'
+import { apiUrl } from '../lib/base-path.js'
 import SharedExerciseNote from '../components/SharedExerciseNote.jsx'
 
 // Today's check-in, next to the exercise it concerns — words only: nothing about the load, the
@@ -728,7 +729,7 @@ function ActiveWorkout() {
     const iv = setInterval(() => { if (!stopped) ping(true) }, 20000)
     return () => {
       stopped = true; clearInterval(iv)
-      try { navigator.sendBeacon?.('/api/activity', new Blob([JSON.stringify({ active: false })], { type: 'application/json' })) } catch { /* */ }
+      try { navigator.sendBeacon?.(apiUrl('/api/activity'), new Blob([JSON.stringify({ active: false })], { type: 'application/json' })) } catch { /* */ }
       api('/api/activity', { method: 'POST', body: JSON.stringify({ active: false }) }).catch(() => {})
     }
   }, [])

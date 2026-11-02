@@ -1240,6 +1240,19 @@ test('binding: /sso/start puts a random verifier in an HttpOnly cookie of this o
   assert.equal(first.response.headers.get('cache-control'), 'no-store'); assert.equal(first.response.headers.get('referrer-policy'), 'no-referrer');
 });
 
+test('binding: behind the Home proxy (X-Forwarded-Prefix) the bind cookie path and local redirects carry the prefix; hostile prefixes are ignored', async () => {
+  const proxied = await startBrowser(training, { ...clientIp(40), 'x-forwarded-prefix': '/bunker' });
+  const cookie = proxied.setCookie.find(item => item.startsWith('j2ssob=')).toLowerCase();
+  assert.ok(cookie.includes('path=/bunker/api/platform/v1/sso'), cookie);
+  assert.equal(proxied.location.startsWith('http://127.0.0.1:5173/#sso_challenge='), true, 'Home URL is already absolute and is not prefixed');
+  const off = await startBrowser(plain, { 'x-forwarded-prefix': '/bunker/' });
+  assert.equal(off.location, '/bunker/sso#error=disabled');
+  for (const hostile of ['//evil.example', 'https://evil.example', '/a b', '/../x', 'bunker', '/\\evil.example']) {
+    const r = await startBrowser(plain, { 'x-forwarded-prefix': hostile });
+    assert.equal(r.location, '/sso#error=disabled', `ignored: ${hostile}`);
+  }
+});
+
 test('binding: /sso/start sets no cookie and explains itself when SSO is off or Home is not configured', async () => {
   const off = await startBrowser(plain);
   assert.equal(off.status, 302); assert.equal(off.location, '/sso#error=disabled'); assert.deepEqual(off.setCookie, []);

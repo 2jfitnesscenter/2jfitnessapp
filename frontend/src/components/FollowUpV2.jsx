@@ -5,6 +5,7 @@ import { fmtDate } from '../lib/format.js'
 import { Button } from './ui.jsx'
 import { Surface } from './v2.jsx'
 import './followup-v2.css'
+import { apiUrl } from '../lib/base-path.js'
 
 const trainerApi = (id, params = '') => api(`/api/trainer/followup/records?id=${encodeURIComponent(id)}${params}`)
 export const loadMemberFollowUpRecords = () => api('/api/followup/records')
@@ -58,7 +59,7 @@ function PhotoList({ photos }) {
 function PhotoComparison({ points }) {
   return <div className="fu2-photo-comparison">{[['Before', points.before], ['After', points.after]].map(([label, point]) =>
     <section className="fu2-photo-point" aria-label={t(label)} key={label}><h4>{t(label)}</h4>
-      {point.date ? <><p className="small dim">{t('Photo from {0}', fmtDate(point.date))}</p><PhotoList photos={point.photos.map(photo => ({ ...photo, url: `/api/followup/photo?id=${encodeURIComponent(photo.id)}` }))} /></>
+      {point.date ? <><p className="small dim">{t('Photo from {0}', fmtDate(point.date))}</p><PhotoList photos={point.photos.map(photo => ({ ...photo, url: `${apiUrl('/api/followup/photo')}?id=${encodeURIComponent(photo.id)}` }))} /></>
         : <p className="small dim">{t('No photo available.')}</p>}
     </section>)}</div>
 }

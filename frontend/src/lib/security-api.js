@@ -43,6 +43,7 @@ export const EVENT_LABEL = {
   platform_state_stripped: 'Some changes needed a plan that is not active', platform_link_activated: 'Your 2J account was linked', platform_link_revoked: 'Your 2J account was unlinked', platform_provisioned: 'A profile was created from your 2J account',
   platform_sso_switch_requested: 'A 2J sign-in link tried to switch this account', platform_sso_switch_confirmed: 'You switched account with a 2J sign-in link',
   platform_signal_applied: 'Your 2J account access was updated by the centre',
+  platform_email_sync: 'Your e-mail was verified from your 2J account',
 }
 
 /* ---------- link a device with a QR code ---------- */

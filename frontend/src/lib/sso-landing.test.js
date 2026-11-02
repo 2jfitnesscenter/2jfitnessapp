@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { START_PATH, confirmSsoSwitch, isSsoLanding, redeemSso, resetSsoLandingForTests, runSsoLanding, ssoCodeFromHash, ssoErrorFromHash, ssoOutcome } from './sso-landing.js'
+import { START_PATH, startPath, confirmSsoSwitch, isSsoLanding, redeemSso, resetSsoLandingForTests, runSsoLanding, ssoCodeFromHash, ssoErrorFromHash, ssoOutcome } from './sso-landing.js'
 
 const CODE = 'Q'.repeat(43)
 const reply = (status, body) => vi.fn(async () => ({ status, json: async () => body }))
@@ -122,5 +122,31 @@ describe('browser binding: the flow starts in THIS browser', () => {
     await redeemSso(CODE, fetchImpl)
     const [, init] = fetchImpl.mock.calls[0]
     expect(JSON.parse(init.body)).toEqual({ v: 1, code: CODE }); expect(init.credentials).toBe('same-origin')
+  })
+})
+
+describe('under a path prefix (Home proxy serves Bunker at /bunker/)', () => {
+  it('recognises /bunker/sso only, redeems and confirms at prefixed paths', async () => {
+    expect(isSsoLanding({ pathname: '/bunker/sso' }, '/bunker/')).toBe(true)
+    for (const p of ['/sso', '/bunker/', '/bunker/sso/', '/bunker/sso/x']) expect(isSsoLanding({ pathname: p }, '/bunker/')).toBe(false)
+    const fetchImpl = reply(200, { ok: true, user: null })
+    await redeemSso(CODE, fetchImpl, '/bunker/')
+    expect(fetchImpl.mock.calls[0][0]).toBe('/bunker/api/platform/v1/sso/redeem')
+    const confirm = reply(200, { ok: true, user: null })
+    await confirmSsoSwitch('t', confirm, '/bunker/')
+    expect(confirm.mock.calls[0][0]).toBe('/bunker/api/platform/v1/sso/confirm')
+    expect(startPath('/bunker/')).toBe('/bunker/api/platform/v1/sso/start')
+  })
+  it('cleans the address bar to /bunker/sso and returns to /bunker/ after success', async () => {
+    resetSsoLandingForTests()
+    const history = { replaceState: vi.fn() }, go = vi.fn()
+    await runSsoLanding({ location: { hash: `#code=${CODE}` }, history, fetchImpl: reply(200, { ok: true, user: null }), go, base: '/bunker/' })
+    expect(history.replaceState).toHaveBeenCalledWith(null, '', '/bunker/sso')
+    expect(go).toHaveBeenCalledWith('/bunker/')
+    resetSsoLandingForTests()
+  })
+  it('base "/" is unchanged', () => {
+    expect(isSsoLanding({ pathname: '/sso' }, '/')).toBe(true)
+    expect(startPath('/')).toBe(START_PATH)
   })
 })
