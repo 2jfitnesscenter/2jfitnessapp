@@ -3,7 +3,9 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { resolveBase } from '../../vite.base.js'
-import { makeApiUrl, apiUrl } from './base-path.js'
+import { makeApiUrl, apiUrl, BASE } from './base-path.js'
+import { connectStrava } from './strava-api.js'
+import { connectWhoop } from './whoop-api.js'
 
 describe('resolveBase (vite base)', () => {
   it('defaults to "/" when VITE_BASE is unset (current build unchanged)', () => {
@@ -43,6 +45,28 @@ describe('apiUrl', () => {
   })
 })
 
+describe('vite base edge cases', () => {
+  it('VITE_BASE="/" does not produce "//"', () => {
+    expect(resolveBase({ VITE_BASE: '/' })).toBe('/')
+    expect(resolveBase({ VITE_BASE: '//' })).toBe('/')
+  })
+})
+
+describe('OAuth redirects carry the base', () => {
+  it('strava/whoop connect go through apiUrl', () => {
+    const loc = { href: '' }
+    globalThis.window = { location: loc }
+    connectStrava(); expect(loc.href).toBe(BASE + 'api/strava/authorize')
+    connectWhoop(); expect(loc.href).toBe(BASE + 'api/whoop/authorize')
+    delete globalThis.window
+  })
+})
+
+const ABSOLUTE = [
+  /(fetch|fetchImpl|sendBeacon)\(\s*['"`]\/api/,
+  /location\.href\s*=\s*['"`]\//,
+  /location\.(replace|assign)\(\s*['"`]\//,
+]
 describe('no absolute /api fetch left in src', () => {
   const root = fileURLToPath(new URL('..', import.meta.url))
   const files = []
@@ -53,7 +77,7 @@ describe('no absolute /api fetch left in src', () => {
     for (const f of files) {
       if (/base-path\.js$/.test(f)) continue
       const src = readFileSync(f, 'utf8')
-      if (/(fetch|sendBeacon)\(\s*['"`]\/api/.test(src)) bad.push(relative(root, f))
+      if (ABSOLUTE.some(re => re.test(src))) bad.push(relative(root, f))
     }
     expect(bad).toEqual([])
   })

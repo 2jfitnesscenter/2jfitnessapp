@@ -4,7 +4,6 @@
 // VITE_BASE=/bunker/ because its proxy serves Bunker under that prefix.
 export function resolveBase(env = {}) {
   if (env.VITE_MOBILE || env.VITE_DEMO) return './'
-  const raw = String(env.VITE_BASE || '').trim()
-  if (!raw) return '/'
-  return '/' + raw.replace(/^\/+|\/+$/g, '') + '/'
+  const trimmed = String(env.VITE_BASE || '').trim().replace(/^\/+|\/+$/g, '')
+  return trimmed ? `/${trimmed}/` : '/'
 }

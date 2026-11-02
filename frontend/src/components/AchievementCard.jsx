@@ -4,6 +4,7 @@ import { forwardRef } from 'react'
 import { t } from '../lib/i18n.js'
 import { fmtDate } from '../lib/format.js'
 import Icon from './Icon.jsx'
+import { assetUrl } from '../lib/base-path.js'
 
 /* A graphic card for one record, achievement or badge — 2J branding, the thing achieved, its value, the improvement
    and the date. Self-contained and theme-independent on purpose (fixed graphite/emerald/gold, no blur, no external
@@ -16,7 +17,7 @@ const AchievementCard = forwardRef(function AchievementCard({ kind = 'pr', title
   const label = kicker || (kind === 'pr' ? t('New record') : kind === 'achievement' ? t('Achievement unlocked') : t('Badge'))
   return <div ref={ref} className={'v2-ach ' + (gold ? 'gold ' : 'emerald ') + className} role="group" aria-label={`${label}: ${title}${value ? ' — ' + value : ''}`}>
     <div className="v2-ach-top">
-      <span className="v2-ach-brand"><img src="/brand/logo-mark.png" alt="" crossOrigin="anonymous" />2J FITNESS</span>
+      <span className="v2-ach-brand"><img src={assetUrl('brand/logo-mark.png')} alt="" crossOrigin="anonymous" />2J FITNESS</span>
       <span className="v2-ach-kind">{label}</span>
     </div>
     <div className="v2-ach-medal">{image ? <img src={image} alt="" crossOrigin="anonymous" /> : <Icon name={icon || (gold ? 'trophy' : 'medal')} />}</div>

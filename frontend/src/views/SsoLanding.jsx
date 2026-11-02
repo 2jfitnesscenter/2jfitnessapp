@@ -4,6 +4,7 @@
 // uses the URL hash) so the one-time code in the fragment is consumed and cleared first. See lib/sso-landing.js.
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n.js'
+import { BASE } from '../lib/base-path.js'
 import { START_PATH, confirmSsoSwitch, runSsoLanding } from '../lib/sso-landing.js'
 
 const MESSAGES = {
@@ -29,7 +30,7 @@ export default function SsoLanding() {
     const confirm = async () => {
       setState(prev => ({ ...prev, phase: 'working' }))
       const result = await confirmSsoSwitch(state.ticket)
-      if (result.ok) window.location.replace('/'); else setState({ phase: 'failed', kind: result.kind === 'link' ? 'link' : 'invalid' })
+      if (result.ok) window.location.replace(BASE); else setState({ phase: 'failed', kind: result.kind === 'link' ? 'link' : 'invalid' })
     }
     return (
       <div className="narrow"><div className="card" role="alertdialog" aria-labelledby="sso-switch-title">
@@ -37,7 +38,7 @@ export default function SsoLanding() {
         <p>{t('This browser is signed in as {0}. The link you opened would sign you in as {1} instead.', state.current, state.target)}</p>
         <p>{t('Only continue if you asked to open Búnker with that 2J account.')}</p>
         <button className="btn" onClick={confirm}>{t('Continue as {0}', state.target)}</button>
-        <a className="btn ghost" href="/">{t('Stay signed in as {0}', state.current)}</a>
+        <a className="btn ghost" href={BASE}>{t('Stay signed in as {0}', state.current)}</a>
       </div></div>
     )
   }
@@ -53,7 +54,7 @@ export function SsoFailure({ kind }) {
       <h1>{t('Búnker')}</h1>
       <p>{t(MESSAGES[kind] || MESSAGES.unavailable)}</p>
       {restartable && <a className="btn" href={START_PATH}>{t('Continue with your 2J account')}</a>}
-      <a className={restartable ? 'btn ghost' : 'btn'} href="/">{t('Sign in with passkey')}</a>
+      <a className={restartable ? 'btn ghost' : 'btn'} href={BASE}>{t('Sign in with passkey')}</a>
     </div></div>
   )
 }

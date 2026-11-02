@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+import { assetUrl } from '../lib/base-path.js'
 
 /* An admin-issued recovery link (?token=...) lands here instead of the normal sign-in/register
    choice — a member who lost their only device gets one screen with one job: register a new
@@ -149,7 +150,7 @@ export default function Login() {
   }
   const head = <>
     <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0 4px' }}>
-      <img src="/brand/logo-full.png" alt="2J Fitness Center" style={{ width: '100%', maxWidth: 280, height: 'auto' }} />
+      <img src={assetUrl('brand/logo-full.png')} alt="2J Fitness Center" style={{ width: '100%', maxWidth: 280, height: 'auto' }} />
     </div>
   </>
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }

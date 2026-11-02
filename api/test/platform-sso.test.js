@@ -1247,7 +1247,7 @@ test('binding: behind the Home proxy (X-Forwarded-Prefix) the bind cookie path a
   assert.equal(proxied.location.startsWith('http://127.0.0.1:5173/#sso_challenge='), true, 'Home URL is already absolute and is not prefixed');
   const off = await startBrowser(plain, { 'x-forwarded-prefix': '/bunker/' });
   assert.equal(off.location, '/bunker/sso#error=disabled');
-  for (const hostile of ['//evil.example', 'https://evil.example', '/a b', '/../x', 'bunker']) {
+  for (const hostile of ['//evil.example', 'https://evil.example', '/a b', '/../x', 'bunker', '/\\evil.example']) {
     const r = await startBrowser(plain, { 'x-forwarded-prefix': hostile });
     assert.equal(r.location, '/sso#error=disabled', `ignored: ${hostile}`);
   }

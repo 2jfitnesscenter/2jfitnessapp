@@ -4,6 +4,7 @@ import { forwardRef } from 'react'
 import { t, dateLocale } from '../lib/i18n.js'
 import { fmtNum, fmtDate } from '../lib/format.js'
 import Icon from './Icon.jsx'
+import { assetUrl } from '../lib/base-path.js'
 
 /* The 2J Story card (9:16): a week or a month as a poster, not a report. Plain props in (lib/story.js decides WHAT shows, from
    real data only), fixed palette and no blur so the exported PNG equals the screen. Gold appears only on records, streaks and
@@ -18,7 +19,7 @@ const StoryCard = forwardRef(function StoryCard({ story, className = '' }, ref) 
     : new Date(range.from + 'T12:00:00').toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' })
   return <div ref={ref} className={'v3-story ' + className} data-period={period}>
     <div className="v3-story-top">
-      <span className="v3-story-brand"><img src="/brand/logo-mark.png" alt="" crossOrigin="anonymous" />2J FITNESS</span>
+      <span className="v3-story-brand"><img src={assetUrl('brand/logo-mark.png')} alt="" crossOrigin="anonymous" />2J FITNESS</span>
       <span className="v3-story-period">{t(period === 'week' ? 'My week' : 'My month')}</span>
     </div>
     <div className="v3-story-range">{label.charAt(0).toUpperCase() + label.slice(1)}</div>

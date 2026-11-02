@@ -3,6 +3,7 @@
 import { useNavigate } from 'react-router-dom'
 import { t } from '../lib/i18n.js'
 import Icon from '../components/Icon.jsx'
+import { assetUrl } from '../lib/base-path.js'
 
 // Six fixed formats rather than a configurable "build your own clock" — matches every reference
 // timer app, and each mode's own screen (ClockRun.jsx) is genuinely different enough (phases,
@@ -30,7 +31,7 @@ export default function ClockPicker() {
     </div>
     <div className="clock-list">
       {CLOCK_MODES.map(m => <button key={m.id} className="clock-card" onClick={() => nav('/clock/' + m.id)}
-        style={{ backgroundColor: m.tint, backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.1) 0%, rgba(0,0,0,.75) 82%), url(/clock/${m.id}.jpg)` }}>
+        style={{ backgroundColor: m.tint, backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.1) 0%, rgba(0,0,0,.75) 82%), url(${assetUrl(`clock/${m.id}.jpg`)})` }}>
         <span className="clock-card-i"><Icon name={m.icon} /></span>
         <div>
           <div className="clock-card-t">{t(m.title)}</div>
