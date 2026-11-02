@@ -1,4 +1,5 @@
 // Backend + WebAuthn helpers (ported from the vanilla app).
+import { apiUrl } from './base-path.js'
 export const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)
 export const IS_ANDROID = /Android/.test(navigator.userAgent)
 export const BIO = IS_APPLE ? 'Face ID / Touch ID' : IS_ANDROID ? 'fingerprint or face unlock' : 'your fingerprint, face or PIN'
@@ -11,7 +12,7 @@ const STRONG_STEPUP_PATHS = new Set([
   'POST /api/admin/user/recovery-link', 'POST /api/admin/invites/new', 'POST /api/admin/invites/revoke'
 ])
 export async function api(path, opts = {}, strongRetried = false) {
-  const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts))
+  const r = await fetch(path.startsWith('/api/') ? apiUrl(path) : path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts))
   const data = await r.json().catch(() => ({}))
   if (!r.ok) {
     const method = String(opts.method || 'GET').toUpperCase()

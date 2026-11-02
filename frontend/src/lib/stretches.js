@@ -13,8 +13,10 @@
 // `static` (held in place) or `dynamic` (repeated slow reps) — only affects the caution copy
 // and how the duration reads ("mantén" vs "repite").
 
+import { assetUrl } from './base-path.js'
+
 const IMG = 'src_data_illustrations_'
-const img = (gender, key) => `/stretch/${IMG}${gender}_${key}.webp`
+const img = (gender, key) => `${assetUrl('stretch/')}${IMG}${gender}_${key}.webp`
 
 export const AREAS = [
   'neck', 'shoulders', 'chest', 'upperback', 'lowerback', 'core',

@@ -28,6 +28,13 @@ export const PLATFORM_REDEEM_PATH = '/api/internal/platform/v2/sso/redeem';
 export const SSO_BIND_COOKIE = 'j2ssob';
 export const SSO_BIND_PATH = '/api/platform/v1/sso';
 export const SSO_BIND_MAX_AGE_S = 600;
+// Behind the 2J Home proxy Búnker lives under a path prefix (X-Forwarded-Prefix: /bunker) that the proxy strips before forwarding. Anything this
+// server writes as an absolute path (local redirects, cookie Path) must carry it. Only a plain same-origin path is honoured, so the header can
+// never turn a redirect into an open redirect; anything else is ignored.
+export const forwardedPrefix = req => {
+  const raw = String(req.headers?.['x-forwarded-prefix'] ?? '').trim().replace(/\/+$/, '');
+  return /^\/[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/.test(raw) && !raw.split('/').some(part => part === '.' || part === '..') ? raw : '';
+};
 const BIND_VERIFIER = /^[A-Za-z0-9_-]{43}$/;
 const bindCookieValue = req => { const match = new RegExp(`(?:^|;\\s*)${SSO_BIND_COOKIE}=([^;]+)`).exec(String(req.headers.cookie || '')); return match && BIND_VERIFIER.test(match[1]) ? match[1] : null; };
 export const bindingChallengeFor = verifier => globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(buffer => Buffer.from(buffer).toString('base64url'));
@@ -213,7 +220,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
       // The flow must have started in THIS browser (/sso/start). Without its verifier the code is not even sent to Platform, so a code that arrived
       // through a link someone else crafted is neither redeemed nor burned.
       const verifier = bindCookieValue(req);
-      const clearBind = `${SSO_BIND_COOKIE}=; Path=${SSO_BIND_PATH}; Max-Age=0; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax`;
+      const clearBind = `${SSO_BIND_COOKIE}=; Path=${forwardedPrefix(req)}${SSO_BIND_PATH}; Max-Age=0; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax`;
       const stop = (status, obj) => json(res, status, obj, { 'Set-Cookie': clearBind });
       if (!verifier) { rateLimit.fail(ip); log.warn?.('platform sso redeem refused: no binding cookie (a link opened in a browser that did not start the flow)'); return stop(400, { error: 'sso_binding_missing' }); }
       const result = await redeemWithPlatform(body.data.code, verifier);
@@ -267,12 +274,12 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     // verifier in THIS browser, then send it to Home carrying only the challenge. Nothing is stored on the server and nothing here proves who the person is.
     'GET /api/platform/v1/sso/start': async (req, res) => {
       const leave = (location, headers = {}) => { res.writeHead(302, { Location: location, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', ...headers }); res.end(); };
-      if (!config.ssoEnabled) return leave('/sso#error=disabled');
+      if (!config.ssoEnabled) return leave(`${forwardedPrefix(req)}/sso#error=disabled`);
       if (!rateLimit.gate(req, res)) return;
-      if (!config.homeUrl) return leave('/sso#error=unavailable');
+      if (!config.homeUrl) return leave(`${forwardedPrefix(req)}/sso#error=unavailable`);
       const verifier = globalThis.crypto.getRandomValues(new Uint8Array(32)), text = Buffer.from(verifier).toString('base64url');
       const challenge = await bindingChallengeFor(text);
-      leave(`${config.homeUrl}/#sso_challenge=${challenge}`, { 'Set-Cookie': `${SSO_BIND_COOKIE}=${text}; Path=${SSO_BIND_PATH}; Max-Age=${SSO_BIND_MAX_AGE_S}; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax` });
+      leave(`${config.homeUrl}/#sso_challenge=${challenge}`, { 'Set-Cookie': `${SSO_BIND_COOKIE}=${text}; Path=${forwardedPrefix(req)}${SSO_BIND_PATH}; Max-Age=${SSO_BIND_MAX_AGE_S}; HttpOnly;${secureCookie ? ' Secure;' : ''} SameSite=Lax` });
     },
 
     // The person has seen "you are signed in as A; continue as B?" and said yes. Only the browser session that was signed in when the code was

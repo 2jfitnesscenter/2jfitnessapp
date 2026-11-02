@@ -11,6 +11,10 @@ FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci 2>/dev/null || npm install
+# VITE_BASE: public path prefix of this build. Unset/empty keeps today's '/' (byte-identical build).
+# The 2J Home hub builds with --build-arg VITE_BASE=/bunker/ (its proxy strips the prefix before nginx).
+ARG VITE_BASE=
+ENV VITE_BASE=$VITE_BASE
 COPY frontend/ ./
 RUN npm run build
 # nginx serves a matching .gz file directly through gzip_static, avoiding runtime compression

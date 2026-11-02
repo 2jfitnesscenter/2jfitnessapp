@@ -12,6 +12,7 @@ import { EXIDX } from './exercises.js'
 import { modeOf, fmtSec, activeWeek } from './history.js'
 import { uid, todayISO, DAYN, fmtNum, exCount, routineCount } from './format.js'
 import { t, nameFor } from './i18n.js'
+import { assetUrl } from './base-path.js'
 import { supersetGroupInfo, supersetLabel, SUPERSET_PRINT_COLORS } from './superset-colors.js'
 
 const PLAN_FMT = 1
@@ -288,7 +289,7 @@ let LOGO_CACHE = null
 async function logoDataUri() {
   if (LOGO_CACHE) return LOGO_CACHE
   try {
-    const res = await fetch('/brand/logo-full.png')
+    const res = await fetch(assetUrl('brand/logo-full.png'))
     const blob = await res.blob()
     LOGO_CACHE = await new Promise((resolve, reject) => {
       const reader = new FileReader()
