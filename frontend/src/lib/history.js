@@ -287,6 +287,12 @@ export function buildSets(S, cfg) {
   // A routine-level dropset (RoutineEdit's exercise menu) always lands after the last working
   // set, at the same reps and a fixed 20% lighter — same rounding as the warmup ramp below, so
   // it's a number you can actually load. No working weight yet means nothing to drop from.
+  // Back-off sets (optional, off by default): each working set after the first is one step lighter
+  // than the one before. Only the prefilled targets change; the first set is untouched.
+  if (cfg.backoff && sets.length > 1 && sets[0].w > 0) {
+    const ws = backOffWeights(sets[0].w, sets.length, S.unit)
+    sets.forEach((s, i) => { s.w = ws[i] })
+  }
   const lastSet = sets[sets.length - 1]
   if (cfg.dropset && lastSet && lastSet.w > 0) {
     sets.push({ w: roundToPlate(lastSet.w * 0.8, S.unit), r: lastSet.r, done: false, type: 'drop' })
@@ -297,6 +303,23 @@ export function buildSets(S, cfg) {
 const roundToPlate = (w, unit) => {
   const step = unit === 'lb' ? 5 : 2.5
   return Math.round(w / step) * step
+}
+// Loads for `n` sets where the first is `firstW` and each later one is ~10 % lighter, snapped to a
+// loadable step (roundToPlate). A cut that rounds back to the same load drops one step instead, so
+// every set is strictly lighter; at the lightest loadable step the weight simply holds.
+export function backOffWeights(firstW, n, unit) {
+  const step = unit === 'lb' ? 5 : 2.5
+  const out = []
+  let w = firstW
+  for (let i = 0; i < n; i++) {
+    if (i > 0 && w > step) {
+      let next = roundToPlate(w * 0.9, unit)
+      if (next >= w) next = w - step
+      if (next > 0) w = next
+    }
+    out.push(w)
+  }
+  return out
 }
 // Two ramp-up sets ahead of the working weight — 50%×8 then 75%×5. A brand-new exercise with
 // no working weight yet has nothing to compute a ramp from, but the setting still means "show
