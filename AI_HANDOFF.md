@@ -2,7 +2,7 @@
 
 ## Webhooks salientes — 2026-11-05 (en PR, NO desplegado, desactivados)
 
-- Implementados según `docs/WEBHOOKS_SECURITY_REVIEW.md`: `api/webhooks/` (alta/baja/rotación por socio, envío HTTPS con IP fijada, sin redirecciones, firma HMAC-SHA256 con ventana de 300 s, reintentos acotados, registro sin cuerpo, borrado con la cuenta). Apagados salvo `WEBHOOKS_ENABLED=1`; sin interfaz de ajustes todavía. Campos fijos aprobados: solo tipo, id, marca temporal y fecha (`workout.finished`, `weighin.recorded`).
+- Implementados según `docs/WEBHOOKS_SECURITY_REVIEW.md`: `api/webhooks/` (alta/baja/rotación por socio, envío HTTPS con IP fijada, sin redirecciones, firma HMAC-SHA256 con ventana de 300 s, reintentos acotados, registro sin cuerpo, borrado con la cuenta). Apagados salvo `WEBHOOKS_ENABLED=1`; interfaz en Ajustes → Webhooks (`frontend/src/views/WebhookSettings.jsx`), visible solo si el servidor los tiene activos. Campos fijos aprobados: solo tipo, id, marca temporal y fecha (`workout.finished`, `weighin.recorded`).
 
 ## Series piramidales — 2026-11-05 (en PR, NO desplegado)
 
