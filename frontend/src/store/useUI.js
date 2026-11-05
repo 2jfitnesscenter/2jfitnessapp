@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { uid } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
+import { playRestTone } from '../lib/rest-tones.js'
 import { t } from '../lib/i18n.js'
 import { useStore } from './useStore.js'
 import { workoutPrefs } from '../lib/workout-prefs.js'
@@ -39,7 +40,7 @@ const clearRestTick = () => {
 // The end-of-rest announcement, gated by the three rest switches. Exported for tests.
 export function announceRestOver(P, toast) {
   if (!P.restAlert) return
-  beep(P.sound, 880, 0.15); beep(P.sound, 880, 0.15, 0.25); beep(P.sound, 1320, 0.4, 0.5)
+  playRestTone(P.sound, P.restTone)
   if (P.vibrate) vibrate([200, 100, 200])
   toast(t('Rest over — next set!'))
 }

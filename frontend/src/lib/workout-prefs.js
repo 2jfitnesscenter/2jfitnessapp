@@ -14,6 +14,7 @@
 // NEW_PROFILE_DEFAULTS instead — written once, the moment the post-registration wizard marks the
 // profile onboarded, never onto an existing account.
 import { uxOn } from './features.js'
+import { REST_TONE_NAMES, DEFAULT_REST_TONE } from './rest-tones.js'
 
 export const WORKOUT_VIEWS = ['simple', 'detailed']
 
@@ -27,6 +28,8 @@ export function workoutPrefs(S) {
     // S.sound switch (it has always governed every workout beep); vibration is its own switch.
     restAlert: S.restAlert !== false,
     sound: !!S.sound,
+    // Which end-of-rest tone plays (Settings → Rest). A profile that never chose one keeps the classic tone.
+    restTone: REST_TONE_NAMES.includes(S.restTone) ? S.restTone : DEFAULT_REST_TONE,
     vibrate: S.restVibrate !== false,
     progression: S.enableProgressiveOverloadCoach !== false && uxOn(S, 'suggestions'),
   }
