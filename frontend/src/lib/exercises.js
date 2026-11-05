@@ -1,5 +1,6 @@
 import { EXDB } from './exercises-data.js'
 import { t } from './i18n.js'
+import { mergedAwayIds } from './exercise-merge.js'
 // Loading the library layer applies the corrected English display names to EXDB once, before
 // anything reads `ex.n` (see lib/library/core.js).
 import './library/core.js'
@@ -57,9 +58,11 @@ export const isUnavailable = idOrEx => {
 // member's own "don't recommend me this" list (RoutineEdit's exercise menu) — unlike `hidden`
 // it's per-profile, not gym-wide, and only ever affects this same offer-for-new-selection path;
 // an existing routine/workout entry still resolves fine through EXIDX.
+// Exercises the member merged away (lib/exercise-merge.js) are not offered either; they still resolve through EXIDX.
 export const allExercises = st => {
   const excluded = new Set(st.excludedEx || [])
-  return [...(st.customEx || []), ...EXDB.filter(e => !hidden.has(e.id) && !excluded.has(e.id))]
+  const merged = new Set(mergedAwayIds(st))
+  return [...(st.customEx || []).filter(e => !merged.has(e.id)), ...EXDB.filter(e => !hidden.has(e.id) && !excluded.has(e.id) && !merged.has(e.id))]
 }
 
 // Media normally sits next to the app (img/ and gif/, mounted into the web container).

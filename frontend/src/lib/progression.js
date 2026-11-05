@@ -18,6 +18,7 @@
 
 import { modeOf, workingSets, workingLoadEvidence, buildSets, cleanupSg, defaultConfig } from './history.js'
 import { EXIDX, isUnavailable } from './exercises.js'
+import { exResolverOf } from './exercise-merge.js'
 import { bestTestedOneRM, pctForReps } from './onerm.js'
 import { realizableToward, stepWeight } from './equipment.js'
 import { effortStats, effortSignal } from './autoreg.js'
@@ -182,12 +183,14 @@ export function readSession(entry, fallback) {
 }
 
 /** Every past session for one exercise, oldest first. `fallback` — see readSession. */
+// A merged-away exercise's sessions count for its target (lib/exercise-merge.js); every entry of the target counts once.
 export function sessionsFor(S, exId, fallback) {
-  const out = []
+  const out = [], R = exResolverOf(S), want = R(exId)
   ;(S.workouts || []).forEach(w => {
     if (!countsForProgression(w)) return
-    const entry = (w.entries || []).find(e => e.id === exId)
-    if (entry && !entry.target?.deload && entry.sets.some(s => s.done)) out.push({ d: w.d, ...readSession(entry, fallback) })
+    ;(w.entries || []).forEach(entry => {
+      if (R(entry.id) === want && !entry.target?.deload && entry.sets.some(s => s.done)) out.push({ d: w.d, ...readSession(entry, fallback) })
+    })
   })
   return out
 }
