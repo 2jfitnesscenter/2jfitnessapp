@@ -36,6 +36,7 @@ import History from './views/History.jsx'
 import Settings from './views/Settings.jsx'
 import SharedStaffSettings from './views/SharedStaffSettings.jsx'
 import SecuritySettings from './views/SecuritySettings.jsx'
+import WebhookSettings from './views/WebhookSettings.jsx'
 import LinkApprove from './views/LinkApprove.jsx'
 import TrainingSettings from './views/TrainingSettings.jsx'
 import StatsSettings from './views/StatsSettings.jsx'
@@ -330,6 +331,7 @@ function Shell() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/shared-staff" element={<SharedStaffSettings />} />
               <Route path="/settings/security" element={<SecuritySettings />} />
+              <Route path="/settings/webhooks" element={<WebhookSettings />} />
               <Route path="/link/:id" element={<LinkApprove />} />
               <Route path="/settings/training" element={<TrainingSettings />} />
               <Route path="/settings/stats" element={<StatsSettings />} />
