@@ -5898,4 +5898,7 @@ export default {
   'Suspension trainer': 'Suspensión (TRX)',
   'Sandbag': 'Saco de arena',
   'Macebell': 'Macebell',
+  'Add back-off sets': 'Añadir series de descarga',
+  'Remove back-off sets': 'Quitar series de descarga',
+  'Back-off': 'Descarga',
 }

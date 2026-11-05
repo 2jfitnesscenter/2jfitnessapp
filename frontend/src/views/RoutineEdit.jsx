@@ -77,6 +77,7 @@ export default function RoutineEdit() {
     onProgression: () => exConfigSheet(ex, e, cfg => edit(x => { x[i] = { id: x[i].id, sg: x[i].sg, ...cfg } }), () => removeAt(i), r),
     onSuperset: () => e.sg ? leaveSuperset(i) : supersetPickerSheet(r, i, j => joinSuperset(i, j)),
     onDropsetToggle: () => edit(x => { x[i].dropset = !x[i].dropset }),
+    onBackoffToggle: () => edit(x => { x[i].backoff = !x[i].backoff }),
     onNotes: () => exerciseNotesSheet(ex, e, note => edit(x => { if (note) x[i].note = note; else delete x[i].note })),
     onRemove: () => removeAt(i),
     onRemoveExclude: () => confirmSheet({
@@ -157,7 +158,8 @@ export default function RoutineEdit() {
           <div className="grow">
             <div className="tt capitalize">{info && <span className="ss-badge">{supersetLabel(info)}</span>}{nameFor(ex)}</div>
             <div className="ss">{isUnavailable(ex) ? <span style={{ color: 'var(--orange)' }}>{t('Not currently offered — skipped when you start this workout')}</span> : exLine(e, S.unit)}
-              {e.dropset && <span className="tag acc" style={{ marginLeft: 6 }}>{t('Dropset')}</span>}</div>
+              {e.dropset && <span className="tag acc" style={{ marginLeft: 6 }}>{t('Dropset')}</span>}
+              {e.backoff && <span className="tag acc" style={{ marginLeft: 6 }}>{t('Back-off')}</span>}</div>
             {e.note && <div className="ss">{e.note}</div>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 'none', alignItems: 'center' }}>
