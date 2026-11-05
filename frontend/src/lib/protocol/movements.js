@@ -90,6 +90,11 @@ export const EQUIPMENT = [
   { id: 'roller', label: 'Roller', kind: 'accessory', from: ['roller', 'wheel roller', 'massage ball'] },
   { id: 'hammer', label: 'Hammer', kind: 'accessory', from: ['hammer'] },
   { id: 'tire', label: 'Tire', kind: 'accessory', from: ['tire'] },
+  // openGym imports (2026-11): equipment we did not model before. Added, never renamed; old ids and records unchanged.
+  { id: 'landmine', label: 'Landmine', kind: 'free', from: ['landmine'] },
+  { id: 'suspension', label: 'Suspension trainer', kind: 'accessory', from: ['suspension trainer'] },
+  { id: 'sandbag', label: 'Sandbag', kind: 'free', from: ['sandbag'] },
+  { id: 'macebell', label: 'Macebell', kind: 'free', from: ['macebell'] },
   { id: 'treadmill', label: 'Treadmill', kind: 'cardio', from: ['treadmill'] },
   { id: 'bike', label: 'Stationary bike', kind: 'cardio', from: ['stationary bike'] },
   { id: 'elliptical', label: 'Elliptical', kind: 'cardio', from: ['elliptical machine'] },

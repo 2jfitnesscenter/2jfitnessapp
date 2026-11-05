@@ -421,11 +421,11 @@ Invoke-Checked 'STARTING_LOAD_TESTS' $Frontend 'npm test -- --run src/lib/starti
 Invoke-Checked 'BUNKER_TESTS' $Frontend 'npm test -- --run src/lib/bunker-workout.test.js src/lib/bunker-persistence.test.js src/lib/bunker-credentials.test.js' @('24 passed')
 Invoke-Checked 'OFFICIAL_BLOCKS' $Root 'node scripts/build-official-blocks.mjs --check' @('in sync: 198 blocks')
 Invoke-Checked 'OFFICIAL_ROUTINES' $Root 'node scripts/build-official-routines.mjs --check' @('in sync: 155 routines, 17 collections')
-Invoke-Checked 'COACH_LIBRARY' $Root 'node scripts/build-coach-library.mjs --check' @('in sync \(5360 exercises\)')
+Invoke-Checked 'COACH_LIBRARY' $Root 'node scripts/build-coach-library.mjs --check' @('in sync \(5538 exercises\)')
 # Exercise Library V2: integrity (ids, taxonomy, deprecations, aliases, Recommended 2J) and the
 # reproducible audit, with the exact metrics of this HEAD.
-Invoke-Checked 'CHECK_EXERCISE_LIBRARY' $Root 'node scripts/check-exercise-library.mjs' @('Exercise library OK: 5360 exercises, 210 recommended, 26 deprecated, 4643 with a canonical movement\.')
-Invoke-Checked 'AUDIT_EXERCISE_LIBRARY' $Root 'node scripts/audit-exercise-library.mjs --check' @('in sync \(5360 exercises, 195 possible-duplicate groups\)')
+Invoke-Checked 'CHECK_EXERCISE_LIBRARY' $Root 'node scripts/check-exercise-library.mjs' @('Exercise library OK: 5538 exercises, 210 recommended, 26 deprecated, 4807 with a canonical movement\.')
+Invoke-Checked 'AUDIT_EXERCISE_LIBRARY' $Root 'node scripts/audit-exercise-library.mjs --check' @('in sync \(5538 exercises, 201 possible-duplicate groups\)')
 git diff --check
 if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed' }
 Write-Host 'LOCAL_DIFF_CHECK=OK'
@@ -862,7 +862,7 @@ if (!fs.existsSync(configPath) && JSON.stringify(configuredEquipment) !== JSON.s
 if (process.env.GYM_CONFIG_EXPECT === 'custom' && JSON.stringify(configuredEquipment) !== JSON.stringify(['bodyweight', 'smith'])) fail('gym_official_persisted_read');
 const LIB = payload.LIBRARY;
 const libById = new Map(LIB.map(e => [e.id, e]));
-if (LIB.length !== 5360 || libById.size !== 5360) fail('lib_ids');
+if (LIB.length !== 5538 || libById.size !== 5538) fail('lib_ids');
 const recN = LIB.filter(e => e.rec).length, mvN = LIB.filter(e => e.mv).length, depL = LIB.filter(e => e.pref);
 const overlayRev0 = (await import(B + 'lib/library-admin.js')).overlay().rev;
 // The code library is exactly these numbers; once an admin has edited the overlay it may legitimately differ.
@@ -2031,7 +2031,7 @@ printf 'EXERCISE_TAXONOMY=OK movements=%s equipment=%s kinds=%s preferred_valid 
 printf 'EXERCISE_SEARCH=OK es/en name+alias+movement+muscle+equipment deprecated_last (tests + bundle)\n'
 printf 'EXERCISE_SWAP=OK similar_variants_first reasons max=8 constructor+trainer_builder+workout+bunker(same_sheet)\n'
 printf 'EXERCISE_IMPORT=OK spanish_aliases translated_names deprecated_to_preferred ties_not_guessed\n'
-printf 'EXERCISE_AI=OK ids=5360 rec_first=%s gym_hidden=%s deprecated_excluded old_ids_validate high_overlap=note_only\n' "$(PROBE_FIELD ai_rec_first)" "$(PROBE_FIELD hidden_ex)"
+printf 'EXERCISE_AI=OK ids=5538 rec_first=%s gym_hidden=%s deprecated_excluded old_ids_validate high_overlap=note_only\n' "$(PROBE_FIELD ai_rec_first)" "$(PROBE_FIELD hidden_ex)"
 printf 'GYM_PROFILES_V11=OK equipment=19 source=official_global admin_write=protected offline_cache=yes sync=separate config=%s\n' "$GYM_PROFILE_AFTER"
 printf 'GUIDED_BLOCKS=OK circuit/interval/hiit/tabata/mobility rounds=1-10 tabata=editable circuit=time+reps interval_rounds+mobility=not_direct_volume ai=offered validator=authority\n'
 printf 'BUNKER_REST=OK prescribed_rest fallback=90s superset_pair guided_timing board_restSec\n'
@@ -2322,7 +2322,7 @@ GYM_PROFILE_AFTER=present-unchanged
 BACKUP=/simulation/predeploy.tar.gz
 PROBE_OUT='INACTIVITY_MODEL_PROBE=OK deadline=60min passive_no_reset duration_excludes_idle
 PROBE_OK
-PROBE_DATA exlib=5360 recommended=210 with_movement=4643 deprecated=26 movements=35 equipment=28 kinds=6 ai_rec_first=210 hidden_ex=0 gym_profiles=ok gym_config_source=persisted gym_ai_context=hotel gym_compatible_first=bodyweight protocol=1.0 masters=198 pass=198 pass_with_reason=0 fail=0 unverified=0 api_blocks=198 guided_masters=86 routines=155 programs=22 collections=15 featured=3 masters_used=145 copies=363 member_writes=refused ai_deprecated=0 overlay_rev=0 guided_rev=1.2.0'
+PROBE_DATA exlib=5538 recommended=210 with_movement=4807 deprecated=26 movements=35 equipment=32 kinds=6 ai_rec_first=210 hidden_ex=0 gym_profiles=ok gym_config_source=persisted gym_ai_context=hotel gym_compatible_first=bodyweight protocol=1.0 masters=198 pass=198 pass_with_reason=0 fail=0 unverified=0 api_blocks=198 guided_masters=86 routines=155 programs=22 collections=15 featured=3 masters_used=145 copies=363 member_writes=refused ai_deprecated=0 overlay_rev=0 guided_rev=1.2.0'
 GUIDED_GET_STATUS=401
 STUDIO_POST_STATUSES='status=401 reorder=401 program/save=401 program/curate=401 program/duplicate=401 program/delete=401 collection/delete=401'
 LIBADMIN_GET_STATUS=401

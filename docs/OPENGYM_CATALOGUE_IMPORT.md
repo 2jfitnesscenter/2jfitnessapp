@@ -1,49 +1,53 @@
-# Importación del catálogo de openGym — paso 1 (solo datos, sin medios)
+# Importación del catálogo de openGym — paso 1 (datos + imágenes fijas)
 
-Fuente: [DuarteSantos8/openGym](https://github.com/DuarteSantos8/openGym) (AGPL-3.0), commit `8fb98b16`.
+Fuente: [DuarteSantos8/openGym](https://github.com/DuarteSantos8/openGym) (AGPL-3.0), commit `8fb98b16861a2728652302a7e6e30c50548493a0`.
 Generador reproducible: `scripts/import-upstream-catalogue.mjs <checkout de openGym>` (`--check` para verificar).
+Imágenes fijas: `scripts/fetch-opengym-media.sh` las descarga a `media/img/opengym/` (ver «Alojamiento»).
+
+## Decisiones del propietario (2026-11)
+
+- **Repetidos:** si el nombre de un ejercicio importado repite el de uno que ya tenemos (en inglés, en español, en su
+  forma sin «(male)/(female)», o un alias), **no se importa**. Quedan 94 en la lista retenida.
+- **No repetidos:** se importan, incluidos los de material que no teníamos (landmine, suspension trainer, sandbag,
+  macebell) y las máquinas de sentadilla de cinturón y de péndulo.
+- **Alojamiento:** las imágenes se sirven desde nuestro propio servidor, no desde openGym.
 
 ## Qué se añade
 
-- **4.036 ejercicios nuevos** con id, nombre en inglés, grupo muscular, material, músculo objetivo, músculos secundarios
-  e instrucciones en inglés, y nombre en español (traducción de openGym).
+- **4.214 ejercicios nuevos** con id, nombre en inglés, grupo muscular, material, músculo objetivo, músculos
+  secundarios, instrucciones en inglés y nombre en español.
 - Quedan en `frontend/src/lib/exercises-upstream.js` y `frontend/src/names/es-upstream.js`, con la marca `ext: 1`.
-- **Los 1.324 existentes no cambian.** La prueba `exercises-upstream.test.js` compara el texto del fichero base con el de `main`.
-- **Sin imágenes ni animaciones:** `img` y `gif` quedan en `null` y la app muestra su miniatura. Las animaciones son el paso 2.
-- **El Coach no las recibe.** `api/coach/payload.js` (`librarySlice`) excluye `ext`: sus prompts y propuestas siguen igual.
-  Los ids importados sí son válidos si una rutina ya los contiene.
+- **Los 1.324 existentes no cambian.** `exercises-upstream.test.js` compara el texto del fichero base con el de `main`.
+- **Imagen fija:** cada importado apunta a `opengym/<id>.webp`. Las animaciones (clips) no se importan todavía.
+- **Material nuevo:** `landmine`, `suspension`, `sandbag`, `macebell` en `protocol/movements.js`. Solo se añaden; los
+  perfiles de gimnasio ganan opciones, no cambian las existentes.
+- **Equivalencias aditivas:** `weight plate` → Peso añadido; `massage ball` → Rodillo.
 
-## Qué se retiene (272) — requiere tu decisión
+## Qué se retiene (94)
 
-Retenido = existe en openGym, pero no se importa todavía. Lista completa: `docs/OPENGYM_CATALOGUE_HELD.json`.
-
-| Motivo | Nº | Qué hacer |
-|---|---|---|
-| **Nombre repetido** con un ejercicio nuestro (o su nombre sin «(male)», o un alias) | 90 | Decidir cómo desambiguar (p. ej. sufijo de material) o descartarlos |
-| **Material sin equivalente** (`landmine` 32, `suspension trainer` 130, `sandbag` 12, `macebell` 2) | 176 | Decidir si creamos esos tipos de material (cambia los perfiles de gimnasio) |
-| **Decisión previa de producto**: máquina de sentadilla de cinturón y péndulo | 2 | Confirmar que sigue vigente |
-
-Equivalencias de material que sí se han aplicado (aditivas, en `frontend/src/lib/protocol/movements.js`):
-- `weight plate` → Peso añadido (`weighted`)
-- `massage ball` → Rodillo (`roller`)
+Retenido = existe en openGym, pero repite un nombre nuestro. Lista: `docs/OPENGYM_CATALOGUE_HELD.json`.
 
 ## Cambios de comportamiento que hay que conocer
 
-- **Búsqueda:** los importados se ordenan **después** de cualquier resultado que ya existía (`library/index.js`, −1000 de
-  puntuación). Así «hip thrust» sigue dando primero el 0058. Un término que solo coincide con importados sí los muestra.
-- **Calidad de biblioteca:** 195 grupos de «posibles duplicados» y 717 ejercicios importados **sin movimiento canónico**
-  (la base no los tiene). Son avisos del informe `docs/EXERCISE_LIBRARY_AUDIT.md`, no errores; la comprobación pasa.
-- **Recuento:** biblioteca 5.360 = 1.324 + 4.036. Las cifras de los runners de release se han actualizado a estos
-  números (`ops/deploy-kit/windows/templates/release-runner.ps1.in`).
+- **Coach:** no recibe los importados (`librarySlice` excluye `ext`). Sus prompts y propuestas siguen igual.
+- **Búsqueda:** los importados van **después** de cualquier resultado que ya existía (−1000 de puntuación en
+  `library/index.js`). «hip thrust» sigue dando primero el 0058.
+- **Escáner e importación:** `import-csv.js`, `import-match.js` y `api/lib/exercise-name-match.js` no eligen importados
+  automáticamente; el socio sí puede elegirlos a mano en la biblioteca.
+- **Calidad:** 201 grupos de «posibles duplicados» y ejercicios importados sin «movimiento canónico» (la base no los
+  tiene). Son avisos de `docs/EXERCISE_LIBRARY_AUDIT.md`, no errores.
+- **Recuento:** biblioteca 5.538 = 1.324 + 4.214. Las cifras de los runners de release están actualizadas.
 
-## Lo que NO se ha copiado
+## Alojamiento
 
-- Los 922 ficheros con `variantOf` son variantes de dibujo (figura femenina/masculina), no ejercicios. Llegan con las animaciones.
-- Los medios (fotos y animaciones) de openGym: son el paso 2 y tienen su propio alojamiento.
+- `scripts/fetch-opengym-media.sh` descarga las 6.554 imágenes del commit fijado (unos 48 MB) en `media/img/opengym/`.
+  `media/img/` no se versiona; como `scripts/fetch-media.sh`, se ejecuta en el servidor.
+- nginx sirve `/img/` con `try_files`, así que la subcarpeta funciona sin cambios.
+- **Pendiente de despliegue:** copiar las imágenes al servidor es un despliegue. No se ha hecho.
 
 ## Cómo se verificó
 
-- `exercises-upstream.test.js`: texto base idéntico a `main`; importados completos, con nombre en español y material canónico;
-  reglas de nombres e integridad de la biblioteca sin errores; nada retenido dentro del dataset.
-- Tests existentes ajustados para contar los 1.324 originales por separado, **sin relajar sus reglas** (ver el diff de los `*.test.*`).
-- Un test de búsqueda y uno de Coach que antes usaban ids inventados (`9999`) pasan ahora `999999`, que no existe.
+- Frontend: `exercises-upstream.test.js`; tests de biblioteca, estudio, protocolo y Premium ajustados para contar los
+  1.324 originales por separado, sin relajar sus reglas.
+- API: `library-*`, `payload`, `gym-profiles`, `protocol-sync`.
+- Pruebas que usaban ids inventados (`9999`) pasan ahora `999999`, que no existe.

@@ -118,5 +118,5 @@ test('the real 2J inventory (machines, kettlebells, plates, stair climber, sled)
   // no taxonomy was added for this: every id of the official inventory already exists
   const { EQUIPMENT } = await import('./protocol/movements.js')
   expect(DEFAULT_2J_EQUIPMENT.every(id => EQUIPMENT.some(e => e.id === id))).toBe(true)
-  expect(EQUIPMENT).toHaveLength(28)
+  expect(EQUIPMENT).toHaveLength(32)   // 28 + landmine, suspension, sandbag, macebell (openGym imports)
 })

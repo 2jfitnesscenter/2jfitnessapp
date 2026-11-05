@@ -48,8 +48,8 @@ describe('openGym catalogue import: nothing we had changes', () => {
 })
 
 describe('imported exercises', () => {
-  it('there are 4,036 of them (the 4,308 new ones minus 272 held back, see the held list), and every id appears once', () => {
-    expect(EXDB_UPSTREAM).toHaveLength(4036)
+  it('there are 4,214 of them (the 4,308 new ones minus the 94 whose name repeats one we have, see the held list), and every id appears once', () => {
+    expect(EXDB_UPSTREAM).toHaveLength(4214)
     expect(new Set(EXDB.map(e => e.id)).size).toBe(EXDB.length)
   })
 
@@ -65,8 +65,9 @@ describe('imported exercises', () => {
     }
   })
 
-  it('none has an image or animation yet: the app shows its placeholder for them', () => {
-    expect(EXDB_UPSTREAM.every(e => e.img === null && e.gif === null)).toBe(true)
+  it('each one points at its still picture on our server; none has an animation yet', () => {
+    expect(EXDB_UPSTREAM.every(e => e.img === `opengym/${e.id}.webp`)).toBe(true)
+    expect(EXDB_UPSTREAM.every(e => e.gif === null)).toBe(true)
   })
 
   it('each one has a Spanish name', () => {

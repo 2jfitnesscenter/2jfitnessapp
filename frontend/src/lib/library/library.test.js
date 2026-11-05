@@ -342,7 +342,8 @@ describe('Training Quality V2 data pass', () => {
     expect(EXDB.filter(e => !e.ext && e.eq === 'leverage machine' && facetsOf(e).equipment === 'machine').length).toBe(76)
   })
 
-  it('no machine is invented: belt squat and pendulum squat are not in the dataset and are left out on purpose', () => {
-    expect(EXDB.some(e => /belt squat|pendulum squat/i.test(e.n))).toBe(false)
+  it('belt squat and pendulum squat come from openGym (owner decision 2026-11), and no curated record of ours is one of them', () => {
+    expect(EXDB.filter(e => !e.ext && /belt squat|pendulum squat/i.test(e.n))).toEqual([])
+    expect(EXDB.filter(e => e.ext && /belt squat|pendulum squat/i.test(e.n)).map(e => e.id).sort()).toEqual(['2950', '4951'])
   })
 })
