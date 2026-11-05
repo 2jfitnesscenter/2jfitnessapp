@@ -5859,4 +5859,7 @@ export default {
   'Reason for a missed day': 'Motivo del día sin entrenar',
   'Reason removed': 'Motivo quitado',
   'Reason saved': 'Motivo guardado',
+  'Triple progression': 'Progresión triple',
+  'Add up to {0} extra sets at the top of the range before adding load.': 'Añade hasta {0} series extra al llegar arriba del rango antes de subir la carga.',
+  'Top of the range in every set — add a set ({0} of {1}) at the same load, reps back to {2}.': 'Arriba del rango en todas las series: añade una serie ({0} de {1}) con la misma carga y vuelve a {2} reps.',
 }

@@ -58,6 +58,11 @@ export const POLICY_DESC = {
 export const DELOAD_AFTER = { linear: 3, greyskull: 1, double: 3, time: 3 }
 const DELOAD_FACTOR = 0.9
 
+// Optional triple progression (cfg.triple, double progression only): at the top of the range in
+// every set, add a working set at the same load, up to this many extra sets. Only then does the
+// load go up, and the sets go back to the planned count.
+export const TRIPLE_EXTRA_SETS = 2
+
 // Body parts where a 5 kg jump is normal rather than brutal.
 const HEAVY_BP = ['upper legs', 'lower legs', 'back', 'hips', 'glutes']
 
@@ -282,12 +287,25 @@ function policyPrescription(S, cfg, routine) {
   if (last.ok && (!last.safeToIncrease || (policy === 'double' && (!previous?.ok || !previous.safeToIncrease || previous.weight !== w)))) {
     return { policy, kind: 'hold', weight: w, why: ['Repeat the first working load until two sessions support a safe increase.'] }
   }
+  const top = cfg.reps || last.goal || 10
+  const bottom = Math.min(cfg.repsMin || Math.max(1, top - 2), top)
+  // Triple progression: at the top in every set, add a working set (same load, reps back to the
+  // bottom) until the cap. Once at the cap, fall through to the normal load increase below.
+  if (policy === 'double' && cfg.triple === true && last.ok) {
+    const planned = Math.max(1, cfg.sets || 1)
+    const cap = planned + TRIPLE_EXTRA_SETS
+    const next = Math.max(planned, last.reps.length + 1)
+    if (next <= cap) return { policy, kind: 'hold', weight: w, reps: bottom, sets: next,
+      why: ['Top of the range in every set — add a set ({0} of {1}) at the same load, reps back to {2}.', next, cap, bottom] }
+  }
   if (policy === 'double') {
-    const top = cfg.reps || last.goal || 10
-    const bottom = Math.min(cfg.repsMin || Math.max(1, top - 2), top)
     if (last.ok) {
       const up = loadable(S, cfg, w, snap(w + inc, inc))
-      if (up <= w) return topOfRange(policy, w, bottom)
+      if (up <= w) {
+        const held = topOfRange(policy, w, bottom)
+        // Triple at its set cap with no heavier load available: keep the extra sets, don't drop them.
+        return cfg.triple === true ? { ...held, sets: last.reps.length } : held
+      }
       return { policy, kind: 'up', weight: up, reps: bottom, why: ['Top of the rep range in every set — {0} {1} more, back to {2} reps.', delta(up, w), unit, bottom] }
     }
     if (stalls >= deloadAt) {
@@ -388,8 +406,9 @@ export function applyPrescription(sets, p) {
 // Cardio's effective target belongs to this workout entry, not the saved routine. Keeping it
 // beside the existing target lets history judge the result against what was actually prescribed.
 export function targetForPrescription(cfg, plan) {
-  if (modeOf(cfg) !== 'cardio' || !plan || plan.kind === 'off' || plan.kind === 'first') return { ...cfg }
-  return { ...cfg, ...(plan.min != null ? { min: plan.min } : {}), ...(plan.speed != null ? { speed: plan.speed } : {}) }
+  const sets = plan?.sets != null && plan.kind !== 'off' && plan.kind !== 'first' ? { sets: plan.sets } : {}
+  if (modeOf(cfg) !== 'cardio' || !plan || plan.kind === 'off' || plan.kind === 'first') return { ...cfg, ...sets }
+  return { ...cfg, ...sets, ...(plan.min != null ? { min: plan.min } : {}), ...(plan.speed != null ? { speed: plan.speed } : {}) }
 }
 
 // Turns a routine into the `entries` a live session drives (S.active.entries and the finished
@@ -403,7 +422,8 @@ export function buildRoutineEntries(S, routine) {
   cleanupSg(usable)
   return usable.map(cfg => {
     const plan = nextPrescription(S, cfg, routine)
-    return withDeload(S, { id: cfg.id, sg: cfg.sg, target: targetForPrescription(cfg, plan), plan, sets: applyPrescription(buildSets(S, cfg), plan) })
+    // A plan can change the working-set count (triple progression); build the sets to match.
+    return withDeload(S, { id: cfg.id, sg: cfg.sg, target: targetForPrescription(cfg, plan), plan, sets: applyPrescription(buildSets(S, plan.sets != null ? { ...cfg, sets: plan.sets } : cfg), plan) })
   })
 }
 
