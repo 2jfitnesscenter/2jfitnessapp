@@ -477,6 +477,8 @@ export default {
   'This removes it from your history for good.': 'Se elimina de tu historial para siempre.',
   'Workout deleted': 'Entrenamiento eliminado',
   'Delete workout': 'Eliminar entrenamiento',
+  'Repeat today': 'Repetir hoy',
+  'This routine no longer exists': 'Esta rutina ya no existe',
   '{0} done': '{0} hecho',
   'Confirm the weight you worked with — your highest becomes the default next time.': 'Confirma el peso con el que trabajaste — el más alto será el predeterminado la próxima vez.',
   'Then finish the superset partner.': 'Luego termina el otro ejercicio de la superserie.',
