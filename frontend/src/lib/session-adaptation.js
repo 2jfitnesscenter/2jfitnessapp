@@ -1,7 +1,7 @@
 import { EXIDX } from './exercises.js'
 import { cleanupSg, effectiveRoutineId, modeOf } from './history.js'
 import { isoOf } from './format.js'
-import { dayPlanRoutineId, isMovedDayPlan, movedDayValue, parseMovedDay } from './day-plan.js'
+import { dayPlanRoutineId, isMovedDayPlan, movedDayValue, parseMovedDay, dayNoteOf } from './day-plan.js'
 import { isInMuscleGroup, MUSCLE_GROUPS } from './muscles.js'
 import { checkinAdvice, checkinOn } from './checkin.js'
 
@@ -204,7 +204,7 @@ export function weekReorderSuggestion(S, today) {
   for (let date = lookbackStart; date < today; date = addDays(date, 1)) {
     const rid = S.dayPlan?.[date] !== undefined ? (S.dayPlan[date] === 'rest' || isMovedDayPlan(S.dayPlan[date]) ? null : dayPlanRoutineId(S.dayPlan[date])) : null
     const effectiveId = rid || (S.dayPlan?.[date] === undefined ? effectiveRoutineId(S, date) : null)
-    if (!effectiveId || completed.has(date) || isMovedDayPlan(S.dayPlan?.[date])) continue
+    if (!effectiveId || completed.has(date) || isMovedDayPlan(S.dayPlan?.[date]) || dayNoteOf(S, date)) continue // an explained skip is not a missed session
     const routine = (S.routines || []).find(r => r.id === effectiveId)
     if (routine) missed.push({ date, routineId: routine.id, routine })
   }

@@ -73,6 +73,7 @@ import { exportWorkout as exportWorkoutToHealth } from './lib/health-bridge.js'
 import { scheduleEnergy, runEnergyReconcile, GRACE_MS } from './lib/energy-reconcile.js'
 import { fetchRoutineVersions, fetchProgramVersions } from './lib/trainer-api.js'
 import { previewExpressSession, shortenExpressWarmups, weekReorderSuggestion, applyWeekReorder, movedFromForDate, clearRescheduleAtDate, sessionHistoryMetadata } from './lib/session-adaptation.js'
+import { dayNoteOf, setDayNote, DAY_NOTE_MAX } from './lib/day-plan.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -1543,6 +1544,12 @@ function DayOverride({ iso, close }) {
   const weeklyR = st.routines.find(r => r.id === activeWeek(st)[wd])
   const hasOvr = st.dayPlan[iso] !== undefined
   const effId = effectiveRoutineId(st, iso)
+  const [noteText, setNoteText] = useState(() => dayNoteOf(st, iso) || '')
+  const saveNote = value => {
+    update(s => { s.dayNotes = setDayNote(s.dayNotes, iso, value) })
+    setNoteText(value.trim().slice(0, DAY_NOTE_MAX).trim())
+    toast(value.trim() ? t('Reason saved') : t('Reason removed'))
+  }
   const set = v => {
     update(s => {
       s.dayPlan = clearRescheduleAtDate(s.dayPlan, iso)
@@ -1555,6 +1562,17 @@ function DayOverride({ iso, close }) {
     <h3>{fmtDate(iso, true)}</h3>
     <DayHealthSummary d={iso} S={st} />
     <div className="muted small" style={{ marginBottom: 12 }}>{t('Weekly plan:')} {weeklyR ? weeklyR.name : t('Rest')}{hasOvr && <span style={{ color: 'var(--orange)' }}> · {t('changed for this day')}</span>}<br />{t('Sick, missed a day or want a different session? Pick what to train instead.')}</div>
+    {iso < todayISO() && <div className="card" style={{ marginBottom: 12 }}>
+      <div className="tt">{t('Reason for a missed day')}</div>
+      <div className="muted small" style={{ marginTop: 4 }}>{t('Optional. A day with a reason is not counted as a missed workout.')}</div>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+        {['Sick', 'Travelling', 'Injured'].map(reason => <Button key={reason} size="sm" variant={noteText === reason ? 'primary' : 'plain'} onClick={() => saveNote(reason)}>{t(reason)}</Button>)}
+      </div>
+      <div className="row" style={{ gap: 6, marginTop: 8 }}>
+        <TextField className="grow" maxLength={DAY_NOTE_MAX} value={noteText} placeholder={t('Other reason')} onChange={e => setNoteText(e.target.value)} />
+        <Button size="sm" onClick={() => saveNote(noteText)}>{t('Save')}</Button>
+      </div>
+    </div>}
     {iso <= todayISO() && <div className="list" style={{ marginBottom: 12 }}>
       <div className="item" onClick={() => { close(); pastWorkoutSheet(iso) }}>
         <span className="lrow-i" style={{ background: 'var(--surface-3)' }}><Icon name="history" /></span>

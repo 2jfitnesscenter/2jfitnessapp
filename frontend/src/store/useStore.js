@@ -107,7 +107,7 @@ export const DEF = {
   // Same {d, v, t} shape again — steps/sleep(minutes)/restingHR only ever arrive via an Apple
   // Health import (lib/import-csv.js's parseAppleHealth/mergeImport), never logged by hand.
   steps: [], sleep: [], restingHR: [],
-  bodyweight: [], routines: [], programs: [], week: {}, dayPlan: {},
+  bodyweight: [], routines: [], programs: [], week: {}, dayPlan: {}, dayNotes: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // A personal target weight for a given exercise — private like targetW (the bodyweight
   // goal) unless explicitly published to Social's "Desafíos y Metas" tab. Keyed by exercise id.
