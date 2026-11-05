@@ -14,6 +14,7 @@ import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
 import ExerciseMeta from '../components/ExerciseMeta.jsx'
 import WorkoutProgress from '../components/WorkoutProgress.jsx'
+import ExerciseChips from '../components/ExerciseChips.jsx'
 import NextUp from '../components/NextUp.jsx'
 import { nextUnit } from '../lib/training-v3.js'
 import { startFlow, expressSessionSheet, exercisePicker, alternativesSheet, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet, setTypeSheet, platesSheet } from '../sheets.jsx'
@@ -793,6 +794,7 @@ function ActiveWorkout() {
     </div>
     {A.entries.length > 0 && !focusOn && <WorkoutProgress entries={A.entries} units={units} unitIdx={Math.max(0, unitIdx)} done={done} total={total} superset={isSuperset}
       onGo={i => update(s => { s.active.cur = units[i][0] })} />}
+    {prefs.chips && A.entries.length > 0 && !focusOn && <ExerciseChips entries={A.entries} cur={cur} onGo={i => update(s => { s.active.cur = i })} />}
     {!A.past && !focusOn && <GymProfile />}
     {!A.past && !focusOn && <IntelligenceToday S={S} user={user} max={1} compact types={['EQUIPMENT_CONFLICT', 'PROGRESSION_READY', 'LOAD_TOO_HIGH']} />}
     {/* Entrena con 2J: the routine's own artwork carries into the session it started. */}
