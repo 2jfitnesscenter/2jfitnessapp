@@ -27,3 +27,4 @@ secrets/
 
 # Local AI scan benchmark samples (real photos, anonymised by hand): never committed — see docs/AI_RELIABILITY.md
 benchmarks/
+media/clip/
