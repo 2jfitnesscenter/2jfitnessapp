@@ -42,6 +42,7 @@ export function exportMember(d, uid) {
     sharing: d.sharing.exportUser(uid),
     bunker: d.bunker.exportUser(uid),
     exerciseNotes: d.exerciseNotes.exportUser(uid),
+    webhooks: d.webhooks.exportUser(uid),   // endpoint hosts and delivery status only: never a secret or a URL path
     social: {
       routines: own(s.routines, uid), programs: own(s.programs, uid), wall: own(s.wall, uid), topics: own(s.topics, uid), board: own(s.board, uid),
       challengesAuthored: own(s.challenges, uid), challengesJoined: (s.challenges || []).filter(c => c.authorId !== uid && (c.participants || []).includes(uid)).map(c => ({ id: c.id, name: c.name })),
@@ -73,6 +74,7 @@ export function eraseMember(d, uid) {
   report.sharing = d.sharing.removeUser(uid);
   report.bunker = d.bunker.removeUser(uid);
   report.exerciseNotes = d.exerciseNotes.removeUser(uid);
+  report.webhooks = d.webhooks.removeUser(uid);   // endpoints, their encrypted secrets, delivery log, dedupe keys
   d.clearCoach?.(uid);
 
   // 3. the community file

@@ -21,7 +21,7 @@ import * as aiMetrics from './lib/ai-metrics.js';
 import * as trainerJobs from './coach/trainer-jobs.js';
 import { auxAIRoutes } from './lib/aux-ai-routes.js';
 import { matchImportExercises } from './lib/import-exercise-match.js';
-import { readState, writeState } from './lib/state-store.js';
+import { readState, writeState, setStateWriteHook } from './lib/state-store.js';
 import { openSync, mutate, directReceipt, saveDirect, trainerReceipt, saveTrainer } from './lib/sync.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
@@ -29,6 +29,9 @@ import * as friendsStore from './friends/store.js';
 import { chatRoutes } from './chat/routes.js';
 import { notificationRoutes } from './notifications/routes.js';
 import * as notificationStore from './notifications/store.js';
+import { webhookRoutes } from './webhooks/routes.js';
+import { createWebhookStore } from './webhooks/store.js';
+import { createWebhookService } from './webhooks/service.js';
 import { canViewSharedContent } from './notifications/privacy.js';
 import { sharingRoutes } from './social/sharing-routes.js';
 import * as sharingStore from './social/sharing-store.js';
@@ -421,11 +424,16 @@ function cancelRestTimer(userId) {
   if (t) { clearTimeout(t); restTimers.delete(userId); }
 }
 
+// Outbound webhooks (member-owned, off unless WEBHOOKS_ENABLED=1). Own file under DATA_DIR; see api/webhooks/*.js and docs/WEBHOOKS_SECURITY_REVIEW.md.
+const webhookStore = createWebhookStore({ dataDir: DATA });
+const webhooks = createWebhookService({ store: webhookStore, enabled: process.env.WEBHOOKS_ENABLED === '1' });
+setStateWriteHook((uid, prev, next) => webhooks.onStateWritten(uid, prev, next));
+
 // Everything lib/account-erasure.js needs, in one place: the stores that hold a person's data.
 const erasureDeps = () => ({
   db, social, saveDb, saveSocial, readState, stateFile, uploadsDir, deleteUploadedImage,
   followupPhotosDir,
-  chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore, exerciseNotes,
+  chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore, exerciseNotes, webhooks: webhookStore,
   isStaff: isTrainer, clearCoach: coachJobs.clearUser,
   forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); userSummaries.forget(uid); dropScanJobsFor(uid); trainerJobs.forgetMember?.(uid); },
 });
@@ -3574,6 +3582,7 @@ const routes = {
       : { snapshot: { name: p.name, emoji: p.emoji, routines: p.routines, daysPerWeek: p.daysPerWeek }, meta };
   }, users: () => db.users, isAdmin, resolveTarget: resolveShareTarget, canShareWith: (ownerId, viewerId, kind) => canViewSocialShare({ id: viewerId }, ownerId, kind === 'record' ? 'pr' : ['routine', 'program'].includes(kind) ? 'routine' : ['achievement', 'streak'].includes(kind) ? 'achievement' : kind), resolveReported: resolveReportedContent, removeReported: removeReportedContent, notify: notificationStore.create, sendPush: (uid, payload, type) => sendSocialPush(uid, payload, type) }),
   ...notificationRoutes({ json, readBody, readSession }),
+  ...webhookRoutes({ json, readBody, readSession, store: webhookStore, service: webhooks }),
 
   /* ---------- Bunker (gym-floor kiosk) ---------- */
   // Its own data/bunker.json (PINs, admin codes, room settings) — see bunker/store.js's doc

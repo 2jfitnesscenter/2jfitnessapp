@@ -135,6 +135,8 @@ const PREFIX = [
   ['/api/push/', E('member', { ssoAllowed: true })],
   ['/api/news', E('member', { ssoAllowed: true, blockedReadOk: true })],
   ['/api/media', E('member', { ssoAllowed: true, blockedReadOk: true })],
+  // Outbound webhooks: the owner's own endpoints and signing secrets. Passkey session only, never reachable from a Platform SSO session.
+  ['/api/webhooks', E('identity')],
   // Third-party account connections stay passkey-only.
   ['/api/whoop/', E('identity')],
   ['/api/strava/', E('identity')],

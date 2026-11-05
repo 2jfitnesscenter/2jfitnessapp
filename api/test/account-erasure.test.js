@@ -97,6 +97,19 @@ write('social.json', {
   challenges: [{ id: 'ch1', authorId: 'trainer', name: 'Chal', participants: ['member-a', 'member-b'] }], goals: [{ userId: 'member-a', kind: 'weight' }, { userId: 'member-b', kind: 'weight' }],
 });
 
+// Outbound webhooks (member-owned): endpoints with an encrypted secret blob, the delivery log and dedupe keys, for two members.
+write('webhooks.json', {
+  endpoints: [
+    { id: 'wh-a', userId: 'member-a', url: 'https://hooks.example.test/CANARY-HOOK', host: 'hooks.example.test', events: ['workout.finished'], enabled: true, createdAt: 1, secretBlob: 'CANARY-SECRET-BLOB', failures: 0, lastStatus: null, lastAt: null, disabledReason: null },
+    { id: 'wh-b', userId: 'member-b', url: 'https://other.example.test/hook-b', host: 'other.example.test', events: ['weighin.recorded'], enabled: true, createdAt: 1, secretBlob: 'BLOB-B', failures: 0, lastStatus: null, lastAt: null, disabledReason: null },
+  ],
+  deliveries: [
+    { at: 1, uid: 'member-a', webhookId: 'wh-a', event: 'workout.finished', eventId: 'evt_a1', status: 'blocked', httpCode: null, durationMs: 1, attempt: 1 },
+    { at: 2, uid: 'member-b', webhookId: 'wh-b', event: 'weighin.recorded', eventId: 'evt_b1', status: 'ok', httpCode: 200, durationMs: 5, attempt: 1 },
+  ],
+  sent: [{ u: 'member-a', k: 'dedupe-a' }, { u: 'member-b', k: 'dedupe-b' }],
+});
+
 const child = spawn(process.execPath, ['server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(port), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base }, stdio: ['ignore', 'ignore', 'inherit'] });
 async function wait() { for (let i = 0; i < 80; i++) { try { if ((await fetch(base + '/api/health')).ok) return; } catch {} await new Promise(r => setTimeout(r, 100)); } throw new Error('isolated API did not start'); }
 await wait();
@@ -119,8 +132,8 @@ test('export: everything the member owns, nothing of anyone else, no passkey key
   assert.equal(r.status, 200);
   assert.match(r.headers.get('content-disposition'), /attachment; filename="2jfitness-export-membera-/);
   const json = JSON.stringify(r.data);
-  for (const mine of ['CANARY-WORKOUT', 'CANARY-NOTE', 'CANARY-HEALTH', 'CANARY-CHAT-A', 'CANARY-SHARE', 'CANARY-WALL', 'CANARY-COMMENT', 'CANARY-ROUTINE', '"4821"', 'CODEA']) assert.ok(json.includes(mine), 'missing from export: ' + mine);
-  for (const notMine of ['B-KEEPS', 'B says hi to A', 'B post', 'B-WORKOUT', keyA.cose, 'CANARY-TOKEN']) assert.ok(!json.includes(notMine), 'leaked into export: ' + notMine);
+  for (const mine of ['CANARY-WORKOUT', 'CANARY-NOTE', 'CANARY-HEALTH', 'CANARY-CHAT-A', 'CANARY-SHARE', 'CANARY-WALL', 'CANARY-COMMENT', 'CANARY-ROUTINE', '"4821"', 'CODEA', 'hooks.example.test', 'evt_a1']) assert.ok(json.includes(mine), 'missing from export: ' + mine);
+  for (const notMine of ['B-KEEPS', 'B says hi to A', 'B post', 'B-WORKOUT', keyA.cose, 'CANARY-TOKEN', 'CANARY-HOOK', 'CANARY-SECRET-BLOB', 'other.example.test', 'evt_b1']) assert.ok(!json.includes(notMine), 'leaked into export: ' + notMine);
   assert.equal(r.data.account.integrations.strava, true);
   assert.equal(r.data.followUpV2.responses[0].answers.goal, 'CANARY-INTAKE');
   assert.equal(r.data.followUpV2.progressPhotos[0].id, '11111111-1111-4111-8111-111111111111.png');
@@ -170,7 +183,7 @@ test('erasure with a fresh passkey assertion removes the person everywhere and l
   // nothing identifying the person is left in ANY file (chat is encrypted at rest: decrypt it for the scan)
   process.env.DATA_DIR = dir;
   const { decrypt } = await import('../lib/crypto.js');
-  const needles = ['member-a', 'membera', 'Member A', 'member.a@example.test', 'CANARY', 'CANARY-MERGE-TARGET', 'cred-a', 'CODEA', '4821', 'avatar-a', 'state-img-a', 'post-img-a', '11111111-1111-4111-8111-111111111111.png'];
+  const needles = ['member-a', 'membera', 'Member A', 'member.a@example.test', 'CANARY', 'CANARY-MERGE-TARGET', 'cred-a', 'CODEA', '4821', 'avatar-a', 'state-img-a', 'post-img-a', '11111111-1111-4111-8111-111111111111.png', 'wh-a', 'dedupe-a', 'evt_a1'];
   for (const [file, text] of allText()) {
     const hay = file === 'chat.json' && !text.trim().startsWith('{') ? JSON.stringify(decrypt(text.trim(), 'chat-store')) : text;
     for (const n of needles) assert.ok(!hay.includes(n), `${file} still contains ${n}`);
@@ -190,6 +203,10 @@ test('erasure with a fresh passkey assertion removes the person everywhere and l
   assert.equal(db.invites[0].usedBy, 'deleted-account', 'an invite stays single-use without naming anyone');
   assert.equal(db.machineAliases.length, 1);
   assert.ok(fs.existsSync(path.join(dir, 'state-member-b.json')));
+  const hooks = JSON.parse(fs.readFileSync(path.join(dir, 'webhooks.json'), 'utf8'));
+  assert.deepEqual(hooks.endpoints.map(e => e.id), ['wh-b'], 'the erased member’s endpoints and secrets are gone, the others kept');
+  assert.deepEqual(hooks.deliveries.map(d => d.webhookId), ['wh-b'], 'and their delivery log');
+  assert.deepEqual(hooks.sent, [{ u: 'member-b', k: 'dedupe-b' }]);
   const threads = await call('member-b', 'GET', '/api/chat/threads');
   assert.deepEqual(threads.data.threads.map(t => t.id), ['t3']);
   const wall = JSON.parse(fs.readFileSync(path.join(dir, 'social.json'), 'utf8'));

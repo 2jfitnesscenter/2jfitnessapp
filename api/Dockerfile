@@ -27,6 +27,7 @@ COPY coach/ ./coach/
 COPY friends/ ./friends/
 COPY chat/ ./chat/
 COPY notifications/ ./notifications/
+COPY webhooks/ ./webhooks/
 COPY social/ ./social/
 COPY bunker/ ./bunker/
 COPY strava/ ./strava/
