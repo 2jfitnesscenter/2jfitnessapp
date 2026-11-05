@@ -131,6 +131,10 @@ export default function TrainingSettings() {
       <Row icon="bolt" iconTint="var(--pink)" title={t('Vibration')}>
         <Switch checked={prefs.vibrate} onChange={v => set('restVibrate', v)} />
       </Row>
+      <Row icon="bell" iconTint="var(--pink)" title={t('Spoken cue at rest end')}
+        subtitle={t('Reads “Rest over — next set!” aloud when the rest ends. Off until you turn it on.')}>
+        <Switch checked={prefs.speak} disabled={!prefs.restAlert} onChange={v => set('restSpeak', v)} />
+      </Row>
     </Section>
 
     <Section title={t('Check-in and heart rate')} footer={t('The check-in is a few taps before training, never required. Max heart rate is only used to split heart-rate data into zones; without it 2J uses the 220 − age estimate and says so.')}>

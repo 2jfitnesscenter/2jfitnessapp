@@ -42,7 +42,21 @@ export function announceRestOver(P, toast) {
   if (!P.restAlert) return
   playRestTone(P.sound, P.restTone)
   if (P.vibrate) vibrate([200, 100, 200])
+  if (P.speak) speakRestOver(t('Rest over — next set!'))
   toast(t('Rest over — next set!'))
+}
+// Browser speech for the end-of-rest message. Silently does nothing where speech is unavailable.
+export function speakRestOver(text) {
+  try {
+    const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
+    const Utter = typeof window !== 'undefined' ? window.SpeechSynthesisUtterance : null
+    if (!synth || !Utter) return false
+    const u = new Utter(String(text))
+    u.lang = (typeof document !== 'undefined' && document.documentElement?.lang) || 'es'
+    synth.cancel()
+    synth.speak(u)
+    return true
+  } catch { return false }
 }
 let runRest = () => {}
 
