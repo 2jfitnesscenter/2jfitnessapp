@@ -1,5 +1,9 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Series piramidales — 2026-11-05 (en PR, NO desplegado)
+
+- Opción por ejercicio de rutina `pyramid: true` (desactivada por defecto; ausente = comportamiento anterior). Las cargas suben hasta el pico en el centro y bajan; sustituye a la descarga si ambas están activas. Sin cambios en volumen ni progresión cuando está apagada (`frontend/src/lib/history.js`: `pyramidWeights`; pruebas en `frontend/src/lib/pyramid.test.js`). Sin clave de estado nueva.
+
 ## Ola openGym (waves) — 2026-11-05 (en main, NO desplegado)
 
 - Mergeados en `main`: repetir rutina de un entreno finalizado hoy (#96), aviso opt-in al llegar al gimnasio con ubicación solo en el dispositivo (#97), aviso hablado al terminar el descanso, desactivado por defecto (#99), y revisión de seguridad de webhooks con primitivas desactivadas, sin rutas (#98; `docs/WEBHOOKS_SECURITY_REVIEW.md`). Los webhooks siguen apagados; el envío y la configuración requieren decisión del propietario.

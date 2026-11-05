@@ -293,7 +293,14 @@ export function buildSets(S, cfg) {
   // An owned dumbbell rack (Settings → Training) snaps the ramp and back-off loads onto the pairs
   // the member has; null otherwise, so the plate rounding below is unchanged for everyone else.
   const snap = dumbbellSnapFor(S, EXIDX[cfg.id]?.eq)
-  if (cfg.backoff && sets.length > 1 && sets[0].w > 0) {
+  // Pyramid sets (optional, `cfg.pyramid === true`, off by default): the working loads climb to a
+  // peak and come back down (pyramidWeights). The peak is the heaviest prefilled load, so a stored
+  // pyramid reproduces itself. It takes the place of back-off when both are on. Absent → untouched.
+  if (cfg.pyramid === true && sets.length > 1 && sets.some(s => s.w > 0)) {
+    const peak = Math.max(...sets.map(s => Number(s.w) || 0))
+    const ws = pyramidWeights(peak, sets.length, S.unit)
+    sets.forEach((s, i) => { s.w = snap ? snap(ws[i]) : ws[i] })
+  } else if (cfg.backoff && sets.length > 1 && sets[0].w > 0) {
     const ws = backOffWeights(sets[0].w, sets.length, S.unit)
     sets.forEach((s, i) => { s.w = i > 0 && snap ? Math.min(snap(ws[i]), sets[i - 1].w) : ws[i] })
   }
@@ -322,6 +329,22 @@ export function backOffWeights(firstW, n, unit) {
       if (next > 0) w = next
     }
     out.push(w)
+  }
+  return out
+}
+// Pyramid loads for `n` working sets, peaking at `peak`. Scheme (document it here, it is the rule):
+//   · the peak sits at set index floor(n / 2), so the load climbs for the first sets, then falls;
+//   · each set one step away from the peak is 10 % lighter than the peak, rounded to a loadable
+//     plate step and never below one step: n=3 → [90 %, 100 %, 90 %]; n=5 → [80, 90, 100, 90, 80].
+// Only used when cfg.pyramid is true. Pure: no equipment or history input.
+export function pyramidWeights(peak, n, unit) {
+  const step = unit === 'lb' ? 5 : 2.5
+  if (n <= 1 || !(peak > 0)) return Array.from({ length: Math.max(1, n) }, () => peak)
+  const p = Math.floor(n / 2)
+  const out = []
+  for (let i = 0; i < n; i++) {
+    const d = Math.abs(i - p)
+    out.push(d === 0 ? peak : Math.max(step, roundToPlate(peak * (1 - 0.1 * d), unit)))
   }
   return out
 }
