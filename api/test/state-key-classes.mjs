@@ -10,7 +10,7 @@ export const STATE_KEY_CLASSES = Object.freeze({
     'effort', 'enableBioimpedanceReminder', 'enablePlateCalculator', 'enableProgressiveOverloadCoach', 'enableRpVolumeZones', 'enableTrainingZones', 'exGoals',
     'excludedEx', 'favEx', 'focusView', 'favRoutines', 'gifSize', 'gymProfiles', 'height', 'hrMax', 'keepAwake', 'measurementUnitMode', 'measurements', 'priorityMuscles',
     'programReviews', 'reminder', 'restAlert', 'restSec', 'restTone', 'restVibrate', 'restingHR', 'routineReviews', 'routines', 'rpVolumeOverrides', 'secondaryMuscleFactor',
-    'secondaryMuscles', 'shareCheckins', 'showExerciseChips', 'showExerciseImages', 'showExerciseTips', 'showPreviousResults', 'showRir', 'sleep', 'sound', 'steps', 'targetW',
+    'secondaryMuscles', 'shareCheckins', 'showExerciseImages', 'showExerciseTips', 'showPreviousResults', 'showRir', 'sleep', 'sound', 'steps', 'targetW',
     'trainingLevel', 'use2JRoomEquipment', 'warmupEnabled', 'week', 'workoutGuidePending', 'workoutView', 'workouts',
   ],
   incidental: ['body', 'tests'],                                                      // property names that only look like state keys (other objects called S)
