@@ -6,7 +6,7 @@ export const STATE_KEY_CLASSES = Object.freeze({
   system: ['_sync', '_ts', 'active', 'exWeights', 'routineVersions', 'lang', 'unit', 'theme', 'accent', 'textScale', 'onboarded', 'ux', 'uxInviteDismissed', 'uxSetup'],
   personal: [
     'autoCompleteSets', 'autoreg', 'availablePlates', 'badgeFlags', 'badges', 'barByExercise', 'bioimpedanceReminderDays', 'birthDate', 'bodyweight', 'checkinMode',
-    'checkinSkipped', 'checkins', 'compGoals', 'countSecondaryMuscles', 'customEx', 'customIncrements', 'dayPlan', 'defaultLibraryTab', 'deload', 'deloadDismissed',
+    'checkinSkipped', 'checkins', 'collapseDoneExercises', 'compGoals', 'countSecondaryMuscles', 'customEx', 'customIncrements', 'dayPlan', 'defaultLibraryTab', 'deload', 'deloadDismissed',
     'effort', 'enableBioimpedanceReminder', 'enablePlateCalculator', 'enableProgressiveOverloadCoach', 'enableRpVolumeZones', 'enableTrainingZones', 'exGoals',
     'excludedEx', 'favEx', 'favRoutines', 'gifSize', 'gymProfiles', 'height', 'hrMax', 'keepAwake', 'measurementUnitMode', 'measurements', 'priorityMuscles',
     'programReviews', 'reminder', 'restAlert', 'restSec', 'restTone', 'restVibrate', 'restingHR', 'routineReviews', 'routines', 'rpVolumeOverrides', 'secondaryMuscleFactor',
