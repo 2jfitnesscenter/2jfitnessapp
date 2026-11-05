@@ -49,7 +49,7 @@ import { runningView, premiumState } from './lib/premium.js'
 import './components/actions-sheet.css'
 import { premiumEntries } from './lib/premium-session.js'
 import { originOf } from './lib/premium-model.js'
-import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
+import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC, TRIPLE_EXTRA_SETS } from './lib/progression.js'
 import { guidedBlocksOf, buildSteps, summarize } from './lib/guided.js'
 import { completeGuidedProgramSession } from './lib/guided-programs.js'
 import { routineSnapshot } from './lib/train2j.js'
@@ -1240,6 +1240,11 @@ function ProgressionFields({ ex, mode, c, setC, routine, unit }) {
       {active === 'pct1rm' && <Stepper label={t('Target RIR')} value={c.targetRIR != null ? c.targetRIR : 2}
         step={0.5} onChange={v => setC(x => ({ ...x, targetRIR: v }))} />}
     </div>}
+    {active === 'double' && <div className="row between" style={{ padding: '10px 2px', marginBottom: 18, gap: 12 }}>
+      <div><div className="tt" style={{ fontSize: 15 }}>{t('Triple progression')}</div>
+        <div className="small dim">{t('Add up to {0} extra sets at the top of the range before adding load.', TRIPLE_EXTRA_SETS)}</div></div>
+      <Switch checked={!!c.triple} onChange={v => setC(x => ({ ...x, triple: v || undefined }))} />
+    </div>}
   </>
 }
 
@@ -1277,6 +1282,8 @@ function ExConfig({ ex, existing, onSave, onDelete, close, routine }) {
       const out = { sets, mode: 'reps', reps, weight: Math.max(0, c.weight || 0), ...prog }
       if (repsRange) { out.targetRepsMin = repsMin; out.targetRepsMax = repsMax }
       if (policyFor({ ...c, id: ex.id }, routine, 'reps') === 'double') out.repsMin = Math.min(reps, Math.max(1, Math.round(c.repsMin) || Math.max(1, reps - 2)))
+      // Off by default: only written when switched on, so existing plans are byte-for-byte the same.
+      if (c.triple && policyFor({ ...c, id: ex.id }, routine, 'reps') === 'double') out.triple = true
       if (c.targetZone) out.targetZone = Number(c.targetZone)
       onSave(out)
     }
