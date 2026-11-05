@@ -1,6 +1,7 @@
 import { workoutInactive, inactivityFinishMetadata, workoutActivityKey } from './lib/workout-activity.js'
 import { replaceWorkoutEntries, setWorkoutExcluded, reconcileExerciseWeightCache } from './lib/workout-edit.js'
 import { trackedWeightFor } from './lib/history.js'
+import { repeatableRoutineId } from './lib/repeat-workout.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { uxOn, allowedByAdmin } from './lib/features.js'
 import { useStore } from './store/useStore.js'
@@ -1826,6 +1827,14 @@ function WorkoutDetail({ w: w0, close }) {
     })}
     {!editing && <div className="row" style={{ flexWrap: 'wrap', marginBottom: 10 }}>
       <Button variant="ghost" onClick={() => { setDraft(w.entries.map(e => ({ ...e, sets: (e.sets || []).map(s => ({ ...s })) }))); setEditing(true) }}>{t('Edit workout')}</Button>
+      {repeatableRoutineId(st, w) && <Button variant="ghost" icon="play" onClick={() => {
+        // Same routine, started today. An unfinished workout already in progress comes first.
+        const routineId = repeatableRoutineId(S(), w)
+        if (!routineId) { toast(t('This routine no longer exists')); return }
+        close()
+        if (S().active) { confirmSheet({ title: t('You have a workout in progress'), message: t('Finish or discard it before starting another one.'), confirmText: t('Go to the workout'), onConfirm: () => nav('/workout') }); return }
+        startFlow(routineId)
+      }}>{t('Repeat today')}</Button>}
       {!MOBILE && <Button variant="ghost" icon="download" onClick={() => exportWorkoutFit(w, st.unit)}>{t('Export FIT')}</Button>}
       <Button variant="ghost" onClick={() => confirmSheet({ title: t(w.excludeFromProgression === true ? 'Include in progression?' : 'Exclude from progression?'), message: t('This changes performance metrics only. The workout stays in history and attendance.'), confirmText: t(w.excludeFromProgression === true ? 'Include' : 'Exclude'), onConfirm: () => { update(s => { s.workouts = setWorkoutExcluded(s.workouts, w.id, w.excludeFromProgression !== true); s.exWeights = reconcileExerciseWeightCache(s.exWeights, s.workouts, w) }); toast(t('Workout updated')) } })}>{t(w.excludeFromProgression === true ? 'Include in progression' : 'Exclude from progression')}</Button>
     </div>}
