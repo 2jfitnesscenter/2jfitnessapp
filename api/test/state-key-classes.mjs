@@ -9,7 +9,7 @@ export const STATE_KEY_CLASSES = Object.freeze({
     'checkinSkipped', 'checkins', 'compGoals', 'countSecondaryMuscles', 'customEx', 'customIncrements', 'dayPlan', 'defaultLibraryTab', 'deload', 'deloadDismissed',
     'effort', 'enableBioimpedanceReminder', 'enablePlateCalculator', 'enableProgressiveOverloadCoach', 'enableRpVolumeZones', 'enableTrainingZones', 'exGoals',
     'excludedEx', 'favEx', 'favRoutines', 'gifSize', 'gymProfiles', 'height', 'hrMax', 'keepAwake', 'measurementUnitMode', 'measurements', 'priorityMuscles',
-    'programReviews', 'reminder', 'restAlert', 'restSec', 'restVibrate', 'restingHR', 'routineReviews', 'routines', 'rpVolumeOverrides', 'secondaryMuscleFactor',
+    'programReviews', 'reminder', 'restAlert', 'restSec', 'restTone', 'restVibrate', 'restingHR', 'routineReviews', 'routines', 'rpVolumeOverrides', 'secondaryMuscleFactor',
     'secondaryMuscles', 'shareCheckins', 'showExerciseImages', 'showExerciseTips', 'showPreviousResults', 'showRir', 'sleep', 'sound', 'steps', 'targetW',
     'trainingLevel', 'use2JRoomEquipment', 'warmupEnabled', 'week', 'workoutGuidePending', 'workoutView', 'workouts',
   ],
