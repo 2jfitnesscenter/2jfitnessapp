@@ -478,6 +478,8 @@ export default {
   'Workout deleted': 'Entrenamiento eliminado',
   'Delete workout': 'Eliminar entrenamiento',
   'Repeat today': 'Repetir hoy',
+  'Spoken cue at rest end': 'Aviso hablado al terminar el descanso',
+  'Reads “Rest over — next set!” aloud when the rest ends. Off until you turn it on.': 'Lee en voz alta «¡Descanso terminado — siguiente serie!» al acabar el descanso. Desactivado hasta que lo actives.',
   'This routine no longer exists': 'Esta rutina ya no existe',
   'Off by default. It only checks when you open 2J, at most every 30 minutes, and reminds you once a day. Your gym location stays on this device: it is never sent to 2J or to anyone else. The browser cannot watch your location in the background.': 'Desactivado por defecto. Solo comprueba cuando abres 2J, como mucho cada 30 minutos, y te avisa una vez al día. Tu ubicación del gimnasio se queda en este dispositivo: nunca se envía a 2J ni a nadie más. El navegador no puede vigilar tu ubicación en segundo plano.',
   'Gym arrival reminder': 'Aviso al llegar al gimnasio',

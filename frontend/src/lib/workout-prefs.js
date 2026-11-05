@@ -39,6 +39,8 @@ export function workoutPrefs(S) {
     // Which end-of-rest tone plays (Settings → Rest). A profile that never chose one keeps the classic tone.
     restTone: REST_TONE_NAMES.includes(S.restTone) ? S.restTone : DEFAULT_REST_TONE,
     vibrate: S.restVibrate !== false,
+    // Off by default: the end-of-rest message is also read aloud (browser speech), in the app language.
+    speak: S.restSpeak === true,
     progression: S.enableProgressiveOverloadCoach !== false && uxOn(S, 'suggestions'),
   }
 }
