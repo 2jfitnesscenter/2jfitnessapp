@@ -1826,6 +1826,7 @@ function WorkoutDetail({ w: w0, close }) {
     })}
     {!editing && <div className="row" style={{ flexWrap: 'wrap', marginBottom: 10 }}>
       <Button variant="ghost" onClick={() => { setDraft(w.entries.map(e => ({ ...e, sets: (e.sets || []).map(s => ({ ...s })) }))); setEditing(true) }}>{t('Edit workout')}</Button>
+      {!MOBILE && <Button variant="ghost" icon="download" onClick={() => exportWorkoutFit(w, st.unit)}>{t('Export FIT')}</Button>}
       <Button variant="ghost" onClick={() => confirmSheet({ title: t(w.excludeFromProgression === true ? 'Include in progression?' : 'Exclude from progression?'), message: t('This changes performance metrics only. The workout stays in history and attendance.'), confirmText: t(w.excludeFromProgression === true ? 'Include' : 'Exclude'), onConfirm: () => { update(s => { s.workouts = setWorkoutExcluded(s.workouts, w.id, w.excludeFromProgression !== true); s.exWeights = reconcileExerciseWeightCache(s.exWeights, s.workouts, w) }); toast(t('Workout updated')) } })}>{t(w.excludeFromProgression === true ? 'Include in progression' : 'Exclude from progression')}</Button>
     </div>}
     <Button variant="danger" onClick={() => confirmSheet({ title: t('Delete workout?'), message: t('This removes it from your history for good.'), confirmText: t('Delete'), danger: true, onConfirm: () => {
@@ -1839,6 +1840,20 @@ function WorkoutDetail({ w: w0, close }) {
   </>
 }
 export const workoutDetailSheet = w => ui().openSheet(close => <WorkoutDetail w={w} close={close} />)
+
+// Plain browser download of one finished workout as a Garmin-compatible FIT file. The encoder
+// is loaded on demand (lib/fit-export.js) so it stays out of the main bundle.
+async function exportWorkoutFit(w, unit) {
+  try {
+    const { buildWorkoutFit, fitFileName } = await import('./lib/fit-export.js')
+    const offsetMin = -new Date(w.start || Date.now()).getTimezoneOffset()
+    const bytes = buildWorkoutFit(w, { unit, tzOffsetMinutes: offsetMin })
+    const blob = new Blob([bytes], { type: 'application/octet-stream' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fitFileName(w); a.click(); URL.revokeObjectURL(a.href)
+  } catch (e) {
+    toast(e?.code === 'FIT_NO_SETS' ? t('This workout has no strength sets to export') : t('Could not export the workout'))
+  }
+}
 
 /* ============================ calendar ============================ */
 function Calendar({ start, close }) {
