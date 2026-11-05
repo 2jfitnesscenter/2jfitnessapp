@@ -30,6 +30,7 @@ import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented,
 import PrivacySummary from '../components/PrivacySummary.jsx'
 import { bridgeState, getBridge, platformLabel } from '../lib/health-bridge.js'
 import { openAccent } from '../components/AccentSheet.jsx'
+import { webhooksEnabled } from '../lib/webhooks.js'
 
 // One-screen design trial (see the owner's ask for a less "colorful template" look): every row
 // here gets Row's muted `softIcon` badge instead of the solid-fill one the rest of the app still
@@ -49,6 +50,10 @@ export default function Settings() {
   const fileRef = useRef(null)
   const importRef = useRef(null)
   const [adv, setAdv] = useState(false)
+  // Webhooks are listed only when the server reports them enabled (off by default; see api/webhooks/routes.js).
+  const [webhooksOn, setWebhooksOn] = useState(false)
+  const hasUser = !!user
+  useEffect(() => { if (hasUser && !MOBILE && !DEMO) webhooksEnabled().then(setWebhooksOn) }, [hasUser])
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -305,6 +310,9 @@ export default function Settings() {
     {(user || MOBILE) && <h3 className="set-grp">{t('Notifications')}<span>{t('Alerts and reminders')}</span></h3>}
     {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
     {(user || MOBILE) && <GymReminderCard />}
+    {webhooksOn && <Section footer={t('Off by default on this server. Your server gets a signed notice; your data stays in 2J.')}>
+      <Row icon="link" iconTint="var(--acc)" title={t('Webhooks')} subtitle={t('A signed notice to your own server after a workout or weigh-in')} accessory="chevron" onClick={() => nav('/settings/webhooks')} />
+    </Section>}
 
     {/* ---------- 7. data: your copy, in and out ---------- */}
     <h3 className="set-grp">{t('Data')}<span>{t('Your information is yours')}</span></h3>
