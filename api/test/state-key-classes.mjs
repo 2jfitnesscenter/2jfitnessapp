@@ -7,7 +7,7 @@ export const STATE_KEY_CLASSES = Object.freeze({
   personal: [
     'autoCompleteSets', 'autoreg', 'availablePlates', 'badgeFlags', 'badges', 'barByExercise', 'bioimpedanceReminderDays', 'birthDate', 'bodyweight', 'checkinMode',
     'checkinSkipped', 'checkins', 'collapseDoneExercises', 'compGoals', 'compareLastTime', 'countSecondaryMuscles', 'customEx', 'customIncrements', 'ownedDumbbells', 'dayNotes', 'dayPlan', 'defaultLibraryTab', 'deload', 'deloadDismissed',
-    'effort', 'enableBioimpedanceReminder', 'enablePlateCalculator', 'enableProgressiveOverloadCoach', 'enableRpVolumeZones', 'enableTrainingZones', 'exGoals',
+    'effort', 'enableBioimpedanceReminder', 'enablePlateCalculator', 'enableProgressiveOverloadCoach', 'enableRpVolumeZones', 'enableTrainingZones', 'exGoals', 'exMerges',
     'excludedEx', 'favEx', 'focusView', 'favRoutines', 'gifSize', 'gymProfiles', 'height', 'hrMax', 'keepAwake', 'measurementUnitMode', 'measurements', 'priorityMuscles',
     'programReviews', 'reminder', 'restAlert', 'restSec', 'restSpeak', 'restTone', 'restVibrate', 'restingHR', 'routineReviews', 'routines', 'rpVolumeOverrides', 'secondaryMuscleFactor',
     'secondaryMuscles', 'shareCheckins', 'showExerciseImages', 'showExerciseTips', 'showPreviousResults', 'showRir', 'sleep', 'sound', 'steps', 'targetW',
