@@ -87,6 +87,8 @@ export function searchExercises(list, query) {
     if (h.full === nq) score += 40
     if (isRecommended(ex.id)) score += 3
     if (isDeprecated(ex.id)) score -= 20
+    // openGym imports (ext) never push down what we already had: they follow every existing match
+    if (ex.ext) score -= 1000
     out.push([score, ex])
   }
   out.sort((a, b) => b[0] - a[0] || (nameFor(a[1]) < nameFor(b[1]) ? -1 : 1))
@@ -102,6 +104,7 @@ export function searchExercises(list, query) {
     let score = match.score
     if (isRecommended(ex.id)) score += 3
     if (isDeprecated(ex.id)) score -= 20
+    if (ex.ext) score -= 1000
     fuzzy.push([score, ex])
   }
   fuzzy.sort((a, b) => {

@@ -37,7 +37,9 @@ const index = EXDB.map(e => {
   // them to keep aliases unambiguous. It is never sent to a model (payload.js librarySlice).
   const al = aliasesOf(e.id);
   return { id: e.id, n: e.n, bp: e.bp, tg: e.tg, eq: e.eq, ...(f.movement ? { mv: f.movement } : {}),
-    ...(f.recommended ? { rec: 1 } : {}), ...(f.preferredId ? { pref: f.preferredId } : {}), ...(al.length ? { al } : {}) };
+    ...(f.recommended ? { rec: 1 } : {}), ...(f.preferredId ? { pref: f.preferredId } : {}), ...(al.length ? { al } : {}),
+    // ext: imported from openGym (scripts/import-upstream-catalogue.mjs); the Coach is not offered these (payload.js librarySlice)
+    ...(e.ext ? { ext: 1 } : {}) };
 });
 const json = JSON.stringify({ generated_from: 'frontend/src/lib/exercises-data.js', count: index.length, exercises: index }) + '\n';
 

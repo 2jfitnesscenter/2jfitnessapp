@@ -26,15 +26,17 @@ describe('taxonomy and integrity', () => {
     const r = checkLibrary({ es: esNames, officialIds: OFFICIAL })
     expect(r.errors).toEqual([])
   })
-  it('ids are preserved: 1324 records, unique, none removed or renumbered', () => {
-    expect(EXDB).toHaveLength(1324)
-    expect(new Set(EXDB.map(e => e.id)).size).toBe(1324)
+  it('ids are preserved: the 1324 original records, unique, none removed or renumbered (openGym imports come after them)', () => {
+    expect(EXDB.filter(e => !e.ext)).toHaveLength(1324)
+    expect(new Set(EXDB.map(e => e.id)).size).toBe(EXDB.length)
     for (const id of [...Object.keys(DEPRECATED), ...Object.values(DEPRECATED)]) expect(X[id], id).toBeTruthy()
   })
   it('every exercise has a canonical equipment; ~95 % a canonical movement', () => {
     for (const e of EXDB) expect(EQUIPMENT_BY_ID[facetsOf(e).equipment], e.id).toBeTruthy()
-    const withMove = EXDB.filter(e => facetsOf(e).movement).length
-    expect(withMove / EXDB.length).toBeGreaterThan(0.93)
+    // the curated 1,324 (the openGym imports are not classified into movements yet: see docs/OPENGYM_CATALOGUE_HELD.json)
+    const curated = EXDB.filter(e => !e.ext)
+    const withMove = curated.filter(e => facetsOf(e).movement).length
+    expect(withMove / curated.length).toBeGreaterThan(0.93)
     for (const e of EXDB) { const m = facetsOf(e).movement; if (m) expect(MOVEMENT_BY_ID[m], e.id).toBeTruthy() }
   })
   it('canonical mapping examples', () => {
@@ -124,7 +126,7 @@ describe('recommended vs master, deprecated vs preferred', () => {
     }
     for (const [id, movement] of Object.entries({ '1408': 'hip_thrust', '0325': 'vertical_push', '0128': 'conditioning', '1362': 'mobility', '0500': 'core_rotation', '0628': 'hip_abduction' }))
       expect(facetsOf(X[id]).movement, id).toBe(movement)
-    expect(EXDB.filter(e => !facetsOf(e).movement)).toHaveLength(14)   // 19 before the Training Quality V2 data pass (below)
+    expect(EXDB.filter(e => !e.ext && !facetsOf(e).movement)).toHaveLength(14)   // 19 before the Training Quality V2 data pass (below)
     expect(RECOMMENDED.has('0128') && RECOMMENDED.has('0500') && RECOMMENDED.has('1362')).toBe(true)
   })
   it('Entrena con 2J Admin quality pass: every one of the 18 possible-duplicate groups has a decision', () => {
@@ -150,7 +152,7 @@ describe('recommended vs master, deprecated vs preferred', () => {
   it('English display names: the dataset typos are corrected and the model label is gone where unique', () => {
     expect(X['1512'].n).toBe('all fours quad stretch')
     expect(X['1418'].n).toBe('hug knees to chest')
-    expect(EXDB.filter(e => /\((male|female)\)$/.test(e.n)).length).toBeLessThanOrEqual(2)
+    expect(EXDB.filter(e => /\((male|female)\)$/.test(e.n)).length).toBeLessThanOrEqual(2)   // as displayed (after the label rule)
     expect(X['3224'].n).toBe('jack jump')
     expect(upstreamNameOf('3224')).toBe('jack jump (male)')
     // the id, the Spanish name and every other field are untouched
@@ -312,15 +314,15 @@ describe('Training Quality V2 data pass', () => {
   })
 
   it('the 14 exercises left without a movement are exactly the ambiguous ones, and stay that way', () => {
-    const left = EXDB.filter(e => !facetsOf(e).movement).map(e => e.id).sort()
+    const left = EXDB.filter(e => !e.ext && !facetsOf(e).movement).map(e => e.id).sort()
     expect(left).toEqual(['0016', '0020', '0100', '0316', '0543', '0609', '0984', '0996', '1332', '2143', '3292', '3295', '3297', '3304'])
   })
 
   it('triceps kickbacks are elbow extension, not hip extension (the name rule matched "kickback" first)', () => {
-    const kick = EXDB.filter(e => /kickback/i.test(e.n) && e.tg === 'triceps')
+    const kick = EXDB.filter(e => !e.ext && /kickback/i.test(e.n) && e.tg === 'triceps')
     expect(kick.map(e => e.id).sort()).toEqual(['0333', '0354', '0394', '0398', '0420', '0860', '1728', '1730', '1734', '1739', '1742'])
     for (const e of kick) expect(facetsOf(e).movement, e.id).toBe('elbow_extension')
-    expect(EXDB.filter(e => facetsOf(e).movement === 'hip_extension' && e.tg === 'triceps')).toEqual([])
+    expect(EXDB.filter(e => !e.ext && facetsOf(e).movement === 'hip_extension' && e.tg === 'triceps')).toEqual([])
   })
 
   it('gym names find the dataset\'s own machines, each alias pointing at exactly the right exercise', () => {
@@ -334,13 +336,14 @@ describe('Training Quality V2 data pass', () => {
   })
 
   it('equipment is untouched: no evidence for any other reclassification, ids and record count unchanged', () => {
-    expect(EXDB).toHaveLength(1324)
+    expect(EXDB.filter(e => !e.ext)).toHaveLength(1324)
     expect(facetsOf(X['0577']).equipment).toBe('selectorized'); expect(facetsOf(X['0576']).equipment).toBe('plate_loaded')
-    expect(EXDB.filter(e => facetsOf(e).equipment === 'selectorized' || facetsOf(e).equipment === 'plate_loaded').map(e => e.id).sort()).toEqual(['0576', '0577'])
-    expect(EXDB.filter(e => e.eq === 'leverage machine' && facetsOf(e).equipment === 'machine').length).toBe(76)
+    expect(EXDB.filter(e => !e.ext && (facetsOf(e).equipment === 'selectorized' || facetsOf(e).equipment === 'plate_loaded')).map(e => e.id).sort()).toEqual(['0576', '0577'])
+    expect(EXDB.filter(e => !e.ext && e.eq === 'leverage machine' && facetsOf(e).equipment === 'machine').length).toBe(76)
   })
 
-  it('no machine is invented: belt squat and pendulum squat are not in the dataset and are left out on purpose', () => {
-    expect(EXDB.some(e => /belt squat|pendulum/i.test(e.n))).toBe(false)
+  it('belt squat and pendulum squat come from openGym (owner decision 2026-11), and no curated record of ours is one of them', () => {
+    expect(EXDB.filter(e => !e.ext && /belt squat|pendulum squat/i.test(e.n))).toEqual([])
+    expect(EXDB.filter(e => e.ext && /belt squat|pendulum squat/i.test(e.n)).map(e => e.id).sort()).toEqual(['2950', '4951'])
   })
 })

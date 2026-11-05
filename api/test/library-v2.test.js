@@ -17,8 +17,9 @@ const store = await import('../lib/blocks-store.js');
 
 test('the AI index keeps every id and adds movement, recommended and preferred', () => {
   const lib = payload.LIBRARY;
-  assert.equal(lib.length, 1324);
-  assert.equal(new Set(lib.map(e => e.id)).size, 1324);
+  // the 1324 we had, plus the openGym imports (ext) that the Coach is never offered
+  assert.equal(lib.filter(e => !e.ext).length, 1324);
+  assert.equal(new Set(lib.map(e => e.id)).size, lib.length);
   const rec = lib.filter(e => e.rec);
   assert.ok(rec.length > 150 && rec.length < 250);
   assert.ok(rec.every(e => e.mv));
@@ -60,7 +61,8 @@ test('recommended > non-recommended within what the gym offers, even when its bl
     assert.equal(recInSlice, expectedRec, 'every visible recommended exercise is offered');
     assert.equal(slice.findIndex(e => !e.rec), recInSlice, 'all recommended come before any non-recommended');
     assert.ok(!slice.some(e => e.pref || hidden.has(e.id)), 'no deprecated, no hidden');
-    assert.equal(slice.length, lib.filter(e => !e.pref && !hidden.has(e.id)).length, 'the rest of the catalogue follows');
+    assert.equal(slice.length, lib.filter(e => !e.pref && !e.ext && !hidden.has(e.id)).length, 'the rest of the catalogue follows');
+    assert.ok(!slice.some(e => e.ext), 'openGym imports are never offered to the model');
     // Equipment-filtered slice keeps the same ordering inside the compatible set.
     const db = payload.librarySlice({}, ['dumbbell']);
     const dbRec = db.filter(e => e.rec).length;

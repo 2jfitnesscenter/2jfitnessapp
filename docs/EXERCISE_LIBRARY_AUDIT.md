@@ -8,99 +8,105 @@ It reports; it never fixes. See `docs/EXERCISE_LIBRARY_V2.md` for the model and 
 
 | Metric | Value |
 |---|---|
-| Exercises (dataset records) | 1324 |
-| Unique ids | 1324 |
-| Spanish name | 1324 (100 %) |
-| Image / GIF / instructions | 1324 / 1324 / 1324 |
+| Exercises (dataset records) | 5538 |
+| Unique ids | 5538 |
+| Spanish name | 5538 (100 %) |
+| Image / GIF / instructions | 5538 / 1324 / 5538 |
 | Curated (protocol catalogue) | 189 |
 | Recommended 2J | 210 |
-| With a canonical movement | 1310 (98.9 %) |
-| With a canonical equipment | 1324 (100 %) |
+| With a canonical movement | 4807 (86.8 %) |
+| With a canonical equipment | 5538 (100 %) |
 | Deprecated duplicates (kept, preferred id set) | 26 |
 | Search/import aliases | 114 on 61 exercises |
 
 ## Dataset fields
 
-Body part (`bp`): upper arms 292 · upper legs 227 · back 203 · waist 169 · chest 163 · shoulders 143 · lower legs 59 · lower arms 37 · cardio 29 · neck 2
+Body part (`bp`): upper legs 1564 · waist 848 · back 711 · shoulders 613 · upper arms 554 · chest 471 · full body 239 · lower legs 238 · lower arms 137 · cardio 98 · neck 65
 
-Target (`tg`): abs 169 · pectorals 158 · biceps 151 · glutes 144 · delts 143 · triceps 141 · upper back 88 · lats 81 · calves 59 · quads 44 · forearms 37 · cardiovascular system 29 · hamstrings 28 · spine 19 · traps 15 · adductors 6 · abductors 5 · serratus anterior 5 · levator scapulae 2
+Target (`tg`): glutes 730 · abs 644 · delts 619 · quads 524 · pectorals 466 · upper back 308 · biceps 280 · triceps 278 · lats 242 · hamstrings 222 · calves 216 · obliques 195 · cardiovascular system 169 · spine 165 · forearms 147 · abductors 88 · adductors 68 · levator scapulae 67 · traps 49 · shins 25 · hip flexors 21 · serratus anterior 15
 
 | Dataset equipment (`eq`) | Records | Canonical |
 |---|---|---|
-| body weight | 324 | bodyweight |
-| dumbbell | 294 | dumbbell |
-| cable | 157 | cable |
-| barbell | 154 | barbell |
-| leverage machine | 80 | machine |
-| band | 54 | band |
-| smith machine | 48 | smith |
-| kettlebell | 41 | kettlebell |
-| weighted | 36 | weighted |
-| stability ball | 28 | stability_ball |
-| ez barbell | 23 | ez_bar |
-| assisted | 15 | assisted |
-| sled machine | 15 | sled |
-| medicine ball | 13 | medicine_ball |
-| rope | 10 | rope |
-| roller | 8 | roller |
-| resistance band | 7 | band |
-| bosu ball | 3 | bosu |
-| olympic barbell | 2 | barbell |
+| body weight | 2215 | bodyweight |
+| dumbbell | 753 | dumbbell |
+| cable | 442 | cable |
+| barbell | 383 | barbell |
+| leverage machine | 276 | machine |
+| band | 251 | band |
+| kettlebell | 181 | kettlebell |
+| weighted | 148 | weighted |
+| suspension trainer | 130 | suspension |
+| resistance band | 124 | band |
+| smith machine | 94 | smith |
+| stability ball | 71 | stability_ball |
+| ez barbell | 50 | ez_bar |
+| medicine ball | 50 | medicine_ball |
+| roller | 49 | roller |
+| sled machine | 47 | sled |
+| massage ball | 46 | roller |
+| weight plate | 45 | weighted |
+| assisted | 43 | assisted |
+| rope | 43 | rope |
+| landmine | 32 | landmine |
+| bosu ball | 12 | bosu |
+| sandbag | 12 | sandbag |
+| trap bar | 10 | trap_bar |
+| olympic barbell | 8 | barbell |
+| elliptical machine | 5 | elliptical |
+| stationary bike | 4 | bike |
+| wheel roller | 4 | roller |
+| macebell | 2 | macebell |
+| tire | 2 | tire |
 | treadmill | 2 | treadmill |
-| wheel roller | 2 | roller |
-| elliptical machine | 1 | elliptical |
 | hammer | 1 | hammer |
 | skierg machine | 1 | skierg |
-| stationary bike | 1 | bike |
 | stepmill machine | 1 | stepmill |
-| tire | 1 | tire |
-| trap bar | 1 | trap_bar |
 | upper body ergometer | 1 | ergometer |
 
 ## Canonical movements
 
 | Movement | All | Recommended 2J |
 |---|---|---|
-| squat | 72 | 7 |
-| lunge | 25 | 8 |
-| hinge | 40 | 10 |
-| hip_thrust | 11 | 4 |
-| hip_extension | 8 | 3 |
-| hip_abduction | 5 | 2 |
-| hip_adduction | 3 | 2 |
-| knee_extension | 4 | 1 |
-| knee_flexion | 13 | 4 |
-| calf_raise | 48 | 5 |
-| horizontal_push | 139 | 12 |
-| chest_fly | 33 | 5 |
-| dip | 28 | 5 |
-| vertical_push | 51 | 5 |
-| lateral_raise | 24 | 4 |
-| front_raise | 15 | 2 |
-| elbow_extension | 79 | 6 |
-| horizontal_pull | 97 | 10 |
-| vertical_pull | 62 | 9 |
-| pullover | 17 | 2 |
-| rear_delt | 17 | 4 |
-| shrug | 12 | 2 |
-| elbow_flexion | 140 | 11 |
-| wrist | 36 | 0 |
-| shoulder_rotation | 6 | 0 |
-| core_anti_extension | 13 | 5 |
-| core_flexion | 125 | 9 |
-| core_rotation | 23 | 3 |
-| core_lateral | 12 | 2 |
-| carry | 2 | 1 |
-| jump | 14 | 2 |
-| olympic | 20 | 0 |
-| conditioning | 29 | 16 |
-| cardio | 9 | 8 |
-| mobility | 78 | 41 |
-| *(none — master only)* | 14 | 0 |
+| squat | 380 | 7 |
+| lunge | 182 | 8 |
+| hinge | 227 | 10 |
+| hip_thrust | 110 | 4 |
+| hip_extension | 71 | 3 |
+| hip_abduction | 44 | 2 |
+| hip_adduction | 23 | 2 |
+| knee_extension | 23 | 1 |
+| knee_flexion | 44 | 4 |
+| calf_raise | 144 | 5 |
+| horizontal_push | 360 | 12 |
+| chest_fly | 92 | 5 |
+| dip | 50 | 5 |
+| vertical_push | 150 | 5 |
+| lateral_raise | 70 | 4 |
+| front_raise | 52 | 2 |
+| elbow_extension | 154 | 6 |
+| horizontal_pull | 300 | 10 |
+| vertical_pull | 151 | 9 |
+| pullover | 39 | 2 |
+| rear_delt | 56 | 4 |
+| shrug | 35 | 2 |
+| elbow_flexion | 283 | 11 |
+| wrist | 115 | 0 |
+| shoulder_rotation | 21 | 0 |
+| core_anti_extension | 97 | 5 |
+| core_flexion | 515 | 9 |
+| core_rotation | 100 | 3 |
+| core_lateral | 76 | 2 |
+| carry | 21 | 1 |
+| jump | 133 | 2 |
+| olympic | 85 | 0 |
+| conditioning | 103 | 16 |
+| cardio | 16 | 8 |
+| mobility | 485 | 41 |
+| *(none — master only)* | 731 | 0 |
 
 ## Canonical equipment
 
-bodyweight 324 · dumbbell 294 · cable 157 · barbell 156 · machine 76 · band 61 · smith 48 · kettlebell 41 · weighted 36 · stability_ball 28 · ez_bar 23 · assisted 15 · sled 15 · medicine_ball 13 · roller 10 · rope 10 · bosu 3 · bike 2 · elliptical 2 · treadmill 2 · ergometer 1 · hammer 1 · plate_loaded 1 · selectorized 1 · skierg 1 · stepmill 1 · tire 1 · trap_bar 1
+bodyweight 2215 · dumbbell 753 · cable 442 · barbell 391 · band 375 · machine 272 · weighted 193 · kettlebell 181 · suspension 130 · roller 99 · smith 94 · stability_ball 71 · ez_bar 50 · medicine_ball 50 · sled 47 · assisted 43 · rope 43 · landmine 32 · bosu 12 · sandbag 12 · trap_bar 10 · elliptical 6 · bike 5 · macebell 2 · tire 2 · treadmill 2 · ergometer 1 · hammer 1 · plate_loaded 1 · selectorized 1 · skierg 1 · stepmill 1
 
 Evidence-based overrides (the dataset `eq` is left as it is): `2331` cycle cross trainer → elliptical; `0576` lever chest press (plate-loaded) → plate_loaded; `0577` lever chest press (weight stack) → selectorized; `0798` stationary bike walk → bike.
 
@@ -162,27 +168,228 @@ Classes: **A** real duplicate (deprecated, preferred id) · **B** valid variant 
 - `0592` lever preacher curl · `1614` lever preacher curl v. 2
 - `0603` lever shoulder press · `0869` lever shoulder press v. 2
 
-### C — possible duplicates (0 groups; version "v. N", model or camera variants of one name)
+### C — possible duplicates (201 groups; version "v. N", model or camera variants of one name)
 
 Kept as they are: without a visual comparison they are not deprecated. Candidates for a future review.
 
+- `0003` air bike · `2395` air bike v. 2
+- `1405` back pec stretch · `4515` back pec stretch v. 2
+- `0020` balance board · `5302` balance board v. 2
+- `0984` band lying hip internal rotation · `3023` band lying hip internal rotation v. 2
+- `1004` band squat · `4683` band squat v. 2
+- `0025` barbell bench press · `6813` barbell bench press (side pov)
+- `1316` barbell bent arm pullover · `7565` barbell bent arm pullover v. 2
+- `0032` barbell deadlift · `6692` barbell deadlift (side pov)
+- `0063` barbell narrow stance squat · `5633` barbell narrow stance squat v. 2
+- `0073` barbell pullover · `4339` barbell pullover v. 2
+- `2810` barbell split squat v. 2 · `2809` barbell split squat v. 3 · `3030` barbell split squat
+- `2798` barbell squat jump step rear lunge · `2797` barbell squat jump step rear lunge v. 2
+- `1399` bench dip on floor · `4352` bench dip on floor v. 2
+- `0151` cable bench press · `11256` cable bench press v. 3
+- `0162` cable front raise · `2515` cable front raise v. 2
+- `0169` cable incline bench press · `11264` cable incline bench press v. 3
+- `0860` cable kickback · `1068` cable kickback v. 3 · `5120` cable kickback v. 2
+- `0175` cable kneeling crunch · `11270` cable kneeling crunch v. 3 · `5741` cable kneeling crunch v. 2
+- `0176` cable kneeling triceps extension · `1859` cable kneeling triceps extension v. 2
+- `0185` cable lying fly · `11273` cable lying fly v. 3
+- `0186` cable lying triceps extension v. 2 · `0187` cable lying triceps extension
+- `0222` cable side bend · `5657` cable side bend v. 2
+- `0224` cable standing back wrist curl · `6367` cable standing back wrist curl v. 2
+- `0227` cable standing fly · `11250` cable standing fly v. 3
+- `0228` cable standing hip extension · `0880` cable standing hip extension v. 2 · `11259` cable standing hip extension v. 3
+- `0238` cable straight arm pulldown · `1067` cable straight arm pulldown v. 3 · `6036` cable straight arm pulldown v. 2
+- `0241` cable triceps pushdown (v-bar) · `4355` cable triceps pushdown (v bar) v. 2
+- `0243` cable twist · `1069` cable twist v. 3 · `5118` cable twist v. 2
+- `0862` cable twist (up-down) · `1208` cable twist (up down) v. 2
+- `1325` cable wide grip rear pulldown behind neck · `2544` cable wide grip rear pulldown behind neck v. 2
+- `0257` circles knee stretch · `4278` circles knee stretch v. 2
+- `0274` crunch floor · `0275` crunch floor v. 2
+- `0276` dead bug · `1243` dead bug v. 2 · `7839` dead bug v. 3
+- `0282` decline sit-up · `5515` decline sit up v. 3
+- `0285` dumbbell alternate biceps curl · `1196` dumbbell alternate biceps curl v. 2
+- `0296` dumbbell close-grip press · `3075` dumbbell close grip press v. 2
+- `0300` dumbbell deadlift · `5119` dumbbell deadlift v. 2
+- `0310` dumbbell front raise · `3428` dumbbell front raise v. 3
+- `0313` dumbbell hammer curl · `2485` dumbbell hammer curl v. 3
+- `0315` dumbbell incline biceps curl · `3764` dumbbell incline biceps curl v. 2 · `4743` dumbbell incline biceps curl v. 3
+- `0336` dumbbell lunge · `3341` dumbbell lunge v. 2
+- `0340` dumbbell lying hammer press · `1177` dumbbell lying hammer press v. 2
+- `0345` dumbbell lying one arm rear lateral raise · `1048` dumbbell lying one arm rear lateral raise v. 2
+- `0351` dumbbell lying triceps extension · `2589` dumbbell lying triceps extension v. 2
+- `0355` dumbbell one arm lateral raise · `2690` dumbbell one arm lateral raise v. 2
+- `0359` dumbbell one arm reverse fly (with support) · `4239` dumbbell one arm reverse fly (with support) v. 2
+- `0361` dumbbell one arm shoulder press · `2381` dumbbell one arm shoulder press v. 3
+- `0375` dumbbell pullover · `5330` dumbbell pullover v. 2
+- `0391` dumbbell seated curl · `3083` dumbbell seated curl v. 2
+- `2188` dumbbell seated triceps extension · `7892` dumbbell seated triceps extension v. 2
+- `0407` dumbbell side bend · `4335` dumbbell side bend v. 2
+- `0409` dumbbell single leg calf raise · `3973` dumbbell single leg calf raise v. 2
+- `2805` dumbbell single leg deadlift with stepbox support · `2806` dumbbell single leg deadlift with stepbox support v. 2
+- `0411` dumbbell single leg squat · `3767` dumbbell single leg squat v. 2
+- `0413` dumbbell squat · `1555` dumbbell squat v. 2
+- `2321` dumbbell standing inner biceps curl v. 2 · `1228` dumbbell standing inner biceps curl
+- `0431` dumbbell step-up · `4986` dumbbell step up v. 2
+- `0432` dumbbell stiff leg deadlift · `3340` dumbbell stiff leg deadlift v. 2 · `3894` dumbbell stiff leg deadlift v. 3
+- `0433` dumbbell straight arm pullover · `7113` dumbbell straight arm pullover v. 2
+- `2808` dumbbell sumo pull through · `2807` dumbbell sumo pull through v. 2
+- `2803` dumbbell supported squat · `2804` dumbbell supported squat v. 2
+- `0459` flutter kicks · `1179` flutter kicks v. 2 · `1244` flutter kicks v. 3
+- `3193` glute-ham raise · `4456` glute ham raise v. 2
+- `0489` hyperextension · `1860` hyperextension v. 2
+- `0495` incline twisting sit-up · `1190` incline twisting sit up v. 2
+- `0501` jack burpee · `7619` jack burpee v. 2
+- `0573` lever back extension · `2266` lever back extension v. 2
+- `1300` lever decline chest press · `2278` lever decline chest press v. 2
+- `0584` lever lateral raise · `3343` lever lateral raise v. 2
+- `2335` lever seated calf press · `7176` lever seated calf press v. 2
+- `0597` lever seated hip abduction · `1869` lever seated hip abduction v. 2
+- `0598` lever seated hip adduction · `1867` lever seated hip adduction v. 2
+- `1350` lever seated row · `2265` lever seated row v. 2
+- `0607` lever triceps extension · `1033` lever triceps extension v. 2 · `2198` lever triceps extension v. 3
+- `0630` mountain climber · `5213` mountain climber v. 2
+- `1306` plyo push up · `11717` plyo push up v. 2
+- `0664` push-up to side plank · `4859` push up to side plank v. 2
+- `0872` reverse crunch · `4019` reverse crunch v. 2 · `4778` reverse crunch v. 3
+- `0688` scapular pull-up · `11015` scapular pull up v. 2
+- `1390` seated calf stretch · `4928` seated calf stretch v. 2
+- `1424` seated glute stretch · `4554` seated glute stretch v. 2
+- `0705` side bridge v. 2 · `0706` side bridge
+- `0735` sit-up v. 2 · `0736` sit up
+- `0761` smith narrow row · `2671` smith narrow row v. 2
+- `2329` spine twist · `2868` spine twist v. 2
+- `2138` stationary bike run v. 3 · `2279` stationary bike run v. 4
+- `3433` swimmer kicks v. 2 · `3227` swimmer kicks
+- `0826` vertical leg raise (on parallel bars) · `3623` vertical leg raise (on parallel bars) v. 3 · `5477` vertical leg raise (on parallel bars) v. 2
+- `0832` weighted crunch · `4252` weighted crunch v. 2
+- `0250` ceiling look stretch · `4280` ceiling look stretch v. 2
+- `0485` hip raise bridge v. 2 · `0486` hip raise bridge
+- `0556` kicks leg bent v. 2 · `5810` kicks leg bent
+- `0707` side crunch v. 2 · `0708` side crunch · `4812` side crunch v. 3
+- `0711` side lunge stretch · `8971` side lunge stretch v. 2
+- `0714` side plank v. 2 · `0715` side plank · `4811` side plank v. 3
+- `0733` single leg step up · `3711` single leg step up v. 2
+- `0781` split squat · `2752` split squat v. 2
+- `0867` reverse plank · `4934` reverse plank v. 2
+- `0881` dumbbell curtsey lunge · `8664` dumbbell curtsey lunge v. 2
+- `0892` band bent over row v. 2 · `4698` band bent over row v. 3
+- `0893` band bent over rear lateral raise v. 3 · `3971` band bent over rear lateral raise · `6486` band bent over rear lateral raise v. 2
+- `0894` band calf raise · `0973` band calf raise v. 2 · `1505` band calf raise v. 3
+- `0907` band lateral raise · `1508` band lateral raise v. 2
+- `0943` chair pose utkatasana v. 2 · `0944` chair pose utkatasana
+- `10192` kettlebell side swing · `8366` kettlebell side swing v. 2
+- `1051` cat stretch · `2106` cat stretch v. 2
+- `10535` seated single leg tibialis press · `10917` seated single leg tibialis press v. 2
+- `10537` seated single leg knee extension · `10538` seated single leg knee extension v. 2
+- `10660` resistance band assisted single arm pull up · `10903` resistance band assisted single arm pull up v. 2
+- `10818` 4 way single leg hop v. 2 · `9066` 4 way single leg hop
+- `10871` weighted plate crunch (hands overhead) · `10877` weighted plate crunch (hands overhead) v. 2
+- `10904` hamstring bridge v. 2 · `8358` hamstring bridge
+- `10910` seated single leg foot side to side · `10919` seated single leg foot side to side v. 2
+- `10912` seated single leg squeezing toes · `10918` seated single leg squeezing toes v. 2
+- `10977` dumbbell hyperextension v. 2 · `7328` dumbbell hyperextension
+- `1104` suspension triceps extension v. 2 · `5876` suspension triceps extension
+- `11255` cable lateral lunge v. 3 · `3350` cable lateral lunge · `3355` cable lateral lunge v. 2
+- `11265` cable standing hip flexion v. 3 · `8191` cable standing hip flexion
+- `11452` calves stretch v. 2 · `4510` calves stretch
+- `1163` lying leg raise · `4808` lying leg raise v. 2 · `4975` lying leg raise v. 3
+- `1178` dumbbell standing single leg calf raise · `3713` dumbbell standing single leg calf raise v. 2
+- `11791` single arm fingers press with ball · `11794` single arm fingers press with ball v. 2
+- `1202` cable horizontal pallof press · `4356` cable horizontal pallof press v. 2
+- `1215` dumbbell side lunge · `3448` dumbbell side lunge v. 3
+- `1241` bird dog · `3141` bird dog v. 2
+- `1455` lever chest press v. 2 · `2277` lever chest press v. 4
+- `1465` 45 degree hyperextension (arms in front of chest) (side pov) · `5813` 45 degree hyperextension (arms in front of chest)
+- `1521` barbell hang clean below the knees · `3183` barbell hang clean below the knees v. 2
+- `1872` lever preacher curl (plate loaded) · `2660` lever preacher curl (plate loaded) v. 2
+- `2100` seated quadriceps stretch · `7562` seated quadriceps stretch v. 2
+- `2146` lever hip thrust · `2743` lever hip thrust v. 2
+- `2154` resistance band glute bridge · `2555` resistance band glute bridge v. 2
+- `2157` resistance band lying leg raise · `7201` resistance band lying leg raise v. 2
+- `2267` lever seated leg press · `3385` lever seated leg press v. 2
+- `2276` lever lying crunch · `2314` lever lying crunch v. 2
+- `2394` floor hyperextension · `2844` floor hyperextension v. 2
+- `2420` resistance band air bike · `7212` resistance band air bike v. 2
+- `2662` lever high row (plate loaded) v. 2 · `2663` lever high row (plate loaded) v. 3
+- `2830` power sled rear lunge · `2903` power sled rear lunge v. 2
+- `2831` pike push up (on bench) · `3383` pike push up (on bench) v. 2
+- `2872` single leg stretch (bent knee) v. 2 · `4309` single leg stretch (bent knee)
+- `2873` spine stretch forward v. 2 · `4315` spine stretch forward
+- `2906` power sled rear drag · `5193` power sled rear drag v. 2
+- `2922` bodyweight standing biceps curl · `4369` bodyweight standing biceps curl v. 2
+- `2968` dumbbell thruster · `2969` dumbbell thruster v. 2
+- `3092` high knee squat · `4435` high knee squat v. 2
+- `3225` floor t raise · `7217` floor t raise v. 2
+- `3253` standing side bend · `4810` standing side bend v. 2
+- `3322` kettlebell deadlift · `9609` kettlebell deadlift v. 2
+- `3335` dumbbell glute bridge · `4751` dumbbell glute bridge v. 2
+- `3336` dumbbell v up · `4250` dumbbell v up v. 2
+- `3349` cable front squat · `3354` cable front squat v. 2
+- `3386` lever seated leg extension v. 2 · `7108` lever seated leg extension v. 3
+- `3393` lying leg hip raise on floor · `4018` lying leg hip raise on floor v. 2
+- `3395` sliding leg curl on floor with towel · `3742` sliding leg curl on floor with towel v. 2
+- `3399` barbell front rack lunge · `4382` barbell front rack lunge v. 2
+- `3422` medicine ball crunch · `4253` medicine ball crunch v. 2
+- `3497` sliding floor pulldown on towel · `4831` sliding floor pulldown on towel v. 2
+- `3525` landmine kneeling one arm shoulder press · `5636` landmine kneeling one arm shoulder press v. 2
+- `3574` kettlebell forward lunge · `5336` kettlebell forward lunge v. 2
+- `3691` dumbbell goblet split squat · `5028` dumbbell goblet split squat v. 2
+- `3779` band skier · `4697` band skier v. 2
+- `3780` band standing chest press · `5608` band standing chest press v. 2
+- `3919` landmine rear lunge · `4040` landmine rear lunge v. 2
+- `3939` band overhead triceps extension · `4139` band overhead triceps extension v. 2 · `4359` band overhead triceps extension v. 3 · `4694` band overhead triceps extension v. 4
+- `3997` standing side bend (bent arm) · `4322` standing side bend (bent arm) v. 2
+- `4007` 90 degree heel touch · `6428` 90 degree heel touch v. 2
+- `4038` landmine one arm bent over row · `5034` landmine one arm bent over row v. 2
+- `4063` band biceps curl · `4357` band biceps curl v. 2
+- `4080` band kneeling crunch · `4720` band kneeling crunch v. 2
+- `4089` kettlebell sumo squat · `5073` kettlebell sumo squat v. 2
+- `4113` landmine romanian deadlift · `4247` landmine romanian deadlift v. 2
+- `4135` band split squat · `4679` band split squat v. 2
+- `4140` band overhead single arm triceps extension · `4141` band overhead single arm triceps extension v. 2
+- `4147` band narrow grip high row · `4148` band narrow grip high row v. 2
+- `4155` weighted seated calf raise · `5483` weighted seated calf raise v. 2
+- `4248` dumbbell straight arm crunch · `6144` dumbbell straight arm crunch v. 2
+- `4400` kettlebell step up · `4440` kettlebell step up v. 2
+- `4473` roll ball piriformis · `4474` roll ball piriformis v. 2
+- `4485` roll ball infraspinatus · `4486` roll ball infraspinatus v. 2
+- `4487` roll ball scapula levator · `4488` roll ball scapula levator v. 2
+- `4491` roll ball trapezius lower · `4492` roll ball trapezius lower v. 2
+- `4702` alternating superman · `4715` alternating superman v. 2
+- `4742` dumbbell hip thrust · `5754` dumbbell hip thrust v. 2
+- `4755` dumbbell single leg hip thrust · `8075` dumbbell single leg hip thrust v. 2
+- `4760` elevated standing calf raise · `5009` elevated standing calf raise v. 2
+- `4779` reverse flutter kick on floor (hand under head) · `4980` reverse flutter kick on floor (hand under head) v. 2
+- `4817` kettlebell good morning · `6425` kettlebell good morning v. 2
+- `4819` ring leg curl · `4912` ring leg curl v. 2
+- `4849` banded glute ham raise v. 2 · `4905` banded glute ham raise v. 3
+- `4937` 45 degree hip extension glute focused · `9314` 45 degree hip extension glute focused v. 2
+- `5122` barbell clean and jerk · `5190` barbell clean and jerk v. 2
+- `5153` side to side hop · `8916` side to side hop v. 2
+- `5205` resistance band overhead shoulder press · `8364` resistance band overhead shoulder press v. 2
+- `5667` dumbbell z press · `6890` dumbbell z press v. 2
+- `6767` roll ball side lying scalene muscles activation · `6768` roll ball side lying scalene muscles activation (side pov)
+- `6798` resistance band standing balance glute kickback · `7204` resistance band standing balance glute kickback v. 2
+- `6800` dumbbell military press russian twist with legs floor off · `6806` dumbbell military press russian twist with legs floor off v. 2
+- `6913` sitting scapular adduction · `6914` sitting scapular adduction v. 2
+- `7563` kettlebell swing clean grip front squat · `7751` kettlebell swing clean grip front squat v. 2
+- `8880` cable standing jab · `8900` cable standing jab v. 2
 
 ## Names
 
-- Non-ASCII English names: 6 (`0002` 45° side bend; `0738` sled 45° calf press; `0739` sled 45° leg press; `1464` sled 45° leg press (back pov); `1463` sled 45° leg press (side pov); `0740` sled 45° leg wide press).
+- Non-ASCII English names: 7 (`0002` 45° side bend; `0738` sled 45° calf press; `0739` sled 45° leg press; `1464` sled 45° leg press (back pov); `1463` sled 45° leg press (side pov); `0740` sled 45° leg wide press; `1575` sled 45° narrow stance leg press).
 - English display names corrected in the 2J layer (typos, and the "(male)/(female)" model label dropped where the shorter name stays unique): 33. Kept with the upstream label because the shorter name would collide: 2.
-- "v. N" suffixes: 40 (variants kept apart after review).
+- "v. N" suffixes: 328 (variants kept apart after review).
 - Names shared by two live exercises (English or Spanish): 0.
 
 ## Metadata coherence
 
-- Filed as cardio without a cardio machine (read as conditioning): 22.
-- "body weight" with a machine word in the name: 5 — `3297` back lever; `3296` front lever; `3295` front lever reps; `2400` inverse leg curl (on pull-up cable machine); `0697` self assisted inverse leg curl (on machine).
-- Cardio records still filed as "leverage machine" without an override: 0.
+- Filed as cardio without a cardio machine (read as conditioning): 84.
+- "body weight" with a machine word in the name: 15 — `3297` back lever; `3296` front lever; `3295` front lever reps; `2400` inverse leg curl (on pull-up cable machine); `0697` self assisted inverse leg curl (on machine); `11090` negative front lever raise; `4906` long lever decline sit up; `4924` long lever lying back extension; `6550` incline push up on a smith bar; `7251` hanging front lever raise; `7884` lever push up with towels; `9043` hanging tucked front lever hold; `9044` hanging advanced tucked front lever hold; `9045` hanging front lever hold; `9324` long lever standing hip extension.
+- Cardio records still filed as "leverage machine" without an override: 3 — `0938` lever stepper; `1161` rowing (with rowing machine); `9608` walking backward on a treadmill.
 
 ## Images
 
-- Every record has image/GIF filename references: yes; image names start with the record id: yes; unique: yes.
+- Records with image/GIF filename references: 1324 of 5538; without (imported from openGym, animations pending): 4214; image names start with the record id where present: no; unique: yes.
 - Dataset images/GIFs and stretch illustrations are enabled by project-owner decision. Their rights status remains unverified; see docs/legal/exercise-media-inventory.csv. Enabling display is not a claim of 2J ownership or licence.
 
 ## Imports
@@ -190,6 +397,6 @@ Kept as they are: without a visual comparison they are not deprecated. Candidate
 - Alias entries: 114; each resolves to exactly one live exercise (the check fails otherwise).
 - Import order: curated English alias → 2J alias → exact translated name → exact dataset name → word bag (only when exactly one candidate). A deprecated result is filed under its preferred id; ties are returned as candidates for the member to choose.
 
-## Without a canonical movement (14, master library only)
+## Without a canonical movement (731, master library only)
 
-`0016` assisted prone hamstring · `3297` back lever · `0020` balance board · `0984` band lying hip internal rotation · `0996` band seated hip internal rotation · `0100` barbell skier · `0316` dumbbell incline breeding · `2143` dumbbell standing around world · `3292` elevator · `1332` exercise ball alternating arm ups · `3295` front lever reps · `0543` kettlebell pirate supper legs · `0609` london bridge · `3304` skin the cat
+`0016` assisted prone hamstring · `3297` back lever · `0020` balance board · `0984` band lying hip internal rotation · `0996` band seated hip internal rotation · `0100` barbell skier · `0316` dumbbell incline breeding · `2143` dumbbell standing around world · `3292` elevator · `1332` exercise ball alternating arm ups · `3295` front lever reps · `0543` kettlebell pirate supper legs · `0609` london bridge · `3304` skin the cat · `0255` wall ball circles · `0256` elbow arm circles · `0264` cross jacks · `0504` jack press · `0556` kicks leg bent v. 2 · `0560` kneeling hip flexor · `0610` low jacks · `0683` rotational jacks · `0712` side lying feet raise · `0731` single leg sit (wall) · `0734` sit (wall) · `0838` weighted lying side lifting head (with head harness) · `0843` weighted reduction triangle · `0848` weighted seated neck extension (with head harness) · `0885` smith lying lift (on hip) · `0906` band kneeling rear kick · `0921` band standing external shoulder rotation · `0924` band standing internal shoulder rotation · `0942` cat pose · `0943` chair pose utkatasana v. 2 · `0944` chair pose utkatasana · `0945` child pose · `0948` default pose · `0949` downward facing dog adho mukha svanasana · `0950` fish pose matsyasana · `0951` garland pose malasana · `0952` half moon pose ardha chandrasana · `0953` hands to feet pada hastasana · `0954` hero pose virasana · `0955` leg to side · `0956` lotus yoga pose padmasana · `0957` revolved side angle pose parivrtta parsvakonasana · `0958` spread leg forward fold upavista konasana · `0959` standing forward bend uttanasana · `0960` stand spread leg forward fold · `0961` tree pose vrksasana · `0962` triangle pose trikonasana · `0963` warrior pose virabhadrasana v. 2 · `0964` warrior pose i virabhadrasana · `0965` wide legged forward bend prasarita padottanasana · `0982` band lying hip external rotation · `0995` band seated hip external rotation · `10003` resistance band sitting floor ankle dorsi flexion · `10040` dumbbell standing alternating cross raise · `10045` snow angel face to floor · `10047` barbell split stance rdl · `10058` alternating kneeling to half kneeling · `10065` lever torso rotation · `10106` barbell high pull · `10109` medicine ball backward overhead toss · `10114` weighted plate lu raise · `10196` dumbbell shoulders complex · `10197` medicine ball horizontal smash · `10200` dumbbell kneeling around head rotation · `10294` heel walk · `10330` dumbbell powell raise · `10345` superman pulse · `10366` resistance band sitting floor tibialis press · `10367` kettlebell sitting tibialis press · `1037` lever standing rear kick · `10385` weighted sandbag shouldering · `10411` steel mace halo (weighted) · `1042` weighted lying neck extension · `10427` sandbag over the shoulder toss (weighted) · `1043` weighted lying neck flexion · `10438` alternating dead hang · `10439` two ropes climb · `10517` standing single leg hip swirl with chair support · `10534` seated single leg knee flexion · `10535` seated single leg tibialis press · `10536` resistance band standing single leg knee extension · `10537` seated single leg knee extension · `10538` seated single leg knee extension v. 2 · `10539` weighted seated single leg knee extension v. 2 · `10540` lying bent knee tibialis press · `10541` seated single leg hugging knee flexion · `10542` seated single leg hugging knee flexion with towel · `10543` kneeling bend knee chair supported · `10553` resistance band overhead hit · `10555` seated neck flexion to extension on chair · `10557` seated side to side neck bend on chair · `10591` resistance band seated single leg hugging knee flexion · `10594` resistance band lateral hit · `10597` cable 90 degrees internal rotation catch · `1065` lying hip lift (on stability ball) · `10654` pilates machine lying knee extension on toes · `10655` pilates machine lying knee extension · `10656` pilates machine lying knee extension on heels · `10663` ring skin the cat · `10665` elbow planche · `10676` weighted backpack walking · `10731` l sit rope climb · `10736` headbanger · `10742` lying single arm slide from y to t · `10745` seated single leg half circle · `10746` resistance band seated single leg knee extension · `10748` standing single leg front back side to side toe tap · `10750` kneeling to stand · `10758` medicine ball skater hop · `10759` high knee walk · `1076` suspension hamstring runner · `10780` lying neck flexion · `10781` lying neck extension · `10818` 4 way single leg hop v. 2 · `10847` pilates machine lying frog and leg circle · `10849` pilates machine lying pelvic lift · `10850` pilates machine side split · `10852` pilates machine russian split · `10853` pilates machine long spine · `10854` pilates machine arm circle · `10855` pilates machine chest expansion · `10858` dumbbell lu raise · `10859` standing floor tibialis raise wall supported · `1086` suspension power pull · `10860` cable side leg kick from back · `10917` seated single leg tibialis press v. 2 · `10921` resistance band seated single leg knee extension hold · `10928` standing wall serratus slide with towel · `10929` standing internal rotation slide with towel · `10930` standing external rotation slide with towel · `10931` standing external rotation behind back with towel · `10933` side lying external rotation · `10936` stick shoulder rotation over head · `10937` standing wall shoulder rotation · `10998` wall facing single leg split handstand hold · `11056` lever seated scapular retraction (plate loaded) · `11057` cable seated scapular retraction · `11258` cable standing push pull v. 3 · `11265` cable standing hip flexion v. 3 · `1140` suspender sprinter · `1157` suspender hip hinge · `11571` butt walking · `11645` static quadriceps contraction (isometric) · `11646` static glutes contraction (isometric) · `11648` floor w raise · `11651` seated patella mobilization · `11652` sciatic nerve glide floss · `11653` standing glute squeeze · `11654` seated knee down · `11785` internal rotation shoulders mobilization · `11790` balance 3 point toe tap · `11796` external rotation shoulders mobilization · `11798` bent over back to side to front arms raise · `11799` dumbbell bent over back to side to front arms raise · `11801` lying single leg quadriceps mobilization · `1183` smith kneeling rear kick · `1241` bird dog · `1248` half wipers (bent leg) · `1249` wipers (straight leg) · `1315` back relaxation · `1443` dumbbell lying pronated grip maltese hold · `1481` bow yoga pose · `1483` full lotus yoga pose · `1484` locust yoga pose (iron man pose) · `1485` plow yoga pose · `1487` shoulder stand yoga pose · `1493` wheel pose yoga pose · `1503` band pull apart · `1507` band hip flexion · `1577` lying hip flexor · `1591` single leg push off · `1601` standing straight leg hamstring contract relax on exercise ball · `1612` swimmer hips · `1698` forward hops · `1702` single leg foot touch · `1703` single leg transverse bend · `2121` lateral bend lying down · `2124` lateral bend on floor by kneeling · `2150` resistance band clam · `2151` resistance band external rotation · `2165` resistance band side walk · `2272` boxing jab · `2273` boxing right cross · `2274` boxing right uppercut · `2275` boxing left uppercut · `2282` lever neck extension (plate loaded) · `2283` lever neck left side flexion (plate loaded) · `2284` lever neck right side flexion (plate loaded) · `2301` rear leg hook kick · `2302` front leg hook kick · `2303` front groin kick · `2304` rear axe kick · `2305` front snap kick · `2306` spin hook kick · `2307` side kick · `2308` roundhouse kick · `2309` heel push kick · `2310` spin back kick · `2408` weighted lying neck extension (with head harness) · `2409` weighted lying neck flexion (with head harness) · `2410` weighted standing neck extension (with head harness) · `2411` cable seated neck extension (with head harness) · `2412` cable seated neck flexion (with head harness) · `2417` resistance band duck walk · `2418` resistance band bent leg side kick (kneeling) · `2419` resistance band leg lift · `2458` wall ball · `2461` side lying clam · `2525` vibrate plate standing · `2570` bent leg circle kick (kneeling) · `2707` strongman log lift · `2709` strongman arm over arm · `2710` strongman truck pull · `2711` strongman duck walk · `2712` strongman sandbag walk · `2714` strongman iceland cross · `2716` strongman circle of conan · `2717` strongman crucifix hold · `2718` strongman front hold · `2721` strongman loading · `2722` strongman hood stones · `2724` strongman atlas stones · `2725` strongman power stairs · `2730` strongman tire flip · `2731` strongman weight for height · `2735` strongman yoke walk · `2758` cable stand up · `2761` ankle dorsal flexion · `2770` hip flexion · `2771` hip lateral rotation (external rotation) · `2772` hip medial rotation (internal rotation) · `2773` knee extension · `2774` knee flexion · `2777` shoulder extension · `2778` shoulder flexion · `2779` shoulder lateral rotation (external rotation) · `2780` shoulder medial rotation (internal rotation) · `2783` shoulder transverse extension · `2784` shoulder transverse flexion · `2785` spine (lumbar) extension · `2851` lying double leg kick · `2852` lying leg lift side · `2854` lying single leg circle · `2855` lying single leg kick · `2857` rocking · `2869` swan dive · `2870` swimming · `2875` side kick kneeling · `2878` prone press swan · `2880` swimming all fours · `2904` power sled rear batwing · `2906` power sled rear drag · `2907` power sled backward push · `2909` power sled high pull · `2926` x band side walk · `2929` kneeling battling ropes · `2931` shoulder flexion back to wall · `2939` kettlebell around head rotation · `2940` prone single arm trap raise · `2943` resistance band spider crawls · `2945` scapular slide back to wall · `2952` smith kneeling rear kick (with partner) · `3009` stair up · `3023` band lying hip internal rotation v. 2 · `3035` bent leg side kick (kneeling) · `3088` frog hops · `3109` skater · `3113` split jacks · `3129` scapula retraction protraction · `3130` scapula elevation depression · `3141` bird dog v. 2 · `3171` boxing right hook · `3181` bodyweight frog pump · `3182` weighted frog pump · `3225` floor t raise · `3226` prone cobra palms under thighs · `3227` swimmer kicks · `3230` prone cobra hands interlocked · `3257` standing one arm circling · `3258` standing arms circling · `3259` standing alternate arms circling · `3260` standing arms flinging · `3307` strongman keg toss · `3316` barbell weightlifting complex · `3317` strongman car flip · `3342` cable y raise · `3348` incline shoulder tap · `3371` battling ropes side to side arms · `3373` battling ropes inside circle · `3374` battling ropes outside circle · `3379` battling ropes high waves · `3394` glute march · `3403` standing y raise · `3404` standing t raise · `3405` standing w raise · `3407` standing low body rotation · `3408` standing upper body rotation · `3409` standing phelps · `3411` standing hip circle · `3412` lying glute squeeze · `3413` lying shoulder sweep · `3414` lying upper body rotation · `3416` standing shoulder circling · `3417` kneeling one arm reach roll lift · `3436` superman · `3441` seated flexion and extension neck · `3454` dumbbell superman · `3458` side split · `3469` downward facing dog · `3471` warrior pose · `3483` around the world superman hold · `3511` resistance band bird dog · `3515` oblique v up on floor · `3529` landmine stand up high knee · `3555` power push aways · `3566` roll upper back · `3568` roll ball piriformis release · `3569` roll ball pectoral release · `3570` roll ball upper trapezius release · `3578` kettlebell slingshot · `3587` weighted single leg lift · `3651` dumbbell rdl death march · `3652` trap bar split stance rdl · `3657` static position lying back with pad · `3658` static position seated back with pad · `3659` static position standing · `3660` static position lying front · `3661` static position seated back · `3673` standing pose (form check) front view · `3674` standing pose (form check) side view · `3684` dumbbell external rotation · `3686` dumbbell kneeling hold to stand · `3693` dumbbell bench supported external rotation · `3703` frogger · `3714` single leg stand · `3715` single leg stand on bosu ball · `3779` band skier · `3783` dumbbell archer · `3798` resistance band punch · `3823` decline shoulder tap · `3826` lying around the world · `3867` duck walk · `3905` arm circles · `3908` bodyweight windmill · `3918` landmine single leg landmine rdl · `3926` side lying leg circle · `3960` pike to cobra · `3965` side bear crawl · `3967` dumbbell incline around the world · `3968` dumbbell flat around the world · `4024` resistance band standing overhead warming up · `4025` resistance band standing down warming up · `4026` resistance band standing front warming up · `4027` resistance band standing back warming up · `4057` kettlebell turkish get up to hand · `4099` medicine ball half kneeling chest push · `4131` battling ropes alternating waves with kneeling get up · `4194` cable half kneeling external rotation · `4212` one leg star balance · `4216` climbing monkey bars · `4221` tiger tail hamstring · `4222` tiger tail neck · `4241` resistance band shuttle · `4329` push with chair · `4365` animal resting yoga pose · `4375` medicine ball around head rotation · `4376` handstand walk · `4380` standing leg slide with towel · `4381` legs up the wall yoga pose · `4388` prisoner get up · `4394` alternate shoulder flexion back to wall · `4395` shoulder circle · `4399` standing seal yoga pose · `4402` straight angle yoga pose · `4405` the eagle yoga pose · `4406` tiger yoga pose · `4410` warrior ii yoga pose · `4412` resistance band pullapart (pronated at 90 degrees) · `4428` power sled push · `4429` weighted lying side neck raise · `4430` weighted side lying side neck raise · `4431` weighted lying neck side to side · `4436` alternating step out · `4438` jack step · `4456` glute ham raise v. 2 · `4464` roll ball tibialis anterior · `4466` roll ball popliteal · `4468` roll ball rectus femoris · `4469` roll ball lateral vastus · `4471` roll ball tensor fasciae latae · `4472` roll ball gluteus medius · `4473` roll ball piriformis · `4474` roll ball piriformis v. 2 · `4475` roll ball iliospsoas · `4478` roll ball external oblique · `4480` roll ball erector spinae · `4481` roll ball lumbar diagonal · `4483` roll ball pectoralis major sternal · `4484` roll ball pectoralis major clavicular · `4485` roll ball infraspinatus · `4486` roll ball infraspinatus v. 2 · `4487` roll ball scapula levator · `4488` roll ball scapula levator v. 2 · `4489` roll ball rhomboid · `4490` roll ball trapezius upper · `4491` roll ball trapezius lower · `4492` roll ball trapezius lower v. 2 · `4493` roll ball latissimus dorsi · `4534` kettlebell standing slingshots · `4556` push through reach · `4558` child to cobra pose · `4560` body extension · `4568` resistance band pull apart · `4581` boxing block · `4582` boxing jab (with boxing bag) · `4583` boxing right cross (with boxing bag) · `4584` boxing right hook (with boxing bag) · `4585` front groin kick kickboxing (with boxing bag) · `4586` front kick kickboxing (with boxing bag) · `4587` front snap kick kickboxing (with boxing bag) · `4588` hook kick kickboxing (with boxing bag) · `4589` boxing jab (with partner) · `4590` boxing left uppercut (with partner) · `4591` boxing right cross (with partner) · `4592` boxing right hook (with partner) · `4593` boxing right uppercut (with partner) · `4594` front kick kickboxing (with partner) · `4595` front knee kick kickboxing (with partner) · `4596` front snap kick kickboxing (with partner) · `4597` hook kick kickboxing (with partner) · `4598` roll tensor fasciae latae · `4599` roll iliopsoas · `4600` roll ball lower back · `4602` pvc external rotation · `4605` pvc hip hinge · `4607` pvc pass through · `4608` shin box switch · `4609` lying side to side knee · `4611` roll ball deltoid posterior · `4612` bodyweight standing around the world (wall supported) · `4615` hip swirls · `4653` standing single leg high knee to butt kick (with support) · `4663` backhand raise · `4665` overhead clap · `4677` band kneeling single leg kick · `4692` bent knee back to side kick · `4693` kneeling leg half circle · `4697` band skier v. 2 · `4702` alternating superman · `4711` criss cross jack · `4715` alternating superman v. 2 · `4737` dumbbell floor wiper · `4746` dumbbell low windmill · `4798` suspender alternate superman · `4824` diagonal punch · `4849` banded glute ham raise v. 2 · `4870` hip clam shell · `4871` dumbbell 6 ways raise · `4876` prayer push · `4884` side lying outward knee kick · `4888` dumbbell standing high windmill · `4890` glute ham raise with extended arms · `4891` hanging half windmill · `4896` kneeling straight leg side kick · `4901` dumbbell standing windmill · `4905` banded glute ham raise v. 3 · `4932` lying bent knee figure 8 · `4933` standing leg circle · `4935` around the world superman · `4944` standing bent knee figure 8 · `4945` chest out hands behind (hold) · `4971` bodyweight single leg rdl · `4977` ring alternate superman · `4985` band assisted floor glute ham raise · `5001` dumbbell seated external shoulder rotation · `5002` dumbbell one arm y elevation · `5024` resistance band serratus wall slide · `5025` serratus wall slide · `5029` kneeling back rotation · `5040` lying prone a · `5041` lying prone t · `5042` lying prone w · `5043` lying prone w to t · `5044` lying prone w to y · `5048` superman w to y · `5049` superman w · `5054` crab pose · `5057` kneeling forward hip circles · `5060` prone cervical extension · `5061` prone cervical extension isometric hold · `5064` dumbbell kneeling hold to stand clean grip · `5078` seated chest clam · `5080` palm up palm down rotation · `5081` seated sky look · `5087` cable shoulder 90 degrees external rotation · `5089` cable shoulder 90 degrees internal rotation · `5128` seated back squeeze · `5129` seated upper body rotation · `5131` seated neck tap · `5132` seated pulse back squeeze · `5133` seated behind back raise · `5134` seated ballerina · `5143` power sled drag · `5144` medicine ball chest pass against wall · `5145` posterior neck isometric · `5152` bodyweight kneeling hold to stand · `5170` kneeling pulse · `5192` cluster · `5193` power sled rear drag v. 2 · `5194` bodyweight muscle up v. 2 · `5220` extended side angle yoga pose · `5234` wall walks · `5241` old school reverse extensions · `5311` exercise ball serratus wall slide · `5317` resistance band pull apart (45 degrees) · `5333` lever trunk rotation · `5371` roll neck rotation lying on floor · `5372` roll neck decompress lying on floor · `5376` roll chest opener lying on floor · `5377` roll chest lying on floor · `5378` roll front shoulder and chest lying on floor · `5379` roll posterior shoulder lying on floor · `5380` roll shoulder back rotation lying on floor · `5381` roll rhomboids · `5382` roll middle back lying on floor · `5383` roll lower back (side) lying on floor · `5384` roll thoracic spine lying on floor · `5385` roll shoulder blade reach lying on floor · `5386` roll around the world lying on floor · `5387` roll erector spinae lying on floor · `5388` roll kneeling upper back rotation · `5390` roll glutes sitting on floor · `5392` roll hamstrings and glute sitting on floor · `5393` roll quadriceps (vastus lateralis) lying on floor · `5394` roll tibialis anterior · `5395` roll tibialis anterior (single leg) lying on floor · `5458` dumbbell standing single arm cross raise · `5482` single leg hopping · `5498` weighted plate overhead march · `5666` dumbbell high pull · `5684` crossed arms front leg kick · `5774` single leg thrusts · `5800` bodyweight lying prone ys · `5801` band assisted muscle up · `5810` kicks leg bent · `5817` dumbbell side lying external rotation (on a bench) · `5818` weighted full can exercise · `5819` dumbbell empty can exercise · `5820` dumbbell prone full can exercise · `5822` prone y raise · `5881` crab walk · `5885` lotus pose breathing · `5887` 3 leg dog pose · `5889` corpse pose savasana · `5890` double pigeon pose · `5892` lizard pose · `5894` meditation · `5895` mindful breathing meditation · `5896` mountain pose · `5897` puppy pose · `5898` pyramid pose · `5899` revolved chair · `5900` revolved side angle pose · `5901` revolved triangle pose · `5902` standing figure four pose · `5903` standing half bend · `5904` thread the needle pose · `5907` warrior iii pose · `5908` revolved head to knee pose · `5913` reverse warrior pose · `5917` happy baby pose · `5965` 1 2 stick drill · `5967` agility ball drill · `5971` l drill · `5972` ladder drill · `5973` lateral ladder drill · `5976` t drill · `5979` x drill · `5980` sun salutation a · `5981` sun salutation b · `5982` half sun salutation · `5984` 123 back drill · `5985` balloon drill · `5986` cone drill · `5989` figure run · `5991` partner shuffle · `6010` celebratory knee drives · `6013` front leg kick · `6014` arm raise step in place · `6024` lying alternate frog kick · `6025` lying frog kick · `6027` punch step forward · `6038` smith donkey kick · `6077` bottle weighted halo · `6098` swim leg circle · `6100` bodyweight skipping · `6120` pavanamuktasana yoga pose · `6121` ardha matsyendrasana yoga pose · `6123` dumbbell unilateral scapula raise · `6138` namaskarasana yoga pose · `6140` dumbbell seated external rotation · `6141` dumbbell standing driver · `6288` dolphin pose · `6291` warrior pose ii · `6292` frog pose mandukasana · `6294` half frog pose ardha bhekasana · `6295` sage marichi i pose marichyasana · `6296` bird of paradise pose svarga dvijasana · `6297` wheel pose urdhva dhanurasana · `6298` one legged upward bow pose eka pada urdhva dhanurasana · `6301` eagle pose garudasana · `6302` two legged inverted staff pose dwi pada viparita dandasana · `6303` camel pose ustrasana · `6304` dancer pose natarajasana · `6316` basic to cross donkey kick · `6341` humble warrior pose · `6350` lying prone y raise · `6438` bent over shoulder pendulum · `6439` resistance band standing single arm shoulder flexion · `6440` resistance band standing single arm lateral shoulder extension · `6441` resistance band standing external rotation · `6443` half seated leg circle · `6444` yoga vajrasana thunderbolt diamond pose · `6545` handstand hold on wall · `6549` weighted plate standing around the world · `6558` dumbbell banded wall sit · `6599` bear crawl low hip · `6601` lever glute press · `6648` cable high pull with rope attachment · `6705` supine windshield wipers · `6741` resistance band kneeling leg half circle on bench · `6747` kneeling glute press · `6749` seated hip external rotation · `6750` standing balance hip rotation · `6753` lying scalene muscles activation · `6759` seated tibialis anterior press · `6762` diagonal bend hold · `6767` roll ball side lying scalene muscles activation · `6768` roll ball side lying scalene muscles activation (side pov) · `6769` roll ball lying semispinalis capitis muscle activation · `6786` faber test · `6787` hip external rotation test · `6788` hip internal rotation test · `6789` leg length test · `6792` shoulder level test · `6793` posterior chain flexibility test · `6794` thomas test · `6795` thomas frontal test · `6799` dumbbell lying oblique v up · `6811` stick subscapularis muscle relax · `6812` roll ball seated pectineus activation · `6878` sitting yoga pose siddhasana · `6879` supported headstand yoga pose sirsasana · `6901` cow yoga pose bitilasana · `6944` swimming crawl style · `6964` dumbbell standing t spine press · `7194` criss cross stepback hops · `7208` resistance band kneeling back kick · `7209` resistance band kneeling leg half circle · `7213` side lying internal rotation · `7217` floor t raise v. 2 · `7231` dumbbell incline single arm y raise · `7232` standing scapular rotation · `7233` standing scapular rotation (front pov) · `7234` dumbbell standing scapular external rotation · `7235` dumbbell standing scapular external rotation (front pov) · `7252` dumbbell incline powell raise · `7282` resistance band walk · `7341` hopping pendulum · `7455` single leg lateral hop · `7538` lying floor slide · `7558` wall sit from deficit · `7559` dumbbell goblet wall sit · `7747` dumbbell prone w raise · `7882` plate push · `7995` dumbbell bent over y raise · `8052` kneeling thoracic rotation · `8130` moving child pose · `8191` cable standing hip flexion · `8197` sitting swimmer on a chair · `8200` sitting prayer chest squeeze on a chair · `8220` deep knee bend · `8331` kettlebell half kneeling halo · `8342` bodyweight standing scapular external rotation · `8343` bodyweight standing t spine press · `8365` resistance band pass through · `8424` seated cross body punch on a chair · `8536` bodyweight tibialis raise wall supported · `8546` lying prone y to t to w · `8585` mid back elbow squeeze · `8617` seated external rotation on a chair · `8621` seated pec dec on a chair · `8634` seated rotating boxing rolls on a chair · `8652` seated shoulder tap on a chair · `8655` seated underhand arm circle on a chair · `8661` cable incline y raise with back support · `8702` torque tank push · `8703` battling rope pull · `8744` seated alternate knee extension on chair · `8874` resistance band speed step · `8875` cable lying single leg hip flexion · `8880` cable standing jab · `8899` cable standing y raise v. 2 · `8900` cable standing jab v. 2 · `8916` side to side hop v. 2 · `9180` stick standing shoulder mobilization in extension · `9181` stick standing shoulder mobilization in external rotation · `9185` standing alternating shoulder flexion with rope · `9246` wide stance thoracic rotation · `9272` sitting floor tibialis raise · `9488` pike stand · `9489` hanging side lean · `9509` lever sitting toe raise · `9601` bodyweight patrick step · `9602` bodyweight patrick step from stepbox · `9603` bodyweight poliquin step · `9604` bodyweight poliquin step from stepbox · `9605` bodyweight peterson step from stepbox · `9607` isometric mid thighs pull · `9612` dumbbell step over box · `9676` lever lying knee flexion · `9704` suspender headstand · `9803` standing tibialis raise wall supported · `9870` cable incline single arm y raise with back support · `9890` standing pelvic lift · `9969` lying supine heel slide · `9980` stick assisted standing shoulder flexion

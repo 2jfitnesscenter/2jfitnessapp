@@ -72,8 +72,8 @@ test('duplicates: deprecated → preferred only, same movement, no chains, no cy
   // itself
   assert.ok(edit({ id: '0305', patch: { preferredId: '0305' } }).error);
   // unknown ids
-  assert.ok(edit({ id: '9999', patch: { n: 'x' } }).error);
-  assert.ok(edit({ id: '0305', patch: { preferredId: '9999' } }).error);
+  assert.ok(edit({ id: '999999', patch: { n: 'x' } }).error);
+  assert.ok(edit({ id: '0305', patch: { preferredId: '999999' } }).error);
   // content in use: the official library uses 0025 (bench press)
   assert.ok(guided.exerciseUsage().has('0025'));
   assert.match(edit({ id: '0025', patch: { preferredId: '0289' } }).error, /oficial/i);
@@ -146,7 +146,7 @@ test('reviewed pairs are kept apart on request and can be reopened; reset drops 
   assert.ok(edit({ variant: ['0125', '0126'], keep: true }).overlay);
   assert.equal(lib.overlay().variants.length, 1, 'no repeated pair');
   assert.ok(edit({ variant: ['0125', '0125'], keep: true }).error);
-  assert.ok(edit({ variant: ['0125', '9999'], keep: true }).error);
+  assert.ok(edit({ variant: ['0125', '999999'], keep: true }).error);
   assert.ok(edit({ variant: ['0125', '0126'], keep: false }).overlay);
   assert.equal(lib.overlay().variants.length, 0);
   edit({ id: '0044', patch: { n: 'barbell good morning 2J' } });
@@ -159,13 +159,13 @@ test('a stored overlay that no longer holds is ignored entry by entry, not whole
   fs.writeFileSync(path.join(DIR, 'library-admin.json'), JSON.stringify({ v: 1, rev: 7, entries: {
     '0044': { n: 'good morning 2J' },
     '0025': { preferredId: '0289' },            // used by official content: refused
-    '9999': { n: 'ghost' },                      // not a record: dropped
+    '999999': { n: 'ghost' },                      // not a record: dropped
     '0376': { movement: 'nonsense' },            // unknown movement: dropped
   }, variants: [['0125', '0126'], ['1', '2']] }));
   lib.resetCache();
   assert.equal(lib.byId('0044').n, 'good morning 2J');
   assert.equal(lib.byId('0025').pref, undefined);
-  assert.equal(lib.byId('9999'), null);
+  assert.equal(lib.byId('999999'), null);
   assert.deepEqual(Object.keys(lib.overlay().entries), ['0044']);
   assert.deepEqual(lib.overlay().variants, [['0125', '0126']]);
   assert.equal(lib.overlay().rev, 7);

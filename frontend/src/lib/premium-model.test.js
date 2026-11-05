@@ -59,7 +59,7 @@ describe('definition validation', () => {
     expect(validateProgram(t, ctx)).toContain('days-mismatch')
   })
   it('refuses an unknown or deprecated exercise and a block with two ways to prescribe', () => {
-    const p = base(); p.programDefinition.lifts[0].exercise = '9999'
+    const p = base(); p.programDefinition.lifts[0].exercise = '999999'   // not an exercise in the library (openGym imports reach 10003)
     expect(validateDefinition(p.programDefinition, ctx).some(i => i.startsWith('lift-exercise'))).toBe(true)
     const dep = { exerciseExists: () => true, preferred: id => (id === '0043' ? '0042' : id) }
     expect(validateDefinition(base().programDefinition, dep).some(i => i.startsWith('lift-deprecated'))).toBe(true)

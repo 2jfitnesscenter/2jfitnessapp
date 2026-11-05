@@ -5887,4 +5887,8 @@ export default {
   'This link was not started in this browser, so it cannot sign you in. Start from here and your 2J space will bring you back.': 'Este enlace no se inició en este navegador, así que no puede iniciar tu sesión. Empieza desde aquí y tu espacio de 2J te traerá de vuelta.',
   'Continue with your 2J account': 'Continuar con tu cuenta de 2J',
   'Your 2J account access was updated by the centre': 'El centro ha actualizado el acceso de tu cuenta de 2J',
+  'Landmine': 'Landmine',
+  'Suspension trainer': 'Suspensión (TRX)',
+  'Sandbag': 'Saco de arena',
+  'Macebell': 'Macebell',
 }

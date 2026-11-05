@@ -156,7 +156,8 @@ let INDEX = null
 function buildIndex() {
   if (INDEX) return INDEX
   INDEX = { exact: new Map(), all: [] }
-  EXDB.forEach(e => {
+  // openGym imports (ext) are never matched automatically: a name in a file picks one of our own exercises or none
+  EXDB.forEach(e => { if (e.ext) return;
     const w = wordsOf(e.n)
     const k = w.slice().sort().join(' ')
     if (!INDEX.exact.has(k)) INDEX.exact.set(k, e.id)
@@ -227,7 +228,7 @@ function localIndex() {
   if (LOCAL_IDX && LOCAL_LANG === getLang()) return LOCAL_IDX
   LOCAL_LANG = getLang()
   LOCAL_IDX = new Map()
-  EXDB.forEach(e => { const k = libNorm(nameFor(e)); LOCAL_IDX.set(k, [...(LOCAL_IDX.get(k) || []), e.id]) })
+  EXDB.forEach(e => { if (e.ext) return; const k = libNorm(nameFor(e)); LOCAL_IDX.set(k, [...(LOCAL_IDX.get(k) || []), e.id]) })
   return LOCAL_IDX
 }
 // A deprecated duplicate is filed under its preferred twin (same exercise, confirmed — see

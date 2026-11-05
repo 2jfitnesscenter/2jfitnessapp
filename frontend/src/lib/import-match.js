@@ -33,7 +33,8 @@ const tokenize = s => norm(s).replace(/[()[\]]/g, ' ').replace(/[^a-z0-9]+/g, ' 
 let NAME_INDEX = null
 function nameIndex() {
   if (NAME_INDEX) return NAME_INDEX
-  NAME_INDEX = EXDB.map(ex => ({ ex, en: tokenize(ex.n), es: tokenize(nameFor(ex)) }))
+  // openGym imports (ext) are never matched automatically (see import-csv.js)
+  NAME_INDEX = EXDB.filter(ex => !ex.ext).map(ex => ({ ex, en: tokenize(ex.n), es: tokenize(nameFor(ex)) }))
   return NAME_INDEX
 }
 function jaccard(aTokens, bSet) {

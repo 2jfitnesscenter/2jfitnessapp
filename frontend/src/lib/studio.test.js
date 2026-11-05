@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path'
 import { statusOf, filterAdmin, countByStatus, moveId, programTotals, nextDay, duplicateWeek, emptyProgram, STATUSES, PURPOSES } from './studio.js'
 import { qualityIndex, countsOf, filterQuality, oddName, QUALITY_FILTERS } from './library-quality.js'
 import { isDeprecated, aliasesOf } from './library/core.js'
+import { EXDB } from './exercises-data.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const json = p => JSON.parse(readFileSync(join(root, p), 'utf8'))
@@ -116,11 +117,11 @@ describe('expanded Entrena con 2J content', () => {
 describe('Library quality index', () => {
   const rows = qualityIndex()
   it('indexes the whole library and flags what a curator should see', () => {
-    expect(rows).toHaveLength(1324)
+    expect(rows).toHaveLength(EXDB.length)
     const c = countsOf(rows)
     expect(Object.keys(c)).toEqual(QUALITY_FILTERS)
     expect(c.deprecated).toBe(rows.filter(r => isDeprecated(r.id)).length)
-    expect(c.recommended + c.notRecommended).toBe(1324)
+    expect(c.recommended + c.notRecommended).toBe(EXDB.length)
     expect(rows.filter(r => r.dep).every(r => !r.flags.has('noMovement') && !r.flags.has('duplicate'))).toBe(true)
     expect(rows.filter(r => r.flags.has('noAlias')).every(r => r.rec && !aliasesOf(r.id).length)).toBe(true)
   })
