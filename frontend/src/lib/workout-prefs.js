@@ -23,6 +23,9 @@ export function workoutPrefs(S) {
     view: S.workoutView === 'simple' ? 'simple' : 'detailed',
     images: S.showExerciseImages !== false,
     tips: S.showExerciseTips !== false,
+    // A row of numbered exercise chips at the top of the live workout (filled when done, tap to jump).
+    // Off by default; navigation only, it never changes a set.
+    chips: S.showExerciseChips === true,
     autoComplete: S.autoCompleteSets === true,
     // Detailed list only: an exercise whose working sets are all ticked folds into one line.
     // Off by default; a display preference, it never changes a set.

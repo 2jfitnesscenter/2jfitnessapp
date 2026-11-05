@@ -78,6 +78,10 @@ export default function TrainingSettings() {
         subtitle={t('The exercise’s general how-to. Your trainer’s notes always show.')}>
         <Switch checked={prefs.tips} onChange={v => set('showExerciseTips', v)} />
       </Row>
+      <Row icon="checkCircle" iconTint="var(--acc)" title={t('Exercise chips')}
+        subtitle={t('A row of numbered chips at the top of the workout, filled when an exercise is done. Tap one to jump to it.')}>
+        <Switch checked={prefs.chips} onChange={v => set('showExerciseChips', v)} />
+      </Row>
     </Section>
 
     <Section title={t('Sets')}>

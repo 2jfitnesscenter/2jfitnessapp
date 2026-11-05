@@ -791,6 +791,10 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 /* ------------------------------------------------------------- workout --- */
 .wprog{height:4px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-bottom:16px}
 .wprog i{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width var(--med) var(--ease)}
+.ex-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.ex-chip{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--acc);background:transparent;color:var(--acc);font:inherit;font-size:13px;font-weight:700;padding:0;cursor:pointer}
+.ex-chip.done{background:var(--acc);color:#fff}
+.ex-chip.cur{box-shadow:0 0 0 3px var(--surface-2)}
 .exmedia{position:relative;border-radius:var(--r-lg);overflow:hidden;background:#fff;margin-bottom:12px}
 .exmedia-fallback{display:flex;align-items:center;justify-content:center;gap:10px;min-height:180px;color:var(--label-2);background:var(--surface-2)}
 .exmedia-fallback .icn{color:var(--acc);font-size:28px}

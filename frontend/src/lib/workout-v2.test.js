@@ -12,7 +12,7 @@ const fresh = (w = 80, r = 8) => [{ w, r, done: false }, { w, r, done: false }, 
 describe('workout preferences', () => {
   it('a profile saved before these existed keeps today\'s behaviour', () => {
     expect(workoutPrefs({ sound: true })).toEqual({
-      view: 'detailed', images: true, tips: true, autoComplete: false, collapseDone: false, focus: false,
+      view: 'detailed', images: true, tips: true, chips: false, autoComplete: false, collapseDone: false, focus: false,
       restAlert: true, sound: true, restTone: 'classic', vibrate: true, progression: true,
     })
   })
