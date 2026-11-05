@@ -57,6 +57,10 @@ SOFTWARE.
 
 ## Exercise data & media
 
+Exercise records, English instructions and Spanish names added from openGym (AGPL-3.0,
+[DuarteSantos8/openGym](https://github.com/DuarteSantos8/openGym) at commit `8fb98b16`) by
+`scripts/import-upstream-catalogue.mjs`. No images or animations are imported with them yet.
+
 The exercise records and non-media instructions originate from
 [**hasaneyldrm/exercises-dataset**](https://github.com/hasaneyldrm/exercises-dataset). Its current
 [`LICENSE`](https://github.com/hasaneyldrm/exercises-dataset/blob/7455efae41b330c265e7cd4b78dfa848e7ce5ebd/LICENSE) and

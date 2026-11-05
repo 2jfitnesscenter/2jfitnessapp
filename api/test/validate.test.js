@@ -86,7 +86,7 @@ test('an invented change type does nothing at all', () => {
 
 test('every change must target something that exists', () => {
   assert.equal(review([change({ target: { routineId: 'ghost', exId: '0001' } })]).ok, false);
-  assert.equal(review([change({ target: { routineId: 'r1', exId: '9999' } })]).ok, false, 'exercise not in that routine');
+  assert.equal(review([change({ target: { routineId: 'r1', exId: '999999' } })]).ok, false, 'exercise not in that routine');
   assert.equal(review([change({ target: { routineId: 'r2', exId: '0001' } })]).ok, false, 'right exercise, wrong routine');
 });
 

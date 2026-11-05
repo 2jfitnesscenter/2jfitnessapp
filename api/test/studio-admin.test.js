@@ -102,7 +102,7 @@ test('invalid content is refused with a useful message: duplicates, unknown ids,
   const dup = await req('POST', '/api/guided/save', 'ad', { routine: routineOf({ ex: [{ id: '0309', sets: 3, reps: 12, mode: 'reps', blk: 'x' }], blocks: [] }) });
   assert.equal(dup.status, 400);
   assert.match(dup.body.error, /duplicado/);
-  const ghost = await req('POST', '/api/guided/save', 'ad', { routine: routineOf({ ex: [{ id: '9999', sets: 3, reps: 12, mode: 'reps' }], blocks: [] }) });
+  const ghost = await req('POST', '/api/guided/save', 'ad', { routine: routineOf({ ex: [{ id: '999999', sets: 3, reps: 12, mode: 'reps' }], blocks: [] }) });
   assert.equal(ghost.status, 400);
   const empty = await req('POST', '/api/guided/save', 'ad', { routine: routineOf({ ex: [] }) });
   assert.equal(empty.status, 400);

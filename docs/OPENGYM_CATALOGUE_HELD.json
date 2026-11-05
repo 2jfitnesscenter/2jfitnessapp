@@ -1,0 +1,1909 @@
+{
+  "source": "8fb98b16",
+  "held": [
+    {
+      "id": "0145",
+      "n": "butt bridge",
+      "es": "puente de glúteos",
+      "reason": "name",
+      "clashesWith": "1409"
+    },
+    {
+      "id": "0181",
+      "n": "cable lying close grip curl",
+      "es": "curl acostado con agarre cerrado en polea",
+      "reason": "name",
+      "clashesWith": "0182"
+    },
+    {
+      "id": "0612",
+      "n": "lunge",
+      "es": "zancada",
+      "reason": "name",
+      "clashesWith": "0336"
+    },
+    {
+      "id": "0713",
+      "n": "side neck stretch",
+      "es": "estiramiento lateral de cuello",
+      "reason": "name",
+      "clashesWith": "1403"
+    },
+    {
+      "id": "0784",
+      "n": "squat (with band)",
+      "es": "sentadilla (con banda elástica)",
+      "reason": "name",
+      "clashesWith": "1004"
+    },
+    {
+      "id": "10052",
+      "n": "landmine cossack squat",
+      "es": "sentadilla cosaca en landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "10056",
+      "n": "landmine banded press",
+      "es": "press landmine con banda elástica",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "10190",
+      "n": "landmine single arm push press",
+      "es": "push press a un brazo en landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "10383",
+      "n": "weighted sandbag deadlift",
+      "es": "peso muerto con saco de arena",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "10384",
+      "n": "weighted sandbag squat",
+      "es": "sentadilla con saco de arena",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "10385",
+      "n": "weighted sandbag shouldering",
+      "es": "carga al hombro con saco de arena",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "10386",
+      "n": "weighted sandbag carry (shoulders)",
+      "es": "acarreo con saco de arena (en hombros)",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "10387",
+      "n": "weighted sandbag carry (bear hug)",
+      "es": "acarreo con saco de arena (abrazo de oso)",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "10388",
+      "n": "weighted sandbag military press",
+      "es": "press militar con saco de arena",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "10389",
+      "n": "weighted sandbag row",
+      "es": "remo con saco de arena",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "10410",
+      "n": "steel mace squat (weighted)",
+      "es": "sentadilla con mazo de acero (con peso)",
+      "reason": "equipment",
+      "equipment": "macebell"
+    },
+    {
+      "id": "10411",
+      "n": "steel mace halo (weighted)",
+      "es": "halo con mazo de acero (con peso)",
+      "reason": "equipment",
+      "equipment": "macebell"
+    },
+    {
+      "id": "10427",
+      "n": "sandbag over the shoulder toss (weighted)",
+      "es": "lanzamiento de saco de arena sobre el hombro (con peso)",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "1053",
+      "n": "kneeling hip flexor stretch",
+      "es": "estiramiento de flexor de cadera de rodillas",
+      "reason": "name",
+      "clashesWith": "0560"
+    },
+    {
+      "id": "1060",
+      "n": "barbell hip thrust",
+      "es": "empuje de cadera con barra",
+      "reason": "name",
+      "clashesWith": "0058"
+    },
+    {
+      "id": "10661",
+      "n": "ring resistance band assisted single arm pull up",
+      "es": "dominada a un brazo en anillas asistida con banda elástica",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "10662",
+      "n": "ring rocky pull up pulldown",
+      "es": "dominada rocky con jalón en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "10663",
+      "n": "ring skin the cat",
+      "es": "skin the cat en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "10675",
+      "n": "landmine squat jump",
+      "es": "salto de sentadilla en landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "1070",
+      "n": "suspender arm curl",
+      "es": "curl de brazos en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1071",
+      "n": "suspender bent knee inverted row",
+      "es": "remo invertido con rodillas flexionadas en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1072",
+      "n": "suspender chest dip",
+      "es": "fondos de pecho en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1073",
+      "n": "suspender chest press",
+      "es": "press de pecho en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "10730",
+      "n": "weighted sandbag romanian deadlift",
+      "es": "peso muerto rumano con saco de arena",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "1074",
+      "n": "suspender fly",
+      "es": "apertura en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1075",
+      "n": "suspender front raise",
+      "es": "elevación frontal en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1076",
+      "n": "suspension hamstring runner",
+      "es": "corredor de isquiotibiales en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1077",
+      "n": "suspension hip abduction",
+      "es": "abducción de cadera en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1078",
+      "n": "suspension hip bridge",
+      "es": "puente de cadera en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1079",
+      "n": "suspension hyperextension",
+      "es": "hiperextensión en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1080",
+      "n": "suspension inverted row",
+      "es": "remo invertido en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1081",
+      "n": "suspension jackknife pike",
+      "es": "navaja en pica en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1082",
+      "n": "suspension jackknife",
+      "es": "navaja en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1083",
+      "n": "suspension leg curl",
+      "es": "curl de pierna en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1084",
+      "n": "suspension mountain climber",
+      "es": "escalador en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1086",
+      "n": "suspension power pull",
+      "es": "tirón potente en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1087",
+      "n": "suspension pull through",
+      "es": "pull through en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1088",
+      "n": "suspension pull up",
+      "es": "dominada en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1090",
+      "n": "suspension reverse fly",
+      "es": "apertura invertida en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1091",
+      "n": "suspension rollout",
+      "es": "rodillo abdominal en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1093",
+      "n": "suspension self assisted chest dip",
+      "es": "fondos de pecho autoasistidos en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1094",
+      "n": "suspension self assisted pull up",
+      "es": "dominada autoasistida en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1095",
+      "n": "suspension self assisted triceps dip",
+      "es": "fondos de tríceps autoasistidos en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "10950",
+      "n": "ring long arms push up hold",
+      "es": "sostén de flexión con brazos largos en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1096",
+      "n": "suspension shoulder external rotation",
+      "es": "rotación externa de hombro en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1097",
+      "n": "suspension side bend",
+      "es": "inclinación lateral en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1098",
+      "n": "suspension side bridge",
+      "es": "puente lateral en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1099",
+      "n": "suspension single leg split squat (self assisted)",
+      "es": "sentadilla dividida a una pierna en suspensión (autoasistida)",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1100",
+      "n": "suspension single leg split squat",
+      "es": "sentadilla dividida a una pierna en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1101",
+      "n": "suspension single leg squat",
+      "es": "sentadilla a una pierna en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1102",
+      "n": "suspension straight hip leg curl",
+      "es": "curl de pierna con cadera recta en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1103",
+      "n": "suspension triceps dip",
+      "es": "fondos de tríceps en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1104",
+      "n": "suspension triceps extension v. 2",
+      "es": "extensión de tríceps en suspensión v. 2",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1105",
+      "n": "suspension twist",
+      "es": "giro en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1106",
+      "n": "suspender twisting jackknife",
+      "es": "navaja con giro en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1107",
+      "n": "suspender y lateral raise",
+      "es": "elevación lateral en y en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1108",
+      "n": "suspender arm curl to ears",
+      "es": "curl de brazos a las orejas en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1109",
+      "n": "suspender biceps clutch",
+      "es": "agarre de bíceps en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "11092",
+      "n": "landmine kneeling 180s",
+      "es": "landmine 180° de rodillas",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "1110",
+      "n": "suspender body saw",
+      "es": "sierra corporal en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1111",
+      "n": "suspender close grip chest press",
+      "es": "press de pecho con agarre cerrado en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1112",
+      "n": "suspender crunch",
+      "es": "abdominal en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1113",
+      "n": "suspender face pull",
+      "es": "face pull en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1115",
+      "n": "suspender handstand push up",
+      "es": "flexión en pino en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1116",
+      "n": "suspender incline push up",
+      "es": "flexión inclinada en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1117",
+      "n": "suspender jump squat",
+      "es": "sentadilla con salto en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1119",
+      "n": "suspender lunge back crossover",
+      "es": "zancada hacia atrás cruzada en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1120",
+      "n": "suspender middle row",
+      "es": "remo medio en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1121",
+      "n": "suspender mountain climber push up",
+      "es": "flexión con escalador en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1122",
+      "n": "suspender oblique rollout",
+      "es": "rodillo oblicuo en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1123",
+      "n": "suspender one arm biceps curl",
+      "es": "curl de bíceps a un brazo en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1124",
+      "n": "suspender one arm chest press",
+      "es": "press de pecho a un brazo en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1125",
+      "n": "suspender one arm leg push up",
+      "es": "flexión a un brazo y una pierna en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1126",
+      "n": "suspender one leg chest press",
+      "es": "press de pecho a una pierna en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1127",
+      "n": "suspender pull up v. 2",
+      "es": "dominada en suspensión v. 2",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1128",
+      "n": "suspender push up",
+      "es": "flexión en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1129",
+      "n": "suspender rear lunge",
+      "es": "zancada hacia atrás en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1130",
+      "n": "suspender reverse fly wake up",
+      "es": "apertura invertida despertar en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1131",
+      "n": "suspender side cross lunge",
+      "es": "zancada lateral cruzada en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1132",
+      "n": "suspender side lunge",
+      "es": "zancada lateral en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1133",
+      "n": "suspender single arm rear delt row",
+      "es": "remo para deltoide posterior a un brazo en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1134",
+      "n": "suspender single leg plank straight arm",
+      "es": "plancha a una pierna con brazos rectos en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1135",
+      "n": "suspender single leg plank",
+      "es": "plancha a una pierna en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1136",
+      "n": "suspender single leg squat figure",
+      "es": "figura de sentadilla a una pierna en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1137",
+      "n": "suspender sit up",
+      "es": "abdominal con incorporación en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1138",
+      "n": "suspender spiderman push up",
+      "es": "flexión spiderman en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1139",
+      "n": "suspender split fly",
+      "es": "apertura dividida en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1140",
+      "n": "suspender sprinter",
+      "es": "sprinter en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1141",
+      "n": "suspender squat arms overhead",
+      "es": "sentadilla con brazos sobre la cabeza en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1143",
+      "n": "suspender squat",
+      "es": "sentadilla en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1144",
+      "n": "suspender standing ab rollout",
+      "es": "rodillo abdominal de pie en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1145",
+      "n": "suspender star plank",
+      "es": "plancha estrella en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1146",
+      "n": "suspender star push up",
+      "es": "flexión estrella en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1147",
+      "n": "suspender supine crunch",
+      "es": "abdominal boca arriba en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1148",
+      "n": "suspender supine plank",
+      "es": "plancha boca arriba en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1149",
+      "n": "suspender triceps extension push up",
+      "es": "flexión con extensión de tríceps en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1150",
+      "n": "suspender triceps kickback",
+      "es": "patada de tríceps en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1151",
+      "n": "suspender twist side",
+      "es": "giro lateral en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1152",
+      "n": "suspender twist up",
+      "es": "giro hacia arriba en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1153",
+      "n": "suspender upper back stretch",
+      "es": "estiramiento de espalda alta en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1154",
+      "n": "suspender calf raise",
+      "es": "elevación de gemelos en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1155",
+      "n": "suspender single leg deadlift",
+      "es": "peso muerto a una pierna en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1156",
+      "n": "suspender pendulum",
+      "es": "péndulo en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1157",
+      "n": "suspender hip hinge",
+      "es": "bisagra de cadera en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1158",
+      "n": "suspender side stretch",
+      "es": "estiramiento lateral con tirantes",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1159",
+      "n": "suspender abduction lunge",
+      "es": "zancada de abducción con tirantes",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "1182",
+      "n": "push up (on knees)",
+      "es": "flexión (de rodillas)",
+      "reason": "name",
+      "clashesWith": "3211"
+    },
+    {
+      "id": "1197",
+      "n": "squat",
+      "es": "sentadilla",
+      "reason": "name",
+      "clashesWith": "0043"
+    },
+    {
+      "id": "1470",
+      "n": "lateral side plank",
+      "es": "plancha lateral",
+      "reason": "name",
+      "clashesWith": "0715"
+    },
+    {
+      "id": "1949",
+      "n": "standing hip flexor stretch",
+      "es": "estiramiento de flexores de cadera de pie",
+      "reason": "name",
+      "clashesWith": "11903"
+    },
+    {
+      "id": "2117",
+      "n": "standing lateral side stretch",
+      "es": "estiramiento lateral de pie",
+      "reason": "name",
+      "clashesWith": "0794"
+    },
+    {
+      "id": "2197",
+      "n": "run on treadmill",
+      "es": "correr en cinta",
+      "reason": "name",
+      "clashesWith": "0684"
+    },
+    {
+      "id": "2249",
+      "n": "cable triceps pushdown (v bar)",
+      "es": "extensión de tríceps en polea (barra V)",
+      "reason": "name",
+      "clashesWith": "0241"
+    },
+    {
+      "id": "2259",
+      "n": "walking on treadmill",
+      "es": "caminar en cinta",
+      "reason": "name",
+      "clashesWith": "3666"
+    },
+    {
+      "id": "2393",
+      "n": "dumbbell one arm bent over row",
+      "es": "remo inclinado a un brazo con mancuerna",
+      "reason": "name",
+      "clashesWith": "0292"
+    },
+    {
+      "id": "2425",
+      "n": "resistance band calf raise",
+      "es": "elevación de gemelos con banda elástica",
+      "reason": "name",
+      "clashesWith": "0894"
+    },
+    {
+      "id": "2683",
+      "n": "barbell reverse wrist curl v. 2",
+      "es": "curl de muñeca inverso con barra v. 2",
+      "reason": "name",
+      "clashesWith": "0079"
+    },
+    {
+      "id": "2712",
+      "n": "strongman sandbag walk",
+      "es": "caminata con saco de arena (strongman)",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "2795",
+      "n": "dumbbell step up lunge",
+      "es": "zancada con subida al cajón y mancuernas",
+      "reason": "name",
+      "clashesWith": "2796"
+    },
+    {
+      "id": "2834",
+      "n": "suspender weighted inverted row",
+      "es": "remo invertido con peso y suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "2838",
+      "n": "bicycle",
+      "es": "bicicleta",
+      "reason": "name",
+      "clashesWith": "2138"
+    },
+    {
+      "id": "2864",
+      "n": "side bend",
+      "es": "flexión lateral",
+      "reason": "name",
+      "clashesWith": "0717"
+    },
+    {
+      "id": "2950",
+      "n": "lever belt squat",
+      "es": "sentadilla con cinturón en máquina",
+      "reason": "owner-decision",
+      "note": "machine left out on purpose (library.test.js)"
+    },
+    {
+      "id": "2976",
+      "n": "landmine squat and press",
+      "es": "sentadilla y press con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "3095",
+      "n": "lateral bound",
+      "es": "salto lateral",
+      "reason": "name",
+      "clashesWith": "11782"
+    },
+    {
+      "id": "3525",
+      "n": "landmine kneeling one arm shoulder press",
+      "es": "press de hombros a un brazo de rodillas con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "3529",
+      "n": "landmine stand up high knee",
+      "es": "levantarse con rodilla alta con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "3593",
+      "n": "barbell squat",
+      "es": "sentadilla con barra",
+      "reason": "name",
+      "clashesWith": "0043"
+    },
+    {
+      "id": "3650",
+      "n": "jump box",
+      "es": "salto al cajón",
+      "reason": "name",
+      "clashesWith": "11781"
+    },
+    {
+      "id": "3786",
+      "n": "resistance band squat with single arm row",
+      "es": "sentadilla con remo a un brazo y banda elástica",
+      "reason": "name",
+      "clashesWith": "3770"
+    },
+    {
+      "id": "3787",
+      "n": "resistance band deadlift with single arm row",
+      "es": "peso muerto con remo a un brazo y banda elástica",
+      "reason": "name",
+      "clashesWith": "3771"
+    },
+    {
+      "id": "3788",
+      "n": "resistance band high knee lunge with single arm row",
+      "es": "zancada con rodilla alta y remo a un brazo con banda elástica",
+      "reason": "name",
+      "clashesWith": "3772"
+    },
+    {
+      "id": "3789",
+      "n": "resistance band single stiff leg deadlift with single arm row",
+      "es": "peso muerto a una pierna con piernas rectas y remo a un brazo con banda elástica",
+      "reason": "name",
+      "clashesWith": "3773"
+    },
+    {
+      "id": "3790",
+      "n": "resistance band side step with horizontal pallof hold",
+      "es": "paso lateral con sostén pallof horizontal y banda elástica",
+      "reason": "name",
+      "clashesWith": "3776"
+    },
+    {
+      "id": "3791",
+      "n": "resistance band front plank with single arm pulldown",
+      "es": "plancha frontal con jalón a un brazo y banda elástica",
+      "reason": "name",
+      "clashesWith": "3777"
+    },
+    {
+      "id": "3792",
+      "n": "resistance band upper body lying air bike",
+      "es": "bicicleta acostado para tren superior con banda elástica",
+      "reason": "name",
+      "clashesWith": "3778"
+    },
+    {
+      "id": "3793",
+      "n": "resistance band split jump with single arm row",
+      "es": "salto dividido con remo a un brazo y banda elástica",
+      "reason": "name",
+      "clashesWith": "3781"
+    },
+    {
+      "id": "3794",
+      "n": "resistance band jump lunge with single arm row",
+      "es": "zancada con salto y remo a un brazo con banda elástica",
+      "reason": "name",
+      "clashesWith": "3782"
+    },
+    {
+      "id": "3795",
+      "n": "resistance band skier",
+      "es": "esquiador con banda elástica",
+      "reason": "name",
+      "clashesWith": "3779"
+    },
+    {
+      "id": "3796",
+      "n": "resistance band squat with horizontal pallof hold",
+      "es": "sentadilla con sostén pallof horizontal y banda elástica",
+      "reason": "name",
+      "clashesWith": "3774"
+    },
+    {
+      "id": "3797",
+      "n": "resistance band split squat with horizontal pallof hold",
+      "es": "sentadilla dividida con sostén pallof horizontal y banda elástica",
+      "reason": "name",
+      "clashesWith": "3775"
+    },
+    {
+      "id": "3845",
+      "n": "band straight back seated row",
+      "es": "remo sentado con espalda recta y banda elástica",
+      "reason": "name",
+      "clashesWith": "3121"
+    },
+    {
+      "id": "3892",
+      "n": "jump on fit box",
+      "es": "salto al cajón",
+      "reason": "name",
+      "clashesWith": "11781"
+    },
+    {
+      "id": "3899",
+      "n": "band bent over row",
+      "es": "remo inclinado con banda elástica",
+      "reason": "name",
+      "clashesWith": "3858"
+    },
+    {
+      "id": "3918",
+      "n": "landmine single leg landmine rdl",
+      "es": "peso muerto rumano a una pierna con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "3919",
+      "n": "landmine rear lunge",
+      "es": "zancada hacia atrás con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "3921",
+      "n": "landmine kneeling squeeze press",
+      "es": "press con apretón de rodillas con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "3923",
+      "n": "landmine floor one arm chest fly",
+      "es": "apertura de pecho a un brazo en el suelo con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "3951",
+      "n": "cross twisting sit up",
+      "es": "abdominal cruzado con giro",
+      "reason": "name",
+      "clashesWith": "0263"
+    },
+    {
+      "id": "3996",
+      "n": "circles arm",
+      "es": "círculos de brazos",
+      "reason": "name",
+      "clashesWith": "3905"
+    },
+    {
+      "id": "4034",
+      "n": "band standing hip extension",
+      "es": "extensión de cadera de pie con banda elástica",
+      "reason": "name",
+      "clashesWith": "11570"
+    },
+    {
+      "id": "4035",
+      "n": "band bent over hip extension",
+      "es": "extensión de cadera inclinado con banda elástica",
+      "reason": "name",
+      "clashesWith": "0980"
+    },
+    {
+      "id": "4038",
+      "n": "landmine one arm bent over row",
+      "es": "remo inclinado a un brazo con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "4039",
+      "n": "landmine one arm bent over bench row",
+      "es": "remo inclinado a un brazo en banco con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "4040",
+      "n": "landmine rear lunge v. 2",
+      "es": "zancada hacia atrás con landmine v. 2",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "4050",
+      "n": "resistance band hip thrusts",
+      "es": "empuje de cadera con banda elástica",
+      "reason": "name",
+      "clashesWith": "2760"
+    },
+    {
+      "id": "4090",
+      "n": "landmine sumo squat",
+      "es": "sentadilla sumo con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "4094",
+      "n": "suspender forward lunge with rear fly",
+      "es": "zancada hacia delante con apertura posterior en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4098",
+      "n": "kettlebell side lunge",
+      "es": "zancada lateral con kettlebell",
+      "reason": "name",
+      "clashesWith": "4045"
+    },
+    {
+      "id": "4113",
+      "n": "landmine romanian deadlift",
+      "es": "peso muerto rumano con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "4182",
+      "n": "resistance band rear delt row",
+      "es": "remo para deltoide posterior con banda elástica",
+      "reason": "name",
+      "clashesWith": "1006"
+    },
+    {
+      "id": "4202",
+      "n": "landmine resistance band one arm shoulder press",
+      "es": "press de hombros a un brazo con landmine y banda elástica",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "4246",
+      "n": "landmine front squat",
+      "es": "sentadilla frontal con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "4247",
+      "n": "landmine romanian deadlift v. 2",
+      "es": "peso muerto rumano con landmine v. 2",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "4300",
+      "n": "quadriceps stretch",
+      "es": "estiramiento de cuádriceps",
+      "reason": "name",
+      "clashesWith": "3533"
+    },
+    {
+      "id": "4336",
+      "n": "lever biceps curl",
+      "es": "curl de bíceps en máquina",
+      "reason": "name",
+      "clashesWith": "0575"
+    },
+    {
+      "id": "4349",
+      "n": "barbell single leg squat",
+      "es": "sentadilla a una pierna con barra",
+      "reason": "name",
+      "clashesWith": "0068"
+    },
+    {
+      "id": "4358",
+      "n": "band kneeling lat pulldown",
+      "es": "jalón de rodillas con banda elástica",
+      "reason": "name",
+      "clashesWith": "0905"
+    },
+    {
+      "id": "4398",
+      "n": "resistance band squat",
+      "es": "sentadilla con banda elástica",
+      "reason": "name",
+      "clashesWith": "1004"
+    },
+    {
+      "id": "4448",
+      "n": "barbell resistance band hip thrust",
+      "es": "empuje de cadera con barra y banda elástica",
+      "reason": "name",
+      "clashesWith": "3873"
+    },
+    {
+      "id": "4450",
+      "n": "suspender wide grip inverted row",
+      "es": "remo invertido con agarre abierto en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4451",
+      "n": "suspension wide grip inverted row on floor",
+      "es": "remo invertido con agarre abierto en suspensión en el suelo",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4523",
+      "n": "kettlebell single leg deadlift",
+      "es": "peso muerto a una pierna con kettlebell",
+      "reason": "name",
+      "clashesWith": "1569"
+    },
+    {
+      "id": "4541",
+      "n": "kettlebell one arm thruster",
+      "es": "thruster a un brazo con kettlebell",
+      "reason": "name",
+      "clashesWith": "4518"
+    },
+    {
+      "id": "4543",
+      "n": "kettlebell one arm clean",
+      "es": "cargada a un brazo con kettlebell",
+      "reason": "name",
+      "clashesWith": "4530"
+    },
+    {
+      "id": "4571",
+      "n": "resistance band push up",
+      "es": "flexión con banda elástica",
+      "reason": "name",
+      "clashesWith": "0915"
+    },
+    {
+      "id": "4620",
+      "n": "twisting crunch",
+      "es": "abdominal con giro",
+      "reason": "name",
+      "clashesWith": "0821"
+    },
+    {
+      "id": "4633",
+      "n": "world's greatest stretch",
+      "es": "el mejor estiramiento del mundo",
+      "reason": "name",
+      "clashesWith": "1604"
+    },
+    {
+      "id": "4682",
+      "n": "band bent over rear delt fly",
+      "es": "apertura posterior inclinado con banda elástica",
+      "reason": "name",
+      "clashesWith": "4114"
+    },
+    {
+      "id": "4687",
+      "n": "resistance band hammer curl",
+      "es": "curl martillo con banda elástica",
+      "reason": "name",
+      "clashesWith": "0897"
+    },
+    {
+      "id": "4688",
+      "n": "resistance band triceps pushdown",
+      "es": "extensión de tríceps con banda elástica",
+      "reason": "name",
+      "clashesWith": "1502"
+    },
+    {
+      "id": "4689",
+      "n": "resistance band split squat",
+      "es": "sentadilla dividida con banda elástica",
+      "reason": "name",
+      "clashesWith": "4135"
+    },
+    {
+      "id": "4691",
+      "n": "kneeling side leg to kick",
+      "es": "patada lateral de rodillas",
+      "reason": "name",
+      "clashesWith": "2875"
+    },
+    {
+      "id": "4798",
+      "n": "suspender alternate superman",
+      "es": "superman alterno con suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4799",
+      "n": "suspender rollout v. 2",
+      "es": "rodillo abdominal en suspensión v. 2",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4818",
+      "n": "ring elevated row",
+      "es": "remo en anillas con pies elevados",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4819",
+      "n": "ring leg curl",
+      "es": "curl femoral en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4820",
+      "n": "ring reverse ab rollout",
+      "es": "rodillo abdominal inverso en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4853",
+      "n": "dumbbell lateral lunge",
+      "es": "zancada lateral con mancuernas",
+      "reason": "name",
+      "clashesWith": "1215"
+    },
+    {
+      "id": "4863",
+      "n": "side plank leg lift",
+      "es": "elevación de pierna en plancha lateral",
+      "reason": "name",
+      "clashesWith": "3264"
+    },
+    {
+      "id": "4887",
+      "n": "dumbbells glute bridge v. 2",
+      "es": "puente de glúteos con mancuernas v. 2",
+      "reason": "name",
+      "clashesWith": "4751"
+    },
+    {
+      "id": "4911",
+      "n": "inverted wide to narrow row",
+      "es": "remo invertido de abierto a cerrado",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4912",
+      "n": "ring leg curl v. 2",
+      "es": "curl femoral en anillas v. 2",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4920",
+      "n": "leg assisted ring pull up",
+      "es": "dominada en anillas asistida con piernas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4921",
+      "n": "ring high row",
+      "es": "remo alto en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4922",
+      "n": "ring chest fly",
+      "es": "apertura de pecho en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4923",
+      "n": "ring reverse fly",
+      "es": "apertura invertida en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4951",
+      "n": "lever pendulum squat (plate loaded)",
+      "es": "sentadilla péndulo en máquina (con discos)",
+      "reason": "owner-decision",
+      "note": "machine left out on purpose (library.test.js)"
+    },
+    {
+      "id": "4977",
+      "n": "ring alternate superman",
+      "es": "superman alterno en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4978",
+      "n": "ring kneeling ab rollout",
+      "es": "rodillo abdominal de rodillas en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "4979",
+      "n": "ring rollout",
+      "es": "rodillo abdominal en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "5004",
+      "n": "suspension sumo squat",
+      "es": "sentadilla sumo en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "5006",
+      "n": "suspension underhand grip inverted row",
+      "es": "remo invertido con agarre supino en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "5007",
+      "n": "suspension hammer curl",
+      "es": "curl martillo en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "5008",
+      "n": "suspension chin up",
+      "es": "dominada supina en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "5034",
+      "n": "landmine one arm bent over row v. 2",
+      "es": "remo inclinado a un brazo en landmine v. 2",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "5038",
+      "n": "double jump rope",
+      "es": "doble salto de cuerda",
+      "reason": "name",
+      "clashesWith": "3885"
+    },
+    {
+      "id": "5070",
+      "n": "kettlebell rear lunge",
+      "es": "zancada hacia atrás con kettlebell",
+      "reason": "name",
+      "clashesWith": "3575"
+    },
+    {
+      "id": "5074",
+      "n": "landmine press",
+      "es": "press en landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "5094",
+      "n": "landmine single arm press",
+      "es": "press a un brazo en landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "5110",
+      "n": "triceps dip floor",
+      "es": "fondos de tríceps en el suelo",
+      "reason": "name",
+      "clashesWith": "0815"
+    },
+    {
+      "id": "5160",
+      "n": "incline close grip push up",
+      "es": "flexión inclinada con agarre cerrado",
+      "reason": "name",
+      "clashesWith": "0490"
+    },
+    {
+      "id": "5202",
+      "n": "resistance band kneeling ab crunch",
+      "es": "abdominal de rodillas con banda elástica",
+      "reason": "name",
+      "clashesWith": "4080"
+    },
+    {
+      "id": "5206",
+      "n": "resistance band kneeling ab crunch v. 2",
+      "es": "abdominal de rodillas con banda elástica v. 2",
+      "reason": "name",
+      "clashesWith": "4720"
+    },
+    {
+      "id": "5282",
+      "n": "landmine kneeling thruster press",
+      "es": "thruster press de rodillas en landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "5307",
+      "n": "landmine one leg stiff leg deadlift",
+      "es": "peso muerto rumano a una pierna en landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "5474",
+      "n": "supinated narrow grip pull up",
+      "es": "dominada supina con agarre cerrado",
+      "reason": "name",
+      "clashesWith": "1327"
+    },
+    {
+      "id": "5517",
+      "n": "supinated grip inverted row",
+      "es": "remo invertido con agarre supino",
+      "reason": "name",
+      "clashesWith": "1223"
+    },
+    {
+      "id": "5522",
+      "n": "ring pull up",
+      "es": "dominada en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "5576",
+      "n": "lever one arm incline chest press (plate loaded)",
+      "es": "press de pecho inclinado a un brazo en máquina (con discos)",
+      "reason": "name",
+      "clashesWith": "4371"
+    },
+    {
+      "id": "5581",
+      "n": "cable kneeling single lat pulldown",
+      "es": "jalón dorsal a un brazo de rodillas en polea",
+      "reason": "name",
+      "clashesWith": "4948"
+    },
+    {
+      "id": "5628",
+      "n": "landmine hack squat",
+      "es": "sentadilla hack en landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "5636",
+      "n": "landmine kneeling one arm shoulder press v. 2",
+      "es": "press de hombros a un brazo de rodillas en landmine v. 2",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "5737",
+      "n": "suspension fly",
+      "es": "apertura en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "5738",
+      "n": "suspension chest press",
+      "es": "press de pecho en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "5876",
+      "n": "suspension triceps extension",
+      "es": "extensión de tríceps en suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "6002",
+      "n": "lying toe tap",
+      "es": "toque de punta acostado",
+      "reason": "name",
+      "clashesWith": "5275"
+    },
+    {
+      "id": "6220",
+      "n": "suspender row",
+      "es": "remo con correas de suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "6222",
+      "n": "suspender squat jump",
+      "es": "salto en sentadilla con correas de suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "6232",
+      "n": "suspender biceps curl",
+      "es": "curl de bíceps con correas de suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "6234",
+      "n": "ring arm curl",
+      "es": "curl de brazos en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "6237",
+      "n": "ring one arm biceps curl",
+      "es": "curl de bíceps a un brazo en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "6252",
+      "n": "ring face pull",
+      "es": "face pull en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "6259",
+      "n": "ring single arm rear delt row",
+      "es": "remo para deltoide posterior a un brazo en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "6263",
+      "n": "barbell standing wrist reverse curl",
+      "es": "curl de muñeca inverso de pie con barra",
+      "reason": "name",
+      "clashesWith": "0104"
+    },
+    {
+      "id": "6418",
+      "n": "resistance band reverse crunch",
+      "es": "abdominal reverso con banda elástica",
+      "reason": "name",
+      "clashesWith": "4081"
+    },
+    {
+      "id": "6546",
+      "n": "landmine single leg hip thrust",
+      "es": "hip thrust a una pierna con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "6553",
+      "n": "landmine single leg romanian deadlift",
+      "es": "peso muerto rumano a una pierna con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "6607",
+      "n": "band lateral walk",
+      "es": "caminata lateral con banda elástica",
+      "reason": "name",
+      "clashesWith": "2165"
+    },
+    {
+      "id": "7203",
+      "n": "resistance band squat step out",
+      "es": "sentadilla con paso lateral y banda elástica",
+      "reason": "name",
+      "clashesWith": "6744"
+    },
+    {
+      "id": "7228",
+      "n": "ring wide pull up",
+      "es": "dominada agarre abierto en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "7274",
+      "n": "suspension trainer pike",
+      "es": "pike con correas de suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "7275",
+      "n": "suspension trainer front plank",
+      "es": "plancha frontal con correas de suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "7277",
+      "n": "resistance band hip thrusts on knees",
+      "es": "hip thrust de rodillas con banda elástica",
+      "reason": "name",
+      "clashesWith": "3236"
+    },
+    {
+      "id": "7278",
+      "n": "suspension trainer lat stretch",
+      "es": "estiramiento de dorsales con correas de suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "7279",
+      "n": "suspension trainer squat power pull",
+      "es": "jalón potente en sentadilla con correas de suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "7512",
+      "n": "ring archer pull up",
+      "es": "dominada arquero en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "7517",
+      "n": "ring one arm pull up",
+      "es": "dominada a un brazo en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "7626",
+      "n": "landmine squat",
+      "es": "sentadilla con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "7627",
+      "n": "landmine overhead rear lunge",
+      "es": "zancada hacia atrás sobre la cabeza con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "7883",
+      "n": "landmine deadlift",
+      "es": "peso muerto con landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "8297",
+      "n": "cable straight arm pulldown (with rope attachment)",
+      "es": "jalón con brazos rectos en polea (con cuerda)",
+      "reason": "name",
+      "clashesWith": "0237"
+    },
+    {
+      "id": "8311",
+      "n": "seated side bend on a chair",
+      "es": "flexión lateral sentado en silla",
+      "reason": "name",
+      "clashesWith": "8195"
+    },
+    {
+      "id": "8360",
+      "n": "resistance band standing shoulder internal rotation",
+      "es": "rotación interna de hombro de pie con banda elástica",
+      "reason": "name",
+      "clashesWith": "0924"
+    },
+    {
+      "id": "8361",
+      "n": "resistance band standing shoulder external rotation",
+      "es": "rotación externa de hombro de pie con banda elástica",
+      "reason": "name",
+      "clashesWith": "0921"
+    },
+    {
+      "id": "8371",
+      "n": "kettlebell weighted russian twist",
+      "es": "giro ruso con kettlebell",
+      "reason": "name",
+      "clashesWith": "4393"
+    },
+    {
+      "id": "8701",
+      "n": "weighted bag walking lunge",
+      "es": "zancada caminando con bolsa con peso",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    },
+    {
+      "id": "8750",
+      "n": "ring pullover",
+      "es": "pullover en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "9068",
+      "n": "box drop 2 foot land",
+      "es": "caída desde cajón con aterrizaje a dos pies",
+      "reason": "name",
+      "clashesWith": "10160"
+    },
+    {
+      "id": "9313",
+      "n": "ring isometric hold reverse ab rollout",
+      "es": "rodillo abdominal inverso con isométrico en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "9316",
+      "n": "ring elevated pike push up from deficit",
+      "es": "flexión pike elevada desde déficit en anillas",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "9490",
+      "n": "step up on box",
+      "es": "subida al cajón",
+      "reason": "name",
+      "clashesWith": "0801"
+    },
+    {
+      "id": "9503",
+      "n": "suspender rear delt row",
+      "es": "remo para deltoide posterior con suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "9695",
+      "n": "landmine half kneeling shoulders press",
+      "es": "press de hombros con una rodilla en el suelo en landmine",
+      "reason": "equipment",
+      "equipment": "landmine"
+    },
+    {
+      "id": "9704",
+      "n": "suspender headstand",
+      "es": "parada de cabeza con suspensión",
+      "reason": "equipment",
+      "equipment": "suspension trainer"
+    },
+    {
+      "id": "9939",
+      "n": "power sled pull",
+      "es": "arrastre de trineo de potencia",
+      "reason": "name",
+      "clashesWith": "5143"
+    },
+    {
+      "id": "9940",
+      "n": "weighted sandbag forward lunge",
+      "es": "zancada frontal con saco de arena y peso",
+      "reason": "equipment",
+      "equipment": "sandbag"
+    }
+  ]
+}

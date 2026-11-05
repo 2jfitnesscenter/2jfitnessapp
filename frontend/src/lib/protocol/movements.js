@@ -73,7 +73,8 @@ export const EQUIPMENT = [
   { id: 'trap_bar', label: 'Trap bar', kind: 'free', from: ['trap bar'] },
   { id: 'dumbbell', label: 'Dumbbells', kind: 'free', from: ['dumbbell'] },
   { id: 'kettlebell', label: 'Kettlebell', kind: 'free', from: ['kettlebell'] },
-  { id: 'weighted', label: 'Added weight', kind: 'free', from: ['weighted'] },
+  // 'weight plate' (openGym, imported 2026-11): a plate held or added to a movement = added weight
+  { id: 'weighted', label: 'Added weight', kind: 'free', from: ['weighted', 'weight plate'] },
   { id: 'cable', label: 'Cable', kind: 'cable', from: ['cable'] },
   { id: 'machine', label: 'Machine', kind: 'machine', from: ['leverage machine'] },
   { id: 'selectorized', label: 'Machine (weight stack)', kind: 'machine', from: [] },
@@ -86,7 +87,7 @@ export const EQUIPMENT = [
   { id: 'medicine_ball', label: 'Medicine ball', kind: 'accessory', from: ['medicine ball'] },
   { id: 'bosu', label: 'BOSU', kind: 'accessory', from: ['bosu ball'] },
   { id: 'rope', label: 'Rope', kind: 'accessory', from: ['rope'] },
-  { id: 'roller', label: 'Roller', kind: 'accessory', from: ['roller', 'wheel roller'] },
+  { id: 'roller', label: 'Roller', kind: 'accessory', from: ['roller', 'wheel roller', 'massage ball'] },
   { id: 'hammer', label: 'Hammer', kind: 'accessory', from: ['hammer'] },
   { id: 'tire', label: 'Tire', kind: 'accessory', from: ['tire'] },
   { id: 'treadmill', label: 'Treadmill', kind: 'cardio', from: ['treadmill'] },

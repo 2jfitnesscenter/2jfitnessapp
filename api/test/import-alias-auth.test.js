@@ -86,7 +86,7 @@ test('a trainer/admin can correct an alias a previous confirmation got wrong', a
 });
 
 test('a member trying to overwrite an EXISTING alias is refused too, not just a fresh one', async () => {
-  const res = await postAlias({ key: 'hevy|sentadilla', exerciseId: '9999', source: 'Hevy', externalName: 'Sentadilla' }, 'member1');
+  const res = await postAlias({ key: 'hevy|sentadilla', exerciseId: '999999', source: 'Hevy', externalName: 'Sentadilla' }, 'member1');
   assert.equal(res.status, 403);
   const aliases = await getAliases('trainer1');
   assert.equal(aliases.find(a => a.key === 'hevy|sentadilla').exerciseId, '0002', 'the trainer-confirmed value is untouched');
@@ -113,7 +113,7 @@ test('machine aliases are readable by members but writable only by trainer/admin
   assert.equal(saved.status, 200);
   assert.equal((await getMachineAlias('machine|leg-press', 'member1')).body.exId, '0010');
 
-  const overwrite = await postMachineAlias({ key: 'machine|leg-press', exId: '9999', name: 'Wrong' }, 'member1');
+  const overwrite = await postMachineAlias({ key: 'machine|leg-press', exId: '999999', name: 'Wrong' }, 'member1');
   assert.equal(overwrite.status, 403);
   assert.equal((await getMachineAlias('machine|leg-press', 'trainer1')).body.exId, '0010');
 });

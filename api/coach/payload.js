@@ -198,7 +198,9 @@ export function librarySlice(S, equipment) {
   const customs = (S.customEx || []).map(c => ({ id: c.id, n: c.n, bp: c.bp, tg: null, eq: 'custom', custom: true }));
   // Exercise Library V2: a deprecated duplicate (`pref`) is never offered — its preferred twin
   // is — and Recommended 2J (`rec`) comes first, the order the prompt asks the model to prefer.
-  const visible = libraryAdmin.entries().filter(e => !e.pref && !hidden.has(e.id)).map(({ al: _aliases, ...e }) => e);
+  // `ext` = imported from openGym (scripts/import-upstream-catalogue.mjs): kept out of the model's
+  // catalogue, so the Coach's prompts and proposals stay exactly as they were. Ids still validate.
+  const visible = libraryAdmin.entries().filter(e => !e.pref && !e.ext && !hidden.has(e.id)).map(({ al: _aliases, ...e }) => e);
   // No equipment stated (or "everything") ⇒ the whole (visible) catalogue. Filtering to nothing
   // would leave the Coach unable to propose anything at all, which is worse than a bigger payload.
   const base = wanted.length ? visible.filter(e => wanted.includes((e.eq || '').toLowerCase())) : visible;
