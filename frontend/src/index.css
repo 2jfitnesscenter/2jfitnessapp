@@ -811,6 +811,14 @@ input.input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.5)}
 .exmedia.compact.exmedia-fallback{min-height:120px}
 .exmedia.mini.exmedia-fallback{min-height:84px}
 
+.exfold{
+  display:flex;align-items:center;gap:10px;width:100%;margin:6px 0;padding:10px 12px;border-radius:12px;
+  background:var(--card,rgba(127,127,127,.08));color:var(--label-1);text-align:left;font-size:calc(15px * var(--text-scale,1));
+}
+.exfold svg{width:18px;height:18px;flex:none;color:var(--acc)}
+.exfold svg:last-child{color:var(--label-3)}
+.exfold-name{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exfold-hint{font-size:calc(12px * var(--text-scale,1));color:var(--label-3);flex:none}
 .setgroup-hd{
   display:flex;align-items:center;justify-content:space-between;padding:4px 0 6px;
 }

@@ -29,7 +29,7 @@ import { isOverloadSet, isPotentialPR, recommendationFor, acceptRecommendation, 
 import { FEELINGS, FEELING_LABEL, feedbackIndex, nextSetSuggestion, setFeeling, acceptSuggestion, keepPlannedLoad } from '../lib/set-feedback.js'
 import { musclesOf, muscleOptsOf, MUSCLE_GROUPS } from '../lib/muscles.js'
 import { weeklyGroupVolumeFinished, weeklyGroupVolumeActive, primaryGroupOf, landmarksFor } from '../lib/rp-volume.js'
-import { workoutPrefs } from '../lib/workout-prefs.js'
+import { workoutPrefs, isFoldedDone, workingSetsDone } from '../lib/workout-prefs.js'
 import { fieldsFor, currentSetIdx, nextInUnit, platesApply, barFor } from '../lib/set-entry.js'
 import { plateBreakdown, BARBELL_TYPES, DEFAULT_AVAILABLE_KG } from '../components/BarbellPlates.jsx'
 import RpVolumeBar from '../components/RpVolumeBar.jsx'
@@ -337,6 +337,10 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, prefs, onToggle
     : null
   const [hideWarmup, setHideWarmup] = useState(false)
   useEffect(() => { setHideWarmup(false) }, [entryIdx])
+  // Folded-when-done exercises (Settings → Sets): tapping the folded line opens it again. Local
+  // state only; it resets whenever the list moves to another exercise.
+  const [expanded, setExpanded] = useState(false)
+  useEffect(() => { setExpanded(false) }, [entryIdx])
   const plateIdx = entry.sets.findIndex(s => !s.done && platesApply(S, ex.eq, entry, s) && s.w > 0)
   const plateAt = plateIdx >= 0 ? plateIdx : entry.sets.findIndex(s => platesApply(S, ex.eq, entry, s) && s.w > 0)
 
@@ -388,11 +392,21 @@ function ExerciseBlock({ entryIdx, compact, rpFinished, ssLabel, prefs, onToggle
         onClick={() => onStartTimed(i)}><Icon name="play" /></button>}
     </div>
   }
+  if (isFoldedDone(prefs, entry.sets, expanded)) {
+    return <button className="exfold" aria-expanded="false" aria-label={t('Show sets')} onClick={() => setExpanded(true)}>
+      <Icon name="checkCircle" />
+      <span className="exfold-name">{ssLabel && <span className="ss-badge">{ssLabel}</span>}{nameFor(ex)}</span>
+      <span className="exfold-hint">{t('Completed')}</span>
+      <Icon name="chevronDown" />
+    </button>
+  }
+  const canFold = prefs.collapseDone && workingSetsDone(entry.sets)
   return <>
     {prefs.images && <Media ex={ex} key={entry.id} compact={compact} minimizable />}
     <div className="row between" style={{ marginBottom: 6, gap: 8 }}>
       <div className="exname" style={{ fontSize: compact ? 17 : 20 }}>{ssLabel && <span className="ss-badge">{ssLabel}</span>}{nameFor(ex)}</div>
       <div className="row" style={{ gap: 4, flex: 'none' }}>
+        {canFold && <button className="iconbtn" aria-label={t('Collapse exercise')} title={t('Collapse exercise')} onClick={() => setExpanded(false)}><Icon name="chevronUp" /></button>}
         <button className="iconbtn" aria-label={t('Replace exercise')} title={t('Replace exercise')} onClick={onReplace}><Icon name="shuffle" /></button>
         <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
       </div>

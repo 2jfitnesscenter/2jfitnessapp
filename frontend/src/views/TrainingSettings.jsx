@@ -81,6 +81,10 @@ export default function TrainingSettings() {
         subtitle={t('When the last value is entered, the set is ticked off for you. Never with data missing.')}>
         <Switch checked={prefs.autoComplete} onChange={v => set('autoCompleteSets', v)} />
       </Row>
+      <Row icon="chevronUp" iconTint="var(--acc)" title={t('Collapse completed exercises')}
+        subtitle={t('In the detailed list, an exercise whose working sets are all done folds into one line. Tap it to open it again.')}>
+        <Switch checked={prefs.collapseDone} onChange={v => set('collapseDoneExercises', v)} />
+      </Row>
       <Row icon="flame" iconTint="var(--orange)" title={t('Warmup sets')}
         subtitle={t('Suggest warmup sets before your working sets.')}>
         <Switch checked={S.warmupEnabled !== false} onChange={v => set('warmupEnabled', v)} />
