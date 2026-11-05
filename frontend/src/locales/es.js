@@ -2549,6 +2549,8 @@ export default {
   'Collapse completed exercises': 'Plegar ejercicios terminados',
   'In the detailed list, an exercise whose working sets are all done folds into one line. Tap it to open it again.': 'En la lista detallada, un ejercicio con todas sus series de trabajo hechas se pliega en una sola línea. Tócalo para volver a abrirlo.',
   'Show sets': 'Mostrar series',
+  'Focus view': 'Vista de enfoque',
+  'In the detailed view, one exercise at a time with nothing else on screen. Move with the arrows.': 'En la vista detallada, un ejercicio cada vez y nada más en pantalla. Muévete con las flechas.',
   'Collapse exercise': 'Plegar ejercicio',
   'When the last value is entered, the set is ticked off for you. Never with data missing.': 'Al introducir el último valor, la serie se marca sola. Nunca si faltan datos.',
   'Plates shortcut': 'Acceso a Discos',

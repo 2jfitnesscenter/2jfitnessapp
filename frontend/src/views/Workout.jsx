@@ -29,7 +29,7 @@ import { isOverloadSet, isPotentialPR, recommendationFor, acceptRecommendation, 
 import { FEELINGS, FEELING_LABEL, feedbackIndex, nextSetSuggestion, setFeeling, acceptSuggestion, keepPlannedLoad } from '../lib/set-feedback.js'
 import { musclesOf, muscleOptsOf, MUSCLE_GROUPS } from '../lib/muscles.js'
 import { weeklyGroupVolumeFinished, weeklyGroupVolumeActive, primaryGroupOf, landmarksFor } from '../lib/rp-volume.js'
-import { workoutPrefs, isFoldedDone, workingSetsDone } from '../lib/workout-prefs.js'
+import { workoutPrefs, isFoldedDone, workingSetsDone, focusStep } from '../lib/workout-prefs.js'
 import { fieldsFor, currentSetIdx, nextInUnit, platesApply, barFor } from '../lib/set-entry.js'
 import { plateBreakdown, BARBELL_TYPES, DEFAULT_AVAILABLE_KG } from '../components/BarbellPlates.jsx'
 import RpVolumeBar from '../components/RpVolumeBar.jsx'
@@ -768,6 +768,9 @@ function ActiveWorkout() {
   }
 
   const goUnit = d => update(s => { s.active.cur = units[unitIdx + d][0] })
+  // Focus view (detailed list only): one exercise on screen, stepped entry by entry.
+  const focusOn = prefs.focus && prefs.view === 'detailed'
+  const goEntry = d => update(s => { s.active.cur = focusStep(cur, d, A.entries.length) })
   const blockProps = idx => ({
     prefs, onToggle: i => toggle(idx, i), onPad: (i, f) => openPad(idx, i, f), onPlates: i => openPlates(idx, i),
     onAddSet: () => addSet(idx), onRemoveSet: () => removeSet(idx), onStartTimed: i => startTimed(idx, i),
@@ -788,10 +791,10 @@ function ActiveWorkout() {
       <div style={{ textAlign: 'center', minWidth: 0 }}><div className="wtitle">{A.name}</div><div className="sub">{A.past ? fmtDate(A.d, true) : <Elapsed start={A.start} />} · {t('{0} sets', done + '/' + total)}</div></div>
       <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t(A.past ? 'Save' : 'Finish')} onClick={finishWorkout}><Icon name="check" /></button>
     </div>
-    {A.entries.length > 0 && <WorkoutProgress entries={A.entries} units={units} unitIdx={Math.max(0, unitIdx)} done={done} total={total} superset={isSuperset}
+    {A.entries.length > 0 && !focusOn && <WorkoutProgress entries={A.entries} units={units} unitIdx={Math.max(0, unitIdx)} done={done} total={total} superset={isSuperset}
       onGo={i => update(s => { s.active.cur = units[i][0] })} />}
-    {!A.past && <GymProfile />}
-    {!A.past && <IntelligenceToday S={S} user={user} max={1} compact types={['EQUIPMENT_CONFLICT', 'PROGRESSION_READY', 'LOAD_TOO_HIGH']} />}
+    {!A.past && !focusOn && <GymProfile />}
+    {!A.past && !focusOn && <IntelligenceToday S={S} user={user} max={1} compact types={['EQUIPMENT_CONFLICT', 'PROGRESSION_READY', 'LOAD_TOO_HIGH']} />}
     {/* Entrena con 2J: the routine's own artwork carries into the session it started. */}
     {A.src2j && <div className="t2-inwork"><WorkoutCover r={{ id: A.src2j.id, category: A.src2j.category }} shape="square" />
       <span><span className="t2-promo-k">{t('Train with 2J')}</span><b>{A.name}</b></span></div>}
@@ -812,6 +815,14 @@ function ActiveWorkout() {
       {prefs.view === 'simple'
         ? <SimpleExercise key={simpleIdx} entryIdx={simpleIdx} unitEntries={unit} ssInfo={ssInfo} {...blockProps(simpleIdx)}
           onFocus={setFocus} isLastUnit={unitIdx >= units.length - 1} onNextUnit={() => goUnit(1)} />
+        : focusOn ? <>
+          <div className="row between focus-nav">
+            <Button icon="chevronLeft" aria-label={t('Previous exercise')} disabled={cur <= 0} onClick={() => goEntry(-1)} />
+            <span className="muted small">{cur + 1} / {A.entries.length}</span>
+            <Button trailingIcon="chevronRight" aria-label={t('Next exercise')} disabled={cur >= A.entries.length - 1} onClick={() => goEntry(1)} />
+          </div>
+          <ExerciseBlock entryIdx={cur} rpFinished={rpFinished} {...blockProps(cur)} />
+        </>
         : isSuperset ? (
           <div className="ss-card" style={{ '--ss-color': `var(--${ssInfo[unit[0]].token})` }}>
             <div className="ss-hd"><Icon name="link" />{t('Superset · do these back-to-back, rest after both')}</div>
@@ -823,9 +834,9 @@ function ActiveWorkout() {
         ) : <ExerciseBlock entryIdx={cur} rpFinished={rpFinished} {...blockProps(cur)} />}
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 
-    {!guidedRun && A.entries.length > 0 && <NextUp next={nextUnit(A.entries, units, unitIdx)} images={prefs.images} onGo={() => goUnit(1)} />}
+    {!guidedRun && !focusOn && A.entries.length > 0 && <NextUp next={nextUnit(A.entries, units, unitIdx)} images={prefs.images} onGo={() => goUnit(1)} />}
     <div style={{ height: 12 }} />
-    {!guidedRun && <>
+    {!guidedRun && !focusOn && <>
     <div className="row">
       <Button icon="chevronLeft" disabled={unitIdx <= 0} onClick={() => goUnit(-1)}>{t('Prev')}</Button>
       <Button trailingIcon="chevronRight" disabled={unitIdx < 0 || unitIdx >= units.length - 1} onClick={() => goUnit(1)}>{t('Next')}</Button>

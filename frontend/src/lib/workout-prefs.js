@@ -27,6 +27,9 @@ export function workoutPrefs(S) {
     // Detailed list only: an exercise whose working sets are all ticked folds into one line.
     // Off by default; a display preference, it never changes a set.
     collapseDone: S.collapseDoneExercises === true,
+    // Detailed view only: one exercise at a time with nothing else on screen, moved with prev/next.
+    // Off by default; a display preference, it never changes a set.
+    focus: S.focusView === true,
     // Rest alert: whether the end of a rest is announced at all. Sound reuses the long-standing
     // S.sound switch (it has always governed every workout beep); vibration is its own switch.
     restAlert: S.restAlert !== false,
@@ -47,6 +50,9 @@ export const workingSetsDone = sets => {
 // Whether an exercise is drawn as its single folded line: the preference is on, its working sets
 // are done, and the member has not tapped it open. Pure display; the sets are never written here.
 export const isFoldedDone = (prefs, sets, expanded) => prefs.collapseDone === true && !expanded && workingSetsDone(sets)
+
+// Focus view's position: the entry one step away, clamped to the session's exercises.
+export const focusStep = (cur, delta, count) => Math.min(Math.max(0, cur + delta), Math.max(0, count - 1))
 
 // The roadmap's starting point for a brand-new account. Real field names, no duplicates of
 // anything DEF already declares: the four existing switches are simply set the other way, and
