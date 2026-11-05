@@ -31,7 +31,8 @@ async function startServer(env) {
     env: { ...process.env, PORT: String(port), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base, ...env },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
-  for (let i = 0; i < 100; i++) {
+  // Boot can be slow when the whole suite runs in parallel: wait up to 30 s, and stop early if the process already exited.
+  for (let i = 0; i < 300 && child.exitCode === null; i++) {
     try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* not up yet */ }
     await new Promise(r => setTimeout(r, 100));
   }
