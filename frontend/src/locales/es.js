@@ -2573,6 +2573,13 @@ export default {
   'Sound': 'Sonido',
   'Vibration': 'Vibración',
   'Also the short beep when you complete a set.': 'También el pitido corto al completar una serie.',
+  'Rest-end sound': 'Sonido al terminar el descanso',
+  'Classic': 'Clásico',
+  'Chime': 'Campanilla',
+  'Bell': 'Campana',
+  'Beep-beep': 'Pi-pi',
+  'Whistle': 'Silbato',
+  'Soft': 'Suave',
   'With the app open and the screen on, the end of a rest is announced on this device (vibration is not available on iPhone). With the screen locked or the app in the background the browser pauses it: then only a notification can arrive, if notifications are on and there is a connection.': 'Con la app abierta y la pantalla encendida, el fin del descanso se avisa en este dispositivo (en iPhone no hay vibración). Con la pantalla bloqueada o la app en segundo plano el navegador la pausa: entonces solo puede llegar una notificación, si las tienes activadas y hay conexión.',
   'See the training guide again': 'Ver guía de entrenamiento de nuevo',
   // Training guide (components/WorkoutGuide.jsx)

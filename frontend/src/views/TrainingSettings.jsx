@@ -12,6 +12,10 @@ import { runningView, finish } from '../lib/premium.js'
 import { confirmSheet } from '../sheets.jsx'
 import { LEVELS } from '../lib/rp-volume.js'
 import { workoutPrefs } from '../lib/workout-prefs.js'
+import { REST_TONE_NAMES, playRestTone } from '../lib/rest-tones.js'
+
+// English source strings; shown through t() (Spanish in locales/es.js)
+const REST_TONE_LABEL = { classic: 'Classic', chime: 'Chime', bell: 'Bell', beepbeep: 'Beep-beep', whistle: 'Whistle', soft: 'Soft' }
 import { useUI } from '../store/useUI.js'
 import { DUMBBELL_WEIGHTS_2J, MACHINE_WEIGHTS_CONFIG, BARBELL_PLATES_2J } from '../lib/equipment.js'
 import { openWorkoutGuide } from '../components/WorkoutGuide.jsx'
@@ -106,6 +110,9 @@ export default function TrainingSettings() {
       <Row icon="bell" iconTint="var(--pink)" title={t('Sound')} subtitle={t('Also the short beep when you complete a set.')}>
         <Switch checked={prefs.sound} onChange={v => set('sound', v)} />
       </Row>
+      <SelectRow icon="bell" iconTint="var(--pink)" title={t('Rest-end sound')}
+        value={prefs.restTone} onChange={v => { set('restTone', v); playRestTone(true, v) }}
+        options={REST_TONE_NAMES.map(n => ({ value: n, label: t(REST_TONE_LABEL[n]) }))} />
       <Row icon="bolt" iconTint="var(--pink)" title={t('Vibration')}>
         <Switch checked={prefs.vibrate} onChange={v => set('restVibrate', v)} />
       </Row>
