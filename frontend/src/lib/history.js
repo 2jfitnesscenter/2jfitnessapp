@@ -1,7 +1,8 @@
 // Pure helpers over the state object S (ported 1:1 from the vanilla app).
 import { todayISO, isoOf, weekKey, fmtNum } from './format.js'
 import { latestBodyWeight } from './bodyweight.js'
-import { isCardio } from './exercises.js'
+import { isCardio, EXIDX } from './exercises.js'
+import { dumbbellSnapFor } from './equipment.js'
 import { uxOn } from './features.js'
 import { dayPlanRoutineId, isMovedDayPlan } from './day-plan.js'
 import { countsForProgression } from './workout-policy.js'
@@ -289,15 +290,18 @@ export function buildSets(S, cfg) {
   // it's a number you can actually load. No working weight yet means nothing to drop from.
   // Back-off sets (optional, off by default): each working set after the first is one step lighter
   // than the one before. Only the prefilled targets change; the first set is untouched.
+  // An owned dumbbell rack (Settings → Training) snaps the ramp and back-off loads onto the pairs
+  // the member has; null otherwise, so the plate rounding below is unchanged for everyone else.
+  const snap = dumbbellSnapFor(S, EXIDX[cfg.id]?.eq)
   if (cfg.backoff && sets.length > 1 && sets[0].w > 0) {
     const ws = backOffWeights(sets[0].w, sets.length, S.unit)
-    sets.forEach((s, i) => { s.w = ws[i] })
+    sets.forEach((s, i) => { s.w = i > 0 && snap ? Math.min(snap(ws[i]), sets[i - 1].w) : ws[i] })
   }
   const lastSet = sets[sets.length - 1]
   if (cfg.dropset && lastSet && lastSet.w > 0) {
-    sets.push({ w: roundToPlate(lastSet.w * 0.8, S.unit), r: lastSet.r, done: false, type: 'drop' })
+    sets.push({ w: snap ? snap(lastSet.w * 0.8) : roundToPlate(lastSet.w * 0.8, S.unit), r: lastSet.r, done: false, type: 'drop' })
   }
-  return S.warmupEnabled !== false ? [...warmupSets(sets[0].w, S.unit), ...sets] : sets
+  return S.warmupEnabled !== false ? [...warmupSets(sets[0].w, S.unit, snap), ...sets] : sets
 }
 // Nearest half-plate (2.5kg or 5lb), so a generated weight is always actually loadable.
 const roundToPlate = (w, unit) => {
@@ -325,14 +329,17 @@ export function backOffWeights(firstW, n, unit) {
 // no working weight yet has nothing to compute a ramp from, but the setting still means "show
 // me warmup rows" — so they still appear, blank at 0, exactly like a fresh working set does
 // when nothing is known yet (the profile fills them in the first time they actually do it).
-export function warmupSets(workingWeight, unit) {
+// `snap` (optional, from equipment.js's dumbbellSnapFor) lands the ramp on the member's owned
+// dumbbell pairs instead of the plate rounding.
+export function warmupSets(workingWeight, unit, snap = null) {
   if (!(workingWeight > 0)) return [
     { w: 0, r: 8, done: false, type: 'warmup' },
     { w: 0, r: 5, done: false, type: 'warmup' },
   ]
+  const load = f => snap ? snap(workingWeight * f) : roundToPlate(workingWeight * f, unit)
   return [
-    { w: roundToPlate(workingWeight * 0.5, unit), r: 8, done: false, type: 'warmup' },
-    { w: roundToPlate(workingWeight * 0.75, unit), r: 5, done: false, type: 'warmup' },
+    { w: load(0.5), r: 8, done: false, type: 'warmup' },
+    { w: load(0.75), r: 5, done: false, type: 'warmup' },
   ]
 }
 // Swaps which exercise one live entry's sets apply to — same semantics as Workout.jsx's own

@@ -17,7 +17,7 @@ import { REST_TONE_NAMES, playRestTone } from '../lib/rest-tones.js'
 // English source strings; shown through t() (Spanish in locales/es.js)
 const REST_TONE_LABEL = { classic: 'Classic', chime: 'Chime', bell: 'Bell', beepbeep: 'Beep-beep', whistle: 'Whistle', soft: 'Soft' }
 import { useUI } from '../store/useUI.js'
-import { DUMBBELL_WEIGHTS_2J, MACHINE_WEIGHTS_CONFIG, BARBELL_PLATES_2J } from '../lib/equipment.js'
+import { DUMBBELL_WEIGHTS_2J, MACHINE_WEIGHTS_CONFIG, BARBELL_PLATES_2J, ownedDumbbellList } from '../lib/equipment.js'
 import { openWorkoutGuide } from '../components/WorkoutGuide.jsx'
 import { effortHelpSheet, trainingZonesHelpSheet, overloadHelpSheet, rpVolumeHelpSheet } from './Settings.jsx'
 import Icon from '../components/Icon.jsx'
@@ -40,6 +40,9 @@ export default function TrainingSettings() {
   const [more, setMore] = useState(false)
   const wakeOK = wakeLockSupported()
   const use2J = S.use2JRoomEquipment !== false
+  // "My dumbbells": the switch follows whether a list exists; an emptied list reads as off (lib/equipment.js).
+  const ownedOn = Array.isArray(S.ownedDumbbells)
+  const ownedList = ownedDumbbellList(S)
   const inc = S.customIncrements || DEFAULT_INC
   const running = runningView(S)
   const set = (k, v) => update(s => { s[k] = v })
@@ -194,6 +197,23 @@ export default function TrainingSettings() {
           subtitle={t('Adjusts the +/- buttons to this gym’s real dumbbells and machines.')}>
           <Switch checked={use2J} onChange={v => set('use2JRoomEquipment', v)} />
         </Row>
+      </Section>
+
+      <Section title={t('My dumbbells')}
+        footer={ownedOn ? (ownedList ? t('Suggestions, deloads, warm-ups and the +/- buttons only land on the pairs you tick.') : t('No pairs ticked: the full 2J rack is used.')) : t('Off: the full 2J rack is used.')}>
+        <Row icon="dumbbell" iconTint="var(--blue)" title={t('Only the dumbbells I own')}
+          subtitle={t('Tick the pairs you have at the gym.')}>
+          <Switch checked={ownedOn} onChange={v => set('ownedDumbbells', v ? [...DUMBBELL_WEIGHTS_2J] : null)} />
+        </Row>
+        {ownedOn && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '2px 2px 12px' }}>
+          {DUMBBELL_WEIGHTS_2J.map(w => {
+            const on = (S.ownedDumbbells || []).includes(w)
+            return <button key={w} className={'chip' + (on ? ' on' : '')} type="button" aria-pressed={on}
+              onClick={() => update(s => { const cur = Array.isArray(s.ownedDumbbells) ? s.ownedDumbbells : []; s.ownedDumbbells = on ? cur.filter(x => x !== w) : [...cur, w].sort((a, b) => a - b) })}>
+              {w} {S.unit}
+            </button>
+          })}
+        </div>}
       </Section>
 
       <Section title={t('Weight step button')}

@@ -27,6 +27,7 @@ import { cardioWorkoutReference } from '../lib/cardio-tests.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { zoneOfSet } from '../lib/training-zones.js'
 import { isOverloadSet, isPotentialPR, recommendationFor, acceptRecommendation, keepPlan } from '../lib/overload.js'
+import { dumbbellSnapFor } from '../lib/equipment.js'
 import { FEELINGS, FEELING_LABEL, feedbackIndex, nextSetSuggestion, setFeeling, acceptSuggestion, keepPlannedLoad } from '../lib/set-feedback.js'
 import { musclesOf, muscleOptsOf, MUSCLE_GROUPS } from '../lib/muscles.js'
 import { weeklyGroupVolumeFinished, weeklyGroupVolumeActive, primaryGroupOf, landmarksFor } from '../lib/rp-volume.js'
@@ -717,7 +718,7 @@ function ActiveWorkout() {
     if (!rec) return
     update(s => {
       const e = s.active.entries[idx]
-      if (accept) acceptRecommendation(e, rec, s.unit)
+      if (accept) acceptRecommendation(e, rec, s.unit, dumbbellSnapFor(s, exOr(e.id).eq))
       else keepPlan(e, rec)
     })
   }
