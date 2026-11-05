@@ -1,7 +1,10 @@
 // Copyright (C) 2026 Juan Jose Perez Sanchez — 2J Fitness Center
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMemo } from 'react'
-import { t } from '../lib/i18n.js'
+import { t, nameFor } from '../lib/i18n.js'
+import { exOr } from '../lib/exercises.js'
+import { lastTimeComparison } from '../lib/last-time-compare.js'
+import { workoutPrefs } from '../lib/workout-prefs.js'
 import { fmtDur, fmtVol, fmtDate, fmtNum, weekKey, exCount } from '../lib/format.js'
 import { setsDone, activeWeek, streakWeeks } from '../lib/history.js'
 import { loadOfWorkouts, muscleOptsOf } from '../lib/muscles.js'
@@ -42,6 +45,8 @@ export default function PostWorkoutSummary({ w, S, events = [], onOpenEvent, onS
   const celebrate = !!topPr || achievement
   const prev = useMemo(() => safe(() => previousSession(S, w)), [S.workouts, w])
   const dv = volumeDelta(w, prev)
+  // Optional (Settings → Training): per exercise, the best set against the previous session of it. Display only.
+  const lastTime = useMemo(() => workoutPrefs(S).compareLastTime ? safe(() => lastTimeComparison(S, w), []) : [], [S.workouts, S.compareLastTime, w])
   // Health is only READ here, after the save: the figure appears if a source has it and never delays anything.
   const energy = useMemo(() => safe(() => workoutEnergyView(w, S)), [w, S])
   const hr = useMemo(() => safe(() => fitnessOf(w)), [w])
@@ -91,6 +96,15 @@ export default function PostWorkoutSummary({ w, S, events = [], onOpenEvent, onS
       <h4 className="sec">{t('What you just trained')}</h4>
       <div className="card v2-fin-map"><BodyMapPanel load={load} body={S.body} top={3} S={S} /></div>
     </>}
+
+    {lastTime.length > 0 && <div className="card v2-fin-last">
+      <div className="row between"><span className="v2-eyebrow">{t('Compared with last time')}</span></div>
+      {lastTime.map(x => <div key={x.id} className="row between small" style={{ marginTop: 6 }}>
+        <span>{nameFor(exOr(x.id))}</span>
+        <b style={{ color: x.trend === 'up' ? 'var(--green)' : x.trend === 'down' ? 'var(--red)' : undefined }}>
+          {x.trend === 'up' ? t('Up vs last time') : x.trend === 'down' ? t('Down vs last time') : t('Same as last time')}</b>
+      </div>)}
+    </div>}
 
     {(week.planned > 0 || week.done > 0) && <div className="card v2-fin-week">
       <div className="row between"><span className="v2-eyebrow">{t('Your week')}</span>

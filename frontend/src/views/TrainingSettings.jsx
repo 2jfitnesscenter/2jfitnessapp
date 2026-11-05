@@ -96,6 +96,10 @@ export default function TrainingSettings() {
         subtitle={t('In the detailed list, an exercise whose working sets are all done folds into one line. Tap it to open it again.')}>
         <Switch checked={prefs.collapseDone} onChange={v => set('collapseDoneExercises', v)} />
       </Row>
+      <Row icon="chartLine" iconTint="var(--acc)" title={t('Compare with last time')}
+        subtitle={t('On the finish screen, each exercise shows whether it went up, stayed the same or went down against your last session of it.')}>
+        <Switch checked={prefs.compareLastTime} onChange={v => set('compareLastTime', v)} />
+      </Row>
       <Row icon="flame" iconTint="var(--orange)" title={t('Warmup sets')}
         subtitle={t('Suggest warmup sets before your working sets.')}>
         <Switch checked={S.warmupEnabled !== false} onChange={v => set('warmupEnabled', v)} />

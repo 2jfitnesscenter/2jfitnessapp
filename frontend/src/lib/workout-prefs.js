@@ -33,6 +33,8 @@ export function workoutPrefs(S) {
     // Detailed view only: one exercise at a time with nothing else on screen, moved with prev/next.
     // Off by default; a display preference, it never changes a set.
     focus: S.focusView === true,
+    // Finish screen: each exercise shows up / same / down against its previous session. Off by default; display only.
+    compareLastTime: S.compareLastTime === true,
     // Rest alert: whether the end of a rest is announced at all. Sound reuses the long-standing
     // S.sound switch (it has always governed every workout beep); vibration is its own switch.
     restAlert: S.restAlert !== false,
