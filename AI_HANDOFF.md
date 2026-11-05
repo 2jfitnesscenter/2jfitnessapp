@@ -1,5 +1,9 @@
 # AI_HANDOFF.md — 2J Fitness Center
 
+## Ola openGym (waves) — 2026-11-05 (en main, NO desplegado)
+
+- Mergeados en `main`: repetir rutina de un entreno finalizado hoy (#96), aviso opt-in al llegar al gimnasio con ubicación solo en el dispositivo (#97), aviso hablado al terminar el descanso, desactivado por defecto (#99), y revisión de seguridad de webhooks con primitivas desactivadas, sin rutas (#98; `docs/WEBHOOKS_SECURITY_REVIEW.md`). Los webhooks siguen apagados; el envío y la configuración requieren decisión del propietario.
+
 ## Preparación de integración Búnker — 2026-10-24 (sin runtime)
 
 - Se preparó en la rama `codex/bunker-evolution-export-staging` un contrato **propuesto, de solo lectura y no implementado** para la vista Home «Mi evolución», basado en D10 y D43 del registro: `docs/BUNKER_HOME_MIEVOLUCION_EXPORT_CONTRACT.md`. Búnker conserva `data/state-<uid>.json` y los originales; no hay ruta nueva, migración ni borrado. El contrato excluye PII/notas/fotos y deja transporte/auth y consentimiento sujetos a alineación con Platform.
