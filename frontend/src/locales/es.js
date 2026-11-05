@@ -2557,8 +2557,6 @@ export default {
   'Complete sets automatically': 'Completar series automáticamente',
   'Collapse completed exercises': 'Plegar ejercicios terminados',
   'In the detailed list, an exercise whose working sets are all done folds into one line. Tap it to open it again.': 'En la lista detallada, un ejercicio con todas sus series de trabajo hechas se pliega en una sola línea. Tócalo para volver a abrirlo.',
-  'Exercise chips': 'Chips de ejercicios',
-  'A row of numbered chips at the top of the workout, filled when an exercise is done. Tap one to jump to it.': 'Una fila de chips numerados arriba del entrenamiento, rellenos cuando un ejercicio está hecho. Tócalo para ir a ese ejercicio.',
   'Show sets': 'Mostrar series',
   'Focus view': 'Vista de enfoque',
   'In the detailed view, one exercise at a time with nothing else on screen. Move with the arrows.': 'En la vista detallada, un ejercicio cada vez y nada más en pantalla. Muévete con las flechas.',
