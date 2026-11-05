@@ -1,6 +1,8 @@
 import { workoutInactive, inactivityFinishMetadata, workoutActivityKey } from './lib/workout-activity.js'
 import { replaceWorkoutEntries, setWorkoutExcluded, reconcileExerciseWeightCache } from './lib/workout-edit.js'
 import { trackedWeightFor } from './lib/history.js'
+import { exResolverOf, mergedAwayIds } from './lib/exercise-merge.js'
+import { exerciseMergeSheet } from './components/ExerciseMerge.jsx'
 import { repeatableRoutineId } from './lib/repeat-workout.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { uxOn, allowedByAdmin } from './lib/features.js'
@@ -782,6 +784,7 @@ function ExerciseDetail({ ex, close }) {
       <Button icon="pencil" style={{ flex: 1 }} onClick={() => { close(); customExSheet(ex) }}>{t('Edit')}</Button>
       <Button variant="danger" icon="trash" style={{ flex: 1 }} onClick={() => deleteCustomEx(ex, close)}>{t('Delete')}</Button>
     </div>}
+    {!mergedAwayIds(st).includes(ex.id) && <Button icon="link" style={{ marginTop: 8 }} onClick={() => { close(); exerciseMergeSheet() }}>{t('Fusionar con…')}</Button>}
     {variants.length > 0 && <>
       <h4 className="sec">{t('Variants')}</h4>
       <div className="list" style={{ marginBottom: 10 }}>
@@ -953,10 +956,11 @@ export const scanMachineSheet = onPick => ui().openSheet(close => <ScanMachineSh
 
 /* ============================ exercise picker ============================ */
 // Exercises already used in your routines or past workouts (for the "Chosen" filter + a marker).
+// Counted under the resolved exercise, so a merged-away id's uses count for its target (lib/exercise-merge.js).
 function usageMap(st) {
-  const u = {}
-  st.routines.forEach(r => r.ex.forEach(e => { u[e.id] = (u[e.id] || 0) + 1 }))
-  st.workouts.forEach(w => w.entries.forEach(e => { u[e.id] = (u[e.id] || 0) + 1 }))
+  const u = {}, R = exResolverOf(st)
+  st.routines.forEach(r => r.ex.forEach(e => { const id = R(e.id); u[id] = (u[id] || 0) + 1 }))
+  st.workouts.forEach(w => w.entries.forEach(e => { const id = R(e.id); u[id] = (u[id] || 0) + 1 }))
   return u
 }
 // Exported (not just the sheet-opener below) so the desktop trainer panel can render it inline

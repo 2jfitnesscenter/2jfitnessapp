@@ -2,6 +2,7 @@
 import { todayISO, isoOf, weekKey, fmtNum } from './format.js'
 import { latestBodyWeight } from './bodyweight.js'
 import { isCardio, EXIDX } from './exercises.js'
+import { exResolverOf } from './exercise-merge.js'
 import { dumbbellSnapFor } from './equipment.js'
 import { uxOn } from './features.js'
 import { dayPlanRoutineId, isMovedDayPlan } from './day-plan.js'
@@ -174,18 +175,20 @@ export function workingLoadEvidence(sets) {
 // mid-session substitution (Workout.jsx's replaceExercise) changes which id future sets log
 // against, so a swapped exercise's own earlier history under its old id doesn't show up here
 // either; that is the existing, unchanged behaviour, not a new gap this introduces.
+// Entries match through the member's exercise merge (lib/exercise-merge.js): a merged-away id counts as its target.
+// Every entry of the exercise in one workout counts, not only the first.
 export function recentEntriesFor(S, exId, n = 3) {
-  const out = []
+  const out = [], R = exResolverOf(S), want = R(exId)
   for (let i = S.workouts.length - 1; i >= 0 && out.length < n; i--) {
     const workout = S.workouts[i]
     if (!countsForProgression(workout)) continue
-    const en = (workout.entries || []).find(e => e.id === exId)
-    if (!en) continue
+    const hits = (workout.entries || []).filter(e => R(e.id) === want)
+    if (!hits.length) continue
     // `target` is what the session prescribed; finished workouts carry it so labels and the
     // progression engine can read a session back the way it was logged. Older workouts have
     // none — modeOf() falls back to the body part for them, which is what they were.
-    const sets = workingSets(en.sets).filter(s => s.done)
-    if (sets.length) out.push({ d: S.workouts[i].d, sets, target: en.target || null })
+    const sets = hits.flatMap(en => workingSets(en.sets).filter(s => s.done))
+    if (sets.length) out.push({ d: S.workouts[i].d, sets, target: hits[0].target || null })
   }
   return out
 }
@@ -205,10 +208,11 @@ export function insertWorkoutSorted(workouts, w) {
 }
 export function bestWeightFor(S, exId) {
   let best = 0
+  const R = exResolverOf(S), want = R(exId)
   S.workouts.forEach(w => {
     if (!countsForProgression(w)) return
     ;(w.entries || []).forEach(e => {
-    if (e.id === exId) {
+    if (R(e.id) === want) {
       e.sets.forEach(s => { if (s.done && s.w > best) best = s.w })
       if (e.topW && e.topW > best) best = e.topW
     }
@@ -220,12 +224,13 @@ export function bestWeightFor(S, exId) {
 // don't let a cache sourced from an excluded session (or an untraceable legacy cache for an
 // exercise that now has excluded history) seed future progression.
 export function trackedWeightFor(S, exId) {
-  const cached = S?.exWeights?.[exId]
+  const R = exResolverOf(S), want = R(exId)
+  const cached = S?.exWeights?.[want]
   if (!cached) return null
   if (cached.sourceWorkoutId) {
     const source = (S.workouts || []).find(w => w?.id === cached.sourceWorkoutId)
     if (source?.excludeFromProgression === true) return null
-  } else if ((S.workouts || []).some(w => w?.excludeFromProgression === true && (w.entries || []).some(e => e.id === exId))) return null
+  } else if ((S.workouts || []).some(w => w?.excludeFromProgression === true && (w.entries || []).some(e => R(e.id) === want))) return null
   return cached
 }
 // The week currently in effect. An active program is the whole picture for the week it drives —

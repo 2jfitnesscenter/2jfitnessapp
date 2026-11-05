@@ -3371,6 +3371,7 @@ export default {
   // Legal changelog
   'Settings → Legal & credits: the original openGym project, this fork, the license and the source code': 'Ajustes → Legal y créditos: el proyecto original openGym, este fork, la licencia y el código fuente',
   // Exercise Library V2
+  'Fusionar con…': 'Fusionar con…',
   'Duplicate of “{0}”. Use that one for new routines — your history here stays.': 'Duplicado de «{0}». Usa ese en rutinas nuevas: tu historial con este se conserva.',
   '2J recommended': 'Recomendado 2J',
   'Variants': 'Variantes',

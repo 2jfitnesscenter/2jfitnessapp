@@ -23,6 +23,7 @@ import { POLICIES_FOR, POLICY_NAME, POLICY_DESC } from '../lib/progression.js'
 import BodyMap, { MuscleIcon } from '../components/BodyMap.jsx'
 import { loadOfRoutine, rankOf, pctOf, MUSCLE_NAME, muscleOptsOf } from '../lib/muscles.js'
 import { mediaUrl } from '../lib/media.js'
+import { exResolverOf } from '../lib/exercise-merge.js'
 
 export default function RoutineEdit() {
   const nav = useNavigate()
@@ -87,6 +88,8 @@ export default function RoutineEdit() {
     }),
   })
 
+  // An exercise the member merged away is shown as its target (lib/exercise-merge.js); the routine itself is not rewritten.
+  const R = exResolverOf(S)
   const units = supersetUnits(r.ex)
   const unitFirst = new Set(units.filter(u => u.length > 1).map(u => u[0]))
   const inSS = new Set(units.filter(u => u.length > 1).flat())
@@ -146,7 +149,7 @@ export default function RoutineEdit() {
     {r.ex.length ? <div className="list">{r.ex.map((e, i) => {
       // An unresolvable id is shown rather than skipped — hiding it left an entry you
       // could neither see nor delete, but that still turned up in the workout.
-      const ex = exOr(e.id)
+      const ex = exOr(R(e.id))
       const linkedPrev = i > 0 && e.sg && r.ex[i - 1].sg === e.sg
       const info = ssInfo[i]
       const ssStyle = info ? { '--ss-color': `var(--${info.token})` } : undefined

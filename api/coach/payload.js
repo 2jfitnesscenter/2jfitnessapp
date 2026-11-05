@@ -195,12 +195,14 @@ const withGroup = e => {
 export function librarySlice(S, equipment) {
   const wanted = (equipment || []).map(x => String(x).toLowerCase());
   const hidden = hiddenIds();
-  const customs = (S.customEx || []).map(c => ({ id: c.id, n: c.n, bp: c.bp, tg: null, eq: 'custom', custom: true }));
+  // A merged-away exercise (exerciseMergesOf) is not offered as a candidate; its target is.
+  const away = exerciseMergesOf(S)?.away || new Set();
+  const customs = (S.customEx || []).filter(c => !away.has(c.id)).map(c => ({ id: c.id, n: c.n, bp: c.bp, tg: null, eq: 'custom', custom: true }));
   // Exercise Library V2: a deprecated duplicate (`pref`) is never offered — its preferred twin
   // is — and Recommended 2J (`rec`) comes first, the order the prompt asks the model to prefer.
   // `ext` = imported from openGym (scripts/import-upstream-catalogue.mjs): kept out of the model's
   // catalogue, so the Coach's prompts and proposals stay exactly as they were. Ids still validate.
-  const visible = libraryAdmin.entries().filter(e => !e.pref && !e.ext && !hidden.has(e.id)).map(({ al: _aliases, ...e }) => e);
+  const visible = libraryAdmin.entries().filter(e => !e.pref && !e.ext && !hidden.has(e.id) && !away.has(e.id)).map(({ al: _aliases, ...e }) => e);
   // No equipment stated (or "everything") ⇒ the whole (visible) catalogue. Filtering to nothing
   // would leave the Coach unable to propose anything at all, which is worse than a bigger payload.
   const base = wanted.length ? visible.filter(e => wanted.includes((e.eq || '').toLowerCase())) : visible;
@@ -331,6 +333,45 @@ function cleanWorkout(w) {
   };
 }
 
+/* The member's exercise merges (S.exMerges = { fromId: toId }, frontend/src/lib/exercise-merge.js) applied to the
+ * training data before anything is built: a merged-away exercise is sent as its target in the plan and the
+ * workout history, so the provider never sees it as a separate exercise. Mirrors the frontend resolver:
+ * chains resolve, a cycle is cut, and a mapping whose target does not exist is ignored. Nothing is written back. */
+export function exerciseMergesOf(S) {
+  const raw = S?.exMerges;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const map = {};
+  for (const from of Object.keys(raw)) {
+    const to = raw[from];
+    if (typeof to === 'string' && to && to !== from) map[from] = to;
+  }
+  if (!Object.keys(map).length) return null;
+  const exists = id => LIB_BY_ID.has(id) || (S.customEx || []).some(c => c && c.id === id);
+  const resolve = id => {
+    let cur = id;
+    const seen = new Set([id]);
+    for (;;) {
+      const next = map[cur];
+      if (!next || seen.has(next) || !exists(next)) return cur;
+      seen.add(next);
+      cur = next;
+    }
+  };
+  const away = new Set(Object.keys(map).filter(from => resolve(from) !== from));
+  return { resolve, away };
+}
+
+export function applyExerciseMerges(S) {
+  const m = exerciseMergesOf(S);
+  if (!m) return S;
+  const mapEntry = e => (e && typeof e.id === 'string' ? { ...e, id: m.resolve(e.id) } : e);
+  return {
+    ...S,
+    routines: (S.routines || []).map(r => ({ ...r, ex: (r.ex || []).map(mapEntry) })),
+    workouts: (S.workouts || []).map(w => ({ ...w, entries: (w.entries || []).map(mapEntry) }))
+  };
+}
+
 /**
  * Build a job payload.
  *
@@ -338,7 +379,8 @@ function cleanWorkout(w) {
  * @param {string} uid    used only to derive the opaque handle
  * @param {object} opts   { kind, intake?, note?, refine?, previous? }
  */
-export function build(S, uid, opts = {}) {
+export function build(rawS, uid, opts = {}) {
+  const S = applyExerciseMerges(rawS);
   const coach = S.coach || {};
   const profile = opts.intake || coach.profile || null;
   const structuralAnalysis = cleanStructuralAnalysis(opts.structuralAnalysis);
