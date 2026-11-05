@@ -10,6 +10,7 @@ import { EXIDX, isUnavailable } from '../exercises.js'
 import { MOVEMENTS, MOVEMENT_BY_ID, EQUIPMENT_BY_ID } from '../protocol/movements.js'
 import { facetsOf, norm, aliasesOf, aliasIndexOf, isRecommended, isDeprecated, preferredOf, similarVariants, REASONS, RECOMMENDED } from './core.js'
 import { scoreTypoFallback } from './fuzzy.js'
+import { exResolverOf } from '../exercise-merge.js'
 
 export { facetsOf, isRecommended, isDeprecated, preferredOf, similarVariants, REASONS, RECOMMENDED, MOVEMENTS, MOVEMENT_BY_ID, EQUIPMENT_BY_ID }
 
@@ -142,18 +143,20 @@ export function familiesOf(list) {
 }
 
 // Favourites live in the member's own state (S.favEx), saved like S.excludedEx — no new sync.
-export const favSetOf = S => new Set(S?.favEx || [])
+// A favourite of a merged-away exercise shows as its target (lib/exercise-merge.js); nothing stored changes.
+export const favSetOf = S => { const R = exResolverOf(S); return new Set((S?.favEx || []).map(R)) }
 export const toggleFav = (s, id) => {
   const list = s.favEx || []
   s.favEx = list.includes(id) ? list.filter(x => x !== id) : [...list, id]
 }
 /** Exercises done recently, newest first, from real workouts (no second list). */
 export function recentIdsOf(S, max = 20) {
-  const out = [], seen = new Set()
+  const out = [], seen = new Set(), R = exResolverOf(S)
   const ws = [...(S?.workouts || [])].sort((a, b) => (b.end || b.start || 0) - (a.end || a.start || 0))
   for (const w of ws) for (const e of w.entries || []) {
-    if (seen.has(e.id) || !lookup(e.id)) continue
-    seen.add(e.id); out.push(e.id)
+    const id = R(e.id) // a merged-away exercise is listed as its target
+    if (seen.has(id) || !lookup(id)) continue
+    seen.add(id); out.push(id)
     if (out.length >= max) return out
   }
   return out

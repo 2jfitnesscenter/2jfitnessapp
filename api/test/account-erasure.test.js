@@ -64,7 +64,7 @@ write('db.json', {
 });
 for (const f of ['avatar-a.jpg', 'state-img-a.jpg', 'post-img-a.jpg', 'b-img.jpg']) fs.writeFileSync(path.join(dir, 'uploads', f), 'img');
 fs.writeFileSync(path.join(dir, 'followup-photos', '11111111-1111-4111-8111-111111111111.png'), 'private-progress-photo');
-write('state-member-a.json', { workouts: [{ id: 'w1', d: '2026-09-01', name: 'CANARY-WORKOUT', note: 'CANARY-NOTE', entries: [] }], bodyweight: [{ d: '2026-09-01', w: 81.5 }], routines: [{ id: 'r1', name: 'R', image: 'state-img-a.jpg' }], fitness: [{ hr: 'CANARY-HEALTH' }] });
+write('state-member-a.json', { workouts: [{ id: 'w1', d: '2026-09-01', name: 'CANARY-WORKOUT', note: 'CANARY-NOTE', entries: [] }], bodyweight: [{ d: '2026-09-01', w: 81.5 }], routines: [{ id: 'r1', name: 'R', image: 'state-img-a.jpg' }], fitness: [{ hr: 'CANARY-HEALTH' }], exMerges: { '0025': 'CANARY-MERGE-TARGET' } });
 write('state-member-b.json', { workouts: [{ id: 'wb', d: '2026-09-02', name: 'B-WORKOUT', entries: [] }] });
 write('chat.json', {
   threads: [
@@ -158,6 +158,8 @@ test('erasure is refused without the right proof: staff, wrong username, missing
 
 test('erasure with a fresh passkey assertion removes the person everywhere and leaves other members intact', async t => {
   t.after(() => child.kill());
+  // the exercise merge mapping (personal state key S.exMerges) lives in the member's state file, so erasing the state erases it too
+  assert.ok(fs.readFileSync(path.join(dir, 'state-member-a.json'), 'utf8').includes('CANARY-MERGE-TARGET'), 'the merge mapping is stored in the state before erasure');
   const o = await call('member-a', 'POST', '/api/me/delete/options', {});
   const res = await call('member-a', 'POST', '/api/me/delete', { cid: o.data.cid, credential: assertion(keyA, 'cred-a', o.data.options.challenge, 9), confirm: 'MemberA' });
   assert.equal(res.status, 200, JSON.stringify(res.data));
@@ -168,7 +170,7 @@ test('erasure with a fresh passkey assertion removes the person everywhere and l
   // nothing identifying the person is left in ANY file (chat is encrypted at rest: decrypt it for the scan)
   process.env.DATA_DIR = dir;
   const { decrypt } = await import('../lib/crypto.js');
-  const needles = ['member-a', 'membera', 'Member A', 'member.a@example.test', 'CANARY', 'cred-a', 'CODEA', '4821', 'avatar-a', 'state-img-a', 'post-img-a', '11111111-1111-4111-8111-111111111111.png'];
+  const needles = ['member-a', 'membera', 'Member A', 'member.a@example.test', 'CANARY', 'CANARY-MERGE-TARGET', 'cred-a', 'CODEA', '4821', 'avatar-a', 'state-img-a', 'post-img-a', '11111111-1111-4111-8111-111111111111.png'];
   for (const [file, text] of allText()) {
     const hay = file === 'chat.json' && !text.trim().startsWith('{') ? JSON.stringify(decrypt(text.trim(), 'chat-store')) : text;
     for (const n of needles) assert.ok(!hay.includes(n), `${file} still contains ${n}`);
