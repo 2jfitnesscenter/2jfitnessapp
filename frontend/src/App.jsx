@@ -4,7 +4,8 @@ import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'r
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { bindUI } from './components/ui.jsx'
-import { ACCENTS, LIQUID_GLASS } from './lib/format.js'
+import { ACCENTS, LIQUID_GLASS, todayISO } from './lib/format.js'
+import { checkGymReminder } from './lib/gym-reminder.js'
 import { setLang, useLang, t } from './lib/i18n.js'
 import { setNav } from './lib/nav.js'
 import { useWakeLock } from './lib/wakelock.js'
@@ -143,6 +144,20 @@ function applyPrefs(theme, accent, glass, glassOpacity, glassBlur, textScale) {
 }
 
 function Shell() {
+  // Opt-in gym arrival reminder (lib/gym-reminder.js). Off by default; checks only while visible.
+  useEffect(() => {
+    const look = () => {
+      if (document.visibilityState !== 'visible') return
+      const storage = (() => { try { return window.localStorage } catch { return null } })()
+      checkGymReminder({
+        storage, today: todayISO(), inWorkout: !!useStore.getState().S?.active,
+        notify: () => useUI.getState().toast(t('You are at your gym. Ready to start?')),
+      }).catch(() => {})
+    }
+    look()
+    document.addEventListener('visibilitychange', look)
+    return () => document.removeEventListener('visibilitychange', look)
+  }, [])
   useEffect(() => {
     const check = () => {
       const state = useStore.getState()
