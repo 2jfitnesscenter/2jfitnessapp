@@ -2303,6 +2303,7 @@ function ExerciseMenu({ ex, entry, close, actions }) {
       <Row icon="link" iconTint="var(--teal)" title={entry.sg ? t('Leave superset') : t('Add to superset')} onClick={act(actions.onSuperset)} />
       <Row icon="arrowDown" iconTint="var(--blue)" title={entry.dropset ? t('Remove dropset') : t('Add dropset')} onClick={act(actions.onDropsetToggle)} />
       <Row icon="arrowDown" iconTint="var(--blue)" title={entry.backoff ? t('Remove back-off sets') : t('Add back-off sets')} onClick={act(actions.onBackoffToggle)} />
+      <Row icon="chartLine" iconTint="var(--blue)" title={entry.pyramid ? t('Remove pyramid sets') : t('Add pyramid sets')} onClick={act(actions.onPyramidToggle)} />
       <Row icon="play" iconTint="var(--pink)" title={t('Video and instructions')} onClick={act(() => exerciseDetailSheet(ex))} />
       <Row icon="history" iconTint="var(--green)" title={t('Exercise history')} onClick={act(() => nav('/stats?ex=' + ex.id))} />
       <Row icon="clipboard" iconTint="var(--yellow)" title={t('Routine notes')} onClick={act(actions.onNotes)} />
