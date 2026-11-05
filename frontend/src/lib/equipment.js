@@ -48,6 +48,50 @@ export function stepDumbbell2J(current, dir) {
   return cur
 }
 
+// Optional "my dumbbells" rack (Settings → Training). S.ownedDumbbells is null/absent when the
+// feature is off — then nothing below changes — or a list of the pairs the member actually owns.
+// An empty list counts as off, so a profile can never be left with no loadable dumbbell at all.
+export function ownedDumbbellList(S) {
+  const raw = S && S.ownedDumbbells
+  if (!Array.isArray(raw)) return null
+  const list = [...new Set(raw.map(Number).filter(w => Number.isFinite(w) && w > 0))].sort((a, b) => a - b)
+  return list.length ? list : null
+}
+
+// Pure filter: the owned dumbbell nearest to `load`. A tie goes to the lighter pair, the
+// conservative choice when a load falls exactly between two owned pairs.
+export function snapToOwnedDumbbell(owned, load) {
+  let best = owned[0]
+  let bestD = Infinity
+  for (const w of owned) {
+    const d = Math.abs(w - load)
+    if (d < bestD - 1e-9) { best = w; bestD = d }
+  }
+  return best
+}
+
+// Walks the owned rack one pair up/down from `current` (an off-grid value finds the nearest owned
+// neighbour in the pressed direction, like stepDumbbell2J). Stays put at either end.
+export function stepOwnedDumbbell(owned, current, dir) {
+  const cur = current || 0
+  if (dir > 0) {
+    const next = owned.find(w => w > cur + 1e-9)
+    return next !== undefined ? next : cur
+  }
+  for (let i = owned.length - 1; i >= 0; i--) {
+    if (owned[i] < cur - 1e-9) return owned[i]
+  }
+  return cur
+}
+
+// Snapper for a dumbbell exercise when the member has an owned rack; null otherwise so callers
+// keep their existing rounding (warm-up ramp, back-off) untouched.
+export function dumbbellSnapFor(S, eq) {
+  if (equipmentClassOf(eq) !== 'dumbbell') return null
+  const owned = ownedDumbbellList(S)
+  return owned ? load => snapToOwnedDumbbell(owned, load) : null
+}
+
 // A machine's pin only lives inside its stack — below the 5 kg floor there is nothing lighter
 // to select, and stepping up from empty (0, an unset set) lands on the floor rather than
 // skipping straight to 10.
@@ -88,6 +132,10 @@ export function realizableToward(S, eq, from, target) {
 // (use2JRoomEquipment, customIncrements) off the profile passed in.
 export function stepWeight(S, eq, current, dir) {
   const cls = equipmentClassOf(eq)
+  if (cls === 'dumbbell') {
+    const owned = ownedDumbbellList(S)
+    if (owned) return stepOwnedDumbbell(owned, current, dir)
+  }
   if (S.use2JRoomEquipment !== false) {
     if (cls === 'dumbbell') return stepDumbbell2J(current, dir)
     if (cls === 'machine') return stepMachine2J(current, dir)

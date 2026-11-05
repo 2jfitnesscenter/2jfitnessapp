@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { equipmentClassOf, stepDumbbell2J, stepMachine2J, stepFlat, stepWeight, DUMBBELL_WEIGHTS_2J, MACHINE_WEIGHTS_CONFIG } from './equipment.js'
+import { equipmentClassOf, stepDumbbell2J, stepMachine2J, stepFlat, stepWeight, realizableToward, DUMBBELL_WEIGHTS_2J, MACHINE_WEIGHTS_CONFIG, ownedDumbbellList, snapToOwnedDumbbell, stepOwnedDumbbell, dumbbellSnapFor } from './equipment.js'
 
 describe('equipmentClassOf', () => {
   it('classifies a dumbbell as its own class', () => {
@@ -78,5 +78,69 @@ describe('stepWeight — dispatches per equipment class and the 2J-room-equipmen
   })
   it('falls back to the default increments if customIncrements is missing entirely', () => {
     expect(stepWeight({ use2JRoomEquipment: false }, 'dumbbell', 10, 1)).toBe(12)
+  })
+})
+
+describe('owned dumbbell rack (Settings → Training, off by default)', () => {
+  const OWNED = { ownedDumbbells: [5, 10, 15] }
+
+  it('is off when the list is absent, null, not an array, or empty', () => {
+    expect(ownedDumbbellList({})).toBeNull()
+    expect(ownedDumbbellList({ ownedDumbbells: null })).toBeNull()
+    expect(ownedDumbbellList({ ownedDumbbells: 'x' })).toBeNull()
+    expect(ownedDumbbellList({ ownedDumbbells: [] })).toBeNull()
+    expect(ownedDumbbellList({ ownedDumbbells: [0, -2, NaN] })).toBeNull()
+  })
+
+  it('normalises the list: numbers, unique, sorted, positive', () => {
+    expect(ownedDumbbellList({ ownedDumbbells: [15, '5', 10, 10, 0] })).toEqual([5, 10, 15])
+  })
+
+  it('off (no list, or an empty one) leaves stepping exactly as before', () => {
+    expect(stepWeight({}, 'dumbbell', 6, 1)).toBe(8)
+    expect(stepWeight({ ownedDumbbells: [] }, 'dumbbell', 6, 1)).toBe(8)
+    expect(stepWeight({ ownedDumbbells: [] }, 'dumbbell', 6, -1)).toBe(5)
+  })
+
+  it('snaps a load to the nearest owned pair, ties going to the lighter one', () => {
+    expect(snapToOwnedDumbbell([5, 10, 15], 9)).toBe(10)
+    expect(snapToOwnedDumbbell([5, 10, 15], 7)).toBe(5)
+    expect(snapToOwnedDumbbell([5, 10, 15], 7.5)).toBe(5)
+    expect(snapToOwnedDumbbell([5, 10, 15], 40)).toBe(15)
+  })
+
+  it('+/- step to the next owned pair, skipping pairs the member does not have', () => {
+    expect(stepWeight(OWNED, 'dumbbell', 5, 1)).toBe(10)
+    expect(stepWeight(OWNED, 'dumbbell', 10, 1)).toBe(15)
+    expect(stepWeight(OWNED, 'dumbbell', 15, 1)).toBe(15)
+    expect(stepWeight(OWNED, 'dumbbell', 15, -1)).toBe(10)
+    expect(stepWeight(OWNED, 'dumbbell', 5, -1)).toBe(5)
+  })
+
+  it('from an off-rack value, a step lands on the owned neighbour in the pressed direction', () => {
+    expect(stepOwnedDumbbell([5, 10, 15], 7, 1)).toBe(10)
+    expect(stepOwnedDumbbell([5, 10, 15], 7, -1)).toBe(5)
+    expect(stepOwnedDumbbell([5, 10, 15], 0, 1)).toBe(5)
+  })
+
+  it('applies in both 2J room modes, since it is the member’s own rack', () => {
+    expect(stepWeight({ ...OWNED, use2JRoomEquipment: false, customIncrements: { dumbbell: 2 } }, 'dumbbell', 5, 1)).toBe(10)
+  })
+
+  it('never touches non-dumbbell equipment', () => {
+    expect(stepWeight(OWNED, 'barbell', 60, 1)).toBe(65)
+    expect(stepWeight(OWNED, 'leverage machine', 20, 1)).toBe(25)
+  })
+
+  it('dumbbellSnapFor returns a snapper only for dumbbells with an owned rack', () => {
+    expect(dumbbellSnapFor({}, 'dumbbell')).toBeNull()
+    expect(dumbbellSnapFor(OWNED, 'barbell')).toBeNull()
+    expect(dumbbellSnapFor(OWNED, 'dumbbell')(9)).toBe(10)
+  })
+
+  it('a progression or deload lands on an owned pair, never an unowned one', () => {
+    expect(realizableToward(OWNED, 'dumbbell', 5, 12)).toBe(15)
+    expect(realizableToward(OWNED, 'dumbbell', 15, 8)).toBe(5)
+    expect(realizableToward(OWNED, 'dumbbell', 15, 20)).toBeNull()
   })
 })

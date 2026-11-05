@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { modeOf, isTimed, fmtSec, setLabel, defaultConfig, buildSets, exLine, repsLabel, workoutVolume, effortOf, stepEffort, capEffort, hasRecentWeighIn, insertWorkoutSorted, feelFor, effortColor, swapEntryExercise, recentEntriesFor, lastEntryFor, bestWeightFor, trackedWeightFor } from './history.js'
 import { EXDB } from './exercises.js'
+import { warmupSets } from './history.js'
+import { snapToOwnedDumbbell } from './equipment.js'
 
 // Real ids out of the shipped catalogue, so the body-part fallback is exercised for real.
 const CARDIO = EXDB.find(e => e.bp === 'cardio').id
@@ -282,6 +284,33 @@ describe('repsLabel', () => {
 // warmupEnabled: false throughout — these cases are about the working-set shape itself,
 // not the ramp-up; warmup generation gets its own describe block below.
 const emptyS = { workouts: [], exWeights: {}, warmupEnabled: false }
+
+describe('owned dumbbell rack in warm-ups and back-off', () => {
+  const DB = '0285' // dumbbell alternate biceps curl — equipment 'dumbbell'
+  it('warmupSets without a snapper keeps the plate rounding (unchanged default)', () => {
+    expect(warmupSets(22, 'kg')).toEqual([
+      { w: 10, r: 8, done: false, type: 'warmup' },
+      { w: 17.5, r: 5, done: false, type: 'warmup' },
+    ])
+  })
+  it('warmupSets with an owned-rack snapper lands the ramp on owned pairs', () => {
+    const owned = [5, 10, 15, 20]
+    const snap = load => snapToOwnedDumbbell(owned, load)
+    expect(warmupSets(22, 'kg', snap).map(s => s.w)).toEqual([10, 15])
+  })
+  it('buildSets with an owned rack: warm-ups use owned pairs, the working weight is kept', () => {
+    const S = { workouts: [], exWeights: {}, warmupEnabled: true, ownedDumbbells: [5, 10, 20] }
+    const sets = buildSets(S, { id: DB, sets: 2, reps: 8, weight: 20 })
+    expect(sets.filter(s => s.type === 'warmup').map(s => s.w)).toEqual([10, 10])
+    expect(sets.filter(s => !s.type).map(s => s.w)).toEqual([20, 20])
+  })
+  it('buildSets with no owned rack is identical to before', () => {
+    const plain = buildSets({ workouts: [], exWeights: {}, warmupEnabled: true }, { id: DB, sets: 2, reps: 8, weight: 20 })
+    const empty = buildSets({ workouts: [], exWeights: {}, warmupEnabled: true, ownedDumbbells: [] }, { id: DB, sets: 2, reps: 8, weight: 20 })
+    expect(empty).toEqual(plain)
+    expect(plain.filter(s => s.type === 'warmup').map(s => s.w)).toEqual([10, 15])
+  })
+})
 
 describe('buildSets', () => {
   it('builds reps sets from the plan when there is no history', () => {
