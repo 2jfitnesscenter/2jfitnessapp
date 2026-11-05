@@ -64,6 +64,10 @@ export default function TrainingSettings() {
         <Segmented value={prefs.view} onChange={v => set('workoutView', v)}
           options={[{ value: 'simple', label: t('Simple') }, { value: 'detailed', label: t('Detailed') }]} />
       </div>
+      <Row icon="target" iconTint="var(--purple)" title={t('Focus view')}
+        subtitle={t('In the detailed view, one exercise at a time with nothing else on screen. Move with the arrows.')}>
+        <Switch checked={prefs.focus} onChange={v => set('focusView', v)} />
+      </Row>
     </Section>
 
     <Section title={t('Visual')}>
