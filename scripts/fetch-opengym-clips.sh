@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Fetch the exercise animation (clip, .mp4) of every exercise imported from openGym (DuarteSantos8/openGym, AGPL-3.0)
-# into media/clip/opengym/<id>.mp4, so the web server serves them from our own disk. Pinned commit, no branch.
+# into media/img/opengym-clip/<id>.mp4, so the web server serves them from our own disk. Pinned commit, no branch.
 # Stills are fetched by scripts/fetch-opengym-media.sh. Provenance and the held-back list: docs/OPENGYM_CATALOGUE_IMPORT.md.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OPENGYM_COMMIT=8fb98b16861a2728652302a7e6e30c50548493a0
-dest=media/clip/opengym
+dest=media/img/opengym-clip
 mkdir -p "$dest"
 if find "$dest" -maxdepth 1 -type f -name '*.mp4' -print -quit | grep -q .; then
   echo "openGym clips already present — skipping download."

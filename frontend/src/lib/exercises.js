@@ -71,6 +71,9 @@ const IMG_BASE = import.meta.env.VITE_IMG_BASE || 'img/'
 const GIF_BASE = import.meta.env.VITE_GIF_BASE || 'gif/'
 export const imgSrc = ex => ex?.img ? IMG_BASE + ex.img : null
 export const gifSrc = ex => ex?.gif ? GIF_BASE + ex.gif : null
+// openGym animations (clips, .mp4) sit next to the stills: media/img/opengym-clip/<id>.mp4 (scripts/fetch-opengym-clips.sh).
+// Same id as the still, so no data change is needed. Custom exercises have no clip.
+export const clipSrc = ex => (ex?.img && String(ex.img).startsWith('opengym/') && ex.ext) ? IMG_BASE + 'opengym-clip/' + ex.id + '.mp4' : null
 
 // Cardio exercises log time + speed instead of weight × reps.
 export const isCardio = idOrEx => (typeof idOrEx === 'string' ? EXIDX[idOrEx] : idOrEx)?.bp === 'cardio'

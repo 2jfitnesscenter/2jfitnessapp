@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { imgSrc, gifSrc } from '../lib/exercises.js'
+import { imgSrc, gifSrc, clipSrc } from '../lib/exercises.js'
 import { useStore } from '../store/useStore.js'
 import { t, nameFor } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
@@ -13,17 +13,23 @@ export default function Media({ ex, id, compact, minimizable }) {
   const [playing, setPlaying] = useState(true)
   const [gifFailed, setGifFailed] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
+  const [clipFailed, setClipFailed] = useState(false)
   const gifSize = useStore(s => s.S.gifSize)
   const update = useStore(s => s.update)
-  useEffect(() => { setGifFailed(false); setImgFailed(false); setPlaying(true) }, [ex?.id])
-  const useGif = playing && !!ex?.gif && !gifFailed
-  const src = useGif ? gifSrc(ex) : !imgFailed ? imgSrc(ex) : null
+  useEffect(() => { setGifFailed(false); setImgFailed(false); setClipFailed(false); setPlaying(true) }, [ex?.id])
+  // An openGym clip plays muted in a loop; if it cannot load, the still shows instead (never a broken box).
+  const clip = clipSrc(ex)
+  const useClip = playing && !!clip && !clipFailed
+  const useGif = !useClip && playing && !!ex?.gif && !gifFailed
+  const src = useClip ? clip : useGif ? gifSrc(ex) : !imgFailed ? imgSrc(ex) : null
   const mini = minimizable && gifSize === 'mini'
   const toggleSize = e => { e.stopPropagation(); update(s => { s.gifSize = mini ? 'full' : 'mini' }) }
   if (!src) return <div className={'exmedia exmedia-fallback' + (compact ? ' compact' : '') + (mini ? ' mini' : '')} id={id} role="img" aria-label={t('No image available')}><Icon name="dumbbell" /><span>{nameFor(ex)}</span></div>
   return (
     <div className={'exmedia' + (compact ? ' compact' : '') + (mini ? ' mini' : '')} id={id} onClick={() => setPlaying(p => !p)}>
-      <img decoding="async" src={src} alt={nameFor(ex)} onError={() => useGif ? setGifFailed(true) : setImgFailed(true)} />
+      {useClip
+        ? <video src={src} poster={imgSrc(ex) || undefined} autoPlay loop muted playsInline aria-label={nameFor(ex)} onError={() => setClipFailed(true)} />
+        : <img decoding="async" src={src} alt={nameFor(ex)} onError={() => useGif ? setGifFailed(true) : setImgFailed(true)} />}
       {minimizable && (
         <button className="giftoggle" onClick={toggleSize}>
           <Icon name={mini ? 'expand' : 'minimize'} />{mini ? t('Expand') : t('Minimize')}

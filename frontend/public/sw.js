@@ -101,6 +101,8 @@ self.addEventListener('fetch', event => {
   if (url.pathname.startsWith('/api/')) return
   if (event.request.mode === 'navigate') { event.respondWith(navigation(event.request)); return }
   if (url.pathname.startsWith('/assets/')) { event.respondWith(cacheFirst(event.request, ASSETS)); return }
+  // Video clips are range-requested by the browser; a cache-first copy would store partial (206) responses, so they go straight to the network.
+  if (url.pathname.endsWith('.mp4')) return
   if (url.pathname.startsWith('/img/') || url.pathname.startsWith('/gif/')) {
     event.respondWith(cacheFirst(event.request, MEDIA)); return
   }
