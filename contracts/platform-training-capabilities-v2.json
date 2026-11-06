@@ -1,0 +1,136 @@
+{
+  "contract": "2J-CAPABILITIES-V2",
+  "version": 2,
+  "source": {
+    "repository": "2jfitnesscenter/2j-platform",
+    "contractPath": "contracts/2J-capabilities-v2.schema.json",
+    "contractIntroducedBy": "94d40806ba402a05f29652f7211c0eccabd326ef",
+    "verifiedMainAt": "e4b6218f02d24f9c78d7670252d68474cfea2232"
+  },
+  "enforcementEnabled": false,
+  "capabilities": [
+    "autonomousTraining",
+    "routineCreation",
+    "personalRoutineCreation",
+    "personalRoutineManagement",
+    "workoutRecording",
+    "workoutHistory",
+    "guidedTraining",
+    "premiumPrograms",
+    "aiCoach",
+    "professionalFollowUp"
+  ],
+  "profiles": {
+    "active_fuerza_full": {
+      "autonomousTraining": true,
+      "routineCreation": true,
+      "personalRoutineCreation": true,
+      "personalRoutineManagement": true,
+      "workoutRecording": true,
+      "workoutHistory": true,
+      "guidedTraining": true,
+      "premiumPrograms": true,
+      "aiCoach": true,
+      "professionalFollowUp": true
+    },
+    "active_fuerza_full_provisional": {
+      "autonomousTraining": true,
+      "routineCreation": true,
+      "personalRoutineCreation": true,
+      "personalRoutineManagement": true,
+      "workoutRecording": true,
+      "workoutHistory": true,
+      "guidedTraining": true,
+      "premiumPrograms": true,
+      "aiCoach": true,
+      "professionalFollowUp": true
+    },
+    "active_autonomous_training_access": {
+      "autonomousTraining": true,
+      "routineCreation": true,
+      "personalRoutineCreation": true,
+      "personalRoutineManagement": true,
+      "workoutRecording": true,
+      "workoutHistory": true,
+      "guidedTraining": true,
+      "premiumPrograms": true,
+      "aiCoach": false,
+      "professionalFollowUp": false
+    },
+    "autonomous_training_access_provisional": {
+      "autonomousTraining": true,
+      "routineCreation": true,
+      "personalRoutineCreation": true,
+      "personalRoutineManagement": true,
+      "workoutRecording": true,
+      "workoutHistory": true,
+      "guidedTraining": true,
+      "premiumPrograms": true,
+      "aiCoach": false,
+      "professionalFollowUp": false
+    },
+    "free_autonomous_baseline": {
+      "autonomousTraining": true,
+      "routineCreation": false,
+      "personalRoutineCreation": true,
+      "personalRoutineManagement": true,
+      "workoutRecording": true,
+      "workoutHistory": true,
+      "guidedTraining": false,
+      "premiumPrograms": false,
+      "aiCoach": false,
+      "professionalFollowUp": false
+    },
+    "unpaid_or_ended_baseline": {
+      "autonomousTraining": true,
+      "routineCreation": false,
+      "personalRoutineCreation": true,
+      "personalRoutineManagement": true,
+      "workoutRecording": true,
+      "workoutHistory": true,
+      "guidedTraining": false,
+      "premiumPrograms": false,
+      "aiCoach": false,
+      "professionalFollowUp": false
+    },
+    "administratively_suspended": {
+      "autonomousTraining": false,
+      "routineCreation": false,
+      "personalRoutineCreation": false,
+      "personalRoutineManagement": false,
+      "workoutRecording": false,
+      "workoutHistory": false,
+      "guidedTraining": false,
+      "premiumPrograms": false,
+      "aiCoach": false,
+      "professionalFollowUp": false
+    },
+    "missing_or_revoked_link": {
+      "autonomousTraining": false,
+      "routineCreation": false,
+      "personalRoutineCreation": false,
+      "personalRoutineManagement": false,
+      "workoutRecording": false,
+      "workoutHistory": false,
+      "guidedTraining": false,
+      "premiumPrograms": false,
+      "aiCoach": false,
+      "professionalFollowUp": false
+    }
+  },
+  "identityAndFreshness": {
+    "trainingLinkStatuses": ["active", "not_linked", "revoked"],
+    "maximumTtlSeconds": 60,
+    "expiresAtClippedToNextKnownAccessTransition": true,
+    "revisionField": false,
+    "consumerFailurePolicy": "invalid_or_expired_snapshot_fails_closed; authenticated_platform_outage_may_use_cache_only_until_expiresAt"
+  },
+  "consumerGuidance": {
+    "retainedTrainingContentOwner": "Training",
+    "membershipEndDeletesOrHidesHistory": false,
+    "professionalRoutinesRemainUsableAndCopyable": "Bunker consumer behavior; E2E verification pending",
+    "invitationProofIncluded": false,
+    "publicRegistrationImplemented": false
+  },
+  "commercialAuthority": "Platform 2J-098E effective rights and payment/period derivation"
+}

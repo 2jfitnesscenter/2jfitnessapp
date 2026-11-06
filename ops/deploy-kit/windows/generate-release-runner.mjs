@@ -15,6 +15,10 @@ const SAFE_PATH = /^(?:AI_HANDOFF\.md|CHANGELOG\.md|(?:api|frontend|scripts|web|
 export const REPOSITORY_ONLY_EXACT = new Set([
   '.env.example', '.env.production.example', '.gitattributes', '.gitignore', '.github/workflows/test.yml',
   'contracts/2J-089-training-summary-v1.json', // read only by api/test/platform-proof.test.js (checked: no runtime code opens contracts/)
+  'contracts/platform-training-capabilities-v2.json', 'contracts/platform-training-capabilities-v2.schema.json', 'contracts/platform-training-integration-v1.schema.json', // read only by api/test/platform-integration-contract.test.js (checked: no runtime code opens contracts/)
+  'ops/staging/bunker.env.example', // staging profile example, read by no runtime code (the staging script writes its own bunker.env)
+  'scripts/fetch-opengym-clips.sh', 'scripts/fetch-opengym-media.sh', // maintenance fetch scripts, never executed by the app or the runner (commit d5c4ec5: "not deployed")
+  'THIRD_PARTY_NOTICES.md', // legal notice text, read by tests and docs only; the Legal screen is bundled text (checked: no runtime fs read)
 ])
 const REPOSITORY_ONLY_TOOLING = /^ops\/deploy-kit\/(?:releases\/[A-Za-z0-9._-]+\.json|windows\/(?:templates\/)?[A-Za-z0-9._-]+\.(?:mjs|in))$/
 export const isRepositoryOnlyPath = p => typeof p === 'string' && (REPOSITORY_ONLY_EXACT.has(p) || REPOSITORY_ONLY_TOOLING.test(p))

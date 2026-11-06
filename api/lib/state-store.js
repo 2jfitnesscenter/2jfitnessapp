@@ -59,6 +59,11 @@ export function readState(uid) {
   return state;
 }
 
+// Optional observer of every successful member-state write, called as (uid, previousState, newState) AFTER the file is on disk.
+// server.js points it at the webhook engine (api/webhooks/service.js). It must not mutate or throw; errors are swallowed here.
+let stateWriteHook = null;
+export function setStateWriteHook(fn) { stateWriteHook = typeof fn === 'function' ? fn : null; }
+
 export function writeState(uid, state) {
   const current = readState(uid);
   const previous = current?._sync;
@@ -80,6 +85,7 @@ export function writeState(uid, state) {
   fs.writeFileSync(tmp, encrypt({ ...state, _sync: meta }, INFO), { mode: 0o600 });
   fs.renameSync(tmp, file);
   try { noteWrite(uid, state, stateFingerprint(uid)); } catch { /* the summary is a derived cache; it must never fail a save */ }
+  if (stateWriteHook) { try { stateWriteHook(uid, current, state); } catch { /* an observer must never fail a save */ } }
   delete state._sync;
   Object.defineProperty(state, '_sync', { value: meta, writable: true, configurable: true });
 }

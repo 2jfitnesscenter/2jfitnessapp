@@ -55,7 +55,7 @@ export const TRAINER_AI_ERRORS = {
   busy: 'A routine is already being generated for this member.',
   cap: 'Today’s AI generation limit has been reached.',
   nostate: 'This member hasn’t synced yet — there’s nothing to generate from.',
-  timeout: 'The AI took too long and gave up.',
+  timeout: 'The AI did not respond in time. You can try again.',
   unavailable: 'The AI is very busy right now. We already tried several times — please try again in a few minutes.',
   restart: 'The server restarted while the AI was working. Please generate again.',
   cancelled: 'That request was cancelled.',

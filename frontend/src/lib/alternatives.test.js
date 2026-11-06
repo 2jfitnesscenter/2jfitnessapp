@@ -130,8 +130,8 @@ describe('equipment is compared by the Library\'s canonical id, not the raw data
   })
 
   it('a record without a canonical equipment (custom, legacy) still compares by the raw string', () => {
-    expect(sameEquipment({ id: 'c1', eq: 'sandbag' }, { id: 'c2', eq: 'sandbag' })).toBe(true)
-    expect(sameEquipment({ id: 'c1', eq: 'sandbag' }, { id: 'c2', eq: 'kettlebell' })).toBe(false)
+    expect(sameEquipment({ id: 'c1', eq: 'legacy gadget' }, { id: 'c2', eq: 'legacy gadget' })).toBe(true)
+    expect(sameEquipment({ id: 'c1', eq: 'legacy gadget' }, { id: 'c2', eq: 'kettlebell' })).toBe(false)
     expect(sameEquipment({ id: 'c1', eq: 'custom' }, ex(BENCH))).toBe(false)
     expect(sameEquipment(null, ex(BENCH))).toBe(false)
   })

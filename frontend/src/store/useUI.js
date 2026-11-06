@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { uid } from '../lib/format.js'
 import { beep, vibrate } from '../lib/sound.js'
+import { playRestTone } from '../lib/rest-tones.js'
 import { t } from '../lib/i18n.js'
 import { useStore } from './useStore.js'
 import { workoutPrefs } from '../lib/workout-prefs.js'
@@ -39,9 +40,23 @@ const clearRestTick = () => {
 // The end-of-rest announcement, gated by the three rest switches. Exported for tests.
 export function announceRestOver(P, toast) {
   if (!P.restAlert) return
-  beep(P.sound, 880, 0.15); beep(P.sound, 880, 0.15, 0.25); beep(P.sound, 1320, 0.4, 0.5)
+  playRestTone(P.sound, P.restTone)
   if (P.vibrate) vibrate([200, 100, 200])
+  if (P.speak) speakRestOver(t('Rest over — next set!'))
   toast(t('Rest over — next set!'))
+}
+// Browser speech for the end-of-rest message. Silently does nothing where speech is unavailable.
+export function speakRestOver(text) {
+  try {
+    const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
+    const Utter = typeof window !== 'undefined' ? window.SpeechSynthesisUtterance : null
+    if (!synth || !Utter) return false
+    const u = new Utter(String(text))
+    u.lang = (typeof document !== 'undefined' && document.documentElement?.lang) || 'es'
+    synth.cancel()
+    synth.speak(u)
+    return true
+  } catch { return false }
 }
 let runRest = () => {}
 

@@ -10,7 +10,9 @@
 import { createRequire } from 'node:module';
 
 const require_ = createRequire(import.meta.url);
-const LIBRARY = require_('../coach/library.json').exercises;
+// openGym imports (ext) are never matched automatically: a scanned or imported name picks one of our own exercises or none.
+// The member can still choose an imported one by hand in the Library.
+const LIBRARY = require_('../coach/library.json').exercises.filter(e => !e.ext);
 
 const STOP = new Set(['the', 'a', 'an', 'with', 'on', 'of', 'to', 'in', 'and', 'or', 'de', 'del', 'la', 'el', 'con', 'en', 'y', 'o', 'para']);
 export const norm = text => String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();

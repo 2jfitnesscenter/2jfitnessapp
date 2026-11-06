@@ -9,6 +9,7 @@
 // one most lifters have seen; all of them agree closely at low reps and diverge as reps rise,
 // which is exactly why REP_CAP exists.
 import { countsForProgression } from './workout-policy.js'
+import { exResolverOf } from './exercise-merge.js'
 
 // Above this many reps an estimate says more about work capacity than about maximal strength,
 // and the formulas disagree by double digits. Refusing to guess beats printing a fantasy.
@@ -54,14 +55,16 @@ export function bestSetOf(entry, formula = DEFAULT_FORMULA) {
 
 // One point per workout in which the exercise produced an estimate — feeds the trend chart.
 // Chronological, matching the order workouts are appended in.
+// Entries are matched on the resolved id: a merged-away exercise contributes to its target's series, and a workout
+// holding both the target and the merged-away exercise counts the best of all their sets.
 export function e1rmSeries(S, exId, formula = DEFAULT_FORMULA) {
-  const pts = []
+  const pts = [], R = exResolverOf(S), target = R(exId)
   ;(S.workouts || []).forEach(w => {
     if (!countsForProgression(w)) return
-    const entry = (w.entries || []).find(e => e.id === exId)
-    if (!entry) return
-    const best = bestSetOf(entry, formula)
-    if (best) pts.push({ t: w.start, d: w.d, y: best.est, w: best.w, r: best.r })
+    const bests = (w.entries || []).filter(e => R(e.id) === target).map(e => bestSetOf(e, formula)).filter(Boolean)
+    if (!bests.length) return
+    const best = bests.reduce((a, b) => (b.est > a.est ? b : a))
+    pts.push({ t: w.start, d: w.d, y: best.est, w: best.w, r: best.r })
   })
   return pts
 }
@@ -89,8 +92,9 @@ export function is1RMRecord(S, exId, entry, formula = DEFAULT_FORMULA) {
 // Every 1RM test on file for one exercise, most recent first — the "history" shown inside
 // ExerciseDetail.
 export function oneRMTests(S, exId) {
+  const R = exResolverOf(S), target = R(exId)
   return (S.tests || [])
-    .filter(x => x.type === '1rm' && x.exId === exId)
+    .filter(x => x.type === '1rm' && R(x.exId) === target)
     .sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0))
 }
 // The number a routine's 'pct1rm' progression policy (lib/progression.js) actually reads: the

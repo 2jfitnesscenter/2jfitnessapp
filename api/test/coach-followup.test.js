@@ -298,8 +298,9 @@ test('multi-signal members rank above single-signal ones; a flagged member is al
 /* ---------------------------------------------------------------- isolation: the staff trail has no way into the member-side systems */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 test('no member-side system (personal AI, Sync, Social, chat, Bunker, notifications, friends, exports) can read the staff trail', () => {
-  const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+  const root = fileURLToPath(new URL('..', import.meta.url));
   const MARKERS = /privateNotesEncrypted|assignedTrainers|goalPlan|coach-followup|FOLLOWUP_PRIVATE/;
   const files = [];
   const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) { if (e.name !== 'node_modules' && e.name !== 'test') walk(p); } else if (/\.(js|mjs)$/.test(e.name)) files.push(p); } };

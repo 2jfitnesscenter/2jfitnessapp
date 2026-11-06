@@ -534,6 +534,77 @@ describe('buildFreeEntry', () => {
 
 // A policy's generic increment (chest → +2.5 kg) must land on a load the member's equipment can
 // really make — the same increments the set pad and the plate shortcut use (lib/equipment.js).
+describe('triple progression (optional, off by default)', () => {
+  const base = { id: LIFT, sets: 3, reps: 12, repsMin: 8, weight: 40, prog: 'double' }
+  const cfg = { ...base, triple: true }
+  const T = sets => ({ sets, reps: 12 })
+
+  it('off by default: two sessions at the top raise the load and leave the set count alone', () => {
+    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12], [40, 12, 12, 12]], T(3)), base)
+    expect(p.kind).toBe('up')
+    expect(p.weight).toBe(42.5)
+    expect(p.sets).toBeUndefined()
+  })
+
+  it('keeps the two-session safety check before any extra set', () => {
+    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12]], T(3)), cfg)
+    expect(p.kind).toBe('hold')
+    expect(p.weight).toBe(40)
+    expect(p.sets).toBeUndefined()
+  })
+
+  it('at the top in every set, adds one working set at the same load and drops reps to the bottom', () => {
+    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12], [40, 12, 12, 12]], T(3)), cfg)
+    expect(p.kind).toBe('hold')
+    expect(p.weight).toBe(40)
+    expect(p.sets).toBe(4)
+    expect(p.reps).toBe(8)
+  })
+
+  it('keeps adding sets one at a time up to the cap (planned + 2)', () => {
+    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12, 12], [40, 12, 12, 12, 12]], T(4)), cfg)
+    expect(p.sets).toBe(5)
+    expect(p.weight).toBe(40)
+  })
+
+  it('at the cap, loads up and restarts at the planned sets and the bottom of the range', () => {
+    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12, 12, 12], [40, 12, 12, 12, 12, 12]], T(5)), cfg)
+    expect(p.kind).toBe('up')
+    expect(p.weight).toBe(42.5)
+    expect(p.reps).toBe(8)
+    expect(p.sets).toBeUndefined()
+  })
+
+  it('boundary: a planned single set still caps at three', () => {
+    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12], [40, 12, 12, 12]], T(3)), { ...cfg, sets: 1 })
+    expect(p.kind).toBe('up')
+    expect(p.weight).toBe(42.5)
+  })
+
+  it('a missed session drops the bonus set back to the planned count', () => {
+    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12, 12], [40, 12, 12, 9, 9]], T(4)), cfg)
+    expect(p.kind).toBe('hold')
+    expect(p.reps).toBe(10)
+    expect(p.sets).toBeUndefined()
+  })
+
+  it('only applies under double progression', () => {
+    const p = nextPrescription(hist(LIFT, [[40, 12, 12, 12], [40, 12, 12, 12]], T(3)), { ...cfg, prog: 'linear' })
+    expect(p.kind).toBe('up')
+    expect(p.sets).toBeUndefined()
+  })
+
+  it('carries the planned set count into the target and the built sets', () => {
+    const S = hist(LIFT, [[40, 12, 12, 12, 12], [40, 12, 12, 12, 12]], T(4))
+    const plan = nextPrescription(S, cfg)
+    expect(targetForPrescription(cfg, plan).sets).toBe(5)
+    const [entry] = buildRoutineEntries(S, { ex: [cfg] })
+    // Warmup ramp sets are added by buildSets on top of the working sets; count only the working ones.
+    expect(entry.sets.filter(s => s.type !== 'warmup' && s.type !== 'drop')).toHaveLength(5)
+    expect(entry.target.sets).toBe(5)
+  })
+})
+
 describe('realizable loads', () => {
   const BENCH = '0025'     // barbell bench press — chest, so the generic policy step is 2.5 kg
   const DB = '0294'        // dumbbell biceps curl

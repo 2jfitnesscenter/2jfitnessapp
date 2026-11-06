@@ -83,7 +83,7 @@ describe('Energy source: measured / aggregated / estimated read differently', ()
     expect(E({ kcal: 300, kind: 'aggregate', source: 'healthconnect' })).toMatchObject({ kind: 'aggregate', approx: false, source: 'Aggregated data' })
     expect(E({ kcal: 235, kind: 'estimated', source: 'twoj', low: 165, high: 305 })).toMatchObject({ kind: 'estimated', approx: true, range: [165, 305] })
     expect(E(null)).toBeNull(); expect(E({ kcal: 0, kind: 'measured' })).toBeNull()
-  })
+  }, 20000) // first boot() of this file is slow on Windows (module graph); the 5 s default is too tight here
   it('the UI uses ≈ ONLY for estimates, and says where each figure comes from', async () => {
     await boot()
     const B = mod.Energy.default, E = H.energyPresentation

@@ -142,7 +142,7 @@ test('an administrator can update only the bounded Spanish presentation copy wit
 });
 
 test('an invalid program is refused with the reasons; a dry run validates without saving', async () => {
-  const bad = mini(); bad.programDefinition.weeks[0].sessions[0].blocks[0].exercise = '9999';
+  const bad = mini(); bad.programDefinition.weeks[0].sessions[0].blocks[0].exercise = '999999';
   const r = await call('trainer-a', 'POST', '/api/premium/save', { program: bad });
   assert.equal(r.status, 400); assert.ok(r.data.issues.some(i => i.startsWith('definition.block-exercise')));
   const pct = mini({ programDefinition: { schema: 1, cycleWeeks: 1, lifts: [{ key: 'squat', exercise: '0043', group: 'lower' }], weeks: [{ sessions: [{ key: 'a', title: 'A', blocks: [{ role: 'main', lift: 'squat', sets: [{ pct: 5, reps: 5 }] }] }] }] } });

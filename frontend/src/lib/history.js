@@ -1,7 +1,9 @@
 // Pure helpers over the state object S (ported 1:1 from the vanilla app).
 import { todayISO, isoOf, weekKey, fmtNum } from './format.js'
 import { latestBodyWeight } from './bodyweight.js'
-import { isCardio } from './exercises.js'
+import { isCardio, EXIDX } from './exercises.js'
+import { exResolverOf } from './exercise-merge.js'
+import { dumbbellSnapFor } from './equipment.js'
 import { uxOn } from './features.js'
 import { dayPlanRoutineId, isMovedDayPlan } from './day-plan.js'
 import { countsForProgression } from './workout-policy.js'
@@ -173,18 +175,20 @@ export function workingLoadEvidence(sets) {
 // mid-session substitution (Workout.jsx's replaceExercise) changes which id future sets log
 // against, so a swapped exercise's own earlier history under its old id doesn't show up here
 // either; that is the existing, unchanged behaviour, not a new gap this introduces.
+// Entries match through the member's exercise merge (lib/exercise-merge.js): a merged-away id counts as its target.
+// Every entry of the exercise in one workout counts, not only the first.
 export function recentEntriesFor(S, exId, n = 3) {
-  const out = []
+  const out = [], R = exResolverOf(S), want = R(exId)
   for (let i = S.workouts.length - 1; i >= 0 && out.length < n; i--) {
     const workout = S.workouts[i]
     if (!countsForProgression(workout)) continue
-    const en = (workout.entries || []).find(e => e.id === exId)
-    if (!en) continue
+    const hits = (workout.entries || []).filter(e => R(e.id) === want)
+    if (!hits.length) continue
     // `target` is what the session prescribed; finished workouts carry it so labels and the
     // progression engine can read a session back the way it was logged. Older workouts have
     // none — modeOf() falls back to the body part for them, which is what they were.
-    const sets = workingSets(en.sets).filter(s => s.done)
-    if (sets.length) out.push({ d: S.workouts[i].d, sets, target: en.target || null })
+    const sets = hits.flatMap(en => workingSets(en.sets).filter(s => s.done))
+    if (sets.length) out.push({ d: S.workouts[i].d, sets, target: hits[0].target || null })
   }
   return out
 }
@@ -204,10 +208,11 @@ export function insertWorkoutSorted(workouts, w) {
 }
 export function bestWeightFor(S, exId) {
   let best = 0
+  const R = exResolverOf(S), want = R(exId)
   S.workouts.forEach(w => {
     if (!countsForProgression(w)) return
     ;(w.entries || []).forEach(e => {
-    if (e.id === exId) {
+    if (R(e.id) === want) {
       e.sets.forEach(s => { if (s.done && s.w > best) best = s.w })
       if (e.topW && e.topW > best) best = e.topW
     }
@@ -219,12 +224,13 @@ export function bestWeightFor(S, exId) {
 // don't let a cache sourced from an excluded session (or an untraceable legacy cache for an
 // exercise that now has excluded history) seed future progression.
 export function trackedWeightFor(S, exId) {
-  const cached = S?.exWeights?.[exId]
+  const R = exResolverOf(S), want = R(exId)
+  const cached = S?.exWeights?.[want]
   if (!cached) return null
   if (cached.sourceWorkoutId) {
     const source = (S.workouts || []).find(w => w?.id === cached.sourceWorkoutId)
     if (source?.excludeFromProgression === true) return null
-  } else if ((S.workouts || []).some(w => w?.excludeFromProgression === true && (w.entries || []).some(e => e.id === exId))) return null
+  } else if ((S.workouts || []).some(w => w?.excludeFromProgression === true && (w.entries || []).some(e => R(e.id) === want))) return null
   return cached
 }
 // The week currently in effect. An active program is the whole picture for the week it drives —
@@ -287,29 +293,81 @@ export function buildSets(S, cfg) {
   // A routine-level dropset (RoutineEdit's exercise menu) always lands after the last working
   // set, at the same reps and a fixed 20% lighter — same rounding as the warmup ramp below, so
   // it's a number you can actually load. No working weight yet means nothing to drop from.
+  // Back-off sets (optional, off by default): each working set after the first is one step lighter
+  // than the one before. Only the prefilled targets change; the first set is untouched.
+  // An owned dumbbell rack (Settings → Training) snaps the ramp and back-off loads onto the pairs
+  // the member has; null otherwise, so the plate rounding below is unchanged for everyone else.
+  const snap = dumbbellSnapFor(S, EXIDX[cfg.id]?.eq)
+  // Pyramid sets (optional, `cfg.pyramid === true`, off by default): the working loads climb to a
+  // peak and come back down (pyramidWeights). The peak is the heaviest prefilled load, so a stored
+  // pyramid reproduces itself. It takes the place of back-off when both are on. Absent → untouched.
+  if (cfg.pyramid === true && sets.length > 1 && sets.some(s => s.w > 0)) {
+    const peak = Math.max(...sets.map(s => Number(s.w) || 0))
+    const ws = pyramidWeights(peak, sets.length, S.unit)
+    sets.forEach((s, i) => { s.w = snap ? snap(ws[i]) : ws[i] })
+  } else if (cfg.backoff && sets.length > 1 && sets[0].w > 0) {
+    const ws = backOffWeights(sets[0].w, sets.length, S.unit)
+    sets.forEach((s, i) => { s.w = i > 0 && snap ? Math.min(snap(ws[i]), sets[i - 1].w) : ws[i] })
+  }
   const lastSet = sets[sets.length - 1]
   if (cfg.dropset && lastSet && lastSet.w > 0) {
-    sets.push({ w: roundToPlate(lastSet.w * 0.8, S.unit), r: lastSet.r, done: false, type: 'drop' })
+    sets.push({ w: snap ? snap(lastSet.w * 0.8) : roundToPlate(lastSet.w * 0.8, S.unit), r: lastSet.r, done: false, type: 'drop' })
   }
-  return S.warmupEnabled !== false ? [...warmupSets(sets[0].w, S.unit), ...sets] : sets
+  return S.warmupEnabled !== false ? [...warmupSets(sets[0].w, S.unit, snap), ...sets] : sets
 }
 // Nearest half-plate (2.5kg or 5lb), so a generated weight is always actually loadable.
 const roundToPlate = (w, unit) => {
   const step = unit === 'lb' ? 5 : 2.5
   return Math.round(w / step) * step
 }
+// Loads for `n` sets where the first is `firstW` and each later one is ~10 % lighter, snapped to a
+// loadable step (roundToPlate). A cut that rounds back to the same load drops one step instead, so
+// every set is strictly lighter; at the lightest loadable step the weight simply holds.
+export function backOffWeights(firstW, n, unit) {
+  const step = unit === 'lb' ? 5 : 2.5
+  const out = []
+  let w = firstW
+  for (let i = 0; i < n; i++) {
+    if (i > 0 && w > step) {
+      let next = roundToPlate(w * 0.9, unit)
+      if (next >= w) next = w - step
+      if (next > 0) w = next
+    }
+    out.push(w)
+  }
+  return out
+}
+// Pyramid loads for `n` working sets, peaking at `peak`. Scheme (document it here, it is the rule):
+//   · the peak sits at set index floor(n / 2), so the load climbs for the first sets, then falls;
+//   · each set one step away from the peak is 10 % lighter than the peak, rounded to a loadable
+//     plate step and never below one step: n=3 → [90 %, 100 %, 90 %]; n=5 → [80, 90, 100, 90, 80].
+// Only used when cfg.pyramid is true. Pure: no equipment or history input.
+export function pyramidWeights(peak, n, unit) {
+  const step = unit === 'lb' ? 5 : 2.5
+  if (n <= 1 || !(peak > 0)) return Array.from({ length: Math.max(1, n) }, () => peak)
+  const p = Math.floor(n / 2)
+  const out = []
+  for (let i = 0; i < n; i++) {
+    const d = Math.abs(i - p)
+    out.push(d === 0 ? peak : Math.max(step, roundToPlate(peak * (1 - 0.1 * d), unit)))
+  }
+  return out
+}
 // Two ramp-up sets ahead of the working weight — 50%×8 then 75%×5. A brand-new exercise with
 // no working weight yet has nothing to compute a ramp from, but the setting still means "show
 // me warmup rows" — so they still appear, blank at 0, exactly like a fresh working set does
 // when nothing is known yet (the profile fills them in the first time they actually do it).
-export function warmupSets(workingWeight, unit) {
+// `snap` (optional, from equipment.js's dumbbellSnapFor) lands the ramp on the member's owned
+// dumbbell pairs instead of the plate rounding.
+export function warmupSets(workingWeight, unit, snap = null) {
   if (!(workingWeight > 0)) return [
     { w: 0, r: 8, done: false, type: 'warmup' },
     { w: 0, r: 5, done: false, type: 'warmup' },
   ]
+  const load = f => snap ? snap(workingWeight * f) : roundToPlate(workingWeight * f, unit)
   return [
-    { w: roundToPlate(workingWeight * 0.5, unit), r: 8, done: false, type: 'warmup' },
-    { w: roundToPlate(workingWeight * 0.75, unit), r: 5, done: false, type: 'warmup' },
+    { w: load(0.5), r: 8, done: false, type: 'warmup' },
+    { w: load(0.75), r: 5, done: false, type: 'warmup' },
   ]
 }
 // Swaps which exercise one live entry's sets apply to — same semantics as Workout.jsx's own

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { previewExpressSession, shortenExpressWarmups, weekReorderSuggestion, applyWeekReorder, movedFromForDate, sessionHistoryMetadata, clearRescheduleAtDate } from './session-adaptation.js'
-import { isMovedDayPlan } from './day-plan.js'
+import { isMovedDayPlan, normalizeDayNote, setDayNote, DAY_NOTE_MAX } from './day-plan.js'
 import { effectiveRoutineId } from './history.js'
 import { todayISO } from './format.js'
 
@@ -197,5 +197,46 @@ describe('week reorder derived from dayPlan and history', () => {
     const linked = { '2026-10-06': 'moved:2026-10-07:chest', '2026-10-07': 'chest' }
     expect(clearRescheduleAtDate(linked, '2026-10-06')).toEqual({})
     expect(clearRescheduleAtDate(linked, '2026-10-07')).toEqual({ '2026-10-07': 'chest' })
+  })
+})
+
+describe('missed-day note suppresses the missed-session nudge', () => {
+  it('a planned day with a note is not proposed as a missed session', () => {
+    const state = { ...makeWeekState(), dayNotes: { '2026-10-06': 'Sick' } }
+    expect(weekReorderSuggestion(state, '2026-10-07')).toBeNull()
+  })
+
+  it('without a note the same missed day is still proposed (current behaviour)', () => {
+    const state = { ...makeWeekState(), dayNotes: {} }
+    expect(weekReorderSuggestion(state, '2026-10-07')).toMatchObject({ date: '2026-10-06', target: '2026-10-07' })
+  })
+
+  it('a note on one missed day does not hide another unexplained missed day', () => {
+    const state = { ...makeWeekState(), dayNotes: { '2026-10-06': 'Travelling' } }
+    state.dayPlan['2026-10-05'] = 'chest'
+    expect(weekReorderSuggestion(state, '2026-10-07')).toMatchObject({ date: '2026-10-05' })
+  })
+
+  it('an empty or whitespace note is no note', () => {
+    expect(normalizeDayNote('   ')).toBeNull()
+    expect(normalizeDayNote(undefined)).toBeNull()
+    const state = { ...makeWeekState(), dayNotes: { '2026-10-06': '   ' } }
+    expect(weekReorderSuggestion(state, '2026-10-07')).toMatchObject({ date: '2026-10-06' })
+  })
+
+  it('trims the note and caps it at 80 characters', () => {
+    expect(normalizeDayNote('  sick  ')).toBe('sick')
+    expect(DAY_NOTE_MAX).toBe(80)
+    expect(normalizeDayNote('x'.repeat(200))).toHaveLength(80)
+    expect(normalizeDayNote(' ' + 'y'.repeat(79) + ' z ')).toBe('y'.repeat(79))
+  })
+
+  it('setDayNote stores a trimmed note without mutating the input and removes it when emptied', () => {
+    const before = { '2026-10-01': 'Injured' }
+    const added = setDayNote(before, '2026-10-06', '  travelling ')
+    expect(added).toEqual({ '2026-10-01': 'Injured', '2026-10-06': 'travelling' })
+    expect(before).toEqual({ '2026-10-01': 'Injured' })
+    expect(setDayNote(added, '2026-10-06', '')).toEqual({ '2026-10-01': 'Injured' })
+    expect(setDayNote(undefined, '2026-10-06', null)).toEqual({})
   })
 })

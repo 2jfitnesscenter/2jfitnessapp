@@ -1,6 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import SsoLanding from './views/SsoLanding.jsx'
+import { isSsoLanding } from './lib/sso-landing.js'
 import { MOBILE } from './lib/mobile.js'
 import { nav } from './lib/nav.js'
 import { loadStartupLanguage } from './lib/i18n.js'
@@ -21,7 +23,9 @@ if (!MOBILE) initPwaInstallEvents(window)
 // before React's first render so users never see the English source strings flash on boot.
 async function startApp() {
   await loadStartupLanguage(useStore.getState().S)
-  createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMode>)
+  // /sso is the landing for "Open Búnker with your 2J account"; it runs before the app so the one-time code in the URL fragment is consumed first.
+  const Root = !MOBILE && isSsoLanding(window.location) ? SsoLanding : App
+  createRoot(document.getElementById('root')).render(<StrictMode><Root /></StrictMode>)
 }
 startApp()
 

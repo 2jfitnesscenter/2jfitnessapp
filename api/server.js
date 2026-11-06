@@ -21,7 +21,7 @@ import * as aiMetrics from './lib/ai-metrics.js';
 import * as trainerJobs from './coach/trainer-jobs.js';
 import { auxAIRoutes } from './lib/aux-ai-routes.js';
 import { matchImportExercises } from './lib/import-exercise-match.js';
-import { readState, writeState } from './lib/state-store.js';
+import { readState, writeState, setStateWriteHook } from './lib/state-store.js';
 import { openSync, mutate, directReceipt, saveDirect, trainerReceipt, saveTrainer } from './lib/sync.js';
 import { startCadence } from './coach/cadence.js';
 import { friendsRoutes } from './friends/routes.js';
@@ -29,6 +29,9 @@ import * as friendsStore from './friends/store.js';
 import { chatRoutes } from './chat/routes.js';
 import { notificationRoutes } from './notifications/routes.js';
 import * as notificationStore from './notifications/store.js';
+import { webhookRoutes } from './webhooks/routes.js';
+import { createWebhookStore } from './webhooks/store.js';
+import { createWebhookService } from './webhooks/service.js';
 import { canViewSharedContent } from './notifications/privacy.js';
 import { sharingRoutes } from './social/sharing-routes.js';
 import * as sharingStore from './social/sharing-store.js';
@@ -41,7 +44,7 @@ import { centerRoutes } from './lib/center-routes.js';
 import { AUDITED as ADMIN_AUDIT, describeAction } from './lib/admin-audit.js';
 import { opsStatus, createErrorRing } from './lib/ops-status.js';
 import { bunkerRoutes } from './bunker/routes.js';
-import { authLimiters, bunkerClientIp } from './bunker/rate-limit.js';
+import { AttemptLimiter, authLimiters, bunkerClientIp, parseTrustedProxies, setTrustedProxies } from './bunker/rate-limit.js';
 import { publicTodayPrs } from './bunker/today-prs.js';
 import * as stravaConfig from './strava/config.js';
 import { stravaRoutes } from './strava/routes.js';
@@ -81,9 +84,12 @@ import { sharedStaffRoutes } from './lib/shared-staff-routes.js';
 import { createPlatformProofStore } from './platform-proof/store.js';
 import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
+import { createPlatformIntegration, parsePlatformIntegrationEnv, gateFailureMayProceed } from './platform-sso/index.js';
+import { createPlatformLinkRoutes } from './platform-sso/link.js';
+import { createAssistedLink, parseIssuers, STEP_UP_PURPOSE as ASSIST_STEP_UP } from './platform-sso/assisted-link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
 
-const PORT = +(process.env.PORT || 3000);
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const DATA = process.env.DATA_DIR || '/data';
 const followupPhotosDir = path.join(DATA, 'followup-photos');
 const STARTED_AT = Date.now();
@@ -102,6 +108,24 @@ const PLATFORM_PROOF_ISSUANCE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_
 const PLATFORM_PROOF_EXCHANGE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_EXCHANGE_ENABLED || '');
 const PLATFORM_PROOF_RECONCILIATION_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROOF_RECONCILIATION_ENABLED || '');
 const PLATFORM_TRAINING_SUMMARY_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_TRAINING_SUMMARY_ENABLED || '');
+const PLATFORM_TRAINING_EVOLUTION_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_TRAINING_EVOLUTION_ENABLED || '');
+// Platform SSO + capability consumption: off unless explicitly enabled; enforcement is per user (legacy -> shadow -> enforced).
+const PLATFORM_INTEGRATION_CONFIG = parsePlatformIntegrationEnv(process.env);
+// Bilateral link lifecycle (activate / revoke) and idempotent provisioning from Platform: each is its own opt-in and needs Platform's service key.
+const PLATFORM_LINK_LIFECYCLE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_LINK_LIFECYCLE_ENABLED || '');
+const PLATFORM_PROVISIONING_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROVISIONING_ENABLED || '');
+const PLATFORM_SIGNALS_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_SIGNALS_ENABLED || '');
+// H13 assisted link activation (docs/H13_ASSISTED_LINK_ACTIVATION.md). OFF by default. The permission `platform_link_issue` is NOT the admin flag: only the ids listed
+// here hold it, and no route can change that list. The ledger key (>= 32 bytes of hex) is a service secret kept apart from every other key.
+const PLATFORM_ASSISTED_LINK_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_ASSISTED_LINK_ENABLED || '');
+const PLATFORM_LINK_ISSUERS = parseIssuers(process.env.PLATFORM_LINK_ISSUERS);
+  // A29: administrator promotion always requires a fresh passkey step-up. The only bypass is
+  // an explicit test-only staging fixture; NODE_ENV=production can never disable this guard.
+  const ADMIN_PROMOTION_STEP_UP = !(
+    process.env.NODE_ENV === 'test' &&
+    /^(1|true)$/i.test(process.env.STAGING_TEST_MODE || '') &&
+    /^(0|false)$/i.test(process.env.ADMIN_PROMOTION_STEP_UP || '')
+  );
 const PLATFORM_SERVICE_AUTH_KEYS = parseServiceAuthKeys(process.env.PLATFORM_SERVICE_AUTH_KEYS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
@@ -177,6 +201,7 @@ db.machineAliases = db.machineAliases || [];
 // different things — or at least isn't guaranteed not to — across different exporting apps.
 // { key, exerciseId, source, externalName, updatedAt }.
 db.importExerciseAliases = db.importExerciseAliases || [];
+// A Platform SSO session is member-level only: readSession gives it admin:false / trainer:false claims and refuses accounts listed in ADMIN_UIDS.
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
@@ -399,11 +424,16 @@ function cancelRestTimer(userId) {
   if (t) { clearTimeout(t); restTimers.delete(userId); }
 }
 
+// Outbound webhooks (member-owned, off unless WEBHOOKS_ENABLED=1). Own file under DATA_DIR; see api/webhooks/*.js and docs/WEBHOOKS_SECURITY_REVIEW.md.
+const webhookStore = createWebhookStore({ dataDir: DATA });
+const webhooks = createWebhookService({ store: webhookStore, enabled: process.env.WEBHOOKS_ENABLED === '1' });
+setStateWriteHook((uid, prev, next) => webhooks.onStateWritten(uid, prev, next));
+
 // Everything lib/account-erasure.js needs, in one place: the stores that hold a person's data.
 const erasureDeps = () => ({
   db, social, saveDb, saveSocial, readState, stateFile, uploadsDir, deleteUploadedImage,
   followupPhotosDir,
-  chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore, exerciseNotes,
+  chat: chatStore, friends: friendsStore, notifications: notificationStore, sharing: sharingStore, bunker: bunkerStore, exerciseNotes, webhooks: webhookStore,
   isStaff: isTrainer, clearCoach: coachJobs.clearUser,
   forgetRuntime: uid => { cancelRestTimer(uid); presence.delete(uid); userSummaries.forget(uid); dropScanJobsFor(uid); trainerJobs.forgetMember?.(uid); },
 });
@@ -552,7 +582,7 @@ function readSession(req) {
   if (!payload) return null;
   const [uid, exp, ver, authLevelRaw, field5, field6, field7, field8] = payload.split(':');
   if (!uid || +exp < Date.now()) return null;
-  if (authLevelRaw !== undefined && !['pin', 'passkey'].includes(authLevelRaw)) return null;
+  if (authLevelRaw !== undefined && !['pin', 'passkey', 'sso'].includes(authLevelRaw)) return null;
   const user = db.users.find(u => u.id === uid) || null;
   if (!user) return null;
   if (user.disabled) return null;           // disabled accounts are locked out everywhere
@@ -560,8 +590,9 @@ function readSession(req) {
   // payload (it still had to pass the HMAC, so this is belt-and-braces) and is refused outright.
   const claimed = ver === undefined ? 0 : Number(ver);
   if (!Number.isInteger(claimed) || claimed !== sessionVersion(user)) return null;
-  const authLevel = authLevelRaw === 'pin' ? 'pin' : 'passkey';
+  const authLevel = authLevelRaw === 'pin' ? 'pin' : authLevelRaw === 'sso' ? 'sso' : 'passkey';
   if (authLevelRaw === 'pin' && payload.split(':').length !== 8) return null;
+  if (authLevelRaw === 'sso' && (payload.split(':').length !== 6 || !Number.isSafeInteger(Number(field5)) || Number(field5) <= 0 || !field6)) return null;
   if (authLevelRaw === 'passkey' && field5 !== undefined && (!Number.isSafeInteger(Number(field5)) || Number(field5) <= 0)) return null;
   let claims = { authLevel, issuedAt: authLevelRaw ? Number(field5) || 0 : 0 };
   if (authLevelRaw === 'passkey' && field6 !== undefined) {
@@ -569,6 +600,14 @@ function readSession(req) {
     const record = db.deviceSessions.find(x => x.id === field6);
     if (!record || record.userId !== uid || record.revokedAt) return null;
     claims.sid = record.id;
+    if (Date.now() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_MS) { record.lastUsedAt = new Date().toISOString(); saveDb(); }
+  }
+  if (authLevel === 'sso') {
+    // Always backed by a revocable session record created by a Platform SSO redemption; never staff.
+    const record = db.deviceSessions.find(x => x.id === field6);
+    if (ADMIN_UIDS.includes(uid)) return null;            // environment-listed administrators never get an sso session
+    if (!record || record.userId !== uid || record.via !== 'sso' || record.revokedAt || record.expiresAt <= Date.now()) return null;
+    claims = { authLevel, issuedAt: Number(field5), sid: record.id, admin: false, trainer: false };
     if (Date.now() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_MS) { record.lastUsedAt = new Date().toISOString(); saveDb(); }
   }
   if (authLevel === 'pin') {
@@ -638,6 +677,21 @@ function newSession(req, user, { via = 'passkey', credId = null } = {}) {
   saveDb();   // the record must be on disk before the cookie that names it leaves, or a restart would sign everyone out
   return sessionCookie(user, { authLevel: 'passkey', exp: record.expiresAt, issuedAt: now, sid: record.id });
 }
+// A Platform SSO sign-in: a short-lived, revocable session record (via: 'sso'). It is member-level and never satisfies a passkey check.
+const SSO_SESSION_MS = 12 * 3600_000;
+function newSsoSession(req, user) {
+  const now = Date.now();
+  // One live sso session per person: a new sign-in retires the previous one, so repeated sign-ins never crowd out passkey sessions.
+  for (const old of db.deviceSessions) if (old.userId === user.id && old.via === 'sso' && !old.revokedAt) old.revokedAt = new Date(now).toISOString();
+  const record = {
+    id: crypto.randomBytes(9).toString('base64url'), userId: user.id, platform: deviceLabel(req.headers['user-agent']), via: 'sso',
+    createdAt: new Date(now).toISOString(), lastUsedAt: new Date(now).toISOString(), expiresAt: now + SSO_SESSION_MS,
+  };
+  db.deviceSessions.push(record);
+  pruneSessions(user.id);
+  saveDb();
+  return `gymsid=${makeSession(user, { authLevel: 'sso', exp: record.expiresAt, issuedAt: now, sid: record.id })}; Path=/; Max-Age=${SSO_SESSION_MS / 1000}; HttpOnly;${SECURE} SameSite=Lax`;
+}
 // Expired records go, long-revoked ones go, and one person never keeps more than SESSIONS_PER_PERSON (the oldest-used are dropped first).
 function pruneSessions(userId) {
   const now = Date.now();
@@ -693,7 +747,7 @@ function challengeGate(req, res) {
 // A fresh passkey assertion (user verification required) proves a person is still there. The token it earns is signed, bound to the person and
 // to one purpose, and lives five minutes: it gates the actions that would let a stolen session dig in (adding or removing a passkey).
 const STEP_UP_MS = 5 * 60_000;
-const STEP_UP_PURPOSES = ['passkeys', 'device-link'];
+const STEP_UP_PURPOSES = ['passkeys', 'device-link', 'platform-link-issue', 'admin-promote'];
 function stepUpToken(user, purpose) {
   const expiresAt = Date.now() + STEP_UP_MS;
   return { token: sign(`stepup.${user.id}:${expiresAt}:${purpose}`), expiresAt };
@@ -704,6 +758,17 @@ function stepUpValid(req, user, purpose) {
   if (!payload) return false;
   const [who, exp, p] = payload.split(':');
   return who === `stepup.${user.id}` && Number(exp) > Date.now() && p === purpose;
+}
+// A step-up for a high-impact action is spent by using it: the same token cannot authorise a second issuance.
+const spentStepUps = new Map();
+function consumeStepUp(req, user, purpose) {
+  if (!stepUpValid(req, user, purpose)) return false;
+  const token = String(req.headers['x-step-up']);
+  const now = Date.now();
+  for (const [spent, until] of spentStepUps) if (until <= now) spentStepUps.delete(spent);
+  if (spentStepUps.has(token)) return false;
+  spentStepUps.set(token, now + STEP_UP_MS + 1000);
+  return true;
 }
 function requireStepUp(req, res, user, purpose) {
   if (stepUpValid(req, user, purpose)) return true;
@@ -780,7 +845,7 @@ function requireSharedDevice(req, res) {
 function requireStrongAuth(req, res) {
   const user = readSession(req);
   if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
-  if (user.authLevel === 'pin' && !(user.strongUntil > Date.now())) {
+  if (user.authLevel === 'sso' || (user.authLevel === 'pin' && !(user.strongUntil > Date.now()))) {
     json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'passkey_required' }); return null;
   }
   return user;
@@ -1027,7 +1092,32 @@ function memberFor(res, staff, memberId, notFound) {
 }
 // Coach & Seguimiento PRO V3 (api/lib/coach-followup-routes.js): staff-only, all-member trainer scope, roster-side private data.
 const coachDeps = { db, json, readBody, requireTrainer, requireAdmin, isAdmin, isTrainer, saveDb, readState, encryptAtRest, decryptAtRest, info: FOLLOWUP_PRIVATE_CRYPTO_INFO, ai: followUpAI, cycleView };
+// Optional explicit list of the reverse proxies in front of the API (see bunker/rate-limit.js). Unset keeps the legacy "private peer" rule; an invalid value stops the start-up.
+setTrustedProxies(parseTrustedProxies(process.env.TRUSTED_PROXIES));
+const ssoLimiter = new AttemptLimiter({ limit: 20, windowMs: 60000, blockMs: 60000 });
+const platformIntegration = createPlatformIntegration({
+  config: PLATFORM_INTEGRATION_CONFIG, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer,
+  proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession, secureCookie: SECURE !== '', isEnvAdmin: id => ADMIN_UIDS.includes(id),
+  // Its own limiter: SSO failures must never lock people out of passkey login, nor an SSO success reset the login limiter.
+  rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
+});
+const assistedLink = createAssistedLink({
+  config: { enabled: PLATFORM_ASSISTED_LINK_ENABLED, issuers: PLATFORM_LINK_ISSUERS, ledgerFile: path.join(DATA, 'platform-link-ledger.jsonl'), ledgerKey: process.env.PLATFORM_LINK_LEDGER_KEY || '' },
+  db, saveDb, json, readBody, requireStaff: requireTrainer, requirePasskeySession,
+    store: platformProofStore,
+  stepUp: { valid: (req, user) => stepUpValid(req, user, ASSIST_STEP_UP), consume: (req, user) => consumeStepUp(req, user, ASSIST_STEP_UP) },
+});
+if (PLATFORM_ASSISTED_LINK_ENABLED && !PLATFORM_LINK_ISSUERS.length) console.warn('[platform-link] assisted activation is enabled but PLATFORM_LINK_ISSUERS is empty: nobody can issue');
+const platformLinkRoutes = createPlatformLinkRoutes({
+  assisted: assistedLink,
+  config: { lifecycleEnabled: PLATFORM_LINK_LIFECYCLE_ENABLED, provisioningEnabled: PLATFORM_PROVISIONING_ENABLED, signalsEnabled: PLATFORM_SIGNALS_ENABLED },
+  db, saveDb, secEvent, json, store: platformProofStore, serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
+  revokeSsoSessions: platformIntegration.revokeSsoSessions, applySignal: platformIntegration.applySignal, generateUsername,
+});
 const routes = {
+  ...platformIntegration.routes,
+  ...platformLinkRoutes,
+  ...assistedLink.routes,
   ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
   ...coachFollowUpRoutes(coachDeps),
   ...followUpV2Routes({ db, json, readBody, readSession, requireAdmin, requireTrainer, isAdmin, isTrainer, saveDb, readState, dataDir: DATA, followupPhotosDir,
@@ -1047,11 +1137,12 @@ const routes = {
     dummyPin: DUMMY_STAFF_PIN, saveDb
   }),
   ...createPlatformProofRoutes({
-    json, readSession, store: platformProofStore, users: () => db.users, readState,
+    json, readSession, store: platformProofStore, users: () => db.users, readState, stateFingerprint,
     issuanceEnabled: PLATFORM_PROOF_ISSUANCE_ENABLED,
     exchangeEnabled: PLATFORM_PROOF_EXCHANGE_ENABLED,
     reconciliationEnabled: PLATFORM_PROOF_RECONCILIATION_ENABLED,
     trainingSummaryEnabled: PLATFORM_TRAINING_SUMMARY_ENABLED,
+    trainingEvolutionEnabled: PLATFORM_TRAINING_EVOLUTION_ENABLED,
     serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
   }),
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
@@ -1608,7 +1699,14 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const op = await readBody(req);
     if (op.owner && op.owner !== user.id) return json(res, 403, { error: 'La cuenta cambió', code: 'SYNC_ACCOUNT_CHANGED' });
-    try { json(res, 200, mutate(user.id, op)); }
+    // The same route writes free personal content and paid subtrees: authorize the CONTENT (platform-sso/state-policy.js), not just the route.
+    let platformStripped = [];
+    if (['save', 'replace', 'reset'].includes(op.type) && op.state) {
+      const verdict = await platformIntegration.authorizeStateWrite(user, op.state, readState(user.id));
+      if (verdict.denied.length) return json(res, 403, { error: 'tu cuenta no tiene acceso a esta función', code: 'capability_required', capabilities: verdict.denied.map(item => item.capability), scopes: verdict.denied.map(item => item.scope) });
+      op.state = verdict.state; platformStripped = verdict.stripped;
+    }
+    try { json(res, 200, platformStripped.length ? { ...mutate(user.id, op), platformStripped } : mutate(user.id, op)); }
     catch (e) {
       if (e.status === 409) return json(res, 409, { error: e.message, code: e.code, ...openSync(user.id) });
       throw e;
@@ -1649,8 +1747,13 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
-    if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'se requiere el estado' });
+    if (!body.state || typeof body.state !== 'object' || Array.isArray(body.state)) return json(res, 400, { error: 'se requiere el estado' });
     delete body.state.active;              // the client never has authority over this field
+    {
+      const verdict = await platformIntegration.authorizeStateWrite(user, body.state, readState(user.id));
+      if (verdict.denied.length) return json(res, 403, { error: 'tu cuenta no tiene acceso a esta función', code: 'capability_required', capabilities: verdict.denied.map(item => item.capability), scopes: verdict.denied.map(item => item.scope) });
+      body.state = verdict.state;
+    }
     // A normal push still never lets the client SET `active` — but until now it also wiped
     // whatever the server already had there, because this write replaces the whole state file.
     // That silently erased a session the Bunker (or a V3.1-B handoff) had put there, the moment
@@ -2110,7 +2213,15 @@ const routes = {
     const body = await readBody(req);
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'ese usuario no existe' });
-    const r = changeRole(admin, u, String(body.role || ''));
+    const role = String(body.role || '');
+    // Promoting somebody to administrator is the step that would let a stolen admin session dig in: it needs the admin's own fresh passkey, spent by this very use.
+    const promoting = role === 'admin' && !isAdmin(u);
+    if (promoting && ADMIN_PROMOTION_STEP_UP) {
+      if (!stepUpValid(req, admin, 'admin-promote')) return json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
+      if (!consumeStepUp(req, admin, 'admin-promote')) return json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
+    }
+    const r = changeRole(admin, u, role);
+    if (r.status === 200 && promoting) { assistedLink.noteAdminPromotion(admin.id, u.id); saveDb(); }
     json(res, r.status, r.body);
   },
 
@@ -3471,6 +3582,7 @@ const routes = {
       : { snapshot: { name: p.name, emoji: p.emoji, routines: p.routines, daysPerWeek: p.daysPerWeek }, meta };
   }, users: () => db.users, isAdmin, resolveTarget: resolveShareTarget, canShareWith: (ownerId, viewerId, kind) => canViewSocialShare({ id: viewerId }, ownerId, kind === 'record' ? 'pr' : ['routine', 'program'].includes(kind) ? 'routine' : ['achievement', 'streak'].includes(kind) ? 'achievement' : kind), resolveReported: resolveReportedContent, removeReported: removeReportedContent, notify: notificationStore.create, sendPush: (uid, payload, type) => sendSocialPush(uid, payload, type) }),
   ...notificationRoutes({ json, readBody, readSession }),
+  ...webhookRoutes({ json, readBody, readSession, store: webhookStore, service: webhooks }),
 
   /* ---------- Bunker (gym-floor kiosk) ---------- */
   // Its own data/bunker.json (PINs, admin codes, room settings) — see bunker/store.js's doc
@@ -3480,6 +3592,7 @@ const routes = {
   ...bunkerRoutes({
     audit: (actorId, kind, userId, meta) => { secEvent('admin_action', { userId: userId || null, actorId, meta: { kind, ...meta } }); saveDb(); },
     json, readBody, readSession, sign, verifySig, isTrainer, users: () => db.users,
+    memberGate: (user, names) => platformIntegration.memberGate(user, names),
     registerInactivitySweep: sweep => {
       // Independent deadlines live in each persisted active workout, never in this tick.
       setTimeout(sweep, 0).unref();
@@ -3508,6 +3621,10 @@ const routes = {
   ...newsRoutes({ json, readBody, readSession, requireAdmin, saveImage: saveUploadedImage, deleteImage: deleteUploadedImage })
 };
 
+// Route-table dump for the security review (scripts/route-matrix.mjs and the route-classification test): print the keys of the EFFECTIVE router and exit
+// before anything listens or runs. Run it against an empty temporary DATA_DIR.
+if (process.env.DUMP_ROUTES === '1') { process.stdout.write(JSON.stringify(Object.keys(routes)) + String.fromCharCode(10)); process.exit(0); }
+
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */
 // A job that was running when the process died is not coming back; say so rather than leaving
 // a spinner that never resolves.
@@ -3526,7 +3643,7 @@ coachJobs.setProposalHook((uid, pending) => {
 });
 startCadence({ users: () => db.users, userNow });
 
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const key = req.method + ' ' + url.pathname;
   const handler = routes[key];
@@ -3534,6 +3651,16 @@ http.createServer(async (req, res) => {
   const gate = featureOfRoute(url.pathname);
   if (gate && !featuresStore.isOn(gate)) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
   if (requiresStrongAuth(key) && !requireStrongAuth(req, res)) return;
+  try { if (!(await platformIntegration.gate(req, res, key))) return; }
+  catch (e) {
+    console.error('platform gate', key, e);
+    if (res.headersSent) return;
+    // A failure of the integration must never take access away from a historical (legacy) user or an anonymous caller: only users who opted in to
+    // Platform enforcement fail closed.
+    let legacyOrAnonymous = true;
+    try { const who = readSession(req); legacyOrAnonymous = gateFailureMayProceed(who); } catch { legacyOrAnonymous = true; }
+    if (!legacyOrAnonymous) return json(res, 503, { error: 'servicio no disponible', code: 'platform_gate_unavailable' });
+  }
   try { await handler(req, res); }
   catch (e) {
     console.error(key, e);
@@ -3548,4 +3675,5 @@ http.createServer(async (req, res) => {
       if (actor && isAdmin(actor)) { const d = describeAction(rule, req._body); secEvent('admin_action', { userId: d.userId, actorId: actor.id, meta: d.meta }); saveDb(); }
     } catch (e) { console.error('admin audit', key, e); }
   }
-}).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));
+});
+server.listen(PORT, () => console.log(`gym-api on :${server.address().port} (rpID=${RP_ID}, origin=${ORIGIN})`));

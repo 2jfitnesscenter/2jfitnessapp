@@ -1,6 +1,9 @@
 import { workoutInactive, inactivityFinishMetadata, workoutActivityKey } from './lib/workout-activity.js'
 import { replaceWorkoutEntries, setWorkoutExcluded, reconcileExerciseWeightCache } from './lib/workout-edit.js'
 import { trackedWeightFor } from './lib/history.js'
+import { exResolverOf, mergedAwayIds } from './lib/exercise-merge.js'
+import { exerciseMergeSheet } from './components/ExerciseMerge.jsx'
+import { repeatableRoutineId } from './lib/repeat-workout.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { uxOn, allowedByAdmin } from './lib/features.js'
 import { useStore } from './store/useStore.js'
@@ -50,7 +53,7 @@ import './components/actions-sheet.css'
 import { premiumEntries } from './lib/premium-session.js'
 import { premiumProgramName, premiumScheduleText } from './lib/premium-text.js'
 import { originOf } from './lib/premium-model.js'
-import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC } from './lib/progression.js'
+import { buildRoutineEntries, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC, TRIPLE_EXTRA_SETS } from './lib/progression.js'
 import { guidedBlocksOf, buildSteps, summarize } from './lib/guided.js'
 import { completeGuidedProgramSession } from './lib/guided-programs.js'
 import { routineSnapshot } from './lib/train2j.js'
@@ -74,6 +77,7 @@ import { exportWorkout as exportWorkoutToHealth } from './lib/health-bridge.js'
 import { scheduleEnergy, runEnergyReconcile, GRACE_MS } from './lib/energy-reconcile.js'
 import { fetchRoutineVersions, fetchProgramVersions } from './lib/trainer-api.js'
 import { previewExpressSession, shortenExpressWarmups, weekReorderSuggestion, applyWeekReorder, movedFromForDate, clearRescheduleAtDate, sessionHistoryMetadata } from './lib/session-adaptation.js'
+import { dayNoteOf, setDayNote, DAY_NOTE_MAX } from './lib/day-plan.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -781,6 +785,7 @@ function ExerciseDetail({ ex, close }) {
       <Button icon="pencil" style={{ flex: 1 }} onClick={() => { close(); customExSheet(ex) }}>{t('Edit')}</Button>
       <Button variant="danger" icon="trash" style={{ flex: 1 }} onClick={() => deleteCustomEx(ex, close)}>{t('Delete')}</Button>
     </div>}
+    {!mergedAwayIds(st).includes(ex.id) && <Button icon="link" style={{ marginTop: 8 }} onClick={() => { close(); exerciseMergeSheet() }}>{t('Fusionar con…')}</Button>}
     {variants.length > 0 && <>
       <h4 className="sec">{t('Variants')}</h4>
       <div className="list" style={{ marginBottom: 10 }}>
@@ -952,10 +957,11 @@ export const scanMachineSheet = onPick => ui().openSheet(close => <ScanMachineSh
 
 /* ============================ exercise picker ============================ */
 // Exercises already used in your routines or past workouts (for the "Chosen" filter + a marker).
+// Counted under the resolved exercise, so a merged-away id's uses count for its target (lib/exercise-merge.js).
 function usageMap(st) {
-  const u = {}
-  st.routines.forEach(r => r.ex.forEach(e => { u[e.id] = (u[e.id] || 0) + 1 }))
-  st.workouts.forEach(w => w.entries.forEach(e => { u[e.id] = (u[e.id] || 0) + 1 }))
+  const u = {}, R = exResolverOf(st)
+  st.routines.forEach(r => r.ex.forEach(e => { const id = R(e.id); u[id] = (u[id] || 0) + 1 }))
+  st.workouts.forEach(w => w.entries.forEach(e => { const id = R(e.id); u[id] = (u[id] || 0) + 1 }))
   return u
 }
 // Exported (not just the sheet-opener below) so the desktop trainer panel can render it inline
@@ -1240,6 +1246,11 @@ function ProgressionFields({ ex, mode, c, setC, routine, unit }) {
       {active === 'pct1rm' && <Stepper label={t('Target RIR')} value={c.targetRIR != null ? c.targetRIR : 2}
         step={0.5} onChange={v => setC(x => ({ ...x, targetRIR: v }))} />}
     </div>}
+    {active === 'double' && <div className="row between" style={{ padding: '10px 2px', marginBottom: 18, gap: 12 }}>
+      <div><div className="tt" style={{ fontSize: 15 }}>{t('Triple progression')}</div>
+        <div className="small dim">{t('Add up to {0} extra sets at the top of the range before adding load.', TRIPLE_EXTRA_SETS)}</div></div>
+      <Switch checked={!!c.triple} onChange={v => setC(x => ({ ...x, triple: v || undefined }))} />
+    </div>}
   </>
 }
 
@@ -1277,6 +1288,8 @@ function ExConfig({ ex, existing, onSave, onDelete, close, routine }) {
       const out = { sets, mode: 'reps', reps, weight: Math.max(0, c.weight || 0), ...prog }
       if (repsRange) { out.targetRepsMin = repsMin; out.targetRepsMax = repsMax }
       if (policyFor({ ...c, id: ex.id }, routine, 'reps') === 'double') out.repsMin = Math.min(reps, Math.max(1, Math.round(c.repsMin) || Math.max(1, reps - 2)))
+      // Off by default: only written when switched on, so existing plans are byte-for-byte the same.
+      if (c.triple && policyFor({ ...c, id: ex.id }, routine, 'reps') === 'double') out.triple = true
       if (c.targetZone) out.targetZone = Number(c.targetZone)
       onSave(out)
     }
@@ -1544,6 +1557,12 @@ function DayOverride({ iso, close }) {
   const weeklyR = st.routines.find(r => r.id === activeWeek(st)[wd])
   const hasOvr = st.dayPlan[iso] !== undefined
   const effId = effectiveRoutineId(st, iso)
+  const [noteText, setNoteText] = useState(() => dayNoteOf(st, iso) || '')
+  const saveNote = value => {
+    update(s => { s.dayNotes = setDayNote(s.dayNotes, iso, value) })
+    setNoteText(value.trim().slice(0, DAY_NOTE_MAX).trim())
+    toast(value.trim() ? t('Reason saved') : t('Reason removed'))
+  }
   const set = v => {
     update(s => {
       s.dayPlan = clearRescheduleAtDate(s.dayPlan, iso)
@@ -1556,6 +1575,17 @@ function DayOverride({ iso, close }) {
     <h3>{fmtDate(iso, true)}</h3>
     <DayHealthSummary d={iso} S={st} />
     <div className="muted small" style={{ marginBottom: 12 }}>{t('Weekly plan:')} {weeklyR ? weeklyR.name : t('Rest')}{hasOvr && <span style={{ color: 'var(--orange)' }}> · {t('changed for this day')}</span>}<br />{t('Sick, missed a day or want a different session? Pick what to train instead.')}</div>
+    {iso < todayISO() && <div className="card" style={{ marginBottom: 12 }}>
+      <div className="tt">{t('Reason for a missed day')}</div>
+      <div className="muted small" style={{ marginTop: 4 }}>{t('Optional. A day with a reason is not counted as a missed workout.')}</div>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+        {['Sick', 'Travelling', 'Injured'].map(reason => <Button key={reason} size="sm" variant={noteText === reason ? 'primary' : 'plain'} onClick={() => saveNote(reason)}>{t(reason)}</Button>)}
+      </div>
+      <div className="row" style={{ gap: 6, marginTop: 8 }}>
+        <TextField className="grow" maxLength={DAY_NOTE_MAX} value={noteText} placeholder={t('Other reason')} onChange={e => setNoteText(e.target.value)} />
+        <Button size="sm" onClick={() => saveNote(noteText)}>{t('Save')}</Button>
+      </div>
+    </div>}
     {iso <= todayISO() && <div className="list" style={{ marginBottom: 12 }}>
       <div className="item" onClick={() => { close(); pastWorkoutSheet(iso) }}>
         <span className="lrow-i" style={{ background: 'var(--surface-3)' }}><Icon name="history" /></span>
@@ -1802,6 +1832,15 @@ function WorkoutDetail({ w: w0, close }) {
     })}
     {!editing && <div className="row" style={{ flexWrap: 'wrap', marginBottom: 10 }}>
       <Button variant="ghost" onClick={() => { setDraft(w.entries.map(e => ({ ...e, sets: (e.sets || []).map(s => ({ ...s })) }))); setEditing(true) }}>{t('Edit workout')}</Button>
+      {repeatableRoutineId(st, w) && <Button variant="ghost" icon="play" onClick={() => {
+        // Same routine, started today. An unfinished workout already in progress comes first.
+        const routineId = repeatableRoutineId(S(), w)
+        if (!routineId) { toast(t('This routine no longer exists')); return }
+        close()
+        if (S().active) { confirmSheet({ title: t('You have a workout in progress'), message: t('Finish or discard it before starting another one.'), confirmText: t('Go to the workout'), onConfirm: () => nav('/workout') }); return }
+        startFlow(routineId)
+      }}>{t('Repeat today')}</Button>}
+      {!MOBILE && <Button variant="ghost" icon="download" onClick={() => exportWorkoutFit(w, st.unit)}>{t('Export FIT')}</Button>}
       <Button variant="ghost" onClick={() => confirmSheet({ title: t(w.excludeFromProgression === true ? 'Include in progression?' : 'Exclude from progression?'), message: t('This changes performance metrics only. The workout stays in history and attendance.'), confirmText: t(w.excludeFromProgression === true ? 'Include' : 'Exclude'), onConfirm: () => { update(s => { s.workouts = setWorkoutExcluded(s.workouts, w.id, w.excludeFromProgression !== true); s.exWeights = reconcileExerciseWeightCache(s.exWeights, s.workouts, w) }); toast(t('Workout updated')) } })}>{t(w.excludeFromProgression === true ? 'Include in progression' : 'Exclude from progression')}</Button>
     </div>}
     <Button variant="danger" onClick={() => confirmSheet({ title: t('Delete workout?'), message: t('This removes it from your history for good.'), confirmText: t('Delete'), danger: true, onConfirm: () => {
@@ -1815,6 +1854,20 @@ function WorkoutDetail({ w: w0, close }) {
   </>
 }
 export const workoutDetailSheet = w => ui().openSheet(close => <WorkoutDetail w={w} close={close} />)
+
+// Plain browser download of one finished workout as a Garmin-compatible FIT file. The encoder
+// is loaded on demand (lib/fit-export.js) so it stays out of the main bundle.
+async function exportWorkoutFit(w, unit) {
+  try {
+    const { buildWorkoutFit, fitFileName } = await import('./lib/fit-export.js')
+    const offsetMin = -new Date(w.start || Date.now()).getTimezoneOffset()
+    const bytes = buildWorkoutFit(w, { unit, tzOffsetMinutes: offsetMin })
+    const blob = new Blob([bytes], { type: 'application/octet-stream' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fitFileName(w); a.click(); URL.revokeObjectURL(a.href)
+  } catch (e) {
+    toast(e?.code === 'FIT_NO_SETS' ? t('This workout has no strength sets to export') : t('Could not export the workout'))
+  }
+}
 
 /* ============================ calendar ============================ */
 function Calendar({ start, close }) {
@@ -2254,6 +2307,8 @@ function ExerciseMenu({ ex, entry, close, actions }) {
       <Row icon="chartLine" iconTint="var(--purple)" title={t('Change rep progression')} onClick={act(actions.onProgression)} />
       <Row icon="link" iconTint="var(--teal)" title={entry.sg ? t('Leave superset') : t('Add to superset')} onClick={act(actions.onSuperset)} />
       <Row icon="arrowDown" iconTint="var(--blue)" title={entry.dropset ? t('Remove dropset') : t('Add dropset')} onClick={act(actions.onDropsetToggle)} />
+      <Row icon="arrowDown" iconTint="var(--blue)" title={entry.backoff ? t('Remove back-off sets') : t('Add back-off sets')} onClick={act(actions.onBackoffToggle)} />
+      <Row icon="chartLine" iconTint="var(--blue)" title={entry.pyramid ? t('Remove pyramid sets') : t('Add pyramid sets')} onClick={act(actions.onPyramidToggle)} />
       <Row icon="play" iconTint="var(--pink)" title={t('Video and instructions')} onClick={act(() => exerciseDetailSheet(ex))} />
       <Row icon="history" iconTint="var(--green)" title={t('Exercise history')} onClick={act(() => nav('/stats?ex=' + ex.id))} />
       <Row icon="clipboard" iconTint="var(--yellow)" title={t('Routine notes')} onClick={act(actions.onNotes)} />

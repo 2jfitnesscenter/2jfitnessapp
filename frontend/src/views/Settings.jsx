@@ -25,6 +25,7 @@ import DeleteAccountSheet from '../components/DeleteAccountSheet.jsx'
 import { api } from '../lib/api.js'
 import './experience.css'
 import Icon from '../components/Icon.jsx'
+import GymReminderCard from '../components/GymReminderCard.jsx'
 import { Section, Row as RowBase, SelectRow as SelectRowBase, Switch, Segmented, Button, Avatar } from '../components/ui.jsx'
 import PrivacySummary from '../components/PrivacySummary.jsx'
 import { bridgeState, getBridge, platformLabel } from '../lib/health-bridge.js'
@@ -303,6 +304,7 @@ export default function Settings() {
     {/* ---------- 6. notifications ---------- */}
     {(user || MOBILE) && <h3 className="set-grp">{t('Notifications')}<span>{t('Alerts and reminders')}</span></h3>}
     {(user || MOBILE) && <NotificationsCard S={S} update={update} toast={toast} />}
+    {(user || MOBILE) && <GymReminderCard />}
 
     {/* ---------- 7. data: your copy, in and out ---------- */}
     <h3 className="set-grp">{t('Data')}<span>{t('Your information is yours')}</span></h3>

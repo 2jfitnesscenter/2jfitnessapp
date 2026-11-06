@@ -34,7 +34,7 @@ const users = () => ({ find: () => ({ disabled: false }) });
 const routes = bunkerRoutes({
   json: (res, status, body) => { res.status = status; res.body = body; },
   readBody: async req => req._body,
-  readSession: () => currentUser,
+  readSession: req => req._user ?? currentUser,
   sign, verifySig,
   users,
   isTrainer: () => false,
@@ -43,8 +43,7 @@ const handoff = routes['POST /api/bunker/handoff'];
 const getSession = routes['GET /api/bunker/session'];
 
 async function callHandoff(user, active, force) {
-  currentUser = user;
-  const req = { headers: {}, _body: { active, force } };
+  const req = { headers: {}, _user: user, _body: { active, force } };
   const res = {};
   await handoff(req, res);
   return res;
@@ -137,8 +136,11 @@ test('multiuser isolation: two handoffs in parallel never cross uids', async () 
   const uidA = 'u_handoff_multi_a', uidB = 'u_handoff_multi_b';
   writeState(process.env.DATA_DIR, uidA, baseState());
   writeState(process.env.DATA_DIR, uidB, baseState());
-  const activeA = sampleActive('sess-a', { name: 'Sesion de A', entries: [{ id: '0025', target: {}, plan: {}, sets: [{ w: 111, r: 1, done: true }] }] });
-  const activeB = sampleActive('sess-b', { name: 'Sesion de B', entries: [{ id: '0007', target: {}, plan: {}, sets: [{ w: 222, r: 1, done: true }] }] });
+  // The session IDs intentionally contain the old numeric substring sentinels. Those values
+  // belong to each user's own record, so isolation must be asserted structurally rather than by
+  // searching serialized JSON for arbitrary digit sequences.
+  const activeA = sampleActive('sess-a-222', { name: 'Sesion de A', entries: [{ id: '0025', target: {}, plan: {}, sets: [{ w: 111, r: 1, done: true }] }] });
+  const activeB = sampleActive('sess-b-111', { name: 'Sesion de B', entries: [{ id: '0007', target: {}, plan: {}, sets: [{ w: 222, r: 1, done: true }] }] });
 
   await Promise.all([
     callHandoff({ id: uidA }, activeA),
@@ -146,11 +148,8 @@ test('multiuser isolation: two handoffs in parallel never cross uids', async () 
   ]);
 
   const SA = readState(uidA), SB = readState(uidB);
-  assert.deepEqual(SA.active, activeA);
-  assert.deepEqual(SB.active, activeB);
-  const rawA = JSON.stringify(SA), rawB = JSON.stringify(SB);
-  assert.ok(!rawA.includes('sess-b') && !rawA.includes('"0007"') && !rawA.includes('222'));
-  assert.ok(!rawB.includes('sess-a') && !rawB.includes('"0025"') && !rawB.includes('111'));
+  assert.deepEqual(SA, baseState({ active: activeA }), 'A must contain only A\'s complete state');
+  assert.deepEqual(SB, baseState({ active: activeB }), 'B must contain only B\'s complete state');
 });
 
 test('an idle-expired Bunker session is purged by clearActive itself, without a board poll', async () => {

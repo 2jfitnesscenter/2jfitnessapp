@@ -39,7 +39,11 @@ export async function generateWithRepair(o) {
       const errorClass = f.cancelled ? 'cancelled'
         : (f.transient || f.budget) && f.errorClass !== 'timeout' ? 'unavailable'
         : f.errorClass === 'empty' ? 'provider' : f.errorClass;
-      return { ok: false, provider: true, errorClass, detail: [f.status, String(r.stderr || '').replace(/\s+/g, ' ').slice(0, 160)].filter(Boolean).join(' ') || null };
+      return {
+        ok: false, provider: true, errorClass,
+        detail: [f.status, String(r.stderr || '').replace(/\s+/g, ' ').slice(0, 160)].filter(Boolean).join(' ') || null,
+        attempts: r.attempts || 0, timeoutCount: r.timeoutCount || 0, usedFallback: !!r.usedFallback
+      };
     }
 
     onPhase?.('validating');

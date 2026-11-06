@@ -5,6 +5,7 @@
  * data directory and signs session cookies the way the server does. */
 import crypto from 'node:crypto'
 import fs from 'node:fs'
+import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
@@ -51,13 +52,46 @@ export class Authenticator {
 }
 
 /** Boots server.js on `port` over a fresh data directory seeded with `db`. */
-export async function bootServer({ port, db, secret = 'f'.repeat(64), env = {} }) {
+async function reserveEphemeralPort() {
+  const server = net.createServer()
+  server.unref()
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+  const { port } = server.address()
+  await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+  return port
+}
+
+export async function bootServer({ port = 0, db, secret = 'f'.repeat(64), env = {} }) {
+  if (port === 0) port = await reserveEphemeralPort()
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mi2j-'))
   fs.writeFileSync(path.join(dataDir, 'secret'), secret, { mode: 0o600 })
   fs.writeFileSync(path.join(dataDir, 'db.json'), JSON.stringify({ subs: [], invites: [], recoveries: [], ...db }))
   const base = `http://localhost:${port}`
-  const child = spawn(process.execPath, ['server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, RP_ID: 'localhost', ORIGIN: base, ...env }, stdio: ['ignore', 'ignore', 'ignore'] })
-  for (let i = 0; i < 80; i++) { try { if ((await fetch(base + '/api/health')).ok) break } catch { /* starting */ } await new Promise(r => setTimeout(r, 100)) }
+  const stderr = []
+  const child = spawn(process.execPath, ['server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, RP_ID: 'localhost', ORIGIN: base, ...env }, stdio: ['ignore', 'ignore', 'pipe'] })
+  child.stderr.setEncoding('utf8')
+  child.stderr.on('data', chunk => {
+    stderr.push(chunk)
+    while (stderr.join('').length > 8192) stderr.shift()
+  })
+  let ready = false
+  let lastReadinessError = 'health endpoint did not return HTTP 200'
+  for (let i = 0; i < 80; i++) {
+    if (child.exitCode !== null) break
+    try {
+      const response = await fetch(base + '/api/health', { signal: AbortSignal.timeout(250) })
+      if (response.ok) { ready = true; break }
+      lastReadinessError = `health endpoint returned HTTP ${response.status}`
+    } catch (error) { lastReadinessError = error.message }
+    await new Promise(r => setTimeout(r, 100))
+  }
+  if (!ready) {
+    child.kill()
+    throw new Error(`Test API server failed readiness at ${base}: exit=${child.exitCode ?? 'running'}; ${lastReadinessError}; stderr=${stderr.join('').slice(-8192)}`)
+  }
   const readDb = () => JSON.parse(fs.readFileSync(path.join(dataDir, 'db.json'), 'utf8'))
   const req = (method, route, body, cookie = '', headers = {}) => fetch(base + route, { method, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}), ...headers }, body: method === 'GET' ? undefined : JSON.stringify(body || {}) })
   const post = (route, body, cookie, headers) => req('POST', route, body, cookie, headers)
@@ -67,6 +101,12 @@ export async function bootServer({ port, db, secret = 'f'.repeat(64), env = {} }
     const p = [uid, Date.now() + 86_400_000, version, ...extra].join(':')
     return 'gymsid=' + p + '.' + crypto.createHmac('sha256', secret).update(p).digest('base64url')
   }
-  const stop = () => { child.kill() }
+  const stop = () => new Promise(resolve => {
+    if (child.exitCode !== null || child.signalCode !== null) { resolve(); return }
+    const timer = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL') }, 1000)
+    timer.unref()
+    child.once('exit', () => { clearTimeout(timer); resolve() })
+    child.kill()
+  })
   return { base, dataDir, readDb, post, get, cookieFor, stop, origin: base, dbFile: path.join(dataDir, 'db.json') }
 }

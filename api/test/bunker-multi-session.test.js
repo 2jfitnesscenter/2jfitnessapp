@@ -114,8 +114,11 @@ test('alternating writes (A -> B -> A -> B) never mix S.active between the two a
   const SA = readState('u_alice'), SB = readState('u_bob');
   assert.equal(SA.active.id, 'wA');
   assert.equal(SB.active.id, 'wB');
-  assert.ok(!JSON.stringify(SA).includes('0007'));
-  assert.ok(!JSON.stringify(SB).includes('0025'));
+  // Check the active workout payload itself. Searching a serialization of the whole account
+  // state for a raw exercise ID can match unrelated fields and says nothing about active-state
+  // isolation; compare the owner-specific entries instead.
+  assert.deepEqual(SA.active.entries, activeA.entries, 'Alice must retain only Alice\'s active entries');
+  assert.deepEqual(SB.active.entries, activeB.entries, 'Bob must retain only Bob\'s active entries');
 });
 
 test('A finishing drops A off the board while B stays checked in, untouched', async () => {

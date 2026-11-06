@@ -9,7 +9,7 @@ import { bootServer } from './webauthn-helper.mjs'
 /* Official catalogue history: the version an admin replaces is kept (ten per item, only real content changes, no merchandising), can be listed
  * by admins only, and is put back through the normal validated save path. */
 const srv = await bootServer({
-  port: 34814,
+  port: 0,
   db: { users: [{ id: 'm1', name: 'Member' }, { id: 't1', name: 'Trainer', trainer: true }, { id: 'ad', name: 'Admin', admin: true }], creds: [] },
 })
 after(() => srv.stop())
@@ -32,6 +32,17 @@ test('a content edit keeps the version it replaced; an unchanged re-save, and cu
   assert.equal((await versions(master.id)).length, 1, 'featured / badge / order are merchandising, not content')
   assert.equal((await save('Second edit')).status, 200)
   assert.equal((await versions(master.id)).length, 2)
+})
+
+test('the API test harness starts parallel instances on independent ephemeral ports', async () => {
+  const second = await bootServer({ port: 0, db: { users: [{ id: 'second', name: 'Second' }], creds: [] } })
+  try {
+    assert.notEqual(second.base, srv.base)
+    assert.equal((await fetch(`${srv.base}/api/health`)).status, 200)
+    assert.equal((await fetch(`${second.base}/api/health`)).status, 200)
+  } finally {
+    await second.stop()
+  }
 })
 
 test('restoring a version puts the content back and keeps the version it replaced', async () => {

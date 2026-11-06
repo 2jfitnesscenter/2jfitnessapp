@@ -1,5 +1,11 @@
 # Changelog
 
+### Catálogo de openGym — paso 1, solo datos (rama, NO desplegado)
+
+- Se añaden 4.036 ejercicios de openGym (commit `8fb98b16`, AGPL-3.0) con nombre en español, sin imágenes ni animaciones. Los 1.324 existentes no cambian (lo verifica un test sobre el texto del fichero base). Ver `docs/OPENGYM_CATALOGUE_IMPORT.md`.
+- El Coach no recibe los importados (`ext`); la búsqueda los muestra después de los resultados que ya existían.
+- 272 ejercicios quedan retenidos por nombre repetido, material sin equivalente o decisión previa; requieren decisión del propietario.
+
 ### IA — fiabilidad (candidato, NO desplegado)
 
 - Capa común de reintentos para Coach, IA del entrenador y los tres escaneos: backoff exponencial con jitter, `Retry-After`, presupuesto de llamadas y tiempo, cancelación, y modelo de respaldo opcional. Los errores 503/429/timeout dejan de verse: solo aparece un mensaje claro cuando se agota el presupuesto.

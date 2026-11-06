@@ -79,9 +79,10 @@ describe('loadOf — the same weighting carried through to set counts', () => {
 
 describe('muscleOptsOf', () => {
   it('reads the two profile settings, defaulting a missing countSecondaryMuscles to on', () => {
-    expect(muscleOptsOf({})).toEqual({ countSecondary: true, secondaryFactor: undefined })
+    // `resolve` is the merged-exercise resolver (lib/exercise-merge.js): every volume reader gets the target muscles through it
+    expect(muscleOptsOf({})).toEqual({ countSecondary: true, secondaryFactor: undefined, resolve: expect.any(Function) })
     expect(muscleOptsOf({ countSecondaryMuscles: false, secondaryMuscleFactor: 0.25 }))
-      .toEqual({ countSecondary: false, secondaryFactor: 0.25 })
+      .toEqual({ countSecondary: false, secondaryFactor: 0.25, resolve: expect.any(Function) })
   })
   it('a real profile (DEF’s own default of 0.5) feeds straight into musclesOf', () => {
     const opts = muscleOptsOf({ secondaryMuscleFactor: DEFAULT_SECONDARY_FACTOR })

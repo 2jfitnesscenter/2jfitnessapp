@@ -136,7 +136,9 @@ p('');
 p('## Images');
 p('');
 const imgs = EXDB.map(e => e.img);
-p(`- Every record has image/GIF filename references: ${EXDB.every(e => e.img && e.gif) ? 'yes' : 'no'}; image names start with the record id: ${EXDB.every(e => e.img.startsWith(e.id)) ? 'yes' : 'no'}; unique: ${new Set(imgs).size === imgs.length ? 'yes' : 'no'}.`);
+// openGym imports (ext) arrive without media (img/gif null) until their animations are imported: counted, not failed.
+const withMedia = EXDB.filter(e => e.img && e.gif);
+p(`- Records with image/GIF filename references: ${withMedia.length} of ${EXDB.length}; without (imported from openGym, animations pending): ${EXDB.length - withMedia.length}; image names start with the record id where present: ${EXDB.every(e => !e.img || e.img.startsWith(e.id)) ? 'yes' : 'no'}; unique: ${new Set(imgs.filter(Boolean)).size === imgs.filter(Boolean).length ? 'yes' : 'no'}.`);
 p('- Dataset images/GIFs and stretch illustrations are enabled by project-owner decision. Their rights status remains unverified; see docs/legal/exercise-media-inventory.csv. Enabling display is not a claim of 2J ownership or licence.');
 p('');
 p('## Imports');

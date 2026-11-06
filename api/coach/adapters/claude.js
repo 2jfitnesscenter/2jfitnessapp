@@ -18,9 +18,60 @@ const SYSTEM_PROMPT = [
 
 // The SDK owns the protocol, but Coach still owns the process boundary: its native runtime is
 // launched as the same unprivileged `coach` user as the older CLI adapter.
-function spawnAsCoach({ command, args, cwd, env, signal }) {
+function spawnAsCoach({ command, args, cwd, env, signal, onSpawn }) {
   const ids = unprivilegedIds();
-  return spawn(command, args, { cwd, env, signal, stdio: ['pipe', 'pipe', 'pipe'], ...(ids || {}) });
+  const child = spawn(command, args, { cwd, env, signal, stdio: ['pipe', 'pipe', 'pipe'], ...(ids || {}) });
+  onSpawn?.(child);
+  return child;
+}
+
+const childClosed = child => !!child && (child.exitCode !== null || child.signalCode !== null);
+function waitForChildClose(child, ms) {
+  if (!child || childClosed(child)) return Promise.resolve(true);
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.removeListener('close', onClose);
+      resolve(value || childClosed(child));
+    };
+    const onClose = () => finish(true);
+    const timer = setTimeout(() => finish(false), ms);
+    child.once('close', onClose);
+  });
+}
+
+/** Abort the SDK and enforce a hard wall-clock deadline even if its async stream stops yielding. */
+export async function readStreamWithTimeout(stream, { timeoutMs, abortController, getChild, stderr = () => '' }) {
+  let timedOut = false;
+  const read = readStream(stream, { stderr: '', timedOut: () => timedOut });
+  let timer;
+  const deadline = new Promise(resolve => {
+    timer = setTimeout(() => resolve({ deadline: true }), timeoutMs);
+  });
+  const result = await Promise.race([read.then(value => ({ value })), deadline]);
+  clearTimeout(timer);
+  if (!result.deadline) return result.value;
+
+  timedOut = true;
+  abortController?.abort();
+  const child = getChild?.();
+  let terminated = !child || childClosed(child);
+  if (child && !terminated) {
+    try { child.kill('SIGTERM'); } catch { /* verify close below */ }
+    terminated = await waitForChildClose(child, 500);
+    if (!terminated) {
+      try { child.kill('SIGKILL'); } catch { /* verify close below */ }
+      terminated = await waitForChildClose(child, 1000);
+    }
+  }
+  return {
+    code: -1, text: '',
+    stderr: `Claude Agent SDK call deadline exceeded after ${timeoutMs}ms; child ${terminated ? 'terminated' : 'termination unconfirmed'}${stderr() ? `; ${String(stderr()).slice(0, 500)}` : ''}`,
+    timedOut: true, spawnError: false, timeoutMs, timeoutReason: 'call_deadline_exceeded', childTerminated: terminated
+  };
 }
 
 /**
@@ -72,15 +123,10 @@ export default {
   },
 
   async invoke({ prompt, jobDir, env, model, timeoutMs }) {
-    let timedOut = false;
-    const io = { stderr: '', timedOut: () => timedOut };
     const abortController = new AbortController();
-    const timer = setTimeout(() => {
-      timedOut = true;
-      abortController.abort();
-    }, timeoutMs);
-    try {
-      return await readStream(query({
+    let child = null;
+    let stderr = '';
+    const stream = query({
         prompt,
         options: {
           abortController,
@@ -97,12 +143,10 @@ export default {
           strictMcpConfig: true,
           persistSession: false,
           systemPrompt: SYSTEM_PROMPT,
-          stderr: data => { if (io.stderr.length < OUTPUT_CAP) io.stderr += data; },
-          spawnClaudeCodeProcess: spawnAsCoach
+          stderr: data => { if (stderr.length < OUTPUT_CAP) stderr += data; },
+          spawnClaudeCodeProcess: options => spawnAsCoach({ ...options, onSpawn: process => { child = process; } })
         }
-      }), io);
-    } finally {
-      clearTimeout(timer);
-    }
+      });
+    return readStreamWithTimeout(stream, { timeoutMs, abortController, getChild: () => child, stderr: () => stderr });
   }
 };

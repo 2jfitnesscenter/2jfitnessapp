@@ -8,10 +8,12 @@ const STORE_FILE = 'platform-link-proofs.dat';
 const SERVICE_REPLAY_TTL_MS = 2 * 60_000;
 const PROOF_RETENTION_MS = 90 * 24 * 60 * 60_000;
 
-const emptyState = () => ({ schemaVersion: 1, proofs: [], receipts: [], serviceRequests: [], audit: [] });
+const emptyAssistedLinkState = () => ({ requests: [], receipts: [] });
+const emptyState = () => ({ schemaVersion: 1, proofs: [], receipts: [], serviceRequests: [], audit: [], assistedLinks: emptyAssistedLinkState() });
 const isRecord = value => value && typeof value === 'object' && !Array.isArray(value);
 const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const ASSIST_REASONS = new Set(['lost_device', 'no_home_access', 'support_request', 'other']);
 const RECEIPT_KEYS = ['receiptId', 'receiptVersion', 'proofId', 'transactionId', 'personId', 'audience', 'purpose', 'challengeDigest', 'trainingUserId', 'verifiedAt'].sort();
 function validReceipt(value) {
   if (!isRecord(value) || Object.keys(value).sort().join('|') !== RECEIPT_KEYS.join('|')) return false;
@@ -22,6 +24,51 @@ function validReceipt(value) {
   const date = Date.parse(value.verifiedAt);
   return Number.isFinite(date) && new Date(date).toISOString() === value.verifiedAt;
 }
+function validIso(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)) return false;
+  const date = Date.parse(value);
+  return Number.isFinite(date) && new Date(date).toISOString() === value;
+}
+function validTrainingUserId(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 200 && value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value);
+}
+function validAssistRequest(value) {
+  if (!isRecord(value)) return false;
+  const common = ['requestId', 'personId', 'trainingUserId', 'reasonCode', 'requestedBy', 'createdAt', 'status'];
+  const expected = value.status === 'open'
+    ? [...common, ...(value.note === undefined ? [] : ['note'])]
+    : value.status === 'approved'
+      ? [...common, 'receiptId', 'decidedBy', 'decidedAt']
+      : value.status === 'rejected'
+        ? [...common, 'decidedBy', 'decidedAt']
+        : [];
+  if (!expected.length || Object.keys(value).sort().join('|') !== expected.sort().join('|')) return false;
+  if (!UUID.test(value.requestId) || !UUID.test(value.personId) || !validTrainingUserId(value.trainingUserId) || !ASSIST_REASONS.has(value.reasonCode)) return false;
+  if (!validTrainingUserId(value.requestedBy) || !validIso(value.createdAt)) return false;
+  if (value.note !== undefined && (typeof value.note !== 'string' || value.note.length > 80 || /[\u0000-\u001f\u007f<>]/.test(value.note))) return false;
+  if (value.status === 'approved' && !UUID.test(value.receiptId)) return false;
+  if (value.status !== 'open' && (!validTrainingUserId(value.decidedBy) || !validIso(value.decidedAt) || value.note !== undefined)) return false;
+  return true;
+}
+function validAssistedReceipt(value) {
+  if (!isRecord(value)) return false;
+  const required = ['receiptVersion', 'kind', 'receiptId', 'personId', 'trainingUserId', 'issuedBy', 'reasonCode', 'issuedAt', 'expiresAt', 'consumedAt'];
+  const allowed = [...required, 'requestId', 'reviewId'];
+  const keys = Object.keys(value).sort();
+  if (keys.some(key => !allowed.includes(key)) || required.some(key => !Object.hasOwn(value, key))) return false;
+  if (value.receiptVersion !== 2 || value.kind !== 'admin_assisted' || !UUID.test(value.receiptId) || !UUID.test(value.personId)) return false;
+  if (!validTrainingUserId(value.trainingUserId) || !validTrainingUserId(value.issuedBy) || !ASSIST_REASONS.has(value.reasonCode)) return false;
+  if (!validIso(value.issuedAt) || !validIso(value.expiresAt) || Date.parse(value.expiresAt) <= Date.parse(value.issuedAt) || Date.parse(value.expiresAt) - Date.parse(value.issuedAt) > 24 * 60 * 60_000) return false;
+  if (value.consumedAt !== null && !validIso(value.consumedAt)) return false;
+  if (value.requestId !== undefined && !UUID.test(value.requestId)) return false;
+  if (value.reviewId !== undefined && !UUID.test(value.reviewId)) return false;
+  return true;
+}
+function validAssistedLinkState(value) {
+  return isRecord(value) && Object.keys(value).sort().join('|') === 'receipts|requests' &&
+    Array.isArray(value.requests) && value.requests.every(validAssistRequest) &&
+    Array.isArray(value.receipts) && value.receipts.every(validAssistedReceipt);
+}
 function constantTimeHexEqual(left, right) {
   if (!/^[a-f0-9]{64}$/.test(left) || !/^[a-f0-9]{64}$/.test(right)) return false;
   return crypto.timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'));
@@ -31,6 +78,8 @@ function constantTimeHexEqual(left, right) {
  * (read/check/write without yielding), so requests are serialized within this single API process. */
 export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/data', now = Date.now } = {}) {
   const file = path.join(dataDir, STORE_FILE);
+  // Read-only lookups reuse the parsed receipts while the encrypted file is unchanged (mtime+size), instead of decrypting it on every call.
+  let receiptCache = { mtimeMs: -1, size: -1, receipts: [] };
   function read() {
     let blob;
     try { blob = fs.readFileSync(file, 'utf8'); }
@@ -42,6 +91,9 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
     // Backward-compatible additive field for encrypted stores created before receipt support.
     if (state.receipts === undefined) state.receipts = [];
     if (!Array.isArray(state.receipts) || state.receipts.some(receipt => !validReceipt(receipt))) throw Object.assign(new Error('Platform proof store is unavailable'), { code: 'PLATFORM_PROOF_STORE_UNAVAILABLE' });
+    // Additive encrypted H13 state. Existing proof stores remain readable and are upgraded on their next write.
+    if (state.assistedLinks === undefined) state.assistedLinks = emptyAssistedLinkState();
+    if (!validAssistedLinkState(state.assistedLinks)) throw Object.assign(new Error('Platform proof store is unavailable'), { code: 'PLATFORM_PROOF_STORE_UNAVAILABLE' });
     return state;
   }
   function write(state) {
@@ -50,6 +102,7 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
     try {
       fs.writeFileSync(temp, encrypt(state, INFO), { mode: 0o600, flag: 'wx' });
       fs.renameSync(temp, file);
+      receiptCache = { mtimeMs: -1, size: -1, receipts: [] };
     } catch (error) {
       try { fs.unlinkSync(temp); } catch { /* cleanup is best effort */ }
       throw error;
@@ -73,6 +126,34 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
   }
 
   return {
+    /** H13 request notes and one-use receipts are kept inside this encrypted store, never db.json. */
+    readAssistedLinkState() {
+      const state = read();
+      return structuredClone(state.assistedLinks);
+    },
+
+    saveAssistedLinkState(assistedLinks) {
+      if (!validAssistedLinkState(assistedLinks)) throw Object.assign(new Error('Invalid assisted-link state'), { code: 'INVALID_ASSISTED_LINK_STATE' });
+      const state = read();
+      state.assistedLinks = structuredClone(assistedLinks);
+      write(state);
+    },
+
+    /** Single-use request ids for the authenticated link-lifecycle and provisioning calls (same bounded replay window as the summary calls). */
+    acceptServiceRequest(requestId, kind = 'platform_service', auditValues = {}) {
+      const timestamp = now(), state = read();
+      expireAndPrune(state, timestamp);
+      if (state.serviceRequests.some(request => request.requestId === requestId)) {
+        audit(state, 'platform_service_auth.replay_rejected', { requestId });
+        write(state);
+        return { status: 'service_request_replayed' };
+      }
+      state.serviceRequests.push({ requestId, expiresAtMs: timestamp + SERVICE_REPLAY_TTL_MS });
+      audit(state, `${kind}.request_accepted`, auditValues);
+      write(state);
+      return { status: 'accepted' };
+    },
+
     /** Persist bounded replay protection for authenticated, read-only Platform summary calls. */
     acceptSummaryRequest(requestId) {
       const timestamp = now(), state = read();
@@ -176,6 +257,23 @@ export function createPlatformProofStore({ dataDir = process.env.DATA_DIR || '/d
           verifiedAt: receipt.verifiedAt,
         },
       };
+    },
+
+    /** Read-only Training-side evidence that this user proved control of the Platform person (passkey-backed proof).
+     * `conflict` means the same person or the same Training user is tied to a different counterpart; callers must fail closed. */
+    linkEvidence({ personId, trainingUserId }) {
+      let receipts;
+      try {
+        const stat = fs.statSync(file);
+        if (stat.mtimeMs !== receiptCache.mtimeMs || stat.size !== receiptCache.size) receiptCache = { mtimeMs: stat.mtimeMs, size: stat.size, receipts: read().receipts };
+        receipts = receiptCache.receipts;
+      } catch (error) { if (error.code !== 'ENOENT') throw error; receipts = []; }
+      const forPerson = receipts.filter(receipt => receipt.personId === personId);
+      const forUser = receipts.filter(receipt => receipt.trainingUserId === trainingUserId);
+      if (forPerson.some(receipt => receipt.trainingUserId !== trainingUserId) || forUser.some(receipt => receipt.personId !== personId)) return { status: 'conflict' };
+      if (!forPerson.length) return { status: 'none' };
+      const newest = forPerson.reduce((best, receipt) => (Date.parse(receipt.verifiedAt) > Date.parse(best.verifiedAt) ? receipt : best));
+      return { status: 'linked', receiptId: newest.receiptId, verifiedAt: newest.verifiedAt };   // the newest proof counts: a re-link after a revocation needs one made later
     },
 
     reconcile({ requestId, context }) {

@@ -19,6 +19,7 @@ import { musclesOf } from './muscles.js'
 import { estimate1RM, bestKnownOneRM, oneRMTests } from './onerm.js'
 import { lastBW } from './history.js'
 import { countsForProgression } from './workout-policy.js'
+import { exResolverOf } from './exercise-merge.js'
 import { t } from './i18n.js'
 
 export const TIERS = ['Iron', 'Bronze', 'Silver', 'Gold', 'Ruby', 'Emerald', 'Diamond', 'Champion', 'Symmetric']
@@ -98,14 +99,15 @@ export const STANDARDS = {
 // is knowledge that belongs here, next to RANK_LIFTS, not there.
 function bestKnownOneRMBW(S, exId, bw) {
   let best = -Infinity
+  const R = exResolverOf(S), target = R(exId)
   ;(S.workouts || []).forEach(w => {
     if (!countsForProgression(w)) return
-    const entry = (w.entries || []).find(e => e.id === exId)
-    ;(entry?.sets || []).forEach(s => {
+    // every entry of this exercise (a merged-away one included, lib/exercise-merge.js), not only the first
+    ;(w.entries || []).filter(e => R(e.id) === target).forEach(entry => (entry.sets || []).forEach(s => {
       if (!s.done) return
       const est = estimate1RM((s.w || 0) + bw, s.r)
       if (est !== null) best = Math.max(best, est)
-    })
+    }))
   })
   oneRMTests(S, exId).forEach(t => {
     const est = estimate1RM((t.w || 0) + bw, t.r)
@@ -165,10 +167,10 @@ export function allLiftRanks(S) {
 // best1RM behaviour, and a warmup is never going to be the heaviest set anyway.)
 function totalSetsFor(S, exId) {
   let n = 0
+  const R = exResolverOf(S), target = R(exId)
   ;(S.workouts || []).forEach(w => {
     if (!countsForProgression(w)) return
-    const e = (w.entries || []).find(x => x.id === exId)
-    ;(e?.sets || []).forEach(s => { if (s.done && s.type !== 'warmup') n++ })
+    ;(w.entries || []).filter(x => R(x.id) === target).forEach(e => (e.sets || []).forEach(s => { if (s.done && s.type !== 'warmup') n++ }))
   })
   return n
 }

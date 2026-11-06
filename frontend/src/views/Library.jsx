@@ -8,8 +8,10 @@ import { Button, ChipSelect } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
 import { Thumb } from '../components/Media.jsx'
 import { MUSCLE_GROUPS, isInMuscleGroup } from '../lib/muscles.js'
-import { allExercises, EXIDX } from '../lib/exercises.js'
+import { allExercises, EXIDX, exOr } from '../lib/exercises.js'
 import { familiesOf, searchExercises, scopeList, favSetOf, recentIdsOf, variantLabel, facets, isRecommended, isDeprecated, movementLabel, equipmentLabel, MOVEMENTS } from '../lib/library/index.js'
+import { activeMerges, mergedAwayIds, unmergeExercise } from '../lib/exercise-merge.js'
+import { exerciseMergeSheet } from '../components/ExerciseMerge.jsx'
 
 // Plan > Exercises — Exercise Library V2. A member sees "2J exercises" (the curated Recommended
 // 2J catalogue) grouped by movement family, can search it in plain words, and opens the full
@@ -44,6 +46,7 @@ function ExerciseRow({ ex, fav, habitual }) {
 
 export default function Library() {
   const S = useStore(s => s.S)
+  const update = useStore(s => s.update)
   useStore(s => s.gymProfileRevision)
   const [q, setQ] = useState('')
   const [view, setView] = useState('')        // '' = 2J families · 'fav' · 'recent'
@@ -52,7 +55,9 @@ export default function Library() {
   const [kind, setKind] = useState('')
   const [shown, setShown] = useState(40)
   const [available, setAvailable] = useState(false)
-  const all = allExercises(S)
+  // A merged-away exercise leaves the lists (it still resolves to its target everywhere else).
+  const mergedAway = new Set(mergedAwayIds(S))
+  const all = allExercises(S).filter(e => !mergedAway.has(e.id))
   const two = useMemo(() => scopeList(all, '2j'), [all])
   const families = useMemo(() => familiesOf(two), [two])
   const fav = favSetOf(S)
@@ -111,6 +116,16 @@ export default function Library() {
         </div>
       </section>
     })}
+
+    <section className="lib-merge" style={{ marginTop: 16 }}>
+      <h4 className="sec" style={{ margin: '0 0 4px' }}>Fusiones</h4>
+      <div className="small dim" style={{ marginBottom: 8 }}>Une dos ejercicios de tu biblioteca. Tus entrenos pasados no cambian, y cada fusión se puede deshacer.</div>
+      {activeMerges(S).map(({ from, to }) => <div className="item" key={from}>
+        <div className="grow"><div className="tt capitalize">{nameFor(exOr(from))} → {nameFor(exOr(to))}</div></div>
+        <Button size="sm" variant="tinted" icon="xmark" onClick={() => update(s => { unmergeExercise(s, from) })}>Deshacer fusión</Button>
+      </div>)}
+      <Button variant="plain" icon="exercises" onClick={() => exerciseMergeSheet()}>Fusionar ejercicios…</Button>
+    </section>
 
     <div style={{ height: 16 }} />
     <Button variant="plain" icon="exercises" onClick={() => exerciseBrowserSheet(null)}>{t('See the full library')}</Button>

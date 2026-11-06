@@ -12,8 +12,8 @@ const fresh = (w = 80, r = 8) => [{ w, r, done: false }, { w, r, done: false }, 
 describe('workout preferences', () => {
   it('a profile saved before these existed keeps today\'s behaviour', () => {
     expect(workoutPrefs({ sound: true })).toEqual({
-      view: 'detailed', images: true, tips: true, autoComplete: false,
-      restAlert: true, sound: true, vibrate: true, progression: true,
+      view: 'detailed', images: true, tips: true, autoComplete: false, collapseDone: false, focus: false, compareLastTime: false,
+      restAlert: true, sound: true, restTone: 'classic', vibrate: true, speak: false, progression: true,
     })
   })
   it('new-profile defaults are only written onto a profile with no workouts', () => {

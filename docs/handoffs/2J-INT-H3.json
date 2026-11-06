@@ -1,0 +1,13 @@
+{
+  "taskId": "2J-INT-H3",
+  "branch": "agent/claude/2J-INT-BUNKER-CONSUMER",
+  "baseSha": "cbfa0502ab10cbc954b8fe504362fc4334a5b487",
+  "status": "implementation_reviewed_fixes_applied",
+  "featureGates": { "PLATFORM_SSO_ENABLED": false, "perUserMode": "legacy (default) -> shadow -> enforced" },
+  "sessions": { "authLevel": "sso", "memberLevelOnly": true, "livePerPerson": 1, "passkeySessionKeptOnRedeem": true },
+  "degradation": "never grants paid rights without verification; keeps baseline; known suspension/revocation persisted and respected",
+  "productionShaVerified": false,
+  "untouched": ["RP_ID", "ORIGIN", "gymsid passkey cookie format", "secrets", "legacy access of unlinked users"],
+  "notImplemented": ["provisioning", "link ACK/lifecycle messages", "routineCreation commercial distinction", "production activation"],
+  "review": { "independentCodeReview": "performed_findings_addressed", "independentQa": "pending" }
+}

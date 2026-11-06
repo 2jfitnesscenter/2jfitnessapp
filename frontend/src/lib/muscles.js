@@ -9,6 +9,7 @@
 
 import { EXIDX } from './exercises.js'
 import { countsForProgression } from './workout-policy.js'
+import { exResolverOf } from './exercise-merge.js'
 
 // The muscles a map can shade, in head-to-toe order — also the order of any list
 // built from them, so "what am I neglecting" reads top-down like a body.
@@ -127,7 +128,8 @@ export const DEFAULT_SECONDARY_FACTOR = 0.5
 // Settings → Statistics's two knobs, read off the profile — the one place every caller that
 // has `S` in scope builds musclesOf/loadOf's `opts` from, so the two settings can't drift out
 // of sync between the muscle map, the stats screen and muscle recovery.
-export const muscleOptsOf = S => ({ countSecondary: S.countSecondaryMuscles !== false, secondaryFactor: S.secondaryMuscleFactor })
+// `resolve` maps a merged-away exercise id to its target (lib/exercise-merge.js), so volume counts the target.
+export const muscleOptsOf = S => ({ countSecondary: S.countSecondaryMuscles !== false, secondaryFactor: S.secondaryMuscleFactor, resolve: exResolverOf(S) })
 
 /**
  * Muscles one exercise trains: { slug: 0…1 }.
@@ -170,7 +172,7 @@ export function loadOf(items, opts) {
   const load = {}
   items.forEach(({ id, sets }) => {
     if (!sets) return
-    const m = musclesOf(EXIDX[id], opts)
+    const m = musclesOf(EXIDX[opts?.resolve ? opts.resolve(id) : id], opts)
     for (const slug in m) load[slug] = (load[slug] || 0) + m[slug] * sets
   })
   return load

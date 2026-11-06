@@ -85,7 +85,7 @@ describe('barbell hip thrust (0058)', () => {
   it('is the existing record, renamed — not a new one — and curated apart from the floor glute bridge', () => {
     expect(byId['0058'].n).toBe('barbell hip thrust')
     expect(byId['0058'].img).toBe('0058-SNFfUff.jpg')
-    expect(EXDB.filter(e => /hip thrust/.test(e.n) && e.eq === 'barbell').map(e => e.id)).toEqual(['0058'])
+    expect(EXDB.filter(e => !e.ext && /hip thrust/.test(e.n) && e.eq === 'barbell').map(e => e.id)).toEqual(['0058'])
     const ht = classify('0058', lookup), gb = classify('1409', lookup)
     expect(ht).toMatchObject({ curated: true, pattern: 'bridge', group: 'glutes', cls: 'compound_free' })
     expect(redundancyKey(ht)).not.toBe(redundancyKey(gb))

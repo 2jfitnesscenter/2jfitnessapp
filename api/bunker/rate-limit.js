@@ -6,15 +6,53 @@ const privatePeer = value => {
     /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
 }
 
-// The API container is reachable through nginx on the private compose network. Only in that
-// case do we trust the first X-Forwarded-For hop (Caddy writes the public client address and
-// nginx appends its own). A directly exposed API ignores a caller-supplied forwarding header.
-export function bunkerClientIp(req) {
-  const peer = String(req.socket?.remoteAddress || req.connection?.remoteAddress || 'unknown').replace(/^::ffff:/, '')
-  if (!privatePeer(peer)) return peer
-  const forwarded = req.headers?.['x-forwarded-for']
-  const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded || '').split(',')[0].trim()
-  return first || String(req.headers?.['x-real-ip'] || '').trim() || peer
+// Who is a proxy, and therefore allowed to tell us the client address?
+//
+//  - TRUSTED_PROXIES unset (today's behaviour, kept so nothing changes by itself): any PRIVATE direct peer is believed, and the FIRST
+//    X-Forwarded-For hop is the client. This assumes every private peer is our own nginx and that the public edge overwrote the header.
+//    A private address is NOT proof of that (another container, a LAN host or a compromised neighbour is private too).
+//  - TRUSTED_PROXIES set (recommended before exposing the service): a comma-separated list of exact IPs / IPv4 CIDRs of the proxies in the chain
+//    (for example the compose subnet that holds nginx, plus the host/gateway address Caddy connects from). Only a direct peer inside the list is
+//    believed, and the client is the RIGHTMOST address that is not itself a trusted proxy, so a forged leftmost entry changes nothing even if the
+//    edge forwards client-supplied headers. A peer outside the list is keyed by its own address.
+const ipv4 = text => { const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text); if (!m) return null; const p = m.slice(1).map(Number); return p.some(n => n > 255) ? null : ((p[0] * 2 ** 24) + (p[1] << 16) + (p[2] << 8) + p[3]); };
+const normalizeIp = value => String(value || '').trim().replace(/^::ffff:/i, '').toLowerCase();
+
+export function parseTrustedProxies(text) {
+  const entries = String(text || '').split(',').map(part => part.trim()).filter(Boolean);
+  if (!entries.length) return null;
+  return entries.map(entry => {
+    const [address, prefix, ...rest] = entry.split('/');
+    const ip = normalizeIp(address);
+    const v4 = ipv4(ip);
+    if (rest.length) throw new Error('TRUSTED_PROXIES: invalid entry ' + entry);
+    if (v4 !== null) {
+      const bits = prefix === undefined ? 32 : /^\d{1,2}$/.test(prefix) ? Number(prefix) : NaN;
+      if (!Number.isInteger(bits) || bits > 32 || bits < 8) throw new Error('TRUSTED_PROXIES: an IPv4 network must be /8 to /32 (' + entry + ')');
+      const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+      return { v4: true, network: (v4 & mask) >>> 0, mask };
+    }
+    if (prefix !== undefined || !/^[0-9a-f:]+$/.test(ip) || !ip.includes(':')) throw new Error('TRUSTED_PROXIES: use an IPv4 address/CIDR or an exact IPv6 address (' + entry + ')');
+    return { v4: false, exact: ip };
+  });
+}
+
+let trustedProxies = null;
+/** Called once at start-up from TRUSTED_PROXIES; null restores the legacy "private peer" rule. */
+export const setTrustedProxies = list => { trustedProxies = list && list.length ? list : null; };
+const isTrusted = (ip, list) => { const v4 = ipv4(ip); return list.some(rule => rule.v4 ? v4 !== null && ((v4 & rule.mask) >>> 0) === rule.network : rule.exact === ip); };
+
+export function bunkerClientIp(req, list = trustedProxies) {
+  const peer = normalizeIp(req.socket?.remoteAddress || req.connection?.remoteAddress || 'unknown');
+  const forwardedHeader = req.headers?.['x-forwarded-for'];
+  const hops = String(Array.isArray(forwardedHeader) ? forwardedHeader.join(',') : forwardedHeader || '').split(',').map(normalizeIp).filter(Boolean);
+  if (list) {
+    if (!isTrusted(peer, list)) return peer;
+    for (let i = hops.length - 1; i >= 0; i--) if (!isTrusted(hops[i], list)) return hops[i];
+    return String(req.headers?.['x-real-ip'] || '').trim() || hops[0] || peer;
+  }
+  if (!privatePeer(peer)) return peer;
+  return hops[0] || String(req.headers?.['x-real-ip'] || '').trim() || peer;
 }
 
 export class AttemptLimiter {

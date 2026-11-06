@@ -22,10 +22,12 @@ RUN npm ci --omit=dev --include=optional \
 COPY server.js ./
 COPY lib/ ./lib/
 COPY platform-proof/ ./platform-proof/
+COPY platform-sso/ ./platform-sso/
 COPY coach/ ./coach/
 COPY friends/ ./friends/
 COPY chat/ ./chat/
 COPY notifications/ ./notifications/
+COPY webhooks/ ./webhooks/
 COPY social/ ./social/
 COPY bunker/ ./bunker/
 COPY strava/ ./strava/

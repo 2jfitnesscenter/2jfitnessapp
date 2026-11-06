@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2jfitnesscenter.com/contracts/platform-training-integration-v1.schema.json",
+  "title": "2J Platform to Training integration preparation contract",
+  "description": "Design-only contract. No endpoint is registered and no SSO or entitlement enforcement is active.",
+  "$defs": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "provisionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "personId", "idempotencyKey", "correlationId"],
+      "properties": {
+        "v": { "const": 1 },
+        "personId": { "$ref": "#/$defs/uuid" },
+        "idempotencyKey": { "type": "string", "minLength": 16, "maxLength": 128 },
+        "correlationId": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "provisionResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "status", "personId", "trainingUserId", "linkStatus", "correlationId"],
+      "properties": {
+        "v": { "const": 1 },
+        "status": { "enum": ["created", "already_provisioned"] },
+        "personId": { "$ref": "#/$defs/uuid" },
+        "trainingUserId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "linkStatus": { "const": "active" },
+        "correlationId": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "linkExchangeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "personId", "transactionId", "audience", "purpose", "challengeDigest", "proofCode", "correlationId"],
+      "properties": {
+        "v": { "const": 1 },
+        "personId": { "$ref": "#/$defs/uuid" },
+        "transactionId": { "$ref": "#/$defs/uuid" },
+        "audience": { "const": "2j-training-account-link" },
+        "purpose": { "const": "training-account-link" },
+        "challengeDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "proofCode": { "type": "string", "minLength": 43, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+        "correlationId": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "ssoCodeRedemptionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "code", "audience", "destination", "correlationId"],
+      "properties": {
+        "v": { "const": 1 },
+        "code": { "type": "string", "minLength": 43, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+        "audience": { "const": "2j-training" },
+        "destination": { "const": "bunker" },
+        "correlationId": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "ssoCodeRedemptionResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "issuer", "audience", "personId", "trainingUserId", "linkStatus", "correlationId"],
+      "properties": {
+        "v": { "const": 1 },
+        "issuer": { "const": "2j-platform" },
+        "audience": { "const": "2j-training" },
+        "personId": { "$ref": "#/$defs/uuid" },
+        "trainingUserId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "linkStatus": { "const": "active" },
+        "correlationId": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    }
+  }
+}

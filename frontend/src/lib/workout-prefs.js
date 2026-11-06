@@ -14,6 +14,7 @@
 // NEW_PROFILE_DEFAULTS instead — written once, the moment the post-registration wizard marks the
 // profile onboarded, never onto an existing account.
 import { uxOn } from './features.js'
+import { REST_TONE_NAMES, DEFAULT_REST_TONE } from './rest-tones.js'
 
 export const WORKOUT_VIEWS = ['simple', 'detailed']
 
@@ -23,14 +24,39 @@ export function workoutPrefs(S) {
     images: S.showExerciseImages !== false,
     tips: S.showExerciseTips !== false,
     autoComplete: S.autoCompleteSets === true,
+    // Detailed list only: an exercise whose working sets are all ticked folds into one line.
+    // Off by default; a display preference, it never changes a set.
+    collapseDone: S.collapseDoneExercises === true,
+    // Detailed view only: one exercise at a time with nothing else on screen, moved with prev/next.
+    // Off by default; a display preference, it never changes a set.
+    focus: S.focusView === true,
+    // Finish screen: each exercise shows up / same / down against its previous session. Off by default; display only.
+    compareLastTime: S.compareLastTime === true,
     // Rest alert: whether the end of a rest is announced at all. Sound reuses the long-standing
     // S.sound switch (it has always governed every workout beep); vibration is its own switch.
     restAlert: S.restAlert !== false,
     sound: !!S.sound,
+    // Which end-of-rest tone plays (Settings → Rest). A profile that never chose one keeps the classic tone.
+    restTone: REST_TONE_NAMES.includes(S.restTone) ? S.restTone : DEFAULT_REST_TONE,
     vibrate: S.restVibrate !== false,
+    // Off by default: the end-of-rest message is also read aloud (browser speech), in the app language.
+    speak: S.restSpeak === true,
     progression: S.enableProgressiveOverloadCoach !== false && uxOn(S, 'suggestions'),
   }
 }
+
+// True when every working set (warmups never count) is ticked. An entry with no working sets never folds.
+export const workingSetsDone = sets => {
+  const working = (sets || []).filter(s => s.type !== 'warmup')
+  return working.length > 0 && working.every(s => s.done)
+}
+
+// Whether an exercise is drawn as its single folded line: the preference is on, its working sets
+// are done, and the member has not tapped it open. Pure display; the sets are never written here.
+export const isFoldedDone = (prefs, sets, expanded) => prefs.collapseDone === true && !expanded && workingSetsDone(sets)
+
+// Focus view's position: the entry one step away, clamped to the session's exercises.
+export const focusStep = (cur, delta, count) => Math.min(Math.max(0, cur + delta), Math.max(0, count - 1))
 
 // The roadmap's starting point for a brand-new account. Real field names, no duplicates of
 // anything DEF already declares: the four existing switches are simply set the other way, and

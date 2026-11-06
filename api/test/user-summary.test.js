@@ -94,9 +94,23 @@ const people = [{ id: 'admin', name: 'Admin', username: 'admin', admin: true }, 
 fs.writeFileSync(path.join(hdir, 'db.json'), JSON.stringify({ users: people, creds: [], subs: [{ userId: 'm1', endpoint: 'e' }], invites: [], recoveries: [] }));
 for (const p of people) fs.writeFileSync(path.join(hdir, `state-${p.id}.json`), JSON.stringify(state(p.id === 'm5' ? 12 : 3)));
 fs.writeFileSync(path.join(hdir, 'social.json'), JSON.stringify({ routines: [], programs: [], wall: [], challenges: [], goals: [], topics: [], board: [] }));
-const port = 39000 + Math.floor(Math.random() * 10000), base = `http://127.0.0.1:${port}`;
-const child = spawn(process.execPath, ['--import', pathToFileURL(path.resolve('test/count-state-reads.mjs')).href, 'server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: String(port), DATA_DIR: hdir, RP_ID: 'localhost', ORIGIN: base }, stdio: ['ignore', 'ignore', 'inherit'] });
-for (let i = 0; i < 100; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* starting */ } await new Promise(r => setTimeout(r, 100)); }
+// Ask the OS for an ephemeral port rather than sampling a shared range: test files run in
+// separate processes and could otherwise pick the same port while npm test is parallel.
+let base = null, startupOutput = '';
+const child = spawn(process.execPath, ['--import', pathToFileURL(path.resolve('test/count-state-reads.mjs')).href, 'server.js'], { cwd: path.resolve('.'), env: { ...process.env, PORT: '0', DATA_DIR: hdir, RP_ID: 'localhost', ORIGIN: 'http://127.0.0.1' }, stdio: ['ignore', 'pipe', 'inherit'] });
+child.stdout.setEncoding('utf8');
+child.stdout.on('data', chunk => {
+  startupOutput += chunk;
+  const match = startupOutput.match(/gym-api on :(\d+)/);
+  if (match) base = `http://127.0.0.1:${match[1]}`;
+});
+let ready = false;
+for (let i = 0; i < 200; i++) {
+  if (base) { try { if ((await fetch(base + '/api/health')).ok) { ready = true; break; } } catch { /* starting */ } }
+  if (child.exitCode !== null) break;
+  await new Promise(r => setTimeout(r, 50));
+}
+if (!ready) { child.kill(); throw new Error(`test API server did not start: ${startupOutput}`); }
 const cookie = uid => { const p = `${uid}:${Date.now() + 86400000}:0`; return `gymsid=${p}.${crypto.createHmac('sha256', SECRET).update(p).digest('base64url')}`; };
 const get = async uid => { const r = await fetch(base + '/api/admin/users', { headers: uid ? { cookie: cookie(uid) } : {} }); const text = await r.text(); return { status: r.status, text, data: r.status === 200 ? JSON.parse(text) : null }; };
 // the counter is a number in a file the server rewrites every 50 ms: never trust an empty or half-written read (it parsed as 0), read again until it is a number

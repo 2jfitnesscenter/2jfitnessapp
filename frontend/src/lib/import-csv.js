@@ -156,6 +156,7 @@ let INDEX = null
 function buildIndex() {
   if (INDEX) return INDEX
   INDEX = { exact: new Map(), all: [] }
+  // openGym imports (ext) are never matched automatically: a name in a file picks one of our own exercises or none
   EXDB.forEach(e => {
     const w = wordsOf(e.n)
     const k = w.slice().sort().join(' ')

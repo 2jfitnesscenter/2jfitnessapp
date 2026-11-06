@@ -172,7 +172,7 @@ export function recommendationFor(S, entry, eq, { past = false } = {}) {
 // entry.plan stay exactly as they were; the choice is remembered on the entry so the card is not
 // offered again, and it does not survive into the finished workout (doFinishWorkout copies only
 // id/sets/topW/target).
-export function acceptRecommendation(entry, rec, unit) {
+export function acceptRecommendation(entry, rec, unit, snap = null) {
   let workIndex = 0
   entry.sets.forEach(s => {
     if (s.done || s.type === 'warmup' || s.type === 'drop') return
@@ -182,7 +182,7 @@ export function acceptRecommendation(entry, rec, unit) {
   })
   const warm = entry.sets.filter(s => s.type === 'warmup')
   if (warm.length && !warm.some(s => s.done) && rec.w > 0) {
-    const ramp = warmupSets(rec.w, unit)
+    const ramp = warmupSets(rec.w, unit, snap)
     if (ramp.length === warm.length) {
       let k = 0
       entry.sets = entry.sets.map(s => s.type === 'warmup' ? ramp[k++] : s)

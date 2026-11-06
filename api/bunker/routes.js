@@ -29,7 +29,7 @@ import { completeGuidedProgramSession } from '../lib/guided-program-model.js';
 const PIN_TOKEN_TTL = 4 * 3600000;      // a training session comfortably fits in 4 hours
 const ADMIN_TOKEN_TTL = 30 * 60000;     // the kiosk's own admin overlay re-locks after 30 min
 
-export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], registerInactivitySweep = () => {}, rateLimiters = bunkerLimiters() }) {
+export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, sign, verifySig, users, isTrainer, todayPrs = () => [], registerInactivitySweep = () => {}, rateLimiters = bunkerLimiters(), memberGate = async () => ({ allowed: true }) }) {
   const credentialKey = (kind, value) => createHash('sha256').update(kind + ':' + String(value)).digest('hex');
   const limitAttempt = (kind, ip, value) => {
     const ipLimiter = rateLimiters[kind];
@@ -65,6 +65,23 @@ export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, si
     const user = users().find(u => u.id === uid);
     if (!user || user.disabled) return null;
     return uid;
+  };
+  /**
+   * Token-authenticated member routes re-check the Platform gate on EVERY use (a token is minted once, at check-in, and lives up to PIN_TOKEN_TTL).
+   * Legacy users and staff pass at no cost; shadow only logs; enforced users whose capabilities are now blocked (administrative suspension,
+   * revoked or missing link) lose the kiosk at once: the room presence ends and the call answers 403. The capability answer is cached for at most
+   * 60 s (platform-sso/capabilities.js), which bounds how long a suspension can take to reach an already-open kiosk. Returns the uid, `null`
+   * (no valid token: the caller answers 401 as before) or `false` (already answered 403).
+   */
+  const readKioskMember = async (req, res) => {
+    const uid = readBunkerToken(req);
+    if (!uid) return null;
+    const account = users().find(u => u.id === uid);
+    const gate = await memberGate(account, ['autonomousTraining']);
+    if (gate.allowed) return uid;
+    store.endSession(uid);
+    json(res, 403, { error: 'tu cuenta no tiene acceso a esta función', code: 'capability_required', reasonCode: gate.reasonCode });
+    return false;
   };
   const readAdminToken = req => {
     const payload = verifySig(bearer(req));
@@ -182,7 +199,8 @@ export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, si
   };
 
   const finishWorkout = async (req, res, mobileTimeout = false, internal = null) => {
-      const uid = internal?.uid || (mobileTimeout ? readSession(req)?.id : readBunkerToken(req));
+      const uid = internal?.uid || (mobileTimeout ? readSession(req)?.id : await readKioskMember(req, res));
+      if (uid === false) return;
       if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
       const body = internal?.body || await readBody(req);
       const automatic = mobileTimeout || body.finishReason === 'inactivity_timeout';
@@ -248,7 +266,15 @@ export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, si
       while (i > 0 && workouts[i - 1].d > w.d) i--;
       workouts.splice(i, 0, w);
       S.workouts = workouts;
-      completeGuidedProgramSession(S, w);
+      // Keeping a guided program and its history is free; CONTINUING it is a paid function. The workout above is always recorded; closing the
+      // program as completed (a guided-program state change, which sync also refuses without `guidedTraining`) only happens with the right.
+      // Legacy users and staff pass the gate unchanged; shadow only logs.
+      let guidedFrozen = false;
+      if (w?.src2j?.program?.programId) {
+        const account = users().find(u => u.id === uid);
+        if (account && (await memberGate(account, ['guidedTraining'])).allowed) completeGuidedProgramSession(S, w);
+        else guidedFrozen = true;
+      }
 
       // Same exWeights rule as doFinishWorkout: the heaviest done set (topW counts too),
       // recorded only when it beats whatever was already on file.
@@ -263,7 +289,7 @@ export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, si
       replaceActive(S, null);
       writeState(uid, S);
       store.endSession(uid);
-      json(res, 200, { ok: true, prs, e1prs, ...(mobileTimeout ? { workout: w } : {}) });
+      json(res, 200, { ok: true, prs, e1prs, ...(guidedFrozen ? { guidedProgress: 'frozen' } : {}), ...(mobileTimeout ? { workout: w } : {}) });
   };
 
   registerInactivitySweep(async () => {
@@ -440,6 +466,9 @@ export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, si
       const account = users().find(u => u.id === uid);
       if (!account || account.disabled) { attempt.fail(); return json(res, 400, { error: 'PIN incorrecto' }); }
       attempt.success();
+      // Platform capability gate for members opted in to `enforced` (no-op for legacy/shadow users and staff).
+      const gate = await memberGate(account, ['autonomousTraining']);
+      if (!gate.allowed) return json(res, 403, { error: 'tu cuenta no tiene acceso a esta función', code: 'capability_required', reasonCode: gate.reasonCode });
       const name = publicName(uid);
       store.startSession(uid, name);
       const exp = Date.now() + PIN_TOKEN_TTL;
@@ -454,7 +483,8 @@ export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, si
     // kiosk hydrates its logger per athlete from these, same as the phone app does, and never
     // lets one athlete's settings leak into the next person who checks in (see views/Bunker.jsx).
     'GET /api/bunker/session': async (req, res) => {
-      const uid = readBunkerToken(req);
+      const uid = await readKioskMember(req, res);
+      if (uid === false) return;
       if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
       json(res, 200, sessionPayload(uid));
     },
@@ -463,7 +493,8 @@ export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, si
     // phone logger already builds) plus what the room dashboard's card should show right now.
     // Written to S.active only — see the module doc comment on why nothing else is reachable.
     'POST /api/bunker/active': async (req, res) => {
-      const uid = readBunkerToken(req);
+      const uid = await readKioskMember(req, res);
+      if (uid === false) return;
       if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
       const body = await readBody(req);
       const S = readState(uid) || {};
@@ -492,7 +523,8 @@ export function bunkerRoutes({ audit = () => {}, json, readBody, readSession, si
     // member's card; the kiosk ticks it down locally from restEndsAt, same as the phone
     // logger's own rest timer does, so this is just telling every OTHER screen what to show.
     'POST /api/bunker/rest': async (req, res) => {
-      const uid = readBunkerToken(req);
+      const uid = await readKioskMember(req, res);
+      if (uid === false) return;
       if (!uid) return json(res, 401, { error: 'sesión de bunker no válida' });
       const body = await readBody(req);
       const sec = Math.max(0, Math.min(1800, Number(body.sec) || 0));

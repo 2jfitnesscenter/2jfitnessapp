@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { orderedBodyWeightSeries, latestBodyWeight, previousBodyWeight } from './bodyweight.js'
 import { lastBW } from './history.js'
 import { seriesOf, bmiOf } from './health.js'
@@ -52,7 +53,7 @@ describe('every reader agrees on the same weight (disordered legacy data)', () =
 
 describe('nobody reads the weight by array position any more', () => {
   const walk = d => readdirSync(d).flatMap(n => { const p = d + '/' + n; return statSync(p).isDirectory() ? (n === 'locales' ? [] : walk(p)) : /\.(js|jsx)$/.test(n) && !/\.test\./.test(n) ? [p] : [] })
-  const files = walk(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'))
+  const files = walk(fileURLToPath(new URL('..', import.meta.url)))
   it('no [length - 1] / [length - 2] / slice(-1) over S.bodyweight outside the helper', () => {
     const byPosition = /\b(?:S|st|s)\.bodyweight\??\.slice\(-1\)|\b(?:S|st|s)\.bodyweight\[\s*(?:S|st|s)\.bodyweight\??\.length\s*-\s*[12]\s*\]/
     const bad = files.filter(f => !f.endsWith('lib/bodyweight.js')).filter(f => byPosition.test(readFileSync(f, 'utf8')))

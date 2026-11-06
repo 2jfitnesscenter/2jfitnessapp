@@ -33,7 +33,7 @@ import { generateWithRepair } from './ai-generate.js';
 import { aiLog, POLICIES, makeBudget } from './ai-run.js';
 import * as metrics from '../lib/ai-metrics.js';
 
-export const TIMEOUT_MS = 5 * 60000;
+export const TIMEOUT_MS = POLICIES.trainer_routine.callTimeoutMs;
 const MAX_CONCURRENT = 2;
 const KEEP_RESULT_MS = 24 * 3600000;
 
@@ -203,7 +203,12 @@ async function execute(job) {
     if (controller.signal.aborted) { track.finish(false); return; }       // discarded: nothing to report
     if (!attempt.ok) {
       track.finish(false);
-      aiLog('AI_FINAL_FAILURE', { flow: 'trainer-create', job: job.id, class: attempt.errorClass, ms: Date.now() - job.startedAt });
+      aiLog('AI_FINAL_FAILURE', {
+        flow: 'trainer-create', job: job.id, class: attempt.errorClass, attempts: attempt.attempts,
+        timeouts: attempt.timeoutCount, fallback: attempt.usedFallback ? 1 : 0, timeoutMs: TIMEOUT_MS,
+        cause: attempt.errorClass === 'timeout' ? 'provider_call_deadline_exceeded' : undefined,
+        ms: Date.now() - job.startedAt
+      });
       return setResult(job, { state: 'failed', errorClass: attempt.errorClass });
     }
     track.finish(true);
