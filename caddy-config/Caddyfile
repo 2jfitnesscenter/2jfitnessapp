@@ -1,0 +1,41 @@
+# Caddy gets a real Let's Encrypt certificate for this domain automatically — no manual
+# certbot, no renewal cron. The only requirement is that app.2jfitnesscenter.com's DNS A record
+# points at this server's IP and ports 80/443 are reachable from the internet (80 is needed
+# for the Let's Encrypt challenge even though everything ends up served over HTTPS).
+app.2jfitnesscenter.com {
+	reverse_proxy web:80
+}
+
+# Google's Digital Asset Links service fetches /.well-known/assetlinks.json with the fully-qualified
+# Host "app.2jfitnesscenter.com." (trailing dot). Caddy refuses that spelling as a site address (no
+# certificate can be issued for it), so it is matched here instead: same TLS certificate (the SNI has
+# no dot), same upstream. Any other unknown Host keeps getting Caddy's empty default response.
+:443 {
+	@fqdn host app.2jfitnesscenter.com.
+	handle @fqdn {
+		reverse_proxy web:80
+	}
+}
+
+home.2jfitnesscenter.com {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Robots-Tag "noindex, nofollow"
+	}
+	@blocked path /api /api/* /pilot /pilot/* /auth /auth/* /login /login/* /register /register/* /bookings /bookings/* /reservations /reservations/* /payments /payments/* /admin /admin/* /staff /staff/* /training /training/* /bunker /bunker/*
+	handle @blocked {
+		respond 404
+	}
+	handle {
+		reverse_proxy 2j-home-visual:8080
+	}
+}
+
+# 2J Home - staging sintetico, sin servicios operativos
+staging-home.2jfitnesscenter.com {
+    @blocked path /api /api/* /pilot /pilot/* /auth /auth/* /login /login/* /register /register/* /bookings /bookings/* /reservations /reservations/* /payments /payments/* /admin /admin/* /staff /staff/* /training /training/* /bunker /bunker/*
+    respond @blocked 404
+
+    reverse_proxy 2j-home-demo:8080
+}

@@ -16,3 +16,26 @@ app.2jfitnesscenter.com {
 		reverse_proxy web:80
 	}
 }
+
+home.2jfitnesscenter.com {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Robots-Tag "noindex, nofollow"
+	}
+	@blocked path /api /api/* /pilot /pilot/* /auth /auth/* /login /login/* /register /register/* /bookings /bookings/* /reservations /reservations/* /payments /payments/* /admin /admin/* /staff /staff/* /training /training/* /bunker /bunker/*
+	handle @blocked {
+		respond 404
+	}
+	handle {
+		reverse_proxy 2j-home-visual:8080
+	}
+}
+
+# 2J Home - staging sintetico, sin servicios operativos
+staging-home.2jfitnesscenter.com {
+    @blocked path /api /api/* /pilot /pilot/* /auth /auth/* /login /login/* /register /register/* /bookings /bookings/* /reservations /reservations/* /payments /payments/* /admin /admin/* /staff /staff/* /training /training/* /bunker /bunker/*
+    respond @blocked 404
+
+    reverse_proxy 2j-home-demo:8080
+}
