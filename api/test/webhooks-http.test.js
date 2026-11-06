@@ -23,19 +23,42 @@ function makeDir() {
   return dir;
 }
 
+// Starts this test's own server and resolves only once that exact child reports it is listening on its port.
+// A port already held by another test process (parallel suite) makes the child exit with EADDRINUSE; the next
+// attempt takes a fresh port. Polling /api/health alone is not enough: it would reach the other process, whose
+// session secret differs, and every request would then answer 401 instead of the status under test.
+function spawnOnFreePort(dir, env) {
+  return new Promise(async (resolve, reject) => {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const port = 40000 + Math.floor(Math.random() * 20000), base = `http://127.0.0.1:${port}`;
+      const child = spawn(process.execPath, ['server.js'], {
+        cwd: path.resolve('.'),
+        env: { ...process.env, PORT: String(port), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base, ...env },
+        stdio: ['ignore', 'pipe', 'inherit'],
+      });
+      child.stdout.setEncoding('utf8');
+      const started = await new Promise(done => {
+        let out = '';
+        const onData = chunk => {
+          out += chunk;
+          if (out.includes(`gym-api on :${port} `)) { child.stdout.off('data', onData); child.stdout.resume(); done(true); }
+        };
+        child.stdout.on('data', onData);
+        child.once('exit', () => done(false));
+        // Boot can be slow when the whole suite runs in parallel: give up on this port after 30 s.
+        setTimeout(() => done(false), 30000).unref();
+      });
+      if (started) return resolve({ child, port, base });
+      child.kill();
+      if (child.exitCode === null) await new Promise(r => child.once('exit', r));
+    }
+    reject(new Error('could not start the test server on a free port'));
+  });
+}
+
 async function startServer(env) {
   const dir = makeDir();
-  const port = 40000 + Math.floor(Math.random() * 20000), base = `http://127.0.0.1:${port}`;
-  const child = spawn(process.execPath, ['server.js'], {
-    cwd: path.resolve('.'),
-    env: { ...process.env, PORT: String(port), DATA_DIR: dir, RP_ID: 'localhost', ORIGIN: base, ...env },
-    stdio: ['ignore', 'ignore', 'inherit'],
-  });
-  // Boot can be slow when the whole suite runs in parallel: wait up to 30 s, and stop early if the process already exited.
-  for (let i = 0; i < 300 && child.exitCode === null; i++) {
-    try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* not up yet */ }
-    await new Promise(r => setTimeout(r, 100));
-  }
+  const { child, base } = await spawnOnFreePort(dir, env);
   const cookie = uid => {
     const payload = `${uid}:${Date.now() + 86400000}:0`;
     return `gymsid=${payload}.${crypto.createHmac('sha256', SECRET).update(payload).digest('base64url')}`;
