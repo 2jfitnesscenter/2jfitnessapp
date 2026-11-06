@@ -19,6 +19,7 @@ import { startOfficialRoutine } from '../sheets.jsx'
 import { programProgress } from '../lib/guided-programs.js'
 import { issueText } from '../lib/blocks-api.js'
 import WorkoutCover from '../components/WorkoutCover.jsx'
+import GuidedProgramPhoto from '../components/GuidedProgramPhoto.jsx'
 import GymProfile from '../components/GymProfile.jsx'
 import Icon from '../components/Icon.jsx'
 import './train2j-program-home.css'
@@ -140,7 +141,7 @@ export default function Train2J() {
       </Rail>
       {narrow && heroNode}
       {programs.length > 0 && <section className="gp-home"><header><div><span className="t2-eyebrow">{t('A PLAN FOR THE NEXT WEEKS')}</span><h2>{t('Guided programs')}</h2></div><button className="t2-more" onClick={() => nav('/train2j/programs')}>{t('See all')}<Icon name="chevronRight" /></button></header>
-        <div className="gp-home-cards">{programs.filter(p => p.featured).slice(0, 3).map(p => <button key={p.id} className="gp-home-card" onClick={() => nav('/train2j/program/' + p.id)}><WorkoutCover r={{ id: p.id, category: p.cover || 'circuit' }} shape="wide" /><b>{t(p.name)}</b><small>{t(p.durationLabel)} · {t('{0} sessions/week', p.sessionsPerWeek)}</small></button>)}</div>
+        <div className="gp-home-cards">{programs.filter(p => p.featured).slice(0, 3).map(p => <button key={p.id} className="gp-home-card" onClick={() => nav('/train2j/program/' + p.id)}><GuidedProgramPhoto program={p} /><b>{t(p.name)}</b><small>{t(p.durationLabel)} · {t('{0} sessions/week', p.sessionsPerWeek)}</small></button>)}</div>
       </section>}
       <Rail id="t2-again" title={t('Again?')} items={recent}>
         {recent.map(x => <RoutineCard key={x.routine.id} r={x.routine} stats={stats[x.routine.id]} reasons={[[daysAgo(x.d) === 0 ? 'Done today' : daysAgo(x.d) === 1 ? 'Done yesterday' : 'Done {0} days ago', daysAgo(x.d)]]} />)}
