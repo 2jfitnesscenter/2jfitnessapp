@@ -31,17 +31,17 @@ describe('Premium in the Coach screens', () => {
     await boot()
     const { PremiumRun } = await import('../components/coach/CoachMember.jsx')
     const h = html(<PremiumRun p={run} />)
-    for (const k of ['5/3/1 · version 1', '5/3/1 · Cycle 3 · Week 2/4 · Week 2 · 3s', '5 of 16', '88% · 21 of 24 sessions', 'squat 105 kg', 'bench 72.5 kg', 'Sessions skipped', 'may affect the method', 'Supplementary work, cardio and scheduling stay open to you.']) expect(h, k).toContain(k)
+    for (const k of ['Fuerza 5/3/1 · version 1', 'Fuerza 5/3/1 · Cycle 3 · Week 2/4 · Semana 2 · series de 3 repeticiones', '5 of 16', '88% · 21 of 24 sessions', 'Sentadilla 105 kg', 'Press banca 72.5 kg', 'Sessions skipped', 'may affect the method', 'Supplementary work, cardio and scheduling stay open to you.']) expect(h, k).toContain(k)
   })
   it('the follow-up card shows "5/3/1 · Cycle 3 · Week 2/4", and paused when it is', async () => {
     await boot()
     const { BoardBody } = await import('../components/coach/CoachBoard.jsx')
     const r = id => ({ id, name: 'ana lopez', avatar: null, level: 'normal', goal: { key: 'hypertrophy', label: null, priority: 'normal', source: 'member' }, signals: [], signalCount: 0,
       adherence: { pct28: 80, done28: 8, planned28: 10, pct7: 100, done7: 2, planned7: 2, trend: 'flat' }, lastWorkout: '2026-10-19', daysSince: 1, nextReview: null, reviewIn: null, flagged: false, followUpActive: false,
-      premium: { name: '5/3/1', version: 1, cycle: 3, week: 2, weeks: 4, status: id === 'p' ? 'paused' : 'active', label: '5/3/1 · C3 · W2/4' } })
+      premium: { programId: 'premium-531', name: '5/3/1', version: 1, cycle: 3, week: 2, weeks: 4, status: id === 'p' ? 'paused' : 'active', label: '5/3/1 · C3 · W2/4' } })
     const board = ids => ({ today: '2026-10-20', scope: 'all', assigned: ids.length, counts: { attention: 0, upcoming: 0, stable: ids.length }, attention: [], upcoming: [], stable: ids.map(r) })
     const a = html(<BoardBody d={board(['a'])} shown="stable" />)
-    expect(a).toContain('5/3/1 · Cycle 3 · Week 2/4'); expect(a).not.toContain('Paused')
+    expect(a).toContain('Fuerza 5/3/1 · Cycle 3 · Week 2/4'); expect(a).not.toContain('Paused')
     expect(html(<BoardBody d={board(['p'])} shown="stable" />)).toContain('Paused')
   })
 })

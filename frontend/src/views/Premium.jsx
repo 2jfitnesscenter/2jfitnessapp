@@ -10,16 +10,16 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { usePremium } from '../lib/premium-api.js'
 import { activate, finish, pause, resume, skip, setTM, nextCycle, runningView, filterCatalog, recommendation, compatibility, premiumState, activePlanOf, setAsidePlan, FILTERS } from '../lib/premium.js'
-import { copyOf, labelOfRun, BADGE_LABEL, LEVEL_KEY, GOAL_LABEL, STATUS_LABEL, PROGRESSION_TEXT, REASON_LABEL } from '../lib/premium-text.js'
+import { copyOf, labelOfRun, premiumProgramName, premiumScheduleText, BADGE_LABEL, LEVEL_KEY, GOAL_LABEL, STATUS_LABEL, SOURCE_TYPE_LABEL, PROGRESSION_TEXT, REASON_LABEL } from '../lib/premium-text.js'
 import { allowedByAdmin } from '../lib/features.js'
 import { EXIDX } from '../lib/exercises.js'
-import { t } from '../lib/i18n.js'
+import { t, nameFor } from '../lib/i18n.js'
 import { confirmSheet, startPremiumSession } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import PremiumCover from '../components/PremiumCover.jsx'
 import './premium.css'
 
-const exName = id => t(EXIDX[id]?.n || id)
+const exName = id => nameFor(EXIDX[id]) || t(EXIDX[id]?.n || id)
 const lang = S => S?.lang || 'es'
 
 function Back({ to, label }) {
@@ -142,11 +142,17 @@ function Items({ items, icon = 'check' }) {
 }
 
 /** Week-by-week structure from the full definition: one line per session with its main work. */
-function Structure({ def }) {
+function Structure({ def, L }) {
   if (!def) return <p className="dim small">{t('Loading…')}</p>
-  return <div className="pm-weeks">{def.weeks.map((w, wi) => <div key={wi} className="pm-week">
-    <b>{w.label || t('Week {0}', wi + 1)}{w.phase ? ` · ${w.phase}` : ''}</b>
-    <ul>{w.sessions.map((s, si) => <li key={si}><span>{s.title}</span><small>{s.blocks.length === 1 ? t('1 exercise') : t('{0} exercises', s.blocks.length)}</small></li>)}</ul></div>)}</div>
+  return <div className="pm-weeks">{def.weeks.map((w, wi) => {
+    const phaseIncludesLabel = w.label && w.phase && w.phase.startsWith(`${w.label} ·`)
+    const heading = w.phase && (w.phase === w.label || phaseIncludesLabel)
+      ? premiumScheduleText(w.phase, L)
+      : `${premiumScheduleText(w.label || t('Week {0}', wi + 1), L)}${w.phase ? ` · ${premiumScheduleText(w.phase, L)}` : ''}`
+    return <div key={wi} className="pm-week"><b>{heading}</b>
+      <ul>{w.sessions.map((s, si) => <li key={si}><span>{premiumScheduleText(s.title, L)}</span><small>{s.blocks.length === 1 ? t('1 exercise') : t('{0} exercises', s.blocks.length)}</small></li>)}</ul>
+    </div>
+  })}</div>
 }
 
 export function PremiumDetail() {
@@ -179,7 +185,7 @@ export function PremiumDetail() {
     if (!full) { toast(err || t('Loading…')); return }
     openSheet(close => <ActivateSheet program={full} text={x} compat={compat} close={close} onDone={() => { usePremium.getState().started(full.id); nav('/premium/active') }} />)
   }
-  const sourceLabel = { established: 'Established, widely used method', principles: 'Built on general training principles', own: '2J Fitness Center own method' }[summary.sourceType]
+  const sourceLabel = SOURCE_TYPE_LABEL[summary.sourceType]
   const lifts = full?.programDefinition?.lifts || summary.setup?.lifts || []
   return <main className="pm-page pm-detail">
     <PremiumCover p={p} ratio="16 / 11" eager className="pm-detail-cover">
@@ -202,7 +208,7 @@ export function PremiumDetail() {
       <Section title={t('What 2J does for you')}><Items items={[t('Calculates your loads for every session.'), t('Keeps your cycle, week and next workout.'), t('Proposes changes at the end of a cycle — you confirm them.')]} /></Section>
       <Section title={t('Tracking')}><Items items={x.tracking} /></Section>
       <Section title={t('Not ideal if…')}><Items items={x.notIdealIf} icon="xmark" /></Section>
-      <Section title={t('Weekly structure')} accordion><Structure def={full?.programDefinition} /></Section>
+      <Section title={t('Weekly structure')} accordion><Structure def={full?.programDefinition} L={L} /></Section>
       <Section title={t('Requirements')} accordion>
         <Items items={[...(summary.equipmentRequirements || []).map(e => t(e)), ...lifts.map(l => t('Training Max: {0}', exName(l.exercise)))]} />
       </Section>
@@ -242,7 +248,7 @@ export function ActivateSheet({ program, text, compat, close, onDone }) {
     close(); onDone()
   }
   return <div className="pm-sheet">
-    <h3>{t('Start {0}', text.name)}</h3>
+    <h3>{t('Start {0}', premiumProgramName(text))}</h3>
     {plan && <div className="pm-replace" role="alert"><Icon name="info" /><div>
       <b>{t('Premium programs use their own periodisation.')}</b>
       <p>{t('If you start this program, it will replace your current active planning ({0}).', plan.name)}</p>
@@ -250,7 +256,7 @@ export function ActivateSheet({ program, text, compat, close, onDone }) {
     <ul className="pm-list">
       <li><Icon name="check" />{t('A new program will guide your next sessions: loads, sets and the cycle.')}</li>
       <li><Icon name="check" />{t('Your workouts, records and saved routines are not changed.')}</li>
-      {running && <li><Icon name="info" />{t('Your current program ({0}) will be closed and kept in your history.', running.name)}</li>}
+      {running && <li><Icon name="info" />{t('Your current program ({0}) will be closed and kept in your history.', premiumProgramName(running))}</li>}
       {compat && !compat.compatible && <li><Icon name="info" />{t('{0} of {1} exercises need other equipment.', compat.missing, compat.total)}</li>}
     </ul>
     {lifts.length > 0 && <>
@@ -310,14 +316,14 @@ export function PremiumActive() {
   return <main className="pm-page pm-running">
     <PremiumCover p={v.inst.snapshot.coverImage ? v.inst.snapshot : live || {}} ratio="16 / 8" eager className="pm-detail-cover short">
       <div className="pm-hero-top over"><Back to="/premium" /><span className={'pm-badge ' + (paused ? 'muted' : 'green')}>{paused ? t('Paused') : t('In progress')}</span></div>
-      <span className="pm-detail-cap"><span className="pm-kicker">{v.pos.phase ? t(v.pos.phase) : t('Your program')}</span><h1>{v.inst.name}</h1>
+      <span className="pm-detail-cap"><span className="pm-kicker">{v.pos.phase ? premiumScheduleText(v.pos.phase) : t('Your program')}</span><h1>{premiumProgramName(v.inst)}</h1>
         <span className="pm-facts"><span><Icon name="calendar" />{t('Cycle {0} · Week {1}/{2}', v.pos.cycle, v.pos.week, v.pos.weeks)}</span><span>{t('version {0}', v.inst.programVersion)}</span></span></span>
     </PremiumCover>
     <div className="pm-detail-body">
       <div className="pm-prog"><span className="pm-bar" role="progressbar" aria-label={t('Program progress')} aria-valuemin="0" aria-valuemax="100" aria-valuenow={v.progress.percent}><i style={{ width: v.progress.percent + '%' }} /></span>
         <small>{t('{0} of {1} sessions this cycle', v.pos.completedInCycle, v.pos.totalInCycle)}</small></div>
       {v.missing.length > 0 && <p className="pm-note warn"><Icon name="info" />{t('Set the Training Max of every main lift to unlock the next session.')}</p>}
-      {v.plan && <section className="pm-sec next"><h2>{t('Next workout')} · {v.plan.title}</h2><div className="pm-sec-body">
+      {v.plan && <section className="pm-sec next"><h2>{t('Next workout')} · {premiumScheduleText(v.plan.title)}</h2><div className="pm-sec-body">
         <ul className="pm-plan">{v.plan.blocks.map((b, i) => <li key={i}><b>{exName(b.exercise)}</b>
           <small>{b.kind === 'fixed' ? b.sets.map(s => `${s.w}×${s.r}${s.amrap ? '+' : ''}`).join(' · ') : b.kind === 'cfg' ? `${b.cfg.sets}×${b.cfg.targetRepsMin ? b.cfg.targetRepsMin + '-' + b.cfg.targetRepsMax : b.cfg.reps}` : b.kind === 'conditioning' ? (b.conditioning.min ? b.conditioning.min + ' min' : b.conditioning.sec + ' s') : t('Set the Training Max')}</small>{b.note && <em className="pm-bnote">{t(b.note)}</em>}</li>)}</ul>
         <div className="pm-actions"><button className="pm-primary" disabled={paused || v.missing.length > 0} onClick={startPremiumSession}><Icon name="play" />{t('Start workout')}</button>
@@ -338,5 +344,5 @@ export function PremiumActive() {
 
 function History({ items }) {
   if (!items?.length) return null
-  return <section className="pm-sec"><h2>{t('Program history')}</h2><div className="pm-sec-body"><ul className="pm-list">{[...items].reverse().map((h, i) => <li key={i}><Icon name="check" />{h.name} · {t('{0} sessions', h.sessions)} · {t(REASON_LABEL[h.reason] || 'finished')}</li>)}</ul></div></section>
+  return <section className="pm-sec"><h2>{t('Program history')}</h2><div className="pm-sec-body"><ul className="pm-list">{[...items].reverse().map((h, i) => <li key={i}><Icon name="check" />{premiumProgramName(h)} · {t('{0} sessions', h.sessions)} · {t(REASON_LABEL[h.reason] || 'Finished')}</li>)}</ul></div></section>
 }
