@@ -1,0 +1,253 @@
+{
+  "metadata": {
+    "title": "Remember the bar picked in the plate calculator (on top of 3631cf9)"
+  },
+  "targetCommit": "eb70c305cb7c3e6f37ddca25a0d3fcf0b612b9b7",
+  "expectedCurrentCommit": "3631cf9ff800dc91616760e3bf73c709e2232e39",
+  "rollbackCommit": "3631cf9ff800dc91616760e3bf73c709e2232e39",
+  "expectedCommitCount": 1,
+  "maxCommits": 1,
+  "expectedFrontendTests": 2047,
+  "expectedApiTests": 989,
+  "expectedApiPassed": 989,
+  "expectedApiSkipped": 0,
+  "nonDeployablePaths": [],
+  "deployablePaths": [
+    "frontend/src/sheets-plates-bar.test.jsx",
+    "frontend/src/sheets.jsx"
+  ],
+  "deltaPaths": [
+    "frontend/src/sheets-plates-bar.test.jsx",
+    "frontend/src/sheets.jsx"
+  ],
+  "sync": {
+    "rollbackBase": "51a221d8ef524776334d8d67109fb9102407eff2",
+    "syncJsSha256Lf": "8b402562d3a5eccfe7054db5246ca4e9f796b70b24306f9c2f8e0c53470fd586",
+    "syncJsSha256CrLf": "6cd72a0fbf910612efba88fa1a56700664e4b3e322103632ae025c1174085859"
+  },
+  "probes": {
+    "sourceFiles": [
+      "api/server.js",
+      "api/webhooks/routes.js",
+      "api/webhooks/service.js",
+      "api/lib/webhook-security.js",
+      "api/platform-sso/index.js",
+      "frontend/src/lib/exercise-merge.js",
+      "frontend/src/lib/last-time-compare.js",
+      "frontend/src/lib/gym-reminder.js"
+    ],
+    "sourceMarkers": [
+      {
+        "file": "api/server.js",
+        "marker": "setStateWriteHook((uid, prev, next) => webhooks.onStateWritten(uid, prev, next));"
+      },
+      {
+        "file": "api/server.js",
+        "marker": "const webhooks = createWebhookService({ store: webhookStore, enabled: process.env.WEBHOOKS_ENABLED === '1' });"
+      },
+      {
+        "file": "api/webhooks/routes.js",
+        "marker": "export function webhookRoutes({"
+      },
+      {
+        "file": "api/webhooks/service.js",
+        "marker": "export function createWebhookService({"
+      },
+      {
+        "file": "api/lib/webhook-security.js",
+        "marker": "export function verifyWebhookSignature({"
+      },
+      {
+        "file": "api/platform-sso/index.js",
+        "marker": "export function createPlatformIntegration({"
+      },
+      {
+        "file": "frontend/src/lib/exercise-merge.js",
+        "marker": "export function mergeMapOf(S) {"
+      },
+      {
+        "file": "frontend/src/lib/last-time-compare.js",
+        "marker": "export function lastTimeComparison(S, w) {"
+      },
+      {
+        "file": "frontend/src/lib/gym-reminder.js",
+        "marker": "export function readGymReminder(storage) {"
+      }
+    ],
+    "unauthenticatedRoutes": [
+      {
+        "method": "GET",
+        "path": "/api/shared-device/status",
+        "status": 200,
+        "expectUnauthenticated": true,
+        "requiredBodyMarker": "\"authorized\":false"
+      },
+      {
+        "method": "POST",
+        "path": "/api/shared-device/pin",
+        "status": 403,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/shared-device/step-up",
+        "status": 403,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "path": "/api/admin/shared-devices",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/admin/shared-device/revoke",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/shared-staff/pin",
+        "status": 403,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "POST",
+        "path": "/api/admin/shared-staff/pin",
+        "status": 401,
+        "expectUnauthenticated": true
+      },
+      {
+        "method": "GET",
+        "status": 200,
+        "path": "/api/push/public-key"
+      },
+      {
+        "method": "POST",
+        "expectUnauthenticated": true,
+        "status": 403,
+        "path": "/api/push/subscribe"
+      }
+    ]
+  },
+  "expectedCurrentPreserved": [
+    {
+      "path": ".env.example",
+      "from": "3fb31de9ed2b808a0a1ddcd9eef6ba157ada0270"
+    },
+    {
+      "path": ".env.production.example",
+      "from": "3fb31de9ed2b808a0a1ddcd9eef6ba157ada0270"
+    },
+    {
+      "path": ".gitattributes",
+      "from": "56cecdcf9e73a99fa40286437e102a77eaa44eb3"
+    },
+    {
+      "path": ".github/workflows/test.yml",
+      "from": "494f37567c1d563a42e27b32167079ad91a5a764"
+    },
+    {
+      "path": ".gitignore",
+      "from": "80f29b7608660ba072017fee62c18add1e2acb0e"
+    },
+    {
+      "path": "Caddyfile",
+      "from": "962ced16b2e36b1bde31fe7487937096640d82ec"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "from": "65ef9cf608593f0d5da8f635c87fa831de8299fc"
+    },
+    {
+      "path": "contracts/2J-089-training-summary-v1.json",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "contracts/platform-training-capabilities-v2.json",
+      "from": "65ef9cf608593f0d5da8f635c87fa831de8299fc"
+    },
+    {
+      "path": "contracts/platform-training-capabilities-v2.schema.json",
+      "from": "65ef9cf608593f0d5da8f635c87fa831de8299fc"
+    },
+    {
+      "path": "contracts/platform-training-integration-v1.schema.json",
+      "from": "65ef9cf608593f0d5da8f635c87fa831de8299fc"
+    },
+    {
+      "path": "docker-compose.prod.yml",
+      "from": "962ced16b2e36b1bde31fe7487937096640d82ec"
+    },
+    {
+      "path": "ops/deploy-kit/releases/bunker-v2.json",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/releases/megasprint-2026-10-07.json",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/feature-gate-probe.test.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/generate-release-runner.mjs",
+      "from": "57ad94998d26a568273d38d8a0db699204ed20f3"
+    },
+    {
+      "path": "ops/deploy-kit/windows/generate-release-runner.test.mjs",
+      "from": "57ad94998d26a568273d38d8a0db699204ed20f3"
+    },
+    {
+      "path": "ops/deploy-kit/windows/git-root.test.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/physical-baseline.test.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/physical-tree.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/release-archive-eol.test.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/release-archive.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/release-deps.test.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/release-protocol-guards.test.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/release-tree.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/release-tree.test.mjs",
+      "from": "29f5f64f8eac8b66af9b5d9ce912f287af7191cf"
+    },
+    {
+      "path": "ops/deploy-kit/windows/templates/release-runner.ps1.in",
+      "from": "57ad94998d26a568273d38d8a0db699204ed20f3"
+    },
+    {
+      "path": "ops/staging/bunker.env.example",
+      "from": "65ef9cf608593f0d5da8f635c87fa831de8299fc"
+    },
+    {
+      "path": "scripts/fetch-opengym-media.sh",
+      "from": "65ef9cf608593f0d5da8f635c87fa831de8299fc"
+    }
+  ],
+  "expectedCurrentPhysicalTree": "3145d46ad75601ddbf4afb85052beb723fa01d05"
+}
