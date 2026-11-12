@@ -2288,8 +2288,10 @@ function PlatesSheet({ weight: initWeight, unit, barId: initBarId, onApply, onBa
       onClick={() => { onApply(weight - Math.max(0, leftover)); close() }}>{t('Apply to set')}</Button>}
   </div>
 }
-export const platesSheet = (weight, unit, onApply, barId) =>
-  ui().openSheet(close => <PlatesSheet weight={weight} unit={unit} onApply={onApply} barId={barId} close={close} />, { wide: true })
+// onBarChange (optional) receives the bar the member picks in this sheet; Workout.jsx uses it to
+// remember that bar for the exercise. It must be forwarded here or the choice is never saved.
+export const platesSheet = (weight, unit, onApply, barId, onBarChange) =>
+  ui().openSheet(close => <PlatesSheet weight={weight} unit={unit} onApply={onApply} barId={barId} onBarChange={onBarChange} close={close} />, { wide: true })
 
 /* ============================ per-exercise "…" menu (routine editor) ============================ */
 // Every action beyond what tapping the row itself already does (open exConfigSheet for
