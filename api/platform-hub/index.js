@@ -16,9 +16,9 @@ export const STAFF_FOLLOWUP_WRITES = Object.freeze([
   'POST /api/trainer/followup/questionnaire/assign',
 ]);
 
-export function createPlatformHub({ hub, integrationConfig, trainingOrigin, db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration, isEnvAdmin, rateLimit, store, generateUsername, legacyProvision, fetchImpl = globalThis.fetch, now = Date.now }) {
+export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration, isEnvAdmin, rateLimit, store, generateUsername, legacyProvision, fetchImpl = globalThis.fetch, now = Date.now }) {
   const redeem = createRedeemClient({ client: integrationConfig.client, fetchImpl, now });
-  const receive = createReceiver({ hub, homeUrl: integrationConfig.homeUrl, trainingOrigin, db, saveDb, secEvent, readSession, newSsoSession, capabilities: integration.capabilities, isEnvAdmin, rateLimit, redeem, now });
+  const receive = createReceiver({ hub, homeUrl: integrationConfig.homeUrl, db, saveDb, secEvent, readSession, newSsoSession, capabilities: integration.capabilities, isEnvAdmin, rateLimit, redeem, now });
   const service = createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store, generateUsername, isEnvAdmin, legacyProvision, now });
 
   /** What the member's own screen needs: level, notice (H-79.1) and, for an SSO session, where "Volver a Home" goes. Never computed here. */

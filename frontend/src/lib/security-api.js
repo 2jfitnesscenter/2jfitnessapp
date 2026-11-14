@@ -43,6 +43,8 @@ export const EVENT_LABEL = {
   platform_state_stripped: 'Some changes needed a plan that is not active', platform_link_activated: 'Your 2J account was linked', platform_link_revoked: 'Your 2J account was unlinked', platform_provisioned: 'A profile was created from your 2J account',
   platform_sso_switch_requested: 'A 2J sign-in link tried to switch this account', platform_sso_switch_confirmed: 'You switched account with a 2J sign-in link',
   platform_signal_applied: 'Your 2J account access was updated by the centre',
+  platform_hub_sso_refused: 'A sign-in from 2J Home was refused', platform_hub_service_refused: 'A request from 2J Hub was refused',
+  platform_hub_provision_conflict: 'A 2J Hub profile could not be created', platform_link_adopted: 'Your 2J account was linked by the centre',
 }
 
 /* ---------- link a device with a QR code ---------- */

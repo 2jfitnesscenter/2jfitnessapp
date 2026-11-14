@@ -13,9 +13,6 @@ const FORM = 'application/x-www-form-urlencoded';
 /** Neutral name a provisioned profile is born with; replaced by Platform's display name at the first sign-in. */
 export const PROVISIONED_PLACEHOLDER_NAME = 'Socio 2J';
 
-/** Registrable-domain approximation for same-site checks (last two labels; loopback hosts compare as-is). */
-const siteOf = host => { const parts = String(host).split('.'); return /^\d+$/.test(parts.at(-1)) || parts.length < 2 ? host : parts.slice(-2).join('.'); };
-
 function readForm(req) {
   return new Promise((resolve, reject) => {
     const chunks = []; let size = 0, tooLarge = false;
@@ -25,19 +22,14 @@ function readForm(req) {
   });
 }
 
-export function createReceiver({ hub, homeUrl, trainingOrigin, db, saveDb, secEvent, readSession, newSsoSession, capabilities, isEnvAdmin, rateLimit, redeem, now = Date.now }) {
+export function createReceiver({ hub, homeUrl, db, saveDb, secEvent, readSession, newSsoSession, capabilities, isEnvAdmin, rateLimit, redeem, now = Date.now }) {
   const homeOrigin = homeUrl ? new URL(homeUrl).origin : null;
-  const crossSiteHome = homeOrigin ? siteOf(new URL(homeOrigin).hostname) !== siteOf(new URL(trainingOrigin).hostname) : false;
 
-  /** Where the request comes from. Origin is exact when the browser sends one; `null` (referrerpolicy=no-referrer) falls back to Fetch Metadata. */
+  /** F9c punto 0 (H-80): Home sends the form with referrerpolicy="origin", so the browser always sends its exact Origin. Only that exact origin is
+   *  accepted; `Origin: null` or a missing Origin is refused (no Fetch Metadata fallback: it cannot tell Home from another site → login CSRF). */
   function provenanceOk(headers) {
     const origin = headers.origin;
-    if (typeof origin === 'string' && origin !== 'null') return origin === homeOrigin;
-    const site = headers['sec-fetch-site'], mode = headers['sec-fetch-mode'], dest = headers['sec-fetch-dest'];
-    if (site !== undefined && !(['same-origin', 'same-site'].includes(site) || (crossSiteHome && site === 'cross-site'))) return false;
-    if (mode !== undefined && mode !== 'navigate') return false;
-    if (dest !== undefined && dest !== 'document') return false;
-    return true;
+    return typeof origin === 'string' && origin !== 'null' && origin === homeOrigin;
   }
 
   const go = (res, location, extra = {}) => {

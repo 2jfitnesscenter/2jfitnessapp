@@ -204,12 +204,20 @@ test('service auth on the new routes: unsigned, tampered, stale (±30 s), replay
 });
 
 /* ------------------------------------------------------------------ receiver security */
-test('receiver: provenance and form shape are checked before anything is redeemed', async () => {
+test('receiver: provenance (exact Origin, F9c punto 0) and form shape are checked before anything is redeemed', async () => {
   const before = platform.state.redeems;
   const f = issue(P.prov, provisioned);
+  const { origin: _drop, ...noOrigin } = FORM;
+  const navigate = { 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' };
   for (const [why, headers] of [
     ['other origin', { ...FORM, origin: 'https://evil.example' }],
-    ['null origin from fetch()', { ...FORM, origin: 'null', 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty' }],
+    ['other origin, same site', { ...FORM, origin: 'https://evil.home.example' }],
+    ['Origin: null (referrerpolicy=no-referrer)', { ...FORM, origin: 'null', 'sec-fetch-site': 'same-site', ...navigate }],
+    ['Origin: null from fetch()', { ...FORM, origin: 'null', 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty' }],
+    ['Origin missing', noOrigin],
+    ['Origin missing with valid Fetch Metadata', { ...noOrigin, 'sec-fetch-site': 'same-origin', ...navigate }],
+    ['cross-site with valid Fetch Metadata but foreign Origin', { ...FORM, origin: 'https://attacker.example', 'sec-fetch-site': 'cross-site', ...navigate }],
+    ['Home origin with a path is not an origin', { ...FORM, origin: `${HOME}/inicio` }],
     ['json body', { ...FORM, 'content-type': 'application/json' }],
   ]) {
     const r = await receive(f, headers);
@@ -218,8 +226,11 @@ test('receiver: provenance and form shape are checked before anything is redeeme
   assert.equal((await receive({ ...f, extra: '1' })).headers.location, '/sso#error=denied', 'exactly two fields');
   assert.equal((await receive({ code: 'short', correlationId: f.correlationId })).headers.location, '/sso#error=denied');
   assert.equal(platform.state.redeems, before, 'nothing reached Platform');
-  const nullOrigin = await receive(f, { 'content-type': 'application/x-www-form-urlencoded', origin: 'null', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate', 'sec-fetch-dest': 'document' });
-  assert.equal(nullOrigin.headers.location, '/', 'referrerpolicy=no-referrer navigation (Origin: null) from Home is accepted (see risk R1)');
+  const refused = db().securityEvents.filter(e => e.event === 'platform_hub_sso_refused' && e.meta?.reason === 'origin_rejected');
+  assert.ok(refused.length >= 8, 'every provenance refusal is audited with a generic reason');
+  const ok = await receive(f, { ...FORM, 'sec-fetch-site': 'cross-site', ...navigate });
+  assert.equal(ok.headers.location, '/', 'the exact Home Origin (referrerpolicy=origin) is accepted');
+  assert.ok(ssoCookie(ok));
 });
 
 test('receiver: code used, altered or expired; correlationId, issuer, audience or person mismatched -> generic error, no session, data intact', async () => {

@@ -1120,7 +1120,7 @@ const platformLinkRoutes = createPlatformLinkRoutes({
   revokeSsoSessions: platformIntegration.revokeSsoSessions, applySignal: platformIntegration.applySignal, generateUsername,
 });
 const platformHub = createPlatformHub({
-  hub: PLATFORM_HUB_CONFIG, integrationConfig: PLATFORM_INTEGRATION_CONFIG, trainingOrigin: new URL(ORIGIN).origin,
+  hub: PLATFORM_HUB_CONFIG, integrationConfig: PLATFORM_INTEGRATION_CONFIG,
   db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration: platformIntegration, isEnvAdmin: id => ADMIN_UIDS.includes(id),
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
   store: platformProofStore, generateUsername, legacyProvision: platformLinkRoutes['POST /api/platform/v1/provision'],
