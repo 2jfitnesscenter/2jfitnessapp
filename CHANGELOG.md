@@ -1,5 +1,11 @@
 # Changelog
 
+### F9d-2 · Exportar/eliminar con la passkey de 2J Hub (rama `agent/codex/F9d2-stepup-receiver`, NO desplegado, todo apagado)
+
+- `PLATFORM_HUB_STEPUP_ENABLED` (apagado; además del puente y de `PLATFORM_SSO_ENABLED`): receptor `POST /api/platform/v1/stepup/receive` del formulario de Home (Origin exacto, cuerpo cerrado, `no-store`, sin registrar el cuerpo). Canjea con Platform una confirmación con passkey hecha **en Platform** (`platform_passkey`) y marca **esa sesión** con una autorización de un solo uso, 5 min, para **exportar** o **eliminar** la propia cuenta. Nada más: passkeys, dispositivos, sesiones, webhooks, Coach y todo lo del personal siguen pidiendo la passkey de Búnker; `platform_sso` sigue sin valer.
+- Un perfil creado por alta automática (sin passkey de Búnker) ya puede exportar y eliminar su cuenta desde Home cuando se encienda. Personal y `ADMIN_UIDS`: nunca.
+- Eventos `platform_hub_stepup_granted`, `platform_hub_stepup_used` y `platform_hub_stepup_refused` (propósito o motivo, nunca códigos). Ver `docs/PLATFORM_HUB_F9B_RECONCILIATION.md` §11.
+
 ### F9d · Passkeys para 2J Hub y login de socios apagado con respaldo (rama `agent/codex/F9d-login-retire`, NO desplegado, todo apagado)
 
 - `PLATFORM_HUB_CREDENTIALS_ENABLED` (apagado): Platform puede leer, firmado, las passkeys **públicas** de un socio vinculado a esa persona para importarlas (contrato §8). Nunca secretos ni `userHandle`; personal y `ADMIN_UIDS` fuera.

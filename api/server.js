@@ -1128,6 +1128,18 @@ const platformHub = createPlatformHub({
   // F9c (all inert unless PLATFORM_HUB_SETTINGS_ENABLED): settings from 2J Home and the end-of-link notice after an account erasure.
   readState, writeState, notifications: notificationStore, dataDir: DATA,
 });
+// The erasure itself, once the person is proven (Búnker passkey, or a Platform passkey grant for `delete`, F9d-2). Irreversible; clears the cookie.
+function eraseNow(res, user) {
+  try {
+    const hubSubject = platformHub.erasure.before(db.users.find(u => u.id === user.id));   // F9c: null unless the settings switch is on
+    const report = eraseMember(erasureDeps(), user.id);
+    platformHub.erasure.after(hubSubject);   // F9c: after a SUCCESSFUL erasure only; never blocks or undoes it
+    return json(res, 200, { ok: true, report }, { 'Set-Cookie': clearCookie });
+  } catch (e) {
+    if (e instanceof ErasureError) return json(res, e.status, { error: e.message, code: e.code });
+    throw e;
+  }
+}
 const routes = {
   ...platformIntegration.routes,
   ...platformLinkRoutes,
@@ -1661,6 +1673,8 @@ const routes = {
   'GET /api/me/export': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
+    // F9d-2: an SSO session reaches here only with a Platform passkey grant for `export`, spent now (one download).
+    if (user.authLevel === 'sso' && !platformHub.stepUp.consume(req, user, 'export')) return json(res, 403, { error: 'esta acción requiere iniciar sesión con passkey', code: 'passkey_required' });
     const name = '2jfitness-export-' + (user.username || 'cuenta') + '-' + new Date().toISOString().slice(0, 10) + '.json';
     json(res, 200, exportMember(erasureDeps(), user.id), { 'Content-Disposition': 'attachment; filename="' + name.replace(/[^a-zA-Z0-9._-]/g, '_') + '"' });
   },
@@ -1685,6 +1699,12 @@ const routes = {
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const body = await readBody(req);
     if (String(body.confirm || '').trim().toLowerCase() !== String(user.username || '').toLowerCase() || !user.username) return json(res, 400, { error: 'escribe tu nombre de usuario exactamente para confirmar' });
+    // F9d-2: a Platform passkey grant for `delete` of THIS session replaces Búnker's own assertion (one use; the typed username still applies).
+    if (isTrainer(user) && body.platformStepUp === true) return json(res, 403, { code: 'staff', error: 'las cuentas de administración o entrenador no se pueden borrar desde aquí: un administrador debe quitar antes el rol' });
+    if (body.platformStepUp === true || user.authLevel === 'sso') {
+      if (!platformHub.stepUp.consume(req, user, 'delete')) return json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'step_up_required' });
+      return eraseNow(res, user);
+    }
     const c = takeChallenge(body.cid);
     if (!c || c.purpose !== 'delete-account' || c.uid !== user.id) return json(res, 400, { error: 'el desafío ha caducado — inténtalo de nuevo' });
     const cred = db.creds.find(x => x.id === body.credential?.id && x.userId === user.id);
@@ -1698,15 +1718,7 @@ const routes = {
       });
     } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
     if (!verification.verified) return json(res, 400, { error: 'no verificado' });
-    try {
-      const hubSubject = platformHub.erasure.before(db.users.find(u => u.id === user.id));   // F9c: null unless the settings switch is on
-      const report = eraseMember(erasureDeps(), user.id);
-      platformHub.erasure.after(hubSubject);   // F9c: after a SUCCESSFUL erasure only; never blocks or undoes it
-      json(res, 200, { ok: true, report }, { 'Set-Cookie': clearCookie });
-    } catch (e) {
-      if (e instanceof ErasureError) return json(res, e.status, { error: e.message, code: e.code });
-      throw e;
-    }
+    return eraseNow(res, user);
   }),
 
   'GET /api/sync': async (req, res) => {
@@ -3673,8 +3685,10 @@ const server = http.createServer(async (req, res) => {
   if (!handler) return json(res, 404, { error: 'no encontrado' });
   const gate = featureOfRoute(url.pathname);
   if (gate && !featuresStore.isOn(gate)) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
-  if (requiresStrongAuth(key) && !requireStrongAuth(req, res)) return;
-  try { if (!(await platformIntegration.gate(req, res, key))) return; }
+  // F9d-2: a live Platform passkey grant of THIS session opens exactly its own export / erasure (closed list in platform-hub/stepup.js).
+  const hubStepUp = platformHub.stepUp.admits(req, key);
+  if (requiresStrongAuth(key) && !hubStepUp && !requireStrongAuth(req, res)) return;
+  try { if (!(await platformIntegration.gate(req, res, key, { stepUp: hubStepUp }))) return; }
   catch (e) {
     console.error('platform gate', key, e);
     if (res.headersSent) return;

@@ -23,6 +23,8 @@ export const SECURITY_EVENTS = [
   'platform_hub_settings_changed', 'platform_hub_link_end_sent', 'platform_hub_link_end_dropped',
   // F9d · Platform read a member's PUBLIC passkey data (count only) and a linked member was sent to 2J Home instead of signing in here
   'platform_hub_credentials_read', 'platform_login_retired_refused',
+  // F9d-2 · a Platform passkey re-authentication was granted to / used by / refused for a session (purpose or reason only)
+  'platform_hub_stepup_granted', 'platform_hub_stepup_used', 'platform_hub_stepup_refused',
 ]
 // The only facts an event may carry. Values are scalars, strings are clipped.
 const META_KEYS = ['count', 'platform', 'role', 'from', 'to', 'reason', 'handle', 'uv', 'revokedPasskeys', 'sessionsEnded', 'kept', 'purpose', 'kind', 'target', 'capabilityLevel', 'revoked']

@@ -7,7 +7,8 @@
 //   - Búnker's passkeys are KEPT (never deleted in F9d): they still are the only strong re-authentication (an SSO session never satisfies a
 //     passkey check, F9b). Consequence, documented in docs/PLATFORM_HUB_F9B_RECONCILIATION.md §10: while this is on, a linked member whose
 //     browser only holds an SSO session cannot reach export / erasure / passkeys / devices (they need a passkey session, which is no longer
-//     created here). Passkey sessions opened BEFORE the switch are not revoked and keep working until they expire. Pending Juanjo's decision.
+//     created here). Passkey sessions opened BEFORE the switch are not revoked and keep working until they expire. F9d-2 (2JHub H-83) closes
+//     the export / erasure part with PLATFORM_HUB_STEPUP_ENABLED (a passkey confirmed in Platform, see stepup.js): turn that on first.
 // Switching it off restores today's login at once: no data is changed by this module.
 
 export const LOGIN_RETIRED_CODE = 'login_retired';

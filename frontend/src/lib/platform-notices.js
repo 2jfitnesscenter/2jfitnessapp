@@ -40,3 +40,22 @@ export async function loadBridgeView(fetchImpl = globalThis.fetch) {
     return back || notice ? { back, notice } : null
   } catch { return null }
 }
+
+// F9d-2 · A passkey confirmation done in 2J Home (Platform) authorises ONE export or ONE erasure of this account, for 5 minutes (2JHub H-83).
+// The server decides everything; the screen only learns the purpose and until when, from training-level (`stepUp`, only with the switch on).
+export const STEPUP_EXPORT_READY = 'Confirmed with your 2J passkey: you can export your data now (once, within 5 minutes).'
+export const STEPUP_DELETE_READY = 'Confirmed with your 2J passkey: you can delete your account now (once, within 5 minutes).'
+export const STEPUP_DELETE_HINT = 'Already confirmed with your 2J passkey.'
+
+/** `{ purpose: 'export'|'delete', expiresAt }` of this session's live grant, or null. Never throws. */
+export async function loadStepUp(fetchImpl = globalThis.fetch) {
+  try {
+    const config = await fetchImpl('/api/config', { credentials: 'same-origin', cache: 'no-store' }).then(r => (r.ok ? r.json() : null))
+    if (!config || config.platformBridge !== true) return null
+    const response = await fetchImpl(LEVEL_PATH, { credentials: 'same-origin', cache: 'no-store' })
+    if (!response.ok) return null
+    const grant = (await response.json())?.stepUp
+    if (!grant || !['export', 'delete'].includes(grant.purpose) || !(Date.parse(grant.expiresAt) > Date.now())) return null
+    return { purpose: grant.purpose, expiresAt: grant.expiresAt }
+  } catch { return null }
+}

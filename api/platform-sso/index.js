@@ -98,14 +98,16 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
    * blocked (administrative suspension, revoked/missing link) so a suspension is coherent for every session type (decision H2); identity, public
    * and staff routes (recovery, export, deletion, logout, administration) are never closed by the capability contract.
    */
-  async function gate(req, res, key) {
+  async function gate(req, res, key, opts = {}) {
     if (key === 'GET /api/platform/v1/sso/start' || key === 'POST /api/platform/v1/sso/redeem' || key === 'POST /api/platform/v1/sso/confirm') return true;   // how a session is (re)established; each validates everything itself
     if (!req.headers.cookie || !req.headers.cookie.includes('gymsid=')) return true;
     const policy = classifyRoute(key);
     const session = readSession(req);
     if (!session) return true;                                  // the handler answers 401 / public
     const isSso = session.authLevel === 'sso';
-    if (isSso && !policy.ssoAllowed) { deny(res, 'passkey_required'); return false; }
+    // F9d-2: the ONLY exception is a live Platform passkey grant of this session for its own export / erasure (`opts.stepUp`, decided by
+    // platform-hub/stepup.js for exactly GET /api/me/export and POST /api/me/delete). Everything else stays passkey-only.
+    if (isSso && !policy.ssoAllowed && !opts.stepUp) { deny(res, 'passkey_required'); return false; }
     const mode = userMode(session);
     if (mode === 'legacy') return true;                         // no Platform check, no change of behaviour
     const interactive = policy.kind === 'gated' || (policy.kind === 'member' && !policy.blockedOk && !(policy.blockedReadOk && ['GET', 'HEAD'].includes(req.method)));

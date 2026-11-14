@@ -31,6 +31,7 @@ import PrivacySummary from '../components/PrivacySummary.jsx'
 import { bridgeState, getBridge, platformLabel } from '../lib/health-bridge.js'
 import { openAccent } from '../components/AccentSheet.jsx'
 import { webhooksEnabled } from '../lib/webhooks.js'
+import { loadStepUp, STEPUP_DELETE_READY, STEPUP_EXPORT_READY } from '../lib/platform-notices.js'
 
 // One-screen design trial (see the owner's ask for a less "colorful template" look): every row
 // here gets Row's muted `softIcon` badge instead of the solid-fill one the rest of the app still
@@ -56,6 +57,9 @@ export default function Settings() {
   useEffect(() => { if (hasUser && !MOBILE && !DEMO) webhooksEnabled().then(setWebhooksOn) }, [hasUser])
   // F9c · 2J Home opens Settings → Data (export / delete, which ask for the passkey here) as /settings#data: bring that section into view.
   useEffect(() => { if (typeof window !== 'undefined' && window.location.hash === '#data') document.getElementById('data')?.scrollIntoView?.({ block: 'start' }) }, [])
+  // F9d-2 · 2J Home may send the member here with ONE export or erasure already confirmed with their 2J passkey (null = nothing to show).
+  const [hubStepUp, setHubStepUp] = useState(null)
+  useEffect(() => { if (hasUser && !MOBILE && !DEMO) loadStepUp().then(setHubStepUp) }, [hasUser])
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -324,10 +328,10 @@ export default function Settings() {
       <Row icon="clipboard" iconTint="var(--acc)" title={t('Data we process')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="data" />)} />
       <Row icon="sparkles" iconTint="var(--acc)" title={t('Artificial intelligence')} subtitle={t('When it is used and what it receives')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="ai" />)} />
       <Row icon="globe" iconTint="var(--acc)" title={t('External providers')} subtitle={t('Who else receives data, and why')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="providers" />)} />
-      {signedIn && !user.admin && !user.trainer && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} subtitle={t('Permanently deletes your profile and everything linked to it')} danger accessory="chevron" onClick={() => useUI.getState().openSheet(close => <DeleteAccountSheet close={close} />)} />}
+      {signedIn && !user.admin && !user.trainer && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} subtitle={hubStepUp?.purpose === 'delete' ? t(STEPUP_DELETE_READY) : t('Permanently deletes your profile and everything linked to it')} danger accessory="chevron" onClick={() => useUI.getState().openSheet(close => <DeleteAccountSheet close={close} platformStepUp={hubStepUp?.purpose === 'delete'} />)} />}
     </Section>
     <Section footer={t('Take a copy any time, or bring one back.')}>
-      {signedIn && <Row icon="download" iconTint="var(--blue)" title={t('Export my data')} subtitle={t('Everything 2J holds about you, as one file')} accessory="chevron" onClick={exportMyData} />}
+      {signedIn && <Row icon="download" iconTint="var(--blue)" title={t('Export my data')} subtitle={hubStepUp?.purpose === 'export' ? t(STEPUP_EXPORT_READY) : t('Everything 2J holds about you, as one file')} accessory="chevron" onClick={exportMyData} />}
       <Row icon="download" iconTint="var(--blue)" title={t('Export backup (JSON)')} subtitle={t('Your plan, workouts and body weight')} accessory="chevron" onClick={doExport} />
       <Row icon="upload" iconTint="var(--blue)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
     </Section>

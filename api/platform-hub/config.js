@@ -21,6 +21,18 @@ export const HUB_PATHS = Object.freeze({
   // F9c · `${directory}/{trainingUserId}/settings` (GET, PATCH) and Training → Platform end-of-link notice.
   linkEnded: '/api/internal/platform/v2/training-links/ended',
   // F9d · `${directory}/{trainingUserId}/credentials?personId=` (GET): the member's passkeys, PUBLIC parts only (contract §8).
+  // F9d-2 · re-authentication done with a passkey IN PLATFORM, for the member's own export / erasure (contract §9).
+  stepupRedeem: '/api/internal/platform/v2/training-stepup/redeem',
+  stepupReceiver: '/api/platform/v1/stepup/receive',
+});
+/** F9d-2 · Contract constants (2JHub `TRAINING_STEPUP`). `platform_passkey` is valid ONLY for these purposes (closed list). */
+export const HUB_STEPUP = Object.freeze({
+  issuer: '2j-platform',
+  audience: '2j-training-stepup',
+  destination: 'bunker',
+  assurance: 'platform_passkey',
+  purposes: Object.freeze(['export', 'delete']),
+  grantMs: 5 * 60_000,
 });
 /** F9c · Closed list of Training destinations Home may open through SSO (`next` form field). Never a free URL. */
 export const HUB_SSO_NEXT = Object.freeze({ account: '/settings#data' });
@@ -41,6 +53,9 @@ export function parseHubEnv(env) {
     // F9d: linked MEMBERS stop signing in with Búnker's own passkey login / QR link and are sent to 2J Home (SSO only). Only takes effect
     // while the SSO receiver is on (otherwise nobody could get in); staff, ADMIN_UIDS, unlinked members, the room PIN and recovery are untouched.
     // Switching it off restores today's login at once: nothing is migrated or deleted (Búnker's passkeys are never removed in F9d).
+    // F9d-2: Training trusts a passkey re-authentication done in Platform for the member's OWN export / erasure only (2JHub H-83). Needs the SSO
+    // receiver (the form also carries an SSO code). Off = the receiver route does not exist and export / erasure behave exactly as in F9d.
+    stepupEnabled: bridge && TRUE.test(env.PLATFORM_SSO_ENABLED || '') && TRUE.test(env.PLATFORM_HUB_STEPUP_ENABLED || ''),
     loginRetired: bridge && TRUE.test(env.PLATFORM_SSO_ENABLED || '') && TRUE.test(env.PLATFORM_LOGIN_RETIRED || ''),
     // Keys Platform uses to call Training (Platform's TRAINING_OUTBOUND_KEY_ID / TRAINING_OUTBOUND_KEY). Dedicated: never the proof keys.
     inboundKeys: parseServiceAuthKeys(env.PLATFORM_HUB_INBOUND_KEYS || ''),
