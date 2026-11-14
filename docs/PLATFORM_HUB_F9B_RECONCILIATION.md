@@ -78,3 +78,30 @@ Búnker no calcula nada: aplica lo que Platform devuelve.
 ## 8. Qué queda para F9c / F9d
 
 F9c: ajustes de Búnker en Ajustes de Home (H-76). F9d: importar passkeys a Platform y retirar el login de Búnker (H-02) con staging y vuelta atrás; limpiar vínculos adoptados obsoletos; decidir el destino del flujo PKCE y del canje antiguo.
+
+## 9. F9c · Ajustes desde 2J Home y fin de vínculo (rama `agent/codex/F9c-hub-settings`)
+
+Interruptor nuevo `PLATFORM_HUB_SETTINGS_ENABLED` (requiere `PLATFORM_TRAINING_BRIDGE_ENABLED`). Apagado: no hay rutas, ni fichero de cola, ni temporizadores, y el formulario sigue aceptando exactamente dos campos. Contrato: `2JHub/docs/contracts/platform-training-v2.md` §7.
+
+**Inventario de Ajustes (H-76) y decisión:**
+
+| Ajuste de Búnker | Dónde se guarda | ¿Desde Home? |
+|---|---|---|
+| Color de acento (`S.accent`, 11 colores) | estado sincronizado | **Sí** |
+| Tema (`S.theme`: system/dark/light) | estado sincronizado | **Sí** (`appearance`) |
+| Tamaño de texto (`S.textScale`: 0.9/1/1.15/1.3) | estado sincronizado | **Sí** (parte de «apariencia») |
+| Avisos sociales (solicitudes, mensajes, compartido, retos, logros) | `notifications.json` | **Sí** |
+| Push social del dispositivo (`push`) | `notifications.json` + suscripción del dispositivo | No: exige permiso en ese dispositivo |
+| Privacidad social (perfil, actividad, récords, logros, rutinas, entrenos, retos) | `notifications.json` | **Sí** |
+| Idioma, diagrama corporal (lo recibe el Coach), orden de Inicio/Progreso | estado sincronizado | No (no los pide H-76) |
+| Entrenamiento y Salud (guía, esfuerzo, Apple Health, Health Connect, WHOOP, Strava), avisos de descanso | estado / proveedores | No: se quedan en Búnker (H-76) |
+| Passkeys, dispositivos, webhooks, PIN, exportar y eliminar | cuenta | No: exigen passkey; Home lleva a Ajustes → Datos (`next=account`) |
+
+**Cómo se aplica:** `api/platform-hub/settings.js`. Las listas de valores son las de Ajustes (`notifications/store.js` exporta ahora `PRIVACY_CHOICES`, `PRIVACY_FLAGS`, `PREFERENCE_KEYS` y sus `setPrivacy`/`setPreferences` las usan; acento/tema/tamaño tienen un test de deriva contra `frontend/src/lib/format.js` y `Settings.jsx`). Acento/tema/tamaño se escriben con `readState`/`writeState` en una lectura-escritura síncrona: sube la revisión del sync y un dispositivo con cambios viejos recibe `SYNC_CONFLICT` (nunca se deshace en silencio). Solo usuarios vinculados y activos, nunca staff ni `ADMIN_UIDS`. Evento `platform_hub_settings_changed` (cuántos campos y qué grupos, sin valores).
+
+**Fin de vínculo:** `POST /api/me/delete` llama a `platformHub.erasure.before(user)` antes y a `.after()` solo si la eliminación terminó bien; `after` borra los registros del puente que nombran la cuenta (así una nueva alta para esa persona crea un perfil nuevo) y encola el aviso firmado (`api/platform-hub/link-end.js`). Entregas: `200` fuera de la cola (`platform_hub_link_end_sent`), `400/409` descartado (`platform_hub_link_end_dropped`), lo demás reintenta con espera creciente (30 s → 6 h, máx. 30 días).
+
+**Riesgos / preguntas:** un perfil creado por alta automática **no tiene passkey**, así que hoy no puede exportar ni eliminar su cuenta en Búnker (F9d); si en una pantalla de conflicto de sync se elige «Conservar lo mío», ese dispositivo puede volver a poner su acento/tema anterior (elección explícita).
+
+**Pruebas:** `api/test/platform-hub-settings.test.js` (servidor real + Platform falso: lectura/escritura con los almacenes reales, revisión del sync, lista blanca y valores fuera de rango, idempotencia, staff/no vinculado, firma/replay/±30 s/cuerpo alterado/método, `next`, eliminación real con passkey → aviso encolado, y con el interruptor apagado igual que F9b), `api/test/platform-hub-link-end.test.js` (cola: reintentos, mismo `eventId`, reinicio, descarte, nunca lanza) y `frontend/src/lib/platform-hub-settings.test.js` (deriva de listas). Prueba cruzada con el Platform real descrita en el HANDOFF de 2JHub.
+

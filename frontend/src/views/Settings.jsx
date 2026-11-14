@@ -54,6 +54,8 @@ export default function Settings() {
   const [webhooksOn, setWebhooksOn] = useState(false)
   const hasUser = !!user
   useEffect(() => { if (hasUser && !MOBILE && !DEMO) webhooksEnabled().then(setWebhooksOn) }, [hasUser])
+  // F9c · 2J Home opens Settings → Data (export / delete, which ask for the passkey here) as /settings#data: bring that section into view.
+  useEffect(() => { if (typeof window !== 'undefined' && window.location.hash === '#data') document.getElementById('data')?.scrollIntoView?.({ block: 'start' }) }, [])
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -315,6 +317,7 @@ export default function Settings() {
     </Section>}
 
     {/* ---------- 7. data: your copy, in and out ---------- */}
+    <span id="data" className="set-anchor" aria-hidden="true" />
     <h3 className="set-grp">{t('Data')}<span>{t('Your information is yours')}</span></h3>
     <Section footer={t('What 2J stores, which AI and outside providers are involved, and how long it keeps it.')}>
       <Row icon="lock" iconTint="var(--acc)" title={t('Privacy policy')} accessory="chevron" onClick={() => useUI.getState().openSheet(() => <PrivacySheet topic="policy" />)} />

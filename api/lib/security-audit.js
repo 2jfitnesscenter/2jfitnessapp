@@ -19,6 +19,8 @@ export const SECURITY_EVENTS = [
   'platform_link_activated', 'platform_link_revoked', 'platform_provisioned', 'platform_sso_switch_requested', 'platform_sso_switch_confirmed', 'platform_signal_applied',
   // F9b/F9c · 2J Hub bridge (were emitted since F9b but missing here, so they were silently dropped; F9c punto 0)
   'platform_hub_sso_refused', 'platform_hub_service_refused', 'platform_hub_provision_conflict', 'platform_link_adopted',
+  // F9c · settings changed from 2J Home (which groups, never values) and the end-of-link notice after an account erasure
+  'platform_hub_settings_changed', 'platform_hub_link_end_sent', 'platform_hub_link_end_dropped',
 ]
 // The only facts an event may carry. Values are scalars, strings are clipped.
 const META_KEYS = ['count', 'platform', 'role', 'from', 'to', 'reason', 'handle', 'uv', 'revokedPasskeys', 'sessionsEnded', 'kept', 'purpose', 'kind', 'target', 'capabilityLevel', 'revoked']

@@ -45,6 +45,8 @@ export const EVENT_LABEL = {
   platform_signal_applied: 'Your 2J account access was updated by the centre',
   platform_hub_sso_refused: 'A sign-in from 2J Home was refused', platform_hub_service_refused: 'A request from 2J Hub was refused',
   platform_hub_provision_conflict: 'A 2J Hub profile could not be created', platform_link_adopted: 'Your 2J account was linked by the centre',
+  platform_hub_settings_changed: 'Settings changed from 2J Home', platform_hub_link_end_sent: '2J Hub was told an account was deleted',
+  platform_hub_link_end_dropped: 'A notice to 2J Hub could not be delivered',
 }
 
 /* ---------- link a device with a QR code ---------- */

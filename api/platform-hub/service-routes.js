@@ -13,10 +13,13 @@ const provisionSchema = z.object({
   v: z.literal(1), personId: UUID, idempotencyKey: z.string().min(16).max(128).regex(/^[\x21-\x7e]+$/), correlationId: z.string().min(1).max(100),
 }).strict();
 const DIRECTORY_ITEM = /^\/api\/internal\/platform\/v1\/training-users\/([^/]{1,200})$/;
+const SETTINGS_ITEM = /^\/api\/internal\/platform\/v1\/training-users\/([^/]{1,200})\/settings$/;
 export const HUB_SERVICE_ALLOWLIST = Object.freeze([
   { method: 'POST', path: HUB_PATHS.provision },
   { method: 'GET', path: HUB_PATHS.directory },
   { method: 'GET', path: DIRECTORY_ITEM },
+  { method: 'GET', path: SETTINGS_ITEM },
+  { method: 'PATCH', path: SETTINGS_ITEM },
 ]);
 const occupies = link => Boolean(link) && ['pending', 'active'].includes(link.state);
 const fold = value => String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
@@ -30,7 +33,7 @@ function readRaw(req, max = 16 * 1024) {
   });
 }
 
-export function createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store, generateUsername, isEnvAdmin, legacyProvision, newUserId = () => crypto.randomBytes(12).toString('base64url'), now = Date.now }) {
+export function createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store, generateUsername, isEnvAdmin, legacyProvision, settings = null, newUserId = () => crypto.randomBytes(12).toString('base64url'), now = Date.now }) {
   db.platformHubProvisioning = db.platformHubProvisioning && typeof db.platformHubProvisioning === 'object' && !Array.isArray(db.platformHubProvisioning) ? db.platformHubProvisioning : {};
   const notFound = res => json(res, 404, { error: 'no encontrado' });
   const audit = (kind, reason, keyId) => { secEvent('platform_hub_service_refused', { meta: { kind, reason, keyId: keyId || null } }); saveDb(); };
@@ -116,6 +119,15 @@ export function createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store,
     return json(res, 200, { v: 1, user: item(user) });
   }
 
+  /** F9c · Only a live, Platform-linked member: the id Platform sends must be one of ITS active links (never staff, never unlinked). */
+  async function settingsItem(req, res, trainingUserId) {
+    const raw = await authenticated(req, res, 'settings'); if (!raw) return;
+    const user = db.users.find(candidate => candidate.id === trainingUserId);
+    // Staff accounts (admin/trainer) are never reachable from Home: their accounts carry powers (same rule as erasure).
+    if (!user || !visible(user) || user.admin || user.trainer || user.platformLink?.state !== 'active' || !user.personId || user.platformLink.personId !== user.personId) return json(res, 404, { error: 'no encontrado' });
+    return req.method === 'GET' ? settings.get(res, user) : settings.patch(req, res, user, raw);
+  }
+
   return {
     routes: {
       [`POST ${HUB_PATHS.provision}`]: async (req, res) => (hub.provisioningEnabled ? provision(req, res) : legacyProvision(req, res)),
@@ -124,6 +136,12 @@ export function createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store,
     },
     /** Parametrised route the exact-key router cannot hold. `null` keeps today's 404. */
     resolve(method, pathname) {
+      const set = hub.settingsEnabled && settings && (method === 'GET' || method === 'PATCH') ? SETTINGS_ITEM.exec(pathname) : null;
+      if (set) {
+        let id;
+        try { id = decodeURIComponent(set[1]); } catch { return null; }
+        return (req, res) => settingsItem(req, res, id);
+      }
       if (!hub.directoryEnabled || method !== 'GET') return null;
       const match = DIRECTORY_ITEM.exec(pathname);
       if (!match) return null;

@@ -1,4 +1,4 @@
-import { HUB_SSO } from './config.js';
+import { HUB_SSO, HUB_SSO_NEXT } from './config.js';
 import { CORRELATION } from './redeem-client.js';
 import { linkState } from './links.js';
 
@@ -52,9 +52,14 @@ export function createReceiver({ hub, homeUrl, db, saveDb, secEvent, readSession
     try { fields = new URLSearchParams(await readForm(req)); } catch { rateLimit.fail(ip); return refuse(res, 'bad_body'); }
     const names = [...fields.keys()];
     const code = fields.get('code'), correlationId = fields.get('correlationId');
-    if (names.length !== 2 || !names.includes('code') || !names.includes('correlationId') || !CODE.test(code || '') || !CORRELATION.safeParse(correlationId).success) {
+    // F9c: an optional third field `next` from a CLOSED list (only with the settings switch on); anything else is the F9b form, unchanged.
+    const withNext = hub.settingsEnabled === true && names.length === 3 && names.includes('next');
+    const next = withNext ? fields.get('next') : null;
+    if (names.length !== (withNext ? 3 : 2) || !names.includes('code') || !names.includes('correlationId') || !CODE.test(code || '') || !CORRELATION.safeParse(correlationId).success
+      || (withNext && !Object.hasOwn(HUB_SSO_NEXT, next))) {
       rateLimit.fail(ip); return refuse(res, 'bad_form');
     }
+    const landing = withNext ? HUB_SSO_NEXT[next] : '/';
 
     const result = await redeem({ code, correlationId });
     if (result.status === 'unavailable') return refuse(res, 'platform_unavailable', 'unavailable');
@@ -93,10 +98,10 @@ export function createReceiver({ hub, homeUrl, db, saveDb, secEvent, readSession
     delete user.platformRestriction;
     secEvent('platform_sso_login', { userId: user.id, meta: { via: 'hub', capabilityLevel: view.level } });
     saveDb();
-    if (current && current.id === user.id && current.authLevel !== 'sso') return go(res, '/');
+    if (current && current.id === user.id && current.authLevel !== 'sso') return go(res, landing);
     const cookie = newSsoSession(req, user);
     const record = db.deviceSessions.findLast?.(item => item.userId === user.id && item.via === 'sso' && !item.revokedAt);
     if (record) { record.assurance = HUB_SSO.assurance; saveDb(); }
-    return go(res, '/', { 'Set-Cookie': cookie });
+    return go(res, landing, { 'Set-Cookie': cookie });
   };
 }

@@ -1124,6 +1124,8 @@ const platformHub = createPlatformHub({
   db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration: platformIntegration, isEnvAdmin: id => ADMIN_UIDS.includes(id),
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
   store: platformProofStore, generateUsername, legacyProvision: platformLinkRoutes['POST /api/platform/v1/provision'],
+  // F9c (all inert unless PLATFORM_HUB_SETTINGS_ENABLED): settings from 2J Home and the end-of-link notice after an account erasure.
+  readState, writeState, notifications: notificationStore, dataDir: DATA,
 });
 const routes = {
   ...platformIntegration.routes,
@@ -1692,7 +1694,9 @@ const routes = {
     } catch (e) { return json(res, 400, { error: 'verificación fallida: ' + e.message }); }
     if (!verification.verified) return json(res, 400, { error: 'no verificado' });
     try {
+      const hubSubject = platformHub.erasure.before(db.users.find(u => u.id === user.id));   // F9c: null unless the settings switch is on
       const report = eraseMember(erasureDeps(), user.id);
+      platformHub.erasure.after(hubSubject);   // F9c: after a SUCCESSFUL erasure only; never blocks or undoes it
       json(res, 200, { ok: true, report }, { 'Set-Cookie': clearCookie });
     } catch (e) {
       if (e instanceof ErasureError) return json(res, e.status, { error: e.message, code: e.code });

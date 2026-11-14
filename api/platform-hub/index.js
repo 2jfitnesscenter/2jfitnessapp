@@ -2,6 +2,8 @@ import { HUB_PATHS, parseHubEnv } from './config.js';
 import { createReceiver } from './receiver.js';
 import { createRedeemClient } from './redeem-client.js';
 import { createHubServiceRoutes } from './service-routes.js';
+import { createHubSettings } from './settings.js';
+import { createLinkEndNotifier } from './link-end.js';
 import { userMode } from '../platform-sso/index.js';
 
 export { parseHubEnv, HUB_PATHS };
@@ -16,10 +18,13 @@ export const STAFF_FOLLOWUP_WRITES = Object.freeze([
   'POST /api/trainer/followup/questionnaire/assign',
 ]);
 
-export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration, isEnvAdmin, rateLimit, store, generateUsername, legacyProvision, fetchImpl = globalThis.fetch, now = Date.now }) {
+export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration, isEnvAdmin, rateLimit, store, generateUsername, legacyProvision, readState, writeState, notifications, dataDir, fetchImpl = globalThis.fetch, now = Date.now }) {
   const redeem = createRedeemClient({ client: integrationConfig.client, fetchImpl, now });
   const receive = createReceiver({ hub, homeUrl: integrationConfig.homeUrl, db, saveDb, secEvent, readSession, newSsoSession, capabilities: integration.capabilities, isEnvAdmin, rateLimit, redeem, now });
-  const service = createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store, generateUsername, isEnvAdmin, legacyProvision, now });
+  // F9c: nothing of this exists (no routes, no outbox file, no timers) unless PLATFORM_HUB_SETTINGS_ENABLED (with the bridge) is on.
+  const settings = hub.settingsEnabled ? createHubSettings({ db, saveDb, secEvent, json, readState, writeState, notifications, now }) : null;
+  const linkEnd = hub.settingsEnabled && dataDir ? createLinkEndNotifier({ client: integrationConfig.client, dataDir, secEvent, saveDb, fetchImpl, now }) : null;
+  const service = createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store, generateUsername, isEnvAdmin, legacyProvision, settings, now });
 
   /** What the member's own screen needs: level, notice (H-79.1) and, for an SSO session, where "Volver a Home" goes. Never computed here. */
   async function level(req, res) {
@@ -66,9 +71,34 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
     return table;
   }
 
+  /**
+   * F9c · Account erasure (lib/account-erasure.js, unchanged). `before` is called with the member BEFORE erasing (captures the link), `after`
+   * once the erasure succeeded: it drops the hub's own records that name the account and queues the end-of-link notice for Platform.
+   * Neither can block, fail or undo the erasure.
+   */
+  const erasure = {
+    before(user) {
+      if (!hub.settingsEnabled || !user) return null;
+      const linked = user.platformLink?.state === 'active' && user.personId && user.platformLink.personId === user.personId;
+      return { uid: user.id, personId: linked ? user.personId : null };
+    },
+    after(subject) {
+      if (!subject?.uid) return;
+      try {
+        const records = db.platformHubProvisioning || {};
+        for (const [key, record] of Object.entries(records)) if (record?.trainingUserId === subject.uid) delete records[key];
+        settings?.forget(subject.uid);
+        saveDb();
+      } catch { /* residue cleanup must never fail the erasure */ }
+      if (subject.personId) linkEnd?.enqueue({ personId: subject.personId, trainingUserId: subject.uid });
+    },
+  };
+
   return {
     routes,
     resolve: service.resolve,
+    erasure,
+    linkEnd,
     wrapStaffForMember,
     /** Added to GET /api/config only while the bridge is on, so the public config stays byte-identical when it is off. */
     publicConfig: () => (hub.bridgeEnabled ? { platformBridge: true } : {}),

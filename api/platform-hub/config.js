@@ -18,7 +18,11 @@ export const HUB_PATHS = Object.freeze({
   level: '/api/platform/v1/me/training-level',
   provision: '/api/platform/v1/provision',
   directory: '/api/internal/platform/v1/training-users',
+  // F9c · `${directory}/{trainingUserId}/settings` (GET, PATCH) and Training → Platform end-of-link notice.
+  linkEnded: '/api/internal/platform/v2/training-links/ended',
 });
+/** F9c · Closed list of Training destinations Home may open through SSO (`next` form field). Never a free URL. */
+export const HUB_SSO_NEXT = Object.freeze({ account: '/settings#data' });
 
 export function parseHubEnv(env) {
   const bridge = TRUE.test(env.PLATFORM_TRAINING_BRIDGE_ENABLED || '');
@@ -29,6 +33,8 @@ export function parseHubEnv(env) {
     directoryEnabled: bridge && TRUE.test(env.PLATFORM_DIRECTORY_ENABLED || ''),
     provisioningEnabled: bridge && TRUE.test(env.PLATFORM_PROVISIONING_ENABLED || ''),
     enforcementEnabled: TRUE.test(env.PLATFORM_ENFORCEMENT_ENABLED || ''),
+    // F9c: Training settings from 2J Home (signed GET/PATCH), `next` in the SSO form and the end-of-link notice on account erasure.
+    settingsEnabled: bridge && TRUE.test(env.PLATFORM_HUB_SETTINGS_ENABLED || ''),
     // Keys Platform uses to call Training (Platform's TRAINING_OUTBOUND_KEY_ID / TRAINING_OUTBOUND_KEY). Dedicated: never the proof keys.
     inboundKeys: parseServiceAuthKeys(env.PLATFORM_HUB_INBOUND_KEYS || ''),
   });
