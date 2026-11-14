@@ -92,6 +92,9 @@ export async function passkeyDeleteAccount(confirm) {
   return api('/api/me/delete', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred), confirm }) })
 }
 
+// F9d-2: the same erasure when this session holds a Platform passkey grant for `delete` (confirmed in 2J Home): no Búnker passkey asked.
+export const platformDeleteAccount = confirm => api('/api/me/delete', { method: 'POST', body: JSON.stringify({ confirm, platformStepUp: true }) })
+
 async function passkeyAction(optionsPath, finishPath, values = {}) {
   const { cid, options } = await api(optionsPath, { method: 'POST', body: JSON.stringify(values) })
   const credential = await navigator.credentials.get({ publicKey: toRequestOptions(options) })

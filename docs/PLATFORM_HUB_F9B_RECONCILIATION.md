@@ -122,3 +122,26 @@ Interruptor nuevo `PLATFORM_HUB_SETTINGS_ENABLED` (requiere `PLATFORM_TRAINING_B
 **Vuelta atrás:** apagar `PLATFORM_LOGIN_RETIRED` (y reiniciar) devuelve el login de hoy al instante; no hay migración ni datos tocados. Apagar `PLATFORM_HUB_CREDENTIALS_ENABLED` hace que la ruta vuelva a 404.
 
 **Pruebas:** `api/test/platform-hub-login-retire.test.js` (servidor real + Platform falso: solo públicas y de esa persona, 404 para el resto, 400 por consulta, firma/replay/±30 s/otra persona firmada; socio vinculado → `login_retired` sin cookie y entra por SSO; sin vínculo, staff y `ADMIN_UIDS` siguen; QR también; todo apagado = F9c; sin SSO inerte; ida y vuelta con los mismos datos; exportar/eliminar con SSO y con sesión anterior) y `frontend/src/lib/login-retired.test.jsx`. Prueba cruzada con el Platform real en el HANDOFF de 2JHub.
+
+## 11. F9d-2 · Exportar y eliminar con la passkey de 2J Hub (rama `agent/codex/F9d2-stepup-receiver`)
+
+**Decisión (2JHub H-83):** el login vive en Platform; la passkey para **exportar** y **eliminar** la cuenta de Búnker se comprueba **en Platform** y Búnker confía en ese resultado. Contrato: 2JHub `docs/contracts/platform-training-v2.md` §9.
+
+| Interruptor | Qué enciende |
+|---|---|
+| `PLATFORM_HUB_STEPUP_ENABLED` | Solo con `PLATFORM_TRAINING_BRIDGE_ENABLED` y `PLATFORM_SSO_ENABLED`. Ruta `POST /api/platform/v1/stepup/receive` (si no, no existe → 404), `stepUp` en `GET /api/platform/v1/me/training-level` (si no, el campo no aparece) y la excepción cerrada de abajo. |
+
+**Receptor** (`api/platform-hub/stepup.js`, mismo endurecimiento que el SSO): `Origin` exacto de `PLATFORM_HOME_URL`, `application/x-www-form-urlencoded`, ≤ 2 KB, `no-store`, el cuerpo nunca se registra, limitador de intentos del SSO. Dos formas cerradas: `stepupCode` + `stepupCorrelationId` (exige una sesión **ya abierta de esa misma cuenta**; sin sesión u otra cuenta → rechazo) o esas dos + `code` + `correlationId` (código SSO de F9b: se aplican **todas** sus comprobaciones —vínculo, capacidades verificadas, nunca sustituir la sesión de otra cuenta— y solo se escribe si el step-up también es válido). El código de step-up se canjea firmado (`POST /api/internal/platform/v2/training-stepup/redeem`, `api/platform-hub/stepup-client.js`, esquema estricto); la respuesta debe traer `assurance: platform_passkey`, propósito de la lista cerrada, el mismo `correlationId` y **la misma persona y usuario de Búnker** que la sesión. Personal y `ADMIN_UIDS` → rechazo. Todo fallo: `/sso#error=…`, sin sesión nueva ni autorización, evento `platform_hub_stepup_refused` (motivo técnico).
+
+**Autorización:** en memoria, ligada al **cookie exacto** de esa sesión (hash), a la cuenta y a un propósito; 5 min; **un solo uso** (se gasta al descargar o al borrar); un reinicio la pierde (falla cerrado). Evento `platform_hub_stepup_granted` / `_used`.
+
+**Excepción cerrada** (lo único que cambia): con una autorización viva de su propósito, una sesión `sso` puede llamar a `GET /api/me/export` (una descarga) y `POST /api/me/delete` con `{confirm: <usuario>, platformStepUp: true}` (sin aserción de Búnker; el nombre de usuario escrito sigue haciendo falta; uno erróneo no gasta la autorización). La decide `platform-hub/stepup.js` (`STEPUP_ROUTES`) y la aplican el distribuidor (`requireStrongAuth`) y la puerta SSO (`gate(…, {stepUp})`). Las otras 17 operaciones de §4 siguen respondiendo `passkey_required` con o sin autorización (test). Una sesión passkey de Búnker funciona exactamente igual que antes.
+
+**Web:** Ajustes → Datos muestra «Confirmado con tu passkey de 2J…» en la fila de la operación autorizada; la hoja de eliminar no pide la passkey de Búnker si la autorización es de `delete`. Nuevas cadenas en `es.js`.
+
+**Con esto encendido** deja de existir el hueco de §10 (socio con solo sesión SSO sin poder exportar/eliminar), condición para encender `PLATFORM_LOGIN_RETIRED`.
+
+**Vuelta atrás:** apagar `PLATFORM_HUB_STEPUP_ENABLED` (y reiniciar): la ruta desaparece, las autorizaciones vivas se pierden y exportar/eliminar vuelven a F9d. Sin datos ni migraciones.
+
+**Pruebas:** `api/test/platform-hub-stepup.test.js` (servidor real + Platform falso: exportar una vez; perfil sin passkey elimina su cuenta y se encola el fin de vínculo; Origin/tipo/campos; sin sesión, otra cuenta, otra persona; código usado, repetido y a la vez; respuestas fuera de contrato; personal y `ADMIN_UIDS`; caducidad a los 5 min y reinicio; las 17 operaciones siguen cerradas con la autorización; `platform_sso` solo no vale; apagado = F9d) y `frontend/src/lib/platform-stepup.test.jsx`. Prueba cruzada con el Platform real en el HANDOFF de 2JHub.
+

@@ -5,6 +5,8 @@ import { createHubServiceRoutes } from './service-routes.js';
 import { createHubSettings } from './settings.js';
 import { createLinkEndNotifier } from './link-end.js';
 import { createLoginRetire } from './login-retire.js';
+import { createStepup } from './stepup.js';
+import { createStepupRedeemClient } from './stepup-client.js';
 import { userMode } from '../platform-sso/index.js';
 
 export { parseHubEnv, HUB_PATHS };
@@ -27,6 +29,11 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
   const linkEnd = hub.settingsEnabled && dataDir ? createLinkEndNotifier({ client: integrationConfig.client, dataDir, secEvent, saveDb, fetchImpl, now }) : null;
   // F9d: inert (appliesTo → false) unless PLATFORM_LOGIN_RETIRED, the SSO receiver and PLATFORM_HOME_URL are all set.
   const loginRetire = createLoginRetire({ hub, homeUrl: integrationConfig.homeUrl, isStaff, isEnvAdmin, secEvent, saveDb, json });
+  // F9d-2: inert (no route, admits → false) unless PLATFORM_HUB_STEPUP_ENABLED with the bridge and the SSO receiver.
+  const stepup = createStepup({
+    hub, db, saveDb, secEvent, readSession, receiver: receive, rateLimit, isStaff, isEnvAdmin, now,
+    redeemStepup: createStepupRedeemClient({ client: integrationConfig.client, fetchImpl, now }),
+  });
   const service = createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store, generateUsername, isEnvAdmin, legacyProvision, settings, now });
 
   /** What the member's own screen needs: level, notice (H-79.1) and, for an SSO session, where "Volver a Home" goes. Never computed here. */
@@ -35,7 +42,9 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'no has iniciado sesión' });
     const sso = user.authLevel === 'sso';
-    const base = { v: 1, sso, homeUrl: sso ? integrationConfig.homeUrl : null };
+    // F9d-2: only while the step-up switch is on, the live grant of THIS session (purpose + until when); absent otherwise (F9d-identical).
+    const grant = hub.stepupEnabled ? { stepUp: stepup.stepUp.view(req, user) } : {};
+    const base = { v: 1, sso, homeUrl: sso ? integrationConfig.homeUrl : null, ...grant };
     if (!user.personId || user.platformLink?.state !== 'active') return json(res, 200, { ...base, linked: false, level: null, accessState: null, notice: null });
     let view = null;
     try { view = await integration.capabilities.evaluate(user, { mode: userMode(user) === 'legacy' ? 'shadow' : userMode(user) }); } catch { view = null; }
@@ -47,6 +56,7 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
   const routes = {
     ...service.routes,
     ...(hub.receiverEnabled ? { [`POST ${HUB_PATHS.receiver}`]: receive } : {}),
+    ...(hub.stepupEnabled ? { [`POST ${HUB_PATHS.stepupReceiver}`]: stepup.receive } : {}),
     ...(hub.bridgeEnabled ? { [`GET ${HUB_PATHS.level}`]: level } : {}),
   };
 
@@ -103,6 +113,7 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
     erasure,
     linkEnd,
     loginRetire,
+    stepUp: stepup.stepUp,
     wrapStaffForMember,
     /** Added to GET /api/config only while the bridge is on, so the public config stays byte-identical when it is off. */
     publicConfig: () => (hub.bridgeEnabled ? { platformBridge: true } : {}),

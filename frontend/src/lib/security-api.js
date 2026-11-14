@@ -49,6 +49,8 @@ export const EVENT_LABEL = {
   platform_hub_settings_changed: 'Settings changed from 2J Home', platform_hub_link_end_sent: '2J Hub was told an account was deleted',
   platform_hub_link_end_dropped: 'A notice to 2J Hub could not be delivered',
   platform_hub_credentials_read: '2J Hub copied your passkeys to sign you in there', platform_login_retired_refused: 'You were sent to 2J Home to sign in',
+  // F9d-2 · a passkey confirmation done in 2J Home for this account's own export / erasure
+  platform_hub_stepup_granted: 'You confirmed with your 2J passkey to export or delete your data', platform_hub_stepup_used: 'Your 2J passkey confirmation was used', platform_hub_stepup_refused: 'A 2J passkey confirmation was refused',
 }
 
 /* ---------- link a device with a QR code ---------- */

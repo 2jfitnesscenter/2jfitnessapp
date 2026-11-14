@@ -75,6 +75,8 @@ const EXACT = new Map([
   ['POST /api/platform/v1/sso/confirm', E('public', { ssoAllowed: true })],   // explicit confirmation of an account switch (H3); exempt like redeem   // exempt from the gate: a new code must work whatever session the browser holds
   // F9b (2J Hub bridge): receiver of Home's form (validates everything itself, like redeem) and the member's own level/notice view.
   ['POST /api/platform/v1/sso/receive', E('public', { ssoAllowed: true })],
+  // F9d-2: receiver of Home's step-up form (validates everything itself; a grant only ever opens the session's own export / erasure).
+  ['POST /api/platform/v1/stepup/receive', E('public', { ssoAllowed: true })],
   ['GET /api/platform/v1/me/training-level', E('identity', { ssoAllowed: true })],
   ['GET /api/coach/disclosure', E('identity', { ssoAllowed: true })],
   ['POST /api/coach/forget', E('identity')],   // erasing Coach data / withdrawing consent is a right, never gated by a fee (destructive: passkey-only)
