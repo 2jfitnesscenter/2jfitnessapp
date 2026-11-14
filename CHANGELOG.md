@@ -1,5 +1,11 @@
 # Changelog
 
+### F9d · Passkeys para 2J Hub y login de socios apagado con respaldo (rama `agent/codex/F9d-login-retire`, NO desplegado, todo apagado)
+
+- `PLATFORM_HUB_CREDENTIALS_ENABLED` (apagado): Platform puede leer, firmado, las passkeys **públicas** de un socio vinculado a esa persona para importarlas (contrato §8). Nunca secretos ni `userHandle`; personal y `ADMIN_UIDS` fuera.
+- `PLATFORM_LOGIN_RETIRED` (apagado, solo con el receptor SSO y `PLATFORM_HOME_URL`): los socios con vínculo activo ya no inician sesión aquí (passkey ni QR); la web les muestra «Entra desde 2J Home». Personal, `ADMIN_UIDS`, socios sin vínculo, PIN de sala y recuperación no cambian. Las passkeys de Búnker se conservan; apagar el interruptor restaura el login.
+- Eventos de seguridad `platform_hub_credentials_read` y `platform_login_retired_refused`. Ver `docs/PLATFORM_HUB_F9B_RECONCILIATION.md` §10.
+
 ### F9c · Ajustes de Búnker desde 2J Home (rama `agent/codex/F9c-hub-settings`, NO desplegado, todo apagado)
 
 - **Punto 0 (H-80):** el receptor del formulario de Home exige el `Origin` exacto de `PLATFORM_HOME_URL`; `Origin: null` o ausente se rechaza (se retira el respaldo por Fetch Metadata). Los rechazos del puente vuelven a quedar en el registro de seguridad (sus eventos faltaban en la lista blanca).

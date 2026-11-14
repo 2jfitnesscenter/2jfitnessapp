@@ -20,6 +20,7 @@ export const HUB_PATHS = Object.freeze({
   directory: '/api/internal/platform/v1/training-users',
   // F9c · `${directory}/{trainingUserId}/settings` (GET, PATCH) and Training → Platform end-of-link notice.
   linkEnded: '/api/internal/platform/v2/training-links/ended',
+  // F9d · `${directory}/{trainingUserId}/credentials?personId=` (GET): the member's passkeys, PUBLIC parts only (contract §8).
 });
 /** F9c · Closed list of Training destinations Home may open through SSO (`next` form field). Never a free URL. */
 export const HUB_SSO_NEXT = Object.freeze({ account: '/settings#data' });
@@ -35,6 +36,12 @@ export function parseHubEnv(env) {
     enforcementEnabled: TRUE.test(env.PLATFORM_ENFORCEMENT_ENABLED || ''),
     // F9c: Training settings from 2J Home (signed GET/PATCH), `next` in the SSO form and the end-of-link notice on account erasure.
     settingsEnabled: bridge && TRUE.test(env.PLATFORM_HUB_SETTINGS_ENABLED || ''),
+    // F9d: Platform may read a linked member's passkeys (public key + public metadata) to import them (contract §8).
+    credentialsEnabled: bridge && TRUE.test(env.PLATFORM_HUB_CREDENTIALS_ENABLED || ''),
+    // F9d: linked MEMBERS stop signing in with Búnker's own passkey login / QR link and are sent to 2J Home (SSO only). Only takes effect
+    // while the SSO receiver is on (otherwise nobody could get in); staff, ADMIN_UIDS, unlinked members, the room PIN and recovery are untouched.
+    // Switching it off restores today's login at once: nothing is migrated or deleted (Búnker's passkeys are never removed in F9d).
+    loginRetired: bridge && TRUE.test(env.PLATFORM_SSO_ENABLED || '') && TRUE.test(env.PLATFORM_LOGIN_RETIRED || ''),
     // Keys Platform uses to call Training (Platform's TRAINING_OUTBOUND_KEY_ID / TRAINING_OUTBOUND_KEY). Dedicated: never the proof keys.
     inboundKeys: parseServiceAuthKeys(env.PLATFORM_HUB_INBOUND_KEYS || ''),
   });

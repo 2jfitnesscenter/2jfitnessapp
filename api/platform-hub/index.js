@@ -4,6 +4,7 @@ import { createRedeemClient } from './redeem-client.js';
 import { createHubServiceRoutes } from './service-routes.js';
 import { createHubSettings } from './settings.js';
 import { createLinkEndNotifier } from './link-end.js';
+import { createLoginRetire } from './login-retire.js';
 import { userMode } from '../platform-sso/index.js';
 
 export { parseHubEnv, HUB_PATHS };
@@ -18,12 +19,14 @@ export const STAFF_FOLLOWUP_WRITES = Object.freeze([
   'POST /api/trainer/followup/questionnaire/assign',
 ]);
 
-export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration, isEnvAdmin, rateLimit, store, generateUsername, legacyProvision, readState, writeState, notifications, dataDir, fetchImpl = globalThis.fetch, now = Date.now }) {
+export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration, isEnvAdmin, isStaff = () => true, rateLimit, store, generateUsername, legacyProvision, readState, writeState, notifications, dataDir, fetchImpl = globalThis.fetch, now = Date.now }) {
   const redeem = createRedeemClient({ client: integrationConfig.client, fetchImpl, now });
   const receive = createReceiver({ hub, homeUrl: integrationConfig.homeUrl, db, saveDb, secEvent, readSession, newSsoSession, capabilities: integration.capabilities, isEnvAdmin, rateLimit, redeem, now });
   // F9c: nothing of this exists (no routes, no outbox file, no timers) unless PLATFORM_HUB_SETTINGS_ENABLED (with the bridge) is on.
   const settings = hub.settingsEnabled ? createHubSettings({ db, saveDb, secEvent, json, readState, writeState, notifications, now }) : null;
   const linkEnd = hub.settingsEnabled && dataDir ? createLinkEndNotifier({ client: integrationConfig.client, dataDir, secEvent, saveDb, fetchImpl, now }) : null;
+  // F9d: inert (appliesTo → false) unless PLATFORM_LOGIN_RETIRED, the SSO receiver and PLATFORM_HOME_URL are all set.
+  const loginRetire = createLoginRetire({ hub, homeUrl: integrationConfig.homeUrl, isStaff, isEnvAdmin, secEvent, saveDb, json });
   const service = createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store, generateUsername, isEnvAdmin, legacyProvision, settings, now });
 
   /** What the member's own screen needs: level, notice (H-79.1) and, for an SSO session, where "Volver a Home" goes. Never computed here. */
@@ -99,6 +102,7 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
     resolve: service.resolve,
     erasure,
     linkEnd,
+    loginRetire,
     wrapStaffForMember,
     /** Added to GET /api/config only while the bridge is on, so the public config stays byte-identical when it is off. */
     publicConfig: () => (hub.bridgeEnabled ? { platformBridge: true } : {}),

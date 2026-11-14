@@ -12,6 +12,18 @@ export const NOTICE_TEXT = Object.freeze({
 })
 export const BACK_TO_HOME = 'Back to Home'
 
+// F9d · Búnker's own sign-in retired for linked members (PLATFORM_LOGIN_RETIRED): the server answers `code: 'login_retired'` + `homeUrl`.
+export const LOGIN_RETIRED_TITLE = 'Sign in from 2J Home'
+export const LOGIN_RETIRED_TEXT = 'Your Búnker account is now opened from 2J Home, with the same passkey you already use. Sign in there and tap "Open Búnker".'
+export const OPEN_HOME = 'Go to 2J Home'
+
+/** Home's URL when an API error says this member must enter from 2J Home; otherwise null (only http(s), never a script URL). */
+export function loginRetiredHome(error) {
+  const data = error?.data
+  if (data?.code !== 'login_retired') return null
+  return typeof data.homeUrl === 'string' && /^https?:\/\//.test(data.homeUrl) ? data.homeUrl : null
+}
+
 export const noticeText = code => (code && Object.prototype.hasOwnProperty.call(NOTICE_TEXT, code) ? NOTICE_TEXT[code] : null)
 
 /** The bar is shown only when the server said the bridge is on (`platformBridge` in /api/config). Never throws. */

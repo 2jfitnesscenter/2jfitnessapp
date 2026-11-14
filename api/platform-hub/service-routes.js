@@ -14,12 +14,17 @@ const provisionSchema = z.object({
 }).strict();
 const DIRECTORY_ITEM = /^\/api\/internal\/platform\/v1\/training-users\/([^/]{1,200})$/;
 const SETTINGS_ITEM = /^\/api\/internal\/platform\/v1\/training-users\/([^/]{1,200})\/settings$/;
+// F9d · contract §8: GET {directory}/{trainingUserId}/credentials?personId=<uuid>
+const CREDENTIALS_ITEM = /^\/api\/internal\/platform\/v1\/training-users\/([^/]{1,200})\/credentials$/;
+const TRANSPORTS = new Set(['ble', 'cable', 'hybrid', 'internal', 'nfc', 'smart-card', 'usb']);
+const B64U = /^[A-Za-z0-9_-]+$/;
 export const HUB_SERVICE_ALLOWLIST = Object.freeze([
   { method: 'POST', path: HUB_PATHS.provision },
   { method: 'GET', path: HUB_PATHS.directory },
   { method: 'GET', path: DIRECTORY_ITEM },
   { method: 'GET', path: SETTINGS_ITEM },
   { method: 'PATCH', path: SETTINGS_ITEM },
+  { method: 'GET', path: CREDENTIALS_ITEM },
 ]);
 const occupies = link => Boolean(link) && ['pending', 'active'].includes(link.state);
 const fold = value => String(value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
@@ -128,6 +133,35 @@ export function createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store,
     return req.method === 'GET' ? settings.get(res, user) : settings.patch(req, res, user, raw);
   }
 
+  /**
+   * F9d · The PUBLIC part of a linked member's passkeys, so Platform can import them (contract §8). Only for a live member whose active link
+   * names the SAME person Platform asks about; never staff, ADMIN_UIDS, unlinked or disabled accounts (all → the same 404). Never the user
+   * handle, a PIN, a session or anything secret (a passkey's private key never leaves the authenticator). Búnker's passkeys stay as they are.
+   */
+  async function credentialsItem(req, res, trainingUserId) {
+    if (!(await authenticated(req, res, 'credentials'))) return;
+    const url = new URL(req.url, 'http://x');
+    const names = [...url.searchParams.keys()];
+    const personId = url.searchParams.get('personId');
+    if (names.length !== 1 || names[0] !== 'personId' || !UUID.safeParse(personId).success) return json(res, 400, { error: 'invalid_request' });
+    const user = db.users.find(candidate => candidate.id === trainingUserId);
+    if (!user || !visible(user) || user.admin || user.trainer || user.platformLink?.state !== 'active' || user.personId !== personId || user.platformLink.personId !== personId) return json(res, 404, { error: 'no encontrado' });
+    const iso = value => { const at = Date.parse(value); return Number.isFinite(at) ? new Date(at).toISOString() : null; };
+    const credentials = (db.creds || []).filter(cred => cred.userId === user.id && typeof cred.id === 'string' && B64U.test(cred.id) && typeof cred.publicKey === 'string' && B64U.test(cred.publicKey))
+      .slice(0, 20)
+      .map(cred => ({
+        credentialId: cred.id,
+        publicKey: cred.publicKey,
+        counter: Number.isSafeInteger(cred.counter) && cred.counter >= 0 && cred.counter <= 0xffffffff ? cred.counter : 0,
+        transports: [...new Set((Array.isArray(cred.transports) ? cred.transports : []).filter(t => TRANSPORTS.has(t)))],
+        createdAt: iso(cred.createdAt) || iso(user.created) || new Date(0).toISOString(),
+        ...(typeof cred.name === 'string' && cred.name.trim() ? { label: cred.name.trim().slice(0, 80) } : {}),
+      }));
+    secEvent('platform_hub_credentials_read', { userId: user.id, meta: { count: credentials.length } });
+    saveDb();
+    return json(res, 200, { v: 1, credentials });
+  }
+
   return {
     routes: {
       [`POST ${HUB_PATHS.provision}`]: async (req, res) => (hub.provisioningEnabled ? provision(req, res) : legacyProvision(req, res)),
@@ -136,6 +170,12 @@ export function createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store,
     },
     /** Parametrised route the exact-key router cannot hold. `null` keeps today's 404. */
     resolve(method, pathname) {
+      const creds = hub.credentialsEnabled && method === 'GET' ? CREDENTIALS_ITEM.exec(pathname) : null;
+      if (creds) {
+        let id;
+        try { id = decodeURIComponent(creds[1]); } catch { return null; }
+        return (req, res) => credentialsItem(req, res, id);
+      }
       const set = hub.settingsEnabled && settings && (method === 'GET' || method === 'PATCH') ? SETTINGS_ITEM.exec(pathname) : null;
       if (set) {
         let id;

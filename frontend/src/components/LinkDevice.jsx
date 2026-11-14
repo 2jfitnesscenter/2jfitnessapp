@@ -8,6 +8,7 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { linkStart, linkUrl, waitForLink } from '../lib/security-api.js'
+import LoginRetiredSheet from './LoginRetiredSheet.jsx'
 
 export default function LinkLoginSheet({ close }) {
   const { setUser, pullState } = useStore()
@@ -27,6 +28,7 @@ export default function LinkLoginSheet({ close }) {
       const out = await waitForLink({ ...l, cancelled: () => !alive.current, onTick: s => alive.current && setLeft(s) })
       if (!alive.current) return
       if (out.user) { setUser(out.user); await pullState(); toast(t('Welcome back, {0}', out.user.name)); close() }
+      else if (out.homeUrl) { close(); useUI.getState().openSheet(c => <LoginRetiredSheet homeUrl={out.homeUrl} close={c} />) }   // F9d
       else setEnded(out.ended)
     } catch (e) { if (alive.current) { setEnded('error'); toast(e.message || t('Could not start the link')) } }
   }
