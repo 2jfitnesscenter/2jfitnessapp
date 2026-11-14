@@ -3,6 +3,7 @@
 // Account security from the signed-in person's side: passkeys, step-up, activity. Everything here is scoped by the server to the
 // signed-in account; a step-up (a fresh passkey assertion, five minutes) is asked for before the actions that would let a stolen session dig in.
 import { api, toCreationOptions, toRequestOptions, credToJSON } from './api.js'
+import { loginRetiredHome } from './platform-notices.js'
 
 const post = (path, body = {}, headers) => api(path, { method: 'POST', body: JSON.stringify(body), ...(headers ? { headers: { 'Content-Type': 'application/json', ...headers } } : {}) })
 
@@ -47,6 +48,7 @@ export const EVENT_LABEL = {
   platform_hub_provision_conflict: 'A 2J Hub profile could not be created', platform_link_adopted: 'Your 2J account was linked by the centre',
   platform_hub_settings_changed: 'Settings changed from 2J Home', platform_hub_link_end_sent: '2J Hub was told an account was deleted',
   platform_hub_link_end_dropped: 'A notice to 2J Hub could not be delivered',
+  platform_hub_credentials_read: '2J Hub copied your passkeys to sign you in there', platform_login_retired_refused: 'You were sent to 2J Home to sign in',
 }
 
 /* ---------- link a device with a QR code ---------- */
@@ -73,6 +75,9 @@ export async function waitForLink({ id, secret, expiresAt, claim = linkClaim, sl
       if (r?.user) return { user: r.user }
     } catch (e) {
       const code = e?.data?.code
+      // F9d: Búnker's own sign-in is retired for this linked member → "Entra desde 2J Home".
+      const homeUrl = loginRetiredHome(e)
+      if (homeUrl) return { ended: 'retired', homeUrl }
       return { ended: code === 'denied' ? 'denied' : 'expired' }
     }
     onTick?.(Math.max(0, Math.ceil((expiresAt - now()) / 1000)))

@@ -5894,6 +5894,12 @@ export default {
   'Settings changed from 2J Home': 'Ajustes cambiados desde 2J Home',
   '2J Hub was told an account was deleted': 'Se avisó a 2J Hub de que se eliminó una cuenta',
   'A notice to 2J Hub could not be delivered': 'No se pudo entregar un aviso a 2J Hub',
+  // F9d · Búnker's own sign-in retired for linked members
+  '2J Hub copied your passkeys to sign you in there': '2J Hub ha copiado tus passkeys para que entres allí con ellas',
+  'You were sent to 2J Home to sign in': 'Se te ha enviado a 2J Home para iniciar sesión',
+  'Sign in from 2J Home': 'Entra desde 2J Home',
+  'Your Búnker account is now opened from 2J Home, with the same passkey you already use. Sign in there and tap "Open Búnker".': 'Tu cuenta de Búnker ahora se abre desde 2J Home, con la misma passkey de siempre. Entra allí y pulsa «Abrir Búnker».',
+  'Go to 2J Home': 'Ir a 2J Home',
   'Landmine': 'Landmine',
   'Suspension trainer': 'Suspensión (TRX)',
   'Sandbag': 'Saco de arena',

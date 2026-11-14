@@ -105,3 +105,20 @@ Interruptor nuevo `PLATFORM_HUB_SETTINGS_ENABLED` (requiere `PLATFORM_TRAINING_B
 
 **Pruebas:** `api/test/platform-hub-settings.test.js` (servidor real + Platform falso: lectura/escritura con los almacenes reales, revisión del sync, lista blanca y valores fuera de rango, idempotencia, staff/no vinculado, firma/replay/±30 s/cuerpo alterado/método, `next`, eliminación real con passkey → aviso encolado, y con el interruptor apagado igual que F9b), `api/test/platform-hub-link-end.test.js` (cola: reintentos, mismo `eventId`, reinicio, descarte, nunca lanza) y `frontend/src/lib/platform-hub-settings.test.js` (deriva de listas). Prueba cruzada con el Platform real descrita en el HANDOFF de 2JHub.
 
+
+## 10. F9d · Passkeys para 2J Hub y apagado del login de socios (rama `agent/codex/F9d-login-retire`)
+
+**Contrato:** 2JHub `docs/contracts/platform-training-v2.md` §8. Dos interruptores nuevos, **apagados**, ambos además de `PLATFORM_TRAINING_BRIDGE_ENABLED`:
+
+| Interruptor | Qué enciende |
+|---|---|
+| `PLATFORM_HUB_CREDENTIALS_ENABLED` | `GET /api/internal/platform/v1/training-users/{id}/credentials?personId=` firmado (verificador de F9b, ±30 s, replay, allowlist exacta). Solo socios vivos con vínculo `active` con **esa** persona; personal, `ADMIN_UIDS`, sin vínculo o desactivados → 404. Devuelve solo `credentialId`, `publicKey` (COSE), `counter`, `transports` conocidos, `createdAt` y `label`; nunca el id de usuario, el `userHandle`, PIN ni sesiones. Evento `platform_hub_credentials_read` (solo el número). |
+| `PLATFORM_LOGIN_RETIRED` | Solo con `PLATFORM_SSO_ENABLED` y `PLATFORM_HOME_URL` (si no, inerte: nadie se queda fuera). Para socios con vínculo activo, `POST /api/login/verify` (después de verificar la aserción) y `POST /api/link/claim` responden `403 {code:'login_retired', homeUrl}` sin cookie; la web muestra «Entra desde 2J Home» con un enlace a Home. Evento `platform_login_retired_refused` (`kind: passkey|qr`). |
+
+**Qué no cambia:** personal (entrenador/admin) y `ADMIN_UIDS` (F9e), socios sin vínculo (por defecto nada), PIN de sala y sesiones de dispositivo compartido, recuperación de cuenta (`/api/recover/*`), step-up, registro de perfiles nuevos y servicios internos. `RP_ID`, `ORIGIN` y cookies, igual. Las passkeys de Búnker **no se borran nunca en F9d**. Las sesiones passkey ya abiertas no se cierran.
+
+**Exportar / eliminar (F9c):** una sesión `platform_sso` sigue sin satisfacer la passkey (§4) y la puerta SSO tampoco deja empezar el login por passkey desde esa sesión. Con `PLATFORM_LOGIN_RETIRED` encendido, un socio cuyo navegador solo tiene sesión SSO no llega a exportar ni a eliminar su cuenta (ni a gestionar passkeys o dispositivos); en un navegador con una sesión passkey de antes del cambio, sí (eliminar sigue pidiendo la passkey de Búnker). **Pendiente de Juanjo**; no se ha cambiado ninguna regla de F9b.
+
+**Vuelta atrás:** apagar `PLATFORM_LOGIN_RETIRED` (y reiniciar) devuelve el login de hoy al instante; no hay migración ni datos tocados. Apagar `PLATFORM_HUB_CREDENTIALS_ENABLED` hace que la ruta vuelva a 404.
+
+**Pruebas:** `api/test/platform-hub-login-retire.test.js` (servidor real + Platform falso: solo públicas y de esa persona, 404 para el resto, 400 por consulta, firma/replay/±30 s/otra persona firmada; socio vinculado → `login_retired` sin cookie y entra por SSO; sin vínculo, staff y `ADMIN_UIDS` siguen; QR también; todo apagado = F9c; sin SSO inerte; ida y vuelta con los mismos datos; exportar/eliminar con SSO y con sesión anterior) y `frontend/src/lib/login-retired.test.jsx`. Prueba cruzada con el Platform real en el HANDOFF de 2JHub.

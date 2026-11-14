@@ -1122,6 +1122,7 @@ const platformLinkRoutes = createPlatformLinkRoutes({
 const platformHub = createPlatformHub({
   hub: PLATFORM_HUB_CONFIG, integrationConfig: PLATFORM_INTEGRATION_CONFIG,
   db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration: platformIntegration, isEnvAdmin: id => ADMIN_UIDS.includes(id),
+  isStaff: isTrainer,   // F9d: trainers and admins (incl. ADMIN_UIDS) are never affected by PLATFORM_LOGIN_RETIRED
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
   store: platformProofStore, generateUsername, legacyProvision: platformLinkRoutes['POST /api/platform/v1/provision'],
   // F9c (all inert unless PLATFORM_HUB_SETTINGS_ENABLED): settings from 2J Home and the end-of-link notice after an account erasure.
@@ -1347,6 +1348,9 @@ const routes = {
     const user = db.users.find(u => u.id === cred.userId);
     if (!user) { saveDb(); return json(res, 500, { error: 'falta el usuario' }); }
     if (user.disabled) { saveDb(); return json(res, 403, { error: 'esta cuenta ha sido desactivada' }); }
+    // F9d: a linked member is sent to 2J Home instead of getting a session here (inert unless PLATFORM_LOGIN_RETIRED). The assertion was
+    // verified first, so only the real owner sees it; the counter update above is kept as for any other verified assertion.
+    if (platformHub.loginRetire.appliesTo(user)) return platformHub.loginRetire.refuse(res, user, 'passkey');
     // Whether the authenticator verified the person (PIN, biometrics) is recorded, not enforced: it is the data the decision on requireUserVerification needs.
     secEvent('login_ok', { userId: user.id, meta: { uv: !!verification.authenticationInfo.userVerified } });
     saveDb();
@@ -1588,6 +1592,7 @@ const routes = {
     if (r.status === 'pending') return json(res, 202, { status: 'pending' });
     const user = db.users.find(u => u.id === r.userId);
     if (!user || user.disabled) return json(res, 403, { error: 'esta cuenta no está disponible' });
+    if (platformHub.loginRetire.appliesTo(user)) return platformHub.loginRetire.refuse(res, user, 'qr');   // F9d: linked members enter from 2J Home
     secEvent('device_linked', { userId: user.id, meta: { platform: r.platform, kind: 'qr' } });
     const cookie = newSession(req, user, { via: 'qr' });
     json(res, 200, { user: {

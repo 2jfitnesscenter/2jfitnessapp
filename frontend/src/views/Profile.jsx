@@ -9,6 +9,8 @@ import { useUI } from '../store/useUI.js'
 import { streakWeeks } from '../lib/history.js'
 import { fmtDate, todayISO } from '../lib/format.js'
 import { webauthnOK, passkeyLogin, passkeyRegister } from '../lib/api.js'
+import { loginRetiredHome } from '../lib/platform-notices.js'
+import LoginRetiredSheet from '../components/LoginRetiredSheet.jsx'
 import { updateUsername, updateAvatar } from '../lib/friends-api.js'
 import { resizeImageFile, mediaUrl } from '../lib/media.js'
 import { globalRank, TIER_COLOR, rankLabel, rankEmblemUrl } from '../lib/rank.js'
@@ -53,7 +55,11 @@ export default function Profile() {
 
   const signInHere = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); toast(t('Welcome back, {0}', u.name)) }
-    catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') toast(e.message || t('Sign-in failed')) }
+    catch (e) {
+      const home = loginRetiredHome(e)   // F9d: linked members enter from 2J Home
+      if (home) useUI.getState().openSheet(close => <LoginRetiredSheet homeUrl={home} close={close} />)
+      else if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') toast(e.message || t('Sign-in failed'))
+    }
   }
   const registerHere = () => useUI.getState().openSheet(close => <RegisterInline close={close} setUser={setUser} pushState={pushState} pullState={pullState} toast={toast} />)
   const editUsername = () => useUI.getState().openSheet(close => (

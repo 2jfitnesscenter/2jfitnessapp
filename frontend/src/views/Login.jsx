@@ -1,6 +1,8 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import LinkLoginSheet from '../components/LinkDevice.jsx'
+import LoginRetiredSheet from '../components/LoginRetiredSheet.jsx'
+import { loginRetiredHome } from '../lib/platform-notices.js'
 import { webauthnOK, passkeyLogin, passkeyRegister, passkeyRecover, api, BIO, sharedDeviceStatus, sharedStaffLogin } from '../lib/api.js'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
@@ -134,7 +136,11 @@ export default function Login() {
   useEffect(() => { sharedDeviceStatus().then(setSharedDevice).catch(() => setSharedDevice(null)) }, [])
   const signIn = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
-    catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
+    catch (e) {
+      const home = loginRetiredHome(e)   // F9d: linked members enter from 2J Home
+      if (home) useUI.getState().openSheet(close => <LoginRetiredSheet homeUrl={home} close={close} />)
+      else if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed'))
+    }
   }
   const sharedSignIn = async () => {
     if (!sharedUser || !/^\d{6,8}$/.test(sharedPin)) { setSharedError(t('Choose your profile and enter your 6–8 digit PIN.')); return }
