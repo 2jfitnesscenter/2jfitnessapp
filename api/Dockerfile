@@ -23,6 +23,7 @@ COPY server.js ./
 COPY lib/ ./lib/
 COPY platform-proof/ ./platform-proof/
 COPY platform-sso/ ./platform-sso/
+COPY platform-hub/ ./platform-hub/
 COPY coach/ ./coach/
 COPY friends/ ./friends/
 COPY chat/ ./chat/

@@ -5871,6 +5871,13 @@ export default {
   'Stay signed in as {0}': 'Seguir con la sesión de {0}',
   'Sign-in with your 2J account ended': 'Ha terminado la sesión con tu cuenta de 2J',
   'Opening Búnker with your 2J account…': 'Abriendo Búnker con tu cuenta de 2J…',
+  // F9b · 2J Home bridge
+  'We could not open Búnker with your 2J account. Go back to your 2J space and try again, or talk to the centre.': 'No hemos podido abrir Búnker con tu cuenta de 2J. Vuelve a tu espacio 2J e inténtalo de nuevo, o habla con el centro.',
+  'This browser is signed in to another Búnker account. Sign out of it first, then open Búnker again from your 2J space.': 'Este navegador tiene abierta otra cuenta de Búnker. Cierra esa sesión y vuelve a abrir Búnker desde tu espacio 2J.',
+  'Your fee is pending. Pay it before it is due to keep your Búnker level.': 'Tienes la cuota pendiente. Págala antes de que venza para mantener tu nivel de Búnker.',
+  'Your Búnker access is suspended. Talk to the centre.': 'Tu acceso a Búnker está suspendido. Habla con el centro.',
+  'Back to Home': 'Volver a Home',
+  '2J Home': '2J Home',
   'This sign-in link has expired or was already used. Open Búnker again from your 2J space.': 'Este enlace de acceso ha caducado o ya se usó. Abre Búnker de nuevo desde tu espacio de 2J.',
   'Your Búnker access is not available right now. Talk to the centre if you think this is a mistake.': 'Tu acceso a Búnker no está disponible ahora. Habla con el centro si crees que es un error.',
   'Your 2J account is not confirmed with this Búnker account yet. Sign in with your passkey and ask the centre to link them.': 'Tu cuenta de 2J todavía no está confirmada con esta cuenta de Búnker. Inicia sesión con tu passkey y pide al centro que las vincule.',

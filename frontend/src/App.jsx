@@ -15,6 +15,7 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Modals from './components/Modals.jsx'
 import Toast from './components/Toast.jsx'
 import SyncIndicator from './components/SyncIndicator.jsx'
+import PlatformBridgeBar from './components/PlatformBridgeBar.jsx'
 import RestTimer from './components/RestTimer.jsx'
 import HealthOnboardingGate from './components/HealthOnboarding.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
@@ -293,6 +294,7 @@ function Shell() {
           re-mounts the boundary, so the tab bar is always a way out */}
       {/* outside the route-keyed #app so its offline → synced state survives navigation */}
       {authed && <SyncIndicator />}
+      {user && <PlatformBridgeBar />}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
           {!authed ? <Login /> : needsOnboarding ? <PhysicalProfileWizard /> : needsUxSetup ? <ExperienceSetup mode="onboarding" /> : (

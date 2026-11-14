@@ -58,7 +58,7 @@ export function parsePlatformIntegrationEnv(env) {
   return { ssoEnabled: TRUE.test(env.PLATFORM_SSO_ENABLED || ''), client: configured ? { baseUrl, keyId, secret, contract } : null, homeUrl, ...(breakerBaseMs ? { breakerBaseMs } : {}) };
 }
 
-export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, isEnvAdmin = () => false, rateLimit, secureCookie = false, fetchImpl = globalThis.fetch, now = Date.now, log = console }) {
+export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, isEnvAdmin = () => false, rateLimit, secureCookie = false, fetchImpl = globalThis.fetch, now = Date.now, log = console, retainDelivered = false }) {
   const revokeSsoSessions = (user, reason) => {
     let revoked = 0;
     for (const record of db.deviceSessions) if (record.userId === user.id && record.via === 'sso' && !record.revokedAt) { record.revokedAt = new Date(now()).toISOString(); revoked++; }
@@ -156,7 +156,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     if (mode === 'legacy' || isTrainer(session) || !incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return pass;
     const view = await capabilities.evaluate(session, { mode });
     if (!view) return pass;                                    // no verdict (shadow/legacy with nothing known): current behaviour
-    const verdict = applyStatePolicy({ current, incoming, caps: view.capabilities });
+    const verdict = applyStatePolicy({ current, incoming, caps: view.capabilities, retainDelivered });
     if (mode === 'shadow') {
       if (verdict.stripped.length || verdict.denied.length) shadowDivergence(session, 'state-write', view, [...verdict.stripped, ...verdict.denied.map(item => item.capability)]);
       return pass;

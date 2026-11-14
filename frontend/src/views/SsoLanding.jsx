@@ -14,6 +14,8 @@ const MESSAGES = {
   busy: 'Too many attempts. Wait a minute and try again.',
   disabled: 'Signing in with your 2J account is not available yet. Use your passkey.',
   unavailable: 'We could not open Búnker with your 2J account. Use your passkey instead.',
+  denied: 'We could not open Búnker with your 2J account. Go back to your 2J space and try again, or talk to the centre.',
+  switch: 'This browser is signed in to another Búnker account. Sign out of it first, then open Búnker again from your 2J space.',
 }
 
 export default function SsoLanding() {
