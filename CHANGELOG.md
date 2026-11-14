@@ -1,5 +1,12 @@
 # Changelog
 
+### F9c · Ajustes de Búnker desde 2J Home (rama `agent/codex/F9c-hub-settings`, NO desplegado, todo apagado)
+
+- **Punto 0 (H-80):** el receptor del formulario de Home exige el `Origin` exacto de `PLATFORM_HOME_URL`; `Origin: null` o ausente se rechaza (se retira el respaldo por Fetch Metadata). Los rechazos del puente vuelven a quedar en el registro de seguridad (sus eventos faltaban en la lista blanca).
+- Ajustes desde 2J Home (`PLATFORM_HUB_SETTINGS_ENABLED`, apagado): `GET/PATCH /api/internal/platform/v1/training-users/{id}/settings` firmados, lista blanca exacta (acento, tema, tamaño de texto, avisos sociales y privacidad), aplicados con las mismas reglas y almacenes que Ajustes; idempotencia por `Idempotency-Key`; evento `platform_hub_settings_changed` sin valores.
+- Campo `next` del formulario (lista cerrada: `account` → `/settings#data`) para exportar/eliminar con passkey dentro de Búnker.
+- Aviso de fin de vínculo a Platform tras eliminar la cuenta (sin tocar la eliminación): cola persistente `platform-hub-outbox.json` con reintentos; se borran además los registros del puente que nombran la cuenta.
+
 ### F9b · Puente con 2J Hub (rama `agent/codex/F9b-platform-bridge`, NO desplegado, todo apagado)
 
 - Receptor del formulario de Home (`POST /api/platform/v1/sso/receive`): canje con el contrato F9a, vínculo único en los dos sentidos, capacidades verificadas y sesión propia de Búnker (`platform_sso`, nunca passkey). Errores genéricos, sin sesión, auditados.

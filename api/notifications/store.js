@@ -27,11 +27,15 @@ function save() {
 const DEFAULT_PRIVACY = Object.freeze({ profile: 'friends', activity: 'friends', prs: true, achievements: true, routines: true, workouts: false, challenges: true });
 const DEFAULT_PREFERENCES = Object.freeze({ push: false, friendRequests: true, messages: true, shares: true, challenges: true, achievements: true });
 export function privacyFor(uid) { return { ...DEFAULT_PRIVACY, ...(state.privacy[uid] || {}) }; }
+// The allowed values, exported so other entry points (F9c: 2J Home via platform-hub/settings.js) validate with exactly these lists.
+export const PRIVACY_CHOICES = Object.freeze({ profile: Object.freeze(['friends', 'community', 'private']), activity: Object.freeze(['friends', 'community', 'nobody']) });
+export const PRIVACY_FLAGS = Object.freeze(['prs', 'achievements', 'routines', 'workouts', 'challenges']);
+export const PREFERENCE_KEYS = Object.freeze(Object.keys(DEFAULT_PREFERENCES));
 export function setPrivacy(uid, value) {
   const clean = privacyFor(uid);
-  if ('profile' in value) clean.profile = ['friends', 'community', 'private'].includes(value.profile) ? value.profile : 'friends';
-  if ('activity' in value) clean.activity = ['friends', 'community', 'nobody'].includes(value.activity) ? value.activity : 'friends';
-  for (const key of ['prs', 'achievements', 'routines', 'workouts', 'challenges']) if (key in value) clean[key] = value[key] === true;
+  if ('profile' in value) clean.profile = PRIVACY_CHOICES.profile.includes(value.profile) ? value.profile : 'friends';
+  if ('activity' in value) clean.activity = PRIVACY_CHOICES.activity.includes(value.activity) ? value.activity : 'friends';
+  for (const key of PRIVACY_FLAGS) if (key in value) clean[key] = value[key] === true;
   state.privacy[uid] = clean; save(); return clean;
 }
 export function preferencesFor(uid) { return { ...DEFAULT_PREFERENCES, ...(state.preferences[uid] || {}) }; }
@@ -39,7 +43,7 @@ export function preferencesFor(uid) { return { ...DEFAULT_PREFERENCES, ...(state
 export function allows(uid, type) { if (type === 'moderation') return true; const p = preferencesFor(uid); return p[categoryFor(type)] !== false; }
 export function setPreferences(uid, value) {
   const clean = preferencesFor(uid);
-  for (const key of Object.keys(DEFAULT_PREFERENCES)) if (key in value) clean[key] = value[key] === true;
+  for (const key of PREFERENCE_KEYS) if (key in value) clean[key] = value[key] === true;
   state.preferences[uid] = clean; save(); return clean;
 }
 const categoryFor = type => ({ friend_request: 'friendRequests', friend_accepted: 'friendRequests', message: 'messages', share: 'shares', challenge: 'challenges', achievement: 'achievements' })[type] || 'shares';
