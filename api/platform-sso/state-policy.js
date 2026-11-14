@@ -35,12 +35,25 @@ export const COMMERCIAL_SUBTREES = Object.freeze([
 ]);
 
 /**
+ * F9b (H-74, INT-V2-02): with `retainDelivered`, an official program a TRAINER already delivered to the member (it is in the server state, with a
+ * server-made id; the member's own copies are `g2jp-…`) can be continued without guidedTraining: activated again and moved through its status
+ * fields. Its content still cannot change (the member copies or converts it to a personal program for that, which personal capabilities allow).
+ */
+const DELIVERED_STATUS_FIELDS = new Set(['status', 'startedAt', 'savedAt', 'pausedAt', 'resumedAt', 'completedAt', 'finishedAt', 'updatedAt', 'catalogRev']);
+const isDelivered = program => isGuided(program) && typeof program.id === 'string' && !program.id.startsWith('g2jp-');
+const onlyStatusChanged = (next, known) => {
+  const keys = new Set([...Object.keys(next), ...Object.keys(known)]);
+  for (const key of keys) if (!DELIVERED_STATUS_FIELDS.has(key) && !isDeepStrictEqual(next[key], known[key])) return false;
+  return true;
+};
+
+/**
  * @param current  the state the server holds (or null for a new profile)
  * @param incoming the state the client wants to store
  * @param caps     capability booleans from 2J-CAPABILITIES-V2 (or a degraded view)
  * @returns { state, stripped: string[], denied: {scope, capability}[] }  `state` is a new object; inputs are not mutated.
  */
-export function applyStatePolicy({ current, incoming, caps }) {
+export function applyStatePolicy({ current, incoming, caps, retainDelivered = false }) {
   const before = isObject(current) ? current : {};
   const next = structuredClone(isObject(incoming) ? incoming : {});
   const stripped = new Set(), denied = [];
@@ -68,12 +81,14 @@ export function applyStatePolicy({ current, incoming, caps }) {
         if (!isGuided(program)) return [program];
         const known = currentGuided.get(idOf(program));
         if (!known) { stripped.add('programs.guided.added'); return []; }
+        if (retainDelivered && isDelivered(known) && onlyStatusChanged(program, known)) return [program];
         if (!isDeepStrictEqual(program, known)) { stripped.add('programs.guided.changed'); return [structuredClone(known)]; }
         return [program];
       });
     }
     const guidedIds = new Set([...currentGuided.keys(), ...incomingGuidedIds]);
-    if (next.activeProgramId !== before.activeProgramId && guidedIds.has(next.activeProgramId)) {
+    const deliveredActivation = retainDelivered && isDelivered(currentGuided.get(next.activeProgramId));
+    if (next.activeProgramId !== before.activeProgramId && guidedIds.has(next.activeProgramId) && !deliveredActivation) {
       next.activeProgramId = before.activeProgramId ?? null;
       stripped.add('programs.guided.activated');
     }

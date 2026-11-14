@@ -73,6 +73,9 @@ const EXACT = new Map([
   ['GET /api/platform/v1/sso/start', E('public', { ssoAllowed: true })],      // begins the browser-bound flow: sets the binding cookie and sends the browser to Home
   ['POST /api/platform/v1/sso/redeem', E('public', { ssoAllowed: true })],
   ['POST /api/platform/v1/sso/confirm', E('public', { ssoAllowed: true })],   // explicit confirmation of an account switch (H3); exempt like redeem   // exempt from the gate: a new code must work whatever session the browser holds
+  // F9b (2J Hub bridge): receiver of Home's form (validates everything itself, like redeem) and the member's own level/notice view.
+  ['POST /api/platform/v1/sso/receive', E('public', { ssoAllowed: true })],
+  ['GET /api/platform/v1/me/training-level', E('identity', { ssoAllowed: true })],
   ['GET /api/coach/disclosure', E('identity', { ssoAllowed: true })],
   ['POST /api/coach/forget', E('identity')],   // erasing Coach data / withdrawing consent is a right, never gated by a fee (destructive: passkey-only)
   ['GET /api/health', E('public', { ssoAllowed: true })],
@@ -125,6 +128,8 @@ const PREFIX = [
   ['/api/me/passkeys/', E('identity')],
   ['/api/me/step-up', E('identity')],
   ['/api/platform/', E('identity')],
+  // F9b: Platform -> Training service routes (directory). Signed service calls, never a member session.
+  ['/api/internal/', E('identity')],
   // Social, notifications and gym information are not part of the capability contract.
   ['/api/social/', E('member', { ssoAllowed: true })],
   ['/api/friends', E('member', { ssoAllowed: true })],

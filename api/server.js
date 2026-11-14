@@ -85,6 +85,7 @@ import { createPlatformProofStore } from './platform-proof/store.js';
 import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
 import { createPlatformIntegration, parsePlatformIntegrationEnv, gateFailureMayProceed } from './platform-sso/index.js';
+import { createPlatformHub, parseHubEnv } from './platform-hub/index.js';
 import { createPlatformLinkRoutes } from './platform-sso/link.js';
 import { createAssistedLink, parseIssuers, STEP_UP_PURPOSE as ASSIST_STEP_UP } from './platform-sso/assisted-link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
@@ -111,6 +112,8 @@ const PLATFORM_TRAINING_SUMMARY_ENABLED = /^(1|true)$/i.test(process.env.PLATFOR
 const PLATFORM_TRAINING_EVOLUTION_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_TRAINING_EVOLUTION_ENABLED || '');
 // Platform SSO + capability consumption: off unless explicitly enabled; enforcement is per user (legacy -> shadow -> enforced).
 const PLATFORM_INTEGRATION_CONFIG = parsePlatformIntegrationEnv(process.env);
+// F9b · 2J Hub bridge (docs/PLATFORM_HUB_F9B_RECONCILIATION.md). Every switch OFF by default.
+const PLATFORM_HUB_CONFIG = parseHubEnv(process.env);
 // Bilateral link lifecycle (activate / revoke) and idempotent provisioning from Platform: each is its own opt-in and needs Platform's service key.
 const PLATFORM_LINK_LIFECYCLE_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_LINK_LIFECYCLE_ENABLED || '');
 const PLATFORM_PROVISIONING_ENABLED = /^(1|true)$/i.test(process.env.PLATFORM_PROVISIONING_ENABLED || '');
@@ -1052,6 +1055,7 @@ function removeReportedContent(type, id, actor, reason) {
   return true;
 }
 function readBody(req, maxBytes = MAX_BODY) {
+  if (req._body !== undefined) return Promise.resolve(req._body);   // already read once (F9b staff-for-member gate reads it before the handler)
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
     req.on('data', d => {
@@ -1100,6 +1104,7 @@ const platformIntegration = createPlatformIntegration({
   proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession, secureCookie: SECURE !== '', isEnvAdmin: id => ADMIN_UIDS.includes(id),
   // Its own limiter: SSO failures must never lock people out of passkey login, nor an SSO success reset the login limiter.
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
+  retainDelivered: PLATFORM_HUB_CONFIG.enforcementEnabled,
 });
 const assistedLink = createAssistedLink({
   config: { enabled: PLATFORM_ASSISTED_LINK_ENABLED, issuers: PLATFORM_LINK_ISSUERS, ledgerFile: path.join(DATA, 'platform-link-ledger.jsonl'), ledgerKey: process.env.PLATFORM_LINK_LEDGER_KEY || '' },
@@ -1114,9 +1119,16 @@ const platformLinkRoutes = createPlatformLinkRoutes({
   db, saveDb, secEvent, json, store: platformProofStore, serviceKeys: PLATFORM_SERVICE_AUTH_KEYS,
   revokeSsoSessions: platformIntegration.revokeSsoSessions, applySignal: platformIntegration.applySignal, generateUsername,
 });
+const platformHub = createPlatformHub({
+  hub: PLATFORM_HUB_CONFIG, integrationConfig: PLATFORM_INTEGRATION_CONFIG, trainingOrigin: new URL(ORIGIN).origin,
+  db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration: platformIntegration, isEnvAdmin: id => ADMIN_UIDS.includes(id),
+  rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
+  store: platformProofStore, generateUsername, legacyProvision: platformLinkRoutes['POST /api/platform/v1/provision'],
+});
 const routes = {
   ...platformIntegration.routes,
   ...platformLinkRoutes,
+  ...platformHub.routes,          // F9b: same provision key — the contract-F9a handler only with the bridge on, otherwise the one above unchanged
   ...assistedLink.routes,
   ...centerRoutes({ db, json, requireTrainer, isAdmin, isTrainer, readState, stateFingerprint, livePresence }),
   ...coachFollowUpRoutes(coachDeps),
@@ -1161,7 +1173,8 @@ const routes = {
       // Gym-wide, like the equipment: the admin's library corrections and the catalogue revision, so
       // every device (and its offline copy) learns about an edit the next time it asks.
       libraryOverlay: libraryAdmin.publicOverlay(), guidedRev: guidedStore.contentRev(),
-      strava: stravaConfig.isConfigured(), whoop: whoopConfig.isConfigured()
+      strava: stravaConfig.isConfigured(), whoop: whoopConfig.isConfigured(),
+      ...platformHub.publicConfig()   // F9b: `platformBridge: true` only while the bridge is on (absent = byte-identical config)
     });
   },
 
@@ -3623,6 +3636,7 @@ const routes = {
 
 // Route-table dump for the security review (scripts/route-matrix.mjs and the route-classification test): print the keys of the EFFECTIVE router and exit
 // before anything listens or runs. Run it against an empty temporary DATA_DIR.
+platformHub.wrapStaffForMember(routes);   // F9b: no-op unless PLATFORM_ENFORCEMENT_ENABLED
 if (process.env.DUMP_ROUTES === '1') { process.stdout.write(JSON.stringify(Object.keys(routes)) + String.fromCharCode(10)); process.exit(0); }
 
 /* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */
@@ -3646,7 +3660,7 @@ startCadence({ users: () => db.users, userNow });
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const key = req.method + ' ' + url.pathname;
-  const handler = routes[key];
+  const handler = routes[key] || platformHub.resolve(req.method, url.pathname);   // F9b: parametrised directory route, null while off
   if (!handler) return json(res, 404, { error: 'no encontrado' });
   const gate = featureOfRoute(url.pathname);
   if (gate && !featuresStore.isOn(gate)) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });

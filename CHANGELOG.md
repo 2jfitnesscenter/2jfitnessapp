@@ -1,5 +1,13 @@
 # Changelog
 
+### F9b · Puente con 2J Hub (rama `agent/codex/F9b-platform-bridge`, NO desplegado, todo apagado)
+
+- Receptor del formulario de Home (`POST /api/platform/v1/sso/receive`): canje con el contrato F9a, vínculo único en los dos sentidos, capacidades verificadas y sesión propia de Búnker (`platform_sso`, nunca passkey). Errores genéricos, sin sesión, auditados.
+- Alta automática con el contrato F9a (`POST /api/platform/v1/provision`, idempotente) y directorio de usuarios para vincular desde Admin; verificador de firma propio (±30 s, GET, allowlist exacta), sin tocar el de proofs.
+- Puertas nuevas (`PLATFORM_ENFORCEMENT_ENABLED`): seguimiento profesional que hace el staff para un socio exige el derecho del socio; Básico conserva y puede continuar los programas que le dio un entrenador.
+- Web: franja «Volver a Home» (sesiones SSO) y aviso «cuota pendiente» (H-79.1). Sin cambios en Android/iOS.
+- Interruptores: `PLATFORM_TRAINING_BRIDGE_ENABLED`, `PLATFORM_DIRECTORY_ENABLED`, `PLATFORM_ENFORCEMENT_ENABLED`, `PLATFORM_HUB_INBOUND_KEYS` (más los existentes). Ver `docs/PLATFORM_HUB_F9B_RECONCILIATION.md`.
+
 ### Catálogo de openGym — paso 1, solo datos (rama, NO desplegado)
 
 - Se añaden 4.036 ejercicios de openGym (commit `8fb98b16`, AGPL-3.0) con nombre en español, sin imágenes ni animaciones. Los 1.324 existentes no cambian (lo verifica un test sobre el texto del fichero base). Ver `docs/OPENGYM_CATALOGUE_IMPORT.md`.
