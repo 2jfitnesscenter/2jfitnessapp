@@ -145,3 +145,21 @@ Interruptor nuevo `PLATFORM_HUB_SETTINGS_ENABLED` (requiere `PLATFORM_TRAINING_B
 
 **Pruebas:** `api/test/platform-hub-stepup.test.js` (servidor real + Platform falso: exportar una vez; perfil sin passkey elimina su cuenta y se encola el fin de vínculo; Origin/tipo/campos; sin sesión, otra cuenta, otra persona; código usado, repetido y a la vez; respuestas fuera de contrato; personal y `ADMIN_UIDS`; caducidad a los 5 min y reinicio; las 17 operaciones siguen cerradas con la autorización; `platform_sso` solo no vale; apagado = F9d) y `frontend/src/lib/platform-stepup.test.jsx`. Prueba cruzada con el Platform real en el HANDOFF de 2JHub.
 
+
+## 12. F9e · Personal con el rol de 2J Hub y su login apagado con respaldo (rama `agent/codex/F9e-staff-from-platform`)
+
+**Decisión (2JHub H-82, H-104, H-105; contrato §10 `training-staff-v1`, ADR 0027 de 2JHub):** el personal (entrenadores y administración) entra en Búnker con su cuenta de 2J Hub y **2J Hub decide su rol**. Mapeo: `ADMIN` → `admin`; `ENTRENADOR` → `trainer`; sin rol ahora → **pausa**. El login propio queda de respaldo y se apaga con un interruptor. Solo integración: no se reescribe nada de la app.
+
+| Interruptor | Qué enciende |
+|---|---|
+| `PLATFORM_DIRECTORY_ENABLED` (ya existía) | Además, `GET /api/internal/platform/v1/training-staff` (firmado): cuentas de personal de Búnker para el informe en seco de 2J Hub (incluye `ADMIN_UIDS` marcadas `adminByConfig`). |
+| `PLATFORM_HUB_STAFF_ROLES_ENABLED` | Solo con el puente y `PLATFORM_SSO_ENABLED`. Receptor `POST /api/platform/v1/staff-sso/receive` (Origin exacto de `PLATFORM_ADMIN_URL`), cola `POST /api/internal/platform/v1/staff-events` (firmada, idempotente por `eventId`) y relectura del estado cada 60 s. El panel no puede cambiar el rol de una cuenta vinculada (`role_from_platform`). |
+| `PLATFORM_STAFF_LOGIN_RETIRED` | Solo con el anterior y `PLATFORM_ADMIN_URL`. Personal **vinculado** → `login_retired` con `audience: 'staff'` y enlace a Admin («Entra desde 2J Hub»). Nunca `ADMIN_UIDS`, nunca personal sin vincular y nunca un admin si no hay ninguna cuenta `ADMIN_UIDS` capaz de entrar. |
+
+**Aplicar un rol** (`api/platform-hub/staff.js`): con la misma `changeRole` del panel (protección de `ADMIN_UIDS` y del último administrador); lo que dejaría Búnker sin administrador se **conserva** (`kept`, auditado). Un rol `null` (suspendido en 2J Hub o Recepción) **pausa** la cuenta: `isAdmin`/`isTrainer` dan `false`, pero las banderas y las asignaciones de socios se conservan. Una **baja** (`staff_departed`) la pasa a socio como haría el panel; una **revocación** a mano solo la devuelve al panel con su rol. Nunca se quita un rol por «no aparecer» en el estado.
+
+**Sesión:** `sso` con `record.staff = true`: alcanza las rutas de personal (`kind: 'staff'`) con el rol de 2J Hub; las acciones fuertes (`requireStrongAuth`) siguen pidiendo passkey de Búnker. Una entrada nunca sustituye la sesión de otra cuenta.
+
+**Vuelta atrás:** apagar `PLATFORM_STAFF_LOGIN_RETIRED` → login de siempre. Apagar `PLATFORM_HUB_STAFF_ROLES_ENABLED` → el panel vuelve a mandar con los roles que tenga cada cuenta (la pausa deja de aplicarse). Nada se migra ni se borra; `platformStaffLink` queda en la cuenta como registro.
+
+**Pruebas:** `api/test/platform-hub-staff.test.js` (servidor real + Platform falso: interruptores apagados, directorio, entrada y rechazos, un vínculo por persona y cuenta, cambios de rol, pausa, bajas, último administrador, login retirado, relectura), `api/test/platform-hub-staff-contract.test.js` (ejemplos compartidos con 2JHub), `frontend/src/lib/login-retired.test.jsx`. Prueba cruzada real desde 2JHub: `apps/api/test/e2e/bunker-staff.e2e.test.ts`.

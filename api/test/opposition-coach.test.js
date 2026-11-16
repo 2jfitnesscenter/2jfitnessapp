@@ -56,7 +56,9 @@ test('the AI facts never carry a name, the sex or age, the category, or any free
   for (const k of ['oppositionId', 'oppositionVersion', 'examDate', 'monthsPlan', 'phase', 'week', 'testResults', 'weakPoints', 'levelByCapacity', 'officialThresholds', 'adherence']) assert.ok(k in f, k);
 });
 
-test('the roster row, the sheet and the AI payload carry the plan; the Coach prompt tells the model to use the real thresholds', () => {
+test('the roster row, the sheet and the AI payload carry the plan; the Coach prompt tells the model to use the real thresholds', t => {
+  // overviewRow / memberView / build read the plan phase at the CURRENT time: fix the clock on TODAY so the test does not depend on the real date.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse(`${TODAY}T10:00:00Z`) });
   const { S } = member();
   const row = overviewRow({ S, u, today: TODAY });
   assert.equal(row.opposition.version, 1); assert.equal(row.opposition.phase, 'base'); assert.equal(typeof row.opposition.weeksLeft, 'number');

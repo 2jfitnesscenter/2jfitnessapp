@@ -51,6 +51,8 @@ export const EVENT_LABEL = {
   platform_hub_credentials_read: '2J Hub copied your passkeys to sign you in there', platform_login_retired_refused: 'You were sent to 2J Home to sign in',
   // F9d-2 · a passkey confirmation done in 2J Home for this account's own export / erasure
   platform_hub_stepup_granted: 'You confirmed with your 2J passkey to export or delete your data', platform_hub_stepup_used: 'Your 2J passkey confirmation was used', platform_hub_stepup_refused: 'A 2J passkey confirmation was refused',
+  // F9e · staff with the role decided by 2J Hub
+  platform_staff_sso_login: 'You entered Búnker from 2J Hub as staff', platform_staff_sso_refused: 'A staff entry from 2J Hub was refused', platform_staff_link_adopted: 'Your staff account was linked to 2J Hub', platform_staff_link_ended: 'Your staff account was unlinked from 2J Hub', platform_staff_role: '2J Hub set your staff role', platform_staff_kept: 'A staff change from 2J Hub was not applied', platform_staff_state_invalid: '2J Hub sent a staff list Búnker could not read', platform_staff_login_retired_refused: 'You were sent to 2J Hub to sign in',
 }
 
 /* ---------- link a device with a QR code ---------- */

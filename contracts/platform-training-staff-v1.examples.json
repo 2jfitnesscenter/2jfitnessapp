@@ -1,0 +1,139 @@
+{
+  "_comment": "F9e · Ejemplos del contrato training-staff-v1 (docs/contracts/platform-training-v2.md §10). Copia IDÉNTICA en 2jfitnessapp/contracts/platform-training-staff-v1.examples.json; los dos repos los validan con sus esquemas.",
+  "staffSsoRedeemRequest": {
+    "v": 1,
+    "code": "Q2xhdmVEZUVqZW1wbG9EZVVuU29sb1VzbzI1NkJpdHNfX19fXw",
+    "audience": "2j-training-staff",
+    "destination": "bunker",
+    "correlationId": "0b6e7c1a-6d1e-4c7b-9a43-3f2a1b0c9d8e"
+  },
+  "staffSsoRedeemResponse": {
+    "v": 1,
+    "contract": "training-staff-v1",
+    "issuer": "2j-platform",
+    "audience": "2j-training-staff",
+    "personId": "7c4a1f20-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+    "trainingUserId": "u-laura",
+    "linkStatus": "active",
+    "staffRole": "trainer",
+    "displayName": "Laura Méndez",
+    "assurance": "platform_sso",
+    "correlationId": "0b6e7c1a-6d1e-4c7b-9a43-3f2a1b0c9d8e"
+  },
+  "staffState": {
+    "v": 1,
+    "contract": "training-staff-v1",
+    "generatedAt": "2026-11-16T10:00:00.000Z",
+    "items": [
+      {
+        "personId": "1d2e3f4a-5b6c-4d7e-8f90-a1b2c3d4e5f6",
+        "trainingUserId": "u-pablo",
+        "linkStatus": "ended",
+        "staffRole": null,
+        "reason": "staff_departed",
+        "changedAt": "2026-11-15T18:30:00.000Z"
+      },
+      {
+        "personId": "7c4a1f20-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+        "trainingUserId": "u-laura",
+        "linkStatus": "active",
+        "staffRole": "trainer",
+        "changedAt": "2026-11-16T08:12:00.000Z"
+      },
+      {
+        "personId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "trainingUserId": "u-toni",
+        "linkStatus": "active",
+        "staffRole": null,
+        "changedAt": "2026-11-16T09:00:00.000Z"
+      }
+    ]
+  },
+  "staffEvent": {
+    "v": 1,
+    "contract": "training-staff-v1",
+    "eventId": "3f9a2b1c-0d4e-4f5a-8b6c-7d8e9f0a1b2c",
+    "item": {
+      "personId": "7c4a1f20-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "trainingUserId": "u-laura",
+      "linkStatus": "active",
+      "staffRole": "admin",
+      "changedAt": "2026-11-16T10:05:00.000Z"
+    }
+  },
+  "staffEventAck": {
+    "v": 1,
+    "eventId": "3f9a2b1c-0d4e-4f5a-8b6c-7d8e9f0a1b2c",
+    "result": "applied"
+  },
+  "staffDirectory": {
+    "v": 1,
+    "items": [
+      {
+        "trainingUserId": "u-laura",
+        "displayName": "Laura M.",
+        "username": "laura",
+        "role": "trainer",
+        "adminByConfig": false,
+        "disabled": false,
+        "staffPersonId": "7c4a1f20-2b3d-4e5f-8a9b-0c1d2e3f4a5b"
+      },
+      {
+        "trainingUserId": "u-root",
+        "displayName": "Juanjo (servidor)",
+        "role": "admin",
+        "adminByConfig": true,
+        "disabled": false,
+        "staffPersonId": null
+      }
+    ]
+  },
+  "invalid": {
+    "staffSsoRedeemResponse_roleFromCaller": {
+      "v": 1,
+      "contract": "training-staff-v1",
+      "issuer": "2j-platform",
+      "audience": "2j-training-staff",
+      "personId": "7c4a1f20-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "trainingUserId": "u-laura",
+      "linkStatus": "active",
+      "staffRole": "owner",
+      "displayName": "Laura",
+      "assurance": "platform_sso",
+      "correlationId": "x"
+    },
+    "staffSsoRedeemResponse_memberAudience": {
+      "v": 1,
+      "contract": "training-staff-v1",
+      "issuer": "2j-platform",
+      "audience": "2j-training",
+      "personId": "7c4a1f20-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+      "trainingUserId": "u-laura",
+      "linkStatus": "active",
+      "staffRole": "trainer",
+      "displayName": "Laura",
+      "assurance": "platform_sso",
+      "correlationId": "x"
+    },
+    "staffEvent_endedWithRole": {
+      "v": 1,
+      "contract": "training-staff-v1",
+      "eventId": "3f9a2b1c-0d4e-4f5a-8b6c-7d8e9f0a1b2c",
+      "item": {
+        "personId": "7c4a1f20-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+        "trainingUserId": "u-laura",
+        "linkStatus": "ended",
+        "staffRole": "trainer",
+        "reason": "revoked",
+        "changedAt": "2026-11-16T10:05:00.000Z"
+      }
+    },
+    "staffState_passkeyAssurance": {
+      "v": 1,
+      "contract": "training-staff-v1",
+      "generatedAt": "2026-11-16T10:00:00.000Z",
+      "items": [],
+      "assurance": "platform_passkey"
+    }
+  }
+}

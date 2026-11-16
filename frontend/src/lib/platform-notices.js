@@ -16,6 +16,13 @@ export const BACK_TO_HOME = 'Back to Home'
 export const LOGIN_RETIRED_TITLE = 'Sign in from 2J Home'
 export const LOGIN_RETIRED_TEXT = 'Your Búnker account is now opened from 2J Home, with the same passkey you already use. Sign in there and tap "Open Búnker".'
 export const OPEN_HOME = 'Go to 2J Home'
+// F9e · The same answer for linked STAFF (PLATFORM_STAFF_LOGIN_RETIRED): `audience: 'staff'` and `homeUrl` = 2J Hub Admin.
+export const STAFF_LOGIN_RETIRED_TITLE = 'Sign in from 2J Hub'
+export const STAFF_LOGIN_RETIRED_TEXT = 'Your Búnker staff account is now opened from 2J Hub Admin, with your 2J passkey. Sign in there and tap "Enter Búnker".'
+export const OPEN_ADMIN = 'Go to 2J Hub'
+
+/** F9e · Was the retired-login answer for a staff account? (Then the sheet sends to 2J Hub Admin.) */
+export const loginRetiredForStaff = error => error?.data?.code === 'login_retired' && error?.data?.audience === 'staff'
 
 /** Home's URL when an API error says this member must enter from 2J Home; otherwise null (only http(s), never a script URL). */
 export function loginRetiredHome(error) {

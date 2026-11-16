@@ -107,7 +107,10 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     const isSso = session.authLevel === 'sso';
     // F9d-2: the ONLY exception is a live Platform passkey grant of this session for its own export / erasure (`opts.stepUp`, decided by
     // platform-hub/stepup.js for exactly GET /api/me/export and POST /api/me/delete). Everything else stays passkey-only.
-    if (isSso && !policy.ssoAllowed && !opts.stepUp) { deny(res, 'passkey_required'); return false; }
+    // F9e: a STAFF entry from 2J Hub Admin (`staffSso`, only with PLATFORM_HUB_STAFF_ROLES_ENABLED) also reaches the STAFF routes, with the role
+    // Platform decided; the strong-auth staff actions still answer passkey_required before this (requireStrongAuth in server.js).
+    const staffEntry = isSso && session.staffSso === true && policy.kind === 'staff';
+    if (isSso && !policy.ssoAllowed && !opts.stepUp && !staffEntry) { deny(res, 'passkey_required'); return false; }
     const mode = userMode(session);
     if (mode === 'legacy') return true;                         // no Platform check, no change of behaviour
     const interactive = policy.kind === 'gated' || (policy.kind === 'member' && !policy.blockedOk && !(policy.blockedReadOk && ['GET', 'HEAD'].includes(req.method)));

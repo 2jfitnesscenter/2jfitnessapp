@@ -13,23 +13,36 @@
 
 export const LOGIN_RETIRED_CODE = 'login_retired';
 
-export function createLoginRetire({ hub, homeUrl, isStaff, isEnvAdmin, secEvent, saveDb, json }) {
-  const active = Boolean(hub.loginRetired && homeUrl);
+// F9e · The same answer for linked STAFF with PLATFORM_STAFF_LOGIN_RETIRED (and the staff roles switch and PLATFORM_ADMIN_URL): they are sent to
+// 2J Hub Admin. Never ADMIN_UIDS (H-105.3), never unlinked staff (H-105.4) and never an administrator while no ADMIN_UIDS account can sign in
+// (somebody must always be able to get in). Switching it off restores their login at once.
 
-  /** Does the switch apply to THIS account? Only a live member whose active link names the same person. */
-  function appliesTo(user) {
-    if (!active || !user || user.disabled) return false;
-    if (isStaff(user) || isEnvAdmin(user.id)) return false;
+export function createLoginRetire({ hub, homeUrl, isStaff, isEnvAdmin, isAdmin = () => false, staff = null, secEvent, saveDb, json }) {
+  const active = Boolean(hub.loginRetired && homeUrl);
+  const staffActive = Boolean(hub.staffLoginRetired && hub.adminUrl && staff?.on);
+
+  const memberApplies = user => {
     const link = user.platformLink;
     return link?.state === 'active' && typeof user.personId === 'string' && link.personId === user.personId;
+  };
+  const staffApplies = user => staffActive && !isEnvAdmin(user.id) && Boolean(staff.linkOf(user)) && (!isAdmin(user) || staff.configAdminAvailable());
+
+  /** Does a switch apply to THIS account? A live member whose active link names the same person, or (F9e) a linked staff account. */
+  function appliesTo(user) {
+    if (!user || user.disabled) return false;
+    if (isStaff(user) || isEnvAdmin(user.id)) return staffApplies(user);
+    return active && memberApplies(user);
   }
 
-  /** The answer instead of a session: the screen shows "Entra desde 2J Home" with a link to Home. Audited (no credential, no name). */
+  /** The answer instead of a session: the screen shows "Entra desde 2J Hub" with a link to Home (members) or Admin (staff). Audited. */
   function refuse(res, user, via) {
-    secEvent('platform_login_retired_refused', { userId: user.id, meta: { kind: via } });
+    const asStaff = isStaff(user);
+    secEvent(asStaff ? 'platform_staff_login_retired_refused' : 'platform_login_retired_refused', { userId: user.id, meta: { kind: via } });
     saveDb();
-    return json(res, 403, { error: 'Entra desde 2J Home', code: LOGIN_RETIRED_CODE, homeUrl });
+    return json(res, 403, asStaff
+      ? { error: 'Entra desde 2J Hub', code: LOGIN_RETIRED_CODE, homeUrl: hub.adminUrl, audience: 'staff' }
+      : { error: 'Entra desde 2J Home', code: LOGIN_RETIRED_CODE, homeUrl });
   }
 
-  return { active, appliesTo, refuse };
+  return { active, staffActive, appliesTo, refuse };
 }

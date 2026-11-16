@@ -90,6 +90,7 @@ describe('Routes stay protected', () => {
     expect(api).toMatch(/'POST \/api\/admin\/user\/role': async \(req, res\) => \{\s*const admin = requireAdmin\(req, res\); if \(!admin\) return;/)
     // the legacy panel is trainer-guarded and resolves targets through memberFor (admin any account; trainer any member, never staff)
     expect(api).toMatch(/'POST \/api\/trainer\/member-routine': async \(req, res\) => \{\s*const staff = requireTrainer\(req, res\); if \(!staff\) return;\s*const body = await readBody\(req\);\s*const member = memberFor\(res, staff, body\.memberId,/)
-    expect(api).toContain('const isTrainer = user => !!user && (user.trainer === true || isAdmin(user));')
+    // F9e: a linked staff account whose 2J Hub role is none right now is paused (staffPaused), otherwise the same rule as always.
+    expect(api).toContain('const isTrainer = user => !!user && !staffPaused(user) && (user.trainer === true || isAdmin(user));')
   })
 })

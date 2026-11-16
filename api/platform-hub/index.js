@@ -7,6 +7,7 @@ import { createLinkEndNotifier } from './link-end.js';
 import { createLoginRetire } from './login-retire.js';
 import { createStepup } from './stepup.js';
 import { createStepupRedeemClient } from './stepup-client.js';
+import { createHubStaff } from './staff.js';
 import { userMode } from '../platform-sso/index.js';
 
 export { parseHubEnv, HUB_PATHS };
@@ -21,14 +22,20 @@ export const STAFF_FOLLOWUP_WRITES = Object.freeze([
   'POST /api/trainer/followup/questionnaire/assign',
 ]);
 
-export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration, isEnvAdmin, isStaff = () => true, rateLimit, store, generateUsername, legacyProvision, readState, writeState, notifications, dataDir, fetchImpl = globalThis.fetch, now = Date.now }) {
+export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration, isEnvAdmin, isStaff = () => true, isAdmin = () => false, changeRole = null, revokeSsoStaffSessions = () => {}, envAdminIds = [], rateLimit, store, generateUsername, legacyProvision, readState, writeState, notifications, dataDir, fetchImpl = globalThis.fetch, now = Date.now }) {
   const redeem = createRedeemClient({ client: integrationConfig.client, fetchImpl, now });
   const receive = createReceiver({ hub, homeUrl: integrationConfig.homeUrl, db, saveDb, secEvent, readSession, newSsoSession, capabilities: integration.capabilities, isEnvAdmin, rateLimit, redeem, now });
   // F9c: nothing of this exists (no routes, no outbox file, no timers) unless PLATFORM_HUB_SETTINGS_ENABLED (with the bridge) is on.
   const settings = hub.settingsEnabled ? createHubSettings({ db, saveDb, secEvent, json, readState, writeState, notifications, now }) : null;
   const linkEnd = hub.settingsEnabled && dataDir ? createLinkEndNotifier({ client: integrationConfig.client, dataDir, secEvent, saveDb, fetchImpl, now }) : null;
+  // F9e: nothing (no route, no timer, governs → false) unless PLATFORM_HUB_STAFF_ROLES_ENABLED with the bridge and the SSO receiver.
+  const staff = createHubStaff({
+    hub, client: integrationConfig.client, db, saveDb, secEvent, json, readSession, newSsoSession, isEnvAdmin, isAdmin, isTrainer: isStaff,
+    changeRole, revokeSsoStaffSessions, envAdminIds, store, rateLimit, fetchImpl, now,
+  });
   // F9d: inert (appliesTo → false) unless PLATFORM_LOGIN_RETIRED, the SSO receiver and PLATFORM_HOME_URL are all set.
-  const loginRetire = createLoginRetire({ hub, homeUrl: integrationConfig.homeUrl, isStaff, isEnvAdmin, secEvent, saveDb, json });
+  // F9e: for staff, inert unless PLATFORM_STAFF_LOGIN_RETIRED, the staff roles switch and PLATFORM_ADMIN_URL are all set.
+  const loginRetire = createLoginRetire({ hub, homeUrl: integrationConfig.homeUrl, isStaff, isEnvAdmin, isAdmin, staff, secEvent, saveDb, json });
   // F9d-2: inert (no route, admits → false) unless PLATFORM_HUB_STEPUP_ENABLED with the bridge and the SSO receiver.
   const stepup = createStepup({
     hub, db, saveDb, secEvent, readSession, receiver: receive, rateLimit, isStaff, isEnvAdmin, now,
@@ -55,6 +62,8 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
 
   const routes = {
     ...service.routes,
+    ...staff.directoryRoutes,
+    ...staff.routes,
     ...(hub.receiverEnabled ? { [`POST ${HUB_PATHS.receiver}`]: receive } : {}),
     ...(hub.stepupEnabled ? { [`POST ${HUB_PATHS.stepupReceiver}`]: stepup.receive } : {}),
     ...(hub.bridgeEnabled ? { [`GET ${HUB_PATHS.level}`]: level } : {}),
@@ -113,6 +122,7 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
     erasure,
     linkEnd,
     loginRetire,
+    staff,
     stepUp: stepup.stepUp,
     wrapStaffForMember,
     /** Added to GET /api/config only while the bridge is on, so the public config stays byte-identical when it is off. */

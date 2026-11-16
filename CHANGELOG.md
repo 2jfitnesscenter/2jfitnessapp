@@ -1,5 +1,11 @@
 # Changelog
 
+### F9e · Personal con el rol de 2J Hub y su login apagado con respaldo (rama `agent/codex/F9e-staff-from-platform`, NO desplegado, todo apagado)
+
+- `PLATFORM_HUB_STAFF_ROLES_ENABLED` (apagado; con el puente y `PLATFORM_SSO_ENABLED`): entrada del personal desde 2J Hub Admin (`POST /api/platform/v1/staff-sso/receive`, Origin exacto de `PLATFORM_ADMIN_URL`), rol decidido por 2J Hub por cola firmada y relectura cada 60 s, con la protección del último administrador y de `ADMIN_UIDS`. Sin rol en 2J Hub = cuenta en pausa (sin perder asignaciones).
+- `PLATFORM_STAFF_LOGIN_RETIRED` (apagado): el personal vinculado ve «Entra desde 2J Hub»; `ADMIN_UIDS` y el personal sin vincular entran como siempre.
+- Directorio firmado de cuentas de personal (con `PLATFORM_DIRECTORY_ENABLED`) para el informe en seco de 2J Hub. Eventos `platform_staff_*`. Ver `docs/PLATFORM_HUB_F9B_RECONCILIATION.md` §12.
+
 ### F9d-2 · Exportar/eliminar con la passkey de 2J Hub (rama `agent/codex/F9d2-stepup-receiver`, NO desplegado, todo apagado)
 
 - `PLATFORM_HUB_STEPUP_ENABLED` (apagado; además del puente y de `PLATFORM_SSO_ENABLED`): receptor `POST /api/platform/v1/stepup/receive` del formulario de Home (Origin exacto, cuerpo cerrado, `no-store`, sin registrar el cuerpo). Canjea con Platform una confirmación con passkey hecha **en Platform** (`platform_passkey`) y marca **esa sesión** con una autorización de un solo uso, 5 min, para **exportar** o **eliminar** la propia cuenta. Nada más: passkeys, dispositivos, sesiones, webhooks, Coach y todo lo del personal siguen pidiendo la passkey de Búnker; `platform_sso` sigue sin valer.

@@ -30,3 +30,18 @@ describe('F9d · "Entra desde 2J Home" (Búnker sign-in retired for linked membe
     expect(out).toEqual({ ended: 'retired', homeUrl: 'https://home.example' })
   })
 })
+
+describe('F9e · "Entra desde 2J Hub" (Búnker sign-in retired for linked staff)', () => {
+  it('a staff answer opens the staff variant, linking to 2J Hub Admin, in Spanish', async () => {
+    const { STAFF_LOGIN_RETIRED_TITLE, STAFF_LOGIN_RETIRED_TEXT, OPEN_ADMIN, loginRetiredForStaff } = await import('./platform-notices.js')
+    const staff = err({ code: 'login_retired', homeUrl: 'https://admin.example', audience: 'staff' })
+    expect(loginRetiredForStaff(staff)).toBe(true)
+    expect(loginRetiredForStaff(err({ code: 'login_retired', homeUrl: 'https://home.example' }))).toBe(false)
+    expect(loginRetiredHome(staff)).toBe('https://admin.example')
+    const html = renderToStaticMarkup(<LoginRetiredSheet homeUrl="https://admin.example" close={() => {}} staff />)
+    expect(html).toContain('href="https://admin.example"')
+    expect(es[STAFF_LOGIN_RETIRED_TITLE]).toBe('Entra desde 2J Hub')
+    expect(es[STAFF_LOGIN_RETIRED_TEXT]).toContain('Entrar en Búnker')
+    expect(es[OPEN_ADMIN]).toBe('Ir a 2J Hub')
+  })
+})
