@@ -86,6 +86,7 @@ import { createPlatformProofRoutes } from './platform-proof/routes.js';
 import { parseServiceAuthKeys } from './platform-proof/service-auth.js';
 import { createPlatformIntegration, parsePlatformIntegrationEnv, gateFailureMayProceed } from './platform-sso/index.js';
 import { createPlatformHub, parseHubEnv } from './platform-hub/index.js';
+import { PLATFORM_ACTOR as STAFF_PLATFORM_ACTOR } from './platform-hub/staff.js';
 import { createPlatformLinkRoutes } from './platform-sso/link.js';
 import { createAssistedLink, parseIssuers, STEP_UP_PURPOSE as ASSIST_STEP_UP } from './platform-sso/assisted-link.js';
 import { isJsonRecord, readJsonStore } from './lib/json-store.js';
@@ -205,11 +206,14 @@ db.machineAliases = db.machineAliases || [];
 // { key, exerciseId, source, externalName, updatedAt }.
 db.importExerciseAliases = db.importExerciseAliases || [];
 // A Platform SSO session is member-level only: readSession gives it admin:false / trainer:false claims and refuses accounts listed in ADMIN_UIDS.
-const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
+// F9e: while Platform decides the staff roles, a linked staff account whose Platform role is none right now (suspended there) is PAUSED: no staff
+// powers, but its flags and its members' assignments are kept. ADMIN_UIDS are never linked, so never paused.
+const staffPaused = user => PLATFORM_HUB_CONFIG.staffRolesEnabled === true && user.platformStaffLink?.state === 'active' && user.platformStaffLink.role === null;
+const isAdmin = user => !!user && !staffPaused(user) && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // Trainer: gym staff, granted by the owner (admin) from the admin panel — a persisted flag on
 // the user record, same shape as `admin` itself. Admins keep trainer powers so the owner never
 // has to grant themselves a separate flag to use the trainer-only endpoints below.
-const isTrainer = user => !!user && (user.trainer === true || isAdmin(user));
+const isTrainer = user => !!user && !staffPaused(user) && (user.trainer === true || isAdmin(user));
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
 function revokeSharedStaffSessions(userId, actorId, reason) {
   const at = new Date().toISOString(); let revoked = 0;
@@ -610,7 +614,10 @@ function readSession(req) {
     const record = db.deviceSessions.find(x => x.id === field6);
     if (ADMIN_UIDS.includes(uid)) return null;            // environment-listed administrators never get an sso session
     if (!record || record.userId !== uid || record.via !== 'sso' || record.revokedAt || record.expiresAt <= Date.now()) return null;
-    claims = { authLevel, issuedAt: Number(field5), sid: record.id, admin: false, trainer: false };
+    // F9e: a STAFF entry from 2J Hub Admin (record.staff, roles switch on, active staff link) keeps the account's role, which Platform decides;
+    // every other sso session stays member-level. Either way it is `sso`: it never satisfies a passkey check.
+    const staffSso = record.staff === true && PLATFORM_HUB_CONFIG.staffRolesEnabled && user.platformStaffLink?.state === 'active';
+    claims = { authLevel, issuedAt: Number(field5), sid: record.id, ...(staffSso ? { staffSso: true } : { admin: false, trainer: false }) };
     if (Date.now() - Date.parse(record.lastUsedAt) > SESSION_TOUCH_MS) { record.lastUsedAt = new Date().toISOString(); saveDb(); }
   }
   if (authLevel === 'pin') {
@@ -980,6 +987,8 @@ const snippet = s => String(s || '').replace(/[\u0000-\u001f]/g, ' ').slice(0, 8
 function changeRole(admin, u, role) {
   if (!['member', 'trainer', 'admin'].includes(role)) return { status: 400, body: { error: 'rol no válido' } };
   const oldRole = isAdmin(u) ? 'admin' : isTrainer(u) ? 'trainer' : 'member';
+  // F9e: while Platform decides the staff roles (PLATFORM_HUB_STAFF_ROLES_ENABLED), a linked staff account's role only changes from 2J Hub.
+  if (admin?.id !== STAFF_PLATFORM_ACTOR.id && platformHub.staff.governs(u)) return { status: 409, body: { error: 'el rol de esta cuenta lo decide 2J Hub', code: 'role_from_platform' } };
   if (role !== 'admin' && ADMIN_UIDS.includes(u.id)) return { status: 409, body: { error: 'este administrador viene de la configuración del servidor (ADMIN_UIDS)', code: 'admin_by_config' } };
   if (role !== 'admin' && isAdmin(u) && !db.users.some(x => x.id !== u.id && !x.disabled && isAdmin(x))) return { status: 409, body: { error: 'no puede quedar el sistema sin administradores', code: 'last_admin' } };
   if (role === 'admin') { u.admin = true; delete u.trainer; }
@@ -1123,6 +1132,9 @@ const platformHub = createPlatformHub({
   hub: PLATFORM_HUB_CONFIG, integrationConfig: PLATFORM_INTEGRATION_CONFIG,
   db, saveDb, secEvent, json, readBody, readSession, newSsoSession, integration: platformIntegration, isEnvAdmin: id => ADMIN_UIDS.includes(id),
   isStaff: isTrainer,   // F9d: trainers and admins (incl. ADMIN_UIDS) are never affected by PLATFORM_LOGIN_RETIRED
+  // F9e (inert unless PLATFORM_HUB_STAFF_ROLES_ENABLED): staff roles from Platform, through the same changeRole and its protections.
+  isAdmin, changeRole, envAdminIds: ADMIN_UIDS,
+  revokeSsoStaffSessions: userId => { const at = new Date().toISOString(); for (const x of db.deviceSessions) if (x.userId === userId && x.via === 'sso' && x.staff === true && !x.revokedAt) x.revokedAt = at; },
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
   store: platformProofStore, generateUsername, legacyProvision: platformLinkRoutes['POST /api/platform/v1/provision'],
   // F9c (all inert unless PLATFORM_HUB_SETTINGS_ENABLED): settings from 2J Home and the end-of-link notice after an account erasure.
@@ -3714,3 +3726,4 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.listen(PORT, () => console.log(`gym-api on :${server.address().port} (rpID=${RP_ID}, origin=${ORIGIN})`));
+platformHub.staff.start();   // F9e: the 60-second staff state refresh; no-op unless PLATFORM_HUB_STAFF_ROLES_ENABLED

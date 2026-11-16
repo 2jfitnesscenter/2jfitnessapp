@@ -2,7 +2,7 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import LinkLoginSheet from '../components/LinkDevice.jsx'
 import LoginRetiredSheet from '../components/LoginRetiredSheet.jsx'
-import { loginRetiredHome } from '../lib/platform-notices.js'
+import { loginRetiredForStaff, loginRetiredHome } from '../lib/platform-notices.js'
 import { webauthnOK, passkeyLogin, passkeyRegister, passkeyRecover, api, BIO, sharedDeviceStatus, sharedStaffLogin } from '../lib/api.js'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
@@ -138,7 +138,7 @@ export default function Login() {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) {
       const home = loginRetiredHome(e)   // F9d: linked members enter from 2J Home
-      if (home) useUI.getState().openSheet(close => <LoginRetiredSheet homeUrl={home} close={close} />)
+      if (home) useUI.getState().openSheet(close => <LoginRetiredSheet homeUrl={home} close={close} staff={loginRetiredForStaff(e)} />)   // F9e: staff → 2J Hub Admin
       else if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed'))
     }
   }

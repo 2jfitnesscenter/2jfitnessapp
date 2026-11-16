@@ -77,6 +77,8 @@ const EXACT = new Map([
   ['POST /api/platform/v1/sso/receive', E('public', { ssoAllowed: true })],
   // F9d-2: receiver of Home's step-up form (validates everything itself; a grant only ever opens the session's own export / erasure).
   ['POST /api/platform/v1/stepup/receive', E('public', { ssoAllowed: true })],
+  // F9e: receiver of 2J Hub Admin's staff form (validates everything itself and never replaces another account's session).
+  ['POST /api/platform/v1/staff-sso/receive', E('public', { ssoAllowed: true })],
   ['GET /api/platform/v1/me/training-level', E('identity', { ssoAllowed: true })],
   ['GET /api/coach/disclosure', E('identity', { ssoAllowed: true })],
   ['POST /api/coach/forget', E('identity')],   // erasing Coach data / withdrawing consent is a right, never gated by a fee (destructive: passkey-only)
