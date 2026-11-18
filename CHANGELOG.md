@@ -1,5 +1,11 @@
 # Changelog
 
+### F9m · Entrada del personal directa a la página de un socio (rama `agent/codex/F9m-staff-deeplink`, NO desplegado, todo apagado)
+
+- `PLATFORM_HUB_STAFF_DEEPLINK_ENABLED` (apagado; exige `PLATFORM_HUB_STAFF_ROLES_ENABLED`): si el canje firmado del personal trae `next: "member"` y `memberTrainingUserId`, la entrada aterriza en `/#/trainer/<id>` en vez de `/`. Búnker **construye la ruta él** a partir del id; nunca acepta una ruta de 2J Hub. Id inexistente, la propia cuenta o con caracteres no seguros → `/`. Apagado, `next` se ignora y todo es como en F9e.
+- Campos nuevos **opcionales** en la respuesta de canje (`next`, `memberTrainingUserId`; `member` exige el id y al revés). Ejemplos válidos e inválidos nuevos en `contracts/platform-training-staff-v1.examples.json` (copia idéntica en 2JHub).
+- Evento `platform_staff_sso_deeplink` (`next`, `memberId`, `landed`; nunca el código). Sin tocar passkeys, `RP_ID`, cookies ni datos.
+
 ### F9e · Personal con el rol de 2J Hub y su login apagado con respaldo (rama `agent/codex/F9e-staff-from-platform`, NO desplegado, todo apagado)
 
 - `PLATFORM_HUB_STAFF_ROLES_ENABLED` (apagado; con el puente y `PLATFORM_SSO_ENABLED`): entrada del personal desde 2J Hub Admin (`POST /api/platform/v1/staff-sso/receive`, Origin exacto de `PLATFORM_ADMIN_URL`), rol decidido por 2J Hub por cola firmada y relectura cada 60 s, con la protección del último administrador y de `ADMIN_UIDS`. Sin rol en 2J Hub = cuenta en pausa (sin perder asignaciones).
