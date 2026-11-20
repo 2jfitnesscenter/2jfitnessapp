@@ -5912,6 +5912,7 @@ export default {
   'A staff change from 2J Hub was not applied': 'No se aplicó un cambio de personal de 2J Hub',
   '2J Hub sent a staff list Búnker could not read': '2J Hub envió una lista de personal que Búnker no pudo leer',
   'You were sent to 2J Hub to sign in': 'Se te ha enviado a 2J Hub para iniciar sesión',
+  'You entered Búnker from 2J Hub to open the page of a member': 'Entraste en Búnker desde 2J Hub para abrir la ficha de un socio',
   'Confirmed with your 2J passkey: you can export your data now (once, within 5 minutes).': 'Confirmado con tu passkey de 2J: ya puedes exportar tus datos (una vez, en los próximos 5 minutos).',
   'Confirmed with your 2J passkey: you can delete your account now (once, within 5 minutes).': 'Confirmado con tu passkey de 2J: ya puedes eliminar tu cuenta (una vez, en los próximos 5 minutos).',
   'Already confirmed with your 2J passkey.': 'Ya lo has confirmado con tu passkey de 2J.',
