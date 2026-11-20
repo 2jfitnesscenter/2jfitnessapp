@@ -76,6 +76,8 @@ The scan flow does not keep the file or the result: the member reviews the extra
 | jsDelivr | exercise images and animations in the standalone mobile build | IP address | no (mobile build) | — | — |
 | Contabo (hosting; server in "Hub Europe" — country and data centre not specified) and the HTTPS certificate authority | running the service; backups use the Auto Backup service contracted with Contabo (no independent external backup provider is known) | the stored data | no | — | not established |
 
+Program photos are bundled with the app and do not load from a third-party host. Their attribution links open Wikimedia Commons and Creative Commons pages; viewing a program does not send workout or account data to those sites.
+
 Health Connect and HealthKit are read on the device with the operating system's permission; 2J does not pass that data to anyone else. `Privacy.test.jsx` fails if the source starts talking to an outside host that this list does not cover.
 
 ## 9. International transfers

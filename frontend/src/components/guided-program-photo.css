@@ -1,0 +1,16 @@
+.gp-photo{position:relative;isolation:isolate;display:block;width:100%;height:100%;min-height:130px;overflow:hidden;background:linear-gradient(135deg,#15231c,#27352e 55%,#101614);color:#fff}
+.gp-photo>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 42%;transition:transform .45s cubic-bezier(.2,.7,.2,1),filter .3s ease}
+.gp-photo-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,10,7,.08) 8%,rgba(4,10,7,.04) 38%,rgba(4,10,7,.78) 100%),linear-gradient(115deg,rgba(7,15,11,.28),transparent 62%);pointer-events:none}
+.gp-photo-overlay{position:absolute;inset:0;pointer-events:none}
+.gp-photo-credit{position:absolute;z-index:1;right:9px;bottom:8px;max-width:calc(100% - 18px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 7px;border:1px solid rgba(255,255,255,.22);border-radius:99px;background:rgba(6,12,9,.68);color:rgba(255,255,255,.9);font-size:9px;line-height:1.15;backdrop-filter:blur(10px)}
+.gp-photo-credit a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.gp-card:hover .gp-photo>img,.gp-home-card:hover .gp-photo>img{transform:scale(1.035);filter:saturate(1.08)}
+.gp-card>.gp-photo{height:150px;border-radius:0}
+.gp-home-card .gp-photo{width:100%;height:auto;aspect-ratio:1.55;border-radius:12px}
+.gp-hero>.gp-photo{height:clamp(170px,36vw,290px);border-radius:23px}
+.gp-card .gp-cover-mark{position:absolute;left:16px;bottom:13px;width:42px;height:42px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--acc) 55%,transparent);border-radius:15px;background:color-mix(in srgb,#080b09 72%,transparent);color:var(--acc);font-size:21px;backdrop-filter:blur(8px)}
+.gp-hero-orbit{position:absolute;right:11%;top:15%;width:34%;aspect-ratio:1;border:1px solid color-mix(in srgb,var(--acc) 24%,transparent);border-radius:50%;box-shadow:0 0 0 22px color-mix(in srgb,var(--acc) 5%,transparent),0 0 0 48px color-mix(in srgb,var(--acc) 3%,transparent)}
+.gp-hero-title{position:absolute;inset:auto 18px 29px;display:flex;flex-direction:column;gap:4px}
+.gp-hero-title>span{font-size:11px;color:#e0e9de}
+.gp-hero-title>strong{font-size:clamp(24px,6vw,44px);color:#fff;letter-spacing:-.05em}
+@media(min-width:960px){.gp-detail .gp-hero>.gp-photo{grid-row:span 2}}

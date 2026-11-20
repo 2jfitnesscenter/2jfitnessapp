@@ -83,7 +83,7 @@ describe('third parties match the code', () => {
     ['generativelanguage.googleapis.com', 'Google (Gemini API)'], ['api.openai.com', 'OpenAI'], ['api.prod.whoop.com', 'WHOOP'], ['www.strava.com', 'Strava'],
     ['fonts.googleapis.com', 'Google Fonts'], ['fonts.gstatic.com', 'Google Fonts'], ['cdn.jsdelivr.net', 'jsDelivr'],
     // links and citations only: nothing is sent to these hosts at runtime
-    ['developer.whoop.com', null], ['developers.strava.com', null], ['commons.wikimedia.org', null], ['upload.wikimedia.org', null],
+    ['developer.whoop.com', null], ['developers.strava.com', null], ['commons.wikimedia.org', null], ['upload.wikimedia.org', null], ['creativecommons.org', null],
     ['github.com', null], ['www.gnu.org', null], ['play.google.com', null], ['app.2jfitnesscenter.com', null], ['2jfitnesscenter.com', null],
     ['localhost', null], ['127.0.0.1', null], ['www.w3.org', null], ['link', null], ['enlace', null], ['api', null], ['x', null], ['example.com', null]
   ])
