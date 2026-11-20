@@ -501,6 +501,40 @@ const EXTRA = buildExtras({ ID, LIFTS4, INC_STD, TM_RULE, main, supp, acc, heavy
 const ORDER = [p531, ptexas, pjug, pgzcl, pphul, pphat, pdup, ppb, pfbh, prec, pcon, pfbc, ...EXTRA]
 const TEXT_KEYS = ['shortDescription', 'longDescription', 'durationDescription', 'evidenceSummary']
 const LIST_KEYS = ['howItWorks', 'forWhom', 'notIdealIf', 'tracking']
+// Spanish-facing catalogue names. The canonical program names/IDs remain untouched;
+// these labels are presentation copy only and do not alter stored workout snapshots.
+const NAME_ES = {
+  '531': 'Fuerza 5/3/1',
+  'texas-method': 'Método Texas',
+  'juggernaut-method': 'Método Juggernaut 10/8/5/3',
+  gzcl: 'Método GZCL',
+  phul: 'Fuerza e hipertrofia torso/pierna (PHUL)',
+  phat: 'Potencia e hipertrofia adaptativas (PHAT)',
+  dup: 'Periodización ondulante diaria (DUP)',
+  'upper-lower-powerbuilding': 'Torso/pierna: fuerza e hipertrofia',
+  'full-body-hypertrophy': 'Hipertrofia de cuerpo completo',
+  '2j-recomposition': 'Recomposición corporal 2J',
+  'concurrent-strength-cardio': 'Fuerza y cardio concurrentes',
+  'full-body-conditioning': 'Acondicionamiento de cuerpo completo',
+  'linear-5x5': 'Progresión lineal 5×5',
+  'heavy-light-medium': 'Días pesado, ligero y medio',
+  'conjugate-strength': 'Fuerza conjugada',
+  'block-periodization-strength': 'Periodización por bloques de fuerza',
+  'dup-powerbuilding': 'Fuerza e hipertrofia con periodización ondulante',
+  'ppl-powerbuilding': 'Empuje, tirón y pierna: fuerza e hipertrofia',
+  'high-frequency-strength': 'Fuerza de alta frecuencia',
+  'hst-style-hypertrophy': 'Hipertrofia con carga progresiva',
+  'bfr-hypertrophy': 'Hipertrofia con restricción del flujo sanguíneo',
+  'polarized-endurance': 'Resistencia polarizada',
+  'threshold-builder': 'Desarrollo del umbral',
+  'aerobic-base-intervals': 'Base aeróbica e intervalos',
+  'functional-fitness-engine': 'Acondicionamiento funcional',
+  'fitness-race-prep': 'Preparación para carreras de fitness',
+  'fitness-race-advanced': 'Preparación avanzada para carreras de fitness',
+  'strength-zone2-cut': 'Fuerza y zona 2 para recomposición',
+  'metabolic-resistance-progression': 'Progresión de resistencia metabólica',
+  'entrena-tus-oposiciones': 'Entrena tus oposiciones',
+}
 
 // Cover photos: scripts/premium/fetch-covers.mjs downloads them into frontend/public/premium/covers and writes covers.json (author, licence, source page).
 const COVERS = JSON.parse(readFileSync(new URL('./covers.json', import.meta.url), 'utf8'))
@@ -508,11 +542,12 @@ const COVERS = JSON.parse(readFileSync(new URL('./covers.json', import.meta.url)
 export const OFFICIAL_PROGRAMS = ORDER.map((p, i) => {
   const { definition, es, copy, badge, ...rest } = p
   if (!COVERS[p.slug]) throw new Error('no cover for ' + p.slug)
+  if (!NAME_ES[p.slug]) throw new Error('no Spanish Premium name for ' + p.slug)
   return {
     ...rest, ...COVERS[p.slug],
     copy: { howItWorks: copy.howItWorks, forWhom: copy.forWhom, notIdealIf: copy.notIdealIf, tracking: copy.tracking },
     programDefinition: definition,
-    locales: { es: Object.fromEntries([...TEXT_KEYS, ...LIST_KEYS].filter(k => es[k]).map(k => [k, es[k]])) },
+    locales: { es: { name: NAME_ES[p.slug], ...Object.fromEntries([...TEXT_KEYS, ...LIST_KEYS].filter(k => es[k]).map(k => [k, es[k]])) } },
     badge: badge || null, order: i + 1, version: 1, status: p.status || 'published', sourceKind: 'official',
     createdBy: '2j', updatedBy: '2j', createdAt: SEEDED, updatedAt: SEEDED, publishedAt: (p.status || 'published') === 'published' ? SEEDED : null,
   }

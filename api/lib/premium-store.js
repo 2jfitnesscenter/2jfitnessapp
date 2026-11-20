@@ -144,7 +144,10 @@ function assemble(input, existing, user, admin, asScope) {
     sourceKind: existing?.sourceKind || 'custom',
     createdBy: existing?.createdBy || user.id, createdAt: existing?.createdAt || now(),
     updatedBy: user.id, updatedAt: now(), publishedAt: existing?.publishedAt || null,
-    ...(existing?.locales ? { locales: existing.locales } : {}),
+    ...(existing?.locales || editorial.locales ? { locales: {
+      ...(existing?.locales || {}),
+      ...(editorial.locales?.es ? { es: { ...(existing?.locales?.es || {}), ...editorial.locales.es } } : {}),
+    } } : {}),
   };
   if (!program.slug && program.name) program.slug = program.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
   issues.push(...model.validateProgram(program, ctx));
