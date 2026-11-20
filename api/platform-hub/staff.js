@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HUB_PATHS, HUB_STAFF } from './config.js';
+import { HUB_PATHS, HUB_STAFF, HUB_STAFF_NEXT, staffDeeplinkLocation } from './config.js';
 import { CORRELATION } from './redeem-client.js';
 import { signHubRequest, verifyHubRequest } from './service-auth.js';
 
@@ -34,7 +34,9 @@ export const staffRedeemResponseSchema = z.object({
   v: z.literal(1), contract: z.literal(HUB_STAFF.contract), issuer: z.literal(HUB_STAFF.issuer), audience: z.literal(HUB_STAFF.audience), personId: UUID,
   trainingUserId: TRAINING_USER, linkStatus: z.literal('active'), staffRole: ROLE, displayName: z.string().min(1).max(200),
   assurance: z.literal(HUB_STAFF.assurance), correlationId: CORRELATION,
-}).strict();
+  // F9m (optional, backwards compatible both ways): where Admin asked to land. `member` needs the member's id and nothing else may carry it.
+  next: z.enum(HUB_STAFF_NEXT).optional(), memberTrainingUserId: TRAINING_USER.optional(),
+}).strict().refine(answer => (answer.next === 'member') === (answer.memberTrainingUserId !== undefined), { message: 'memberTrainingUserId only with next=member' });
 
 const CODE = /^[A-Za-z0-9_-]{43,128}$/;
 const FORM = 'application/x-www-form-urlencoded';
@@ -266,7 +268,17 @@ export function createHubStaff({
     const cookie = newSsoSession(req, user);
     const record = db.deviceSessions.findLast?.(item => item.userId === user.id && item.via === 'sso' && !item.revokedAt);
     if (record) { record.assurance = HUB_STAFF.assurance; record.staff = true; saveDb(); }
-    return go(res, '/', { 'Set-Cookie': cookie });
+    return go(res, landing(user, answer), { 'Set-Cookie': cookie });
+  }
+
+  /** F9m · Deep link: only with its own switch, only to an existing, enabled member, and the route is built HERE from the id (never taken from Platform). */
+  function landing(staffUser, answer) {
+    if (!hub.staffDeeplinkEnabled || answer.next !== 'member') return '/';
+    const member = db.users.find(candidate => candidate.id === answer.memberTrainingUserId);
+    const target = member && !member.disabled && member.id !== staffUser.id ? staffDeeplinkLocation('member', member.id) : '/';
+    secEvent('platform_staff_sso_deeplink', { userId: staffUser.id, meta: { next: 'member', memberId: member?.id ?? null, landed: target !== '/' } });
+    saveDb();
+    return target;
   }
 
   let timer = null;

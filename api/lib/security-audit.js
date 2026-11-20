@@ -28,9 +28,11 @@ export const SECURITY_EVENTS = [
   // F9e · staff with the role decided by 2J Hub: entries, refusals, adopted / ended links, roles applied or kept (last admin…), login retired
   'platform_staff_sso_login', 'platform_staff_sso_refused', 'platform_staff_link_adopted', 'platform_staff_link_ended', 'platform_staff_role',
   'platform_staff_kept', 'platform_staff_state_invalid', 'platform_staff_login_retired_refused',
+  // F9m · a staff entry that asked to land on a member's page (the member's id and whether it did; never a route, never the code)
+  'platform_staff_sso_deeplink',
 ]
 // The only facts an event may carry. Values are scalars, strings are clipped.
-const META_KEYS = ['count', 'platform', 'role', 'from', 'to', 'reason', 'handle', 'uv', 'revokedPasskeys', 'sessionsEnded', 'kept', 'purpose', 'kind', 'target', 'capabilityLevel', 'revoked', 'via']
+const META_KEYS = ['count', 'platform', 'role', 'from', 'to', 'reason', 'handle', 'uv', 'revokedPasskeys', 'sessionsEnded', 'kept', 'purpose', 'kind', 'target', 'capabilityLevel', 'revoked', 'via', 'next', 'memberId', 'landed']
 
 export function cleanMeta(meta) {
   if (!meta || typeof meta !== 'object') return undefined

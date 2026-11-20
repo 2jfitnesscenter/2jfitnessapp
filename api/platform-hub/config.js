@@ -41,6 +41,17 @@ export const HUB_STAFF = Object.freeze({
   roles: Object.freeze(['admin', 'trainer']),
   refreshMs: 60_000,
 });
+/**
+ * F9m · Closed list of destinations Platform may ask for in a STAFF redemption (`next`). Búnker BUILDS the route itself from the member id; it never
+ * accepts a route, path or URL from Platform (2JHub contract F9m, condition 1). `member` = that member's plan page (`#/trainer/<id>`).
+ */
+export const HUB_STAFF_NEXT = Object.freeze(['home', 'member']);
+const RESERVED_TRAINER_SEGMENTS = new Set(['seguimiento', 'blocks', 'guided', 'library-quality']);
+const MEMBER_ID = /^[A-Za-z0-9_-]{1,200}$/;
+export function staffDeeplinkLocation(next, memberId) {
+  if (next !== 'member' || typeof memberId !== 'string' || !MEMBER_ID.test(memberId) || RESERVED_TRAINER_SEGMENTS.has(memberId)) return '/';
+  return `/#/trainer/${encodeURIComponent(memberId)}`;
+}
 
 /** Origin of a 2J Hub web app (Home or Admin): https, or http on a loopback host; nothing but the origin. */
 export function parseHubOrigin(value) {
@@ -64,6 +75,7 @@ export const HUB_SSO_NEXT = Object.freeze({ account: '/settings#data' });
 
 export function parseHubEnv(env) {
   const bridge = TRUE.test(env.PLATFORM_TRAINING_BRIDGE_ENABLED || '');
+  const staffRoles = bridge && TRUE.test(env.PLATFORM_SSO_ENABLED || '') && TRUE.test(env.PLATFORM_HUB_STAFF_ROLES_ENABLED || '');
   return Object.freeze({
     bridgeEnabled: bridge,
     // The receiver also needs SSO sessions to be allowed at all.
@@ -84,7 +96,10 @@ export function parseHubEnv(env) {
     loginRetired: bridge && TRUE.test(env.PLATFORM_SSO_ENABLED || '') && TRUE.test(env.PLATFORM_LOGIN_RETIRED || ''),
     // F9e (2JHub H-82, H-104, H-105): Platform decides the STAFF role (trainer / admin) of the staff accounts it linked, and staff can sign in
     // from 2J Hub Admin. Off = nothing of F9e exists (no routes, no timer) and roles are changed in Búnker's admin panel exactly as today.
-    staffRolesEnabled: bridge && TRUE.test(env.PLATFORM_SSO_ENABLED || '') && TRUE.test(env.PLATFORM_HUB_STAFF_ROLES_ENABLED || ''),
+    staffRolesEnabled: staffRoles,
+    // F9m: when Admin's "Abrir en Búnker" asks for a member (`next: 'member'`), the staff entry lands on that member's page instead of `/`. Needs the roles
+    // switch. Off (default) = the answer's `next` is ignored and the entry goes to `/` exactly as in F9e. Nothing is stored; no passkey, RP_ID or data touched.
+    staffDeeplinkEnabled: staffRoles && TRUE.test(env.PLATFORM_HUB_STAFF_DEEPLINK_ENABLED || ''),
     // F9e: linked staff stop signing in with Búnker's own passkey login / QR link and are sent to 2J Hub Admin. Needs the roles switch and
     // PLATFORM_ADMIN_URL. Never applies to ADMIN_UIDS, to unlinked staff, nor to an admin when no ADMIN_UIDS account can sign in (somebody
     // must always be able to get in). Off = today's login. Reversible: nothing is migrated or deleted.
