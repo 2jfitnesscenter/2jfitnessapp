@@ -45,3 +45,11 @@ test('a failing protocol check names the failing command and the exit code (no o
   assert.match(runner, /LOCAL_VERIFY_RELEASE_PROTOCOL_FAILED exit=\$ProtocolCode/)
   assert.ok(!runner.includes("throw 'LOCAL_VERIFY_RELEASE_PROTOCOL_FAILED; no production connection was made'"))
 })
+
+test('protocol permits declared Git paths only when their deployed-baseline bytes and mode are identical', () => {
+  assert.match(step, /DECLARED_DELTA="\$DELTA_CHECK_DIR\/declared-delta\.txt"/)
+  assert.match(step, /cmp -s "\$RELEASE_CHECK_DIR\/\$rel" "\$BASELINE_CHECK_DIR\/\$rel"/)
+  assert.match(step, /stat -c '%a' "\$RELEASE_CHECK_DIR\/\$rel"/)
+  assert.match(step, /RELEASE_DELTA_NOOP_PATHS=/)
+  assert.match(step, /cmp -s "\$EXPECTED_DELTA" "\$DELTA_PATHS"/)
+})

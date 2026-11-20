@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { renderTemplate, effectiveNonDeployable, nextExpectedCurrentPreserved, validateConfig } from './generate-release-runner.mjs'
 import { buildPhysicalTree } from './physical-tree.mjs'
@@ -29,10 +30,19 @@ const git = (...a) => execFileSync('git', a, { cwd: dir, encoding: 'utf8', env }
 git('init', '-q'); git('config', 'core.autocrlf', 'false')
 const put = (name, text) => { fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true }); fs.writeFileSync(path.join(dir, name), text) }
 const commit = (msg, files) => { for (const [n, t] of Object.entries(files)) put(n, t); git('add', '-A'); git('commit', '-q', '-m', msg); return git('rev-parse', 'HEAD') }
-const A = commit('A', { '.env.example': 'KEY=a\n', '.dockerignore': 'node_modules\n', 'api/server.js': 's1\n', 'frontend/src/app.js': 'f1\n', 'SYNC_V2_ROLLBACK_BASE': 'x\n' })
+const A = commit('A', { '.env.example': 'KEY=a\n', '.dockerignore': 'node_modules\n', 'Caddyfile': 'app.example { reverse_proxy web:80 }\n', 'api/server.js': 's1\n', 'frontend/src/app.js': 'f1\n', 'SYNC_V2_ROLLBACK_BASE': 'x\n' })
 const B = commit('B: .env.example changes in Git but is repository-only', { '.env.example': 'KEY=b\n', 'api/server.js': 's2\n' })
 const C = commit('C: only deployable files change', { 'api/server.js': 's3\n' })
 const D = commit('D', { 'frontend/src/app.js': 'f2\n' })
+
+const preserve = (from, filePath, kind = 'non_runtime') => {
+  const entry = git('ls-tree', from, '--', filePath)
+  if (!entry) return { path: filePath, from, kind, sha256: null }
+  const match = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(entry)
+  assert.ok(match && match[3] === filePath, `fixture source is not a regular file: ${filePath}`)
+  const sha256 = createHash('sha256').update(execFileSync('git', ['cat-file', 'blob', match[2]], { cwd: dir, encoding: null })).digest('hex')
+  return { path: filePath, from, kind, sha256 }
+}
 
 // a manifest-like object for a release `current → target`: only the fields the chain logic reads
 const manifest = (current, target, nd, preserved = []) => ({
@@ -51,7 +61,7 @@ function release(current, target, nd, preserved, prodDir, label) {
   const source = effective.length ? buildReleaseTree({ cwd: dir, target, baseline: physical, nonDeployable: effective }) : target
   const rel = tmpArchive(`rel-${label}.tar.gz`), rb = tmpArchive(`rb-${label}.tar.gz`)
   makeReleaseArchive({ cwd: dir, treeish: source, output: rel }); makeReleaseArchive({ cwd: dir, treeish: physical, output: rb })
-  return { m, physical, rel, rb, deploy: () => extract(rel, prodDir), next: nextExpectedCurrentPreserved(m) }
+  return { m, physical, rel, rb, deploy: () => extract(rel, prodDir), next: nextExpectedCurrentPreserved(m, dir) }
 }
 const treeFiles = tree => git('ls-tree', '-r', '--name-only', tree).split('\n').filter(Boolean)
 
@@ -73,7 +83,7 @@ test('the verify-current-production block was extracted from the real template',
 test('A → B: B leaves the repository-only path as production has it; production is marked B but is not TREE(B) on that path', needBash, () => {
   extract((() => { const a = tmpArchive('prod-A.tar.gz'); makeReleaseArchive({ cwd: dir, treeish: A, output: a }); return a })(), prod)
   const hopB = release(A, B, ['.env.example'], [], prod, 'B')
-  assert.deepEqual(hopB.next, [{ path: '.env.example', from: A }], 'the next manifest records the commit production really holds')
+  assert.deepEqual(hopB.next, [preserve(A, '.env.example')], 'the next manifest records the exact repository-only source and hash')
   hopB.deploy()
   assert.equal(fs.readFileSync(path.join(prod, '.env.example'), 'utf8'), 'KEY=a\n', 'repository-only value NOT deployed')
   assert.equal(fs.readFileSync(path.join(prod, 'api/server.js'), 'utf8'), 's2\n', 'deployable value deployed')
@@ -87,7 +97,7 @@ test('B → C: the OLD design (baseline = TREE(B)) fails with CURRENT_MISMATCH=.
   assert.notEqual(r.status, 0); assert.match(r.stdout, /CURRENT_MISMATCH=\.env\.example/, r.stdout + r.stderr)
 })
 
-const preservedForC = [{ path: '.env.example', from: A }]
+const preservedForC = [preserve(A, '.env.example')]
 test('B → C: the physical baseline verifies production in full (every file, not an ignore list) and C keeps the path as production has it', needBash, () => {
   const hopC = release(B, C, [], preservedForC, prod, 'C')
   assert.notEqual(hopC.physical, git('rev-parse', `${B}^{tree}`), 'the baseline is not TREE(B)')
@@ -101,7 +111,7 @@ test('B → C: the physical baseline verifies production in full (every file, no
   hopC.deploy()
   assert.equal(fs.readFileSync(path.join(prod, '.env.example'), 'utf8'), 'KEY=a\n', 'still the value of A after C')
   assert.equal(fs.readFileSync(path.join(prod, 'api/server.js'), 'utf8'), 's3\n')
-  assert.deepEqual(hopC.next, [{ path: '.env.example', from: A }], 'chained: the source stays A, not B')
+  assert.deepEqual(hopC.next, preservedForC, 'chained: source and hash stay pinned to A, not B')
 })
 
 test('TAMPER: a preserved repository-only path changed on the server makes verification FAIL (preserved is not ignored)', needBash, () => {
@@ -121,31 +131,50 @@ test('C → D: the chain keeps working, deterministically, from the manifest dat
   const hopD = release(C, D, [], buildChain(), prod, 'D')
   const r = verifyCurrent(prod, hopD.rb, hopD.rel, C)
   assert.equal(r.status, 0, r.stdout + r.stderr)
-  assert.deepEqual(hopD.next, [{ path: '.env.example', from: A }])
+  assert.deepEqual(hopD.next, preservedForC)
   // rebuilding it again gives the very same tree id (no dependence on temp files or earlier worktrees)
   assert.equal(buildPhysicalTree({ cwd: dir, current: C, preserved: buildChain() }), hopD.physical)
 })
-function buildChain() { return nextExpectedCurrentPreserved(manifest(B, C, [], preservedForC)) }
+function buildChain() { return nextExpectedCurrentPreserved(manifest(B, C, [], preservedForC), dir) }
 
 test('a release that changes a preserved path as DEPLOYABLE deploys the new bytes and the path stops being preserved', () => {
   const m = manifest(A, B, [], [{ path: '.env.example', from: A }])   // .env.example is in the delta A→B and not declared repository-only
   assert.deepEqual(effectiveNonDeployable(m), [])
-  assert.deepEqual(nextExpectedCurrentPreserved(m), [])
+  assert.deepEqual(nextExpectedCurrentPreserved(m, dir), [])
 })
 
-test('fail-closed: the physical tree must be pinned and match; unknown commits, unsafe paths and duplicates are refused', () => {
+test('fail-closed: every preserved path is allowlisted and its exact content hash is pinned', () => {
   const pinned = buildPhysicalTree({ cwd: dir, current: B, preserved: preservedForC })
   const cfg = { ...base, expectedCurrentPreserved: preservedForC, expectedCurrentPhysicalTree: pinned }
-  assert.equal(validateConfig(cfg).preserved.length, 1)
-  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPhysicalTree: undefined }), /PHYSICAL_TREE_REQUIRED/)
-  assert.throws(() => validateConfig({ ...base, expectedCurrentPhysicalTree: pinned }), /PHYSICAL_TREE_REQUIRED/)
-  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [{ path: '../x', from: A }] }), /INVALID_EXPECTED_CURRENT_PRESERVED/)
-  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [...preservedForC, ...preservedForC] }), /INVALID_EXPECTED_CURRENT_PRESERVED/)
+  assert.equal(validateConfig(cfg, dir).preserved.length, 1)
+  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPhysicalTree: undefined }, dir), /PHYSICAL_TREE_REQUIRED/)
+  assert.throws(() => validateConfig({ ...base, expectedCurrentPhysicalTree: pinned }, dir), /PHYSICAL_TREE_REQUIRED/)
+  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [{ path: '../x', from: A, kind: 'non_runtime', sha256: null }] }, dir), /INVALID_EXPECTED_CURRENT_PRESERVED/)
+  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [...preservedForC, ...preservedForC] }, dir), /INVALID_EXPECTED_CURRENT_PRESERVED/)
+  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [{ ...preservedForC[0], sha256: '0'.repeat(64) }] }, dir), /PRESERVED_SOURCE_HASH_MISMATCH/)
+  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [{ ...preservedForC[0], kind: 'runtime' }] }, dir), /INVALID_EXPECTED_CURRENT_PRESERVED/)
+  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [{ ...preservedForC[0], path: 'api/server.js', kind: 'non_runtime' }] }, dir), /INVALID_EXPECTED_CURRENT_PRESERVED/)
   assert.throws(() => buildPhysicalTree({ cwd: dir, current: B, preserved: [{ path: '.env.example', from: '0'.repeat(40) }] }))
   assert.throws(() => buildPhysicalTree({ cwd: dir, current: B, preserved: [{ path: 'a/../b', from: A }] }), /UNSAFE_PATH/)
-  const rendered = renderTemplate(template, cfg)
+  const rendered = renderTemplate(template, cfg, dir)
   assert.ok(rendered.includes(`'${A}', '.env.example'`) && rendered.includes(`$ExpectedCurrentPhysicalTree = '${pinned}'`))
   assert.ok(rendered.includes('EXPECTED_CURRENT_PHYSICAL_TREE_MISMATCH') && rendered.includes('physical-tree.mjs $ExpectedCurrentCommit @PreservedCurrentSpecs'))
+})
+
+test('a missing non-runtime path must be pinned as absent in its named source commit', () => {
+  const absent = preserve(A, '.env.production.example')
+  assert.equal(absent.sha256, null)
+  const cfg = { ...base, expectedCurrentPreserved: [absent], expectedCurrentPhysicalTree: buildPhysicalTree({ cwd: dir, current: B, preserved: [absent] }) }
+  assert.equal(validateConfig(cfg, dir).preserved[0].sha256, null)
+  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [{ ...absent, sha256: 'a'.repeat(64) }] }, dir), /PRESERVED_SOURCE_HASH_MISMATCH/)
+})
+
+test('runtime configuration can only be preserved with its exact source hash and runtime classification', () => {
+  const runtime = preserve(A, 'Caddyfile', 'runtime')
+  const cfg = { ...base, expectedCurrentPreserved: [runtime], expectedCurrentPhysicalTree: buildPhysicalTree({ cwd: dir, current: B, preserved: [runtime] }) }
+  assert.equal(validateConfig(cfg, dir).preserved[0].kind, 'runtime')
+  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [{ ...runtime, sha256: 'f'.repeat(64) }] }, dir), /PRESERVED_SOURCE_HASH_MISMATCH/)
+  assert.throws(() => validateConfig({ ...cfg, expectedCurrentPreserved: [{ ...runtime, kind: 'non_runtime' }] }, dir), /INVALID_EXPECTED_CURRENT_PRESERVED/)
 })
 
 test('a path absent at the source commit is absent in the physical tree (production never had it)', () => {
