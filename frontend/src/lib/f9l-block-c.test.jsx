@@ -61,7 +61,11 @@ describe('F9l block C', () => {
     expect(renderToStaticMarkup(<SsoFailure kind="down" />)).not.toContain('passkey')
     const nginx = read('../../../web/nginx.conf')
     const block = nginx.match(/location ~ \^\/api\/platform\/v1\/\(sso\|stepup\|staff-sso\)\/receive\$ \{[\s\S]*?\n    \}/)?.[0] ?? ''
-    expect(block).toContain('error_page 502 504 =303 /sso#error=down')
+    expect(block).toContain('error_page 502 504 = @receiver_down')
+    const down = nginx.match(/location @receiver_down \{[\s\S]*?
+    \}/)?.[0] ?? ''
+    expect(down).toContain('absolute_redirect off')   // behind Caddy an absolute redirect would say http://
+    expect(down).toContain('return 303 /sso#error=down')
     expect(block).not.toContain('proxy_intercept_errors on')
   })
 })
