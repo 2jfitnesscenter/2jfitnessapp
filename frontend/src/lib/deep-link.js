@@ -5,3 +5,9 @@
 export function settingsDeepLink(loc) {
   return loc?.pathname === '/settings' && loc.hash === '#data' ? '/#/settings#data' : null
 }
+
+/** Brings Settings → Data into view. Two frames later: the shell scrolls every new page to the top first, and the sections above must be laid out. */
+export function showDataSection(hash, doc = globalThis.document, frame = globalThis.requestAnimationFrame) {
+  if (hash !== '#data') return
+  frame(() => frame(() => doc.getElementById('data')?.scrollIntoView?.({ block: 'start' })))
+}

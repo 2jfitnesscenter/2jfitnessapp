@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import es from '../locales/es.js'
-import { settingsDeepLink } from './deep-link.js'
+import { settingsDeepLink, showDataSection } from './deep-link.js'
 import { syncBadge, SYNC_LABEL } from './sync-indicator.js'
 import { SyncClient } from './sync-client.js'
 import { signedInText, STAFF_LOGIN_RETIRED_TEXT } from './platform-notices.js'
@@ -16,7 +16,18 @@ describe('F9l block C', () => {
     expect(settingsDeepLink({ pathname: '/settings', hash: '#data' })).toBe('/#/settings#data')
     for (const loc of [{ pathname: '/', hash: '#/settings' }, { pathname: '/settings', hash: '' }, { pathname: '/settings', hash: '#/home' }, { pathname: '/sso', hash: '#data' }, null]) expect(settingsDeepLink(loc)).toBeNull()
     expect(read('../main.jsx')).toContain('settingsDeepLink(window.location)')
-    expect(read('../views/Settings.jsx')).toContain("routeHash === '#data'")
+  })
+  it('D: Settings → Data is brought into view once the account and its sections are there, after the app scrolls each new page to the top', () => {
+    const order = []
+    const el = { scrollIntoView: () => order.push('data') }
+    const frames = []
+    showDataSection('#data', { getElementById: () => el }, fn => frames.push(fn))
+    order.push('top')
+    frames.splice(0).forEach(fn => fn()); frames.splice(0).forEach(fn => fn())
+    expect(order).toEqual(['top', 'data'])
+    showDataSection('', { getElementById: () => el }, fn => frames.push(fn))
+    expect(frames).toEqual([])
+    expect(read('../views/Settings.jsx')).toContain('showDataSection(routeHash) }, [routeHash, hasUser, hubStepUp])')
   })
   it('D: after exporting, the used one-time authorisation stops being announced', () => {
     expect(read('../views/Settings.jsx')).toMatch(/Your data was exported'\)\)\s*loadStepUp\(\)\.then\(setHubStepUp\)/)
