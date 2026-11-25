@@ -17,8 +17,9 @@ export function ssoCodeFromHash(hash) {
 
 /** `/sso#error=<kind>` is how /sso/start explains a navigation that could not begin (SSO off, Home not configured, too many tries). */
 export function ssoErrorFromHash(hash) {
-  // F9b: `denied` and `switch` come from the 2J Home form receiver (POST /api/platform/v1/sso/receive), which only ever answers with a redirect.
-  const match = /^#error=(disabled|unavailable|busy|denied|switch)$/.exec(String(hash || ''))
+  // F9b: `denied` and `switch` come from the 2J Home form receiver (POST /api/platform/v1/sso/receive), which only ever answers with a redirect; `down`
+  // from the web server when the API itself does not answer (web/nginx.conf).
+  const match = /^#error=(disabled|unavailable|busy|denied|switch|down)$/.exec(String(hash || ''))
   return match ? match[1] : null
 }
 

@@ -8,7 +8,6 @@ import { createLoginRetire } from './login-retire.js';
 import { createStepup } from './stepup.js';
 import { createStepupRedeemClient } from './stepup-client.js';
 import { createHubStaff } from './staff.js';
-import { userMode } from '../platform-sso/index.js';
 
 export { parseHubEnv, HUB_PATHS };
 
@@ -54,7 +53,7 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
     const base = { v: 1, sso, homeUrl: sso ? integrationConfig.homeUrl : null, ...grant };
     if (!user.personId || user.platformLink?.state !== 'active') return json(res, 200, { ...base, linked: false, level: null, accessState: null, notice: null });
     let view = null;
-    try { view = await integration.capabilities.evaluate(user, { mode: userMode(user) === 'legacy' ? 'shadow' : userMode(user) }); } catch { view = null; }
+    try { view = await integration.capabilities.evaluate(user, { mode: integration.modeOf(user) === 'legacy' ? 'shadow' : integration.modeOf(user) }); } catch { view = null; }
     if (!view) return json(res, 200, { ...base, linked: true, level: null, accessState: null, notice: null });
     const notice = view.accessState === 'provisional' ? 'PAYMENT_PENDING' : view.level === 'blocked' && view.reasonCode === 'ADMIN_SUSPENDED' ? 'SUSPENDED' : null;
     return json(res, 200, { ...base, linked: true, level: view.level, accessState: view.accessState ?? null, verified: view.verified === true, notice });
@@ -83,7 +82,7 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
         let body;
         try { body = await readBody(req); } catch { return json(res, 400, { error: 'petición inválida' }); }
         const member = typeof body?.id === 'string' ? db.users.find(candidate => candidate.id === body.id) : null;
-        if (member && userMode(member) !== 'legacy') {
+        if (member && integration.modeOf(member) !== 'legacy') {
           const verdict = await integration.memberGate(member, ['professionalFollowUp']);
           if (!verdict.allowed) return json(res, 403, { error: 'el socio no tiene seguimiento profesional en su plan', code: 'member_capability_required', capabilities: ['professionalFollowUp'], reasonCode: verdict.reasonCode });
         }

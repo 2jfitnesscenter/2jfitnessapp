@@ -82,6 +82,7 @@ export function parseHubEnv(env) {
     receiverEnabled: bridge && TRUE.test(env.PLATFORM_SSO_ENABLED || ''),
     directoryEnabled: bridge && TRUE.test(env.PLATFORM_DIRECTORY_ENABLED || ''),
     provisioningEnabled: bridge && TRUE.test(env.PLATFORM_PROVISIONING_ENABLED || ''),
+    // F9l: the only switch of the capability gates. Off = members in shadow/enforced behave as legacy (their stored mode is kept).
     enforcementEnabled: TRUE.test(env.PLATFORM_ENFORCEMENT_ENABLED || ''),
     // F9c: Training settings from 2J Home (signed GET/PATCH), `next` in the SSO form and the end-of-link notice on account erasure.
     settingsEnabled: bridge && TRUE.test(env.PLATFORM_HUB_SETTINGS_ENABLED || ''),

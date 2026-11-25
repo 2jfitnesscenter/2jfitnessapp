@@ -210,7 +210,7 @@ async function startTraining(extraEnv = {}) {
   const port = await freePort(), base = `http://localhost:${port}`;
   const child = spawn(process.execPath, ['server.js'], {
     cwd: API_ROOT,
-    env: { ...process.env, PORT: String(port), DATA_DIR: DIR, SECRET_FILE: path.join(DIR, 'secret'), RP_ID: 'localhost', ORIGIN: base, ...extraEnv },
+    env: { ...process.env, PORT: String(port), DATA_DIR: DIR, SECRET_FILE: path.join(DIR, 'secret'), RP_ID: 'localhost', ORIGIN: base, PLATFORM_ENFORCEMENT_ENABLED: 'true', ...extraEnv },
     stdio: ['ignore', 'ignore', 'ignore'], windowsHide: true,
   });
   for (let i = 0; i < 80; i++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch { /* starting */ } await new Promise(resolve => setTimeout(resolve, 100)); }

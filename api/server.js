@@ -1113,7 +1113,7 @@ const platformIntegration = createPlatformIntegration({
   proofStore: platformProofStore, origin: new URL(ORIGIN).origin, newSsoSession, secureCookie: SECURE !== '', isEnvAdmin: id => ADMIN_UIDS.includes(id),
   // Its own limiter: SSO failures must never lock people out of passkey login, nor an SSO success reset the login limiter.
   rateLimit: { gate: (req, res) => authGate(req, res, ssoLimiter), fail: ip => ssoLimiter.fail(ip) },
-  retainDelivered: PLATFORM_HUB_CONFIG.enforcementEnabled,
+  retainDelivered: PLATFORM_HUB_CONFIG.enforcementEnabled, enforcementEnabled: PLATFORM_HUB_CONFIG.enforcementEnabled,
 });
 const assistedLink = createAssistedLink({
   config: { enabled: PLATFORM_ASSISTED_LINK_ENABLED, issuers: PLATFORM_LINK_ISSUERS, ledgerFile: path.join(DATA, 'platform-link-ledger.jsonl'), ledgerKey: process.env.PLATFORM_LINK_LEDGER_KEY || '' },
@@ -3707,7 +3707,7 @@ const server = http.createServer(async (req, res) => {
     // A failure of the integration must never take access away from a historical (legacy) user or an anonymous caller: only users who opted in to
     // Platform enforcement fail closed.
     let legacyOrAnonymous = true;
-    try { const who = readSession(req); legacyOrAnonymous = gateFailureMayProceed(who); } catch { legacyOrAnonymous = true; }
+    try { const who = readSession(req); legacyOrAnonymous = !PLATFORM_HUB_CONFIG.enforcementEnabled || gateFailureMayProceed(who); } catch { legacyOrAnonymous = true; }
     if (!legacyOrAnonymous) return json(res, 503, { error: 'servicio no disponible', code: 'platform_gate_unavailable' });
   }
   try { await handler(req, res); }

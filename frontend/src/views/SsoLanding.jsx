@@ -14,6 +14,7 @@ const MESSAGES = {
   busy: 'Too many attempts. Wait a minute and try again.',
   disabled: 'Signing in with your 2J account is not available yet. Use your passkey.',
   unavailable: 'We could not open Búnker with your 2J account. Use your passkey instead.',
+  down: 'Búnker is not available right now, try again in a few minutes.',
   denied: 'We could not open Búnker with your 2J account. Go back to your 2J space and try again, or talk to the centre.',
   switch: 'This browser is signed in to another Búnker account. Sign out of it first, then open Búnker again from your 2J space.',
 }
@@ -55,7 +56,9 @@ export function SsoFailure({ kind }) {
       <h1>{t('Búnker')}</h1>
       <p>{t(MESSAGES[kind] || MESSAGES.unavailable)}</p>
       {restartable && <a className="btn" href={START_PATH}>{t('Continue with your 2J account')}</a>}
-      <a className={restartable ? 'btn ghost' : 'btn'} href="/">{t('Sign in with passkey')}</a>
+      {kind === 'down'
+        ? <button type="button" className="btn" onClick={() => window.history.back()}>{t('Go back')}</button>
+        : <a className={restartable ? 'btn ghost' : 'btn'} href="/">{t('Sign in with passkey')}</a>}
     </div></div>
   )
 }
