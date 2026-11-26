@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import SsoLanding from './views/SsoLanding.jsx'
 import { isSsoLanding } from './lib/sso-landing.js'
+import { settingsDeepLink } from './lib/deep-link.js'
 import { MOBILE } from './lib/mobile.js'
 import { nav } from './lib/nav.js'
 import { loadStartupLanguage } from './lib/i18n.js'
@@ -24,6 +25,8 @@ if (!MOBILE) initPwaInstallEvents(window)
 async function startApp() {
   await loadStartupLanguage(useStore.getState().S)
   // /sso is the landing for "Open Búnker with your 2J account"; it runs before the app so the one-time code in the URL fragment is consumed first.
+  const deepLink = !MOBILE && settingsDeepLink(window.location)
+  if (deepLink) window.history.replaceState(null, '', deepLink)
   const Root = !MOBILE && isSsoLanding(window.location) ? SsoLanding : App
   createRoot(document.getElementById('root')).render(<StrictMode><Root /></StrictMode>)
 }

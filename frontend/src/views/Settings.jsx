@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import GymProfile from '../components/GymProfile.jsx'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore, DEF } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { ACCENTS, todayISO, localTZ } from '../lib/format.js'
@@ -31,7 +31,8 @@ import PrivacySummary from '../components/PrivacySummary.jsx'
 import { bridgeState, getBridge, platformLabel } from '../lib/health-bridge.js'
 import { openAccent } from '../components/AccentSheet.jsx'
 import { webhooksEnabled } from '../lib/webhooks.js'
-import { loadStepUp, STEPUP_DELETE_READY, STEPUP_EXPORT_READY } from '../lib/platform-notices.js'
+import { showDataSection } from '../lib/deep-link.js'
+import { loadStepUp, signedInText, STEPUP_DELETE_READY, STEPUP_EXPORT_READY } from '../lib/platform-notices.js'
 
 // One-screen design trial (see the owner's ask for a less "colorful template" look): every row
 // here gets Row's muted `softIcon` badge instead of the solid-fill one the rest of the app still
@@ -42,6 +43,7 @@ const SelectRow = props => <SelectRowBase {...props} softIcon />
 
 export default function Settings() {
   const nav = useNavigate()
+  const { hash: routeHash } = useLocation()
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const config = useStore(s => s.config)
@@ -55,11 +57,11 @@ export default function Settings() {
   const [webhooksOn, setWebhooksOn] = useState(false)
   const hasUser = !!user
   useEffect(() => { if (hasUser && !MOBILE && !DEMO) webhooksEnabled().then(setWebhooksOn) }, [hasUser])
-  // F9c · 2J Home opens Settings → Data (export / delete, which ask for the passkey here) as /settings#data: bring that section into view.
-  useEffect(() => { if (typeof window !== 'undefined' && window.location.hash === '#data') document.getElementById('data')?.scrollIntoView?.({ block: 'start' }) }, [])
+  // F9c · 2J Home opens Settings → Data (export / delete, which ask for the passkey here) as /settings#data (lib/deep-link.js): bring that section into view.
   // F9d-2 · 2J Home may send the member here with ONE export or erasure already confirmed with their 2J passkey (null = nothing to show).
   const [hubStepUp, setHubStepUp] = useState(null)
   useEffect(() => { if (hasUser && !MOBILE && !DEMO) loadStepUp().then(setHubStepUp) }, [hasUser])
+  useEffect(() => { showDataSection(routeHash) }, [routeHash, hasUser, hubStepUp])
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -92,6 +94,7 @@ export default function Settings() {
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '2jfitness-account-' + todayISO() + '.json'; a.click(); URL.revokeObjectURL(a.href)
       toast(t('Your data was exported'))
+      loadStepUp().then(setHubStepUp)   // a Platform confirmation is good for ONE export: stop announcing it
     } catch (e) { toast(t('Could not export your data')) }
   }
   // Ends the profile's sessions on every device — this one included, so on success it lands in
@@ -126,7 +129,7 @@ export default function Settings() {
         <Avatar name={user.name} size={52} />
         <span className="set-hero-m">
           <b className="capitalize">{user.name}</b>
-          <small>{t('Signed in with passkey — data syncs to this profile.')}</small>
+          <small>{t(signedInText(user))}</small>
           {roleLabel && <i className="set-pill">{roleLabel}</i>}
         </span>
         <Icon name="chevronRight" className="lrow-c" />

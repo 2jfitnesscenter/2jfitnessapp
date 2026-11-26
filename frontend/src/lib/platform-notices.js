@@ -18,7 +18,7 @@ export const LOGIN_RETIRED_TEXT = 'Your Búnker account is now opened from 2J Ho
 export const OPEN_HOME = 'Go to 2J Home'
 // F9e · The same answer for linked STAFF (PLATFORM_STAFF_LOGIN_RETIRED): `audience: 'staff'` and `homeUrl` = 2J Hub Admin.
 export const STAFF_LOGIN_RETIRED_TITLE = 'Sign in from 2J Hub'
-export const STAFF_LOGIN_RETIRED_TEXT = 'Your Búnker staff account is now opened from 2J Hub Admin, with your 2J passkey. Sign in there and tap "Enter Búnker".'
+export const STAFF_LOGIN_RETIRED_TEXT = 'Your Búnker staff account is now opened from 2J Hub Admin, with your 2J passkey. Sign in there and tap "Open Búnker".'
 export const OPEN_ADMIN = 'Go to 2J Hub'
 
 /** F9e · Was the retired-login answer for a staff account? (Then the sheet sends to 2J Hub Admin.) */
@@ -30,6 +30,9 @@ export function loginRetiredHome(error) {
   if (data?.code !== 'login_retired') return null
   return typeof data.homeUrl === 'string' && /^https?:\/\//.test(data.homeUrl) ? data.homeUrl : null
 }
+
+/** How this session began: one that came from 2J (Home or Admin) did not use a passkey here. */
+export const signedInText = user => (user?.authLevel === 'sso' ? 'Signed in from 2J — data syncs to this profile.' : 'Signed in with passkey — data syncs to this profile.')
 
 export const noticeText = code => (code && Object.prototype.hasOwnProperty.call(NOTICE_TEXT, code) ? NOTICE_TEXT[code] : null)
 

@@ -14,6 +14,7 @@ export const ENFORCEMENT_MODES = Object.freeze(['legacy', 'shadow', 'enforced'])
 const ALLOWED_TRANSITIONS = new Set(['legacy>shadow', 'shadow>enforced', 'shadow>legacy', 'enforced>shadow']);
 /** The account's link, acknowledged by BOTH sides (Platform activated it only after Training agreed). */
 export const linkActive = user => user?.platformLink?.state === 'active' && typeof user.personId === 'string';
+/** The mode an administrator STORED for the user. What applies right now is `modeOf` (legacy while enforcement is switched off). */
 export const userMode = user => ENFORCEMENT_MODES.includes(user?.platformEnforcement) ? user.platformEnforcement : 'legacy';
 /** H10: when the integration itself fails (a bug, not a Platform refusal), only users who opted in to enforcement/shadow lose access; legacy and anonymous callers always proceed. */
 export const gateFailureMayProceed = session => !session || userMode(session) === 'legacy';
@@ -58,7 +59,9 @@ export function parsePlatformIntegrationEnv(env) {
   return { ssoEnabled: TRUE.test(env.PLATFORM_SSO_ENABLED || ''), client: configured ? { baseUrl, keyId, secret, contract } : null, homeUrl, ...(breakerBaseMs ? { breakerBaseMs } : {}) };
 }
 
-export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, isEnvAdmin = () => false, rateLimit, secureCookie = false, fetchImpl = globalThis.fetch, now = Date.now, log = console, retainDelivered = false }) {
+export function createPlatformIntegration({ config, db, saveDb, secEvent, json, readBody, readSession, requireAdmin, isTrainer, proofStore, origin, newSsoSession, isEnvAdmin = () => false, rateLimit, secureCookie = false, fetchImpl = globalThis.fetch, now = Date.now, log = console, retainDelivered = false, enforcementEnabled = true }) {
+  // F9l: PLATFORM_ENFORCEMENT_ENABLED is the rollback. Off = every member behaves as legacy at once; the stored modes stay for when it returns.
+  const modeOf = user => (enforcementEnabled ? userMode(user) : 'legacy');
   const revokeSsoSessions = (user, reason) => {
     let revoked = 0;
     for (const record of db.deviceSessions) if (record.userId === user.id && record.via === 'sso' && !record.revokedAt) { record.revokedAt = new Date(now()).toISOString(); revoked++; }
@@ -111,7 +114,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     // Platform decided; the strong-auth staff actions still answer passkey_required before this (requireStrongAuth in server.js).
     const staffEntry = isSso && session.staffSso === true && policy.kind === 'staff';
     if (isSso && !policy.ssoAllowed && !opts.stepUp && !staffEntry) { deny(res, 'passkey_required'); return false; }
-    const mode = userMode(session);
+    const mode = modeOf(session);
     if (mode === 'legacy') return true;                         // no Platform check, no change of behaviour
     const interactive = policy.kind === 'gated' || (policy.kind === 'member' && !policy.blockedOk && !(policy.blockedReadOk && ['GET', 'HEAD'].includes(req.method)));
     if (!interactive) return true;
@@ -138,7 +141,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
 
   /** For handlers that identify the member themselves (kiosk PIN). */
   async function memberGate(user, names = ['autonomousTraining']) {
-    const mode = userMode(user);
+    const mode = modeOf(user);
     if (mode === 'legacy' || isTrainer(user)) return { allowed: true };
     if (mode === 'enforced' && !linkActive(user)) return { allowed: false, reasonCode: 'TRAINING_LINK_MISSING' };
     if (mode === 'shadow') {                                     // never waits for Platform, never blocks
@@ -157,7 +160,7 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
    */
   async function authorizeStateWrite(session, incoming, current) {
     const pass = { state: incoming, stripped: [], denied: [] };
-    const mode = userMode(session);
+    const mode = modeOf(session);
     if (mode === 'legacy' || isTrainer(session) || !incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return pass;
     const view = await capabilities.evaluate(session, { mode });
     if (!view) return pass;                                    // no verdict (shadow/legacy with nothing known): current behaviour
@@ -342,5 +345,5 @@ export function createPlatformIntegration({ config, db, saveDb, secEvent, json, 
     return { applied: true };
   }
 
-  return { routes, gate, memberGate, authorizeStateWrite, applySignal, capabilities, revokeSsoSessions, classifyRoute, platformStatus: () => capabilities.status() };
+  return { routes, modeOf, gate, memberGate, authorizeStateWrite, applySignal, capabilities, revokeSsoSessions, classifyRoute, platformStatus: () => capabilities.status() };
 }

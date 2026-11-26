@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore.js'
-import { syncBadge } from '../lib/sync-indicator.js'
+import { SYNC_LABEL, syncBadge } from '../lib/sync-indicator.js'
 import { MOBILE } from '../lib/mobile.js'
 import { DEMO } from '../lib/demo.js'
 import { t } from '../lib/i18n.js'
@@ -33,6 +33,5 @@ export default function SyncIndicator() {
   }, [badge])
 
   if (!user || MOBILE || DEMO || !badge) return null
-  const label = badge === 'offline' ? t('Offline · Saving on this device') : badge === 'syncing' ? t('Syncing…') : t('All synced ✓')
-  return <div className={'sync-pill ' + badge} role="status" aria-live="polite">{label}</div>
+  return <div className={'sync-pill ' + badge} role="status" aria-live="polite">{t(SYNC_LABEL[badge])}</div>
 }

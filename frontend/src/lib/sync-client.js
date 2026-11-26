@@ -164,7 +164,7 @@ export class SyncClient {
     } catch (e) {
       this.persist(); this.publish()
       // Network failures retain exactly the same operationId, preconditions and payload.
-      if (!r.conflict) this.onChange(r.operations.length ? r.draft : r.base?.state, 'offline')
+      if (!r.conflict) this.onChange(r.operations.length ? r.draft : r.base?.state, e.status === 403 && e.data?.reasonCode === 'ADMIN_SUSPENDED' ? 'suspended' : 'offline')
     }
   }
 }
