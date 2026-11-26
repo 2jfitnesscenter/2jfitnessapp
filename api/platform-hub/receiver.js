@@ -113,6 +113,19 @@ export function createReceiver({ hub, homeUrl, db, saveDb, secEvent, readSession
       secEvent('platform_link_adopted', { userId: user.id, meta: { origin: 'platform_admin' } });
     }
     if (user.platformLink?.origin === 'hub_provisioned' && user.name === PROVISIONED_PLACEHOLDER_NAME) user.name = answer.displayName.slice(0, 60);
+    // F9q (2J Hub decision H-129) · A member linked BY HAND from Admin joins the capability gates by themselves on a Home SSO sign-in: no manual step
+    // and no emergency account. Before, such a member stayed `legacy` for ever (only an administrator with a Training passkey could move them), so a
+    // member suspended in Platform kept reading with the session already open (H-127). Conditions, all of them:
+    //   - PLATFORM_ENFORCEMENT_ENABLED is on (with it off this writes nothing, exactly as before);
+    //   - the link is Platform's own and active (`platform_admin`), and Platform has JUST verified it and its capabilities (`admit`: the same
+    //     checks POST /api/admin/platform-enforcement asks for before `enforced`);
+    //   - the member is still `legacy`: a `shadow` chosen by an administrator is a decision and is kept.
+    // POST /api/admin/platform-enforcement and the strong-action list are untouched.
+    if (hub.enforcementEnabled && user.platformLink?.origin === 'platform_admin' && user.platformLink.state === 'active' && user.personId === answer.personId
+      && user.platformEnforcement !== 'shadow' && user.platformEnforcement !== 'enforced') {
+      user.platformEnforcement = 'enforced';
+      secEvent('platform_enforcement_auto', { userId: user.id, meta: { from: 'legacy', to: 'enforced', via: 'hub_sso' } });
+    }
     delete user.platformRestriction;
     secEvent('platform_sso_login', { userId: user.id, meta: { via: 'hub', capabilityLevel: view.level } });
     saveDb();

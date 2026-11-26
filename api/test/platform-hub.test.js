@@ -291,10 +291,11 @@ test('two redemptions at the same time: at most one session', async () => {
   assert.equal(liveSso(provisioned).length, 1, 'two codes: still one live session per person');
 });
 
-test('existing users: a legacy account is linked by the signed redemption (adoption), keeps legacy mode; another account session is never replaced', async () => {
+// F9q (2J Hub H-129): with PLATFORM_ENFORCEMENT_ENABLED on, the adopted account joins the gates by itself (before: it stayed `legacy` until an administrator moved it).
+test('existing users: a legacy account is linked by the signed redemption (adoption) and joins the gates (enforced); another account session is never replaced', async () => {
   const cookie = await signIn(P.leg, 'u-leg', 'baseline');
   const user = db().users.find(u => u.id === 'u-leg');
-  assert.deepEqual([user.personId, user.platformLink.state, user.platformLink.origin, user.platformEnforcement ?? 'legacy'], [P.leg, 'active', 'platform_admin', 'legacy']);
+  assert.deepEqual([user.personId, user.platformLink.state, user.platformLink.origin, user.platformEnforcement ?? 'legacy'], [P.leg, 'active', 'platform_admin', 'enforced']);
   assert.ok(cookie);
   const other = await receive(issue(P.leg, 'u-leg'), { ...FORM, cookie: passkeyCookie('u-free') });
   assert.equal(other.headers.location, '/sso#error=switch'); assert.equal(ssoCookie(other), undefined);
