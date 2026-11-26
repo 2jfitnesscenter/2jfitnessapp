@@ -24,6 +24,7 @@ import { MEASUREMENTS, bodyFatBand, visceralFatBand } from '../lib/measurements.
 import BioimpedanceFields from '../components/BioimpedanceFields.jsx'
 import { stateAction } from '../lib/state-action.js'
 import { adminIntelligenceFor } from '../lib/admin-intelligence.js'
+import { RecoveryLinkError, recoveryLinkErrorText } from './recovery-link-error.jsx'
 import '../components/intelligence-today.css'
 
 export function AdminIntelligence({ detail }) {
@@ -126,9 +127,11 @@ function RecoveryLinkSheet({ u, close }) {
   const [qr, setQr] = useState(null)
   const [busy, setBusy] = useState(false)
   const [keep, setKeep] = useState(false)
+  const [error, setError] = useState(null)
   const gen = () => {
     setBusy(true)
     setQr(null)
+    setError(null)
     api('/api/admin/user/recovery-link', { method: 'POST', body: JSON.stringify({ id: u.id, keepExisting: keep }) })
       .then(async ({ token }) => {
         const url = `${location.origin}/#/recover?token=${token}`
@@ -142,7 +145,7 @@ function RecoveryLinkSheet({ u, close }) {
           setQr(await QRCode.toDataURL(url, { margin: 1, width: 240 }))
         } catch { /* link + copy still work without it */ }
       })
-      .catch(e => toast(e.message))
+      .catch(e => setError(recoveryLinkErrorText(e)))
       .finally(() => setBusy(false))
   }
   return <>
@@ -163,6 +166,7 @@ function RecoveryLinkSheet({ u, close }) {
         onClick={() => { navigator.clipboard?.writeText(link).catch(() => {}); toast(t('Copied')) }}>{link}</div>
       <div style={{ height: 12 }} />
     </>}
+    <RecoveryLinkError error={error} />
     <Button variant="primary" icon="key" disabled={busy} onClick={gen}>{t(link ? 'Generate a new link' : 'Generate link')}</Button>
     {link && <div className="dim small" style={{ marginTop: 10 }}>{t('Generating a new link retires this one.')}</div>}
     <div style={{ height: 8 }} />
