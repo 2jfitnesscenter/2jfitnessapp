@@ -5895,6 +5895,7 @@ export default {
   'A request from 2J Hub was refused': 'Se ha rechazado una petición de 2J Hub',
   'A 2J Hub profile could not be created': 'No se pudo crear un perfil desde 2J Hub',
   'Your 2J account was linked by the centre': 'El centro ha vinculado tu cuenta de 2J',
+  'Your 2J plan level now applies to this account': 'El nivel de tu plan de 2J ya se aplica a esta cuenta',
   'Settings changed from 2J Home': 'Ajustes cambiados desde 2J Home',
   '2J Hub was told an account was deleted': 'Se avisó a 2J Hub de que se eliminó una cuenta',
   'A notice to 2J Hub could not be delivered': 'No se pudo entregar un aviso a 2J Hub',

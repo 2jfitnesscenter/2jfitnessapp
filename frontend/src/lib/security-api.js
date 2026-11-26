@@ -46,6 +46,8 @@ export const EVENT_LABEL = {
   platform_signal_applied: 'Your 2J account access was updated by the centre',
   platform_hub_sso_refused: 'A sign-in from 2J Home was refused', platform_hub_service_refused: 'A request from 2J Hub was refused',
   platform_hub_provision_conflict: 'A 2J Hub profile could not be created', platform_link_adopted: 'Your 2J account was linked by the centre',
+  // F9q (2J Hub H-129): linked by hand from Admin -> the level of the plan applies from the first sign-in from 2J Home
+  platform_enforcement_auto: 'Your 2J plan level now applies to this account',
   platform_hub_settings_changed: 'Settings changed from 2J Home', platform_hub_link_end_sent: '2J Hub was told an account was deleted',
   platform_hub_link_end_dropped: 'A notice to 2J Hub could not be delivered',
   platform_hub_credentials_read: '2J Hub copied your passkeys to sign you in there', platform_login_retired_refused: 'You were sent to 2J Home to sign in',
