@@ -1,5 +1,12 @@
 # Changelog
 
+### F9o · Acciones fuertes del personal con la passkey de 2J Hub (rama `agent/codex/F9o-staff-stepup`, NO desplegado, todo apagado)
+
+- `PLATFORM_HUB_STAFF_STEPUP_ENABLED` (apagado; exige `PLATFORM_HUB_STAFF_ROLES_ENABLED`): una sesión de personal vinculado que entró desde 2J Hub confirma con su passkey **de 2J Hub** las acciones fuertes de una **lista cerrada**: cambiar rol, cambiar entrenador, desactivar/reactivar, crear y anular invitaciones y cerrar **sus** sesiones. `POST /api/admin/user/recovery-link` y `POST /api/me/delete` **no** entran nunca (H-128.3): siguen con la passkey de Búnker.
+- Flujo (contrato §11 de 2JHub, ADR 0037): `passkey_required` + `staffStepUp: true` → «Confirmar con tu passkey de 2J Hub» → `POST /api/platform/v1/staff-stepup/start` fija **en el servidor** la acción, el objetivo y los campos del cuerpo y registra la intención en 2J Hub (firmado) → Admin enseña qué y sobre quién y pide la passkey → formulario POST a `POST /api/platform/v1/staff-stepup/receive` (Origin exacto de `PLATFORM_ADMIN_URL`, misma cookie) → canje firmado → **un permiso de un solo uso, 5 min, solo en memoria**, atado a la sesión, la acción y el cuerpo exacto; se gasta al intentar la acción.
+- `ADMIN_UIDS`, personal sin vincular, socios y sesiones de PIN: nunca. Platform caído → se niega con aviso. Al arrancar, aviso en el registro si `PLATFORM_STAFF_LOGIN_RETIRED` está encendido sin este interruptor.
+- Eventos `platform_staff_stepup_started|granted|used|refused` (acción y motivo; nunca códigos ni códigos de invitación). Apagado = idéntico a hoy.
+
 ### F9m · Entrada del personal directa a la página de un socio (rama `agent/codex/F9m-staff-deeplink`, NO desplegado, todo apagado)
 
 - `PLATFORM_HUB_STAFF_DEEPLINK_ENABLED` (apagado; exige `PLATFORM_HUB_STAFF_ROLES_ENABLED`): si el canje firmado del personal trae `next: "member"` y `memberTrainingUserId`, la entrada aterriza en `/#/trainer/<id>` en vez de `/`. Búnker **construye la ruta él** a partir del id; nunca acepta una ruta de 2J Hub. Id inexistente, la propia cuenta o con caracteres no seguros → `/`. Apagado, `next` se ignora y todo es como en F9e.

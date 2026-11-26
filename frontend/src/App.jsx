@@ -21,6 +21,7 @@ import HealthOnboardingGate from './components/HealthOnboarding.jsx'
 import ChatWatcher from './components/ChatWatcher.jsx'
 import FriendsWatcher from './components/FriendsWatcher.jsx'
 import SharedStaffSessionGuard from './components/SharedStaffSessionGuard.jsx'
+import StaffStepUpHost from './components/StaffStepUpHost.jsx'
 import SyncConflictDialog from './components/SyncConflictDialog.jsx'
 import Login from './views/Login.jsx'
 import Home from './views/Home.jsx'
@@ -239,7 +240,7 @@ function Shell() {
   if (loc.pathname.startsWith('/trainer')) {
     return (
       <>
-        <SharedStaffSessionGuard />
+        <SharedStaffSessionGuard /><StaffStepUpHost />
         <div id="trainer-app" key={loc.pathname}>
           <ErrorBoundary>
             {!authed ? <Login /> : !user?.trainer ? <Navigate to="/home" replace /> : (
@@ -275,7 +276,7 @@ function Shell() {
   // one route in the whole app that skips the authed gate entirely (no Login, no TabBar, no
   // guest bypass to think about). It owns its own full-bleed layout. The shared swap selector
   // uses Modals/Toast; training panels themselves remain independent.
-  if (loc.pathname === '/bunker') return <><SharedStaffSessionGuard /><Bunker /><Modals /><Toast /></>
+  if (loc.pathname === '/bunker') return <><SharedStaffSessionGuard /><StaffStepUpHost /><Bunker /><Modals /><Toast /></>
   if (loc.pathname === '/bunker/launch') return <BunkerLaunch />
 
   // A genuinely brand-new profile only — one with no real data at all yet — sees the Physical
@@ -289,7 +290,7 @@ function Shell() {
 
   return (
     <>
-      <SharedStaffSessionGuard />
+      <SharedStaffSessionGuard /><StaffStepUpHost />
       {/* keyed on the route: a view that throws is contained, and switching tabs
           re-mounts the boundary, so the tab bar is always a way out */}
       {/* outside the route-keyed #app so its offline → synced state survives navigation */}

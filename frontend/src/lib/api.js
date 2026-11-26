@@ -5,6 +5,8 @@ export const BIO = IS_APPLE ? 'Face ID / Touch ID' : IS_ANDROID ? 'fingerprint o
 export const VAULT = IS_APPLE ? 'iCloud Keychain' : IS_ANDROID ? 'Google Password Manager' : 'your password manager'
 export const webauthnOK = () => !!(window.PublicKeyCredential && navigator.credentials)
 
+import { STAFF_STEPUP_ACTIONS, STAFF_STEPUP_EVENT } from './staff-stepup.js'
+
 const STRONG_STEPUP_PATHS = new Set([
   'POST /api/logout/all',
   'POST /api/admin/user/role', 'POST /api/admin/user/disable', 'POST /api/admin/user/trainer',
@@ -20,7 +22,13 @@ export async function api(path, opts = {}, strongRetried = false) {
         if (JSON.parse(localStorage.getItem('gym_user') || 'null')?.authLevel === 'pin') window.dispatchEvent(new Event('2j:shared-session-invalid'))
       } catch { /* unavailable or malformed browser storage */ }
     }
-    if (!strongRetried && r.status === 403 && data.code === 'passkey_required' && STRONG_STEPUP_PATHS.has(`${method} ${path}`)) {
+    // F9o: a linked staff session of 2J Hub confirms these with its 2J Hub passkey (the server says so); the action is not retried here:
+    // the person confirms in 2J Hub, comes back and taps it again.
+    if (r.status === 403 && data.code === 'passkey_required' && data.staffStepUp === true && STAFF_STEPUP_ACTIONS[`${method} ${path}`]) {
+      let body = {}
+      try { body = opts.body ? JSON.parse(opts.body) : {} } catch { body = {} }
+      window.dispatchEvent(new CustomEvent(STAFF_STEPUP_EVENT, { detail: { action: STAFF_STEPUP_ACTIONS[`${method} ${path}`], body } }))
+    } else if (!strongRetried && r.status === 403 && data.code === 'passkey_required' && STRONG_STEPUP_PATHS.has(`${method} ${path}`)) {
       await sharedDeviceStepUp()
       return api(path, opts, true)
     }
