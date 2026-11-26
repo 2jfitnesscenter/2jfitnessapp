@@ -33,6 +33,18 @@ test('invalid examples are refused: a role outside the list, the member audience
   assert.equal(staffStateSchema.safeParse(ex.invalid.staffState_passkeyAssurance).success, false);
 });
 
+test('F9m: the optional destination — valid examples pass, invalid ones (member without id, route, extra field) are refused, the F9e answer still passes', () => {
+  assert.ok(staffRedeemResponseSchema.safeParse(ex.staffSsoRedeemResponseMember).success);
+  assert.ok(staffRedeemResponseSchema.safeParse(ex.staffSsoRedeemResponseHome).success);
+  assert.ok(staffRedeemResponseSchema.safeParse(ex.staffSsoRedeemResponse).success, 'backwards compatible: an answer without the new fields');
+  assert.equal('next' in ex.staffSsoRedeemResponse, false);
+  for (const k of ['staffSsoRedeemResponse_memberWithoutId', 'staffSsoRedeemResponse_idWithoutMember', 'staffSsoRedeemResponse_nextAsRoute', 'staffSsoRedeemResponse_extraField']) {
+    assert.equal(staffRedeemResponseSchema.safeParse(ex.invalid[k]).success, false, k);
+  }
+  // What Platform asks Admin for (its request body) is not Búnker's business, but the shared examples must stay coherent.
+  assert.deepEqual(Object.keys(ex.staffSsoIssueRequestMember).sort(), ['clientPersonId', 'next']);
+});
+
 test('the member contract is untouched: own audience, never passkey assurance', () => {
   assert.notEqual(HUB_STAFF.audience, HUB_SSO.audience);
   assert.notEqual(HUB_STAFF.audience, HUB_STEPUP.audience);

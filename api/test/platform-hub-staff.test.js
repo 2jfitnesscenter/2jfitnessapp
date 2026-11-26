@@ -315,3 +315,61 @@ test('the staff state is re-read from Platform (at start and every minute): adop
   assert.equal(userOf(t, 'u-coach').trainer, true, 'absent from the state ≠ ended');
   stateItems = [];
 });
+
+/* ------------------------------------------------------------------ F9m: deep link to a member (2JHub contract F9m, H-122 / H-123) */
+const deep = await startTraining({ ...BRIDGE, ...ROLES, PLATFORM_HUB_STAFF_DEEPLINK_ENABLED: 'true' });
+stopped.push(deep);
+const member = (id, extra = {}) => ({ next: 'member', memberTrainingUserId: id, ...extra });
+const securityEvents = (t, name) => readDb(t).securityEvents.filter(ev => ev.event === name);
+
+test('F9m deep link ON: the staff entry lands on #/trainer/<member id>, built by Búnker; the session is the same platform_sso staff session', async () => {
+  const e = await entry(deep, P.coach, 'u-coach', 'trainer', { extra: member('u-member') });
+  assert.equal(e.status, 303); assert.equal(e.location, '/#/trainer/u-member');
+  assert.match(e.cookie || '', /^gymsid=/);
+  const rec = readDb(deep).deviceSessions.findLast(s => s.userId === 'u-coach' && s.via === 'sso');
+  assert.equal(rec.staff, true); assert.equal(rec.assurance, 'platform_sso');
+  assert.equal((await as(deep, e.cookie, 'GET', '/api/admin/users')).status, 403, 'still only the role Platform decided');
+  const ev = securityEvents(deep, 'platform_staff_sso_deeplink').at(-1);
+  assert.deepEqual({ userId: ev.userId, next: ev.meta.next, memberId: ev.meta.memberId, landed: ev.meta.landed }, { userId: 'u-coach', next: 'member', memberId: 'u-member', landed: true });
+  assert.equal(JSON.stringify(readDb(deep).securityEvents).includes(e.code), false, 'the code is never stored');
+});
+
+test('F9m deep link ON: unknown member or own account → plain entry to "/" (never refused, never a free route)', async () => {
+  for (const id of ['u-nobody', 'u-coach']) {
+    const e = await entry(deep, P.coach, 'u-coach', 'trainer', { extra: member(id) });
+    assert.equal(e.status, 303); assert.equal(e.location, '/', id); assert.match(e.cookie || '', /^gymsid=/);
+  }
+  // The route is built by one pure function: it must never turn a path-like or reserved id into a route.
+  const { staffDeeplinkLocation } = await import('../platform-hub/config.js');
+  assert.equal(staffDeeplinkLocation('member', 'u-ana'), '/#/trainer/u-ana');
+  for (const bad of ['../admin', 'a/b', '/trainer/x', 'a?b', 'a#b', 'seguimiento', 'blocks', 'guided', 'library-quality', '', 'x'.repeat(201), null, undefined, 42]) {
+    assert.equal(staffDeeplinkLocation('member', bad), '/', String(bad));
+  }
+  for (const next of ['home', '/trainer/u-ana', '#/trainer/u-ana', undefined]) assert.equal(staffDeeplinkLocation(next, 'u-ana'), '/', String(next));
+});
+
+test('F9m: a destination that is a route, a member without id (or the reverse) or a field more is outside the contract → entry refused', async () => {
+  for (const extra of [{ next: '/trainer/u-member', memberTrainingUserId: 'u-member' }, { next: 'member' }, { memberTrainingUserId: 'u-member' }, member('u-member', { route: '/#/trainer/u-member' }), { next: 'home', memberTrainingUserId: 'u-member' }]) {
+    const e = await entry(deep, P.coach, 'u-coach', 'trainer', { extra });
+    assert.equal(e.cookie, null, JSON.stringify(extra)); assert.equal(e.location, '/sso#error=denied');
+  }
+});
+
+test('F9m deep link OFF (default): Platform may send next, it is ignored and the entry goes to "/" exactly as in F9e; nothing audited', async () => {
+  const before = securityEvents(on, 'platform_staff_sso_deeplink').length;
+  const e = await entry(on, P.coach, 'u-coach', 'trainer', { extra: member('u-member') });
+  assert.equal(e.status, 303); assert.equal(e.location, '/'); assert.match(e.cookie || '', /^gymsid=/);
+  assert.equal(securityEvents(on, 'platform_staff_sso_deeplink').length, before);
+});
+
+test('F9m backwards compatible both ways: an F9e answer (no next) goes to "/" with the switch on; the switch needs the roles switch and is off by default', async () => {
+  const e = await entry(deep, P.coach, 'u-coach', 'trainer');
+  assert.equal(e.location, '/'); assert.match(e.cookie || '', /^gymsid=/);
+  const { parseHubEnv } = await import('../platform-hub/config.js');
+  const base = { PLATFORM_TRAINING_BRIDGE_ENABLED: 'true', PLATFORM_SSO_ENABLED: 'true' };
+  assert.equal(parseHubEnv({ ...base, PLATFORM_HUB_STAFF_ROLES_ENABLED: 'true' }).staffDeeplinkEnabled, false, 'off by default');
+  assert.equal(parseHubEnv({ ...base, PLATFORM_HUB_STAFF_DEEPLINK_ENABLED: 'true' }).staffDeeplinkEnabled, false, 'needs the roles switch');
+  assert.equal(parseHubEnv({ ...base, PLATFORM_HUB_STAFF_ROLES_ENABLED: 'true', PLATFORM_HUB_STAFF_DEEPLINK_ENABLED: 'true' }).staffDeeplinkEnabled, true);
+  assert.equal(parseHubEnv({ PLATFORM_HUB_STAFF_DEEPLINK_ENABLED: 'true' }).staffDeeplinkEnabled, false, 'needs the bridge and SSO');
+});
+
