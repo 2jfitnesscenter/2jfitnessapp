@@ -30,6 +30,11 @@ export const HUB_PATHS = Object.freeze({
   staffReceiver: '/api/platform/v1/staff-sso/receive',
   staffDirectory: '/api/internal/platform/v1/training-staff',
   staffEvents: '/api/internal/platform/v1/staff-events',
+  // F9o · strong staff actions confirmed with the 2J Hub passkey (2JHub contract §11, training-staff-stepup-v1).
+  staffStepupIntent: '/api/internal/platform/v2/training-staff-stepup/intents',
+  staffStepupRedeem: '/api/internal/platform/v2/training-staff-stepup/redeem',
+  staffStepupStart: '/api/platform/v1/staff-stepup/start',
+  staffStepupReceiver: '/api/platform/v1/staff-stepup/receive',
 });
 /** F9e · Contract constants (2JHub `TRAINING_STAFF`). A member code never works here and a staff code never works for members. */
 export const HUB_STAFF = Object.freeze({
@@ -41,6 +46,31 @@ export const HUB_STAFF = Object.freeze({
   roles: Object.freeze(['admin', 'trainer']),
   refreshMs: 60_000,
 });
+/**
+ * F9o · Contract constants (2JHub `TRAINING_STAFF_STEPUP`). CLOSED list of the strong staff actions a 2J Hub passkey may open (checked against
+ * STRONG_AUTH_ACTIONS): `POST /api/admin/user/recovery-link` and `POST /api/me/delete` are NOT here and never will be through this path (H-128.3).
+ * `fields(body)` = the request fields the grant is bound to, read exactly as the handler reads them.
+ */
+const text = v => String(v || '');   // the handlers read `String(body.x || '')`
+const idOf = v => (typeof v === 'string' ? v : null);   // the handlers compare ids with ===
+export const HUB_STAFF_STEPUP = Object.freeze({
+  contract: 'training-staff-stepup-v1',
+  issuer: '2j-platform',
+  audience: '2j-training-staff-stepup',
+  destination: 'bunker',
+  assurance: 'platform_passkey',
+  intentMs: 5 * 60_000,
+  grantMs: 5 * 60_000,
+  actions: Object.freeze({
+    user_role: { route: 'POST /api/admin/user/role', target: 'user', fields: b => ({ id: idOf(b.id), role: text(b.role) }), landing: '/#/admin' },
+    user_trainer: { route: 'POST /api/admin/user/trainer', target: 'user', fields: b => ({ id: idOf(b.id), trainer: !!b.trainer }), landing: '/#/admin' },
+    user_disable: { route: 'POST /api/admin/user/disable', target: 'user', fields: b => ({ id: idOf(b.id), disabled: !!b.disabled }), landing: '/#/admin' },
+    invite_new: { route: 'POST /api/admin/invites/new', target: 'none', fields: b => ({ note: text(b.note).slice(0, 60) }), landing: '/#/admin' },
+    invite_revoke: { route: 'POST /api/admin/invites/revoke', target: 'invite', fields: b => ({ code: text(b.code).toUpperCase() }), landing: '/#/admin' },
+    logout_all: { route: 'POST /api/logout/all', target: 'self', fields: () => ({}), landing: '/#/settings/security' },
+  }),
+});
+
 /**
  * F9m · Closed list of destinations Platform may ask for in a STAFF redemption (`next`). Búnker BUILDS the route itself from the member id; it never
  * accepts a route, path or URL from Platform (2JHub contract F9m, condition 1). `member` = that member's plan page (`#/trainer/<id>`).
@@ -101,6 +131,9 @@ export function parseHubEnv(env) {
     // F9m: when Admin's "Abrir en Búnker" asks for a member (`next: 'member'`), the staff entry lands on that member's page instead of `/`. Needs the roles
     // switch. Off (default) = the answer's `next` is ignored and the entry goes to `/` exactly as in F9e. Nothing is stored; no passkey, RP_ID or data touched.
     staffDeeplinkEnabled: staffRoles && TRUE.test(env.PLATFORM_HUB_STAFF_DEEPLINK_ENABLED || ''),
+    // F9o (2JHub H-106.1, contract §11): linked staff on a 2J Hub session confirm the strong actions of the closed list with their 2J Hub
+    // passkey. Needs the roles switch. Off (default) = those actions answer `passkey_required` exactly as today; nothing of F9o exists.
+    staffStepupEnabled: staffRoles && TRUE.test(env.PLATFORM_HUB_STAFF_STEPUP_ENABLED || ''),
     // F9e: linked staff stop signing in with Búnker's own passkey login / QR link and are sent to 2J Hub Admin. Needs the roles switch and
     // PLATFORM_ADMIN_URL. Never applies to ADMIN_UIDS, to unlinked staff, nor to an admin when no ADMIN_UIDS account can sign in (somebody
     // must always be able to get in). Off = today's login. Reversible: nothing is migrated or deleted.

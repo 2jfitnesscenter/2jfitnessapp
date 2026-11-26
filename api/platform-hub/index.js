@@ -8,6 +8,7 @@ import { createLoginRetire } from './login-retire.js';
 import { createStepup } from './stepup.js';
 import { createStepupRedeemClient } from './stepup-client.js';
 import { createHubStaff } from './staff.js';
+import { createHubStaffStepup } from './staff-stepup.js';
 
 export { parseHubEnv, HUB_PATHS };
 
@@ -40,6 +41,10 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
     hub, db, saveDb, secEvent, readSession, receiver: receive, rateLimit, isStaff, isEnvAdmin, now,
     redeemStepup: createStepupRedeemClient({ client: integrationConfig.client, fetchImpl, now }),
   });
+  // F9o: inert (no route, offered/admits → false) unless PLATFORM_HUB_STAFF_STEPUP_ENABLED with the staff roles switch.
+  const staffStepup = createHubStaffStepup({
+    hub, client: integrationConfig.client, db, saveDb, secEvent, json, readBody, readSession, isEnvAdmin, rateLimit, fetchImpl, now,
+  });
   const service = createHubServiceRoutes({ hub, db, saveDb, secEvent, json, store, generateUsername, isEnvAdmin, legacyProvision, settings, now });
 
   /** What the member's own screen needs: level, notice (H-79.1) and, for an SSO session, where "Volver a Home" goes. Never computed here. */
@@ -63,6 +68,7 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
     ...service.routes,
     ...staff.directoryRoutes,
     ...staff.routes,
+    ...staffStepup.routes,
     ...(hub.receiverEnabled ? { [`POST ${HUB_PATHS.receiver}`]: receive } : {}),
     ...(hub.stepupEnabled ? { [`POST ${HUB_PATHS.stepupReceiver}`]: stepup.receive } : {}),
     ...(hub.bridgeEnabled ? { [`GET ${HUB_PATHS.level}`]: level } : {}),
@@ -123,6 +129,7 @@ export function createPlatformHub({ hub, integrationConfig, db, saveDb, secEvent
     loginRetire,
     staff,
     stepUp: stepup.stepUp,
+    staffStepUp: staffStepup.stepUp,
     wrapStaffForMember,
     /** Added to GET /api/config only while the bridge is on, so the public config stays byte-identical when it is off. */
     publicConfig: () => (hub.bridgeEnabled ? { platformBridge: true } : {}),

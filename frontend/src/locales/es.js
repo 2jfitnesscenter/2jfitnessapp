@@ -5997,4 +5997,11 @@ export default {
   'Quita el usuario y la contraseña de la dirección.': 'Quita el usuario y la contraseña de la dirección.',
   'Solo se admite el puerto HTTPS estándar (443). Quita el número de puerto.': 'Solo se admite el puerto HTTPS estándar (443). Quita el número de puerto.',
   'Los nombres locales no pueden recibir avisos. Usa una dirección pública.': 'Los nombres locales no pueden recibir avisos. Usa una dirección pública.',
+  // F9o · strong staff actions confirmed with the 2J Hub passkey
+  'You asked to confirm an action with your 2J Hub passkey': 'Pediste confirmar una acción con tu passkey de 2J Hub',
+  'You confirmed an action with your 2J Hub passkey': 'Confirmaste una acción con tu passkey de 2J Hub',
+  'An action confirmed with your 2J Hub passkey was used': 'Se usó una acción confirmada con tu passkey de 2J Hub',
+  'A confirmation with your 2J Hub passkey was refused': 'Se rechazó una confirmación con tu passkey de 2J Hub',
+  'Confirm with your 2J Hub passkey': 'Confirmar con tu passkey de 2J Hub',
+  'This action needs your passkey. As you entered from 2J Hub, you confirm it there: 2J Hub shows what will be done and on whom, asks for your passkey and brings you back here. Then tap the action again.': 'Esta acción necesita tu passkey. Como entraste desde 2J Hub, se confirma allí: 2J Hub te enseña qué se va a hacer y sobre quién, te pide la passkey y te devuelve aquí. Después vuelve a pulsar la acción.',
 }

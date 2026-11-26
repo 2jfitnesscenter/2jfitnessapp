@@ -852,11 +852,13 @@ function requireSharedDevice(req, res) {
   if (!device) { json(res, 403, { error: 'este ordenador no está autorizado para acceso de entrenadores' }); return null; }
   return device;
 }
-function requireStrongAuth(req, res) {
+function requireStrongAuth(req, res, key = null) {
   const user = readSession(req);
   if (!user) { json(res, 401, { error: 'no has iniciado sesión' }); return null; }
   if (user.authLevel === 'sso' || (user.authLevel === 'pin' && !(user.strongUntil > Date.now()))) {
-    json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'passkey_required' }); return null;
+    // F9o: a linked staff session of 2J Hub may confirm this action with its 2J Hub passkey (closed list; only with the switch on).
+    const staffStepUp = key && platformHub.staffStepUp.offered(req, key) ? { staffStepUp: true } : {};
+    json(res, 403, { error: 'confirma con tu passkey para continuar', code: 'passkey_required', ...staffStepUp }); return null;
   }
   return user;
 }
@@ -1140,6 +1142,10 @@ const platformHub = createPlatformHub({
   // F9c (all inert unless PLATFORM_HUB_SETTINGS_ENABLED): settings from 2J Home and the end-of-link notice after an account erasure.
   readState, writeState, notifications: notificationStore, dataDir: DATA,
 });
+// F9o: retiring the staff login without the 2J Hub passkey path leaves linked staff without the strong actions (roles, invites, sessions).
+if (PLATFORM_HUB_CONFIG.staffLoginRetired && !PLATFORM_HUB_CONFIG.staffStepupEnabled) {
+  console.warn('[platform-hub] PLATFORM_STAFF_LOGIN_RETIRED está encendido sin PLATFORM_HUB_STAFF_STEPUP_ENABLED: el personal vinculado no podrá cambiar roles, invitar ni cerrar sus sesiones (solo ADMIN_UIDS con su passkey de Búnker).');
+}
 // The erasure itself, once the person is proven (Búnker passkey, or a Platform passkey grant for `delete`, F9d-2). Irreversible; clears the cookie.
 function eraseNow(res, user) {
   try {
@@ -3699,8 +3705,11 @@ const server = http.createServer(async (req, res) => {
   if (gate && !featuresStore.isOn(gate)) return json(res, 403, { error: 'esta función está desactivada por el gimnasio', code: 'feature_off' });
   // F9d-2: a live Platform passkey grant of THIS session opens exactly its own export / erasure (closed list in platform-hub/stepup.js).
   const hubStepUp = platformHub.stepUp.admits(req, key);
-  if (requiresStrongAuth(key) && !hubStepUp && !requireStrongAuth(req, res)) return;
-  try { if (!(await platformIntegration.gate(req, res, key, { stepUp: hubStepUp }))) return; }
+  // F9o: a live 2J Hub passkey grant of THIS staff session for THIS action and exact body (closed list in platform-hub/staff-stepup.js).
+  const staffStepUp = requiresStrongAuth(key) && !hubStepUp ? await platformHub.staffStepUp.admits(req, key) : false;
+  if (requiresStrongAuth(key) && !hubStepUp && !staffStepUp && !requireStrongAuth(req, res, key)) return;
+  // F9o: a staff grant already validated above (closed list, exact body) opens its route like the F9d-2 grant does.
+  try { if (!(await platformIntegration.gate(req, res, key, { stepUp: hubStepUp || staffStepUp }))) return; }
   catch (e) {
     console.error('platform gate', key, e);
     if (res.headersSent) return;
